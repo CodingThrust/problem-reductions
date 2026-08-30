@@ -150,7 +150,7 @@ pub fn get_prompt(
                      How are they related? Is there a direct reduction between them, or do \
                      they connect through intermediate problems? What are the key differences \
                      in what they model? If one can be reduced to the other, how does the \
-                     problem size change?"
+                     problem parameters change?"
                 ),
             ))
         }
@@ -163,7 +163,7 @@ pub fn get_prompt(
                 &format!(
                     "Walk me through reducing a \"{source}\" instance to \"{target}\", step \
                      by step.\n\n\
-                     1. Find the reduction path and explain how the problem size changes at each step.\n\
+                     1. Find the reduction path and explain how the problem parameters change at each step.\n\
                      2. Create a small, concrete example instance of \"{source}\".\n\
                      3. Reduce it to \"{target}\" and show what the transformed instance \
                         looks like.\n\
@@ -196,7 +196,7 @@ pub fn get_prompt(
                 &format!("Find reduction path from {source} to {target}"),
                 &format!(
                     "Find reduction paths from \"{source}\" to \"{target}\".\n\n\
-                     Show each route and explain how the problem size changes at each step. \
+                     Show each route and explain how the problem parameters change at each step. \
                      Do not rank, prune, or recommend a route."
                 ),
             ))

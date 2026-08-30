@@ -134,7 +134,7 @@ fn test_partition_into_paths_invalid_vertex_count() {
 }
 
 #[test]
-fn test_partition_into_paths_size_getters() {
+fn test_partition_into_paths_parameter_getters() {
     let graph = SimpleGraph::new(9, vec![(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8)]);
     let problem = PartitionIntoPathsOfLength2::new(graph);
     assert_eq!(problem.num_vertices(), 9);

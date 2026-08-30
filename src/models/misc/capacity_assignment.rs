@@ -211,7 +211,7 @@ impl Problem for CapacityAssignment {
     type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    crate::problem_size![("num_capacities", num_capacities), ("num_links", num_links),];
+    crate::problem_parameters![("num_capacities", num_capacities), ("num_links", num_links),];
 
     fn evaluate(
         &self,

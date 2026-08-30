@@ -3,8 +3,8 @@
 pub mod analysis;
 pub mod registry;
 pub use registry::{
-    EdgeCapabilities, ReductionEntry, ReductionSizeContract, ReductionSizeDeclarations,
-    SizeContractError, UnavailableSizeField,
+    EdgeCapabilities, ParameterContractError, ReductionEntry, ReductionParameterContract,
+    ReductionParameterDeclarations, UnavailableParameterField,
 };
 
 pub(crate) mod bicliquecover_bmf;
@@ -281,8 +281,8 @@ pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
     AggregateReductionChain, ExecutePathsError, ExecutedPath, NeighborInfo, NeighborTree,
-    PathSizeError, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath,
-    ReductionStep, TraversalFlow,
+    PathParameterError, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
+    ReductionPath, ReductionStep, TraversalFlow,
 };
 pub(crate) use traits::{validate_target_solution, DynReductionResult};
 pub use traits::{
@@ -606,7 +606,7 @@ macro_rules! impl_variant_reduction {
      $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
-            size = exact {
+            transform = exact {
                 $($field = $field),+
             }
             $(, aggregate = $aggregate)?

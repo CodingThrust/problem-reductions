@@ -58,7 +58,7 @@ impl ReductionResult for Reduction3SATToMVC {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 6 * num_clauses",
     }

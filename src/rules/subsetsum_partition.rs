@@ -61,7 +61,7 @@ impl ReductionResult for ReductionSubsetSumToPartition {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_elements = "num_elements + 1",
     })]
 impl ReduceTo<Partition> for SubsetSum {

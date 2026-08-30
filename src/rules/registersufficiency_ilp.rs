@@ -37,10 +37,14 @@ impl ReductionResult for ReductionRegisterSufficiencyToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "3 * num_vertices^2 + num_vertices * (num_vertices - 1) / 2 + 2 * num_vertices",
         num_constraints = "9 * num_vertices^2 + 3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + num_sinks",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for RegisterSufficiency {
     type Result = ReductionRegisterSufficiencyToILP;
 

@@ -178,7 +178,7 @@ impl Problem for RootedTreeStorageAssignment {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_subsets", num_subsets),
         ("universe_size", universe_size),
     ];

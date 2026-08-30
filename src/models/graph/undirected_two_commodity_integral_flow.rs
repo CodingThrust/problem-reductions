@@ -384,7 +384,7 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_edges", num_edges),
         ("num_nonterminal_vertices", num_nonterminal_vertices),
         ("num_vertices", num_vertices),

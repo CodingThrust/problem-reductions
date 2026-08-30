@@ -338,7 +338,7 @@ impl Problem for CircuitSAT {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_assignment_outputs", num_assignment_outputs),
         ("num_assignments", num_assignments),
         ("num_expression_nodes", num_expression_nodes),

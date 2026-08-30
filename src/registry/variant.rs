@@ -231,10 +231,10 @@ pub struct VariantEntry {
     /// Takes a `&dyn Any` (must be `&ProblemType`), calls getter methods directly,
     /// and returns the estimated worst-case time as f64.
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
-    /// Canonical problem-owned size-parameter names.
-    pub size_parameter_names_fn: fn() -> &'static [&'static str],
-    /// Measure the complete canonical size of a concrete instance.
-    pub size_measure_fn: fn(&dyn Any) -> crate::types::ProblemSize,
+    /// Canonical problem-owned parameter names.
+    pub parameter_names_fn: fn() -> &'static [&'static str],
+    /// Measure the complete canonical parameters of a concrete instance.
+    pub parameter_measure_fn: fn(&dyn Any) -> crate::types::ProblemParameters,
     /// Whether this entry is the declared default variant for its problem.
     pub is_default: bool,
     /// Variant-level aliases (e.g., `&["3SAT"]` for `KSatisfiability<K3>`).
@@ -270,9 +270,9 @@ impl VariantEntry {
             .collect()
     }
 
-    /// Return the canonical size-parameter names for this exact variant.
-    pub fn size_parameter_names(&self) -> &'static [&'static str] {
-        (self.size_parameter_names_fn)()
+    /// Return the canonical parameter names for this exact variant.
+    pub fn parameter_names(&self) -> &'static [&'static str] {
+        (self.parameter_names_fn)()
     }
 }
 
@@ -281,15 +281,15 @@ pub fn variant_entries() -> Vec<&'static VariantEntry> {
     inventory::iter::<VariantEntry>().collect()
 }
 
-/// Validate canonical size schemas for every registered exact variant.
-pub fn validate_variant_size_schemas() -> Result<(), Vec<String>> {
+/// Validate canonical parameter schemas for every registered exact variant.
+pub fn validate_variant_parameter_schemas() -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
     let mut schemas = BTreeMap::<&str, Vec<&str>>::new();
 
     for entry in inventory::iter::<VariantEntry> {
-        let names = entry.size_parameter_names();
+        let names = entry.parameter_names();
         if names.is_empty() {
-            errors.push(format!("{} has no size parameters", variant_label(entry)));
+            errors.push(format!("{} has no parameters", variant_label(entry)));
             continue;
         }
 
@@ -299,16 +299,16 @@ pub fn validate_variant_size_schemas() -> Result<(), Vec<String>> {
             .collect::<std::collections::BTreeSet<_>>();
         if unique.len() != names.len() {
             errors.push(format!(
-                "{} declares duplicate size parameters: {names:?}",
+                "{} declares duplicate parameters: {names:?}",
                 variant_label(entry)
             ));
         }
 
-        let canonical = unique.into_iter().collect::<Vec<_>>();
+        let canonical = names.to_vec();
         if let Some(expected) = schemas.get(entry.name) {
             if expected != &canonical {
                 errors.push(format!(
-                    "{} has size schema {canonical:?}, expected {expected:?}",
+                    "{} has parameter schema {canonical:?}, expected {expected:?}",
                     variant_label(entry)
                 ));
             }
@@ -320,7 +320,7 @@ pub fn validate_variant_size_schemas() -> Result<(), Vec<String>> {
         for variable in expression.variables() {
             if !canonical.contains(&variable) {
                 errors.push(format!(
-                    "{} complexity references unknown size parameter `{variable}`; declared: {canonical:?}",
+                    "{} complexity references unknown parameter `{variable}`; declared: {canonical:?}",
                     variant_label(entry)
                 ));
             }

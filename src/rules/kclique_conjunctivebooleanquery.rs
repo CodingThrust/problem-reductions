@@ -48,7 +48,7 @@ impl ReductionResult for ReductionKCliqueToCBQ {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         domain_size = "num_vertices",
         num_relations = "1",
         num_variables = "k",

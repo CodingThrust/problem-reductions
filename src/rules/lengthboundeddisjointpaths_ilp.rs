@@ -75,9 +75,12 @@ impl ReductionResult for ReductionLBDPToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "max_paths * 2 * num_edges + max_paths",
         num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {

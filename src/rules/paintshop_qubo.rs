@@ -38,7 +38,7 @@ impl ReductionResult for ReductionPaintShopToQUBO {
     }
 }
 
-#[reduction(size = exact {
+#[reduction(transform = exact {
     num_vars = "num_cars",
 })]
 impl ReduceTo<QUBO<f64>> for PaintShop {

@@ -56,10 +56,13 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "3 * num_edges + num_vertices",
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
     type Result = ReductionMaximumLeafSpanningTreeToILP;

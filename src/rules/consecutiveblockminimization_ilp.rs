@@ -35,9 +35,12 @@ impl ReductionResult for ReductionCBMToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
         num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {

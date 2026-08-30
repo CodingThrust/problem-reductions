@@ -71,10 +71,13 @@ impl ReductionResult for ReductionUFLBToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "3 * num_edges",
         num_constraints = "4 * num_edges + num_vertices + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;

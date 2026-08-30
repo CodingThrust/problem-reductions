@@ -173,7 +173,7 @@ impl Problem for PrecedenceConstrainedScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("deadline", deadline),
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),

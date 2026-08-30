@@ -29,7 +29,7 @@ Before any implementation, collect all required information. If called from `iss
 | 3 | **Reduction algorithm** | How to transform source instance to target | "Copy graph and weights; IS on same graph as VC" |
 | 4 | **Solution extraction** | How to map target solution back to source | "Complement: `1 - x` for each variable" |
 | 5 | **Correctness argument** | Why the reduction preserves optimality | "S is independent set iff V\S is vertex cover" |
-| 6 | **Size overhead** | How target size relates to source size | `num_vertices = "num_vertices", num_edges = "num_edges"` |
+| 6 | **Parameter transform** | How target size relates to source size | `num_vertices = "num_vertices", num_edges = "num_edges"` |
 | 7 | **Concrete example** | A small worked-out instance (tutorial style, clear intuition) | "Triangle graph: VC={0,1} -> IS={2}" |
 | 8 | **Solving strategy** | How to solve the target problem | "BruteForce, or existing ILP reduction" |
 | 9 | **Reference** | Paper, textbook, or URL for the reduction | URL or citation |

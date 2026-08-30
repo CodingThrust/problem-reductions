@@ -41,7 +41,7 @@ where
 
 macro_rules! impl_is_to_sp {
     ($W:ty) => {
-        #[reduction(size = upper_bound { num_sets = "num_vertices", universe_size = "num_edges" })]
+        #[reduction(transform = upper_bound { num_sets = "num_vertices", universe_size = "num_edges" })]
         impl ReduceTo<MaximumSetPacking<$W>> for MaximumIndependentSet<SimpleGraph, $W> {
             type Result = ReductionISToSP<$W>;
 
@@ -103,7 +103,7 @@ where
 
 macro_rules! impl_sp_to_is {
     ($W:ty) => {
-        #[reduction(size = upper_bound { num_vertices = "num_sets", num_edges = "num_sets^2" })]
+        #[reduction(transform = upper_bound { num_vertices = "num_sets", num_edges = "num_sets^2" })]
         impl ReduceTo<MaximumIndependentSet<SimpleGraph, $W>> for MaximumSetPacking<$W> {
             type Result = ReductionSPToIS<$W>;
 

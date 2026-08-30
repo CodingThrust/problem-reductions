@@ -74,7 +74,7 @@ fn penalty_weight(num_edges: usize) -> i64 {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2",
     }

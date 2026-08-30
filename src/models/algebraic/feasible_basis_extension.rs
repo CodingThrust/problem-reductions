@@ -414,7 +414,7 @@ impl Problem for FeasibleBasisExtension {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_rows", num_rows),
         ("num_columns", num_columns),
         ("num_required", num_required),

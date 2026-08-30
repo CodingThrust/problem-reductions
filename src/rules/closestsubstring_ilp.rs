@@ -119,10 +119,13 @@ fn decode_one_hot(
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "alphabet_size * substring_length + total_num_windows + 1",
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for ClosestSubstring {
     type Result = ReductionClosestSubstringToILP;

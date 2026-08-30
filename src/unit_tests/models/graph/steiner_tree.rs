@@ -42,7 +42,7 @@ fn test_steiner_tree_rejects_duplicate_terminals() {
 }
 
 #[test]
-fn test_steiner_tree_size_getters() {
+fn test_steiner_tree_parameter_getters() {
     let problem = example_instance();
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 7);

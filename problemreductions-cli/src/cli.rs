@@ -105,7 +105,7 @@ Examples:
         #[arg(long)]
         all: bool,
 
-        /// Include per-variant complexity, rule counts, or rule size contracts
+        /// Include per-variant complexity, rule counts, or rule parameter contracts
         #[arg(long)]
         verbose: bool,
     },
@@ -165,7 +165,6 @@ Examples:
   pred path MIS QUBO                              # inspect reduction paths
   pred path MIS Clique mis.json                   # execute paths on an instance
   pred path MIS QUBO --limit 50                  # inspect the first 50 paths
-  pred path MIS QUBO --unfiltered                # skip Pareto filtering
   pred path MIS QUBO --limit all                 # inspect up to 999 paths
   pred path MIS QUBO -o paths.json               # save the path set
 
@@ -184,9 +183,6 @@ Use `pred list` to see available problems.")]
             value_parser = crate::commands::graph::parse_path_limit
         )]
         limit: usize,
-        /// Return enumerated paths without Pareto filtering
-        #[arg(long)]
-        unfiltered: bool,
         /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
         instance: Option<std::path::PathBuf>,
     },

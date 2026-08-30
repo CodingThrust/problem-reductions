@@ -39,7 +39,7 @@ impl ReductionResult for ReductionPartitionToCPI {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_coefficients = "num_elements",
     })]
 impl ReduceTo<CosineProductIntegration> for Partition {

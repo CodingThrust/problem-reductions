@@ -51,9 +51,12 @@ impl ReductionResult for ReductionQAPToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_facilities * num_locations + num_facilities^2 * num_locations^2",
         num_constraints = "num_facilities + num_locations + 3 * num_facilities^2 * num_locations^2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for QuadraticAssignment {

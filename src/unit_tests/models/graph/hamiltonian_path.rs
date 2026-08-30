@@ -122,7 +122,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]));
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 4);

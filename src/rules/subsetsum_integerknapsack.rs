@@ -10,7 +10,7 @@
 use crate::expr::Expr;
 use crate::models::misc::SubsetSum;
 use crate::models::set::IntegerKnapsack;
-use crate::rules::registry::ReductionSizeDeclarations;
+use crate::rules::registry::ReductionParameterDeclarations;
 use crate::rules::ReductionEntry;
 use crate::traits::Problem;
 #[cfg(feature = "example-db")]
@@ -31,12 +31,12 @@ inventory::submit! {
         target_name: IntegerKnapsack::NAME,
         source_variant_fn: <SubsetSum as Problem>::variant,
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
-        size_declarations_fn: || ReductionSizeDeclarations {
-            relation: Some(crate::size::SizeRelation::Exact),
+        parameter_declarations_fn: || ReductionParameterDeclarations {
+            relation: Some(crate::parameters::ParameterRelation::Exact),
             fields: vec![("num_items", Expr::variable("num_elements"))],
-            unavailable: vec![crate::rules::registry::UnavailableSizeField {
+            unavailable: vec![crate::rules::registry::UnavailableParameterField {
                 field: "capacity",
-                reason: "the target capacity equals the SubsetSum target, which is not a registered source size parameter",
+                reason: "the target capacity equals the SubsetSum target, which is not a registered source parameter",
             }],
         },
         module_path: module_path!(),

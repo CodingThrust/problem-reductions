@@ -49,10 +49,13 @@ impl ReductionResult for ReductionMSToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * num_processors",
         num_constraints = "num_tasks + num_processors",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
     type Result = ReductionMSToILP;

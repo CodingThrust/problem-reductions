@@ -50,10 +50,13 @@ impl ReductionResult for ReductionLongestCircuitToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
         num_constraints = "1 + num_vertices^2 + 2 * num_edges * (num_vertices - 1)",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
     type Result = ReductionLongestCircuitToILP;

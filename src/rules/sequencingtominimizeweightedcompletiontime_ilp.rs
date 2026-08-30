@@ -53,10 +53,14 @@ impl ReductionResult for ReductionSTMWCTToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
     type Result = ReductionSTMWCTToILP;
 

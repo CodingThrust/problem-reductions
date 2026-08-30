@@ -70,10 +70,13 @@ impl ReductionResult for ReductionCMOToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices_1 * num_vertices_2 + num_contacts_1 * num_contacts_2",
         num_constraints = "num_vertices_1 + num_vertices_2 + num_vertices_1 * (num_vertices_1 - 1) / 2 * num_vertices_2 * (num_vertices_2 + 1) / 2 + 2 * num_contacts_1 * num_contacts_2",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
     type Result = ReductionCMOToILP;

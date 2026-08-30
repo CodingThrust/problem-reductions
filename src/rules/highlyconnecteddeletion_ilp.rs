@@ -151,12 +151,13 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_constraints = "num_vertices",
     },
     unavailable = {
         num_vars = "the feasible-cluster count depends on graph structure, and its 2^num_vertices upper bound requires a variable exponent unsupported by the size-transform evaluator",
-    }
+            num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+}
 )]
 impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
     type Result = ReductionHighlyConnectedDeletionToILP;

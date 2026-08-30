@@ -37,7 +37,7 @@ impl ReductionResult for ReductionQUBOToSG {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_spins = "num_vars",
         num_interactions = "num_vars^2",
     },
@@ -128,7 +128,7 @@ impl ReductionResult for ReductionSGToQUBO {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_spins",
     }
 )]

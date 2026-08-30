@@ -350,7 +350,7 @@ impl Problem for IntegralFlowBundles {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_arcs", num_arcs),
         ("num_bundles", num_bundles),
         ("num_vertices", num_vertices),

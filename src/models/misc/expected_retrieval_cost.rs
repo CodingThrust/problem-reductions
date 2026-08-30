@@ -172,7 +172,7 @@ impl Problem for ExpectedRetrievalCost {
     type Solution = Vec<usize>;
     type Value = Min<f64>;
 
-    crate::problem_size![("num_records", num_records), ("num_sectors", num_sectors),];
+    crate::problem_parameters![("num_records", num_records), ("num_sectors", num_sectors),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

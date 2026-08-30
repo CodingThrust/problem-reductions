@@ -234,7 +234,7 @@ class PipelineChecksTests(unittest.TestCase):
             self._write(
                 repo / "src/rules/binpacking_ilp.rs",
                 """
-                #[reduction(exact = { num_vars = "num_items" })]
+                #[reduction(transform = exact { num_vars = "num_items" })]
                 impl ReduceTo<ILP> for BinPacking {}
                 pub(crate) fn canonical_rule_example_specs() -> Vec<RuleExampleSpec> { vec![] }
                 """,
@@ -262,7 +262,7 @@ class PipelineChecksTests(unittest.TestCase):
             self.assertEqual(report["checks"]["module_registration"]["status"], "pass")
             self.assertEqual(report["checks"]["paper_rule"]["status"], "pass")
 
-    def test_rule_completeness_flags_missing_size_contract_and_paper(self) -> None:
+    def test_rule_completeness_flags_missing_parameter_transform_and_paper(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             self._write(
@@ -289,7 +289,7 @@ class PipelineChecksTests(unittest.TestCase):
             )
 
             self.assertFalse(report["ok"])
-            self.assertIn("size_contract_form", report["missing"])
+            self.assertIn("parameter_transform_form", report["missing"])
             self.assertIn("paper_rule", report["missing"])
             self.assertIn("module_registration", report["missing"])
 

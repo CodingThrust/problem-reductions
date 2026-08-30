@@ -370,7 +370,7 @@ where
     type Solution = Vec<i64>;
     type Value = Min<f64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("ambient_dimension", ambient_dimension),
         ("num_basis_vectors", num_basis_vectors),
         ("num_encoding_bits", num_encoding_bits),

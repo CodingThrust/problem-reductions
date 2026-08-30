@@ -166,7 +166,7 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -286,7 +286,6 @@ crate::register_decision_variant!(
         FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
         FieldInfo { name: "bound", type_name: "i64", description: "Decision bound (maximum allowed dominating-set cost)" },
     ],
-    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
 );
 
@@ -301,13 +300,18 @@ inventory::submit! {
             let problem = any
                 .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
                 .expect("DecisionMinimumDominatingSet complexity source type mismatch");
-            1.4969_f64.powf(problem.num_vertices() as f64)
+            let parameters = problem.parameters();
+            1.4969_f64.powf(
+                parameters
+                    .get("num_vertices")
+                    .expect("validated complexity parameter must be present") as f64,
+            )
         },
-        size_parameter_names_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::size_parameter_names,
-        size_measure_fn: |any| {
+        parameter_names_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::parameter_names,
+        parameter_measure_fn: |any| {
             any.downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .expect("DecisionMinimumDominatingSet size type mismatch")
-                .size()
+                .expect("DecisionMinimumDominatingSet parameter type mismatch")
+                .parameters()
         },
         is_default: false,
         aliases: &[],
@@ -342,8 +346,8 @@ inventory::submit! {
         target_name: "MinimumDominatingSet",
         source_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
         target_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
-        size_declarations_fn: || crate::rules::registry::ReductionSizeDeclarations {
-            relation: Some(crate::size::SizeRelation::Exact),
+        parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
+            relation: Some(crate::parameters::ParameterRelation::Exact),
             fields: vec![
                 ("num_vertices", crate::expr::Expr::variable("num_vertices")),
                 ("num_edges", crate::expr::Expr::variable("num_edges")),
@@ -388,8 +392,8 @@ inventory::submit! {
         target_name: "DecisionMinimumDominatingSet",
         source_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
         target_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
-        size_declarations_fn: || crate::rules::registry::ReductionSizeDeclarations {
-            relation: Some(crate::size::SizeRelation::Exact),
+        parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
+            relation: Some(crate::parameters::ParameterRelation::Exact),
             fields: vec![
                 ("num_vertices", crate::expr::Expr::variable("num_vertices")),
                 ("num_edges", crate::expr::Expr::variable("num_edges")),

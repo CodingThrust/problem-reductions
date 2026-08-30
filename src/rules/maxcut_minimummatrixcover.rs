@@ -59,7 +59,7 @@ impl ReductionResult for ReductionMaxCutToMMC {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_rows = "num_vertices",
     }
 )]

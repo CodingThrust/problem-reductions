@@ -91,7 +91,7 @@ impl Problem for MinimumMatrixCover {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_rows", num_rows),];
+    crate::problem_parameters![("num_rows", num_rows),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

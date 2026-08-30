@@ -128,7 +128,7 @@ impl Problem for NumericalMatchingWithTargetSums {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("num_pairs", num_pairs),];
+    crate::problem_parameters![("num_pairs", num_pairs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

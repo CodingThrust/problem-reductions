@@ -164,7 +164,7 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_size![("num_vars", num_vars),];
+    crate::problem_parameters![("num_vars", num_vars),];
 
     fn evaluate(
         &self,

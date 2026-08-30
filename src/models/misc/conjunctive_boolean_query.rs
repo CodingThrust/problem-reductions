@@ -274,7 +274,7 @@ impl Problem for ConjunctiveBooleanQuery {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("domain_size", domain_size),
         ("num_conjuncts", num_conjuncts),
         ("num_relations", num_relations),

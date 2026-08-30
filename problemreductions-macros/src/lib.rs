@@ -201,16 +201,16 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 ///
 /// # Attributes
 ///
-/// - `size = exact { field = expression, ... }` — exact target-size equalities
-/// - `size = upper_bound { field = expression, ... }` — one rule-level upper bound
-/// - `size = unavailable { field = "reason", ... }` — no symbolic size transform
+/// - `transform = exact { field = expression, ... }` — exact target-parameter equalities
+/// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
+/// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
 /// - `aggregate = identity` — explicitly register an aggregate executor; compilation
 ///   requires the reduction result to prove source/target value-type equality
 ///
 /// ## Syntax
 /// ```ignore
-/// #[reduction(size = exact {
+/// #[reduction(transform = exact {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = num_edges,
 /// })]
@@ -235,15 +235,15 @@ struct ParsedExpressionField {
 
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
-    size_declared: bool,
-    relation: Option<SizeRelationAttr>,
+    transform_declared: bool,
+    relation: Option<ParameterRelationAttr>,
     fields: Option<Vec<(String, String)>>,
     unavailable: Option<Vec<(String, String)>>,
     identity_aggregate: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SizeRelationAttr {
+enum ParameterRelationAttr {
     Exact,
     UpperBound,
 }
@@ -251,7 +251,7 @@ enum SizeRelationAttr {
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = ReductionAttrs {
-            size_declared: false,
+            transform_declared: false,
             relation: None,
             fields: None,
             unavailable: None,
@@ -263,24 +263,24 @@ impl syn::parse::Parse for ReductionAttrs {
             input.parse::<syn::Token![=]>()?;
 
             match ident.to_string().as_str() {
-                "size" => {
-                    if attrs.size_declared {
+                "transform" => {
+                    if attrs.transform_declared {
                         return Err(syn::Error::new(
                             ident.span(),
-                            "duplicate `size` declaration",
+                            "duplicate `transform` declaration",
                         ));
                     }
-                    attrs.size_declared = true;
+                    attrs.transform_declared = true;
                     let relation: syn::Ident = input.parse()?;
                     let content;
                     syn::braced!(content in input);
                     match relation.to_string().as_str() {
                         "exact" => {
-                            attrs.relation = Some(SizeRelationAttr::Exact);
+                            attrs.relation = Some(ParameterRelationAttr::Exact);
                             attrs.fields = Some(parse_expression_fields(&content)?);
                         }
                         "upper_bound" => {
-                            attrs.relation = Some(SizeRelationAttr::UpperBound);
+                            attrs.relation = Some(ParameterRelationAttr::UpperBound);
                             attrs.fields = Some(parse_expression_fields(&content)?);
                         }
                         "unavailable" => {
@@ -325,10 +325,10 @@ impl syn::parse::Parse for ReductionAttrs {
             }
         }
 
-        if !attrs.size_declared {
+        if !attrs.transform_declared {
             return Err(syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "missing `size` declaration",
+                "missing `transform` declaration",
             ));
         }
 
@@ -366,7 +366,7 @@ fn parse_unavailable_fields(
         if reason.trim().is_empty() {
             return Err(syn::Error::new(
                 field_name.span(),
-                "unavailable size field requires a non-empty reason",
+                "unavailable parameter field requires a non-empty reason",
             ));
         }
         fields.push((field_name.to_string(), reason));
@@ -470,7 +470,7 @@ fn parse_expression_fields_to_expr(
             let expression = problemreductions_expr::Expr::try_parse(source).map_err(|error| {
                 syn::Error::new(
                     proc_macro2::Span::call_site(),
-                    format!("error parsing size expression \"{source}\": {error}"),
+                    format!("error parsing parameter expression \"{source}\": {error}"),
                 )
             })?;
             Ok(ParsedExpressionField {
@@ -538,11 +538,11 @@ fn generate_reduction_entry(
     let fields = parse_expression_fields_to_expr(attrs.fields.as_deref().unwrap_or_default())?;
     let field_tokens = generate_expression_fields(&fields);
     let relation_tokens = match attrs.relation {
-        Some(SizeRelationAttr::Exact) => {
-            quote! { Some(crate::size::SizeRelation::Exact) }
+        Some(ParameterRelationAttr::Exact) => {
+            quote! { Some(crate::parameters::ParameterRelation::Exact) }
         }
-        Some(SizeRelationAttr::UpperBound) => {
-            quote! { Some(crate::size::SizeRelation::UpperBound) }
+        Some(ParameterRelationAttr::UpperBound) => {
+            quote! { Some(crate::parameters::ParameterRelation::UpperBound) }
         }
         None => quote! { None },
     };
@@ -551,7 +551,7 @@ fn generate_reduction_entry(
         .as_deref()
         .unwrap_or_default()
         .iter()
-        .map(|(field, reason)| quote! { crate::rules::registry::UnavailableSizeField { field: #field, reason: #reason } });
+        .map(|(field, reason)| quote! { crate::rules::registry::UnavailableParameterField { field: #field, reason: #reason } });
 
     // Generate the combined output
     let output = quote! {
@@ -563,7 +563,7 @@ fn generate_reduction_entry(
                 target_name: #target_name,
                 source_variant_fn: || { #source_variant_body },
                 target_variant_fn: || { #target_variant_body },
-                size_declarations_fn: || crate::rules::registry::ReductionSizeDeclarations {
+                parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
                     relation: #relation_tokens,
                     fields: #field_tokens,
                     unavailable: vec![#(#unavailable_tokens),*],
@@ -882,31 +882,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             )
         })?;
 
-        // Generate getter validation for all variables
-        let vars = parsed.variables();
-        let validation = if vars.is_empty() {
-            quote! {}
-        } else {
-            let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-            let getter_checks: Vec<_> = vars
-                .iter()
-                .map(|var| {
-                    let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
-                    quote! { let _ = #src_ident.#getter(); }
-                })
-                .collect();
-
-            quote! {
-                const _: () = {
-                    #[allow(unused)]
-                    fn _validate_complexity(#src_ident: &#ty) {
-                        #(#getter_checks)*
-                    }
-                };
-            }
-        };
-
-        // Generate compiled complexity eval fn
+        // Generate a compiled complexity evaluator over the problem-owned parameters.
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
         let construction_fields = if let Some(create_spec) = create_spec {
@@ -972,20 +948,18 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     variant_fn: || <#ty as crate::traits::Problem>::variant(),
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
-                    size_parameter_names_fn: || <#ty as crate::traits::Problem>::size_parameter_names(),
-                    size_measure_fn: |any: &dyn std::any::Any| {
+                    parameter_names_fn: || <#ty as crate::traits::Problem>::parameter_names(),
+                    parameter_measure_fn: |any: &dyn std::any::Any| {
                         let problem = any
                             .downcast_ref::<#ty>()
-                            .expect("type-erased size measurement downcast failed");
-                        <#ty as crate::traits::Problem>::size(problem)
+                            .expect("type-erased parameter measurement downcast failed");
+                        <#ty as crate::traits::Problem>::parameters(problem)
                     },
                     is_default: #is_default,
                     aliases: &[#(#alias_lits),*],
                     #dispatch_fields
                 }
             }
-
-            #validation
         });
     }
 
@@ -994,18 +968,19 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
 /// Generate a compiled complexity evaluation function.
 ///
-/// Produces a closure that downcasts `&dyn Any` to the problem type, calls getter
-/// methods for all variables, and returns the worst-case time complexity as f64.
+/// Produces a closure that downcasts `&dyn Any` to the problem type, reads its
+/// canonical parameters, and returns the worst-case time complexity as `f64`.
 fn generate_complexity_eval_fn(
     parsed: &problemreductions_expr::Expr,
     ty: &Type,
 ) -> syn::Result<TokenStream2> {
-    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-    let eval_tokens = complexity_estimate_tokens(parsed, &src_ident)?;
+    let parameters_ident = syn::Ident::new("__parameters", proc_macro2::Span::call_site());
+    let eval_tokens = complexity_estimate_tokens(parsed, &parameters_ident)?;
 
     Ok(quote! {
         |__any_src: &dyn std::any::Any| -> f64 {
-            let #src_ident = __any_src.downcast_ref::<#ty>().unwrap();
+            let __problem = __any_src.downcast_ref::<#ty>().unwrap();
+            let #parameters_ident = <#ty as crate::traits::Problem>::parameters(__problem);
             #eval_tokens
         }
     })
@@ -1017,10 +992,10 @@ mod tests {
     use syn::{parse_str, Type};
 
     #[test]
-    fn size_fields_report_expression_domain_errors() {
+    fn parameters_report_expression_domain_errors() {
         let fields = vec![("num_vertices".to_string(), "0 / 0".to_string())];
         let Err(error) = parse_expression_fields_to_expr(&fields) else {
-            panic!("invalid size expression was accepted");
+            panic!("invalid parameter expression was accepted");
         };
         assert!(error.to_string().contains("division by zero"));
     }
@@ -1286,7 +1261,7 @@ mod tests {
     fn reduction_rejects_unexpected_attribute() {
         let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
         let parse_result = syn::parse2::<ReductionAttrs>(quote! {
-            #extra_attr = "unexpected", size = exact { num_vertices = "num_vertices" }
+            #extra_attr = "unexpected", transform = exact { num_vertices = "num_vertices" }
         });
         let err = match parse_result {
             Ok(_) => panic!("unexpected reduction attribute should be rejected"),
@@ -1296,9 +1271,9 @@ mod tests {
     }
 
     #[test]
-    fn reduction_accepts_explicit_size_attributes() {
+    fn reduction_accepts_explicit_transform_attributes() {
         let attrs: ReductionAttrs = syn::parse_quote! {
-            size = upper_bound { n = n, squared = "n^2" },
+            transform = upper_bound { n = n, squared = "n^2" },
             unavailable = { encoding_bits = "coefficient magnitudes are not tracked" }
         };
         assert_eq!(
@@ -1308,7 +1283,7 @@ mod tests {
                 ("squared".to_string(), "n^2".to_string()),
             ])
         );
-        assert_eq!(attrs.relation, Some(SizeRelationAttr::UpperBound));
+        assert_eq!(attrs.relation, Some(ParameterRelationAttr::UpperBound));
         assert_eq!(
             attrs.unavailable,
             Some(vec![(
@@ -1339,13 +1314,13 @@ mod tests {
     }
 
     #[test]
-    fn reduction_requires_unavailable_to_be_the_primary_size_declaration() {
+    fn reduction_requires_unavailable_to_be_the_primary_transform_declaration() {
         assert!(syn::parse2::<ReductionAttrs>(quote! {
             unavailable = { n = "not represented" }
         })
         .is_err());
         assert!(syn::parse2::<ReductionAttrs>(quote! {
-            size = unavailable { n = "not represented" }
+            transform = unavailable { n = "not represented" }
         })
         .is_ok());
     }

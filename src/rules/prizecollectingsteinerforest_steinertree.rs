@@ -38,7 +38,7 @@ use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing PCSF to SteinerTree.
 ///
-/// Stores the original PCSF source sizes plus the mapping from the target
+/// Stores the original PCSF source parameterss plus the mapping from the target
 /// graph's edge list back to the source variables (the original edge index
 /// for each "original" edge, and the source vertex index for each gadget
 /// include-edge). Other target edges (root-attachment and gadget omit-edges)
@@ -124,7 +124,7 @@ impl ReductionPCSFToSteinerTree {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices + num_vertices_with_prize + 1",
         num_edges = "num_edges + num_vertices + 2 * num_vertices_with_prize",
         num_terminals = "num_vertices_with_prize + 1",

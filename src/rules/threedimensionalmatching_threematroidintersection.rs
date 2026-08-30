@@ -31,7 +31,7 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreeMatroidIntersec
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         ground_set_size = "num_triples",
         num_groups = "3 * universe_size",
         bound = "universe_size",

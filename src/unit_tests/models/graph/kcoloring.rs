@@ -19,6 +19,19 @@ fn create_specs_separate_runtime_and_fixed_color_counts() {
     .unwrap();
     assert_eq!(fixed.num_colors(), 3);
 }
+
+#[test]
+fn fixed_and_runtime_variants_report_num_colors_parameter() {
+    let fixed = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let runtime = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 5);
+
+    assert_eq!(Problem::parameters(&fixed).get("num_colors"), Some(3));
+    assert_eq!(Problem::parameters(&runtime).get("num_colors"), Some(5));
+    assert_eq!(
+        <KColoring<K3, SimpleGraph> as Problem>::parameter_names(),
+        <KColoring<KN, SimpleGraph> as Problem>::parameter_names()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::variant::{K1, K2, K3, K4};
@@ -208,7 +221,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);

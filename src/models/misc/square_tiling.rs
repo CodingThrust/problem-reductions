@@ -180,7 +180,7 @@ impl Problem for SquareTiling {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("grid_size", grid_size),
         ("num_colors", num_colors),
         ("num_tiles", num_tiles),

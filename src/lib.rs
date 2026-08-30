@@ -12,7 +12,7 @@
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
 //! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
 //! | [`traits`] | Core traits — [`Problem`] |
-//! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemSize`], [`WeightElement`] |
+//! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemParameters`], [`WeightElement`] |
 //! | [`variant`] | Variant parameter system for problem type parameterization |
 //!
 //! Use [`prelude`] for convenient imports.
@@ -27,14 +27,14 @@ pub mod example_db;
 pub mod export;
 pub mod expr;
 // Growth is an explicit terminal projection for complexity display. Exact and certified
-// size propagation never re-enters this domain.
+// parameter propagation never re-enters this domain.
 pub mod growth;
 pub mod io;
 pub mod models;
+pub mod parameters;
 pub mod random;
 pub mod registry;
 pub mod rules;
-pub mod size;
 pub mod solvers;
 pub mod topology;
 pub mod traits;
@@ -107,7 +107,9 @@ pub mod prelude {
 
     // Types
     pub use crate::error::{ProblemError, Result};
-    pub use crate::types::{And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemSize, Sum};
+    pub use crate::types::{
+        And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemParameters, Sum,
+    };
 }
 
 // Re-export commonly used items at crate root
@@ -121,7 +123,8 @@ pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::BruteForce;
 pub use traits::Problem;
 pub use types::{
-    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, WeightElement,
+    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemParameters, Sum,
+    WeightElement,
 };
 
 // Re-export proc macros for reduction registration and variant declaration
@@ -131,8 +134,8 @@ pub use problemreductions_macros::{declare_variants, reduction, register_brute_f
 pub use inventory;
 
 #[cfg(all(test, feature = "example-db"))]
-#[path = "unit_tests/symbolic_size_contracts.rs"]
-mod symbolic_size_contracts;
+#[path = "unit_tests/symbolic_parameter_contracts.rs"]
+mod symbolic_parameter_contracts;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
@@ -140,8 +143,8 @@ mod test_graph_models;
 #[path = "unit_tests/prelude.rs"]
 mod test_prelude;
 #[cfg(test)]
-#[path = "unit_tests/problem_size.rs"]
-mod test_problem_size;
+#[path = "unit_tests/problem_parameters.rs"]
+mod test_problem_parameters;
 #[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;

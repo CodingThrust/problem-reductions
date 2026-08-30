@@ -225,7 +225,7 @@ impl Problem for MinimumDummyActivitiesPert {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_vertices", num_vertices), ("num_arcs", num_arcs),];
+    crate::problem_parameters![("num_vertices", num_vertices), ("num_arcs", num_arcs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

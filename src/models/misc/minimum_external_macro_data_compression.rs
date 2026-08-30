@@ -194,7 +194,7 @@ impl Problem for MinimumExternalMacroDataCompression {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("string_length", string_length),
     ];

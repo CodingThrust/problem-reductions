@@ -1,6 +1,6 @@
 //! Core traits for problem definitions.
 
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 
 /// Failure while evaluating one configuration of a valid problem instance.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -27,10 +27,10 @@ pub trait Problem: Clone {
     type Solution;
     /// The evaluation value type.
     type Value: Clone;
-    /// Canonical size-parameter names for this problem model.
-    fn size_parameter_names() -> &'static [&'static str];
-    /// Measure the complete canonical size of this concrete instance.
-    fn size(&self) -> ProblemSize;
+    /// Canonical parameter names for this problem model.
+    fn parameter_names() -> &'static [&'static str];
+    /// Measure the complete canonical parameters of this concrete instance.
+    fn parameters(&self) -> ProblemParameters;
     /// Evaluate the problem on a solution.
     fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
     /// Returns variant attributes derived from type parameters.
@@ -49,18 +49,18 @@ pub trait Problem: Clone {
     }
 }
 
-/// Define a problem's canonical size parameters from inherent getter methods.
+/// Define a problem's canonical parameters from inherent getter methods.
 #[macro_export]
-macro_rules! problem_size {
+macro_rules! problem_parameters {
     ($(($name:literal, $getter:ident)),+ $(,)?) => {
-        fn size_parameter_names() -> &'static [&'static str] {
+        fn parameter_names() -> &'static [&'static str] {
             &[$($name),+]
         }
 
-        fn size(&self) -> $crate::types::ProblemSize {
-            $crate::types::ProblemSize::new(vec![
+        fn parameters(&self) -> $crate::types::ProblemParameters {
+            $crate::types::ProblemParameters::new(vec![
                 $(($name, u64::try_from(self.$getter()).expect(concat!(
-                    "size getter `", $name, "` violated its u64 invariant"
+                    "parameter getter `", $name, "` violated its u64 invariant"
                 )))),+
             ])
         }

@@ -230,7 +230,7 @@ impl Problem for MinimumCostCirculation {
     type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn evaluate(
         &self,

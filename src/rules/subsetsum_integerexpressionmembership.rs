@@ -62,7 +62,7 @@ fn build_expression(sizes: &[i64]) -> Result<IntExpr, &'static str> {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_union_nodes = "num_elements",
     })]
 impl ReduceTo<IntegerExpressionMembership> for SubsetSum {

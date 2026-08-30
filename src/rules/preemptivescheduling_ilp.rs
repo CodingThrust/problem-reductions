@@ -68,10 +68,13 @@ impl ReductionResult for ReductionPSToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * d_max + 1",
         num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;

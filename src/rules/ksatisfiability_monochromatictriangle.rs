@@ -74,9 +74,12 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 9 * num_clauses",
+    },
+    unavailable = {
+        num_triangles = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {

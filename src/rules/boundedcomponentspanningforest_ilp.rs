@@ -38,9 +38,12 @@ impl ReductionResult for ReductionBCSFToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
         num_constraints = "num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {

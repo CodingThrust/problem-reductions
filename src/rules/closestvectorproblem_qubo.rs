@@ -182,7 +182,7 @@ fn at_times_target(
         .collect()
 }
 
-#[reduction(size = exact {
+#[reduction(transform = exact {
     num_vars = "num_encoding_bits",
 })]
 impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i64> {

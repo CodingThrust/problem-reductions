@@ -64,10 +64,13 @@ impl ReductionResult for ReductionSMWCTToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
     type Result = ReductionSMWCTToILP;

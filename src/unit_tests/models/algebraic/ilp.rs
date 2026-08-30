@@ -348,7 +348,7 @@ fn test_ilp_problem_minimize() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let ilp = binary_ilp(
         2,
         vec![

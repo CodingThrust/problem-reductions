@@ -187,10 +187,14 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
         num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
-    })]
+    },
+    unavailable = {
+        max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
     type Result = Reduction3SATToDirectedTwoCommodityIntegralFlow;
 

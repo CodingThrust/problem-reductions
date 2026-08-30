@@ -179,7 +179,7 @@ impl Problem for AlgebraicEquationsOverGF2 {
     type Solution = Vec<bool>;
     type Value = Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_equations", num_equations),
         ("num_variables", num_variables),
     ];

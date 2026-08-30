@@ -159,7 +159,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     // Sets: {0,1}, {2,3}, {4,5} — universe is {0..6}
     let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
     assert_eq!(problem.num_sets(), 3);

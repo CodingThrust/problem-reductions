@@ -3,7 +3,7 @@ use problemreductions::models::algebraic::{ObjectiveSense, ILP};
 use problemreductions::registry::{
     CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
 };
-use problemreductions::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
+use problemreductions::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
 use problemreductions::traits::Problem;
 use problemreductions::types::{Aggregate, Extremum, Max, SolutionAggregate};
@@ -44,7 +44,7 @@ impl Problem for AggregateValueSource {
     type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    problemreductions::problem_size![("num_values", num_values)];
+    problemreductions::problem_parameters![("num_values", num_values)];
 
     fn evaluate(
         &self,
@@ -92,7 +92,7 @@ impl Problem for AggregateValueTarget {
     type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    problemreductions::problem_size![("num_values", num_values)];
+    problemreductions::problem_parameters![("num_values", num_values)];
 
     fn evaluate(
         &self,
@@ -296,11 +296,11 @@ problemreductions::inventory::submit! {
         variant_fn: AggregateValueSource::variant,
         complexity: "2^num_values",
         complexity_eval_fn: |_| 1.0,
-        size_parameter_names_fn: AggregateValueSource::size_parameter_names,
-        size_measure_fn: |any| {
+        parameter_names_fn: AggregateValueSource::parameter_names,
+        parameter_measure_fn: |any| {
             any.downcast_ref::<AggregateValueSource>()
                 .expect("AggregateValueSource size type mismatch")
-                .size()
+                .parameters()
         },
         is_default: true,
         aliases: &[],
@@ -345,11 +345,11 @@ problemreductions::inventory::submit! {
         variant_fn: AggregateValueTarget::variant,
         complexity: "2",
         complexity_eval_fn: |_| 1.0,
-        size_parameter_names_fn: AggregateValueTarget::size_parameter_names,
-        size_measure_fn: |any| {
+        parameter_names_fn: AggregateValueTarget::parameter_names,
+        parameter_measure_fn: |any| {
             any.downcast_ref::<AggregateValueTarget>()
                 .expect("AggregateValueTarget size type mismatch")
-                .size()
+                .parameters()
         },
         is_default: true,
         aliases: &[],
@@ -393,12 +393,12 @@ problemreductions::inventory::submit! {
         target_name: AggregateValueTarget::NAME,
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: AggregateValueTarget::variant,
-        size_declarations_fn: || ReductionSizeDeclarations {
+        parameter_declarations_fn: || ReductionParameterDeclarations {
             relation: None,
             fields: vec![],
-            unavailable: vec![problemreductions::rules::registry::UnavailableSizeField {
+            unavailable: vec![problemreductions::rules::registry::UnavailableParameterField {
                 field: "num_values",
-                reason: "the synthetic aggregate target has no size model",
+                reason: "the synthetic aggregate target has no parameter model",
             }],
         },
         module_path: module_path!(),
@@ -423,17 +423,21 @@ problemreductions::inventory::submit! {
         target_name: ILP::<bool>::NAME,
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: ILP::<bool>::variant,
-        size_declarations_fn: || ReductionSizeDeclarations {
+        parameter_declarations_fn: || ReductionParameterDeclarations {
             relation: None,
             fields: vec![],
             unavailable: vec![
-                problemreductions::rules::registry::UnavailableSizeField {
+                problemreductions::rules::registry::UnavailableParameterField {
                     field: "num_vars",
-                    reason: "the synthetic aggregate-to-ILP reduction has no size model",
+                    reason: "the synthetic aggregate-to-ILP reduction has no parameter model",
                 },
-                problemreductions::rules::registry::UnavailableSizeField {
+                problemreductions::rules::registry::UnavailableParameterField {
                     field: "num_constraints",
-                    reason: "the synthetic aggregate-to-ILP reduction has no size model",
+                    reason: "the synthetic aggregate-to-ILP reduction has no parameter model",
+                },
+                problemreductions::rules::registry::UnavailableParameterField {
+                    field: "num_nonzeros",
+                    reason: "the synthetic aggregate-to-ILP reduction has no parameter model",
                 },
             ],
         },

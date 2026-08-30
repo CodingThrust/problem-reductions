@@ -50,10 +50,14 @@ impl ReductionResult for ReductionSWDSTToILP {
     }
 }
 
-#[reduction(size = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "2 * num_tasks^2 + num_tasks",
     num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
-})]
+},
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
     type Result = ReductionSWDSTToILP;
 

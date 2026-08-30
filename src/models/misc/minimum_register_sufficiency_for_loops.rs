@@ -157,7 +157,7 @@ impl Problem for MinimumRegisterSufficiencyForLoops {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("loop_length", loop_length),
         ("num_variables", num_variables),
     ];

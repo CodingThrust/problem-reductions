@@ -1,23 +1,22 @@
-//! Symbolic size transformations carried by reduction rules.
+//! Symbolic parameter transformations carried by reduction rules.
 
 use crate::expr::{AlgebraicAnalysis, Expr, ExprNode, ExprNodeId, Symbol};
-use crate::growth::Growth;
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 use num_bigint::{BigInt, BigUint, Sign};
 use num_rational::BigRational;
 use num_traits::{One, Signed, Zero};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-/// What one reduction rule promises about all of its declared size formulas.
+/// What one reduction rule promises about all of its declared parameter formulas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SizeRelation {
+pub enum ParameterRelation {
     Exact,
     UpperBound,
 }
 
-impl SizeRelation {
+impl ParameterRelation {
     fn compose(self, next: Self) -> Self {
         if self == Self::Exact && next == Self::Exact {
             Self::Exact
@@ -27,72 +26,16 @@ impl SizeRelation {
     }
 }
 
-/// Big-O projection of the target size fields used by symbolic cost models.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SizeGrowth {
-    fields: Vec<(Box<str>, Growth)>,
-}
-
-impl SizeGrowth {
-    pub fn fields(&self) -> impl Iterator<Item = (&str, &Growth)> {
-        self.fields
-            .iter()
-            .map(|(name, growth)| (name.as_ref(), growth))
-    }
-
-    pub fn get(&self, field: &str) -> Option<&Growth> {
-        self.fields
-            .iter()
-            .find(|(name, _)| name.as_ref() == field)
-            .map(|(_, growth)| growth)
-    }
-}
-
-/// Return whether `left` is no larger in every concrete size field and smaller
-/// in at least one field.
-pub fn problem_size_dominates(left: &ProblemSize, right: &ProblemSize) -> bool {
-    left.components.len() == right.components.len()
-        && left
-            .components
-            .iter()
-            .all(|(name, value)| right.get(name).is_some_and(|other| *value <= other))
-        && left
-            .components
-            .iter()
-            .any(|(name, value)| right.get(name).is_some_and(|other| *value < other))
-}
-
-/// Return whether `left` has no faster Big-O growth in every symbolic size
-/// field and strictly slower growth in at least one field.
-pub fn size_growth_dominates(left: &SizeGrowth, right: &SizeGrowth) -> bool {
-    if left.fields.len() != right.fields.len() {
-        return false;
-    }
-    let mut strictly_smaller = false;
-    for (name, growth) in left.fields() {
-        let Some(other) = right.get(name) else {
-            return false;
-        };
-        let left_at_most = other.dominates(growth);
-        if !left_at_most {
-            return false;
-        }
-        strictly_smaller |= !growth.dominates(other);
-    }
-    strictly_smaller
-}
-
 /// One rule-level symbolic transformation. Its relation applies to every formula.
 #[derive(Clone, Debug)]
-pub struct SizeTransform {
+pub struct ParameterTransform {
     edge: Box<str>,
-    relation: SizeRelation,
-    fields: Vec<SizeField>,
-    analysis: AlgebraicAnalysis,
+    relation: ParameterRelation,
+    fields: Vec<ParameterField>,
 }
 
 #[derive(Clone, Debug)]
-struct SizeField {
+struct ParameterField {
     name: Box<str>,
     expression: Expr,
     plan: Plan,
@@ -116,12 +59,12 @@ impl Plan {
     }
 }
 
-impl SizeTransform {
+impl ParameterTransform {
     pub fn new<I, N>(
         edge: impl Into<Box<str>>,
-        relation: SizeRelation,
+        relation: ParameterRelation,
         fields: I,
-    ) -> Result<Self, SizeTransformError>
+    ) -> Result<Self, ParameterTransformError>
     where
         I: IntoIterator<Item = (N, Expr)>,
         N: Into<Box<str>>,
@@ -132,14 +75,14 @@ impl SizeTransform {
         for (name, expression) in fields {
             let name = name.into();
             if let Err(error) = Symbol::new(name.clone()) {
-                return Err(SizeTransformError::InvalidTargetField {
+                return Err(ParameterTransformError::InvalidTargetField {
                     edge,
                     field: name,
                     reason: error.to_string().into(),
                 });
             }
             if !names.insert(name.clone()) {
-                return Err(SizeTransformError::DuplicateTargetField { edge, field: name });
+                return Err(ParameterTransformError::DuplicateTargetField { edge, field: name });
             }
             raw_fields.push((name, expression));
         }
@@ -156,7 +99,7 @@ impl SizeTransform {
                 let plan = compile(&expression, &analysis, &mut plans).map_err(|failure| {
                     validation_error(edge.clone(), name.clone(), expression.to_string(), failure)
                 })?;
-                Ok(SizeField {
+                Ok(ParameterField {
                     name,
                     expression,
                     plan,
@@ -168,7 +111,6 @@ impl SizeTransform {
             edge,
             relation,
             fields,
-            analysis,
         })
     }
 
@@ -176,7 +118,7 @@ impl SizeTransform {
         &self.edge
     }
 
-    pub fn relation(&self) -> SizeRelation {
+    pub fn relation(&self) -> ParameterRelation {
         self.relation
     }
 
@@ -193,7 +135,10 @@ impl SizeTransform {
             .map(|field| &field.expression)
     }
 
-    pub fn evaluate(&self, input: &ProblemSize) -> Result<ProblemSize, SizeTransformError> {
+    pub fn evaluate(
+        &self,
+        input: &ProblemParameters,
+    ) -> Result<ProblemParameters, ParameterTransformError> {
         let mut memo = HashMap::new();
         let mut output = Vec::with_capacity(self.fields.len());
         for field in &self.fields {
@@ -201,15 +146,15 @@ impl SizeTransform {
                 evaluation_error(self.edge.clone(), field.name.clone(), failure)
             })?;
             if value.is_negative() {
-                return Err(SizeTransformError::NegativeResult {
+                return Err(ParameterTransformError::NegativeResult {
                     edge: self.edge.clone(),
                     field: field.name.clone(),
                     value,
                 });
             }
-            let value = if self.relation == SizeRelation::Exact {
+            let value = if self.relation == ParameterRelation::Exact {
                 if !value.is_integer() {
-                    return Err(SizeTransformError::NonIntegralResult {
+                    return Err(ParameterTransformError::NonIntegralResult {
                         edge: self.edge.clone(),
                         field: field.name.clone(),
                         value: value.to_string().into(),
@@ -220,29 +165,29 @@ impl SizeTransform {
                 ceil_nonnegative(&value)
             };
             let value =
-                u64::try_from(&value).map_err(|_| SizeTransformError::OutputOutOfRange {
+                u64::try_from(&value).map_err(|_| ParameterTransformError::OutputOutOfRange {
                     field: field.name.clone(),
                     value: value.clone(),
                 })?;
             output.push((field.name.to_string(), value));
         }
-        Ok(ProblemSize { components: output })
+        Ok(ProblemParameters::from_owned(output))
     }
 
     pub fn compose(
         &self,
-        next: &SizeTransform,
+        next: &ParameterTransform,
         edge: impl Into<Box<str>>,
-    ) -> Result<SizeTransform, SizeTransformError> {
+    ) -> Result<ParameterTransform, ParameterTransformError> {
         let edge = edge.into();
         let replacements: HashMap<&str, &Expr> = self.expressions().collect();
         let fields = next
             .fields
             .iter()
             .map(|field| {
-                let expression = if self.relation == SizeRelation::UpperBound {
+                let expression = if self.relation == ParameterRelation::UpperBound {
                     positive_polynomial_hull(&field.expression).ok_or_else(|| {
-                        SizeTransformError::CannotPropagateUpperBound {
+                        ParameterTransformError::CannotPropagateUpperBound {
                             edge: next.edge.clone(),
                             field: field.name.clone(),
                             expression: field.expression.to_string().into(),
@@ -254,29 +199,15 @@ impl SizeTransform {
                 let expression =
                     expression
                         .substitute_complete(&replacements)
-                        .map_err(|error| SizeTransformError::MissingCompositionInput {
+                        .map_err(|error| ParameterTransformError::MissingCompositionInput {
                             edge: edge.clone(),
                             field: field.name.clone(),
                             input_fields: error.missing_variables().map(Box::<str>::from).collect(),
                         })?;
                 Ok((field.name.clone(), expression))
             })
-            .collect::<Result<Vec<_>, SizeTransformError>>()?;
+            .collect::<Result<Vec<_>, ParameterTransformError>>()?;
         Self::new(edge, self.relation.compose(next.relation), fields)
-    }
-
-    pub fn project_growth(&self) -> SizeGrowth {
-        let fields = self
-            .fields
-            .iter()
-            .map(|field| {
-                (
-                    field.name.clone(),
-                    Growth::from_analysis(&field.expression, &self.analysis),
-                )
-            })
-            .collect();
-        SizeGrowth { fields }
     }
 }
 
@@ -427,7 +358,7 @@ fn compile(
 
 fn evaluate_plan(
     plan: &Plan,
-    input: &ProblemSize,
+    input: &ProblemParameters,
     memo: &mut HashMap<usize, BigRational>,
 ) -> Result<BigRational, EvaluationFailure> {
     if let Some(value) = memo.get(&plan.identity()) {
@@ -503,10 +434,10 @@ fn validation_error(
     field: Box<str>,
     expression: String,
     failure: ValidationFailure,
-) -> SizeTransformError {
+) -> ParameterTransformError {
     match failure {
         ValidationFailure::NonIntegralConstantExponent(exponent) => {
-            SizeTransformError::NonIntegralConstantExponent {
+            ParameterTransformError::NonIntegralConstantExponent {
                 edge,
                 field,
                 expression: expression.into(),
@@ -514,7 +445,7 @@ fn validation_error(
             }
         }
         ValidationFailure::UnsupportedOperator(operator) => {
-            SizeTransformError::UnsupportedOperator {
+            ParameterTransformError::UnsupportedOperator {
                 edge,
                 field,
                 expression: expression.into(),
@@ -528,29 +459,31 @@ fn evaluation_error(
     edge: Box<str>,
     field: Box<str>,
     failure: EvaluationFailure,
-) -> SizeTransformError {
+) -> ParameterTransformError {
     match failure {
         EvaluationFailure::MissingInputField(input_field) => {
-            SizeTransformError::MissingInputField {
+            ParameterTransformError::MissingInputField {
                 edge,
                 field,
                 input_field,
             }
         }
-        EvaluationFailure::DivisionByZero => SizeTransformError::DivisionByZero { edge, field },
+        EvaluationFailure::DivisionByZero => {
+            ParameterTransformError::DivisionByZero { edge, field }
+        }
     }
 }
 
-/// Validation, composition, or evaluation failure for a [`SizeTransform`].
+/// Validation, composition, or evaluation failure for a [`ParameterTransform`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum SizeTransformError {
-    #[error("reduction `{edge}` has invalid target size field `{field}`: {reason}")]
+pub enum ParameterTransformError {
+    #[error("reduction `{edge}` has invalid target parameter field `{field}`: {reason}")]
     InvalidTargetField {
         edge: Box<str>,
         field: Box<str>,
         reason: Box<str>,
     },
-    #[error("reduction `{edge}` declares target size field `{field}` more than once")]
+    #[error("reduction `{edge}` declares target parameter field `{field}` more than once")]
     DuplicateTargetField { edge: Box<str>, field: Box<str> },
     #[error("reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`")]
     NonIntegralConstantExponent {
@@ -573,7 +506,7 @@ pub enum SizeTransformError {
         expression: Box<str>,
     },
     #[error(
-        "reduction `{edge}` target field `{field}` is missing input size field `{input_field}`"
+        "reduction `{edge}` target field `{field}` is missing input parameter field `{input_field}`"
     )]
     MissingInputField {
         edge: Box<str>,
@@ -590,22 +523,24 @@ pub enum SizeTransformError {
     },
     #[error("reduction `{edge}` target field `{field}` divides by zero")]
     DivisionByZero { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` evaluates to non-integral size `{value}`")]
+    #[error("reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`")]
     NonIntegralResult {
         edge: Box<str>,
         field: Box<str>,
         value: Box<str>,
     },
-    #[error("reduction `{edge}` target field `{field}` evaluates to negative size `{value}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` evaluates to negative parameter value `{value}`"
+    )]
     NegativeResult {
         edge: Box<str>,
         field: Box<str>,
         value: BigRational,
     },
-    #[error("size field `{field}` value `{value}` does not fit u64")]
+    #[error("parameter field `{field}` value `{value}` does not fit u64")]
     OutputOutOfRange { field: Box<str>, value: BigUint },
 }
 
 #[cfg(test)]
-#[path = "unit_tests/size.rs"]
+#[path = "unit_tests/parameters.rs"]
 mod tests;

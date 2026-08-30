@@ -50,9 +50,12 @@ impl ReductionResult for ReductionSubIsoToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_pattern_vertices * num_host_vertices",
         num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {

@@ -132,7 +132,7 @@ impl Problem for SimultaneousIncongruences {
     type Solution = i64;
     type Value = Or;
 
-    crate::problem_size![("num_pairs", num_pairs),];
+    crate::problem_parameters![("num_pairs", num_pairs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

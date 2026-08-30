@@ -312,7 +312,7 @@ fn build_layout(
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "4 * num_vars + 16 * num_clauses",
         num_edges = "3 * num_vars + 21 * num_clauses",
         num_matchings = "2",

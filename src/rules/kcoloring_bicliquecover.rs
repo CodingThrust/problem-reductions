@@ -116,12 +116,12 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
+        left_size = "2 * num_vertices",
         num_vertices = "4 * num_vertices",
         num_edges = "2 * num_vertices * (num_vertices - 1) - 4 * num_edges + 3 * num_vertices",
-    },
-    unavailable = {
-        rank = "the target rank depends on the number of colors, which is a problem parameter rather than a source size parameter",
+        rank = "num_vertices + num_colors",
+        right_size = "2 * num_vertices",
     }
 )]
 impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {

@@ -115,7 +115,7 @@ fn test_steiner_tree_is_valid_solution() {
 }
 
 #[test]
-fn test_steiner_tree_size_getters() {
+fn test_steiner_tree_parameter_getters() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = SteinerTreeInGraphs::new(graph, vec![0, 2, 4], vec![1i64; 4]);
     assert_eq!(problem.num_vertices(), 5);

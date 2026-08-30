@@ -91,7 +91,7 @@ impl Problem for DirectedHamiltonianPath {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

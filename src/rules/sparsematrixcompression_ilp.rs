@@ -38,9 +38,12 @@ impl ReductionResult for ReductionSMCToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_rows * bound_k",
         num_constraints = "num_rows + num_rows * num_rows * bound_k * bound_k",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {

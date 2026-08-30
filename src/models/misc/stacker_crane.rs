@@ -334,7 +334,7 @@ impl Problem for StackerCrane {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_arcs", num_arcs),
         ("num_edges", num_edges),
         ("num_vertices", num_vertices),

@@ -33,10 +33,10 @@ pub trait DynProblem: Any {
     fn problem_name(&self) -> &'static str;
     /// Return the variant key-value map.
     fn variant_map(&self) -> BTreeMap<String, String>;
-    /// Return this problem model's canonical size-parameter names.
-    fn size_parameter_names_dyn(&self) -> &'static [&'static str];
-    /// Measure the complete canonical size of this concrete instance.
-    fn size_dyn(&self) -> crate::types::ProblemSize;
+    /// Return this problem model's canonical parameter names.
+    fn parameter_names_dyn(&self) -> &'static [&'static str];
+    /// Measure the complete canonical parameters of this concrete instance.
+    fn parameters_dyn(&self) -> crate::types::ProblemParameters;
 }
 
 impl<T> DynProblem for T
@@ -75,12 +75,12 @@ where
         crate::export::variant_to_map(T::variant())
     }
 
-    fn size_parameter_names_dyn(&self) -> &'static [&'static str] {
-        T::size_parameter_names()
+    fn parameter_names_dyn(&self) -> &'static [&'static str] {
+        T::parameter_names()
     }
 
-    fn size_dyn(&self) -> crate::types::ProblemSize {
-        self.size()
+    fn parameters_dyn(&self) -> crate::types::ProblemParameters {
+        self.parameters()
     }
 }
 

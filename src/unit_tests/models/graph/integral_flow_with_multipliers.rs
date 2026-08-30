@@ -135,12 +135,12 @@ fn test_integral_flow_with_multipliers_solver_yes_instance() {
 }
 
 #[test]
-fn test_integral_flow_with_multipliers_problem_name_and_size_fields() {
+fn test_integral_flow_with_multipliers_problem_name_and_parameters() {
     assert_eq!(
         <IntegralFlowWithMultipliers as Problem>::NAME,
         "IntegralFlowWithMultipliers"
     );
-    let fields: HashSet<&'static str> = IntegralFlowWithMultipliers::size_parameter_names()
+    let fields: HashSet<&'static str> = IntegralFlowWithMultipliers::parameter_names()
         .iter()
         .copied()
         .collect();

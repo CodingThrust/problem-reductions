@@ -314,7 +314,7 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_objects", num_objects),
         ("num_attributes", num_attributes),
         ("total_domain_size", total_domain_size),

@@ -45,7 +45,7 @@ fn literal_element_index(lit: i64, num_vars: usize) -> usize {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         universe_size = "2 * num_vars",
         num_subsets = "num_vars + num_clauses",
     }

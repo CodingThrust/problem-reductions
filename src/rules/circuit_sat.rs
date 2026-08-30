@@ -300,10 +300,11 @@ impl ReductionResult for ReductionCircuitSATToSAT {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the exact Tseitin variable count is specific to this reduction and is not a CircuitSAT size parameter",
-        num_clauses = "the exact Tseitin clause count is specific to this reduction and is not a CircuitSAT size parameter",
-    }
+    transform = unavailable {
+        num_vars = "the exact Tseitin variable count is specific to this reduction and is not a CircuitSAT parameter",
+        num_clauses = "the exact Tseitin clause count is specific to this reduction and is not a CircuitSAT parameter",
+            num_literals = "the exact target parameter is not represented by this reduction's symbolic transform",
+}
 )]
 impl ReduceTo<Satisfiability> for CircuitSAT {
     type Result = ReductionCircuitSATToSAT;

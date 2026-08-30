@@ -47,7 +47,7 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         rows = "left_size",
         cols = "right_size",
         rank = "rank",

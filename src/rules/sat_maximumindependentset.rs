@@ -116,7 +116,7 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",
     }

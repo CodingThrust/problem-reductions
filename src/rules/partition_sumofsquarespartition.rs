@@ -66,7 +66,7 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_elements = "num_elements",
         num_groups = "2",
     })]

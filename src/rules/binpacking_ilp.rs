@@ -48,10 +48,13 @@ impl ReductionResult for ReductionBPToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for BinPacking<i64> {
     type Result = ReductionBPToILP;

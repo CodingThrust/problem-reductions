@@ -53,10 +53,13 @@ impl ReductionResult for ReductionMFVSToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "2 * num_vertices",
         num_constraints = "num_arcs + 2 * num_vertices",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
     type Result = ReductionMFVSToILP;

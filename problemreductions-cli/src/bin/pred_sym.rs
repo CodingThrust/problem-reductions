@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use problemreductions::{big_o_normal_form, evaluate_approximate, Expr, ProblemSize};
+use problemreductions::{big_o_normal_form, evaluate_approximate, Expr, ProblemParameters};
 
 #[derive(Parser)]
 #[command(
@@ -141,10 +141,8 @@ fn main() {
                 std::process::exit(1);
             }
 
-            let size = ProblemSize {
-                components: bindings,
-            };
-            let result = evaluate_approximate(&parsed, &size).unwrap_or_else(|error| {
+            let parameters = ProblemParameters::from_owned(bindings);
+            let result = evaluate_approximate(&parsed, &parameters).unwrap_or_else(|error| {
                 eprintln!("Error: {error}");
                 std::process::exit(1);
             });

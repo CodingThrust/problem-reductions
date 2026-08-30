@@ -216,7 +216,7 @@ impl Problem for BMF {
     type Solution = (Vec<Vec<bool>>, Vec<Vec<bool>>);
     type Value = Min<i64>;
 
-    crate::problem_size![("cols", cols), ("rank", rank), ("rows", rows),];
+    crate::problem_parameters![("cols", cols), ("rank", rank), ("rows", rows),];
 
     fn evaluate(
         &self,

@@ -151,7 +151,7 @@ fn test_minimumgraphbandwidth_problem_name() {
 }
 
 #[test]
-fn test_minimumgraphbandwidth_size_getters() {
+fn test_minimumgraphbandwidth_parameter_getters() {
     let problem = star_example();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);

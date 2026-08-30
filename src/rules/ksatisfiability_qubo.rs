@@ -301,7 +301,7 @@ fn build_qubo_matrix(
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars",
     }
 )]
@@ -324,7 +324,7 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars + num_clauses",
     }
 )]

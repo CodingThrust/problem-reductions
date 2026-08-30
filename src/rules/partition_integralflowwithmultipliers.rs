@@ -47,13 +47,13 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_elements + 3",
         num_arcs = "2 * num_elements + 1",
     },
     unavailable = {
-        max_capacity = "the target capacity depends on source numeric values not represented by Partition size parameters",
-        requirement = "the target requirement depends on source numeric values not represented by Partition size parameters",
+        max_capacity = "the target capacity depends on source numeric values not represented by Partition parameters",
+        requirement = "the target requirement depends on source numeric values not represented by Partition parameters",
     }
 )]
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {

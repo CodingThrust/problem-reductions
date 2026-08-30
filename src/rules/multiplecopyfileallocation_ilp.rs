@@ -70,10 +70,13 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices + num_vertices^2",
         num_constraints = "num_vertices^2 + num_vertices",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
     type Result = ReductionMCFAToILP;

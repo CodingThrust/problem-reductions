@@ -215,8 +215,8 @@ fn test_acyclic_partition_num_variables() {
 }
 
 #[test]
-fn test_acyclic_partition_declares_problem_size_fields() {
-    let fields: HashSet<&'static str> = AcyclicPartition::<i64>::size_parameter_names()
+fn test_acyclic_partition_declares_problem_parameters() {
+    let fields: HashSet<&'static str> = AcyclicPartition::<i64>::parameter_names()
         .iter()
         .copied()
         .collect();

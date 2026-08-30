@@ -179,7 +179,7 @@ impl Problem for FlowShopScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_jobs", num_jobs), ("num_processors", num_processors),];
+    crate::problem_parameters![("num_jobs", num_jobs), ("num_processors", num_processors),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

@@ -54,9 +54,12 @@ impl ReductionResult for ReductionPCSToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * deadline",
         num_constraints = "num_tasks + deadline + num_precedences",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {

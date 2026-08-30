@@ -258,7 +258,7 @@ impl Problem for MaximumCommonEdgeSubgraph {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_arcs_1", num_arcs_1),
         ("num_arcs_2", num_arcs_2),
         ("num_vertices_1", num_vertices_1),

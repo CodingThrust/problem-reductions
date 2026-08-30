@@ -268,7 +268,7 @@ mod tests {
         type Solution = Vec<usize>;
         type Value = Max<i64>;
 
-        crate::problem_size![("num_variables", num_variables)];
+        crate::problem_parameters![("num_variables", num_variables)];
 
         fn evaluate(
             &self,
@@ -307,7 +307,7 @@ mod tests {
         type Solution = Vec<usize>;
         type Value = Or;
 
-        crate::problem_size![("num_variables", num_variables)];
+        crate::problem_parameters![("num_variables", num_variables)];
 
         fn evaluate(
             &self,

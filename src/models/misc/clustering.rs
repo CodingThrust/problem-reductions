@@ -164,7 +164,7 @@ impl Problem for Clustering {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_clusters", num_clusters),
         ("num_elements", num_elements),
     ];

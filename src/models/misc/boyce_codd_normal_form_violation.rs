@@ -222,7 +222,7 @@ impl Problem for BoyceCoddNormalFormViolation {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_attributes", num_attributes),
         ("num_functional_deps", num_functional_deps),
         ("num_target_attributes", num_target_attributes),

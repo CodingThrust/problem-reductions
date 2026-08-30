@@ -189,7 +189,7 @@ impl Problem for StringToStringCorrection {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("bound", bound), ("source_length", source_length),];
+    crate::problem_parameters![("bound", bound), ("source_length", source_length),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

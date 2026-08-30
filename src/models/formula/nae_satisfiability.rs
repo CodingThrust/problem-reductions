@@ -166,7 +166,7 @@ impl Problem for NAESatisfiability {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_clauses", num_clauses),
         ("num_literal_pairs", num_literal_pairs),
         ("num_literals", num_literals),

@@ -32,7 +32,7 @@ impl ReductionResult for ReductionSATToNonTautology {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars",
         num_disjuncts = "num_clauses",
     })]

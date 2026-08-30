@@ -178,7 +178,7 @@ impl Problem for ResourceConstrainedScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("deadline", deadline),
         ("num_resources", num_resources),
         ("num_tasks", num_tasks),

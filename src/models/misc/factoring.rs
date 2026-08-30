@@ -157,7 +157,7 @@ impl Problem for Factoring {
     type Solution = (BigUint, BigUint);
     type Value = Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_bits_first", num_bits_first),
         ("num_bits_second", num_bits_second),
         ("target_bits", target_bits),

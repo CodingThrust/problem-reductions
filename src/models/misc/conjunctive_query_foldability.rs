@@ -266,7 +266,7 @@ impl Problem for ConjunctiveQueryFoldability {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("domain_size", domain_size),
         ("num_distinguished", num_distinguished),
         ("num_undistinguished", num_undistinguished),

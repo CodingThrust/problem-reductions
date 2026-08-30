@@ -104,7 +104,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vertices",
         num_edges = "num_vertices + 2 * num_edges",
         num_required_edges = "num_vertices",

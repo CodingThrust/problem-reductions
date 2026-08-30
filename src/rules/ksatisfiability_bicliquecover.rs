@@ -258,10 +258,14 @@ fn free_edge_budget(ell: usize, m: usize) -> Option<usize> {
 // giving the polynomial bounds below. Edges are bounded by
 // `partition_size^2` which is `O((num_vars + num_clauses)^2)`.
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "32 * num_vars + 24 * num_clauses + 100",
         num_edges = "(32 * num_vars + 24 * num_clauses + 100) * (32 * num_vars + 24 * num_clauses + 100)",
         rank = "10 * num_vars + 4 * num_clauses + 20",
+    },
+    unavailable = {
+        left_size = "the exact target parameter is not represented by this reduction's symbolic transform",
+        right_size = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {

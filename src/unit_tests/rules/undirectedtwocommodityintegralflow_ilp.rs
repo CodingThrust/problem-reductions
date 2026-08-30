@@ -67,9 +67,9 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
         })
         .expect("U2CIF -> ILP<i64> reduction should be registered");
 
-    let source_size = problem.size();
+    let source_size = problem.parameters();
     let predicted = entry
-        .size_contract()
+        .parameter_contract()
         .unwrap()
         .transform()
         .unwrap()

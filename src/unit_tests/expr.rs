@@ -1,9 +1,9 @@
 use super::*;
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-fn eval(expression: &Expr, size: &ProblemSize) -> f64 {
+fn eval(expression: &Expr, size: &ProblemParameters) -> f64 {
     evaluate_approximate(expression, size).unwrap()
 }
 
@@ -41,7 +41,7 @@ fn test_approximate_evaluation_against_sympy_fixture() {
     for case in fixture.approximate_cases {
         let expression = Expr::try_parse(&case.source)
             .unwrap_or_else(|error| panic!("{} failed to parse: {error}", case.name));
-        let size = ProblemSize::new(
+        let size = ProblemParameters::new(
             case.bindings
                 .iter()
                 .map(|(name, value)| (name.as_str(), *value))
@@ -86,7 +86,7 @@ fn test_factorial_domain_against_sympy_fixture() {
                 )
             });
             assert_eq!(
-                evaluate_approximate(&expression, &ProblemSize::default()).is_ok(),
+                evaluate_approximate(&expression, &ProblemParameters::default()).is_ok(),
                 case.finite_f64,
                 "factorial approximation {} ({})",
                 case.source,
@@ -94,7 +94,7 @@ fn test_factorial_domain_against_sympy_fixture() {
             );
         } else if let Ok(expression) = expression {
             assert!(
-                evaluate_approximate(&expression, &ProblemSize::default()).is_err(),
+                evaluate_approximate(&expression, &ProblemParameters::default()).is_err(),
                 "invalid factorial argument {} ({}) evaluated successfully",
                 case.source,
                 case.exact_argument
@@ -106,14 +106,14 @@ fn test_factorial_domain_against_sympy_fixture() {
 #[test]
 fn test_expr_const_eval() {
     let e = Expr::integer(42);
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert_eq!(eval(&e, &size), 42.0);
 }
 
 #[test]
 fn test_expr_var_eval() {
     let e = Expr::variable("n");
-    let size = ProblemSize::new(vec![("n", 10)]);
+    let size = ProblemParameters::new(vec![("n", 10)]);
     assert_eq!(eval(&e, &size), 10.0);
 }
 
@@ -121,7 +121,7 @@ fn test_expr_var_eval() {
 fn test_expr_add_eval() {
     // n + 3
     let e = Expr::variable("n") + Expr::integer(3);
-    let size = ProblemSize::new(vec![("n", 7)]);
+    let size = ProblemParameters::new(vec![("n", 7)]);
     assert_eq!(eval(&e, &size), 10.0);
 }
 
@@ -129,7 +129,7 @@ fn test_expr_add_eval() {
 fn test_expr_mul_eval() {
     // 3 * n
     let e = Expr::integer(3) * Expr::variable("n");
-    let size = ProblemSize::new(vec![("n", 5)]);
+    let size = ProblemParameters::new(vec![("n", 5)]);
     assert_eq!(eval(&e, &size), 15.0);
 }
 
@@ -137,28 +137,28 @@ fn test_expr_mul_eval() {
 fn test_expr_pow_eval() {
     // n^2
     let e = Expr::pow(Expr::variable("n"), Expr::integer(2));
-    let size = ProblemSize::new(vec![("n", 4)]);
+    let size = ProblemParameters::new(vec![("n", 4)]);
     assert_eq!(eval(&e, &size), 16.0);
 }
 
 #[test]
 fn test_expr_exp_eval() {
     let e = Expr::exp(Expr::integer(1));
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert!((eval(&e, &size) - std::f64::consts::E).abs() < 1e-10);
 }
 
 #[test]
 fn test_expr_log_eval() {
     let e = Expr::log(expression_from_approximation(std::f64::consts::E));
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert!((eval(&e, &size) - 1.0).abs() < 1e-10);
 }
 
 #[test]
 fn test_expr_sqrt_eval() {
     let e = Expr::sqrt(Expr::integer(9));
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert_eq!(eval(&e, &size), 3.0);
 }
 
@@ -167,7 +167,7 @@ fn test_expr_complex() {
     // n^2 + 3*m
     let e =
         Expr::pow(Expr::variable("n"), Expr::integer(2)) + Expr::integer(3) * Expr::variable("m");
-    let size = ProblemSize::new(vec![("n", 4), ("m", 2)]);
+    let size = ProblemParameters::new(vec![("n", 4), ("m", 2)]);
     assert_eq!(eval(&e, &size), 22.0); // 16 + 6
 }
 
@@ -188,7 +188,7 @@ fn test_expr_substitute() {
     mapping.insert("n", &replacement);
     let result = e.substitute_complete(&mapping).unwrap();
     // Should be (a + b)^2
-    let size = ProblemSize::new(vec![("a", 3), ("b", 2)]);
+    let size = ProblemParameters::new(vec![("a", 3), ("b", 2)]);
     assert_eq!(eval(&result, &size), 25.0); // (3+2)^2
 }
 
@@ -344,7 +344,7 @@ fn test_expr_display_pow_with_complex_base() {
 #[test]
 fn test_expr_eval_missing_variable() {
     let e = Expr::variable("missing");
-    let size = ProblemSize::new(vec![("other", 5)]);
+    let size = ProblemParameters::new(vec![("other", 5)]);
     assert_eq!(
         evaluate_approximate(&e, &size),
         Err(ApproximationError::MissingVariable("missing".to_string()))
@@ -354,7 +354,7 @@ fn test_expr_eval_missing_variable() {
 #[test]
 fn test_expr_scale() {
     let e = Expr::integer(3) * Expr::variable("n");
-    let size = ProblemSize::new(vec![("n", 5)]);
+    let size = ProblemParameters::new(vec![("n", 5)]);
     assert_eq!(eval(&e, &size), 15.0);
 }
 
@@ -363,7 +363,7 @@ fn test_expr_ops_add_trait() {
     let a = Expr::variable("a");
     let b = Expr::variable("b");
     let e = a + b; // uses std::ops::Add
-    let size = ProblemSize::new(vec![("a", 3), ("b", 4)]);
+    let size = ProblemParameters::new(vec![("a", 3), ("b", 4)]);
     assert_eq!(eval(&e, &size), 7.0);
 }
 
@@ -375,7 +375,7 @@ fn test_expr_substitute_exp_log_sqrt() {
 
     let e = Expr::exp(Expr::variable("n"));
     let result = e.substitute_complete(&mapping).unwrap();
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert!((eval(&result, &size) - 2.0_f64.exp()).abs() < 1e-10);
 
     let e = Expr::log(Expr::variable("n"));
@@ -404,15 +404,15 @@ fn test_expr_variables_exp_log_sqrt() {
 /// Helper: parse and evaluate with given variable bindings.
 fn parse_eval(input: &str, vars: &[(&str, u64)]) -> f64 {
     let expr = Expr::parse(input);
-    let size = ProblemSize::new(vars.to_vec());
+    let size = ProblemParameters::new(vars.to_vec());
     eval(&expr, &size)
 }
 
 /// Like parse_eval but accepts f64 variable values for testing transcendental functions.
 fn parse_eval_f64(input: &str, vars: &[(&str, f64)]) -> f64 {
     let expr = Expr::parse(input);
-    // Build a ProblemSize-compatible evaluation by using substitute + eval
-    // ProblemSize stores integers, so substitute approximate values with Const nodes.
+    // Build a ProblemParameters-compatible evaluation by using substitute + eval
+    // ProblemParameters stores integers, so substitute approximate values with Const nodes.
     let mut mapping = std::collections::HashMap::new();
     let exprs: Vec<Expr> = vars
         .iter()
@@ -423,7 +423,7 @@ fn parse_eval_f64(input: &str, vars: &[(&str, f64)]) -> f64 {
     }
     eval(
         &expr.substitute_complete(&mapping).unwrap(),
-        &ProblemSize::new(vec![]),
+        &ProblemParameters::new(vec![]),
     )
 }
 
@@ -701,7 +701,7 @@ fn test_parse_factorial_variable() {
 #[test]
 fn test_expr_factorial_eval() {
     let e = Expr::factorial(Expr::integer(4));
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert_eq!(eval(&e, &size), 24.0);
 }
 
@@ -709,7 +709,7 @@ fn test_expr_factorial_eval() {
 fn test_expr_factorial_above_f64_range_is_explicit_error() {
     let expression = Expr::factorial(Expr::integer(171));
     assert_eq!(
-        evaluate_approximate(&expression, &ProblemSize::default()),
+        evaluate_approximate(&expression, &ProblemParameters::default()),
         Err(ApproximationError::NonFiniteResult(
             "factorial(171)".to_string()
         ))
@@ -723,7 +723,7 @@ fn test_expr_factorial_rejects_non_integer_and_negative_arguments() {
         (Expr::factorial(Expr::integer(-1)), "-1"),
     ] {
         assert_eq!(
-            evaluate_approximate(&expression, &ProblemSize::default()),
+            evaluate_approximate(&expression, &ProblemParameters::default()),
             Err(ApproximationError::InvalidFactorialArgument(
                 argument.to_string()
             ))
@@ -739,7 +739,7 @@ fn test_non_finite_approximations_are_explicit_errors() {
         (Expr::exp(Expr::integer(1000)), "exp(1000)"),
     ] {
         assert_eq!(
-            evaluate_approximate(&expression, &ProblemSize::default()),
+            evaluate_approximate(&expression, &ProblemParameters::default()),
             Err(ApproximationError::NonFiniteResult(rendered.to_string()))
         );
     }
@@ -751,7 +751,7 @@ fn test_zero_does_not_hide_an_undefined_factor() {
     let expression = Expr::integer(0) * undefined;
     assert_eq!(expression.to_string(), "0 * 0^-1");
     assert_eq!(
-        evaluate_approximate(&expression, &ProblemSize::default()),
+        evaluate_approximate(&expression, &ProblemParameters::default()),
         Err(ApproximationError::NonFiniteResult("0^-1".to_string()))
     );
 }
@@ -775,7 +775,7 @@ fn test_expr_factorial_substitute() {
     mapping.insert("n", &replacement);
     let e = Expr::factorial(Expr::variable("n"));
     let result = e.substitute_complete(&mapping).unwrap();
-    let size = ProblemSize::new(vec![]);
+    let size = ProblemParameters::new(vec![]);
     assert_eq!(eval(&result, &size), 120.0);
 }
 

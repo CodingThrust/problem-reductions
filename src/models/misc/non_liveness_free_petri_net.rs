@@ -396,7 +396,7 @@ impl Problem for NonLivenessFreePetriNet {
     type Solution = Vec<bool>;
     type Value = Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("initial_token_sum", initial_token_sum),
         ("num_arcs", num_arcs),
         ("num_places", num_places),

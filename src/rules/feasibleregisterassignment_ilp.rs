@@ -40,10 +40,14 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
         num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 

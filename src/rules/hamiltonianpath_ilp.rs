@@ -46,9 +46,12 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices",
         num_constraints = "2 * num_vertices + 6 * num_edges * num_vertices + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {

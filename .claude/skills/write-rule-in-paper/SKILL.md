@@ -24,7 +24,7 @@ Before using this skill, ensure:
 ## Source Material
 
 For mathematical content (theorems, proofs, examples), consult these sources in priority order:
-1. **GitHub issue** for the rule (`gh issue view <number>`): contains the verified reduction algorithm, correctness proof, size overhead, and worked examples written during issue creation
+1. **GitHub issue** for the rule (`gh issue view <number>`): contains the verified reduction algorithm, correctness proof, parameter transform, and worked examples written during issue creation
 2. **Derivation documents** (if available): e.g., `~/Downloads/reduction_derivations_*.typ` — these contain batch-verified proofs with explicit theorem/proof blocks
 3. **The implementation** (`src/rules/<source>_<target>.rs`): the code is the ground truth for the construction
 

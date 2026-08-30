@@ -41,8 +41,8 @@ impl ReductionResult for ReductionKnapsackToQUBO {
     }
 }
 
-#[reduction(size = unavailable {
-    num_vars = "the slack-bit count belongs to this QUBO encoding and depends on the unregistered source capacity",
+#[reduction(transform = unavailable {
+    num_vars = "the exact piecewise slack-bit count is not representable in the parameter-expression language",
 })]
 impl ReduceTo<QUBO<f64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;

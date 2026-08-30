@@ -299,9 +299,10 @@ impl ReductionSATToColoring {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vars + 3 + 5 * (num_literals - num_clauses)",
         num_edges = "3 + 3 * num_vars + 11 * num_literals - 9 * num_clauses",
+        num_colors = "3",
     }
 )]
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {

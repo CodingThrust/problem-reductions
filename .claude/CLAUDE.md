@@ -126,8 +126,8 @@ Problem (core trait — all problems must implement)
 ├── const NAME: &'static str           // e.g., "MaximumIndependentSet"
 ├── type Solution                      // mathematical witness representation
 ├── type Value: Clone                  // per-solution evaluation value
-├── fn size_parameter_names()          // canonical problem-owned size schema
-├── fn size(&self) -> ProblemSize      // concrete instance size values
+├── fn parameter_names()               // canonical problem-owned parameter schema
+├── fn parameters(&self) -> ProblemParameters // concrete instance parameter values
 ├── fn evaluate(&self, solution) -> Result<Value, EvaluationError>
 ├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i64")]
 └── fn problem_type() -> ProblemType   // catalog bridge: registry lookup by NAME
@@ -159,9 +159,9 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 ### Key Patterns
 - Keep failure phases typed and separate: public construction paths return `ConstructionError`, `Problem::evaluate()` returns `EvaluationError`, and reduction paths return `ReductionError`. A reduction preserves target construction failures as `ReductionError::Construction`; none of these paths returns or creates an error as a bare `String`.
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
-- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/solution-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods. Ordinary models are constructed directly from their construction schema. When user-facing construction differs from persisted JSON, define a model-local `#[derive(CreateSpec)]` DTO plus `TryFrom<CreateSpec>`, use its generated `FIELDS` in `ProblemSchemaEntry`, and register it with `create LocalSpec`; never add model-name branches in CLI or MCP code.
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/solution-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated against the problem-owned parameter schema. Ordinary models are constructed directly from their construction schema. When user-facing construction differs from persisted JSON, define a model-local `#[derive(CreateSpec)]` DTO plus `TryFrom<CreateSpec>`, use its generated `FIELDS` in `ProblemSchemaEntry`, and register it with `create LocalSpec`; never add model-name branches in CLI or MCP code.
 - `decision_problem_meta!` macro registers `DecisionProblemMeta` for a concrete inner type, providing the `DECISION_NAME` constant.
-- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `size_getters` parameters for problem-specific size fields.
+- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `parameter_getters` parameters for problem-specific parameters.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `BruteForce::solve()` returns `Result<Option<P::Solution>, SolveError>`; `None` means exhaustive search proved infeasibility
 - `BruteForce::find_all_witnesses()` is a reference-testing helper for collecting every optimal or satisfying solution
@@ -175,22 +175,22 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
-### Size Relations
-Each reduction declares one rule-level size relation using the `Expr` AST in `src/expr.rs`. The `size` declaration is required:
+### Parameter Relations
+Each reduction declares one rule-level parameter relation using the `Expr` AST in `src/expr.rs`. The `transform` declaration is required:
 ```rust
-#[reduction(size = upper_bound {
+#[reduction(transform = upper_bound {
     num_vertices = "num_vertices + num_clauses",
     num_edges = "3 * num_clauses",
 })]
 impl ReduceTo<Target> for Source { ... }
 ```
 - Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
-- Variable names are validated against actual getter methods on the source type — typos cause compile errors
-- Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference
-- Use `size = exact { ... }` when every formula is an equality and `size = upper_bound { ... }` when every formula is only an upper bound. One rule cannot mix relations.
-- Use `size = unavailable { ... }` when no formula is representable, or an auxiliary `unavailable = { ... }` block for omitted target fields.
-- `SizeTransform` evaluates and composes formulas with exact rational and arbitrary-precision integer arithmetic. It never performs budget pruning or Pareto ranking.
-- Concrete instance sizes come from each endpoint instance's `Problem::size()` implementation; `ReductionEntry` stores only the symbolic size relation.
+- Variable names are validated against the source problem's canonical parameter schema
+- Use `transform = exact { ... }` when every formula is an equality and `transform = upper_bound { ... }` when every formula is only an upper bound. One expression block cannot mix relations.
+- Use `transform = unavailable { ... }` when no formula is representable, or an auxiliary `unavailable = { ... }` block for omitted target parameters.
+- Every target parameter must appear exactly once as a formula or as unavailable with a non-empty reason.
+- `ParameterTransform` evaluates and composes formulas with exact rational and arbitrary-precision integer arithmetic. Unsafe upper-bound composition becomes unavailable; it never performs budget pruning or path ranking.
+- Concrete instance parameters come from each endpoint instance's `Problem::parameters()` implementation; `ReductionEntry` stores only the symbolic parameter relation.
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
 - Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`, `factorial()`
 - Complexity strings must use **concrete numeric values only** (e.g., `"2^(2.372 * num_vertices / 3)"`, not `"2^(omega * num_vertices / 3)"`)
@@ -208,7 +208,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
-- `#[reduction]` requires one `size = exact`, `size = upper_bound`, or `size = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
+- `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
 - `Decision<P> → P` is an aggregate-only edge (solve optimization, compare to bound); `P → Decision<P>` is a Turing edge (binary search over decision bound)
 
 ### Extension Points
@@ -217,7 +217,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - **CLI creation is registry-driven and two-stage:** the static parser discovers the requested problem spec without registering model subcommands, then a second parse adds flags only for the selected concrete variant. Ordinary models use `ProblemSchemaEntry.fields` directly. Models whose construction differs from persisted JSON own a typed `CreateSpec` and fallible conversion beside the model; CLI and MCP only normalize transport values and invoke the registered constructor.
 - **Each construction input has one name and one concrete type per variant.** Do not add compatibility aliases or infer types from flag names. `CreateSpec` field names render as `snake_case → kebab-case` in CLI and remain `snake_case` in MCP. Add a reusable codec only for a genuinely new transport representation, never a model-name parser branch.
 - **Random generation is optional and variant-owned.** Not every model has a useful, well-defined random-instance distribution. Add `RandomGenerate` only when the generator has clear semantics and a concrete use (for example, testing or examples); never invent arbitrary bounds or distributions merely to make every model support `--random`. Implement it beside the model (normally through `impl_random_generate!` and a typed `CreateSpec` input DTO), then add `random` only to the applicable `declare_variants!` entries. CLI and MCP discover the exact variant's inputs and callback; never add a model-name random dispatch or advertise random generation on an unsupported variant.
-- **Decision variants** of optimization problems use `Decision<P>` wrapper. Add via: (1) `decision_problem_meta!` for the inner type, (2) inherent methods on `Decision<Inner>`, (3) `register_decision_variant!` with `dims`, `fields`, `size_getters`. The generated construction spec accepts flat inner fields plus `bound`; persisted JSON remains `{inner: {...}, bound}`.
+- **Decision variants** of optimization problems use `Decision<P>` wrapper. Add via: (1) `decision_problem_meta!` for the inner type, (2) inherent methods on `Decision<Inner>`, (3) `register_decision_variant!` with `dims`, `fields`, `parameter_getters`. The generated construction spec accepts flat inner fields plus `bound`; persisted JSON remains `{inner: {...}, bound}`. `Decision<P>` delegates canonical parameters to `P`; its objective bound is semantic instance data, not a problem parameter.
 - Aggregate-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers solution-mapping reductions today; this edge capability does not imply that a problem may solve successfully without a `Solution`
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
@@ -229,8 +229,8 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 
 Follow the [numeric types and arithmetic standard](../docs/src/design.md#numeric-types-and-arithmetic)
 for every model and reduction. `usize` is reserved for in-memory indices,
-collection lengths, and brute-force dimensions; canonical problem size
-parameters are `u64`; signed mathematical integers use `i64`; and approximate
+collection lengths, and brute-force dimensions; canonical problem parameters
+are `u64`; signed mathematical integers use `i64`; and approximate
 real values use finite `f64`. Before implementation, identify each numeric
 input and domain, each computed total and result type, the largest supported
 value, every range/sign-changing conversion, overflow behavior, and whether
@@ -340,10 +340,10 @@ The complexity string represents the **worst-case time complexity of the best kn
 5. Use only concrete numeric values — no symbolic constants (epsilon, omega); inline the actual numbers with citations
 6. Variable names must match getter methods on the problem type (enforced at compile time)
 
-### Reduction Size Relation (`#[reduction(size = exact|upper_bound {...})]`)
-Size expressions describe how target problem size relates to source problem size. To verify correctness:
+### Reduction Parameter Relation (`#[reduction(transform = exact|upper_bound {...})]`)
+Parameter expressions describe how target problem parameters relate to source problem parameters. To verify correctness:
 1. Read the `reduce_to()` implementation and count the actual output sizes
 2. Check that each field (e.g., `num_vertices`, `num_edges`, `num_sets`) matches the constructed target problem
 3. Watch for common errors: universe elements mismatch (edge indices vs vertex indices), worst-case edge counts in intersection graphs (quadratic, not linear), constant factors in circuit constructions
-4. Test with concrete small instances: construct a source problem, run the reduction, and compare target sizes against the formula
+4. Test with concrete small instances: construct a source problem, run the reduction, and compare target parameters against the formula
 5. Ensure there is only one primitive reduction registration for each exact source/target variant pair; wrap shared helpers instead of registering duplicate endpoints

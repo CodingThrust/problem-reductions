@@ -105,7 +105,7 @@ fn no_sentinel() -> ConsecutiveOnesMatrixAugmentation {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_rows = "num_edges",
         num_cols = "num_vertices",
     }

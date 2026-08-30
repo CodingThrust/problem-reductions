@@ -648,7 +648,7 @@ fn test_growth_rejects_large_unproved_exponential_antichain() {
 // is well-aimed, not vacuous.
 
 use super::{log_growth, pow_const};
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 
 /// Fixed master seed. Every contract derives its own stream by offsetting this,
 /// so the whole suite is deterministic and reproducible on any platform.
@@ -689,8 +689,8 @@ fn gen_var(rng: &mut SplitMix64) -> Expr {
 }
 
 /// All variables set jointly to `s` (the contracts evaluate on the diagonal).
-fn joint_size(s: u64) -> ProblemSize {
-    ProblemSize::new(vec![("n", s), ("m", s), ("k", s)])
+fn joint_size(s: u64) -> ProblemParameters {
+    ProblemParameters::new(vec![("n", s), ("m", s), ("k", s)])
 }
 
 // --- General expression generator (contracts 1 and 2) ---

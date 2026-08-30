@@ -46,7 +46,7 @@ where
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_spins = "num_vertices",
         num_interactions = "num_edges",
     }
@@ -152,7 +152,7 @@ where
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "num_spins + 1",
         num_edges = "num_interactions + num_spins",
     }

@@ -135,7 +135,7 @@ fn test_jl_parity_evaluation() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
     assert_eq!(problem.num_sequence(), 4);
     assert_eq!(problem.num_cars(), 2);

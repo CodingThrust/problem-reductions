@@ -101,9 +101,10 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    size = upper_bound {
-        num_vars = "num_vertices^2",
-        num_constraints = "num_vertices + num_vertices * num_edges",
+    transform = exact {
+        num_vars = "num_vertices * num_colors",
+        num_constraints = "num_vertices + num_edges * num_colors",
+        num_nonzeros = "num_colors * (num_vertices + 2 * num_edges)",
     }
 )]
 impl ReduceTo<ILP<bool>> for KColoring<KN, SimpleGraph> {

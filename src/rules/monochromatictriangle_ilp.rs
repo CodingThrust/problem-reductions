@@ -35,10 +35,13 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_edges",
         num_constraints = "2 * num_triangles",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;

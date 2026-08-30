@@ -44,7 +44,7 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_elements = "num_elements",
     })]
 impl ReduceTo<SubsetSum> for Partition {

@@ -28,7 +28,7 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
     let brute_force_num_variables = problem.brute_force_num_variables()?;
 
-    let size_fields = graph.size_field_names(name);
+    let parameters = graph.parameter_names(name);
     let solver_view = solver_capabilities_view(&problem)?;
     let targets = executable_reduction_targets(&graph, name, &variant);
     out.emit(
@@ -40,8 +40,8 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
                 format!(" {{{}}}", pairs.join(", "))
             };
             let mut text = format!("Type: {}{}\n", name, variant_str);
-            if !size_fields.is_empty() {
-                text.push_str(&format!("Size fields: {}\n", size_fields.join(", ")));
+            if !parameters.is_empty() {
+                text.push_str(&format!("Parameters: {}\n", parameters.join(", ")));
             }
             if let Some(num_variables) = brute_force_num_variables {
                 text.push_str(&format!("Brute-force variables: {num_variables}\n"));
@@ -70,7 +70,7 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
                 "kind": "problem",
                 "type": name,
                 "variant": variant,
-                "size_fields": size_fields,
+                "parameters": parameters,
                 "brute_force_num_variables": brute_force_num_variables,
                 "solvers": solver_view.solvers,
                 "default_solver": solver_view.default_solver,

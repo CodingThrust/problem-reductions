@@ -12,7 +12,7 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 
 /// Algebraic facts computed once from the shared expression DAG and consumed by
 /// exact-size evaluation and asymptotic-growth projection.
@@ -355,14 +355,14 @@ fn power_cmp_one(base: &AlgebraicFacts, exponent: &AlgebraicFacts) -> Option<Ord
 /// Evaluate an expression numerically at an explicitly approximate boundary.
 pub fn evaluate_approximate(
     expression: &Expr,
-    variables: &ProblemSize,
+    variables: &ProblemParameters,
 ) -> Result<f64, ApproximationError> {
     evaluate_approximate_inner(expression, variables, &mut HashMap::new())
 }
 
 fn evaluate_approximate_inner(
     expression: &Expr,
-    variables: &ProblemSize,
+    variables: &ProblemParameters,
     memo: &mut HashMap<ExprNodeId, f64>,
 ) -> Result<f64, ApproximationError> {
     if let Some(value) = memo.get(&expression.node_identity()) {

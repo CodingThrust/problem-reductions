@@ -106,7 +106,7 @@ impl Problem for MinimumCodeGenerationParallelAssignments {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_variables", num_variables),
         ("num_assignments", num_assignments),
     ];

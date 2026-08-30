@@ -207,7 +207,7 @@ impl Problem for PreemptiveScheduling {
     type Solution = Vec<Vec<bool>>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("d_max", d_max),
         ("num_precedences", num_precedences),
         ("num_processors", num_processors),

@@ -1,10 +1,10 @@
 use crate::models::algebraic::AlgebraicEquationsOverGF2;
 use crate::models::graph::{MaximumClique, MaximumIndependentSet};
 use crate::models::set::ExactCoverBy3Sets;
+use crate::parameters::ParameterRelation;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
-use crate::size::SizeRelation;
 use crate::topology::SimpleGraph;
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 use crate::Problem;
 
 #[test]
@@ -34,9 +34,12 @@ fn exact_rule_formula_matches_the_constructed_target() {
         .find(|path| path.len() == 1)
         .expect("direct reduction is registered");
 
-    let transform = graph.compose_path_size_transform(&path).unwrap().unwrap();
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
     let predicted = transform
-        .evaluate(&ProblemSize::new(vec![
+        .evaluate(&ProblemParameters::new(vec![
             ("num_vertices", 5),
             ("num_edges", 4),
         ]))
@@ -59,7 +62,7 @@ fn incoming_rule_measures_every_declared_field_on_a_sink_variant() {
     let target = reduction.target_problem();
     let target_variant = ReductionGraph::variant_to_map(&AlgebraicEquationsOverGF2::variant());
 
-    let measured = ReductionGraph::compute_problem_size(
+    let measured = ReductionGraph::compute_problem_parameters(
         AlgebraicEquationsOverGF2::NAME,
         &target_variant,
         target,
@@ -76,11 +79,11 @@ fn incoming_rule_measures_every_declared_field_on_a_sink_variant() {
 }
 
 #[test]
-fn every_registered_rule_has_one_valid_size_contract() {
+fn every_registered_rule_has_one_valid_parameter_contract() {
     for entry in crate::rules::registry::reduction_entries() {
-        let contract = entry.size_contract().unwrap_or_else(|error| {
+        let contract = entry.parameter_contract().unwrap_or_else(|error| {
             panic!(
-                "{} -> {} has an invalid size contract: {error}",
+                "{} -> {} has an invalid parameter contract: {error}",
                 entry.source_name, entry.target_name
             )
         });
@@ -90,7 +93,7 @@ fn every_registered_rule_has_one_valid_size_contract() {
 
 #[cfg(feature = "example-db")]
 #[test]
-fn canonical_examples_satisfy_upper_bound_size_contracts() {
+fn canonical_examples_satisfy_upper_bound_parameter_contracts() {
     for spec in crate::rules::canonical_rule_example_specs() {
         let example = (spec.build)();
         let source = crate::registry::load_dyn(
@@ -114,21 +117,21 @@ fn canonical_examples_satisfy_upper_bound_size_contracts() {
                 &example.target.variant,
             )
             .unwrap_or_else(|| panic!("{} has no registered direct edge", spec.id));
-        let Ok(contract) = entry.size_contract else {
+        let Ok(contract) = entry.parameter_contract else {
             continue;
         };
         let Some(transform) = contract.transform() else {
             continue;
         };
-        if transform.relation() != SizeRelation::UpperBound {
+        if transform.relation() != ParameterRelation::UpperBound {
             continue;
         }
-        let source_size = ReductionGraph::compute_problem_size(
+        let source_size = ReductionGraph::compute_problem_parameters(
             &example.source.problem,
             &example.source.variant,
             source.as_any(),
         );
-        let target_size = ReductionGraph::compute_problem_size(
+        let target_size = ReductionGraph::compute_problem_parameters(
             &example.target.problem,
             &example.target.variant,
             target.as_any(),

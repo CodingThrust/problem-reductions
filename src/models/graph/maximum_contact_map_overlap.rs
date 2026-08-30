@@ -226,7 +226,7 @@ impl Problem for MaximumContactMapOverlap {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_contacts_1", num_contacts_1),
         ("num_contacts_2", num_contacts_2),
         ("num_vertices_1", num_vertices_1),

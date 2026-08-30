@@ -77,7 +77,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices^2",
     }
 )]

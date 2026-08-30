@@ -28,7 +28,7 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
     }
 }
 
-#[reduction(size = upper_bound {
+#[reduction(transform = upper_bound {
     num_variables = "num_sets",
     num_equations = "universe_size + 9 * num_sets^2",
 })]

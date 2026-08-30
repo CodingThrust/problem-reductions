@@ -108,9 +108,12 @@ impl ReductionResult for ReductionSTSCToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "(bound + 1) * source_length^2 + (bound + 1) * source_length + 2 * bound * source_length + bound",
         num_constraints = "4 * bound * source_length^3 + 2 * bound * source_length^2 + source_length^2 + 6 * bound * source_length + 5 * source_length + bound",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for StringToStringCorrection {

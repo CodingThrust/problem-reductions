@@ -197,7 +197,7 @@ impl Problem for EquilibriumPoint {
     type Solution = Vec<i64>;
     type Value = Or;
 
-    crate::problem_size![("num_players", num_players),];
+    crate::problem_parameters![("num_players", num_players),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

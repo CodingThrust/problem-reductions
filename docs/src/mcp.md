@@ -77,9 +77,9 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | Tool | Parameters | Description |
 |------|-----------|-------------|
 | `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
-| `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
+| `show_problem` | `problem` (string) | Show details for a problem type: variants, parameter fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20, maximum: 999), `selection` (`pareto` default or `all`), `problem_json` (optional string) | Find reduction paths and explain how size changes. Selection runs before the output limit; with a complete source instance, execute candidate paths and report actual constructed sizes. |
+| `find_path` | `source` (string), `target` (string), `limit` (1-999 or `"all"`, default: 20), `problem_json` (optional string) | Enumerate reduction paths and explain parameter transforms. With a complete source instance, execute every enumerated path and report actual constructed parameters. Paths are not ranked or filtered. |
 | `export_graph` | *(none)* | Export the full reduction graph as JSON |
 
 ### Instance Tools
@@ -87,7 +87,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | Tool | Parameters | Description |
 |------|-----------|-------------|
 | `create_problem` | `problem_type` (string), `params` (JSON object) | Create a problem instance from parameters and return its JSON representation. Supports graph problems, SAT, QUBO, SpinGlass, KColoring, Factoring, and random graph generation |
-| `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, size metrics, available solvers, and reduction targets |
+| `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, canonical parameters, available solvers, and reduction targets |
 | `evaluate` | `problem_json` (string), `config` (typed JSON solution) | Evaluate a solution against a problem instance and return the objective value or feasibility |
 | `reduce` | `problem_json` (string), `path_json` (string) | Reduce a problem instance along an explicitly supplied route, returning a bundle with the transformed instance and path metadata |
 | `solve` | `problem_json` (string), optional `solver` ("customized"\|"ilp"\|"brute-force"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using deterministic customized → ILP → brute-force dispatch. Returns `optimal` or `infeasible`; execution failures are tool errors. |
@@ -103,5 +103,5 @@ The server provides 7 task-oriented prompt templates:
 | `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
 | `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
 | `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
-| `find_reduction` | `source` (required), `target` (required) | Find reduction paths between two problems and explain how size changes |
+| `find_reduction` | `source` (required), `target` (required) | Find reduction paths between two problems and explain how canonical parameters transform |
 | `overview` | *(none)* | Explore the full landscape of NP-hard problems |

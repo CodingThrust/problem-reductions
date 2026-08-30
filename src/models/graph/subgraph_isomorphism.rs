@@ -155,7 +155,7 @@ impl Problem for SubgraphIsomorphism {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_host_edges", num_host_edges),
         ("num_host_vertices", num_host_vertices),
         ("num_pattern_edges", num_pattern_edges),

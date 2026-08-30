@@ -225,7 +225,7 @@ impl Problem for StaffScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_periods", num_periods),
         ("num_schedules", num_schedules),
         ("num_workers", num_workers),

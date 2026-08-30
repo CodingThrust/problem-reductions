@@ -79,7 +79,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "num_vertices + 3",
         num_edges = "num_edges + num_vertices + 1",
     }

@@ -56,10 +56,8 @@ pub struct FindPathParams {
     pub target: String,
     #[schemars(description = "Number of paths to inspect: 1-999, or 'all' for 999 (default: 20)")]
     pub limit: Option<PathLimitParam>,
-    #[schemars(description = "Return enumerated paths without Pareto filtering (default: false)")]
-    pub unfiltered: Option<bool>,
     #[schemars(
-        description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed sizes."
+        description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed parameters."
     )]
     pub problem_json: Option<String>,
 }
@@ -183,14 +181,14 @@ impl McpServer {
             .into_iter()
             .filter(|e| &e.target_variant == variant)
             .collect();
-        let size_fields = graph.size_field_names(name);
+        let parameters = graph.parameter_names(name);
         let complexity = graph.variant_complexity(name, variant).unwrap_or("");
 
         let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
             serde_json::json!({
                 "source": {"name": e.source_name, "variant": e.source_variant},
                 "target": {"name": e.target_name, "variant": e.target_variant},
-                "size_contract": crate::commands::graph::size_contract_to_json(&e.size_contract),
+                "parameter_contract": crate::commands::graph::parameter_contract_to_json(&e.parameter_contract),
             })
         };
 
@@ -199,7 +197,7 @@ impl McpServer {
             "variant": variant,
             "default": is_default,
             "complexity": complexity,
-            "size_fields": &size_fields,
+            "parameters": &parameters,
             "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
             "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
         });
@@ -245,7 +243,6 @@ impl McpServer {
         source: &str,
         target: &str,
         limit: usize,
-        unfiltered: bool,
         problem_json: Option<&str>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
@@ -269,7 +266,7 @@ impl McpServer {
             }
         }
 
-        let mut batch = crate::commands::graph::find_path_batch(
+        let batch = crate::commands::graph::find_path_batch(
             &graph,
             &src_ref.name,
             &src_ref.variant,
@@ -284,19 +281,10 @@ impl McpServer {
                 dst_ref.name
             );
         }
-        let mut executed = loaded
+        let executed = loaded
             .as_ref()
             .map(|source| graph.execute_paths(&batch.paths, source.as_any()))
             .transpose()?;
-        if !unfiltered {
-            let flags = match &executed {
-                Some(executed) => crate::commands::graph::concrete_pareto_flags(executed),
-                None => crate::commands::graph::symbolic_pareto_flags(&graph, &batch.paths),
-            };
-            batch.paths = crate::commands::graph::retain_selected(batch.paths, &flags);
-            executed =
-                executed.map(|executed| crate::commands::graph::retain_selected(executed, &flags));
-        }
         let json = crate::commands::graph::path_batch_json(&graph, &batch, executed.as_deref())?;
         Ok(serde_json::to_string_pretty(&json)?)
     }
@@ -398,7 +386,7 @@ impl McpServer {
         let variant = problem.variant_map();
         let graph = ReductionGraph::new();
 
-        let size_fields = graph.size_field_names(name);
+        let parameters = graph.parameter_names(name);
 
         let targets =
             crate::commands::inspect::executable_reduction_targets(&graph, name, &variant);
@@ -408,7 +396,7 @@ impl McpServer {
             "kind": "problem",
             "type": name,
             "variant": variant,
-            "size_fields": size_fields,
+            "parameters": parameters,
             "brute_force_num_variables": problem.brute_force_num_variables()?,
             "solvers": solver_view.solvers,
             "default_solver": solver_view.default_solver,
@@ -507,7 +495,7 @@ impl McpServer {
         self.list_problems_inner().map_err(|e| e.to_string())
     }
 
-    /// Show details for a problem type: variants, fields, size fields, and reductions
+    /// Show details for a problem type: variants, fields, parameter fields, and reductions
     #[tool(
         name = "show_problem",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -546,7 +534,6 @@ impl McpServer {
             &params.source,
             &params.target,
             limit,
-            params.unfiltered.unwrap_or(false),
             params.problem_json.as_deref(),
         )
         .map_err(|e| e.to_string())
@@ -574,7 +561,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Inspect a problem JSON string or reduction bundle, returning type, size, and available operations
+    /// Inspect a problem JSON string or reduction bundle, returning type, parameters, and available operations
     #[tool(
         name = "inspect_problem",
         annotations(read_only_hint = true, open_world_hint = false)

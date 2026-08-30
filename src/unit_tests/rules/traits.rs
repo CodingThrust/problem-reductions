@@ -33,7 +33,7 @@ impl Problem for SourceProblem {
     type Solution = Vec<usize>;
     type Value = i64;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
     fn evaluate(&self, config: &Self::Solution) -> Result<i64, crate::traits::EvaluationError> {
         if config.len() != 2 || config.iter().any(|&value| value >= 2) {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
@@ -58,7 +58,7 @@ impl Problem for TargetProblem {
     type Solution = Vec<usize>;
     type Value = i64;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
     fn evaluate(&self, config: &Self::Solution) -> Result<i64, crate::traits::EvaluationError> {
         if config.len() != 2 || config.iter().any(|&value| value >= 2) {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
@@ -149,7 +149,7 @@ impl Problem for AggregateSourceProblem {
     type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -174,7 +174,7 @@ impl Problem for AggregateTargetProblem {
     type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,

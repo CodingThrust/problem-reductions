@@ -118,10 +118,14 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
         num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
-    })]
+    },
+    unavailable = {
+        max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
     type Result = ReductionSATToIntegralFlowHomologousArcs;
 

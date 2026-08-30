@@ -13,7 +13,7 @@ fn test_kclique_to_balancedcompletebipartitesubgraph_closed_loop() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Verify target sizes
+    // Verify target parameterss
     // left_size = n + C(k,2) = 4 + 3 = 7
     assert_eq!(target.left_size(), 7);
     // right_size = m + (n - k) = 4 + 1 = 5

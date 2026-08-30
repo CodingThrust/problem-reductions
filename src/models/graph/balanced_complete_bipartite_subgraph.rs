@@ -157,7 +157,7 @@ impl Problem for BalancedCompleteBipartiteSubgraph {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("k", k),
         ("left_size", left_size),
         ("num_vertices", num_vertices),

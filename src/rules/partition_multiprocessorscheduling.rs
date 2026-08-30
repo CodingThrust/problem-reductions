@@ -46,9 +46,13 @@ impl ReductionResult for ReductionPartitionToMPS {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_tasks = "num_elements",
-    })]
+    },
+    unavailable = {
+        num_processors = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<MultiprocessorScheduling> for Partition {
     type Result = ReductionPartitionToMPS;
 

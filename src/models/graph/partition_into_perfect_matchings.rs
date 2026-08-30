@@ -110,7 +110,7 @@ where
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_edges", num_edges),
         ("num_matchings", num_matchings),
         ("num_vertices", num_vertices),

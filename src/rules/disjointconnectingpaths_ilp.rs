@@ -59,9 +59,12 @@ impl ReductionResult for ReductionDCPToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_pairs * 2 * num_edges",
         num_constraints = "num_pairs * num_vertices + num_pairs * num_edges + num_edges + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {

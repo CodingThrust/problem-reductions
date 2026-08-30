@@ -74,7 +74,7 @@ fn literals_contradict(lit1: i64, lit2: i64) -> bool {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "3 * num_clauses",
         k = "num_clauses",
         num_edges = "9 * num_clauses^2",

@@ -7,7 +7,7 @@ use crate::models::misc::Clustering;
 use crate::prelude::*;
 use crate::rules::{ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow};
 use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
@@ -25,14 +25,56 @@ fn exact_transform_evaluates_without_path_ranking() {
         ReductionMode::Witness,
     );
     let path = paths.iter().find(|path| path.len() == 1).unwrap();
-    let transform = graph.compose_path_size_transform(path).unwrap().unwrap();
+    let transform = graph
+        .compose_path_parameter_transform(path)
+        .unwrap()
+        .unwrap();
     let evaluated = transform
-        .evaluate(&ProblemSize::new(vec![
+        .evaluate(&ProblemParameters::new(vec![
             ("num_vertices", 5),
             ("num_edges", 4),
         ]))
         .unwrap();
     assert_eq!(evaluated.get("num_edges"), Some(6));
+}
+
+#[test]
+fn symbolic_composition_propagates_num_colors_across_multiple_edges() {
+    let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: Satisfiability::NAME.to_string(),
+                variant: ReductionGraph::variant_to_map(&Satisfiability::variant()),
+            },
+            ReductionStep {
+                name: KColoring::<K3, SimpleGraph>::NAME.to_string(),
+                variant: ReductionGraph::variant_to_map(&KColoring::<K3, SimpleGraph>::variant()),
+            },
+            ReductionStep {
+                name: KColoring::<KN, SimpleGraph>::NAME.to_string(),
+                variant: ReductionGraph::variant_to_map(&KColoring::<KN, SimpleGraph>::variant()),
+            },
+            ReductionStep {
+                name: QUBO::<f64>::NAME.to_string(),
+                variant: ReductionGraph::variant_to_map(&QUBO::<f64>::variant()),
+            },
+        ],
+    };
+
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    let target = transform
+        .evaluate(&ProblemParameters::new(vec![
+            ("num_vars", 1),
+            ("num_clauses", 1),
+            ("num_literals", 1),
+        ]))
+        .unwrap();
+
+    assert_eq!(target.get("num_vars"), Some(15));
 }
 
 #[test]
@@ -52,23 +94,29 @@ fn exact_rule_exposes_one_transform() {
         .into_iter()
         .find(|path| path.len() == 1)
         .unwrap();
-    let transform = graph.compose_path_size_transform(&path).unwrap().unwrap();
-    assert_eq!(transform.relation(), crate::size::SizeRelation::Exact);
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        transform.relation(),
+        crate::parameters::ParameterRelation::Exact
+    );
 }
 
 // ---- Discovery and registration ----
 
 #[test]
-fn compose_path_size_transform_rejects_an_empty_path() {
+fn compose_path_parameter_transform_rejects_an_empty_path() {
     let graph = ReductionGraph::new();
     let error = graph
-        .compose_path_size_transform(&ReductionPath { steps: Vec::new() })
+        .compose_path_parameter_transform(&ReductionPath { steps: Vec::new() })
         .unwrap_err();
-    assert!(matches!(error, crate::rules::PathSizeError::EmptyPath));
+    assert!(matches!(error, crate::rules::PathParameterError::EmptyPath));
 }
 
 #[test]
-fn compose_path_size_transform_is_absent_for_one_node() {
+fn compose_path_parameter_transform_is_absent_for_one_node() {
     let graph = ReductionGraph::new();
     let variant = graph
         .default_variant_for(KSatisfiability::<K3>::NAME)
@@ -80,7 +128,10 @@ fn compose_path_size_transform_is_absent_for_one_node() {
         }],
     };
 
-    assert!(graph.compose_path_size_transform(&path).unwrap().is_none());
+    assert!(graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -229,7 +280,7 @@ fn value_changing_variant_cast_is_not_aggregate_capable() {
 }
 
 #[test]
-fn test_problem_size_propagation() {
+fn test_problem_parameters_propagation() {
     let graph = ReductionGraph::new();
 
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
@@ -976,7 +1027,7 @@ fn test_find_paths_bounded_limits_depth() {
 #[test]
 fn test_find_paths_bounded_returns_shortest_when_truncated() {
     use crate::expr::Expr;
-    use crate::rules::registry::{ReductionSizeContract, ReductionSizeDeclarations};
+    use crate::rules::registry::{ReductionParameterContract, ReductionParameterDeclarations};
     use crate::rules::ReductionEdgeData;
 
     fn edge() -> ReductionEdgeData {
@@ -995,10 +1046,10 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
         }
 
         ReductionEdgeData {
-            size_contract: ReductionSizeContract::new(
+            parameter_contract: ReductionParameterContract::new(
                 "synthetic edge",
-                ReductionSizeDeclarations {
-                    relation: Some(crate::size::SizeRelation::Exact),
+                ReductionParameterDeclarations {
+                    relation: Some(crate::parameters::ParameterRelation::Exact),
                     fields: vec![("n", Expr::variable("n"))],
                     unavailable: vec![],
                 },

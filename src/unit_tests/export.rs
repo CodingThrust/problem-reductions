@@ -22,11 +22,11 @@ fn test_variant_to_map_multiple() {
 }
 
 #[test]
-fn test_lookup_size_contract_known_reduction() {
+fn test_lookup_parameter_contract_known_reduction() {
     // IS -> VC is a known registered reduction
     let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
     let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
-    let result = lookup_size_contract(
+    let result = lookup_parameter_contract(
         "MaximumIndependentSet",
         &source_variant,
         "MinimumVertexCover",
@@ -36,9 +36,9 @@ fn test_lookup_size_contract_known_reduction() {
 }
 
 #[test]
-fn test_lookup_size_contract_unknown_reduction() {
+fn test_lookup_parameter_contract_unknown_reduction() {
     let empty = variant_to_map(vec![]);
-    let result = lookup_size_contract("NonExistent", &empty, "AlsoNonExistent", &empty);
+    let result = lookup_parameter_contract("NonExistent", &empty, "AlsoNonExistent", &empty);
     assert!(result.unwrap().is_none());
 }
 
@@ -298,11 +298,11 @@ fn write_model_example_to_creates_json_file() {
 }
 
 #[test]
-fn lookup_size_contract_rejects_target_variant_mismatch() {
+fn lookup_parameter_contract_rejects_target_variant_mismatch() {
     let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
     // MIS<SG,i64> -> QUBO<f64> exists, but not MIS<SG,i64> -> QUBO<i64>
     let wrong_target = variant_to_map(vec![("weight", "i64")]);
-    let result = lookup_size_contract("MaximumIndependentSet", &source, "QUBO", &wrong_target);
+    let result = lookup_parameter_contract("MaximumIndependentSet", &source, "QUBO", &wrong_target);
     assert!(
         result.unwrap().is_none(),
         "Should reject wrong target variant"

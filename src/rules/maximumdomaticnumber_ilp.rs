@@ -59,10 +59,13 @@ impl ReductionResult for ReductionDomaticNumberToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices * num_vertices + num_vertices",
         num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
     type Result = ReductionDomaticNumberToILP;

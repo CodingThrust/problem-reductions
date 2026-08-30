@@ -49,10 +49,13 @@ impl ReductionResult for ReductionKCliqueToBCBS {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         left_size = "num_vertices + k * (k - 1) / 2",
         right_size = "num_edges + num_vertices - k",
         k = "num_vertices + k * (k - 1) / 2 - k",
+    },
+    unavailable = {
+        num_vertices = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {

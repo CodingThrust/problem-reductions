@@ -45,10 +45,14 @@ impl ReductionResult for ReductionSTMMCCToILP {
     }
 }
 
-#[reduction(size = exact {
+#[reduction(transform = exact {
     num_vars = "num_tasks^2 + 1",
     num_constraints = "num_tasks^2 + 3 * num_tasks + num_precedences + 1",
-})]
+},
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for SequencingToMinimizeMaximumCumulativeCost {
     type Result = ReductionSTMMCCToILP;
 

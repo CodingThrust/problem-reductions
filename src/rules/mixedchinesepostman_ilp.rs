@@ -43,9 +43,12 @@ impl ReductionResult for ReductionMCPToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
         num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {

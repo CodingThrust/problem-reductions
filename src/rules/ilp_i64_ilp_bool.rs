@@ -112,9 +112,9 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the binary width depends on concrete variable bounds, not registered problem size parameters",
-        num_constraints = "the exact row count is preserved but the target size model is unavailable until all ILP overhead declarations are migrated",
+    transform = unavailable {
+        num_vars = "the binary width depends on concrete variable bounds, not registered problem parameters",
+        num_constraints = "the exact row count is preserved but the target parameters model is unavailable until all ILP overhead declarations are migrated",
         num_nonzeros = "binary expansion depends on concrete variable bounds and row sparsity",
     },
 )]

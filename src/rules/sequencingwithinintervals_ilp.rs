@@ -69,9 +69,12 @@ impl ReductionResult for ReductionSWIToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_start_slots",
         num_constraints = "num_start_slots^2 + num_tasks",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {

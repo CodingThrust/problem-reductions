@@ -314,7 +314,7 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_arcs", num_arcs),
         ("num_edges", num_edges),
         ("num_vertices", num_vertices),

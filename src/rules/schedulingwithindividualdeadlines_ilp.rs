@@ -50,10 +50,13 @@ impl ReductionResult for ReductionSWIDToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * max_deadline",
         num_constraints = "num_tasks + max_deadline + num_precedences",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
     type Result = ReductionSWIDToILP;

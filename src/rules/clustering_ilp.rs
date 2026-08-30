@@ -42,9 +42,12 @@ impl ReductionResult for ReductionClusteringToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_elements * num_clusters",
         num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for Clustering {

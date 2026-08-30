@@ -138,7 +138,7 @@ impl Problem for ThreeMatroidIntersection {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("bound", bound),
         ("ground_set_size", ground_set_size),
         ("num_groups", num_groups),

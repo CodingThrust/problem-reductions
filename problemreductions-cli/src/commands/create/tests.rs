@@ -4,7 +4,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::ensure_attribute_indices_in_range;
 use super::parse_bool_rows;
-use super::schema_support::*;
 use super::*;
 use crate::cli::{Cli, Commands};
 use crate::output::OutputConfig;

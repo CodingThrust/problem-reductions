@@ -29,9 +29,9 @@ fn test_bicliquecover_to_bmf_overhead_matches_target_shape() {
     let entry = inventory::iter::<crate::rules::ReductionEntry>()
         .find(|entry| entry.source_name == "BicliqueCover" && entry.target_name == "BMF")
         .expect("BicliqueCover -> BMF reduction should be registered");
-    let source_size = problem.size();
+    let source_size = problem.parameters();
     let predicted = entry
-        .size_contract()
+        .parameter_contract()
         .unwrap()
         .transform()
         .unwrap()

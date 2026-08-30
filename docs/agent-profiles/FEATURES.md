@@ -6,5 +6,5 @@
 - [Reduction Graph] — Automatic shortest-path search through registered reductions between problem types
 - [BruteForce Solver] — Enumerate all configurations to find optimal or satisfying solutions
 - [Variant System] — Graph/weight type parameterization with compile-time complexity registration
-- [Size Analysis] — Explain how problem size changes along a path and measure complete instances
+- [Parameter Analysis] — Explain how canonical problem parameters transform along a path and measure complete instances
 - [Serialization] — JSON schema export and serde-based serialization for all problem types

@@ -55,9 +55,13 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_tasks = "num_vertices + num_edges",
-    })]
+    },
+    unavailable = {
+        num_precedences = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
     for OptimalLinearArrangement<SimpleGraph>
 {

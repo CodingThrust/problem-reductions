@@ -59,10 +59,13 @@ impl ReductionResult for ReductionMMCToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_terminals * num_vertices + num_edges",
         num_constraints = "num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMMCToILP;

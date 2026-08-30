@@ -71,7 +71,7 @@ fn is_cyclic_order(a: usize, b: usize, c: usize) -> bool {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_elements = "3 * num_vars + 5 * num_clauses",
         num_triples = "10 * num_clauses",
     }

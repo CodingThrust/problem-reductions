@@ -109,7 +109,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "0",
         num_potential_edges = "num_vertices * (num_vertices - 1) / 2",

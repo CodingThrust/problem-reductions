@@ -144,7 +144,7 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -291,7 +291,6 @@ crate::register_decision_variant!(
         FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
         FieldInfo { name: "bound", type_name: "W::Sum", description: "Decision bound (maximum allowed cover cost)" },
     ],
-    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
     random
 );

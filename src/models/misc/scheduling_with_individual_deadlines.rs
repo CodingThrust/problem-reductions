@@ -165,7 +165,7 @@ impl Problem for SchedulingWithIndividualDeadlines {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("max_deadline", max_deadline),
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),

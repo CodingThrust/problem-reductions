@@ -6,15 +6,7 @@ fn pred() -> Command {
 
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
     let command = pred()
-        .args([
-            "path",
-            source,
-            target,
-            "--limit",
-            "all",
-            "--unfiltered",
-            "--json",
-        ])
+        .args(["path", source, target, "--limit", "all", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -67,15 +59,7 @@ fn reduce_named_to_file(
 
 fn write_direct_route(source: &str, target: &str, output: &std::path::Path) {
     let command = pred()
-        .args([
-            "path",
-            source,
-            target,
-            "--limit",
-            "all",
-            "--unfiltered",
-            "--json",
-        ])
+        .args(["path", source, target, "--limit", "all", "--json"])
         .output()
         .unwrap();
     assert!(command.status.success());
@@ -222,7 +206,7 @@ fn test_list_rules() {
     assert!(stdout.contains("Registered reduction rules:"));
     assert!(stdout.contains("Source"));
     assert!(stdout.contains("Target"));
-    assert!(stdout.contains("Size change"));
+    assert!(stdout.contains("Parameter transform"));
     // Should contain a known reduction
     assert!(
         stdout.contains("MaximumIndependentSet"),
@@ -241,7 +225,7 @@ fn test_list_rules_json() {
     assert!(!rules.is_empty());
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
-    assert!(rules[0]["size_contract"].is_string());
+    assert!(rules[0]["parameter_contract"].is_string());
 }
 
 #[test]
@@ -384,7 +368,7 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
 }
 
 #[test]
-fn test_path_enumerates_without_mode_or_sizes() {
+fn test_path_enumerates_without_mode() {
     let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
@@ -453,39 +437,36 @@ fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target
     std::fs::remove_file(instance).ok();
     assert_eq!(first, second);
     let json: serde_json::Value = serde_json::from_str(&first).unwrap();
-    let overall = json["paths"][0]["actual_target_size"]["fields"]
+    let overall = json["paths"][0]["actual_target_parameters"]["fields"]
         .as_array()
         .unwrap();
     let value = |field: &str| &overall.iter().find(|item| item["field"] == field).unwrap()["value"];
     assert_eq!(value("num_vertices"), 5);
     assert_eq!(value("num_edges"), 6);
     assert!(json.get("comparison").is_none());
-    assert!(json.get("pareto_frontier").is_none());
-    assert!(json["paths"][0].get("pareto_nondominated").is_none());
 }
 
 #[test]
-fn test_path_defaults_to_pareto_and_unfiltered_returns_every_candidate() {
-    let instance = std::env::temp_dir().join("pred_path_selection_mis.json");
+fn test_path_returns_every_enumerated_candidate_in_stable_order() {
+    let instance = std::env::temp_dir().join("pred_path_candidates_mis.json");
     std::fs::write(
         &instance,
         r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
     )
     .unwrap();
-    let run = |limit: &str, unfiltered: bool| {
-        let mut args = vec![
-            "path",
-            "MIS/SimpleGraph/i64",
-            "QUBO",
-            instance.to_str().unwrap(),
-            "--limit",
-            limit,
-            "--json",
-        ];
-        if unfiltered {
-            args.push("--unfiltered");
-        }
-        let output = pred().args(args).output().unwrap();
+    let run = |limit: &str| {
+        let output = pred()
+            .args([
+                "path",
+                "MIS/SimpleGraph/i64",
+                "QUBO",
+                instance.to_str().unwrap(),
+                "--limit",
+                limit,
+                "--json",
+            ])
+            .output()
+            .unwrap();
         assert!(
             output.status.success(),
             "stderr: {}",
@@ -494,27 +475,15 @@ fn test_path_defaults_to_pareto_and_unfiltered_returns_every_candidate() {
         serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
     };
 
-    let pareto = run("3", false);
-    let pareto_limited = run("1", false);
-    let unfiltered = run("3", true);
+    let first_three = run("3");
+    let first = run("1");
     std::fs::remove_file(instance).unwrap();
 
-    assert_eq!(pareto["paths"].as_array().unwrap().len(), 1);
-    assert_eq!(pareto_limited["paths"].as_array().unwrap().len(), 1);
-    assert_eq!(unfiltered["paths"].as_array().unwrap().len(), 3);
-    assert_eq!(pareto["truncated"], true);
-    assert_eq!(pareto_limited["truncated"], true);
-    assert_eq!(unfiltered["truncated"], true);
-    let pareto_size = &pareto["paths"][0]["actual_target_size"]["fields"];
-    assert!(pareto_size
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|field| field["field"] == "num_vars" && field["value"] == 5));
-    assert_ne!(
-        pareto_limited["paths"], pareto["paths"],
-        "a larger candidate set may expose a path that dominates the first candidate"
-    );
+    assert_eq!(first_three["paths"].as_array().unwrap().len(), 3);
+    assert_eq!(first["paths"].as_array().unwrap().len(), 1);
+    assert_eq!(first_three["truncated"], true);
+    assert_eq!(first["truncated"], true);
+    assert_eq!(first["paths"][0], first_three["paths"][0]);
 }
 
 #[test]
@@ -574,15 +543,7 @@ fn test_path_rejects_limit_above_maximum() {
 fn test_path_limit_all_is_alias_for_999() {
     let run = |limit: &str| {
         let output = pred()
-            .args([
-                "path",
-                "MIS",
-                "QUBO",
-                "--limit",
-                limit,
-                "--unfiltered",
-                "--json",
-            ])
+            .args(["path", "MIS", "QUBO", "--limit", limit, "--json"])
             .output()
             .unwrap();
         assert!(
@@ -5279,6 +5240,16 @@ fn test_path_rejects_removed_cost_selection() {
 }
 
 #[test]
+fn test_path_rejects_removed_unfiltered_option() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--unfiltered"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unexpected argument '--unfiltered'"));
+}
+
+#[test]
 fn test_path_overall_exact_map_text() {
     let output = pred().args(["path", "KSAT/K3", "MIS"]).output().unwrap();
     assert!(output.status.success());
@@ -5304,10 +5275,10 @@ fn test_path_overall_exact_map_json() {
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let json = &envelope["paths"][0];
     assert!(
-        json["overall_size"]["fields"].is_array(),
-        "JSON should contain an overall exact size relation"
+        json["overall_parameters"]["fields"].is_array(),
+        "JSON should contain an overall exact parameter relation"
     );
-    let items = json["overall_size"]["fields"].as_array().unwrap();
+    let items = json["overall_parameters"]["fields"].as_array().unwrap();
     assert!(!items.is_empty(), "overall exact map should have entries");
     assert!(items[0]["field"].is_string());
     assert!(items[0]["formula"].is_string());
@@ -5330,12 +5301,21 @@ fn test_path_overall_upper_bound_map_composition() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|path| path["steps"].as_u64().is_some_and(|steps| steps >= 2))
-        .expect("multi-step route");
+        .find(|path| {
+            path["steps"].as_u64().is_some_and(|steps| steps >= 2)
+                && path["overall_parameters"]["fields"]
+                    .as_array()
+                    .and_then(|fields| fields.iter().find(|field| field["field"] == "num_edges"))
+                    .and_then(|field| field["formula"].as_str())
+                    .is_some_and(|formula| {
+                        formula.contains("num_vertices") && !formula.contains("num_edges")
+                    })
+        })
+        .expect("multi-step route with a composed edge bound");
 
     assert!(json["steps"].as_u64().unwrap() >= 2);
 
-    let overall: std::collections::HashMap<String, String> = json["overall_size"]["fields"]
+    let overall: std::collections::HashMap<String, String> = json["overall_parameters"]["fields"]
         .as_array()
         .unwrap()
         .iter()
@@ -5356,7 +5336,7 @@ fn test_path_overall_upper_bound_map_composition() {
         "overall should have num_edges"
     );
     assert!(
-        overall["num_vertices"] == "num_vertices",
+        overall["num_vertices"].contains("num_vertices"),
         "num_vertices should be in terms of source vars, got: {}",
         overall["num_vertices"]
     );
@@ -5369,7 +5349,7 @@ fn test_path_overall_upper_bound_map_composition() {
 }
 
 #[test]
-fn test_path_set_has_explicit_strongest_size_information() {
+fn test_path_set_has_explicit_parameter_information() {
     let output = pred()
         .args(["path", "KSAT/K3", "MIS", "--json"])
         .output()
@@ -5383,7 +5363,7 @@ fn test_path_set_has_explicit_strongest_size_information() {
     assert!(!paths.is_empty());
     for (i, p) in paths.iter().enumerate() {
         assert!(
-            p["overall_size"]["fields"].is_array(),
+            p["overall_parameters"]["fields"].is_array(),
             "path {} has no explicit size result",
             i + 1
         );
@@ -5403,7 +5383,7 @@ fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() 
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let overall = &envelope["paths"][0]["overall_size"];
+    let overall = &envelope["paths"][0]["overall_parameters"];
     let fields = overall["fields"].as_array().unwrap();
     assert!(!fields.is_empty());
     assert!(fields.iter().all(|field| {
@@ -5430,7 +5410,7 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let fields = envelope["paths"][0]["overall_size"]["fields"]
+    let fields = envelope["paths"][0]["overall_parameters"]["fields"]
         .as_array()
         .unwrap();
     let relations = fields
@@ -5454,7 +5434,7 @@ fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let fields = envelope["paths"][0]["overall_size"]["fields"]
+    let fields = envelope["paths"][0]["overall_parameters"]["fields"]
         .as_array()
         .unwrap()
         .iter()
@@ -5503,11 +5483,11 @@ fn test_show_json_output() {
 }
 
 #[test]
-fn test_show_size_fields() {
+fn test_show_parameters() {
     let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Size fields"));
+    assert!(stdout.contains("Parameters"));
 }
 
 #[test]
@@ -6611,21 +6591,21 @@ fn test_inspect_json_output() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["kind"], "problem");
     assert_eq!(json["type"], "MaximumIndependentSet");
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "MIS size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "MIS parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_edges"),
-        "MIS size_fields should contain num_edges, got: {:?}",
-        size_fields
+        parameters.contains(&"num_edges"),
+        "MIS parameters should contain num_edges, got: {:?}",
+        parameters
     );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
@@ -6693,7 +6673,7 @@ fn test_inspect_multiprocessor_scheduling_reports_ilp_and_brute_force() {
 }
 
 #[test]
-fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
+fn test_inspect_undirected_two_commodity_integral_flow_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
     let create_out = pred()
@@ -6730,21 +6710,21 @@ fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "UndirectedTwoCommodityIntegralFlow parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_edges"),
-        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
-        size_fields
+        parameters.contains(&"num_edges"),
+        "UndirectedTwoCommodityIntegralFlow parameters should contain num_edges, got: {:?}",
+        parameters
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -6752,7 +6732,7 @@ fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
 }
 
 #[test]
-fn test_inspect_integral_flow_with_multipliers_reports_size_fields() {
+fn test_inspect_integral_flow_with_multipliers_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_ifwm_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_ifwm_inspect_out.json");
     let create_out = pred()
@@ -6788,23 +6768,23 @@ fn test_inspect_integral_flow_with_multipliers_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert!(size_fields.contains(&"num_vertices"));
-    assert!(size_fields.contains(&"num_arcs"));
-    assert!(size_fields.contains(&"max_capacity"));
-    assert!(size_fields.contains(&"requirement"));
+    assert!(parameters.contains(&"num_vertices"));
+    assert!(parameters.contains(&"num_arcs"));
+    assert!(parameters.contains(&"max_capacity"));
+    assert!(parameters.contains(&"requirement"));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
 }
 
 #[test]
-fn test_inspect_acyclic_partition_reports_size_fields() {
+fn test_inspect_acyclic_partition_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_acyclic_partition_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_acyclic_partition_inspect_out.json");
     let create_out = pred()
@@ -6841,21 +6821,21 @@ fn test_inspect_acyclic_partition_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "AcyclicPartition size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "AcyclicPartition parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_arcs"),
-        "AcyclicPartition size_fields should contain num_arcs, got: {:?}",
-        size_fields
+        parameters.contains(&"num_arcs"),
+        "AcyclicPartition parameters should contain num_arcs, got: {:?}",
+        parameters
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -6863,7 +6843,7 @@ fn test_inspect_acyclic_partition_reports_size_fields() {
 }
 
 #[test]
-fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
+fn test_inspect_multiple_copy_file_allocation_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_mcfa_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_mcfa_inspect_out.json");
     let create_out = pred()
@@ -6900,21 +6880,21 @@ fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "MultipleCopyFileAllocation size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "MultipleCopyFileAllocation parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_edges"),
-        "MultipleCopyFileAllocation size_fields should contain num_edges, got: {:?}",
-        size_fields
+        parameters.contains(&"num_edges"),
+        "MultipleCopyFileAllocation parameters should contain num_edges, got: {:?}",
+        parameters
     );
     let solvers: Vec<&str> = json["solvers"]
         .as_array()
@@ -8292,19 +8272,11 @@ fn test_path_limit_truncates() {
     );
 }
 
-// Helper: run `pred path S T --limit N --unfiltered --json` and return the ordered
-// list of per-path step counts.
+// Helper: run `pred path S T --limit N --json` and return the ordered list of
+// per-path step counts.
 fn path_step_counts(limit: &str) -> Vec<u64> {
     let output = pred()
-        .args([
-            "path",
-            "KSat",
-            "QUBO",
-            "--limit",
-            limit,
-            "--unfiltered",
-            "--json",
-        ])
+        .args(["path", "KSat", "QUBO", "--limit", limit, "--json"])
         .output()
         .unwrap();
     assert!(

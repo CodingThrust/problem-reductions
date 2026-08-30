@@ -54,7 +54,7 @@ impl ReductionResult for ReductionMCMFToMCC {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices",
         num_arcs = "num_arcs + 1",
     }

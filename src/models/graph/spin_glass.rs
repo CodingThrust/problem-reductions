@@ -366,7 +366,7 @@ where
     type Solution = Vec<i8>;
     type Value = Min<W::Sum>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_interactions", num_interactions),
         ("num_spins", num_spins),
     ];

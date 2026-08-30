@@ -149,7 +149,7 @@ fn test_optimallineararrangement_single_vertex() {
 }
 
 #[test]
-fn test_optimallineararrangement_size_getters() {
+fn test_optimallineararrangement_parameter_getters() {
     let problem = issue_example();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 7);

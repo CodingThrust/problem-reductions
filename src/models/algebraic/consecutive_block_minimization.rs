@@ -190,7 +190,7 @@ impl Problem for ConsecutiveBlockMinimization {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_cols", num_cols), ("num_rows", num_rows),];
+    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn evaluate(
         &self,

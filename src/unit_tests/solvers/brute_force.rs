@@ -14,7 +14,7 @@ impl Problem for MaxSumProblem {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -52,7 +52,7 @@ impl Problem for MinSumProblem {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -91,7 +91,7 @@ impl Problem for SatProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -119,7 +119,7 @@ impl Problem for EvaluationFailureProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         if config.as_slice() == [1] {
@@ -150,7 +150,7 @@ impl Problem for AggregationFailureProblem {
     type Solution = Vec<usize>;
     type Value = Max<f64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(&self, _: &Self::Solution) -> Result<Max<f64>, crate::traits::EvaluationError> {
         Ok(Max(Some(f64::NAN)))
@@ -178,7 +178,7 @@ impl Problem for CountingSatProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,

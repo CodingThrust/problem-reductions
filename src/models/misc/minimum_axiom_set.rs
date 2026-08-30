@@ -167,7 +167,7 @@ impl Problem for MinimumAxiomSet {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_implications", num_implications),
         ("num_sentences", num_sentences),
         ("num_true_sentences", num_true_sentences),

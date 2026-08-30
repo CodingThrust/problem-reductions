@@ -50,7 +50,7 @@ fn reduce_is_to_clique<W: WeightElement>(
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
@@ -64,7 +64,7 @@ impl ReduceTo<MaximumClique<SimpleGraph, i64>> for MaximumIndependentSet<SimpleG
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }

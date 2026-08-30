@@ -141,7 +141,7 @@ impl Problem for ConsecutiveSets {
     type Solution = Vec<Option<usize>>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("num_subsets", num_subsets),
         ("bound_k", bound_k),

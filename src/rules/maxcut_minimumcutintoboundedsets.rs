@@ -41,7 +41,7 @@ impl ReductionResult for ReductionMaxCutToMinCutBounded {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vertices + 2",
         num_edges = "(num_vertices + 1) * (2 * num_vertices + 1)",
     }

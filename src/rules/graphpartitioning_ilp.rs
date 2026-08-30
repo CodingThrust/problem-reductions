@@ -44,10 +44,13 @@ impl ReductionResult for ReductionGraphPartitioningToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices + num_edges",
         num_constraints = "2 * num_edges + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for GraphPartitioning<SimpleGraph> {
     type Result = ReductionGraphPartitioningToILP;

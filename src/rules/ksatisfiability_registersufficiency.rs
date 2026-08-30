@@ -229,11 +229,12 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
 }
 
 #[reduction(
-    size = unavailable {
+    transform = unavailable {
         num_vertices = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
         num_arcs = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
         bound = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
-    }
+            num_sinks = "the exact target parameter is not represented by this reduction's symbolic transform",
+}
 )]
 impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
     type Result = Reduction3SATToRegisterSufficiency;

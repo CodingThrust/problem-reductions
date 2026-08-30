@@ -330,7 +330,7 @@ impl Problem for BicliqueCover {
     type Solution = Vec<Vec<bool>>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("left_size", left_size),
         ("num_edges", num_edges),
         ("num_vertices", num_vertices),

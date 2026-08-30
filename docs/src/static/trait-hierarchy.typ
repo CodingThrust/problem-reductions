@@ -30,7 +30,7 @@
         `const NAME: &str`\
         `type Solution`\
         `type Value: Clone`\
-        `fn size() -> ProblemSize`\
+        `fn size() -> ProblemParameters`\
         `fn evaluate(&solution) -> Value`\
         `fn variant() -> Vec<(&str, &str)>`
       ]

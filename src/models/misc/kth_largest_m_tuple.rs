@@ -208,7 +208,7 @@ impl Problem for KthLargestMTuple {
     type Solution = ();
     type Value = Or;
 
-    crate::problem_size![("num_sets", num_sets), ("total_tuples", total_tuples),];
+    crate::problem_parameters![("num_sets", num_sets), ("total_tuples", total_tuples),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

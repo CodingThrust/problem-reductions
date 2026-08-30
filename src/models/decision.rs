@@ -27,12 +27,8 @@ macro_rules! decision_problem_meta {
 
 /// Register the boilerplate inventory entries for a concrete `Decision<P>` variant.
 ///
-/// The `size_getters` parameter defines problem-specific size fields as
-/// `(name, getter_on_inner)` pairs, e.g., `[("num_vertices", num_vertices), ("num_edges", num_edges)]`.
-/// These are used for size expressions and `ProblemSize` extraction.
-///
-/// Callers must define inherent methods on `Decision<Inner>` (delegating to `self.inner()`)
-/// before invoking this macro.
+/// Both decision/optimization edges derive their identity parameter transforms directly
+/// from the inner problem's canonical parameter schema.
 #[macro_export]
 macro_rules! register_decision_variant {
     (
@@ -44,7 +40,6 @@ macro_rules! register_decision_variant {
         category: $category:expr,
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
-        size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?],
         decode: $decoder:expr
         $(, $random:ident)?
     ) => {
@@ -79,9 +74,12 @@ macro_rules! register_decision_variant {
                 target_name: <$inner as $crate::traits::Problem>::NAME,
                 source_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
                 target_variant_fn: <$inner as $crate::traits::Problem>::variant,
-                size_declarations_fn: || $crate::rules::registry::ReductionSizeDeclarations {
-                    relation: Some($crate::size::SizeRelation::Exact),
-                    fields: vec![$(($sg_name, $crate::expr::Expr::variable($sg_name))),*],
+                parameter_declarations_fn: || $crate::rules::registry::ReductionParameterDeclarations {
+                    relation: Some($crate::parameters::ParameterRelation::Exact),
+                    fields: <$inner as $crate::traits::Problem>::parameter_names()
+                        .iter()
+                        .map(|&name| (name, $crate::expr::Expr::variable(name)))
+                        .collect(),
                     unavailable: vec![],
                 },
                 module_path: module_path!(),
@@ -118,9 +116,12 @@ macro_rules! register_decision_variant {
                 target_name: $name,
                 source_variant_fn: <$inner as $crate::traits::Problem>::variant,
                 target_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
-                size_declarations_fn: || $crate::rules::registry::ReductionSizeDeclarations {
-                    relation: Some($crate::size::SizeRelation::Exact),
-                    fields: vec![$(($sg_name, $crate::expr::Expr::variable($sg_name))),*],
+                parameter_declarations_fn: || $crate::rules::registry::ReductionParameterDeclarations {
+                    relation: Some($crate::parameters::ParameterRelation::Exact),
+                    fields: <$inner as $crate::traits::Problem>::parameter_names()
+                        .iter()
+                        .map(|&name| (name, $crate::expr::Expr::variable(name)))
+                        .collect(),
                     unavailable: vec![],
                 },
                 module_path: module_path!(),
@@ -248,12 +249,12 @@ where
     type Solution = P::Solution;
     type Value = Or;
 
-    fn size_parameter_names() -> &'static [&'static str] {
-        P::size_parameter_names()
+    fn parameter_names() -> &'static [&'static str] {
+        P::parameter_names()
     }
 
-    fn size(&self) -> crate::types::ProblemSize {
-        self.inner.size()
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        self.inner.parameters()
     }
 
     fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {

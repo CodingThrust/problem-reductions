@@ -62,10 +62,13 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices * num_edges + num_edges + num_edges * num_edges",
         num_constraints = "num_vertices * num_edges + (num_vertices * (num_vertices - 1) / 2 - num_edges) * num_edges + 3 * num_edges * num_edges + num_edges",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
     type Result = ReductionMinimumCoveringByCliquesToILP;

@@ -219,7 +219,7 @@ fn test_kn_from_k3_clauses() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = KSatisfiability::<K3>::new(
         3,
         vec![

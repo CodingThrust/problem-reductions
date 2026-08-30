@@ -121,7 +121,7 @@ impl Problem for Maximum2Satisfiability {
     type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    crate::problem_size![("num_clauses", num_clauses), ("num_vars", num_vars),];
+    crate::problem_parameters![("num_clauses", num_clauses), ("num_vars", num_vars),];
 
     fn evaluate(
         &self,

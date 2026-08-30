@@ -450,7 +450,7 @@ fn process_assignment(
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_spins = "num_variables + 2 * num_expression_nodes",
         num_interactions = "6 * num_expression_nodes + num_assignment_outputs",
     }

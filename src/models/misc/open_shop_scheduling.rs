@@ -275,7 +275,7 @@ impl Problem for OpenShopScheduling {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_jobs", num_jobs), ("num_machines", num_machines),];
+    crate::problem_parameters![("num_jobs", num_jobs), ("num_machines", num_machines),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

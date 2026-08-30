@@ -50,7 +50,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_target_structure()
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Exact size relation: V_H = n + k + 1, E_H = m + n + 2k, T_H = k + 1.
+    // Exact parameter relation: V_H = n + k + 1, E_H = m + n + 2k, T_H = k + 1.
     // n = 3, m = 2, k = 3 -> V_H = 7, E_H = 11, T_H = 4.
     assert_eq!(target.num_vertices(), 7);
     assert_eq!(target.num_edges(), 11);

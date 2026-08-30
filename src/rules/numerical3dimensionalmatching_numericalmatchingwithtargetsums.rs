@@ -78,7 +78,7 @@ fn checked_target_sum(bound: i64, w_size: i64) -> Result<i64, &'static str> {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_pairs = "num_groups",
     })]
 impl ReduceTo<NumericalMatchingWithTargetSums> for Numerical3DimensionalMatching {

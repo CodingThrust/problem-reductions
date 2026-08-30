@@ -79,10 +79,13 @@ impl ReductionResult for ReductionClosestStringToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "alphabet_size * string_length + 1",
         num_constraints = "string_length + num_strings",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for ClosestString {
     type Result = ReductionClosestStringToILP;

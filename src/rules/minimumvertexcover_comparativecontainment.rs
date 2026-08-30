@@ -68,7 +68,7 @@ impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         universe_size = "num_vertices",
         num_r_sets = "num_vertices",
         num_s_sets = "num_edges + 1",

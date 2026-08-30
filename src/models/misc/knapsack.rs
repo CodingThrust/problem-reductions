@@ -148,7 +148,7 @@ impl Problem for Knapsack {
     type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    crate::problem_size![("num_items", num_items),];
+    crate::problem_parameters![("capacity", capacity), ("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

@@ -301,7 +301,7 @@ where
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_r_sets", num_r_sets),
         ("num_s_sets", num_s_sets),
         ("universe_size", universe_size),

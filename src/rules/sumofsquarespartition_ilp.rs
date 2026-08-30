@@ -74,10 +74,13 @@ impl ReductionResult for ReductionSSPToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_elements * num_groups + num_elements^2 * num_groups",
         num_constraints = "num_elements + 3 * num_elements^2 * num_groups",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
     type Result = ReductionSSPToILP;

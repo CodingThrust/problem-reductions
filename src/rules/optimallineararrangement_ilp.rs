@@ -50,10 +50,13 @@ impl ReductionResult for ReductionOLAToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices^2 + num_vertices + num_edges",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for OptimalLinearArrangement<SimpleGraph> {
     type Result = ReductionOLAToILP;

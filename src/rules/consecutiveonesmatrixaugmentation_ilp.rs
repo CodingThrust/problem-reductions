@@ -36,10 +36,13 @@ impl ReductionResult for ReductionCOMAToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_cols * num_cols + 5 * num_rows * num_cols",
         num_constraints = "num_cols + num_cols + num_rows * num_cols + 2 * num_rows + num_rows + 3 * num_rows * num_cols + 4 * num_rows * num_cols + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {
     type Result = ReductionCOMAToILP;

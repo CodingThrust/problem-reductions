@@ -195,7 +195,7 @@ fn test_subgraph_isomorphism_issue_example() {
 }
 
 #[test]
-fn test_subgraph_isomorphism_size_getters() {
+fn test_subgraph_isomorphism_parameter_getters() {
     let host = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = SubgraphIsomorphism::new(host, pattern);

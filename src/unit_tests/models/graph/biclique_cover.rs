@@ -294,7 +294,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
     let problem = BicliqueCover::new(graph, 1);
     assert_eq!(problem.num_vertices(), 4); // 2 left + 2 right

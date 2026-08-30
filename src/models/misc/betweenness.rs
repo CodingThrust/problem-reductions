@@ -148,7 +148,7 @@ impl Problem for Betweenness {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("num_elements", num_elements), ("num_triples", num_triples),];
+    crate::problem_parameters![("num_elements", num_elements), ("num_triples", num_triples),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

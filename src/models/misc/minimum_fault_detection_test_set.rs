@@ -272,7 +272,7 @@ impl Problem for MinimumFaultDetectionTestSet {
     type Solution = Vec<Vec<bool>>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_arcs", num_arcs),
         ("num_inputs", num_inputs),
         ("num_outputs", num_outputs),

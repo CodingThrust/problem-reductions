@@ -65,7 +65,7 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_rows = "3 * universe_size",
         num_cols = "num_triples",
     })]

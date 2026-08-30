@@ -13,7 +13,7 @@ impl Problem for TestSatProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -77,7 +77,7 @@ impl Problem for TestMaxProblem {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -115,7 +115,7 @@ impl Problem for TestMinProblem {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -175,7 +175,7 @@ impl Problem for MultiDimProblem {
     type Solution = Vec<usize>;
     type Value = Sum<i64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -225,7 +225,7 @@ impl Problem for FloatProblem {
     type Solution = Vec<usize>;
     type Value = Max<f64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,

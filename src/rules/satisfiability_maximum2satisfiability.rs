@@ -99,7 +99,7 @@ fn add_gjs_gadget(clause: &CNFClause, w: i64, target_clauses: &mut Vec<CNFClause
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_vars + 2 * num_literals + 4 * num_clauses",
         num_clauses = "10 * (num_literals + 3 * num_clauses)",
     }

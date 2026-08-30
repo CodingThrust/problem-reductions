@@ -49,9 +49,14 @@ impl ReductionResult for ReductionThreePartitionToRCS {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_tasks = "num_elements",
-    })]
+    },
+    unavailable = {
+        deadline = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_resources = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ResourceConstrainedScheduling> for ThreePartition {
     type Result = ReductionThreePartitionToRCS;
 

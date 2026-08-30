@@ -168,7 +168,7 @@ impl Problem for EnsembleComputation {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("budget", budget),
         ("num_subsets", num_subsets),
         ("universe_size", universe_size),

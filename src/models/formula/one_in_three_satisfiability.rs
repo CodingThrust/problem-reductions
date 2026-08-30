@@ -134,7 +134,7 @@ impl Problem for OneInThreeSatisfiability {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_clauses", num_clauses), ("num_vars", num_vars),];
+    crate::problem_parameters![("num_clauses", num_clauses), ("num_vars", num_vars),];
 
     fn evaluate(
         &self,

@@ -45,7 +45,7 @@ pub(crate) fn expr_tokens(expression: &Expr) -> TokenStream {
 
 pub(crate) fn complexity_estimate_tokens(
     expression: &Expr,
-    source: &syn::Ident,
+    parameters: &syn::Ident,
 ) -> syn::Result<TokenStream> {
     Ok(match expression.node() {
         ExprNode::Const(value) => {
@@ -62,30 +62,38 @@ pub(crate) fn complexity_estimate_tokens(
             quote! { #value }
         }
         ExprNode::Var(name) => {
-            let getter = syn::Ident::new(name.as_str(), proc_macro2::Span::call_site());
-            quote! { (#source.#getter() as f64) }
+            let name = name.as_str();
+            quote! {
+                (#parameters
+                    .get(#name)
+                    .expect("validated complexity parameter must be present") as f64)
+            }
         }
-        ExprNode::Add(values) => {
-            nary_estimate_tokens(values, source, |left, right| quote! { (#left + #right) })?
-        }
-        ExprNode::Mul(values) => {
-            nary_estimate_tokens(values, source, |left, right| quote! { (#left * #right) })?
-        }
+        ExprNode::Add(values) => nary_estimate_tokens(
+            values,
+            parameters,
+            |left, right| quote! { (#left + #right) },
+        )?,
+        ExprNode::Mul(values) => nary_estimate_tokens(
+            values,
+            parameters,
+            |left, right| quote! { (#left * #right) },
+        )?,
         ExprNode::Pow(base, exponent) => {
-            let base = complexity_estimate_tokens(base, source)?;
-            let exponent = complexity_estimate_tokens(exponent, source)?;
+            let base = complexity_estimate_tokens(base, parameters)?;
+            let exponent = complexity_estimate_tokens(exponent, parameters)?;
             quote! { f64::powf(#base, #exponent) }
         }
         ExprNode::Exp(value) => {
-            let value = complexity_estimate_tokens(value, source)?;
+            let value = complexity_estimate_tokens(value, parameters)?;
             quote! { f64::exp(#value) }
         }
         ExprNode::Log(value) => {
-            let value = complexity_estimate_tokens(value, source)?;
+            let value = complexity_estimate_tokens(value, parameters)?;
             quote! { f64::ln(#value) }
         }
         ExprNode::Factorial(value) => {
-            let value = complexity_estimate_tokens(value, source)?;
+            let value = complexity_estimate_tokens(value, parameters)?;
             quote! {
                 crate::expr::approximate_factorial(#value)
                     .expect("complexity factorial requires a non-negative integer")
@@ -96,7 +104,7 @@ pub(crate) fn complexity_estimate_tokens(
 
 fn nary_estimate_tokens(
     values: &[Expr],
-    source: &syn::Ident,
+    parameters: &syn::Ident,
     build: impl Fn(TokenStream, TokenStream) -> TokenStream,
 ) -> syn::Result<TokenStream> {
     let mut values = values.iter();
@@ -104,10 +112,10 @@ fn nary_estimate_tokens(
         values
             .next()
             .expect("canonical n-ary expression has operands"),
-        source,
+        parameters,
     )?;
     values.try_fold(first, |left, value| {
-        Ok(build(left, complexity_estimate_tokens(value, source)?))
+        Ok(build(left, complexity_estimate_tokens(value, parameters)?))
     })
 }
 

@@ -137,7 +137,7 @@ impl Problem for ShortestCommonSuperstring {
     type Solution = Vec<Option<usize>>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("num_strings", num_strings),
         ("max_length", max_length),

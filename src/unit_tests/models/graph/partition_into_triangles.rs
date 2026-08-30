@@ -125,7 +125,7 @@ fn test_partitionintotriangles_wrong_config_length() {
 }
 
 #[test]
-fn test_partitionintotriangles_size_getters() {
+fn test_partitionintotriangles_parameter_getters() {
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]);
     let problem = PartitionIntoTriangles::new(graph);
     assert_eq!(problem.num_vertices(), 6);

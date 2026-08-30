@@ -101,7 +101,7 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
     }

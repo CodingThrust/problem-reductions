@@ -177,9 +177,12 @@ impl ILPBuilder {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_variables + num_expression_nodes",
         num_constraints = "5 * num_expression_nodes + num_assignment_outputs",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for CircuitSAT {

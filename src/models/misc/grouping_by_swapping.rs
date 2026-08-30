@@ -193,7 +193,7 @@ impl Problem for GroupingBySwapping {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("string_len", string_len),
         ("budget", budget),

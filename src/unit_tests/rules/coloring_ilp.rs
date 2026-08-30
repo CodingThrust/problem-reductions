@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::variant::{K1, K2, K3, K4};
+use crate::variant::{K1, K2, K3, K4, KN};
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -42,6 +42,19 @@ fn test_reduction_path_graph() {
 
     // constraints = 3 (vertex) + 2 edges * 2 colors = 7
     assert_eq!(ilp.constraints().len(), 7);
+}
+
+#[test]
+fn runtime_color_count_controls_exact_ilp_parameters() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    for colors in [2, 3, 5] {
+        let problem = KColoring::<KN, _>::with_k(graph.clone(), colors);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+        let target = reduction.target_problem();
+
+        assert_eq!(target.num_vars(), 3 * colors);
+        assert_eq!(target.num_constraints(), 3 + 2 * colors);
+    }
 }
 
 #[test]

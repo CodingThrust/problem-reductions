@@ -32,10 +32,13 @@ impl ReductionResult for ReductionX3CToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_subsets",
         num_constraints = "universe_size + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToILP;

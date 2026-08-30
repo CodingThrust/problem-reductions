@@ -37,10 +37,13 @@ impl ReductionResult for ReductionSCAToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
         num_constraints = "1 + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
     type Result = ReductionSCAToILP;

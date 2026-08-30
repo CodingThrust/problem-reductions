@@ -307,7 +307,7 @@ impl Problem for MinimumCodeGenerationOneRegister {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_vertices", num_vertices),
         ("num_edges", num_edges),
         ("num_leaves", num_leaves),

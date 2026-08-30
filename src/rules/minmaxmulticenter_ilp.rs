@@ -122,10 +122,13 @@ fn weighted_distances_mmc(
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices + num_vertices^2 + 1",
         num_constraints = "2 * num_vertices^2 + 3 * num_vertices + 2",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
     type Result = ReductionMMCToILP;

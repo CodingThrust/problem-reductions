@@ -39,11 +39,16 @@ impl ReductionResult for ReductionVCToLCS {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         alphabet_size = "num_vertices",
         num_strings = "num_edges + 1",
         max_length = "num_vertices",
         total_length = "num_vertices + 2 * num_edges * num_vertices - 2 * num_edges",
+    },
+    unavailable = {
+        cross_frequency_product = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_transitions = "the exact target parameter is not represented by this reduction's symbolic transform",
+        sum_triangular_lengths = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One> {

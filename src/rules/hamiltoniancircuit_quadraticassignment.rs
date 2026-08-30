@@ -41,7 +41,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_facilities = "num_vertices",
         num_locations = "num_vertices",
     }

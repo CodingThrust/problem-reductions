@@ -172,7 +172,7 @@ impl Problem for SumOfSquaresPartition {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_elements", num_elements), ("num_groups", num_groups),];
+    crate::problem_parameters![("num_elements", num_elements), ("num_groups", num_groups),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

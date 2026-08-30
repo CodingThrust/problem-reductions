@@ -48,9 +48,12 @@ impl ReductionResult for ReductionD2CIFToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "2 * num_arcs",
         num_constraints = "num_arcs + 2 * num_vertices + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {

@@ -41,7 +41,7 @@ where
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_sets = "num_edges",
         universe_size = "num_vertices",
     }

@@ -8,7 +8,7 @@
 //! (for example, on `C5`, `mmm(G) = 2` but `mvc(G) = 3`).
 
 use crate::models::graph::{MinimumMaximalMatching, MinimumVertexCover};
-use crate::rules::registry::ReductionSizeDeclarations;
+use crate::rules::registry::ReductionParameterDeclarations;
 use crate::rules::ReductionEntry;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -20,8 +20,8 @@ inventory::submit! {
         target_name: MinimumMaximalMatching::<SimpleGraph>::NAME,
         source_variant_fn: <MinimumVertexCover<SimpleGraph, One> as Problem>::variant,
         target_variant_fn: <MinimumMaximalMatching<SimpleGraph> as Problem>::variant,
-        size_declarations_fn: || ReductionSizeDeclarations {
-            relation: Some(crate::size::SizeRelation::Exact),
+        parameter_declarations_fn: || ReductionParameterDeclarations {
+            relation: Some(crate::parameters::ParameterRelation::Exact),
             fields: vec![
                 ("num_vertices", crate::expr::Expr::variable("num_vertices")),
                 ("num_edges", crate::expr::Expr::variable("num_edges")),

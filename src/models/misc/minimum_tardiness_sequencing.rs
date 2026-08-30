@@ -244,7 +244,7 @@ impl Problem for MinimumTardinessSequencing<One> {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];
@@ -309,7 +309,7 @@ impl Problem for MinimumTardinessSequencing<i64> {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];

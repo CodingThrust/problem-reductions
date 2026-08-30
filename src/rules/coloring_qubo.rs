@@ -132,8 +132,8 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    size = unavailable {
-        num_vars = "the QUBO variable count depends on the number of colors, which is a problem parameter rather than a source size parameter",
+    transform = exact {
+        num_vars = "num_vertices * num_colors",
     }
 )]
 impl ReduceTo<QUBO<f64>> for KColoring<KN, SimpleGraph> {

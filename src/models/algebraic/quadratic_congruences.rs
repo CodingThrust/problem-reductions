@@ -224,7 +224,7 @@ impl Problem for QuadraticCongruences {
     type Solution = BigUint;
     type Value = Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("bit_length_a", bit_length_a),
         ("bit_length_b", bit_length_b),
         ("bit_length_c", bit_length_c),

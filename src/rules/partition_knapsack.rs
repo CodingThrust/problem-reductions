@@ -29,7 +29,10 @@ impl ReductionResult for ReductionPartitionToKnapsack {
 }
 
 #[reduction(
-    size = exact { num_items = "num_elements" },
+    transform = exact { num_items = "num_elements" },
+    unavailable = {
+        capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;

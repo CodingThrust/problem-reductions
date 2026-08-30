@@ -134,7 +134,7 @@ impl Problem for MinimumHittingSet {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_sets", num_sets), ("universe_size", universe_size),];
+    crate::problem_parameters![("num_sets", num_sets), ("universe_size", universe_size),];
 
     fn evaluate(
         &self,

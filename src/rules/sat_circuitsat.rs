@@ -42,9 +42,13 @@ impl ReductionResult for ReductionSATToCircuit {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_variables = "2 * num_vars + num_clauses + 1",
         num_assignments = "num_vars + num_clauses + 2",
+    },
+    unavailable = {
+        num_assignment_outputs = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_expression_nodes = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<CircuitSAT> for Satisfiability {

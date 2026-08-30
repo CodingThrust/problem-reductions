@@ -44,8 +44,8 @@ impl ReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source size vector",
+    transform = unavailable {
+        num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
     }
 )]
 impl ReduceTo<QUBO<f64>> for ILP<bool> {

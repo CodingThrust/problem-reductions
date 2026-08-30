@@ -3,7 +3,7 @@ use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
 fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
     let response = server
-        .find_path_inner(source, target, 999, true, None)
+        .find_path_inner(source, target, 999, None)
         .expect("path enumeration");
     let json: serde_json::Value = serde_json::from_str(&response).unwrap();
     let entry = json["paths"]
@@ -40,7 +40,7 @@ fn test_show_problem_known_and_unknown() {
 }
 
 #[test]
-fn test_find_path_enumerates_without_a_mode_or_sizes() {
+fn test_find_path_enumerates_without_a_mode() {
     let server = McpServer::new();
     let result: serde_json::Value = serde_json::from_str(
         &server
@@ -48,7 +48,6 @@ fn test_find_path_enumerates_without_a_mode_or_sizes() {
                 "MIS/SimpleGraph/i64",
                 "MaximumClique/SimpleGraph/i64",
                 20,
-                false,
                 None,
             )
             .unwrap(),
@@ -58,7 +57,7 @@ fn test_find_path_enumerates_without_a_mode_or_sizes() {
 }
 
 #[test]
-fn test_find_path_executes_complete_instance_and_reports_actual_size() {
+fn test_find_path_executes_complete_instance_and_reports_actual_parameters() {
     let server = McpServer::new();
     let problem_json = r#"{
             "type":"MaximumIndependentSet",
@@ -71,13 +70,12 @@ fn test_find_path_executes_complete_instance_and_reports_actual_size() {
                 "MIS/SimpleGraph/i64",
                 "MaximumClique/SimpleGraph/i64",
                 20,
-                false,
                 Some(problem_json),
             )
             .unwrap(),
     )
     .unwrap();
-    let fields = result["paths"][0]["actual_target_size"]["fields"]
+    let fields = result["paths"][0]["actual_target_parameters"]["fields"]
         .as_array()
         .unwrap();
     let edges = fields
@@ -85,6 +83,13 @@ fn test_find_path_executes_complete_instance_and_reports_actual_size() {
         .find(|field| field["field"] == "num_edges")
         .unwrap();
     assert_eq!(edges["value"], 6);
+}
+
+#[test]
+fn test_find_path_schema_has_no_filtering_option() {
+    let schema = serde_json::to_value(schemars::schema_for!(FindPathParams)).unwrap();
+    assert!(schema["properties"].get("unfiltered").is_none());
+    assert!(schema["properties"].get("selection").is_none());
 }
 
 #[test]
@@ -121,12 +126,8 @@ fn test_find_path_limit_all_resolves_to_999() {
 #[test]
 fn test_find_path_is_capped_explicitly() {
     let server = McpServer::new();
-    let json: serde_json::Value = serde_json::from_str(
-        &server
-            .find_path_inner("MIS", "QUBO", 1, false, None)
-            .unwrap(),
-    )
-    .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&server.find_path_inner("MIS", "QUBO", 1, None).unwrap()).unwrap();
     assert_eq!(json["paths"].as_array().unwrap().len(), 1);
     assert!(json.get("returned").is_none());
     assert!(json.get("max_paths").is_none());
@@ -137,7 +138,7 @@ fn test_find_path_is_capped_explicitly() {
 #[test]
 fn test_find_path_rejects_limit_above_maximum() {
     let error = McpServer::new()
-        .find_path_inner("MIS", "QUBO", 1000, true, None)
+        .find_path_inner("MIS", "QUBO", 1000, None)
         .unwrap_err();
     assert_eq!(
         error.to_string(),

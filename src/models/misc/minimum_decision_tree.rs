@@ -225,7 +225,7 @@ impl Problem for MinimumDecisionTree {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_objects", num_objects), ("num_tests", num_tests),];
+    crate::problem_parameters![("num_objects", num_objects), ("num_tests", num_tests),];
 
     fn evaluate(
         &self,

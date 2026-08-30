@@ -257,7 +257,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     // c = x AND y → variables: c, x, y
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["c".to_string()],

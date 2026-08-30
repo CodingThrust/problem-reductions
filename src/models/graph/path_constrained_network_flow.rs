@@ -303,7 +303,7 @@ impl Problem for PathConstrainedNetworkFlow {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("max_capacity", max_capacity),
         ("num_arcs", num_arcs),
         ("num_paths", num_paths),

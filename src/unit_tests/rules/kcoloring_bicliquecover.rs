@@ -34,7 +34,7 @@ fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
     assert_eq!(source.evaluate(&coloring).unwrap(), Or(true));
 }
 
-/// Structural assertions against the exact target sizes derived in the
+/// Structural assertions against the exact target parameterss derived in the
 /// issue. Picks a small but non-trivial instance: P_3 (path on 3 vertices)
 /// with q = 2.
 #[test]

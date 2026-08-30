@@ -293,7 +293,7 @@ fn find_swap_edge(
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_rows = "num_vertices",
         num_cols = "num_vertices",
         num_ones = "num_edges",

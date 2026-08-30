@@ -40,7 +40,7 @@ impl ReductionResult for ReductionISSimpleToTriangular {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "36 * num_vertices^2 + 36 * num_vertices",
         num_edges = "108 * num_vertices^2 + 108 * num_vertices",
     }

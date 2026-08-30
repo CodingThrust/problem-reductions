@@ -47,7 +47,7 @@ impl ReductionResult for ReductionPartitionToBinPacking {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_items = "num_elements",
     })]
 impl ReduceTo<BinPacking<i64>> for Partition {

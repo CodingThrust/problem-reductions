@@ -63,7 +63,7 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         bit_length_a = "1",
         bit_length_b = "64 * (4 * num_vars^3 + num_vars + 1)^2 + 6 * num_vars^3 + 5",
         bit_length_c = "128 * (4 * num_vars^3 + num_vars + 1)^2 + 20 * num_vars^3 + 2 * num_vars + 15",

@@ -217,7 +217,7 @@ impl Problem for MinimumGeometricConnectedDominatingSet {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_points", num_points),];
+    crate::problem_parameters![("num_points", num_points),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

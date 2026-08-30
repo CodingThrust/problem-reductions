@@ -46,10 +46,13 @@ impl ReductionResult for ReductionSCToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
         num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for StackerCrane {
     type Result = ReductionSCToILP;

@@ -116,7 +116,7 @@ impl Problem for MinimumMatrixDomination {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_cols", num_cols),
         ("num_ones", num_ones),
         ("num_rows", num_rows),

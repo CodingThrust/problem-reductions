@@ -33,9 +33,12 @@ impl ReductionResult for ReductionIFHAToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_arcs",
         num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<i64>> for IntegralFlowHomologousArcs {

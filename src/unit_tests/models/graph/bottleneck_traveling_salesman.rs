@@ -27,7 +27,7 @@ fn k5_btsp() -> BottleneckTravelingSalesman {
 }
 
 #[test]
-fn test_bottleneck_traveling_salesman_creation_and_size_getters() {
+fn test_bottleneck_traveling_salesman_creation_and_parameter_getters() {
     let mut problem = k5_btsp();
 
     assert_eq!(problem.graph().num_vertices(), 5);

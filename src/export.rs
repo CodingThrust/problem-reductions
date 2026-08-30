@@ -1,6 +1,6 @@
 //! JSON export schema for example payloads.
 
-use crate::rules::registry::{ReductionSizeContract, SizeContractError};
+use crate::rules::registry::{ParameterContractError, ReductionParameterContract};
 use crate::rules::ReductionGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -117,19 +117,19 @@ pub struct ExampleDb {
     pub rules: Vec<RuleExample>,
 }
 
-/// Look up the explicit size contract for an exact direct reduction entry.
-pub fn lookup_size_contract(
+/// Look up the explicit parameter contract for an exact direct reduction entry.
+pub fn lookup_parameter_contract(
     source_name: &str,
     source_variant: &BTreeMap<String, String>,
     target_name: &str,
     target_variant: &BTreeMap<String, String>,
-) -> Result<Option<ReductionSizeContract>, SizeContractError> {
+) -> Result<Option<ReductionParameterContract>, ParameterContractError> {
     let graph = ReductionGraph::new();
     let Some(matched) = graph.find_entry(source_name, source_variant, target_name, target_variant)
     else {
         return Ok(None);
     };
-    matched.size_contract.map(Some)
+    matched.parameter_contract.map(Some)
 }
 
 /// Convert `Problem::variant()` output to a stable `BTreeMap`.

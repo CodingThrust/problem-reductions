@@ -8,8 +8,8 @@
   target: e.target,
   source-name: graph-data.nodes.at(e.source).name,
   target-name: graph-data.nodes.at(e.target).name,
-  size-fields: e.size_fields,
-  size-contract-error: e.size_contract_error,
+  parameters: e.parameters,
+  parameter-contract-error: e.parameter_contract_error,
 ))
 
 #let _edges-by-source-name = {
@@ -568,14 +568,14 @@
   if parts.len() > 0 { [#base (#parts.join(", "))] } else { base }
 }
 
-// Format explicitly classified size fields as inline text.
-#let format-size-contract(fields) = {
+// Format explicitly classified parameters as inline text.
+#let format-parameter-contract(fields) = {
   let parts = fields.map(o => {
     if o.contract == "exact" { raw(o.field + " = " + o.formula) }
     else if o.contract == "bound-only" { raw(o.field + " <= " + o.formula) }
     else { raw(o.field + " unavailable: " + o.reason) }
   })
-  [_Size contract:_ #parts.join(", ").]
+  [_Parameter contract:_ #parts.join(", ").]
 }
 
 // Unified function for reduction rules: theorem + proof + optional example
@@ -596,7 +596,7 @@
                  else { display-name.at(target) }
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
-  let size-fields = if edge != none and edge.size-fields.len() > 0 { edge.size-fields } else { none }
+  let parameters = if edge != none and edge.parameters.len() > 0 { edge.parameters } else { none }
   let thm-lbl = label("thm:" + source + "-to-" + target)
   covered-rules.update(old => old + ((source, target),))
 
@@ -604,7 +604,7 @@
     #v(1em)
     #theorem[
     *(*#context { if query(src-lbl).len() > 0 { link(src-lbl)[#src-disp] } else [#src-disp] }* #arrow *#context { if query(tgt-lbl).len() > 0 { link(tgt-lbl)[#tgt-disp] } else [#tgt-disp] }*)* #theorem-body
-    #if size-fields != none { linebreak(); format-size-contract(size-fields) }
+    #if parameters != none { linebreak(); format-parameter-contract(parameters) }
   ] #thm-lbl]
 
   proof[#proof-body]
@@ -11386,7 +11386,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 = Reductions <sec:reductions>
 
-Each reduction is presented as a *Rule* (with linked problem names and explicit size contracts from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
+Each reduction is presented as a *Rule* (with linked problem names and explicit parameter contracts from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
 
 The command blocks assume `route.json` contains the explicitly chosen direct route for
 the displayed rule, extracted from the corresponding `pred path` entry.
@@ -11737,7 +11737,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 )[
   This size-preserving identity map records the forward implication used in the classical NP-hardness proof for Minimum Maximal Matching (equivalently, Minimum Edge Dominating Set) on bounded-degree graphs: every unit-weight vertex cover of $G$ can be greedily converted into a maximal matching of size at most the cover size. The converse loses a factor of two in general, so the edge is documented but intentionally disabled for runtime reduction search.
 ][
-  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$, build the Minimum Maximal Matching instance on the same graph $G$. The target uses one binary variable per source edge, so the graph structure and size fields are unchanged.
+  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$, build the Minimum Maximal Matching instance on the same graph $G$. The target uses one binary variable per source edge, so the graph structure and parameters are unchanged.
 
   _Correctness._ ($arrow.r.double$) Let $C subset.eq V$ be a vertex cover with $|C| lt.eq K$. Start with $M = emptyset$ and process the vertices of $C$ in arbitrary order. Whenever $v in C$ is unmatched, choose any edge $\{v, u\} in E$ whose other endpoint $u$ is also unmatched, add that edge to $M$, and mark both endpoints matched. Because only unmatched endpoints are paired, $M$ is a matching. If some edge $\{x, y\} in E$ were disjoint from every edge of $M$ at the end, then both $x$ and $y$ would still be unmatched. Since $C$ covers every edge, at least one endpoint, say $x$, lies in $C$, and when the algorithm processed $x$ it could have added $\{x, y\}$, a contradiction. Hence $M$ is maximal and $|M| lt.eq |C| lt.eq K$.
 

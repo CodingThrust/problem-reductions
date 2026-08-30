@@ -87,9 +87,12 @@ impl ReductionResult for ReductionVCToEC {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         universe_size = "num_vertices + 1",
         num_subsets = "num_edges",
+    },
+    unavailable = {
+        budget = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {

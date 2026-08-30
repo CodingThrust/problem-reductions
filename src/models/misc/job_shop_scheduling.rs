@@ -266,7 +266,7 @@ impl Problem for JobShopScheduling {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_processors", num_processors),
         ("num_jobs", num_jobs),
         ("num_tasks", num_tasks),

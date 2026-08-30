@@ -26,7 +26,7 @@ impl Problem for SolutionProblem {
     type Solution = Vec<usize>;
     type Value = Max<u64>;
 
-    crate::problem_size![("num_variables", num_variables)];
+    crate::problem_parameters![("num_variables", num_variables)];
 
     fn evaluate(
         &self,
@@ -83,12 +83,12 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
     assert_eq!(dyn_problem.problem_name(), "MaximumIndependentSet");
     assert_eq!(dyn_problem.variant_map()["graph"], "SimpleGraph");
     assert_eq!(
-        dyn_problem.size_parameter_names_dyn(),
-        MaximumIndependentSet::<SimpleGraph, i64>::size_parameter_names()
+        dyn_problem.parameter_names_dyn(),
+        MaximumIndependentSet::<SimpleGraph, i64>::parameter_names()
     );
-    assert_eq!(dyn_problem.size_dyn(), problem.size());
-    assert_eq!(problem.size().get("num_vertices"), Some(3));
-    assert_eq!(problem.size().get("num_edges"), Some(1));
+    assert_eq!(dyn_problem.parameters_dyn(), problem.parameters());
+    assert_eq!(problem.parameters().get("num_vertices"), Some(3));
+    assert_eq!(problem.parameters().get("num_edges"), Some(1));
     assert!(dyn_problem.serialize_json().is_object());
 }
 

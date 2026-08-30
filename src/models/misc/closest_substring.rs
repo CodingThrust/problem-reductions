@@ -174,7 +174,7 @@ impl Problem for ClosestSubstring {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("num_strings", num_strings),
         ("substring_length", substring_length),

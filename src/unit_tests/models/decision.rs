@@ -25,17 +25,18 @@ fn test_decision_min_creation() {
 }
 
 #[test]
-fn decision_size_is_the_inner_problem_size() {
+fn decision_parameters_are_exactly_the_inner_problem_parameters() {
     let inner = triangle_mvc();
-    let expected_names = MinimumVertexCover::<SimpleGraph, i64>::size_parameter_names();
-    let expected_size = inner.size();
+    let expected_names = MinimumVertexCover::<SimpleGraph, i64>::parameter_names();
+    let expected_parameters = inner.parameters();
     let decision = Decision::new(inner, -1);
 
     assert_eq!(
-        Decision::<MinimumVertexCover<SimpleGraph, i64>>::size_parameter_names(),
+        Decision::<MinimumVertexCover<SimpleGraph, i64>>::parameter_names(),
         expected_names
     );
-    assert_eq!(decision.size(), expected_size);
+    assert_eq!(decision.parameters(), expected_parameters);
+    assert_eq!(decision.parameters().get("bound"), None);
 }
 
 #[test]

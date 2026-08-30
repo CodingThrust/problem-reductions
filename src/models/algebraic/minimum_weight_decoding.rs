@@ -140,7 +140,7 @@ impl Problem for MinimumWeightDecoding {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_cols", num_cols), ("num_rows", num_rows),];
+    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

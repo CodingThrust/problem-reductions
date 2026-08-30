@@ -33,9 +33,12 @@ impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         ambient_dimension = "num_elements + 1",
         num_basis_vectors = "num_elements",
+    },
+    unavailable = {
+        num_encoding_bits = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {

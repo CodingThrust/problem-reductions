@@ -35,15 +35,15 @@ trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
     type Solution;                         // e.g., Vec<bool>, permutation, tuple
     type Value: Clone;                     // e.g., Max<i64>, Or, Sum<i64>
-    fn size_parameter_names() -> &'static [&'static str];
-    fn size(&self) -> ProblemSize;
+    fn parameter_names() -> &'static [&'static str];
+    fn parameters(&self) -> ProblemParameters;
     fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
     fn variant() -> Vec<(&'static str, &'static str)>; // e.g., [("graph", "SimpleGraph"), ("weight", "i64")]
     fn problem_type() -> ProblemType;      // default: registry lookup by NAME
 }
 ```
 
-- **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and measures its concrete instance size. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named size parameters used by reduction expressions.
+- **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and reports its canonical instance parameters. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named parameters used by reduction expressions.
 - **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its `dimensions()` method and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
 - **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
 - **Feasibility problems** — typically use `Or`.
@@ -56,14 +56,14 @@ Numeric formats are selected by semantic role:
 
 - `usize` represents in-memory indices, collection lengths, and brute-force
   dimensions;
-- `u64` represents public problem size parameters and the input/output values
-  of reduction size expressions;
+- `u64` represents public problem parameters and the input/output values
+  of reduction parameter expressions;
 - `i64` represents signed mathematical integers;
 - `bool` represents Boolean variables; and
 - finite `f64` represents real or rational values when an approximate
   representation is part of the model contract.
 
-`usize` is not a portable serialized size format, and `u64` is not an index or
+`usize` is not a portable serialized parameter format, and `u64` is not an index or
 general-purpose replacement for a model's mathematical integer domain.
 
 Another numeric format requires sufficient justification from the mathematical
@@ -100,12 +100,12 @@ Weight variants are `One`, `i64`, and `f64`, with `One ⊂ i64 ⊂ f64`.
 
 - Use `From` only for value-preserving conversions and `TryFrom` when range,
   sign, or domain can change. Do not use `as` for model-derived values.
-- Converting a registered size getter from `usize` to `u64` is an internal
-  invariant of `Problem::size()`, not a recoverable construction error. A valid
-  instance's registered size parameters must already fit `u64`; the
+- Converting a registered parameter getter from `usize` to `u64` is an internal
+  invariant of `Problem::parameters()`, not a recoverable construction error. A valid
+  instance's registered parameters must already fit `u64`; the
   implementation checks this conversion to prevent silent truncation.
-- Symbolic size evaluation may use arbitrary-precision integers for local
-  intermediate arithmetic, but a materialized `ProblemSize` must fit `u64`.
+- Symbolic parameter evaluation may use arbitrary-precision integers for local
+  intermediate arithmetic, but a materialized `ProblemParameters` must fit `u64`.
 - An `i64` to `f64` conversion is explicit and fallible: it succeeds only
   for `|value| ≤ 2^53-1`. Use one shared helper at weight casts, solver
   adapters, and other exact-to-float hubs.
@@ -276,7 +276,7 @@ does not accumulate compatibility or fallback branches.
 The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 
 ```rust,ignore
-#[reduction(size = exact {
+#[reduction(transform = exact {
     num_vertices = "num_vertices",
     num_edges = "num_edges",
 })]
@@ -300,8 +300,8 @@ inventory::submit! {
         target_name: "MinimumVertexCover",
         source_variant_fn: || <MaximumIndependentSet<SimpleGraph, i64> as Problem>::variant(),
         target_variant_fn: || <MinimumVertexCover<SimpleGraph, i64> as Problem>::variant(),
-        size_declarations_fn: || ReductionSizeDeclarations {
-            relation: Some(SizeRelation::Exact),
+        parameter_declarations_fn: || ReductionParameterDeclarations {
+            relation: Some(ParameterRelation::Exact),
             fields: vec![
                 ("num_vertices", Expr::Var("num_vertices")),
                 ("num_edges", Expr::Var("num_edges")),
@@ -343,7 +343,7 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 | Method | Algorithm | Use case |
 |--------|-----------|----------|
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
-| `compose_path_size_transform(path)` | Symbolic composition | Compose each rule's exact or upper-bound size relation while preserving its promise |
+| `compose_path_parameter_transform(path)` | Symbolic composition | Compose each rule's exact or upper-bound parameter relation while preserving its promise |
 
 A rule has one relation for all of its formulas: either an exact equality or an upper
 bound. Composition keeps exact formulas exact only when every step is exact; every other
@@ -383,15 +383,15 @@ let solution: Vec<usize> = reduction.extract_solution(&target_solution);
 For full type control, you can also chain `ReduceTo::reduce_to()` calls manually at each step.
 
 <details>
-<summary>Size contracts</summary>
+<summary>Parameter contracts</summary>
 
-Each reduction declares one relation for all represented target-size fields and may mark
+Each reduction declares one relation for all represented target-parameter fields and may mark
 other fields unavailable with a reason. The `#[reduction]` macro parses every formula into
 the canonical `Expr` DAG at compile time:
 
 ```rust,ignore
 #[reduction(
-size = upper_bound {
+transform = upper_bound {
     num_vars = "num_vertices + num_edges",
     num_clauses = "3 * num_edges",
 },
@@ -402,26 +402,26 @@ unavailable = {
 impl ReduceTo<Target> for Source { ... }
 ```
 
-`SizeTransform` uses exact rational and arbitrary-precision integer arithmetic. Exact
+`ParameterTransform` uses exact rational and arbitrary-precision integer arithmetic. Exact
 relations must evaluate to non-negative integers, while upper-bound results round rational
 values upward. Missing fields, negative or non-integral exact results, division by zero,
-and explicit conversion outside `usize` are errors.
+and explicit conversion outside `u64` are errors.
 
-Transforms can be evaluated with an explicit source size:
+Transforms can be evaluated with explicit source parameters:
 
 ```
-Input:  ProblemSize { num_vertices: 10, num_edges: 15 }
-Output: ProblemSize { num_vars: 25 }
+Input:  ProblemParameters { num_vertices: 10, num_edges: 15 }
+Output: ProblemParameters { num_vars: 25 }
 ```
 
-For multi-step paths, `compose_path_size_transform` substitutes each step into the next.
+For multi-step paths, `compose_path_parameter_transform` substitutes each step into the next.
 When only upper bounds are known for the intermediate fields, a downstream polynomial is
 first fully expanded and like monomials are combined; terms with non-positive coefficients
 are then removed before substitution. For example, `m <= n^2` followed by `k = 10 - m`
 produces the sound bound `k <= 10`, while
 `e' = v(v - 1)/2 - e` produces `e' <= v^2/2`. A non-polynomial downstream formula cannot
-propagate symbolic upper bounds and reports an error. Projection to `Growth` is a separate
-terminal operation used for Big-O path comparison.
+propagate symbolic upper bounds and reports an error. Projection to `Growth` is a separate descriptive terminal operation used for
+Big-O display; it does not rank or filter paths.
 
 </details>
 

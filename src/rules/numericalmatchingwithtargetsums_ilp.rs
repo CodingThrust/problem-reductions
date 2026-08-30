@@ -63,9 +63,12 @@ impl ReductionResult for ReductionNMTSToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_pairs * num_pairs * num_pairs",
         num_constraints = "3 * num_pairs",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {

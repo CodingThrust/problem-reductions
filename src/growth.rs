@@ -1,5 +1,5 @@
 //! Symbolic growth domain: a dedicated asymptotic normal form for reduction
-//! size expressions.
+//! parameter expressions.
 //!
 //! Where full monomial canonicalization answers Big-O questions by expanding an
 //! [`Expr`] to monomial normal form, with exponential cost in nesting depth, the

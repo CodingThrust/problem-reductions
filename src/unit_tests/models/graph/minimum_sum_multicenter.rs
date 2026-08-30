@@ -16,7 +16,7 @@ fn test_min_sum_multicenter_creation() {
 }
 
 #[test]
-fn test_min_sum_multicenter_size_getters() {
+fn test_min_sum_multicenter_parameter_getters() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2);
     assert_eq!(problem.num_vertices(), 5);

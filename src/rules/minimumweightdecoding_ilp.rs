@@ -54,10 +54,13 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_cols + num_rows",
         num_constraints = "num_rows + num_cols",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;

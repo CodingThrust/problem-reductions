@@ -254,7 +254,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = TravelingSalesman::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1i64; 3],

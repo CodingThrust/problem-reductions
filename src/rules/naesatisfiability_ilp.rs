@@ -37,10 +37,13 @@ impl ReductionResult for ReductionNAESATToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars",
         num_constraints = "2 * num_clauses",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for NAESatisfiability {
     type Result = ReductionNAESATToILP;

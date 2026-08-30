@@ -292,13 +292,13 @@ def rule_completeness(
             if test_file.exists()
             else check_entry(status="fail", detail="missing rule unit tests")
         ),
-        "size_contract_form": (
+        "parameter_transform_form": (
             check_entry(status="pass", path=str(rule_file.relative_to(repo_root)))
             if rule_file.exists()
-            and any(key in rule_text for key in ("exact = {", "bound = {", "unavailable = {"))
+            and any(key in rule_text for key in ("transform = exact", "transform = upper_bound", "transform = unavailable"))
             else check_entry(
                 status="fail",
-                detail="missing explicit exact, bound, or unavailable size declaration",
+                detail="missing explicit exact, upper-bound, or unavailable parameter transform",
             )
         ),
         "canonical_example": (

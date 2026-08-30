@@ -55,7 +55,7 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         universe_size = "num_vertices",
         num_subsets = "num_edges",
     }

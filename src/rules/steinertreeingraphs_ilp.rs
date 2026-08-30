@@ -47,10 +47,13 @@ impl ReductionResult for ReductionSTIGToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_edges + 2 * num_edges * (num_terminals - 1)",
         num_constraints = "num_vertices * (num_terminals - 1) + 2 * num_edges * (num_terminals - 1)",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for SteinerTreeInGraphs<SimpleGraph, i64> {
     type Result = ReductionSTIGToILP;

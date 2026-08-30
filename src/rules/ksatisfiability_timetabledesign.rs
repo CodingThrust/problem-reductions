@@ -787,7 +787,7 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_periods = "4 * num_literals",
         num_craftsmen = "24 * num_literals + 1",
         num_tasks = "24 * num_literals + 1",

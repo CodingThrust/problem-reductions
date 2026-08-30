@@ -112,7 +112,7 @@ impl Problem for SubsetSum {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_elements", num_elements),];
+    crate::problem_parameters![("num_elements", num_elements),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

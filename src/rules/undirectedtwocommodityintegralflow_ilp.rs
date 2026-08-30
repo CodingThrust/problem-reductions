@@ -62,10 +62,13 @@ impl ReductionResult for ReductionU2CIFToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "6 * num_edges",
         num_constraints = "7 * num_edges + 2 * num_nonterminal_vertices + 2",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
     type Result = ReductionU2CIFToILP;

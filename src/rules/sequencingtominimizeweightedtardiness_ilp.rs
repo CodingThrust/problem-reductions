@@ -49,10 +49,14 @@ impl ReductionResult for ReductionSTMWTToILP {
     }
 }
 
-#[reduction(size = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_tasks^2 + 2 * num_tasks",
     num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
-})]
+},
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
     type Result = ReductionSTMWTToILP;
 

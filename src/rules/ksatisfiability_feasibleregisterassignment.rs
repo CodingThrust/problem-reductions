@@ -86,11 +86,15 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vars + 12 * num_clauses",
         num_arcs = "15 * num_clauses",
         num_registers = "num_vars + 9 * num_clauses",
-    })]
+    },
+    unavailable = {
+        num_same_register_pairs = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 

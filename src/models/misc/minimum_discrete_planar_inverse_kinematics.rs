@@ -275,7 +275,7 @@ impl Problem for MinimumDiscretePlanarInverseKinematics {
     type Solution = Vec<usize>;
     type Value = Min<f64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("total_configurations", total_configurations),
         ("num_links", num_links),
         ("num_orientation_samples", num_orientation_samples),

@@ -35,7 +35,7 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinMaxMulticente
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

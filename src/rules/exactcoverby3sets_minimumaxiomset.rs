@@ -45,7 +45,7 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_sentences = "universe_size + num_subsets",
         num_true_sentences = "universe_size + num_subsets",
         num_implications = "4 * num_subsets",

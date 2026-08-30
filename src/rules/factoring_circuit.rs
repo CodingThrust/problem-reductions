@@ -185,10 +185,15 @@ fn build_multiplier_cell(
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 1",
         num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 2",
-    })]
+    },
+    unavailable = {
+        num_assignment_outputs = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_expression_nodes = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;
 

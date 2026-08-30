@@ -407,7 +407,7 @@ fn enumerate_pair_keys(num_regulars: usize) -> Option<Vec<(usize, usize)>> {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_elements = "24 * num_triples * num_triples - 3 * num_triples",
         num_groups = "8 * num_triples * num_triples - num_triples",
     })]

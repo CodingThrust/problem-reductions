@@ -89,7 +89,7 @@ impl Problem for CosineProductIntegration {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_coefficients", num_coefficients),];
+    crate::problem_parameters![("num_coefficients", num_coefficients),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

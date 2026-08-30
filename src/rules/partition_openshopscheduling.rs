@@ -103,7 +103,7 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_jobs = "num_elements + 1",
         num_machines = "3",
     })]

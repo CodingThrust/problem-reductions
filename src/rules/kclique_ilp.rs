@@ -50,9 +50,12 @@ impl ReductionResult for ReductionKCliqueToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_vertices",
         num_constraints = "num_vertices^2 + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {

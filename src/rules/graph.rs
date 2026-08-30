@@ -11,11 +11,11 @@
 //! - JSON export for documentation and visualization
 
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionSizeContract,
-    SizeContractError,
+    AggregateReduceFn, EdgeCapabilities, ParameterContractError, ReduceFn, ReductionEntry,
+    ReductionParameterContract,
 };
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
-use crate::types::ProblemSize;
+use crate::types::ProblemParameters;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -34,14 +34,14 @@ pub struct ReductionEdgeInfo {
     pub source_variant: BTreeMap<String, String>,
     pub target_name: &'static str,
     pub target_variant: BTreeMap<String, String>,
-    pub size_contract: Result<ReductionSizeContract, SizeContractError>,
+    pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
     pub capabilities: EdgeCapabilities,
 }
 
-/// Internal edge data combining explicit size contracts and executable reduction functions.
+/// Internal edge data combining explicit parameter contracts and executable reduction functions.
 #[derive(Clone)]
 pub(crate) struct ReductionEdgeData {
-    pub size_contract: Result<ReductionSizeContract, SizeContractError>,
+    pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
     pub reduce_fn: Option<ReduceFn>,
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     pub turing: bool,
@@ -98,9 +98,9 @@ struct VariantRef {
     variant: BTreeMap<String, String>,
 }
 
-/// One explicitly classified target size field in graph export.
+/// One explicitly classified target parameter field in graph export.
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct SizeFieldJson {
+pub(crate) struct ParameterFieldJson {
     pub(crate) field: String,
     pub(crate) contract: &'static str,
     pub(crate) formula: Option<String>,
@@ -114,9 +114,9 @@ pub(crate) struct EdgeJson {
     pub(crate) source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub(crate) target: usize,
-    /// Symbolic or unavailable target-size fields.
-    pub(crate) size_fields: Vec<SizeFieldJson>,
-    pub(crate) size_contract_error: Option<String>,
+    /// Symbolic or unavailable target-parameter fields.
+    pub(crate) parameters: Vec<ParameterFieldJson>,
+    pub(crate) parameter_contract_error: Option<String>,
     /// Relative rustdoc path for the reduction module.
     pub(crate) doc_path: String,
     /// Whether the edge supports witness/config workflows.
@@ -169,9 +169,9 @@ pub enum ExecutePathsError {
     },
 }
 
-/// Why symbolic size propagation could not be completed for a path.
+/// Why symbolic parameter propagation could not be completed for a path.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum PathSizeError {
+pub enum PathParameterError {
     #[error("cannot compose an empty reduction path")]
     EmptyPath,
     #[error("reduction path references unknown node {problem} {variant:?}")]
@@ -192,15 +192,15 @@ pub enum PathSizeError {
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid size contract: {error}")]
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}")]
     InvalidContract {
         step: usize,
         source_problem: String,
         target_problem: String,
         #[source]
-        error: Box<SizeContractError>,
+        error: Box<ParameterContractError>,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no symbolic size transform")]
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform")]
     Unavailable {
         step: usize,
         source_problem: String,
@@ -214,7 +214,7 @@ pub enum PathSizeError {
         source_problem: String,
         target_problem: String,
         #[source]
-        error: Box<crate::size::SizeTransformError>,
+        error: Box<crate::parameters::ParameterTransformError>,
     },
 }
 
@@ -369,11 +369,14 @@ pub struct ReductionGraph {
 impl ReductionGraph {
     /// Create a new reduction graph with all registered reductions from inventory.
     pub fn new() -> Self {
-        crate::registry::validate_variant_size_schemas().unwrap_or_else(|errors| {
-            panic!("invalid problem size schemas:\n{}", errors.join("\n"))
+        crate::registry::validate_variant_parameter_schemas().unwrap_or_else(|errors| {
+            panic!("invalid problem parameters schemas:\n{}", errors.join("\n"))
         });
-        crate::rules::registry::validate_reduction_size_schemas().unwrap_or_else(|errors| {
-            panic!("invalid reduction size schemas:\n{}", errors.join("\n"))
+        crate::rules::registry::validate_reduction_parameter_schemas().unwrap_or_else(|errors| {
+            panic!(
+                "invalid reduction parameter schemas:\n{}",
+                errors.join("\n")
+            )
         });
         let mut graph = DiGraph::new();
         let mut nodes: Vec<VariantNode> = Vec::new();
@@ -443,13 +446,13 @@ impl ReductionGraph {
                 variant: target_variant,
             }];
 
-            let size_contract = entry.size_contract();
+            let parameter_contract = entry.parameter_contract();
             if graph.find_edge(src_idx, dst_idx).is_none() {
                 graph.add_edge(
                     src_idx,
                     dst_idx,
                     ReductionEdgeData {
-                        size_contract,
+                        parameter_contract,
                         reduce_fn: entry.reduce_fn,
                         reduce_aggregate_fn: entry.reduce_aggregate_fn,
                         turing: entry.turing,
@@ -900,11 +903,11 @@ impl ReductionGraph {
         self.nodes.len()
     }
 
-    /// Return the symbolic size transform for every edge of a path.
-    pub fn path_size_transforms(
+    /// Return the symbolic parameter transform for every edge of a path.
+    pub fn path_parameter_transforms(
         &self,
         path: &ReductionPath,
-    ) -> Result<Vec<crate::size::SizeTransform>, PathSizeError> {
+    ) -> Result<Vec<crate::parameters::ParameterTransform>, PathParameterError> {
         if path.steps.len() <= 1 {
             return Ok(vec![]);
         }
@@ -914,7 +917,7 @@ impl ReductionGraph {
             .iter()
             .map(|step| {
                 self.lookup_node(&step.name, &step.variant).ok_or_else(|| {
-                    PathSizeError::UnknownNode {
+                    PathParameterError::UnknownNode {
                         problem: step.name.clone(),
                         variant: step.variant.clone(),
                     }
@@ -927,31 +930,32 @@ impl ReductionGraph {
             .enumerate()
             .map(|(index, pair)| {
                 let edge_idx = self.graph.find_edge(pair[0], pair[1]).ok_or_else(|| {
-                    PathSizeError::MissingEdge {
+                    PathParameterError::MissingEdge {
                         source_problem: path.steps[index].name.clone(),
                         target_problem: path.steps[index + 1].name.clone(),
                     }
                 })?;
                 if self.graph[edge_idx].turing {
-                    return Err(PathSizeError::TuringEdge {
+                    return Err(PathParameterError::TuringEdge {
                         step: index + 1,
                         source_problem: path.steps[index].name.clone(),
                         target_problem: path.steps[index + 1].name.clone(),
                     });
                 }
-                let contract = self.graph[edge_idx]
-                    .size_contract
-                    .as_ref()
-                    .map_err(|error| PathSizeError::InvalidContract {
-                        step: index + 1,
-                        source_problem: path.steps[index].name.clone(),
-                        target_problem: path.steps[index + 1].name.clone(),
-                        error: Box::new(error.clone()),
-                    })?;
+                let contract =
+                    self.graph[edge_idx]
+                        .parameter_contract
+                        .as_ref()
+                        .map_err(|error| PathParameterError::InvalidContract {
+                            step: index + 1,
+                            source_problem: path.steps[index].name.clone(),
+                            target_problem: path.steps[index + 1].name.clone(),
+                            error: Box::new(error.clone()),
+                        })?;
                 contract
                     .transform()
                     .cloned()
-                    .ok_or_else(|| PathSizeError::Unavailable {
+                    .ok_or_else(|| PathParameterError::Unavailable {
                         step: index + 1,
                         source_problem: path.steps[index].name.clone(),
                         target_problem: path.steps[index + 1].name.clone(),
@@ -960,19 +964,19 @@ impl ReductionGraph {
             .collect()
     }
 
-    /// Compose symbolic size transforms along a path.
-    pub fn compose_path_size_transform(
+    /// Compose symbolic parameter transforms along a path.
+    pub fn compose_path_parameter_transform(
         &self,
         path: &ReductionPath,
-    ) -> Result<Option<crate::size::SizeTransform>, PathSizeError> {
+    ) -> Result<Option<crate::parameters::ParameterTransform>, PathParameterError> {
         if path.steps.is_empty() {
-            return Err(PathSizeError::EmptyPath);
+            return Err(PathParameterError::EmptyPath);
         }
         if path.steps.len() == 1 {
             return Ok(None);
         }
 
-        let mut transforms = self.path_size_transforms(path)?.into_iter();
+        let mut transforms = self.path_parameter_transforms(path)?.into_iter();
         let Some(mut composed) = transforms.next() else {
             return Ok(None);
         };
@@ -987,7 +991,7 @@ impl ReductionGraph {
                         path.steps[edge_index + 1].name
                     ),
                 )
-                .map_err(|error| PathSizeError::Step {
+                .map_err(|error| PathParameterError::Step {
                     step: edge_index + 1,
                     source_problem: path.steps[edge_index].name.clone(),
                     target_problem: path.steps[edge_index + 1].name.clone(),
@@ -1068,7 +1072,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    size_contract: self.graph[e.id()].size_contract.clone(),
+                    parameter_contract: self.graph[e.id()].parameter_contract.clone(),
                     capabilities: self.graph[e.id()].capabilities(),
                 }
             })
@@ -1100,41 +1104,37 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    size_contract: self.graph[edge].size_contract.clone(),
+                    parameter_contract: self.graph[edge].parameter_contract.clone(),
                     capabilities: self.graph[edge].capabilities(),
                 }
             })
             .collect()
     }
 
-    /// Get the problem size field names for a problem type.
-    ///
-    /// Derives size fields from the explicit size contracts of reduction entries
-    /// where this problem appears as source or target. When the problem is a
-    /// source, its size fields are the input variables referenced in size
-    /// expressions. When it's a target, its size fields are the output field names.
-    pub fn size_field_names(&self, name: &str) -> Vec<String> {
-        let mut result = inventory::iter::<crate::registry::VariantEntry>
+    /// Get a problem type's canonical parameter names in declaration order.
+    pub fn parameter_names(&self, name: &str) -> Vec<String> {
+        inventory::iter::<crate::registry::VariantEntry>
             .into_iter()
-            .filter(|entry| entry.name == name)
-            .flat_map(|entry| entry.size_parameter_names().iter().copied())
-            .map(str::to_string)
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        result.sort_unstable();
-        result
+            .find(|entry| entry.name == name)
+            .map(|entry| {
+                entry
+                    .parameter_names()
+                    .iter()
+                    .map(|name| (*name).to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
-    /// Measure the complete problem-owned size at this exact variant.
-    pub fn compute_problem_size(
+    /// Measure the complete problem-owned parameters at this exact variant.
+    pub fn compute_problem_parameters(
         name: &str,
         variant: &BTreeMap<String, String>,
         instance: &dyn Any,
-    ) -> ProblemSize {
+    ) -> ProblemParameters {
         let entry = crate::registry::find_variant_entry(name, variant)
             .unwrap_or_else(|| panic!("unregistered exact problem variant `{name}` {variant:?}"));
-        (entry.size_measure_fn)(instance)
+        (entry.parameter_measure_fn)(instance)
     }
 
     /// Get all incoming reductions to a problem (across all its variants).
@@ -1154,7 +1154,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    size_contract: self.graph[e.id()].size_contract.clone(),
+                    parameter_contract: self.graph[e.id()].parameter_contract.clone(),
                     capabilities: self.graph[e.id()].capabilities(),
                 }
             })
@@ -1366,18 +1366,18 @@ impl ReductionGraph {
         for edge_ref in self.graph.edge_references() {
             let src_node_id = self.graph[edge_ref.source()];
             let dst_node_id = self.graph[edge_ref.target()];
-            let contract = &edge_ref.weight().size_contract;
+            let contract = &edge_ref.weight().parameter_contract;
             let capabilities = edge_ref.weight().capabilities();
 
-            let mut size_fields = Vec::new();
+            let mut parameters = Vec::new();
             if let Ok(contract) = contract {
                 if let Some(transform) = contract.transform() {
                     let relation = match transform.relation() {
-                        crate::size::SizeRelation::Exact => "exact",
-                        crate::size::SizeRelation::UpperBound => "upper_bound",
+                        crate::parameters::ParameterRelation::Exact => "exact",
+                        crate::parameters::ParameterRelation::UpperBound => "upper_bound",
                     };
-                    size_fields.extend(transform.expressions().map(|(field, expression)| {
-                        SizeFieldJson {
+                    parameters.extend(transform.expressions().map(|(field, expression)| {
+                        ParameterFieldJson {
                             field: field.to_string(),
                             contract: relation,
                             formula: Some(expression.to_string()),
@@ -1385,8 +1385,8 @@ impl ReductionGraph {
                         }
                     }));
                 }
-                size_fields.extend(contract.unavailable().iter().map(|unavailable| {
-                    SizeFieldJson {
+                parameters.extend(contract.unavailable().iter().map(|unavailable| {
+                    ParameterFieldJson {
                         field: unavailable.field.to_string(),
                         contract: "unavailable",
                         formula: None,
@@ -1394,7 +1394,7 @@ impl ReductionGraph {
                     }
                 }));
             }
-            let size_contract_error = contract.as_ref().err().map(ToString::to_string);
+            let parameter_contract_error = contract.as_ref().err().map(ToString::to_string);
 
             // Find the doc_path from the matching ReductionEntry
             let src_name = self.nodes[src_node_id].name;
@@ -1407,8 +1407,8 @@ impl ReductionGraph {
             edges.push(EdgeJson {
                 source: old_to_new[&src_node_id],
                 target: old_to_new[&dst_node_id],
-                size_fields,
-                size_contract_error,
+                parameters,
+                parameter_contract_error,
                 doc_path,
                 witness: capabilities.witness,
                 aggregate: capabilities.aggregate,
@@ -1499,12 +1499,10 @@ impl ReductionGraph {
         }
     }
 
-    /// Find the matching `ReductionEntry` for a (source_name, target_name) pair
-    /// given exact source and target variants.
+    /// Find the graph edge for exact source and target variants.
     ///
-    /// Returns `Some(MatchedEntry)` only when both the source and target variants
-    /// match exactly. No fallback is attempted — callers that need fuzzy matching
-    /// should resolve variants before calling this method.
+    /// No fallback is attempted — callers that need fuzzy matching should resolve
+    /// variants before calling this method.
     pub fn find_entry(
         &self,
         source_name: &str,
@@ -1512,25 +1510,15 @@ impl ReductionGraph {
         target_name: &str,
         target_variant: &BTreeMap<String, String>,
     ) -> Option<MatchedEntry> {
-        for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name != source_name || entry.target_name != target_name {
-                continue;
-            }
+        let source = self.lookup_node(source_name, source_variant)?;
+        let target = self.lookup_node(target_name, target_variant)?;
+        let edge = self.graph.find_edge(source, target)?;
 
-            let entry_source = Self::variant_to_map(&entry.source_variant());
-            let entry_target = Self::variant_to_map(&entry.target_variant());
-
-            // Exact match on both source and target variant
-            if source_variant == &entry_source && target_variant == &entry_target {
-                return Some(MatchedEntry {
-                    source_variant: entry_source,
-                    target_variant: entry_target,
-                    size_contract: entry.size_contract(),
-                });
-            }
-        }
-
-        None
+        Some(MatchedEntry {
+            source_variant: source_variant.clone(),
+            target_variant: target_variant.clone(),
+            parameter_contract: self.graph[edge].parameter_contract.clone(),
+        })
     }
 }
 
@@ -1540,8 +1528,8 @@ pub struct MatchedEntry {
     pub source_variant: BTreeMap<String, String>,
     /// The entry's target variant.
     pub target_variant: BTreeMap<String, String>,
-    /// The reduction's explicit size contract.
-    pub size_contract: Result<ReductionSizeContract, SizeContractError>,
+    /// The reduction's explicit parameter contract.
+    pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
 }
 
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
@@ -1754,7 +1742,7 @@ impl ReductionGraph {
 
 /// A concrete reduction path whose reductions have already been executed.
 ///
-/// The constructed chain is retained so callers can inspect target sizes and
+/// The constructed chain is retained so callers can inspect target parameterss and
 /// extract solutions without re-executing any reduction.
 pub struct ExecutedPath {
     /// The variant-level path.
@@ -1772,13 +1760,13 @@ impl ExecutedPath {
             .target_problem_any()
     }
 
-    /// Return the size of every concrete intermediate target in this path.
-    pub fn target_sizes(&self) -> Vec<ProblemSize> {
+    /// Return the parameters of every concrete intermediate target in this path.
+    pub fn target_parameters(&self) -> Vec<ProblemParameters> {
         self.steps
             .iter()
             .zip(self.path.steps.iter().skip(1))
             .map(|(result, target)| {
-                ReductionGraph::compute_problem_size(
+                ReductionGraph::compute_problem_parameters(
                     &target.name,
                     &target.variant,
                     result.target_problem_any(),

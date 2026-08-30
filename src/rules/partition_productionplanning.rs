@@ -31,9 +31,13 @@ impl ReductionResult for ReductionPartitionToProductionPlanning {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_periods = "num_elements + 1",
-    })]
+    },
+    unavailable = {
+        max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ProductionPlanning> for Partition {
     type Result = ReductionPartitionToProductionPlanning;
 

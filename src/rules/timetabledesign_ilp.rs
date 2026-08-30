@@ -57,10 +57,14 @@ impl ReductionResult for ReductionTDToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_craftsmen * num_tasks * num_periods",
         num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 

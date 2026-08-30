@@ -140,9 +140,12 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "3 * num_arcs + num_arcs * num_arcs",
         num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<i64>> for EulerianPath {

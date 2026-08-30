@@ -48,7 +48,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vertices",
         num_arcs = "num_vertices",
         num_edges = "2 * num_edges",

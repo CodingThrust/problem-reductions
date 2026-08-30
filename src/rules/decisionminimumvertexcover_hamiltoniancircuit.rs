@@ -308,9 +308,9 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vertices = "the construction size depends on the decision threshold, which is not a problem size parameter",
-        num_edges = "the construction size depends on the decision threshold, which is not a problem size parameter",
+    transform = unavailable {
+        num_vertices = "the construction size depends on the decision threshold, which is not a problem parameter",
+        num_edges = "the construction size depends on the decision threshold, which is not a problem parameter",
     }
 )]
 impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, i64>> {

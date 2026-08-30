@@ -275,7 +275,7 @@ where
     type Solution = ();
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_vertices", num_vertices),
         ("num_edges", num_edges),
         ("num_playable_vertices", num_playable_vertices),

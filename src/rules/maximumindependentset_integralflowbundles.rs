@@ -58,7 +58,7 @@ impl ReductionResult for ReductionMISToIFB {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices + 2",
         num_arcs = "2 * num_vertices",
         num_bundles = "num_edges + num_vertices",

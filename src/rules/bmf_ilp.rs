@@ -51,10 +51,13 @@ impl ReductionResult for ReductionBMFToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
         num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;

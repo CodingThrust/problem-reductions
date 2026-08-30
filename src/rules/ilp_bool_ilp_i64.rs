@@ -33,7 +33,7 @@ impl ReductionResult for ReductionBinaryILPToIntILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars",
         num_constraints = "num_constraints",
         num_nonzeros = "num_nonzeros",

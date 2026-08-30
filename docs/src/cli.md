@@ -114,7 +114,7 @@ Lists all registered problem types with their short aliases.
 
 ### `pred show` — Inspect a problem
 
-Show fields, size fields, and reductions for a problem's default variant. Use short aliases like `MIS` for `MaximumIndependentSet`. Use `pred to` or `pred from` for variant-level neighborhood exploration.
+Show fields, parameter fields, and reductions for a problem's default variant. Use short aliases like `MIS` for `MaximumIndependentSet`. Use `pred to` or `pred from` for variant-level neighborhood exploration.
 
 ```text
 {{#include generated/pred-show-mis.txt}}
@@ -155,20 +155,17 @@ Inspect reduction paths or save the path set for later route selection:
 ```bash
 pred path MIS QUBO                           # paths (up to 20)
 pred path MIS QUBO --limit 50                # inspect the first 50 paths
-pred path MIS QUBO --unfiltered              # skip Pareto filtering
 pred path MIS QUBO --limit all               # inspect up to 999 paths
 pred path MIS MaximumClique mis.json         # execute paths on a complete instance
 pred path MIS QUBO -o paths.json             # save the path set
 ```
 
-Without an instance file, each route explains how problem size changes. With a
+Without an instance file, each route explains how problem parameters change. With a
 problem JSON file, every candidate path is executed on the complete source instance
-and the actual size of each constructed intermediate is reported. By default, the
-command enumerates the first 20 witness-capable paths and returns those whose
-target-size vectors are Pareto nondominated within that set. `--limit` accepts
-1 through 999; `all` is an alias for 999. Use `--unfiltered` to return the
-enumerated paths without Pareto filtering. The JSON envelope remains
-`{"paths": [...], "truncated": bool}`. Extract one route from the path-set
+and the actual parameters of each constructed intermediate are reported. By default,
+the command enumerates and returns the first 20 witness-capable paths without ranking
+or filtering them. `--limit` accepts 1 through 999; `all` is an alias for 999. The JSON
+envelope remains `{"paths": [...], "truncated": bool}`. Extract one route from the path-set
 envelope before passing it to `pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
@@ -426,7 +423,7 @@ This is useful for scripting and piping:
 
 ```bash
 pred list --json | jq '.variants[].name'
-pred path MIS QUBO --json | jq '.paths[] | {overall_size, path}'
+pred path MIS QUBO --json | jq '.paths[] | {overall_parameters, path}'
 ```
 
 ## Problem Name Aliases

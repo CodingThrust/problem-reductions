@@ -48,9 +48,12 @@ impl ReductionResult for ReductionQUBOToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_vars^2 + num_vars",
         num_constraints = "3 * num_vars^2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for QUBO<f64> {

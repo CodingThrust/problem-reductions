@@ -161,9 +161,12 @@ impl ReductionResult for ReductionIMDCToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "string_len + string_len ^ 3",
         num_constraints = "string_len + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {

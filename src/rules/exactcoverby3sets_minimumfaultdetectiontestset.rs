@@ -35,7 +35,7 @@ impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_subsets + universe_size + 1",
         num_arcs = "3 * num_subsets + universe_size",
         num_inputs = "num_subsets",

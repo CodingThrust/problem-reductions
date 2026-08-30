@@ -93,10 +93,14 @@ impl ReductionResult for ReductionBMFToBicliqueCover {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "rows + cols",
         num_edges = "rows * cols",
         rank = "rank",
+    },
+    unavailable = {
+        left_size = "the exact target parameter is not represented by this reduction's symbolic transform",
+        right_size = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<BicliqueCover> for BMF {

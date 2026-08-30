@@ -273,7 +273,7 @@ impl Problem for FeasibleRegisterAssignment {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_arcs", num_arcs),
         ("num_registers", num_registers),
         ("num_same_register_pairs", num_same_register_pairs),

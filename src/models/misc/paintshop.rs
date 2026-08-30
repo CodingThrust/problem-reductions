@@ -196,7 +196,7 @@ impl Problem for PaintShop {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![("num_cars", num_cars), ("num_sequence", num_sequence),];
+    crate::problem_parameters![("num_cars", num_cars), ("num_sequence", num_sequence),];
 
     fn evaluate(
         &self,

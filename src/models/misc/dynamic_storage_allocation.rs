@@ -126,7 +126,7 @@ impl Problem for DynamicStorageAllocation {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("memory_size", memory_size), ("num_items", num_items),];
+    crate::problem_parameters![("memory_size", memory_size), ("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

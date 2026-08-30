@@ -62,7 +62,7 @@ fn literal_polarity(lit: i64) -> i64 {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "num_vars + 1",
         num_edges = "(num_vars + 1)^2",
     }

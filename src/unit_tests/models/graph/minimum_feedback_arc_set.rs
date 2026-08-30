@@ -189,7 +189,7 @@ fn test_minimum_feedback_arc_set_two_disjoint_cycles() {
 }
 
 #[test]
-fn test_minimum_feedback_arc_set_size_getters() {
+fn test_minimum_feedback_arc_set_parameter_getters() {
     let graph = DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 5]);
     assert_eq!(problem.num_vertices(), 5);

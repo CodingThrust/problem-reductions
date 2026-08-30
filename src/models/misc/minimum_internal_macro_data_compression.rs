@@ -223,7 +223,7 @@ impl Problem for MinimumInternalMacroDataCompression {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![("alphabet_size", alphabet_size), ("string_len", string_len),];
+    crate::problem_parameters![("alphabet_size", alphabet_size), ("string_len", string_len),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

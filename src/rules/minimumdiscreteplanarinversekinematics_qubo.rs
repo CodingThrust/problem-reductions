@@ -68,7 +68,7 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     }
 }
 
-#[reduction(size = exact {
+#[reduction(transform = exact {
     num_vars = "num_orientation_samples",
 })]
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {

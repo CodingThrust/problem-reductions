@@ -182,7 +182,7 @@ impl Problem for SetBasis {
     type Solution = Vec<Vec<bool>>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("universe_size", universe_size),
         ("num_sets", num_sets),
         ("basis_size", basis_size),

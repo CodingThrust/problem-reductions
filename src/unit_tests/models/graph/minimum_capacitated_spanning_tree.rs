@@ -174,7 +174,7 @@ fn test_serialization() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = example_instance();
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 8);

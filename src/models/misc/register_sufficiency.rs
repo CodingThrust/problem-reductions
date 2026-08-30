@@ -353,7 +353,7 @@ impl Problem for RegisterSufficiency {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("bound", bound),
         ("num_arcs", num_arcs),
         ("num_sinks", num_sinks),

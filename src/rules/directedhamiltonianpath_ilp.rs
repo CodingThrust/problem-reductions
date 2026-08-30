@@ -46,10 +46,13 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices^2",
         num_constraints = "3 * num_vertices + (num_vertices - 1) * (num_vertices^2 - num_arcs)",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
     type Result = ReductionDirectedHamiltonianPathToILP;

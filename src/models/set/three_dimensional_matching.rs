@@ -125,7 +125,7 @@ impl Problem for ThreeDimensionalMatching {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_triples", num_triples),
         ("universe_size", universe_size),
     ];

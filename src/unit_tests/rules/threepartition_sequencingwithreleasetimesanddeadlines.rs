@@ -34,7 +34,7 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_structure() {
     assert_eq!(target.num_tasks(), 7);
     assert_eq!(source.num_elements() + source.num_groups() - 1, 7);
 
-    // Element tasks: lengths match source sizes
+    // Element tasks: lengths match source parameterss
     let lengths = target.lengths();
     assert_eq!(&lengths[..6], &[4, 5, 6, 4, 6, 5]);
     // Filler task has length 1

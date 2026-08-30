@@ -121,7 +121,7 @@ impl Problem for MinimumCardinalityKey {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_attributes", num_attributes),
         ("num_dependencies", num_dependencies),
     ];

@@ -43,9 +43,9 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
 }
 
 #[reduction(
-    size = unavailable {
-        num_elements = "the exact target size depends on normalization statistics specific to this reduction",
-        num_triples = "the exact target size depends on normalization statistics specific to this reduction",
+    transform = unavailable {
+        num_elements = "the exact target parameters depend on normalization statistics specific to this reduction",
+        num_triples = "the exact target parameters depend on normalization statistics specific to this reduction",
     }
 )]
 impl ReduceTo<Betweenness> for SetSplitting {

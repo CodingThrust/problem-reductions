@@ -157,7 +157,7 @@ impl Problem for NonTautology {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_disjuncts", num_disjuncts), ("num_vars", num_vars),];
+    crate::problem_parameters![("num_disjuncts", num_disjuncts), ("num_vars", num_vars),];
 
     fn evaluate(
         &self,

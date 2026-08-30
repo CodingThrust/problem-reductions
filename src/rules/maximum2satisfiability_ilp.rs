@@ -41,10 +41,13 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars + num_clauses",
         num_constraints = "num_clauses",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToILP;

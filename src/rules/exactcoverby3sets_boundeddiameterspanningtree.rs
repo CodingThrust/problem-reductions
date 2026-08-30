@@ -75,7 +75,7 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_subsets + universe_size + 3",
         num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
     })]

@@ -122,7 +122,7 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_tasks", num_tasks), ("time_horizon", time_horizon),];
+    crate::problem_parameters![("num_tasks", num_tasks), ("time_horizon", time_horizon),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

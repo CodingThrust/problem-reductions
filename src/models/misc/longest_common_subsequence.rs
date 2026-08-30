@@ -207,7 +207,7 @@ impl Problem for LongestCommonSubsequence {
     type Solution = Vec<Option<usize>>;
     type Value = Max<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("cross_frequency_product", cross_frequency_product),
         ("max_length", max_length),

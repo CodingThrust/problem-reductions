@@ -152,7 +152,7 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];

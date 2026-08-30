@@ -33,10 +33,13 @@ impl ReductionResult for ReductionPCNFToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_paths",
         num_constraints = "num_arcs + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;

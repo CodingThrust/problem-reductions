@@ -51,10 +51,13 @@ impl ReductionResult for ReductionCAToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;

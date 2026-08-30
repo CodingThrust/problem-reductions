@@ -36,7 +36,7 @@ impl ReductionResult for ReductionSPToQUBO {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_sets",
     }
 )]

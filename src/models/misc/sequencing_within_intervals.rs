@@ -196,7 +196,7 @@ impl Problem for SequencingWithinIntervals {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_start_slots", num_start_slots),
         ("num_tasks", num_tasks),
     ];

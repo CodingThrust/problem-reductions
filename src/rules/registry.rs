@@ -1,38 +1,38 @@
 //! Automatic reduction registration via inventory.
 
 use crate::expr::Expr;
+use crate::parameters::{ParameterRelation, ParameterTransform, ParameterTransformError};
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
-use crate::size::{SizeRelation, SizeTransform, SizeTransformError};
 use std::any::Any;
 use std::collections::HashSet;
 
-/// One target field whose size cannot be propagated through a reduction.
+/// One target parameter that cannot be propagated through a reduction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
-pub struct UnavailableSizeField {
+pub struct UnavailableParameterField {
     pub field: &'static str,
     pub reason: &'static str,
 }
 
 /// Raw symbolic declaration emitted by the reduction proc macro.
 #[derive(Clone, Debug, Default)]
-pub struct ReductionSizeDeclarations {
-    pub relation: Option<SizeRelation>,
+pub struct ReductionParameterDeclarations {
+    pub relation: Option<ParameterRelation>,
     pub fields: Vec<(&'static str, Expr)>,
-    pub unavailable: Vec<UnavailableSizeField>,
+    pub unavailable: Vec<UnavailableParameterField>,
 }
 
-/// Validated size metadata for one reduction edge.
+/// Validated parameter metadata for one reduction edge.
 #[derive(Clone, Debug)]
-pub struct ReductionSizeContract {
-    transform: Option<SizeTransform>,
-    unavailable: Vec<UnavailableSizeField>,
+pub struct ReductionParameterContract {
+    transform: Option<ParameterTransform>,
+    unavailable: Vec<UnavailableParameterField>,
 }
 
-impl ReductionSizeContract {
+impl ReductionParameterContract {
     pub fn new(
         edge: impl Into<Box<str>>,
-        declarations: ReductionSizeDeclarations,
-    ) -> Result<Self, SizeContractError> {
+        declarations: ReductionParameterDeclarations,
+    ) -> Result<Self, ParameterContractError> {
         let edge = edge.into();
         let formula_names: HashSet<_> = declarations
             .fields
@@ -42,7 +42,7 @@ impl ReductionSizeContract {
         let mut unavailable_names = HashSet::new();
         for unavailable in &declarations.unavailable {
             if unavailable.reason.trim().is_empty() {
-                return Err(SizeContractError::EmptyUnavailableReason {
+                return Err(ParameterContractError::EmptyUnavailableReason {
                     edge,
                     field: unavailable.field.into(),
                 });
@@ -50,20 +50,22 @@ impl ReductionSizeContract {
             if !unavailable_names.insert(unavailable.field)
                 || formula_names.contains(unavailable.field)
             {
-                return Err(SizeContractError::DuplicateClassification {
+                return Err(ParameterContractError::DuplicateClassification {
                     edge,
                     field: unavailable.field.into(),
                 });
             }
         }
         let transform = match (declarations.relation, declarations.fields.is_empty()) {
-            (Some(relation), false) => {
-                Some(SizeTransform::new(edge, relation, declarations.fields)?)
-            }
+            (Some(relation), false) => Some(ParameterTransform::new(
+                edge,
+                relation,
+                declarations.fields,
+            )?),
             (None, true) if !declarations.unavailable.is_empty() => None,
-            (None, true) => return Err(SizeContractError::EmptyContract { edge }),
-            (Some(_), true) => return Err(SizeContractError::EmptyTransform { edge }),
-            (None, false) => return Err(SizeContractError::MissingRelation { edge }),
+            (None, true) => return Err(ParameterContractError::EmptyContract { edge }),
+            (Some(_), true) => return Err(ParameterContractError::EmptyTransform { edge }),
+            (None, false) => return Err(ParameterContractError::MissingRelation { edge }),
         };
         Ok(Self {
             transform,
@@ -71,18 +73,18 @@ impl ReductionSizeContract {
         })
     }
 
-    pub fn transform(&self) -> Option<&SizeTransform> {
+    pub fn transform(&self) -> Option<&ParameterTransform> {
         self.transform.as_ref()
     }
 
-    pub fn unavailable(&self) -> &[UnavailableSizeField] {
+    pub fn unavailable(&self) -> &[UnavailableParameterField] {
         &self.unavailable
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SizeContractError {
-    Transform(SizeTransformError),
+pub enum ParameterContractError {
+    Transform(ParameterTransformError),
     EmptyContract { edge: Box<str> },
     EmptyTransform { edge: Box<str> },
     MissingRelation { edge: Box<str> },
@@ -90,23 +92,23 @@ pub enum SizeContractError {
     EmptyUnavailableReason { edge: Box<str>, field: Box<str> },
 }
 
-impl std::fmt::Display for SizeContractError {
+impl std::fmt::Display for ParameterContractError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Transform(error) => write!(formatter, "invalid size transform: {error}"),
+            Self::Transform(error) => write!(formatter, "invalid parameter transform: {error}"),
             Self::EmptyContract { edge } => write!(
                 formatter,
-                "reduction `{edge}` has no size formulas or unavailable fields"
+                "reduction `{edge}` has no parameter formulas or unavailable fields"
             ),
             Self::EmptyTransform { edge } => {
                 write!(
                     formatter,
-                    "reduction `{edge}` declares an empty size transform"
+                    "reduction `{edge}` declares an empty parameter transform"
                 )
             }
             Self::MissingRelation { edge } => write!(
                 formatter,
-                "reduction `{edge}` declares size formulas without a relation"
+                "reduction `{edge}` declares parameter formulas without a relation"
             ),
             Self::DuplicateClassification { edge, field } => {
                 write!(
@@ -122,10 +124,10 @@ impl std::fmt::Display for SizeContractError {
     }
 }
 
-impl std::error::Error for SizeContractError {}
+impl std::error::Error for ParameterContractError {}
 
-impl From<SizeTransformError> for SizeContractError {
-    fn from(error: SizeTransformError) -> Self {
+impl From<ParameterTransformError> for ParameterContractError {
+    fn from(error: ParameterTransformError) -> Self {
         Self::Transform(error)
     }
 }
@@ -174,8 +176,8 @@ pub struct ReductionEntry {
     pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Function to derive target variant attributes from `Problem::variant()`.
     pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-    /// The rule's single size relation, formulas, and unavailable target fields.
-    pub size_declarations_fn: fn() -> ReductionSizeDeclarations,
+    /// The rule's single parameter relation, formulas, and unavailable target fields.
+    pub parameter_declarations_fn: fn() -> ReductionParameterDeclarations,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
     /// Type-erased reduction executor.
@@ -192,9 +194,9 @@ pub struct ReductionEntry {
 }
 
 impl ReductionEntry {
-    pub fn size_contract(&self) -> Result<ReductionSizeContract, SizeContractError> {
+    pub fn parameter_contract(&self) -> Result<ReductionParameterContract, ParameterContractError> {
         let edge: Box<str> = format!("{} -> {}", self.source_name, self.target_name).into();
-        ReductionSizeContract::new(edge, (self.size_declarations_fn)())
+        ReductionParameterContract::new(edge, (self.parameter_declarations_fn)())
     }
 
     /// Get the source variant by calling the function.
@@ -237,7 +239,7 @@ impl std::fmt::Debug for ReductionEntry {
             .field("target_name", &self.target_name)
             .field("source_variant", &self.source_variant())
             .field("target_variant", &self.target_variant())
-            .field("size_contract", &self.size_contract())
+            .field("parameter_contract", &self.parameter_contract())
             .field("module_path", &self.module_path)
             .field("capabilities", &self.capabilities())
             .finish()
@@ -251,8 +253,8 @@ pub fn reduction_entries() -> Vec<&'static ReductionEntry> {
     inventory::iter::<ReductionEntry>().collect()
 }
 
-/// Validate reduction size expressions against problem-owned endpoint schemas.
-pub fn validate_reduction_size_schemas() -> Result<(), Vec<String>> {
+/// Validate reduction parameter expressions against problem-owned endpoint schemas.
+pub fn validate_reduction_parameter_schemas() -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
 
     for entry in inventory::iter::<ReductionEntry> {
@@ -276,16 +278,16 @@ pub fn validate_reduction_size_schemas() -> Result<(), Vec<String>> {
         };
 
         let source_fields = source
-            .size_parameter_names()
+            .parameter_names()
             .iter()
             .copied()
             .collect::<std::collections::BTreeSet<_>>();
         let target_fields = target
-            .size_parameter_names()
+            .parameter_names()
             .iter()
             .copied()
             .collect::<std::collections::BTreeSet<_>>();
-        let declarations = (entry.size_declarations_fn)();
+        let declarations = (entry.parameter_declarations_fn)();
 
         for field in declarations
             .fields
@@ -294,24 +296,31 @@ pub fn validate_reduction_size_schemas() -> Result<(), Vec<String>> {
         {
             if !source_fields.contains(field) {
                 errors.push(format!(
-                    "{} -> {} references unknown source size parameter `{field}`; declared: {source_fields:?}",
+                    "{} -> {} references unknown source parameter `{field}`; declared: {source_fields:?}",
                     entry.source_name, entry.target_name
                 ));
             }
         }
 
-        for field in declarations
+        let declared_target_fields = declarations
             .fields
             .iter()
             .map(|(field, _)| *field)
             .chain(declarations.unavailable.iter().map(|field| field.field))
-        {
+            .collect::<std::collections::BTreeSet<_>>();
+        for field in &declared_target_fields {
             if !target_fields.contains(field) {
                 errors.push(format!(
-                    "{} -> {} declares unknown target size parameter `{field}`; declared: {target_fields:?}",
+                    "{} -> {} declares unknown target parameter `{field}`; declared: {target_fields:?}",
                     entry.source_name, entry.target_name
                 ));
             }
+        }
+        for field in target_fields.difference(&declared_target_fields) {
+            errors.push(format!(
+                "{} -> {} omits target parameter `{field}`",
+                entry.source_name, entry.target_name
+            ));
         }
     }
 

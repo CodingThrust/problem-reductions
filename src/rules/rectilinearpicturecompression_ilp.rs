@@ -32,9 +32,12 @@ impl ReductionResult for ReductionRPCToILP {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vars = "num_rows^2 * num_cols^2",
         num_constraints = "num_rows * num_cols + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {

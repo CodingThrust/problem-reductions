@@ -50,10 +50,14 @@ impl ReductionResult for ReductionLongestPathToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "2 * num_edges + num_vertices",
         num_constraints = "5 * num_edges + 4 * num_vertices + 1",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
     type Result = ReductionLongestPathToILP;
 

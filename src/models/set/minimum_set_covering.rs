@@ -182,7 +182,7 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_size![("num_sets", num_sets), ("universe_size", universe_size),];
+    crate::problem_parameters![("num_sets", num_sets), ("universe_size", universe_size),];
 
     fn evaluate(
         &self,

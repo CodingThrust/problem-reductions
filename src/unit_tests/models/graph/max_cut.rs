@@ -138,7 +138,7 @@ fn test_cut_size_method() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 2]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);

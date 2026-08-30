@@ -95,7 +95,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = Factoring::new(3, 3, 15);
     assert_eq!(problem.num_bits_first(), 3);
     assert_eq!(problem.num_bits_second(), 3);

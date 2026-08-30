@@ -61,7 +61,7 @@ pub use schema::{
 };
 pub use variant::{
     find_variant_by_alias, find_variant_entry, validate_create_inputs,
-    validate_direct_create_inputs, validate_variant_aliases, validate_variant_size_schemas,
+    validate_direct_create_inputs, validate_variant_aliases, validate_variant_parameter_schemas,
     variant_entries, ConstructProblemFn, ConstructionError, CreateInputCodec, CreateInputInfo,
     CreateSpec, RandomGenerate, RandomRegistration, VariantEntry,
 };

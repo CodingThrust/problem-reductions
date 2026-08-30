@@ -56,7 +56,7 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_tasks = "num_elements",
     })]
 impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {

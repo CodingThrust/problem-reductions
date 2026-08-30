@@ -78,7 +78,7 @@ impl ReductionResult for ReductionLCSToIS {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "cross_frequency_product",
         num_edges = "cross_frequency_product^2",
     }

@@ -258,7 +258,7 @@ fn test_bmf_problem() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = BMF::new(
         vec![vec![true, false], vec![false, true], vec![true, true]],
         1,

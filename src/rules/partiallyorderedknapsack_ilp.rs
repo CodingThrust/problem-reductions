@@ -33,10 +33,13 @@ impl ReductionResult for ReductionPOKToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_items",
         num_constraints = "num_precedences + 1",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
     type Result = ReductionPOKToILP;

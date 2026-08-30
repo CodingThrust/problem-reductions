@@ -130,7 +130,7 @@ impl Problem for Planar3Satisfiability {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_vars", num_vars), ("num_clauses", num_clauses),];
+    crate::problem_parameters![("num_vars", num_vars), ("num_clauses", num_clauses),];
 
     fn evaluate(
         &self,

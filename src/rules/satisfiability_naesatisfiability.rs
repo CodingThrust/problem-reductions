@@ -52,11 +52,15 @@ impl ReductionResult for ReductionSATToNAESAT {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vars + 1",
         num_clauses = "num_clauses",
         num_literals = "num_literals + num_clauses",
-    })]
+    },
+    unavailable = {
+        num_literal_pairs = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<NAESatisfiability> for Satisfiability {
     type Result = ReductionSATToNAESAT;
 

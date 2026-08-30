@@ -56,10 +56,13 @@ impl ReductionResult for ReductionFASToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_arcs + num_vertices",
         num_constraints = "num_arcs + num_arcs + num_vertices",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
     type Result = ReductionFASToILP;

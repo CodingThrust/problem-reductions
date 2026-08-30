@@ -405,7 +405,7 @@ impl Problem for TimetableDesign {
     type Solution = Vec<Vec<Vec<bool>>>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_craftsmen", num_craftsmen),
         ("num_periods", num_periods),
         ("num_tasks", num_tasks),

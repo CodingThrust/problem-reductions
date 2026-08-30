@@ -101,10 +101,14 @@ impl ReductionResult for ReductionFactoringToILP {
     }
 }
 
-#[reduction(size = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
     num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
-})]
+},
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for Factoring {
     type Result = ReductionFactoringToILP;
 

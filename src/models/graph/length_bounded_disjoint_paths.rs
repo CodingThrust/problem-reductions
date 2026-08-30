@@ -206,7 +206,7 @@ where
     type Solution = Vec<Vec<bool>>;
     type Value = Max<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("max_paths", max_paths),
         ("num_edges", num_edges),
         ("num_vertices", num_vertices),

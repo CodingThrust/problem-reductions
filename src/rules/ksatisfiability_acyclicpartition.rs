@@ -155,7 +155,7 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "2 * num_vars + 2 * num_clauses + 3",
         num_arcs = "4 * num_vars + 4 * num_clauses + 2",
     }

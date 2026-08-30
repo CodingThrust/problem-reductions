@@ -211,23 +211,43 @@ fn test_one_json() {
 }
 
 #[test]
-fn test_problem_size() {
-    let ps = ProblemSize::new(vec![("vertices", 10), ("edges", 20)]);
+fn test_problem_parameters() {
+    let ps = ProblemParameters::new(vec![("vertices", 10), ("edges", 20)]);
     assert_eq!(ps.get("vertices"), Some(10));
     assert_eq!(ps.get("edges"), Some(20));
     assert_eq!(ps.get("unknown"), None);
 }
 
 #[test]
-fn test_problem_size_display() {
-    let ps = ProblemSize::new(vec![("vertices", 10), ("edges", 20)]);
-    assert_eq!(format!("{}", ps), "ProblemSize{vertices: 10, edges: 20}");
+#[should_panic(expected = "duplicate problem parameter `vertices`")]
+fn test_problem_parameters_reject_duplicate_names() {
+    ProblemParameters::new(vec![("vertices", 10), ("vertices", 20)]);
+}
 
-    let empty = ProblemSize::new(vec![]);
-    assert_eq!(format!("{}", empty), "ProblemSize{}");
+#[test]
+fn test_problem_parameters_deserialization_rejects_duplicate_names() {
+    let error = serde_json::from_value::<ProblemParameters>(serde_json::json!({
+        "components": [["vertices", 10], ["vertices", 20]]
+    }))
+    .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("duplicate problem parameter `vertices`"));
+}
 
-    let single = ProblemSize::new(vec![("n", 5)]);
-    assert_eq!(format!("{}", single), "ProblemSize{n: 5}");
+#[test]
+fn test_problem_parameters_display() {
+    let ps = ProblemParameters::new(vec![("vertices", 10), ("edges", 20)]);
+    assert_eq!(
+        format!("{}", ps),
+        "ProblemParameters{vertices: 10, edges: 20}"
+    );
+
+    let empty = ProblemParameters::new(vec![]);
+    assert_eq!(format!("{}", empty), "ProblemParameters{}");
+
+    let single = ProblemParameters::new(vec![("n", 5)]);
+    assert_eq!(format!("{}", single), "ProblemParameters{n: 5}");
 }
 
 #[test]

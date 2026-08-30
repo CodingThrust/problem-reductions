@@ -159,7 +159,7 @@ fn test_jl_parity_evaluation() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = SpinGlass::<SimpleGraph, f64>::new(
         3,
         vec![((0, 1), 1.0), ((1, 2), -1.0)],

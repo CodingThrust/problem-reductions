@@ -173,7 +173,7 @@ fn ensure_prime_product_fits_target(
 }
 
 #[reduction(
-    size = unavailable {
+    transform = unavailable {
         num_pairs = "the number of residue pairs depends on the first num_vars odd primes and is not expressible in the size-expression language",
     }
 )]

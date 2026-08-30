@@ -129,7 +129,7 @@ impl Problem for MultiprocessorScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_size![("num_processors", num_processors), ("num_tasks", num_tasks),];
+    crate::problem_parameters![("num_processors", num_processors), ("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

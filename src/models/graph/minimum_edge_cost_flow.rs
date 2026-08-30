@@ -272,7 +272,7 @@ impl Problem for MinimumEdgeCostFlow {
     type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("max_capacity", max_capacity),
         ("num_edges", num_edges),
         ("num_vertices", num_vertices),

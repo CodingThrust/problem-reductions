@@ -113,7 +113,7 @@ fn test_minimum_metric_dimension_serialization() {
 }
 
 #[test]
-fn test_minimum_metric_dimension_size_getters() {
+fn test_minimum_metric_dimension_parameter_getters() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = MinimumMetricDimension::new(graph);
     assert_eq!(problem.num_vertices(), 4);

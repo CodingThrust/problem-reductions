@@ -119,7 +119,7 @@ impl Problem for ClosestString {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("alphabet_size", alphabet_size),
         ("num_strings", num_strings),
         ("string_length", string_length),

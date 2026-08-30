@@ -146,7 +146,7 @@ impl Problem for MinimumDisjunctiveNormalForm {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_variables", num_variables),
         ("num_prime_implicants", num_prime_implicants),
     ];

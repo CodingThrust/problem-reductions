@@ -177,7 +177,7 @@ impl Problem for ConsecutiveOnesSubmatrix {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("bound", bound),
         ("num_cols", num_cols),
         ("num_rows", num_rows),

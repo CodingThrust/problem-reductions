@@ -55,10 +55,14 @@ impl ReductionResult for ReductionFSSToILP {
     }
 }
 
-#[reduction(size = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
     num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
-})]
+},
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<i64>> for FlowShopScheduling {
     type Result = ReductionFSSToILP;
 

@@ -210,7 +210,7 @@ impl Problem for MinimumWeightSolutionToLinearEquations {
     type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_equations", num_equations),
         ("num_variables", num_variables),
     ];

@@ -119,7 +119,7 @@ impl Problem for QuadraticAssignment {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_facilities", num_facilities),
         ("num_locations", num_locations),
     ];

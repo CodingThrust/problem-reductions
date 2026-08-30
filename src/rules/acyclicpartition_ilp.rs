@@ -36,9 +36,12 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + 2 * num_vertices",
         num_constraints = "2 * num_vertices^2 + 3 * num_arcs * num_vertices + 6 * num_vertices + 2 * num_arcs + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {

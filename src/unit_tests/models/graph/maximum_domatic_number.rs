@@ -95,7 +95,7 @@ fn test_maximum_domatic_number_serialization() {
 }
 
 #[test]
-fn test_maximum_domatic_number_size_getters() {
+fn test_maximum_domatic_number_parameter_getters() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = MaximumDomaticNumber::new(graph);
     assert_eq!(problem.num_vertices(), 5);

@@ -184,7 +184,7 @@ impl Problem for ProductionPlanning {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("max_capacity", max_capacity), ("num_periods", num_periods),];
+    crate::problem_parameters![("max_capacity", max_capacity), ("num_periods", num_periods),];
 
     fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({

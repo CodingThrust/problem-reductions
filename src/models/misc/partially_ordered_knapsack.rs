@@ -286,7 +286,7 @@ impl Problem for PartiallyOrderedKnapsack {
     type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_items", num_items),
         ("num_precedences", num_precedences),
     ];

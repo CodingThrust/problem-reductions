@@ -221,7 +221,7 @@ impl Problem for IntegerExpressionMembership {
     type Solution = Vec<bool>;
     type Value = Or;
 
-    crate::problem_size![("num_union_nodes", num_union_nodes),];
+    crate::problem_parameters![("num_union_nodes", num_union_nodes),];
 
     fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({

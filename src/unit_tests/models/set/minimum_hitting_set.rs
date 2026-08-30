@@ -145,8 +145,8 @@ fn test_minimum_hitting_set_paper_example_consistency() {
 }
 
 #[test]
-fn test_minimum_hitting_set_declares_problem_size_fields() {
-    let fields: HashSet<&'static str> = MinimumHittingSet::size_parameter_names()
+fn test_minimum_hitting_set_declares_problem_parameters() {
+    let fields: HashSet<&'static str> = MinimumHittingSet::parameter_names()
         .iter()
         .copied()
         .collect();

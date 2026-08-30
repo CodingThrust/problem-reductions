@@ -105,10 +105,14 @@ fn build_common_constraints(
 
 // Unit-length variant
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * num_tasks + num_tasks",
         num_constraints = "2 * num_tasks + num_precedences + num_tasks",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
     type Result = ReductionMTSToILP;
 
@@ -147,10 +151,14 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
 
 // Arbitrary-length variant
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_tasks * num_tasks + num_tasks",
         num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",
-    },)]
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
     type Result = ReductionMTSWeightedToILP;
 

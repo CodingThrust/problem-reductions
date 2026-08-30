@@ -37,10 +37,13 @@ impl ReductionResult for ReductionRPToILP {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
         num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
     },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
 )]
 impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
     type Result = ReductionRPToILP;

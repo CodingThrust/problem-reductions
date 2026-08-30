@@ -75,7 +75,7 @@ impl ReductionResult for ReductionFVSToCodeGen {
 }
 
 #[reduction(
-    size = exact {
+    transform = exact {
         num_vertices = "num_vertices + num_arcs",
     }
 )]

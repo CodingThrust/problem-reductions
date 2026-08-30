@@ -175,7 +175,7 @@ fn test_rural_postman_set_weights() {
 }
 
 #[test]
-fn test_rural_postman_size_getters() {
+fn test_rural_postman_parameter_getters() {
     let problem = hexagon_rpp();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 8);

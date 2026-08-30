@@ -516,7 +516,7 @@ impl<V: VariableDomain> Problem for ILP<V> {
     type Solution = Vec<i64>;
     type Value = Extremum<f64>;
 
-    crate::problem_size![
+    crate::problem_parameters![
         ("num_constraints", num_constraints),
         ("num_nonzeros", num_nonzeros),
         ("num_vars", num_vars),

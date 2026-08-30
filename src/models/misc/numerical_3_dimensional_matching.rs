@@ -168,7 +168,7 @@ impl Problem for Numerical3DimensionalMatching {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_size![("bound", bound), ("num_groups", num_groups),];
+    crate::problem_parameters![("bound", bound), ("num_groups", num_groups),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

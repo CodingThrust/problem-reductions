@@ -38,7 +38,7 @@ impl ReductionResult for ReductionISSimpleOneToGridOne {
 }
 
 #[reduction(
-    size = upper_bound {
+    transform = upper_bound {
         num_vertices = "16 * num_vertices^2 + 32 * num_vertices + 12",
         num_edges = "64 * num_vertices^2 + 128 * num_vertices + 48",
     }
