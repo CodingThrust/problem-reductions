@@ -4,7 +4,7 @@ use problemreductions::registry::{
     CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
 };
 use problemreductions::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
-use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
+use problemreductions::rules::{AggregateReductionResult, VariantReductionResult};
 use problemreductions::traits::Problem;
 use problemreductions::types::{Aggregate, Extremum, Max, SolutionAggregate};
 use serde::{Deserialize, Serialize};
@@ -407,7 +407,7 @@ problemreductions::inventory::submit! {
             let source = any
                 .downcast_ref::<AggregateValueSource>()
                 .expect("aggregate reduction downcast failed");
-            Ok(Box::new(ReductionAutoCast::<AggregateValueSource, AggregateValueTarget>::new(
+            Ok(Box::new(VariantReductionResult::<AggregateValueSource, AggregateValueTarget>::new(
                 AggregateValueTarget {
                     base: source.values.iter().sum(),
                 },

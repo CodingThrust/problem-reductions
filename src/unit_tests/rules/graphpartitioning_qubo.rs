@@ -23,7 +23,7 @@ fn example_problem() -> GraphPartitioning<SimpleGraph> {
 #[test]
 fn test_graphpartitioning_to_qubo_closed_loop() {
     let source = example_problem();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -35,12 +35,12 @@ fn test_graphpartitioning_to_qubo_closed_loop() {
 #[test]
 fn test_graphpartitioning_to_qubo_matrix_matches_issue_example() {
     let source = example_problem();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 6);
 
-    let expected_diagonal = [-48.0, -47.0, -46.0, -46.0, -47.0, -48.0];
+    let expected_diagonal = [-48, -47, -46, -46, -47, -48];
     for (index, expected) in expected_diagonal.into_iter().enumerate() {
         assert_eq!(qubo.get(index, index), Some(&expected));
     }
@@ -57,12 +57,12 @@ fn test_graphpartitioning_to_qubo_matrix_matches_issue_example() {
         (4, 5),
     ];
     for &(u, v) in &edge_pairs {
-        assert_eq!(qubo.get(u, v), Some(&18.0), "edge ({u}, {v})");
+        assert_eq!(qubo.get(u, v), Some(&18), "edge ({u}, {v})");
     }
 
     let non_edge_pairs = [(0, 3), (0, 4), (0, 5), (1, 4), (1, 5), (2, 5)];
     for &(u, v) in &non_edge_pairs {
-        assert_eq!(qubo.get(u, v), Some(&20.0), "non-edge ({u}, {v})");
+        assert_eq!(qubo.get(u, v), Some(&20), "non-edge ({u}, {v})");
     }
 }
 

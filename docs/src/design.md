@@ -109,31 +109,33 @@ Weight variants are `One`, `i64`, and `f64`, with `One ⊂ i64 ⊂ f64`.
 - An `i64` to `f64` conversion is explicit and fallible: it succeeds only
   for `|value| ≤ 2^53-1`. Use one shared helper at weight casts, solver
   adapters, and other exact-to-float hubs.
-- A lattice subtype converts to `UnitDiskGraph` through a fallible reduction,
-  not an infallible parent cast. The reduction rejects a coordinate conversion
-  if the stored `f64` geometry would change source adjacency.
+- A lattice-to-`UnitDiskGraph` reduction converts coordinates fallibly and
+  rejects a stored `f64` geometry that would change source adjacency.
 - Rust constructors keep `i64` fields as `i64`. CLI and MCP JSON encoding
   of an `i64` with `|value| > 2^53-1` errors; there is no string encoding
   and no clamping.
 
 ## Variant System
 
-A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a restricted topology (e.g., king's subgraph). Variants form a subtype hierarchy: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **variant cast**: configuration indices are preserved, while target construction remains fallible when its numeric representation is narrower.
+A single problem name like `MaximumIndependentSet` can have multiple
+**variants**. Each variant is identified by dimension-value pairs such as
+`{graph: "SimpleGraph", weight: "i64"}`. Concrete variants are registered
+nodes in the reduction graph, and explicit reduction rules connect them.
 
 <div class="theme-light-only">
 
-![Variant Hierarchy](static/variant-hierarchy.svg)
+![Variant Dimensions](static/variant-hierarchy.svg)
 
 </div>
 <div class="theme-dark-only">
 
-![Variant Hierarchy](static/variant-hierarchy-dark.svg)
+![Variant Dimensions](static/variant-hierarchy-dark.svg)
 
 </div>
 
 Variant types fall into three categories:
 
-- **Graph type** — `SimpleGraph` (root), `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Graph type** — `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
 - **Weight type** — `One` (unweighted), `i64`, `f64`.
 - **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
 
@@ -153,43 +155,33 @@ Variant types fall into three categories:
 
 ### VariantParam trait
 
-Each variant parameter type implements `VariantParam`, which declares its category, value, and optional parent:
+Each reusable variant parameter type implements `VariantParam`, which declares
+its category and value:
 
 ```rust,ignore
 pub trait VariantParam: 'static {
     const CATEGORY: &'static str;     // e.g., "graph", "weight", "k"
     const VALUE: &'static str;        // e.g., "SimpleGraph", "i64"
-    const PARENT_VALUE: Option<&'static str>;  // None for root types
-}
-```
-
-Types with a parent also implement `CastToParent`, providing the runtime conversion for variant casts:
-
-```rust,ignore
-pub trait CastToParent: VariantParam {
-    type Parent: VariantParam;
-    fn cast_to_parent(&self) -> Self::Parent;
 }
 ```
 
 ### Registration with `impl_variant_param!`
 
-The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastToParent` / `KValue`) for a type:
+The `impl_variant_param!` macro implements `VariantParam` and optionally
+`KValue` for a type:
 
 ```rust,ignore
-// Root type (no parent):
 impl_variant_param!(SimpleGraph, "graph");
 
-// K root (arbitrary K):
 impl_variant_param!(KN, "k", k: None);
 
-// Specific K with parent:
-impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
+impl_variant_param!(K3, "k", k: Some(3));
 ```
 
-### Variant cast reductions with `impl_variant_reduction!`
+### Explicit variant reductions
 
-When a more specific variant needs to be treated as a less specific one, an explicit variant cast reduction is declared:
+`impl_variant_reduction!` registers a concrete same-model conversion with an
+exact parameter transform and identity witness extraction:
 
 ```rust,ignore
 impl_variant_reduction!(
@@ -197,7 +189,11 @@ impl_variant_reduction!(
     <UnitDiskGraph, i64> => <SimpleGraph, i64>,
     fields: [num_vertices, num_edges],
     |src| MaximumIndependentSet::new(
-        src.graph().cast_to_parent(), src.weights().to_vec())
+        SimpleGraph::new(
+            src.num_vertices(),
+            Graph::edges(src.graph()),
+        ),
+        src.weights().to_vec())
 );
 ```
 
@@ -213,6 +209,13 @@ fn variant() -> Vec<(&'static str, &'static str)> {
     //     -> vec![("graph", "UnitDiskGraph"), ("weight", "One")]
 }
 ```
+
+### Querying one variant family
+
+`ReductionGraph::variants_for(name)` returns every registered concrete variant
+of a problem. `ReductionGraph::outgoing_reductions(name)` returns their outgoing
+edges. Filtering those edges by `target_name == name` produces the directed
+relations within that variant family.
 
 </details>
 
@@ -326,7 +329,8 @@ Each `ReductionEntry` is collected by `inventory` at link time and iterated at r
 `ReductionGraph::new()` iterates all registered `ReductionEntry` items (via `inventory`) and builds a variant-level directed graph:
 
 - **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i64"})`.
-- **Edges** come exclusively from `#[reduction]` registrations — both cross-problem reductions and variant casts. There are no auto-generated edges.
+- **Edges** come from explicit `#[reduction]` registrations, including
+  cross-problem and same-problem variant reductions.
 
 Exported files:
 
@@ -354,7 +358,7 @@ API.
 
 ```
 MIS{KingsSubgraph,i64} -> MIS{UnitDiskGraph,i64} -> MIS{SimpleGraph,i64} -> VC{SimpleGraph,i64}
-     variant cast              variant cast                reduction
+    variant reduction        variant reduction              reduction
 ```
 
 ### Executable paths

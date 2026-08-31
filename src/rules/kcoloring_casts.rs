@@ -1,4 +1,4 @@
-//! Variant cast reductions for KColoring.
+//! Variant reductions for KColoring.
 
 use crate::impl_variant_reduction;
 use crate::models::graph::KColoring;

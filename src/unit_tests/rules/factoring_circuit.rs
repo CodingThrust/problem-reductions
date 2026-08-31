@@ -32,7 +32,7 @@ fn test_read_bit_supports_positions_beyond_u64_width() {
 #[test]
 fn test_reduction_structure() {
     // Factor 6 = 2 * 3 with 2-bit factors
-    let factoring = Factoring::new(2, 2, 6);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -44,7 +44,7 @@ fn test_reduction_structure() {
 #[test]
 fn test_reduction_structure_3x3() {
     // Factor 15 = 3 * 5 with 3-bit factors
-    let factoring = Factoring::new(3, 3, 15);
+    let factoring = Factoring::with_factor_bits(15, 3, 3);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -111,7 +111,7 @@ fn check_factorization_satisfies(
 
 #[test]
 fn test_factorization_6_satisfies_circuit() {
-    let factoring = Factoring::new(2, 2, 6);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -142,7 +142,7 @@ fn test_factorization_6_satisfies_circuit() {
 
 #[test]
 fn test_factoring_to_circuit_closed_loop() {
-    let factoring = Factoring::new(4, 4, 15);
+    let factoring = Factoring::with_factor_bits(15, 4, 4);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -173,7 +173,7 @@ fn test_factoring_to_circuit_closed_loop() {
 
 #[test]
 fn test_factorization_21_satisfies_circuit() {
-    let factoring = Factoring::new(3, 3, 21);
+    let factoring = Factoring::with_factor_bits(21, 3, 3);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -196,7 +196,7 @@ fn test_factorization_21_satisfies_circuit() {
 
 #[test]
 fn test_target_problem_structure() {
-    let factoring = Factoring::new(3, 4, 15);
+    let factoring = Factoring::with_factor_bits(15, 3, 4);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
     let circuit = reduction.target_problem();
@@ -208,7 +208,7 @@ fn test_target_problem_structure() {
 
 #[test]
 fn test_extract_solution() {
-    let factoring = Factoring::new(2, 2, 6);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
     let circuit_sat = reduction.target_problem();
@@ -231,11 +231,22 @@ fn test_extract_solution() {
     assert_eq!(p, BigUint::from(2u32), "p should be 2");
     assert_eq!(q, BigUint::from(3u32), "q should be 3");
     assert_eq!(p * q, BigUint::from(6u32), "Product should equal target");
+
+    let assignments = evaluate_multiplier_circuit(&reduction, 3, 2);
+    for (i, name) in var_names.iter().enumerate() {
+        if let Some(&val) = assignments.get(name) {
+            sol[i] = val;
+        }
+    }
+    assert_eq!(
+        reduction.extract_solution(&sol).unwrap(),
+        (BigUint::from(2u32), BigUint::from(3u32))
+    );
 }
 
 #[test]
 fn test_prime_7_only_trivial_factorizations() {
-    let factoring = Factoring::new(3, 3, 7);
+    let factoring = Factoring::with_factor_bits(7, 3, 3);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -269,7 +280,7 @@ fn test_prime_7_only_trivial_factorizations() {
 #[test]
 fn test_all_2bit_factorizations() {
     // Test all possible 2-bit * 2-bit multiplications for target 6
-    let factoring = Factoring::new(2, 2, 6);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -295,7 +306,7 @@ fn test_all_2bit_factorizations() {
 #[test]
 fn test_factorization_1_trivial() {
     // Factor 1 = 1 * 1
-    let factoring = Factoring::new(2, 2, 1);
+    let factoring = Factoring::with_factor_bits(1, 2, 2);
     let reduction =
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
@@ -312,7 +323,7 @@ fn test_factorization_1_trivial() {
 #[test]
 fn test_oversized_target_is_explicitly_infeasible() {
     let target = BigUint::from(1u32) << 70;
-    let source = Factoring::new(2, 2, target);
+    let source = Factoring::with_factor_bits(target, 2, 2);
     let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
     let config = vec![false; target.num_variables()];
@@ -321,7 +332,7 @@ fn test_oversized_target_is_explicitly_infeasible() {
 
 #[test]
 fn test_jl_parity_factoring_to_circuitsat() {
-    let source = Factoring::new(1, 1, 1);
+    let source = Factoring::with_factor_bits(1, 1, 1);
     let result = ReduceTo::<CircuitSAT>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_satisfaction_target(
         &source,

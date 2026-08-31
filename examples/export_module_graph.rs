@@ -134,14 +134,7 @@ fn main() {
         (
             "variant",
             "core",
-            &[
-                ("VariantParam", "trait", "Trait for variant parameter types"),
-                (
-                    "CastToParent",
-                    "trait",
-                    "Trait for variant cast conversions",
-                ),
-            ],
+            &[("VariantParam", "trait", "Trait for variant parameter types")],
         ),
         (
             "topology",

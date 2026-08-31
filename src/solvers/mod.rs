@@ -1,7 +1,7 @@
 //! Solvers for computational problems.
 
 mod brute_force;
-mod customized;
+pub(crate) mod customized;
 pub mod decision_search;
 mod pipelines;
 mod registry;
@@ -33,6 +33,12 @@ pub enum SolveError {
     RegistrationTypeMismatch(String),
     #[error("brute-force search space cardinality exceeds usize for dimensions {0:?}")]
     SearchSpaceOverflow(Vec<usize>),
+    #[error("integer overflow while {0}")]
+    IntegerOverflow(String),
+    #[error("inexact integer-to-float conversion: {0}")]
+    InexactFloatConversion(#[from] crate::types::ExactI64ToF64Error),
+    #[error("non-finite floating-point result while {0}")]
+    NonFiniteResult(String),
     #[error("solver capability registry is invalid: {0}")]
     InvalidRegistry(&'static RegistryBuildError),
     #[error("No ILP pipeline is registered for {0}")]

@@ -344,7 +344,7 @@ fn reduce_natural_variant_witness(
             expected: std::any::type_name::<NaturalVariantProblem>(),
         },
     )?;
-    Ok(Box::new(crate::rules::ReductionAutoCast::<
+    Ok(Box::new(crate::rules::VariantReductionResult::<
         NaturalVariantProblem,
         NaturalVariantProblem,
     >::new(source.clone())))
@@ -1452,7 +1452,7 @@ fn test_reduction_variant_nodes_in_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // KingsSubgraph variants should appear as nodes (from explicit cast reductions)
+    // KingsSubgraph variants should appear as registered nodes.
     let mis_kingssubgraph = json.nodes.iter().any(|n| {
         n.name == "MaximumIndependentSet"
             && n.variant.get("graph") == Some(&"KingsSubgraph".to_string())
@@ -1467,11 +1467,11 @@ fn test_reduction_variant_nodes_in_json() {
 }
 
 #[test]
-fn test_variant_cast_edges_in_json() {
+fn test_variant_reduction_edges_in_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist as an explicit cast reduction
+    // MIS/KingsSubgraph -> MIS/UnitDiskGraph is an explicit variant reduction.
     let has_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
@@ -1480,7 +1480,7 @@ fn test_variant_cast_edges_in_json() {
     });
     assert!(
         has_edge,
-        "Variant cast edge MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist"
+        "Variant reduction edge MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist"
     );
 }
 
@@ -1600,7 +1600,7 @@ fn test_reduction_chain_multi_step() {
 }
 
 #[test]
-fn test_reduction_chain_with_variant_casts() {
+fn test_reduction_chain_with_variant_reductions() {
     use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::solvers::BruteForce;
     use crate::topology::UnitDiskGraph;
@@ -1608,7 +1608,7 @@ fn test_reduction_chain_with_variant_casts() {
 
     let graph = ReductionGraph::new();
 
-    // MIS<UnitDiskGraph, i64> -> MIS<SimpleGraph, i64> (variant cast) -> MVC<SimpleGraph, i64>
+    // MIS<UnitDiskGraph, i64> -> MIS<SimpleGraph, i64> -> MVC<SimpleGraph, i64>
     // Resolve a route with exact source and target variants.
     let src_var =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i64>::variant());
@@ -1623,10 +1623,10 @@ fn test_reduction_chain_with_variant_casts() {
         )
         .into_iter()
         .find(|path| path.len() >= 2)
-        .expect("variant-cast route");
+        .expect("variant-reduction route");
     assert!(
         rpath.len() >= 2,
-        "Path should cross variant cast boundary (at least 2 steps)"
+        "Path should include the variant reduction (at least 2 steps)"
     );
 
     // Create a small UnitDiskGraph MIS problem (triangle of close nodes)

@@ -167,7 +167,7 @@ fn test_problem_parameters_ilp() {
 
 #[test]
 fn test_problem_parameters_factoring() {
-    let f = Factoring::new(2, 3, 6);
+    let f = Factoring::with_factor_bits(6, 2, 3);
     let size = f.parameters();
     assert_eq!(size.get("num_bits_first"), Some(2));
     assert_eq!(size.get("num_bits_second"), Some(3));

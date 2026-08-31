@@ -134,9 +134,10 @@ automatically select a route.
 
 #### Step 2 — Create the Factoring problem
 
-`Factoring::new(m, n, target)` creates a factoring instance: find two factors
-`p` (m-bit) and `q` (n-bit) such that `p × q = target`. Here we factor **6**
-with two 2-bit factors, expecting **2 × 3** or **3 × 2**.
+`Factoring::new(target)` derives safe factor-width bounds from the target.
+`Factoring::with_factor_bits(target, m, n)` overrides them when a fixed-width
+multiplier is required. Here we factor **6** with explicit 2-bit bounds,
+returning the canonical pair **2 × 3**.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step2}}

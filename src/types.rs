@@ -760,8 +760,8 @@ impl fmt::Display for ProblemParameters {
 use crate::impl_variant_param;
 
 impl_variant_param!(f64, "weight");
-impl_variant_param!(i64, "weight", parent: f64);
-impl_variant_param!(One, "weight", parent: i64, cast: |_| 1i64);
+impl_variant_param!(i64, "weight");
+impl_variant_param!(One, "weight");
 
 #[cfg(test)]
 #[path = "unit_tests/types.rs"]

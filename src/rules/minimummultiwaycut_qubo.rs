@@ -16,12 +16,11 @@ use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumMultiwayCut to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumMultiwayCutToQUBO {
-    target: QUBO<f64>,
+    target: QUBO<i64>,
     num_vertices: usize,
     num_terminals: usize,
     edges: Vec<(usize, usize)>,
@@ -29,7 +28,7 @@ pub struct ReductionMinimumMultiwayCutToQUBO {
 
 impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
     type Source = MinimumMultiwayCut<SimpleGraph, i64>;
-    type Target = QUBO<f64>;
+    type Target = QUBO<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -73,7 +72,7 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
 #[reduction(transform = exact {
     num_vars = "num_terminals * num_vertices",
 })]
-impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
+impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMinimumMultiwayCutToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -82,28 +81,39 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         let edges = self.graph().edges();
         let edge_weights = self.edge_weights();
         let terminals = self.terminals();
-        let nq = n * k;
-        let edge_weights = edge_weights
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumMultiwayCut<SimpleGraph, i64>,
-                    QUBO<f64>,
-                >(error)
-            })?;
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<
+                MinimumMultiwayCut<SimpleGraph, i64>,
+                QUBO<i64>,
+            >(operation)
+        };
+        let nq = n
+            .checked_mul(k)
+            .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
 
         // Penalty: sum of all edge weights + 1
-        let alpha = edge_weights.iter().map(|weight| weight.abs()).sum::<f64>() + 1.0;
+        let alpha = edge_weights.iter().try_fold(0i64, |total, &weight| {
+            total
+                .checked_add(
+                    weight
+                        .checked_abs()
+                        .ok_or_else(|| overflow("taking the absolute value of a cut weight"))?,
+                )
+                .ok_or_else(|| overflow("summing absolute cut weights"))
+        })?;
+        let alpha = alpha
+            .checked_add(1)
+            .ok_or_else(|| overflow("computing the partition penalty"))?;
 
-        let mut matrix = vec![vec![0.0f64; nq]; nq];
+        let mut matrix = vec![vec![0i64; nq]; nq];
 
         // Helper: add value to upper-triangular position
-        let mut add_upper = |i: usize, j: usize, val: f64| {
+        let mut add_upper = |i: usize, j: usize, val: i64| {
             let (lo, hi) = if i <= j { (i, j) } else { (j, i) };
-            matrix[lo][hi] += val;
+            matrix[lo][hi] = matrix[lo][hi]
+                .checked_add(val)
+                .ok_or_else(|| overflow("adding a multiway-cut QUBO coefficient"))?;
+            Ok::<(), crate::rules::ReductionError>(())
         };
 
         // H_A: one-hot constraint per vertex
@@ -112,12 +122,24 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         for u in 0..n {
             // Diagonal: -alpha for each terminal position
             for s in 0..k {
-                add_upper(u * k + s, u * k + s, -alpha);
+                add_upper(
+                    u * k + s,
+                    u * k + s,
+                    alpha
+                        .checked_neg()
+                        .ok_or_else(|| overflow("negating the partition penalty"))?,
+                )?;
             }
             // Off-diagonal within same vertex: +2*alpha for each pair
             for s in 0..k {
                 for t in (s + 1)..k {
-                    add_upper(u * k + s, u * k + t, 2.0 * alpha);
+                    add_upper(
+                        u * k + s,
+                        u * k + t,
+                        alpha
+                            .checked_mul(2)
+                            .ok_or_else(|| overflow("doubling the partition penalty"))?,
+                    )?;
                 }
             }
         }
@@ -127,7 +149,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         for (t_pos, &t_vertex) in terminals.iter().enumerate() {
             for s in 0..k {
                 if s != t_pos {
-                    add_upper(t_vertex * k + s, t_vertex * k + s, alpha);
+                    add_upper(t_vertex * k + s, t_vertex * k + s, alpha)?;
                 }
             }
         }
@@ -140,7 +162,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
             for s in 0..k {
                 for t in 0..k {
                     if s != t {
-                        add_upper(u * k + s, v * k + t, w);
+                        add_upper(u * k + s, v * k + t, w)?;
                     }
                 }
             }
@@ -150,7 +172,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
             target: QUBO::from_matrix(matrix).map_err(|message| {
                 crate::rules::ReductionError::construction::<
                     MinimumMultiwayCut<SimpleGraph, i64>,
-                    QUBO<f64>,
+                    QUBO<i64>,
                 >(message)
             })?,
             num_vertices: n,
@@ -172,7 +194,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             use crate::topology::SimpleGraph;
             let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
             let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, true, true, false]),

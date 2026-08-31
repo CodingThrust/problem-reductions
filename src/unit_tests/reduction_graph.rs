@@ -56,8 +56,8 @@ fn symbolic_composition_propagates_num_colors_across_multiple_edges() {
                 variant: ReductionGraph::variant_to_map(&KColoring::<KN, SimpleGraph>::variant()),
             },
             ReductionStep {
-                name: QUBO::<f64>::NAME.to_string(),
-                variant: ReductionGraph::variant_to_map(&QUBO::<f64>::variant()),
+                name: QUBO::<i64>::NAME.to_string(),
+                variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
             },
         ],
     };
@@ -233,7 +233,7 @@ fn aggregate_mode_rejects_witness_only_real_edge() {
 }
 
 #[test]
-fn natural_edge_supports_both_modes_public_api() {
+fn variant_reduction_supports_both_modes_public_api() {
     let graph = ReductionGraph::new();
     let src =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<KingsSubgraph, i64>::variant());
@@ -592,8 +592,8 @@ fn default_variant_for_qubo_uses_declared_default() {
     let variant = default.unwrap();
     assert_eq!(
         variant.get("weight").map(|s| s.as_str()),
-        Some("f64"),
-        "default QUBO variant should use f64"
+        Some("i64"),
+        "default QUBO variant should use i64"
     );
 }
 
@@ -1037,7 +1037,7 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
             Box<dyn crate::rules::DynReductionResult>,
             crate::rules::ReductionError,
         > {
-            Ok(Box::new(crate::rules::ReductionAutoCast::<
+            Ok(Box::new(crate::rules::VariantReductionResult::<
                 crate::models::formula::Satisfiability,
                 crate::models::formula::Satisfiability,
             >::new(

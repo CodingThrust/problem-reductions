@@ -146,7 +146,6 @@ impl Graph for TriangularSubgraph {
 impl crate::variant::VariantParam for TriangularSubgraph {
     const CATEGORY: &'static str = "graph";
     const VALUE: &'static str = "TriangularSubgraph";
-    const PARENT_VALUE: Option<&'static str> = Some("UnitDiskGraph");
 }
 
 #[cfg(test)]

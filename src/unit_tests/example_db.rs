@@ -1211,7 +1211,7 @@ fn test_find_rule_example_paintshop_to_qubo() {
     };
     let target = ProblemRef {
         name: "QUBO".to_string(),
-        variant: BTreeMap::from([("weight".to_string(), "f64".to_string())]),
+        variant: BTreeMap::from([("weight".to_string(), "i64".to_string())]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "PaintShop");

@@ -188,7 +188,8 @@ pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 --example-sid
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
-pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
+pred create QUBO --matrix "1,-1;0,2" -o qubo.json
+pred create QUBO/f64 --matrix "1,0.5;0,2" -o qubo-f64.json
 pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
 pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
@@ -202,8 +203,8 @@ pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-we
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
 pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4 -o lbdp.json
-pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
-pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
+pred create Factoring --target 15 -o factoring.json
+pred create Factoring --target 21 --m 3 --n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json

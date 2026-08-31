@@ -9,7 +9,7 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
     // K3 complete graph with weights [1, 2, 3]
     let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
     let tsp = TravelingSalesman::new(graph, vec![1i64, 2, 3]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&tsp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -37,7 +37,7 @@ fn test_travelingsalesman_to_qubo_k4() {
     // K4 with unit weights
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let tsp = TravelingSalesman::new(graph, vec![1i64; 6]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&tsp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -65,12 +65,12 @@ fn test_travelingsalesman_to_qubo_sizes() {
     // K3: n=3, QUBO should have n^2 = 9 variables
     let graph3 = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
     let tsp3 = TravelingSalesman::new(graph3, vec![1i64; 3]);
-    let reduction3 = ReduceTo::<QUBO<f64>>::reduce_to(&tsp3).expect("reduction should succeed");
+    let reduction3 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp3).expect("reduction should succeed");
     assert_eq!(reduction3.target_problem().num_variables(), 9);
 
     // K4: n=4, QUBO should have n^2 = 16 variables
     let graph4 = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let tsp4 = TravelingSalesman::new(graph4, vec![1i64; 6]);
-    let reduction4 = ReduceTo::<QUBO<f64>>::reduce_to(&tsp4).expect("reduction should succeed");
+    let reduction4 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp4).expect("reduction should succeed");
     assert_eq!(reduction4.target_problem().num_variables(), 16);
 }

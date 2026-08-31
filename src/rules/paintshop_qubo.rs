@@ -15,12 +15,12 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing PaintShop to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionPaintShopToQUBO {
-    target: QUBO<f64>,
+    target: QUBO<i64>,
 }
 
 impl ReductionResult for ReductionPaintShopToQUBO {
     type Source = PaintShop;
-    type Target = QUBO<f64>;
+    type Target = QUBO<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -41,7 +41,7 @@ impl ReductionResult for ReductionPaintShopToQUBO {
 #[reduction(transform = exact {
     num_vars = "num_cars",
 })]
-impl ReduceTo<QUBO<f64>> for PaintShop {
+impl ReduceTo<QUBO<i64>> for PaintShop {
     type Result = ReductionPaintShopToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -50,7 +50,10 @@ impl ReduceTo<QUBO<f64>> for PaintShop {
         let is_first = self.is_first();
         let seq_len = seq.len();
 
-        let mut matrix = vec![vec![0.0f64; n]; n];
+        let mut matrix = vec![vec![0i64; n]; n];
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<PaintShop, QUBO<i64>>(operation)
+        };
 
         // For each adjacent pair in the sequence
         for pos in 0..seq_len.saturating_sub(1) {
@@ -71,21 +74,33 @@ impl ReduceTo<QUBO<f64>> for PaintShop {
             if parity_a == parity_b {
                 // Same parity: color change when x_a != x_b
                 // Contribution: +1 to Q[a][a], +1 to Q[b][b], -2 to Q[lo][hi]
-                matrix[a][a] += 1.0;
-                matrix[b][b] += 1.0;
-                matrix[lo][hi] -= 2.0;
+                matrix[a][a] = matrix[a][a]
+                    .checked_add(1)
+                    .ok_or_else(|| overflow("adding a PaintShop diagonal coefficient"))?;
+                matrix[b][b] = matrix[b][b]
+                    .checked_add(1)
+                    .ok_or_else(|| overflow("adding a PaintShop diagonal coefficient"))?;
+                matrix[lo][hi] = matrix[lo][hi]
+                    .checked_sub(2)
+                    .ok_or_else(|| overflow("adding a PaintShop interaction coefficient"))?;
             } else {
                 // Different parity: color change when x_a == x_b
                 // Contribution: -1 to Q[a][a], -1 to Q[b][b], +2 to Q[lo][hi]
-                matrix[a][a] -= 1.0;
-                matrix[b][b] -= 1.0;
-                matrix[lo][hi] += 2.0;
+                matrix[a][a] = matrix[a][a]
+                    .checked_sub(1)
+                    .ok_or_else(|| overflow("adding a PaintShop diagonal coefficient"))?;
+                matrix[b][b] = matrix[b][b]
+                    .checked_sub(1)
+                    .ok_or_else(|| overflow("adding a PaintShop diagonal coefficient"))?;
+                matrix[lo][hi] = matrix[lo][hi]
+                    .checked_add(2)
+                    .ok_or_else(|| overflow("adding a PaintShop interaction coefficient"))?;
             }
         }
 
         Ok(ReductionPaintShopToQUBO {
             target: QUBO::from_matrix(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<PaintShop, QUBO<f64>>(message)
+                crate::rules::ReductionError::construction::<PaintShop, QUBO<i64>>(message)
             })?,
         })
     }
@@ -100,7 +115,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Issue example: Sequence [A, B, C, A, D, B, D, C], 4 cars
             let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, false]),

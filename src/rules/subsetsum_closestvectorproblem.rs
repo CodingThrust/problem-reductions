@@ -1,11 +1,10 @@
 //! Reduction from Subset Sum to Closest Vector Problem.
 
-use crate::models::algebraic::{ClosestVectorProblem, VarBounds};
+use crate::models::algebraic::ClosestVectorProblem;
 use crate::models::misc::SubsetSum;
 use crate::reduction;
 use crate::registry::ConstructionError;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 use num_traits::ToPrimitive;
 
 /// Result of reducing SubsetSum to ClosestVectorProblem.
@@ -37,9 +36,6 @@ impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
         ambient_dimension = "num_elements + 1",
         num_basis_vectors = "num_elements",
     },
-    unavailable = {
-        num_encoding_bits = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
 impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {
     type Result = ReductionSubsetSumToClosestVectorProblem;
@@ -49,18 +45,25 @@ impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {
         let mut basis = Vec::with_capacity(n);
         for (i, size) in self.sizes().iter().enumerate() {
             let mut column = vec![0i64; n + 1];
-            column[i] = 1;
-            column[n] = size.to_i64().ok_or_else(|| {
+            column[i] = 2;
+            let size = size.to_i64().ok_or_else(|| {
                 crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
                     ConstructionError::IntegerOverflow(
                         "an item size does not fit the ClosestVectorProblem i64 domain".into(),
                     ),
                 )
             })?;
+            column[n] =
+                size.checked_mul(2).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        SubsetSum,
+                        ClosestVectorProblem<i64>,
+                    >("scaling a Subset Sum item size")
+                })?;
             basis.push(column);
         }
 
-        let mut target = vec![0.5; n];
+        let mut target = vec![1_i64; n];
         let target_sum = self.target().to_i64().ok_or_else(|| {
             crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
                 ConstructionError::IntegerOverflow(
@@ -68,22 +71,18 @@ impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {
                 ),
             )
         })?;
-        target.push(i64_to_exact_f64(target_sum).map_err(|error| {
-            crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
-                error.into(),
+        target.push(target_sum.checked_mul(2).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<SubsetSum, ClosestVectorProblem<i64>>(
+                "scaling the Subset Sum target",
             )
         })?);
 
         Ok(ReductionSubsetSumToClosestVectorProblem {
-            target:
-                ClosestVectorProblem::new(basis, target, vec![VarBounds::binary(); n]).map_err(
-                    |error| {
-                        crate::rules::ReductionError::construction::<
-                            SubsetSum,
-                            ClosestVectorProblem<i64>,
-                        >(error)
-                    },
-                )?,
+            target: ClosestVectorProblem::new(basis, target).map_err(|error| {
+                crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
+                    error,
+                )
+            })?,
         })
     }
 }

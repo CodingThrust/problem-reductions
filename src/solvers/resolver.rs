@@ -52,7 +52,7 @@ fn solve_customized(
     problem: &LoadedDynProblem,
     registration: &'static CustomizedSolverRegistration,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match (registration.solve_fn)(problem.as_any()) {
+    let outcome = match (registration.solve_fn)(problem.as_any())? {
         Some(solution) => SolveOutcome::Optimal {
             evaluation: problem.evaluate_dyn(&solution)?,
             solution,

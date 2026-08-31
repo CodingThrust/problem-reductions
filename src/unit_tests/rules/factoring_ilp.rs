@@ -5,7 +5,7 @@ use num_bigint::BigUint;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Factor 6 with 2-bit factors
-    let problem = Factoring::new(2, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -21,23 +21,23 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_variable_layout() {
-    let problem = Factoring::new(3, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 3);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
-    // p variables: [0, 1, 2]
+    // p variables: [0, 1]
     assert_eq!(reduction.p_var(0), 0);
-    assert_eq!(reduction.p_var(2), 2);
+    assert_eq!(reduction.p_var(1), 1);
 
-    // q variables: [3, 4]
-    assert_eq!(reduction.q_var(0), 3);
-    assert_eq!(reduction.q_var(1), 4);
+    // q variables: [2, 3, 4]
+    assert_eq!(reduction.q_var(0), 2);
+    assert_eq!(reduction.q_var(2), 4);
 
-    // z variables: [5, 6, 7, 8, 9, 10] (3x2 = 6)
+    // z variables: [5, 6, 7, 8, 9, 10] (2x3 = 6)
     assert_eq!(reduction.z_var(0, 0), 5);
     assert_eq!(reduction.z_var(0, 1), 6);
-    assert_eq!(reduction.z_var(1, 0), 7);
-    assert_eq!(reduction.z_var(2, 1), 10);
+    assert_eq!(reduction.z_var(1, 0), 8);
+    assert_eq!(reduction.z_var(1, 2), 10);
 
     // carry variables: [11, 12, 13, 14, 15] (m+n = 5)
     assert_eq!(reduction.carry_var(0), 11);
@@ -47,7 +47,7 @@ fn test_variable_layout() {
 #[test]
 fn test_factor_6() {
     // 6 = 2 × 3 or 3 × 2
-    let problem = Factoring::new(2, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -68,7 +68,7 @@ fn test_factor_15() {
     // Closed-loop test for factoring 15 = 3 × 5 (or 5 × 3, 1 × 15, 15 × 1)
 
     // 1. Create factoring instance: find p (4-bit) × q (4-bit) = 15
-    let problem = Factoring::new(4, 4, 15);
+    let problem = Factoring::with_factor_bits(15, 4, 4);
 
     // 2. Reduce to ILP
     let reduction: ReductionFactoringToILP =
@@ -91,7 +91,7 @@ fn test_factor_15() {
 #[test]
 fn test_factor_35() {
     // 35 = 5 × 7 or 7 × 5
-    let problem = Factoring::new(3, 3, 35);
+    let problem = Factoring::with_factor_bits(35, 3, 3);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -109,7 +109,7 @@ fn test_factor_35() {
 #[test]
 fn test_factor_one() {
     // 1 = 1 × 1
-    let problem = Factoring::new(2, 2, 1);
+    let problem = Factoring::with_factor_bits(1, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -127,7 +127,7 @@ fn test_factor_one() {
 #[test]
 fn test_factor_prime() {
     // 7 is prime: 7 = 1 × 7 or 7 × 1
-    let problem = Factoring::new(3, 3, 7);
+    let problem = Factoring::with_factor_bits(7, 3, 3);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -145,7 +145,7 @@ fn test_factor_prime() {
 #[test]
 fn test_factor_square() {
     // 9 = 3 × 3
-    let problem = Factoring::new(3, 3, 9);
+    let problem = Factoring::with_factor_bits(9, 3, 3);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -163,7 +163,7 @@ fn test_factor_square() {
 #[test]
 fn test_infeasible_target_too_large() {
     // Target 100 with 2-bit factors (max product is 3 × 3 = 9)
-    let problem = Factoring::new(2, 2, 100);
+    let problem = Factoring::with_factor_bits(100, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -176,7 +176,7 @@ fn test_infeasible_target_too_large() {
 
 #[test]
 fn test_factoring_to_ilp_closed_loop() {
-    let problem = Factoring::new(2, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -205,7 +205,7 @@ fn test_factoring_to_ilp_closed_loop() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = Factoring::new(2, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -228,7 +228,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_target_ilp_structure() {
-    let problem = Factoring::new(3, 4, 12);
+    let problem = Factoring::with_factor_bits(12, 3, 4);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -242,7 +242,7 @@ fn test_target_ilp_structure() {
 
 #[test]
 fn test_solve_reduced() {
-    let problem = Factoring::new(2, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 2);
 
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
@@ -257,7 +257,7 @@ fn test_solve_reduced() {
 #[test]
 fn test_asymmetric_bit_widths() {
     // 12 = 3 × 4 or 4 × 3 or 2 × 6 or 6 × 2 or 1 × 12 or 12 × 1
-    let problem = Factoring::new(2, 4, 12);
+    let problem = Factoring::with_factor_bits(12, 2, 4);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -275,7 +275,7 @@ fn test_asymmetric_bit_widths() {
 #[test]
 fn test_oversized_biguint_target_makes_ilp_infeasible() {
     let target = BigUint::from(1u32) << 70;
-    let problem = Factoring::new(2, 2, target);
+    let problem = Factoring::with_factor_bits(target, 2, 2);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
@@ -284,8 +284,8 @@ fn test_oversized_biguint_target_makes_ilp_infeasible() {
 fn test_constraint_count_formula() {
     // Verify constraint count matches formula: 3*m*n + 4*m + 4*n + 1
     // (3*m*n McCormick + (m+n) bit equations + 1 final carry + (m+n) binary bounds + 2*(m+n) carry bounds)
-    for (m, n) in [(2, 2), (3, 3), (2, 4), (4, 2)] {
-        let problem = Factoring::new(m, n, 1);
+    for (m, n) in [(2, 2), (3, 3), (2, 4), (3, 4)] {
+        let problem = Factoring::with_factor_bits(1, m, n);
         let reduction: ReductionFactoringToILP =
             ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
         let ilp = reduction.target_problem();
@@ -304,8 +304,8 @@ fn test_constraint_count_formula() {
 #[test]
 fn test_variable_count_formula() {
     // Verify variable count matches formula: m + n + m*n + (m+n)
-    for (m, n) in [(2, 2), (3, 3), (2, 4), (4, 2)] {
-        let problem = Factoring::new(m, n, 1);
+    for (m, n) in [(2, 2), (3, 3), (2, 4), (3, 4)] {
+        let problem = Factoring::with_factor_bits(1, m, n);
         let reduction: ReductionFactoringToILP =
             ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
         let ilp = reduction.target_problem();
@@ -323,7 +323,7 @@ fn test_variable_count_formula() {
 
 #[test]
 fn test_factoring_to_ilp_bf_vs_ilp() {
-    let problem = Factoring::new(2, 2, 6);
+    let problem = Factoring::with_factor_bits(6, 2, 2);
     let reduction: ReductionFactoringToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);

@@ -25,15 +25,15 @@ impl CustomizedTestSolver {
                 .map(|(key, value)| (key.to_string(), value.to_string()))
                 .collect(),
         );
-        solver_capability_registry()
+        let registration = solver_capability_registry()
             .unwrap()
             .lookup(&key)
-            .customized
-            .and_then(|registration| (registration.solve_fn)(problem))
-            .map(|solution| {
-                serde_json::from_value(solution)
-                    .expect("customized solver returned the wrong witness representation")
-            })
+            .customized?;
+        let solution = (registration.solve_fn)(problem).unwrap()?;
+        Some(
+            serde_json::from_value(solution)
+                .expect("customized solver returned the wrong witness representation"),
+        )
     }
 }
 

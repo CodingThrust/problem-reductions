@@ -74,7 +74,7 @@ pub(crate) struct IlpPipelineRegistration {
 
 inventory::collect!(IlpPipelineRegistration);
 
-type CustomizedSolveFn = fn(&dyn Any) -> Option<serde_json::Value>;
+type CustomizedSolveFn = fn(&dyn Any) -> Result<Option<serde_json::Value>, super::SolveError>;
 
 /// A dedicated solver registered for one exact problem variant.
 #[derive(Debug)]

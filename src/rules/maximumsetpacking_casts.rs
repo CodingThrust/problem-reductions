@@ -1,10 +1,9 @@
-//! Variant cast reductions for MaximumSetPacking.
+//! Variant reductions for MaximumSetPacking.
 
 use crate::impl_variant_reduction;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::ReductionError;
 use crate::types::{i64_to_exact_f64, One};
-use crate::variant::CastToParent;
 
 impl_variant_reduction!(
     MaximumSetPacking,
@@ -13,7 +12,7 @@ impl_variant_reduction!(
     aggregate: identity,
     |src| MaximumSetPacking::with_weights(
         src.sets().to_vec(),
-        src.weights_ref().iter().map(|w| w.cast_to_parent()).collect())
+        vec![1_i64; src.num_sets()])
         .map_err(ReductionError::construction::<
             MaximumSetPacking<One>,
             MaximumSetPacking<i64>,

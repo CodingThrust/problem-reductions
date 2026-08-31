@@ -11,6 +11,7 @@ pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
+mod closestvectorproblem_casts;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
@@ -122,6 +123,7 @@ pub(crate) mod partition_sumofsquarespartition;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
 pub(crate) mod prizecollectingsteinerforest_steinertree;
+mod qubo_casts;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
@@ -287,7 +289,7 @@ pub use graph::{
 pub(crate) use traits::{validate_target_solution, DynReductionResult};
 pub use traits::{
     AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
-    ReductionAutoCast, ReductionError, ReductionResult,
+    ReductionError, ReductionResult, VariantReductionResult,
 };
 
 #[cfg(feature = "example-db")]
@@ -578,9 +580,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs
 }
 
-/// Generates a variant-cast `ReduceTo` impl with `#[reduction]` registration.
+/// Generates an explicit same-model variant `ReduceTo` implementation.
 ///
-/// Variant casts convert a problem from one variant to another (e.g.,
+/// Variant reductions convert a problem from one variant to another (e.g.,
 /// `MIS<KingsSubgraph, i64>` -> `MIS<UnitDiskGraph, i64>`). The solution
 /// mapping is identity -- vertex/element indices are preserved.
 ///
@@ -595,7 +597,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 ///     <KingsSubgraph, i64> => <UnitDiskGraph, i64>,
 ///     fields: [num_vertices, num_edges],
 ///     |src| MaximumIndependentSet::new(
-///         src.graph().cast_to_parent(), src.weights())
+///         SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
+///         src.weights())
 /// );
 /// ```
 #[macro_export]
@@ -614,13 +617,13 @@ macro_rules! impl_variant_reduction {
         impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
             for $problem<$($src_param),+>
         {
-            type Result = $crate::rules::ReductionAutoCast<
+            type Result = $crate::rules::VariantReductionResult<
                 $problem<$($src_param),+>,
                 $problem<$($dst_param),+>,
             >;
             fn reduce_to(&self) -> Result<Self::Result, $crate::rules::ReductionError> {
                 let $src = self;
-                Ok($crate::rules::ReductionAutoCast::new($body))
+                Ok($crate::rules::VariantReductionResult::new($body))
             }
         }
     };

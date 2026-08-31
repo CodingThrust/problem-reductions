@@ -331,7 +331,7 @@ fn test_create_schema_driven_builds_conjunctive_boolean_query() {
 }
 
 #[test]
-fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds() {
+fn test_create_schema_driven_builds_integer_target_closest_vector_problem() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -339,7 +339,7 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
         "--basis",
         "1,0;0,1",
         "--target-vec",
-        "0.5,0.5",
+        "1,2",
     ])
     .expect("create command parses");
 
@@ -347,7 +347,7 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
         panic!("expected create command");
     };
 
-    let resolved_variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
+    let resolved_variant = BTreeMap::from([("target".to_string(), "i64".to_string())]);
     let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
         .expect("schema-driven create should parse");
 
@@ -355,13 +355,35 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
         .expect("variant entry");
     (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
     assert_eq!(data["basis"], serde_json::json!([[1, 0], [0, 1]]));
-    assert_eq!(
-        data["bounds"],
-        serde_json::json!([
-            {"lower": -10, "upper": 10},
-            {"lower": -10, "upper": 10},
-        ])
-    );
+    assert_eq!(data["target"], serde_json::json!([1, 2]));
+    assert!(data.get("bounds").is_none());
+}
+
+#[test]
+fn test_create_schema_driven_builds_real_target_closest_vector_problem() {
+    let cli = Cli::try_parse_from([
+        "pred",
+        "create",
+        "CVP",
+        "--basis",
+        "1,0;0,1",
+        "--target-vec",
+        "0.5,1.25",
+    ])
+    .expect("create command parses");
+
+    let Commands::Create(args) = cli.command else {
+        panic!("expected create command");
+    };
+
+    let resolved_variant = BTreeMap::from([("target".to_string(), "f64".to_string())]);
+    let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
+        .expect("schema-driven create should parse");
+    let entry = problemreductions::registry::find_variant_entry("ClosestVectorProblem", &variant)
+        .expect("variant entry");
+    (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
+    assert_eq!(data["basis"], serde_json::json!([[1, 0], [0, 1]]));
+    assert_eq!(data["target"], serde_json::json!([0.5, 1.25]));
 }
 
 #[test]

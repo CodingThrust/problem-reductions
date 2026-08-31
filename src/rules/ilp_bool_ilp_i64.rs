@@ -2,8 +2,7 @@
 //!
 //! The stored `[0, 1]` bounds, constraints, and objective carry over unchanged.
 //!
-//! This is a same-name variant cast (ILP → ILP), so by convention it does not
-//! have an example file or a paper `reduction-rule` entry.
+//! This same-name variant reduction preserves the witness representation.
 
 use crate::models::algebraic::ILP;
 use crate::reduction;

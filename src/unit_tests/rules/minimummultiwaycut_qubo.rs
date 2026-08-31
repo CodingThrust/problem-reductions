@@ -10,7 +10,7 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -32,7 +32,7 @@ fn test_minimummultiwaycut_to_qubo_small() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let source = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1, 1]);
 
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -55,7 +55,7 @@ fn test_minimummultiwaycut_to_qubo_sizes() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     assert_eq!(reduction.target_problem().num_variables(), 15);
 }
 
@@ -67,7 +67,7 @@ fn test_minimummultiwaycut_to_qubo_terminal_pinning() {
     let terminals = vec![0, 2, 4];
     let source = MinimumMultiwayCut::new(graph, terminals.clone(), vec![2, 3, 1, 2, 4, 5]);
 
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();

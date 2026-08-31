@@ -121,8 +121,8 @@ fn test_jl_parity_factoring_to_spinglass_path() {
         .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
         .expect("explicit CircuitSAT route");
 
-    // Julia: Factoring(2, 1, 3) — factor 3 with 2-bit x 1-bit
-    let factoring = Factoring::new(2, 1, 3);
+    // Canonical factor order uses the smaller width first.
+    let factoring = Factoring::with_factor_bits(3, 1, 2);
     let chain = graph
         .reduce_along_path(&rpath, &factoring as &dyn std::any::Any)
         .expect("Factoring -> SpinGlass reduction should not fail")

@@ -227,7 +227,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_factoring_solvable() {
-        let problem = Factoring::new(15, 2, 2);
+        let problem = Factoring::with_factor_bits(2, 2, 15);
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -444,7 +444,7 @@ mod edge_cases {
     #[test]
     fn test_trivial_factoring() {
         // Factor 4 = 2 * 2
-        let problem = Factoring::new(4, 2, 2);
+        let problem = Factoring::with_factor_bits(2, 2, 4);
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 

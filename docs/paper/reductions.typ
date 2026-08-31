@@ -5032,9 +5032,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   }
   [
     #problem-def("QUBO")[
-      Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
+      Given $n$ binary variables $x_i in {0, 1}$ and an upper-triangular matrix $Q$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables). The registered variants use either exact integer coefficients $Q in ZZ^(n times n)$ (the default) or finite floating-point coefficients $Q in RR^(n times n)$.
     ][
-    Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
+    Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The integer variant stores exact coefficients, the floating-point variant stores finite real coefficients, and their explicit reduction converts exactly representable integers through `i64_to_exact_f64`. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
 
     *Example.* Consider $n = #n$ with $Q = mat(#mat-rows)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^#n$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = #fstar$ at $bold(x)^* = (#fmt-values(xstar))$: selecting #selected.join(" and ") avoids the penalty terms #unselected-pairs.join(" and ").
 
@@ -5498,7 +5498,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("ClosestVectorProblem")
   let basis = x.instance.basis
   let target = x.instance.target
-  let bounds = x.instance.bounds
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let dist = metric-value(sol.metric)
   let coords = sol.config
@@ -5510,11 +5509,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let dist-rounded = calc.round(dist, digits: 3)
   [
     #problem-def("ClosestVectorProblem")[
-      Given a lattice basis $bold(B) in RR^(m times n)$ (columns $bold(b)_1, dots, bold(b)_n in RR^m$ spanning lattice $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$) and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
     ][
-      The Closest Vector Problem is a fundamental lattice problem, proven NP-hard by van Emde Boas @vanemde1981. CVP appears in lattice-based cryptography, coding theory, and integer programming @lenstra1983. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$ using Voronoi cell computations, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver is a direct floating-point Gram--Schmidt sphere enumeration following the recursive enumeration structure of Fincke and Pohst @fincke1985; it is intended for small transparent instances, not exact-arithmetic or state-of-the-art performance. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
-      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The lattice points near $bold(t)$ include $bold(B)(1, 0)^top = (2, 0)^top$, $bold(B)(0, 1)^top = (1, 2)^top$, and $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$. The closest is $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ with distance $norm(bold(B)(#coords.map(c => str(c)).join(","))^top - bold(t))_2 approx #dist-rounded$.
+      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with distance #dist-rounded.
 
       #pred-commands(
         "pred create --example ClosestVectorProblem -o closest-vector-problem.json",
@@ -6030,11 +6029,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let q = sol.at(1).at(0)
   [
     #problem-def("Factoring")[
-      Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
+      Given an integer $N >= 2$ and optional maximum factor widths $m <= n$, find integers $p in [0, 2^m - 1]$ and $q in [0, 2^n - 1]$ such that $p <= q$ and $p times q = N$. If the widths are omitted, let $b$ be the bit length of $N$ and use $m = ceil(b slash 2)$ and $n = b - 1$.
     ][
     The hardness of integer factorization underpins RSA cryptography and other public-key systems. Unlike most problems in this collection, Factoring is not known to be NP-complete; it lies in NP $inter$ co-NP, suggesting it may be of intermediate complexity. The best classical algorithm is the General Number Field Sieve @lenstra1993 running in sub-exponential time $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ where $b$ is the bit length. Shor's algorithm @shor1994 solves Factoring in polynomial time on a quantum computer.
 
-    *Example.* Let $N = #N$ with $m = #mb$ bits and $n = #nb$ bits, so $p in [2, #(calc.pow(2, mb) - 1)]$ and $q in [2, #(calc.pow(2, nb) - 1)]$. The solution is $p = #p$, $q = #q$, since $#p times #q = #N = N$. Note $p = #p$ fits in #mb bits and $q = #q$ fits in #nb bits. The alternative factorization $#q times #p$ requires $m = #nb$, $n = #mb$.
+    *Example.* Let $N = #N$. Its bit length is 4, so the default bounds are $m = #mb$ and $n = #nb$. The canonical solution is $p = #p$, $q = #q$, since $#p <= #q$ and $#p times #q = #N = N$. Explicit wider bounds may also admit a trivial factorization such as $1 times N$.
 
     #pred-commands(
       "pred create --example Factoring -o factoring.json",
@@ -12024,17 +12023,15 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 #let cvp_qubo_sol = cvp_qubo.solutions.at(0)
 #{
   let basis = cvp_qubo.source.instance.basis
-  let bounds = cvp_qubo.source.instance.bounds
   let target = cvp_qubo.source.instance.target
-  let offsets = cvp_qubo_sol.source_config
-  let coords = offsets.enumerate().map(((i, off)) => off + bounds.at(i).lower)
+  let coords = cvp_qubo_sol.source_config
   let matrix = cvp_qubo.target.instance.matrix
   let bits = cvp_qubo_sol.target_config
-  let lo = bounds.map(b => b.lower)
-  let anchor = range(target.len()).map(d => lo.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
+  let lower = (-23, -14)
+  let anchor = range(target.len()).map(d => lower.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
   let constant = range(target.len()).fold(0.0, (acc, d) => acc + calc.pow(anchor.at(d) - target.at(d), 2))
-  let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == 0 { 0.0 } else {
-    range(bits.len() - i).fold(0.0, (row-acc, delta) => row-acc + if bits.at(i + delta) == 0 { 0.0 } else { matrix.at(i).at(i + delta) })
+  let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == false { 0.0 } else {
+    range(bits.len() - i).fold(0.0, (row-acc, delta) => row-acc + if bits.at(i + delta) == false { 0.0 } else { matrix.at(i).at(i + delta) })
   })
   let fmt-vec(v) = $paren.l #v.map(e => str(e)).join(", ") paren.r^top$
   let rounded-constant = calc.round(constant, digits: 2)
@@ -12043,7 +12040,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   [
     #reduction-rule("ClosestVectorProblem", "QUBO",
       example: true,
-      example-caption: [2D bounded CVP with two 3-bit exact-range encodings],
+      example-caption: [2D standard CVP with a coefficient box derived by the reduction],
       extra: [
         #pred-commands(
           "pred create --example CVP -o cvp.json",
@@ -12051,36 +12048,30 @@ the displayed rule, extracted from the corresponding `pred path` entry.
           "pred solve bundle.json",
           "pred evaluate cvp.json --config " + cli-config(cvp_qubo_sol.source_config),
         )
-        *Step 1 -- Source instance.* The canonical CVP example uses basis columns $bold(b)_1 = #fmt-vec(basis.at(0))$ and $bold(b)_2 = #fmt-vec(basis.at(1))$, target $bold(t) = #fmt-vec(target)$, and bounds $x_1, x_2 in [#bounds.at(0).lower, #bounds.at(0).upper]$.
+        *Step 1 -- Source instance.* The canonical CVP example has basis columns $bold(b)_1=#fmt-vec(basis.at(0))$ and $bold(b)_2=#fmt-vec(basis.at(1))$ and target $bold(t)=#fmt-vec(target)$. The source model supplies no coefficient bounds.
 
-        *Step 2 -- Exact bounded encoding.* Each variable has #bounds.at(0).upper - bounds.at(0).lower + 1 admissible values, so the implementation uses the capped binary basis $(1, 2, 3)$ rather than $(1, 2, 4)$: the first two bits are powers of two, and the last weight is capped so every bit pattern reconstructs an offset in ${0, dots, 6}$. Thus
-        $ x_1 = #bounds.at(0).lower + z_0 + 2 z_1 + 3 z_2, quad x_2 = #bounds.at(1).lower + z_3 + 2 z_4 + 3 z_5 $
-        giving #cvp_qubo.target.instance.num_vars QUBO variables in total.
+        *Step 2 -- Derive a safe box.* Here $A=((2,1),(0,2))$, $norm(bold(t))_1=5$, and the selected-row bounds are $bold(C)=(8,7)$. Since $op("adj")(A)=((2,-1),(0,2))$, the reduction obtains $M_1=23$ and $M_2=14$.
 
-        *Step 3 -- Build the QUBO.* For this instance, $G = A^top A = ((4, 2), (2, 5))$ and $h = A^top bold(t) = (5.6, 5.8)^top$. Expanding the shifted quadratic form yields the exported upper-triangular matrix with representative entries $Q_(0,0) = #matrix.at(0).at(0)$, $Q_(0,1) = #matrix.at(0).at(1)$, $Q_(0,2) = #matrix.at(0).at(2)$, $Q_(2,5) = #matrix.at(2).at(5)$, and $Q_(5,5) = #matrix.at(5).at(5)$.
+        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.num_vars variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
 
-        *Step 4 -- Verify a solution.* The fixture stores the canonical witness $bold(z) = (#fmt-values(bits))$, which extracts to source offsets $bold(c) = (#fmt-values(offsets))$ and actual lattice coordinates $bold(x) = (#fmt-values(coords))$. The QUBO value is $bold(z)^top Q bold(z) = #rounded-qubo$; adding back the dropped constant #rounded-constant yields the original squared distance #(rounded-distance-sq), so the extracted point is the closest lattice vector #sym.checkmark.
+        *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq, so $B bold(x)=bold(t)$ #sym.checkmark.
 
-        *Multiplicity.* Offset $3$ has two bit encodings ($(0, 0, 1)$ and $(1, 1, 0)$), so the fixture stores one canonical witness even though the QUBO has multiple optimal binary assignments representing the same CVP solution.
+        *Multiplicity.* Residual final weights make some offsets have multiple encodings, so the fixture stores one canonical bit vector although other optimal QUBO witnesses can decode to the same $bold(x)$.
       ],
     )[
-      A bounded Closest Vector Problem instance already supplies a finite integer box $x_i in [ell_i, u_i]$ for each coefficient. Following the direct quadratic-form reduction of Canale, Qureshi, and Viola @canale2023qubo, encoding each offset $c_i = x_i - ell_i$ with an exact in-range binary basis turns the squared-distance objective into an unconstrained quadratic over binary variables. Unlike penalty-method encodings, no auxiliary feasibility penalty is needed: every bit pattern decodes to a legal coefficient vector by construction.
+      Following the quadratic formulation of Canale, Qureshi, and Viola @canale2023qubo, this rule derives a finite box containing a global minimizer of standard CVP, then encodes that box and expands the squared-distance objective.
     ][
-      _Construction._ Let $A in ZZ^(m times n)$ be the basis matrix with columns $bold(a)_1, dots, bold(a)_n$, let $bold(t) in RR^m$ be the target, and let $x_i in [ell_i, u_i]$ with range $r_i = u_i - ell_i$. Define $L_i = ceil(log_2(r_i + 1))$ when $r_i > 0$ and omit bits when $r_i = 0$. For each variable, introduce binary variables $z_(i,0), dots, z_(i,L_i-1)$ with exact-range weights
-      $ w_(i,p) = 2^p quad (0 <= p < L_i - 1), quad w_(i,L_i-1) = r_i + 1 - 2^(L_i - 1) $
-      so that every bit vector represents an offset in ${0, dots, r_i}$. Then
-      $ x_i = ell_i + sum_(p=0)^(L_i-1) w_(i,p) z_(i,p) $
-      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported size map `num_vars = num_encoding_bits`.
+      _Construction._ Let $B in ZZ^(m times n)$ have full column rank and $bold(t) in ZZ^m$. Select $n$ rows forming an invertible matrix $A$, with source row indices $r_j$. Since zero is a candidate, every minimizer $bold(x)^*$ satisfies $norm(B bold(x)^*-bold(t))_2 <= norm(bold(t))_2$. For $bold(y)=A bold(x)^*$, define $C_j=abs(t_(r_j))+norm(bold(t))_1$. Then $abs(y_j)<=C_j$, and $bold(x)^*=op("adj")(A)bold(y)/det(A)$ gives
+      $ abs(x_i^*) <= M_i = sum_j abs(op("adj")(A)_(i,j)) C_j $
+      because the nonzero integer determinant has magnitude at least one.
 
-      Let $G = A^top A$ and $h = A^top bold(t)$. Writing $bold(x) = bold(ell) + B bold(z)$ for the encoding matrix $B in RR^(n times N)$ gives
-      $ norm(A bold(x) - bold(t))_2^2 = bold(z)^top (B^top G B) bold(z) + 2 bold(z)^top B^top (G bold(ell) - h) + "const" $
-      where the constant $norm(A bold(ell) - bold(t))_2^2$ is dropped. Therefore the QUBO coefficients are
-      $ Q_(u,u) = (B^top G B)_(u,u) + 2 (B^top (G bold(ell) - h))_u, quad Q_(u,v) = 2 (B^top G B)_(u,v) quad (u < v) $
-      using the usual upper-triangular convention.
+      Encode $x_i+M_i in [0,2M_i]$ with powers of two and one capped final weight. If $W$ maps the resulting bits to coefficient offsets, $G=B^top B$, $h=B^top bold(t)$, and $bold(ell)=-bold(M)$, then
+      $ norm(B bold(x)-bold(t))_2^2 = bold(z)^top(W^top G W)bold(z) + 2 bold(z)^top W^top(G bold(ell)-h) + "const". $
+      The constant is dropped. The exact bit count depends on concrete entries, so its symbolic transform is unavailable.
 
-      _Correctness._ ($arrow.r.double$) Every binary vector $bold(z) in {0,1}^N$ decodes to a coefficient vector $bold(x)$ inside the prescribed bounds because each exact-range basis reaches only offsets in ${0, dots, r_i}$. Substituting this decoding into the CVP objective yields $bold(z)^top Q bold(z) + "const"$, so any QUBO minimizer maps to a bounded CVP minimizer. ($arrow.l.double$) Every bounded CVP solution $bold(x)$ has at least one bit encoding for each coordinate offset, hence at least one binary vector $bold(z)$ with the same objective value up to the dropped constant. Thus the minimizers correspond exactly, although several binary witnesses may decode to the same CVP solution.
+      _Correctness._ ($arrow.r.double$) Every bit vector decodes inside the derived box and has QUBO value equal to its CVP squared distance minus one common constant, so a QUBO minimizer is best within the box. ($arrow.l.double$) The derived box contains a global CVP minimizer, and every point in the box has an exact-range encoding. Therefore the best encoded point is globally optimal for CVP.
 
-      _Solution extraction._ For each source variable, sum its selected encoding weights to recover the source configuration offset $c_i = x_i - ell_i$. This is exactly the configuration format expected by the `ClosestVectorProblem` model.
+      _Solution extraction._ Sum the selected weights for each coefficient and subtract $M_i$.
     ]
   ]
 }
@@ -12117,29 +12108,29 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     *Step 1 -- Encode each color choice as a binary variable.* A coloring assigns each vertex one of $k$ colors. To express this in binary, introduce $k$ indicator variables per vertex: $x_(v,c) = 1$ means "vertex $v$ gets color $c$." For the house graph with $k = 3$, this gives $n k = 5 times 3 = 15$ QUBO variables:
     $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) dots.c #h(4pt) underbrace(x_(4,0) x_(4,1) x_(4,2), "vertex 4") $
 
-    *Step 2 -- Penalize invalid color assignments (one-hot constraint).* A valid coloring requires each vertex to have _exactly one_ color, i.e.\ $sum_c x_(v,c) = 1$. The penalty $(1 - sum_c x_(v,c))^2$ equals zero when exactly one variable is 1, and is positive otherwise. Weighted by $P_1 = 1 + n = 6$, this contributes diagonal entries $Q_(v k+c, v k+c) = -6$ and off-diagonal entries $Q_(v k+c_1, v k+c_2) = 12$ between colors of the same vertex. These form the $5 times 5$ diagonal blocks of $Q$.\
+    *Step 2 -- Penalize invalid color assignments (one-hot constraint).* A valid coloring requires each vertex to have _exactly one_ color, i.e.\ $sum_c x_(v,c) = 1$. The penalty $(1 - sum_c x_(v,c))^2$ equals zero when exactly one variable is 1, and is positive otherwise. We multiply the entire former half-integral objective by 2. With $P = 1 + n = 6$, the one-hot term $2P(1 - sum_c x_(v,c))^2$ contributes diagonal entries $Q_(v k+c, v k+c) = -12$ and off-diagonal entries $Q_(v k+c_1, v k+c_2) = 24$ between colors of the same vertex. These form the $5 times 5$ diagonal blocks of $Q$.\
 
-    *Step 3 -- Penalize same-color neighbors (edge conflict).* For each edge $(u,v) in E$ and each color $c$, the product $x_(u,c) x_(v,c) = 1$ iff both endpoints receive color $c$ — exactly the coloring conflict we want to forbid. The penalty $P_2 dot x_(u,c) x_(v,c)$ with $P_2 = P_1 slash 2 = 3$ makes such conflicts costly. The house has 6 edges, each contributing 3 color-conflict penalties $arrow.r$ 18 off-diagonal entries of value $3$ in $Q$.\
+    *Step 3 -- Penalize same-color neighbors (edge conflict).* For each edge $(u,v) in E$ and each color $c$, the product $x_(u,c) x_(v,c) = 1$ iff both endpoints receive color $c$ — exactly the coloring conflict we want to forbid. In the scaled integer objective, each conflict has coefficient $P = 6$. The house has 6 edges, each contributing 3 color-conflict penalties $arrow.r$ 18 off-diagonal entries of value $6$ in $Q$.\
 
     *Step 4 -- Verify a solution.* The first valid 3-coloring is $(c_0, ..., c_4) = (#fmt-values(kc_qubo_sol.source_config))$, shown in the figure above. The one-hot encoding is $bold(x) = (#fmt-values(kc_qubo_sol.target_config))$. Check: each 3-bit group has exactly one 1 (valid one-hot #sym.checkmark), and for every edge the two endpoints have different colors (e.g.\ edge $0 dash 1$: colors $#kc_qubo_sol.source_config.at(0), #kc_qubo_sol.source_config.at(1)$ #sym.checkmark).\
 
     *Multiplicity:* The fixture stores one canonical coloring witness. The house graph has $3! times 3 = 18$ valid colorings overall: the triangle $2 dash 3 dash 4$ forces 3 distinct colors ($3! = 6$ permutations), and for each, the base vertices $0, 1$ have exactly $3$ compatible ordered pairs.
   ],
 )[
-  The $k$-coloring problem has two requirements: each vertex gets exactly one color, and adjacent vertices get different colors. Both can be expressed as quadratic penalties over binary variables. Introduce $n k$ binary variables $x_(v,c) in {0,1}$ (indexed by $v dot k + c$), where $x_(v,c) = 1$ means vertex $v$ receives color $c$. The first requirement becomes a _one-hot constraint_ penalizing vertices with zero or multiple colors; the second becomes an _edge conflict penalty_ penalizing same-color neighbors. The combined QUBO matrix $Q in RR^(n k times n k)$ encodes both penalties.
+  The $k$-coloring problem has two requirements: each vertex gets exactly one color, and adjacent vertices get different colors. Both can be expressed as quadratic penalties over binary variables. Introduce $n k$ binary variables $x_(v,c) in {0,1}$ (indexed by $v dot k + c$), where $x_(v,c) = 1$ means vertex $v$ receives color $c$. The first requirement becomes a _one-hot constraint_ penalizing vertices with zero or multiple colors; the second becomes an _edge conflict penalty_ penalizing same-color neighbors. The combined integer QUBO matrix $Q in ZZ^(n k times n k)$ encodes both penalties.
 ][
   _Construction._ Applying the penalty method (@sec:penalty-method), the two requirements translate into two penalty terms:
-  $ f(bold(x)) = underbrace(P_1 sum_(v in V) (1 - sum_(c=1)^k x_(v,c))^2, "one-hot: exactly one color per vertex") + underbrace(P_2 sum_((u,v) in E) sum_(c=1)^k x_(u,c) x_(v,c), "edge conflict: neighbors differ") $
+  $ f(bold(x)) = underbrace(2P sum_(v in V) (1 - sum_(c=1)^k x_(v,c))^2, "one-hot: exactly one color per vertex") + underbrace(P sum_((u,v) in E) sum_(c=1)^k x_(u,c) x_(v,c), "edge conflict: neighbors differ") $
 
   _One-hot expansion._ The constraint $(1 - sum_c x_(v,c))^2$ penalizes any vertex with $!= 1$ active color. Expanding using $x_(v,c)^2 = x_(v,c)$ (binary variables):
   $ (1 - sum_c x_(v,c))^2 = 1 - sum_c x_(v,c) + 2 sum_(c_1 < c_2) x_(v,c_1) x_(v,c_2) $
-  Reading off the QUBO coefficients: diagonal $Q_(v k+c, v k+c) = -P_1$ (favors assigning a color) and intra-vertex off-diagonal $Q_(v k+c_1, v k+c_2) = 2 P_1$ for $c_1 < c_2$ (discourages multiple colors).
+  Reading off the QUBO coefficients: diagonal $Q_(v k+c, v k+c) = -2P$ (favors assigning a color) and intra-vertex off-diagonal $Q_(v k+c_1, v k+c_2) = 4P$ for $c_1 < c_2$ (discourages multiple colors).
 
-  _Edge conflict._ For each edge $(u,v)$ and color $c$, the product $x_(u,c) x_(v,c)$ equals 1 iff both endpoints share color $c$. The penalty $P_2 x_(u,c) x_(v,c)$ adds $P_2$ to $Q_(u k+c, v k+c)$ (with appropriate index ordering).
+  _Edge conflict._ For each edge $(u,v)$ and color $c$, the product $x_(u,c) x_(v,c)$ equals 1 iff both endpoints share color $c$. The penalty $P x_(u,c) x_(v,c)$ adds $P$ to $Q_(u k+c, v k+c)$ (with appropriate index ordering).
 
-  In our implementation, $P_1 = P = 1 + n$ and $P_2 = P\/2$. The penalty $P_1$ exceeds the number of vertices, ensuring that any constraint violation outweighs any objective gain.
+  In our implementation, $P = 1 + n$ and the stored integer objective is twice the equivalent half-integral formulation: one-hot coefficients are scaled from $(-P, 2P)$ to $(-2P, 4P)$ and edge-conflict coefficients from $P\/2$ to $P$. Multiplication by the positive constant 2 preserves the complete argmin set.
 
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ violates any one-hot constraint (some vertex has 0 or $>= 2$ colors), the penalty $P_1 > n$ exceeds the objective range, so $bold(x)$ is not a minimizer. ($arrow.l.double$) Among valid one-hot encodings, $f$ reduces to the edge conflict term, minimized when no two adjacent vertices share a color — exactly the $k$-coloring objective.
+  _Correctness._ ($arrow.r.double$) If $bold(x)$ violates any one-hot constraint (some vertex has 0 or $>= 2$ colors), the one-hot penalty dominates the edge-conflict range, so $bold(x)$ is not a minimizer. ($arrow.l.double$) Among valid one-hot encodings, $f$ reduces to the edge conflict term, minimized when no two adjacent vertices share a color — exactly the $k$-coloring objective.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
 ]
@@ -12310,26 +12301,25 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
         *Step 2 -- Build the lattice.* The reduction creates the basis
         $ bold(B) = #to-mat(ss-cvp-basis) $
         together with target $ bold(t) = (#fmt-values(ss-cvp-target-vec))^top $
-        and binary bounds $x_i in {0,1}$ for all $#ss-cvp-n$ coordinates.
+        in the standard CVP model, with no coefficient bounds.
 
-        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#fmt-values(ss-cvp-x))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (1, 0, 0, 1, #ss-cvp-target)^top$, the difference vector is $(0.5, -0.5, -0.5, 0.5, 0)^top$ and the Euclidean distance is $sqrt(#ss-cvp-n / 4) = 1$.
+        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#fmt-values(ss-cvp-x))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (2, 0, 0, 2, 2 dot #ss-cvp-target)^top$, the difference vector is $(1, -1, -1, 1, 0)^top$ and the Euclidean distance is $sqrt(4) = 2$.
 
         *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
       ],
     )[
-      Classical lattice embedding for Subset Sum following Lagarias and Odlyzko @lagarias1985, with the $1/2$-target CVP formulation in the style of Coster et al. @coster1992. For an instance with $n$ elements, the reduction produces $n$ basis vectors in ambient dimension $n + 1$: the first $n$ coordinates enforce binary structure and the last coordinate records the subset sum error.
+      This integer-scaled form of the classical Subset Sum lattice embedding @lagarias1985 @coster1992 produces $n$ basis vectors in ambient dimension $n+1$. The first coordinates enforce binary coefficients at the optimum; they are not bounds stored by CVP.
     ][
       _Construction._ Given sizes $s_0, dots, s_(n-1) in ZZ^+$ and target $B in ZZ^+$, define one basis vector per element:
-      $ bold(b)_i = bold(e)_i + s_i bold(e)_(n+1) $
-      for $i in {0, dots, n-1}$. Equivalently, the basis matrix has columns $bold(b)_0, dots, bold(b)_(n-1)$, so its first $n$ rows form the identity matrix and its last row is $(s_0, dots, s_(n-1))$. Set the target vector to
-      $ bold(t) = (1/2, dots, 1/2, B)^top $
-      and restrict every CVP variable to $x_i in {0, 1}$.
+      $ bold(b)_i = 2 bold(e)_i + 2s_i bold(e)_(n+1) $
+      for $i in {0, dots, n-1}$, and set
+      $ bold(t) = (1, dots, 1, 2B)^top. $
 
       _Correctness._ ($arrow.r.double$) If $bold(x) in {0,1}^n$ is a satisfying Subset Sum solution, then $sum_i s_i x_i = B$ and
-      $ norm(bold(B) bold(x) - bold(t))_2^2 = sum_(i=0)^(n-1) (x_i - 1/2)^2 + (sum_i s_i x_i - B)^2 = n/4. $
-      Hence every satisfying subset becomes a CVP solution at distance $sqrt(n / 4)$. ($arrow.l.double$) Conversely, binary bounds force every CVP candidate to lie in ${0,1}^n$. The first $n$ coordinates always contribute exactly $n/4$ to the squared distance, so a CVP minimizer attains distance $sqrt(n/4)$ if and only if the last coordinate contributes $0$, i.e. $sum_i s_i x_i = B$. When the Subset Sum instance is unsatisfiable, every binary vector has strictly larger distance.
+      $ norm(bold(B) bold(x) - bold(t))_2^2 = sum_(i=0)^(n-1) (2x_i-1)^2 + 4(sum_i s_i x_i-B)^2 = n. $
+      ($arrow.l.double$) For every integer $x_i$, the odd square $(2x_i-1)^2$ is at least one, with equality exactly when $x_i in {0,1}$. Thus squared distance at most $n$ forces a binary vector and forces $sum_i s_i x_i=B$. Consequently the Subset Sum instance is satisfiable exactly when the CVP optimum is $sqrt(n)$.
 
-      _Solution extraction._ Return the binary CVP vector unchanged.
+      _Solution extraction._ Return true at index $i$ exactly when the CVP coefficient is one.
     ]
   ]
 }
@@ -12666,7 +12656,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     #pred-commands(
-      "pred create --example QUBO -o qubo.json",
+      "pred create --example QUBO/f64 -o qubo.json",
       "pred reduce qubo.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate qubo.json --config " + cli-config(qubo_ilp_sol.source_config),
@@ -13137,7 +13127,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) If $N = p times q$ with $p < 2^m$ and $q < 2^n$, setting the input bits to the binary representations of $p$ and $q$ produces output bits matching $N$, satisfying all constraints. ($arrow.l.double$) Any satisfying assignment to the circuit computes a valid multiplication (the gates enforce arithmetic correctness), and the output constraint ensures the product equals $N$.
 
-  _Solution extraction._ Read off factor bits: $p = sum_i p_i 2^(i-1)$, $q = sum_j q_j 2^(j-1)$.
+  _Solution extraction._ Read off factor bits $p = sum_i p_i 2^(i-1)$ and $q = sum_j q_j 2^(j-1)$, then return $(min(p,q), max(p,q))$.
 ]
 
 #let mc_sg = load-example("MaxCut", "SpinGlass")
@@ -13256,7 +13246,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ The McCormick constraints enforce $z_(i j) = p_i dot q_j$ for binary variables. The bit equations encode $p times q = N$ via carry propagation, matching array multiplier semantics.
 
-  _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables.
+  _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables, then return $(min(p,q), max(p,q))$.
 ]
 
 == ILP Formulations
@@ -16648,29 +16638,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/export_petersen_mapping.rs")[`export_petersen_mapping.rs`].
 
-== Variant Cast Reductions
+== Variant Reductions
 
-Problems parameterized by graph type, weight type, or clause-width ($k$) admit identity reductions between specialised and general variants. Each cast preserves the problem structure exactly (same number of vertices/variables, same constraints), converting only the type parameter to a more general one. These are registered as self-edges in the reduction graph with exact identity size maps.
+Problems parameterized by graph type, weight type, target type, or clause width ($k$) use explicit reductions between registered variants. Each rule constructs the target representation, registers an exact size map, and preserves the witness representation.
 
 #reduction-rule("MaximumIndependentSet", "MaximumIndependentSet")[
-  The graph hierarchy $"KingsSubgraph" subset "UnitDiskGraph" subset "SimpleGraph"$ and weight hierarchy $"One" subset ZZ subset RR$ induce exact identity size maps between MIS variants. Graph casts discard geometric information (grid coordinates $arrow.r$ Euclidean coordinates $arrow.r$ adjacency list); weight casts embed unit weights into integers ($1 arrow.r 1_ZZ$) or integers into floats ($w arrow.r w_RR$). All edges and weights are preserved verbatim.
+  Explicit MIS variant reductions convert King's and triangular lattice graphs to unit-disk graphs, unit-disk graphs to simple adjacency graphs, and unit weights to integer weights. Every rule preserves the vertex indices and has an exact identity size map.
 ][
-  _Construction._ Given $"MIS"(G, bold(w))$ with graph type $G_"sub"$ and weight type $W_"sub"$, construct $"MIS"(G', bold(w)')$ where $G' = "cast"(G_"sub")$ lifts the graph to its parent type and $bold(w)' = "cast"(bold(w))$ lifts each weight. The `CastToParent` trait defines the concrete maps:
+  _Construction._ The registered rules use these concrete maps:
   - _KingsSubgraph $arrow.r$ UnitDiskGraph:_ integer grid positions $(i, j)$ map to float coordinates with radius $r = 1.5$.
   - _TriangularSubgraph $arrow.r$ UnitDiskGraph:_ triangular lattice positions map to float coordinates with radius $r = 1.1$.
   - _UnitDiskGraph $arrow.r$ SimpleGraph:_ discard coordinates, retain only the adjacency edge list.
   - _One $arrow.r$ i64:_ each unit weight maps to $1_ZZ$.
-  - _i64 $arrow.r$ f64:_ each integer weight maps to its float representation.
 
-  _Correctness._ The cast preserves the vertex set, edge set, and weight values (up to type embedding). Since the MIS objective $max sum_(v in S) w(v)$ depends only on adjacency and weights, any independent set in $G_"sub"$ is independent in $G'$, and the objective is unchanged. Optimality is preserved in both directions.
+  _Correctness._ Each graph conversion preserves the adjacency relation, and the weight conversion preserves every unit objective contribution as the integer one. Since the MIS objective $max sum_(v in S) w(v)$ depends only on adjacency and weights, feasible sets and their objective values are preserved.
 
   _Solution extraction._ Return the target configuration unchanged (identity map on vertices).
 ]
 
 #reduction-rule("KColoring", "KColoring")[
-  A $k$-Coloring instance with fixed $k = 3$ casts to generic $k$-Coloring ($k in NN$) by promoting the clause-width parameter from the specialised $K_3$ variant to the general $K_N$ variant. The graph and number of colors are preserved verbatim.
+  A $k$-Coloring instance with fixed $k = 3$ converts to generic $k$-Coloring ($k in NN$) by constructing the registered $K_N$ variant with the same graph and color count.
 ][
-  _Construction._ Given $"KColoring"_(K_3)(G, k)$, construct $"KColoring"_(K_N)(G, k)$ with the same graph $G$ and the same number of colors $k$. The $K_3 arrow.r K_N$ cast simply relabels the variant parameter.
+  _Construction._ Given $"KColoring"_(K_3)(G, k)$, construct $"KColoring"_(K_N)(G, k)$ with the same graph $G$ and the same number of colors $k$.
 
   _Correctness._ The coloring constraint (no two adjacent vertices share a color, using $k$ colors) is identical in both variants. The only difference is that $K_3$ statically guarantees $k = 3$, while $K_N$ allows arbitrary $k$. Since the graph and color count are unchanged, feasibility, optimality, and the solution space are preserved.
 
@@ -16678,7 +16667,7 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 ]
 
 #reduction-rule("KSatisfiability", "KSatisfiability")[
-  A $k$-SAT instance with fixed clause width ($k = 2$ or $k = 3$) casts to generic $k$-SAT by promoting the $K_2$ or $K_3$ variant to $K_N$. The clauses and variables are preserved verbatim; the target uses `new_allow_less` to accept clauses with fewer than $k$ literals.
+  A $k$-SAT instance with fixed clause width ($k = 2$ or $k = 3$) converts to generic $k$-SAT by constructing the registered $K_N$ variant. The clauses and variables are preserved verbatim; the target uses `new_allow_less` to accept clauses with fewer than $k$ literals.
 ][
   _Construction._ Given $"KSat"_(K_j)(n, cal(C))$ with $j in {2, 3}$, construct $"KSat"_(K_N)(n, cal(C))$ with the same $n$ variables and clause set $cal(C)$.
 
@@ -16688,7 +16677,7 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 ]
 
 #reduction-rule("SpinGlass", "SpinGlass")[
-  An Ising spin-glass instance with integer couplings and fields ($J_(i j), h_i in ZZ$) casts to the floating-point variant ($J_(i j), h_i in RR$) by embedding each integer as its float representation. The graph topology is unchanged.
+  An Ising spin-glass instance with integer couplings and fields ($J_(i j), h_i in ZZ$) converts to the floating-point variant ($J_(i j), h_i in RR$) through exact `i64_to_exact_f64` embeddings. The graph topology is preserved.
 ][
   _Construction._ Given $"SpinGlass"(G, bold(J), bold(h))$ with $J_(i j) in ZZ$ and $h_i in ZZ$, construct $"SpinGlass"(G, bold(J)', bold(h)')$ with $J'_(i j) = J_(i j) in RR$ and $h'_i = h_i in RR$.
 
@@ -16698,15 +16687,35 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 ]
 
 #reduction-rule("MaximumSetPacking", "MaximumSetPacking")[
-  A Maximum Set Packing instance with unit weights casts to integer weights ($"One" arrow.r ZZ$) or integer weights cast to float weights ($ZZ arrow.r RR$). The set family and universe are preserved; only the weight type changes.
+  A Maximum Set Packing instance converts unit weights to integer weights ($"One" arrow.r ZZ$) and integer weights to exactly represented floating weights ($ZZ arrow.r RR$). The set family and universe are preserved.
 ][
-  _Construction._ Given $"MSP"(cal(S), bold(w))$ with weights $w_i$ of type $W_"sub"$, construct $"MSP"(cal(S), bold(w)')$ with $w'_i = "cast"(w_i)$:
+  _Construction._ Given $"MSP"(cal(S), bold(w))$, construct $"MSP"(cal(S), bold(w)')$ using:
   - _One $arrow.r$ i64:_ each unit weight maps to $1_ZZ$.
-  - _i64 $arrow.r$ f64:_ each integer weight maps to its float representation.
+  - _i64 $arrow.r$ f64:_ each integer weight maps through `i64_to_exact_f64`.
 
   _Correctness._ The packing constraint (no two selected sets share a universe element) depends only on set membership, not on weights. The objective $max sum_(i in P) w_i$ is preserved under the type embedding. Optimality is unchanged.
 
   _Solution extraction._ Return the target configuration unchanged.
+]
+
+#reduction-rule("ClosestVectorProblem", "ClosestVectorProblem")[
+  An integer-target CVP instance converts to the floating-target variant by embedding every target coordinate with `i64_to_exact_f64`. The integer lattice basis is copied unchanged.
+][
+  _Construction._ Given $(B, bold(t))$ with $B in ZZ^(m times n)$ and $bold(t) in ZZ^m$, construct $(B, bold(t)')$ with $t'_i = "f64"(t_i)$ for every exactly representable coordinate $|t_i| lt.eq 2^53 - 1$.
+
+  _Correctness._ Exact coordinate conversion gives $bold(t)' = bold(t)$ in $RR^m$. Therefore $norm(B bold(x) - bold(t)')_2 = norm(B bold(x) - bold(t))_2$ for every $bold(x) in ZZ^n$, so the minimizers coincide.
+
+  _Solution extraction._ Return the integer coefficient vector unchanged.
+]
+
+#reduction-rule("QUBO", "QUBO")[
+  An integer QUBO converts to the floating-coefficient variant by embedding every matrix coefficient with `i64_to_exact_f64`.
+][
+  _Construction._ Given $Q in ZZ^(n times n)$, construct $Q' in RR^(n times n)$ with $Q'_(i j) = "f64"(Q_(i j))$ for every exactly representable coefficient $|Q_(i j)| lt.eq 2^53 - 1$.
+
+  _Correctness._ For every binary vector $bold(x)$, exact coefficient conversion gives $bold(x)^top Q' bold(x) = bold(x)^top Q bold(x)$. The objective ordering and minimizers are preserved.
+
+  _Solution extraction._ Return the binary vector unchanged.
 ]
 
 // Completeness check: warn about reduction rules in JSON but missing from paper
@@ -16766,7 +16775,7 @@ The following table shows concrete target-variable counts for example instances,
     source: "KSatisfiability",
     target: "QUBO",
     source-variant: (k: "K3"),
-    target-variant: (weight: "f64"),
+    target-variant: (weight: "i64"),
   ),
   (source: "ILP", target: "QUBO"),
   (source: "Satisfiability", target: "MaximumIndependentSet"),

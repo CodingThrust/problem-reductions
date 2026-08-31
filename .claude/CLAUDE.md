@@ -201,11 +201,12 @@ Problem types use explicit optimization prefixes (`Maximum...`, `Minimum...`) or
 
 ### Problem Variants
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
-- Base: `MaximumIndependentSet` (empty variant = defaults)
+- Default: `MaximumIndependentSet {graph: "SimpleGraph", weight: "One"}`
 - Graph variant: `MaximumIndependentSet {graph: "KingsSubgraph", weight: "One"}`
-- Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
-- Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
-- Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
+- Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "i64"}`
+- Each problem declares one default concrete variant through `declare_variants!`; variant listings place that declaration first
+- Nodes come from concrete `declare_variants!` registrations
+- Same-name variant relations are explicit `#[reduction]` registrations
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
 - `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration

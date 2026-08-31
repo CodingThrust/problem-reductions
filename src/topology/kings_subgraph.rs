@@ -125,7 +125,6 @@ impl Graph for KingsSubgraph {
 impl crate::variant::VariantParam for KingsSubgraph {
     const CATEGORY: &'static str = "graph";
     const VALUE: &'static str = "KingsSubgraph";
-    const PARENT_VALUE: Option<&'static str> = Some("UnitDiskGraph");
 }
 
 #[cfg(test)]

@@ -22,7 +22,7 @@ mod unit_disk_graph;
 
 pub use bipartite_graph::BipartiteGraph;
 pub use directed_graph::DirectedGraph;
-pub use graph::{Graph, GraphCast, SimpleGraph};
+pub use graph::{Graph, SimpleGraph};
 pub use kings_subgraph::KingsSubgraph;
 pub use mixed_graph::MixedGraph;
 pub use planar_graph::PlanarGraph;

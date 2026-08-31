@@ -1,12 +1,11 @@
-//! Variant cast reductions for MaximumIndependentSet.
+//! Variant reductions for MaximumIndependentSet.
 //!
-//! These explicit casts convert MIS between graph and weight subtypes.
+//! Each rule converts one registered graph or weight representation.
 
 use crate::impl_variant_reduction;
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
+use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::One;
-use crate::variant::CastToParent;
 
 impl_variant_reduction!(
     MaximumIndependentSet,
@@ -44,10 +43,11 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().cast_to_parent(), src.weights().to_vec())
+        SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
+        src.weights().to_vec())
 );
 
-// Graph-hierarchy casts (same weight One)
+// Graph representation reductions with unit weights
 impl_variant_reduction!(
     MaximumIndependentSet,
     <KingsSubgraph, One> => <UnitDiskGraph, One>,
@@ -69,17 +69,18 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().cast_to_parent(), src.weights().to_vec())
+        SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
+        src.weights().to_vec())
 );
 
-// Weight-hierarchy casts (One → i64)
+// Unit-to-integer weight reductions
 impl_variant_reduction!(
     MaximumIndependentSet,
     <SimpleGraph, One> => <SimpleGraph, i64>,
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().clone(), src.weights().iter().map(|w| w.cast_to_parent()).collect())
+        src.graph().clone(), vec![1_i64; src.num_vertices()])
 );
 
 #[cfg(test)]
@@ -121,7 +122,7 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().clone(), src.weights().iter().map(|w| w.cast_to_parent()).collect())
+        src.graph().clone(), vec![1_i64; src.num_vertices()])
 );
 
 impl_variant_reduction!(
@@ -130,5 +131,5 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().clone(), src.weights().iter().map(|w| w.cast_to_parent()).collect())
+        src.graph().clone(), vec![1_i64; src.num_vertices()])
 );

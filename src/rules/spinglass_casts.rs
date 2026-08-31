@@ -1,4 +1,4 @@
-//! Variant cast reductions for SpinGlass.
+//! Variant reductions for SpinGlass.
 
 use crate::impl_variant_reduction;
 use crate::models::graph::SpinGlass;

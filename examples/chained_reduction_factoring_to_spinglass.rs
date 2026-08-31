@@ -33,10 +33,10 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR_END: step1
 
     // ANCHOR: step2
-    let factoring = Factoring::new(
+    let factoring = Factoring::with_factor_bits(
+        6, // target_product:  find p × q = 6
         2, // num_bits_first:  p is a 2-bit factor
         2, // num_bits_second: q is a 2-bit factor
-        6, // target_product:  find p × q = 6
     );
     // ANCHOR_END: step2
 

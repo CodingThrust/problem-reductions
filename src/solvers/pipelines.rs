@@ -258,18 +258,6 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("KSatisfiability", [("k", "K2")]),
-    ("QUBO", [("weight", "f64")]),
-    ("ILP", [("variable", "bool")]),
-}
-
-register_ilp_pipeline! {
-    ("KSatisfiability", [("k", "K3")]),
-    ("QUBO", [("weight", "f64")]),
-    ("ILP", [("variable", "bool")]),
-}
-
-register_ilp_pipeline! {
     ("Knapsack", []),
     ("ILP", [("variable", "bool")]),
 }

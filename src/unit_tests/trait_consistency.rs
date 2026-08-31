@@ -93,7 +93,7 @@ fn test_all_registered_brute_force_problems_define_dimensions() {
         ),
         "BalancedCompleteBipartiteSubgraph",
     );
-    check_brute_force_problem(&Factoring::new(6, 2, 2), "Factoring");
+    check_brute_force_problem(&Factoring::with_factor_bits(2, 2, 6), "Factoring");
     check_brute_force_problem(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition").unwrap();
     check_brute_force_problem(
         &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),

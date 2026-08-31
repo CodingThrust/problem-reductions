@@ -7,11 +7,11 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_qubo_from_matrix() {
-    let problem = QUBO::from_matrix(vec![vec![1.0, 2.0], vec![0.0, 3.0]]).unwrap();
+    let problem = QUBO::from_matrix(vec![vec![1, 2], vec![0, 3]]).unwrap();
     assert_eq!(problem.num_vars(), 2);
-    assert_eq!(problem.get(0, 0), Some(&1.0));
-    assert_eq!(problem.get(0, 1), Some(&2.0));
-    assert_eq!(problem.get(1, 1), Some(&3.0));
+    assert_eq!(problem.get(0, 0), Some(&1));
+    assert_eq!(problem.get(0, 1), Some(&2));
+    assert_eq!(problem.get(1, 1), Some(&3));
 }
 
 #[test]
@@ -127,32 +127,38 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_qubo_paper_example() {
     // Paper: Q=[[-1,2,0],[0,-1,2],[0,0,-1]], min=-2 at (1,0,1)
-    let problem = QUBO::from_matrix(vec![
-        vec![-1.0, 2.0, 0.0],
-        vec![0.0, -1.0, 2.0],
-        vec![0.0, 0.0, -1.0],
-    ])
-    .unwrap();
+    let problem = QUBO::from_matrix(vec![vec![-1, 2, 0], vec![0, -1, 2], vec![0, 0, -1]]).unwrap();
     assert_eq!(
         Problem::evaluate(&problem, &vec![true, false, true]).unwrap(),
-        Min(Some(-2.0))
+        Min(Some(-2))
     );
 
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
-    assert_eq!(Problem::evaluate(&problem, &best).unwrap(), Min(Some(-2.0)));
+    assert_eq!(Problem::evaluate(&problem, &best).unwrap(), Min(Some(-2)));
 }
 
 #[test]
 fn test_qubo_create_spec_derives_num_vars() {
     let problem = QUBO::try_from(QuboCreateSpec {
-        matrix: vec![vec![1.0, 2.0], vec![0.0, 3.0]],
+        matrix: vec![vec![1, 2], vec![0, 3]],
     })
     .unwrap();
 
     assert_eq!(problem.num_vars(), 2);
-    assert_eq!(QuboCreateSpec::FIELDS[0].name, "matrix");
-    assert_eq!(QuboCreateSpec::FIELDS.len(), 1);
+    assert_eq!(QuboCreateSpec::<i64>::FIELDS[0].name, "matrix");
+    assert_eq!(QuboCreateSpec::<i64>::FIELDS.len(), 1);
+}
+
+#[test]
+fn test_qubo_f64_create_spec() {
+    let problem = QUBO::<f64>::try_from(QuboCreateSpec {
+        matrix: vec![vec![0.5, -1.25], vec![0.0, 2.0]],
+    })
+    .unwrap();
+
+    assert_eq!(problem.get(0, 0), Some(&0.5));
+    assert_eq!(problem.get(0, 1), Some(&-1.25));
 }
 
 #[test]
@@ -185,5 +191,14 @@ fn test_qubo_rejects_out_of_range_quadratic_index() {
         error,
         crate::registry::ConstructionError::Conversion(message)
             if message.contains("outside 0..1")
+    ));
+}
+
+#[test]
+fn test_integer_qubo_reports_objective_overflow() {
+    let problem = QUBO::from_matrix(vec![vec![i64::MAX, 1], vec![0, 0]]).unwrap();
+    assert!(matches!(
+        problem.evaluate(&vec![true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
     ));
 }

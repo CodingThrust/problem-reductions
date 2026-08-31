@@ -3,7 +3,7 @@
 //! The Factoring problem represents integer factorization as a computational problem.
 //! Given a number N, find two factors (a, b) such that a * b = N.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use num_bigint::{BigUint, ToBigUint};
@@ -19,18 +19,15 @@ inventory::submit! {
         category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Factor a composite integer into two factors",
-        fields: &[
-            FieldInfo { name: "m", type_name: "usize", description: "Bits for first factor" },
-            FieldInfo { name: "n", type_name: "usize", description: "Bits for second factor" },
-            FieldInfo { name: "target", type_name: "BigUint", description: "Number to factor" },
-        ],
+        fields: FactoringCreateSpec::FIELDS,
     }
 }
 
 /// The Integer Factoring problem.
 ///
-/// Given a number to factor, find two integers that multiply to give
-/// the target number. Variables represent the bits of the two factors.
+/// Given a number to factor, find two ordered integers that multiply to give
+/// the target number. Variables represent the bits of the two factors. Factor
+/// widths may be supplied explicitly or derived from the target bit length.
 ///
 /// # Example
 ///
@@ -38,18 +35,18 @@ inventory::submit! {
 /// use problemreductions::models::misc::Factoring;
 /// use problemreductions::{Problem, BruteForce};
 ///
-/// // Factor 6 with 2-bit factors (allowing factors 0-3)
-/// let problem = Factoring::new(2, 2, 6);
+/// // Factor 6 using the derived 2-bit factor widths.
+/// let problem = Factoring::new(6);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
-/// // Should find: 2*3=6 or 3*2=6
+/// // The canonical factor order finds 2*3=6.
 /// for (a, b) in &solutions {
 ///     assert_eq!(a * b, num_bigint::BigUint::from(6u32));
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Factoring {
     /// Number of bits for the first factor.
     m: usize,
@@ -60,36 +57,103 @@ pub struct Factoring {
     target: BigUint,
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct FactoringCreateSpec {
+    /// Number to factor.
+    #[serde(with = "super::biguint_serde::decimal_biguint")]
+    target: BigUint,
+    /// Optional maximum bit width of the smaller factor.
+    m: Option<usize>,
+    /// Optional maximum bit width of the larger factor.
+    n: Option<usize>,
+}
+
+impl TryFrom<FactoringCreateSpec> for Factoring {
+    type Error = ConstructionError;
+
+    fn try_from(spec: FactoringCreateSpec) -> Result<Self, Self::Error> {
+        match (spec.m, spec.n) {
+            (None, None) => Ok(Self::from_target(spec.target)),
+            (Some(m), Some(n)) if m <= n => Ok(Self {
+                m,
+                n,
+                target: spec.target,
+            }),
+            (Some(m), Some(n)) => Err(format!(
+                "first factor width m={m} must not exceed second factor width n={n}"
+            )
+            .into()),
+            _ => Err("factor widths m and n must be provided together".into()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Factoring {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let spec = FactoringCreateSpec::deserialize(deserializer)?;
+        Self::try_from(spec).map_err(serde::de::Error::custom)
+    }
+}
+
 impl Factoring {
-    /// Create a new Factoring problem.
+    /// Create a Factoring problem with widths derived from the target.
     ///
     /// # Arguments
-    /// * `m` - Number of bits for the first factor
-    /// * `n` - Number of bits for the second factor
     /// * `target` - The number to factor
-    pub fn new<T: ToBigUint>(m: usize, n: usize, target: T) -> Self {
+    pub fn new<T: ToBigUint>(target: T) -> Self {
+        let target = target
+            .to_biguint()
+            .expect("Factoring target must be nonnegative");
+        Self::from_target(target)
+    }
+
+    fn from_target(target: BigUint) -> Self {
+        let target_bits =
+            usize::try_from(target.bits().max(1)).expect("BigUint bit length fits usize");
+        let smaller_width = target_bits.div_ceil(2);
+        let larger_width = target_bits.saturating_sub(1);
+        let (m, n) = (
+            smaller_width.min(larger_width),
+            smaller_width.max(larger_width),
+        );
+        Self { m, n, target }
+    }
+
+    /// Create a Factoring problem with explicit maximum factor widths.
+    ///
+    /// The first factor is canonicalized as the smaller factor, so `m` must
+    /// not exceed `n`. Explicit widths may admit the trivial factorization
+    /// `(1, target)`.
+    pub fn with_factor_bits<T: ToBigUint>(target: T, m: usize, n: usize) -> Self {
+        assert!(
+            m <= n,
+            "first factor width m must not exceed second factor width n"
+        );
         let target = target
             .to_biguint()
             .expect("Factoring target must be nonnegative");
         Self { m, n, target }
     }
 
-    /// Get the number of bits for the first factor.
+    /// Get the maximum number of bits for the smaller factor.
     pub fn m(&self) -> usize {
         self.m
     }
 
-    /// Get the number of bits for the second factor.
+    /// Get the maximum number of bits for the larger factor.
     pub fn n(&self) -> usize {
         self.n
     }
 
-    /// Get the number of bits for the first factor (alias for `m()`).
+    /// Get the maximum number of bits for the smaller factor (alias for `m()`).
     pub fn num_bits_first(&self) -> usize {
         self.m()
     }
 
-    /// Get the number of bits for the second factor (alias for `n()`).
+    /// Get the maximum number of bits for the larger factor (alias for `n()`).
     pub fn num_bits_second(&self) -> usize {
         self.n()
     }
@@ -124,6 +188,7 @@ impl Factoring {
         let (left, right) = solution;
         left.bits() <= u64::try_from(self.m).expect("factor width fits u64")
             && right.bits() <= u64::try_from(self.n).expect("factor width fits u64")
+            && left <= right
             && left * right == self.target
     }
 }
@@ -179,7 +244,7 @@ impl crate::solvers::BruteForceProblem for Factoring {
 }
 
 crate::declare_variants! {
-    default Factoring => "exp((num_bits_first + num_bits_second)^(1/3) * log(num_bits_first + num_bits_second)^(2/3))",
+    default Factoring => "exp((num_bits_first + num_bits_second)^(1/3) * log(num_bits_first + num_bits_second)^(2/3))" create FactoringCreateSpec,
 }
 
 crate::register_brute_force! {
@@ -190,7 +255,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "factoring",
-        instance: Box::new(Factoring::new(2, 3, 15)),
+        instance: Box::new(Factoring::new(15)),
         optimal_config: serde_json::to_value((BigUint::from(3u32), BigUint::from(5u32)))
             .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),

@@ -1003,8 +1003,7 @@ impl ReductionGraph {
 
     /// Get all variant maps registered for a problem name.
     ///
-    /// Returns variants sorted deterministically: the "default" variant
-    /// (SimpleGraph, i64, etc.) comes first, then remaining variants
+    /// Returns the declared default first, followed by the remaining variants
     /// in lexicographic order.
     pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
         let mut variants: Vec<BTreeMap<String, String>> = self
@@ -1017,16 +1016,13 @@ impl ReductionGraph {
                     .collect()
             })
             .unwrap_or_default();
-        // Sort deterministically: default variant values (SimpleGraph, One, KN)
-        // sort first so callers can rely on variants[0] being the "base" variant.
-        variants.sort_by(|a, b| {
-            fn default_rank(v: &BTreeMap<String, String>) -> usize {
-                v.values()
-                    .filter(|val| !["SimpleGraph", "One", "KN"].contains(&val.as_str()))
-                    .count()
+        variants.sort();
+        if let Some(default) = self.default_variants.get(name) {
+            if let Some(index) = variants.iter().position(|variant| variant == default) {
+                let default = variants.remove(index);
+                variants.insert(0, default);
             }
-            default_rank(a).cmp(&default_rank(b)).then_with(|| a.cmp(b))
-        });
+        }
         variants
     }
 

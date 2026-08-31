@@ -75,7 +75,7 @@ impl ReductionResult for ReductionFactoringToILP {
     ///
     /// The first m variables are p_i (first factor bits).
     /// The next n variables are q_j (second factor bits).
-    /// Returns concatenated bit vector [p_0, ..., p_{m-1}, q_0, ..., q_{n-1}].
+    /// Returns the decoded factors in ascending order.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
@@ -96,7 +96,11 @@ impl ReductionResult for ReductionFactoringToILP {
                 .fold(num_bigint::BigUint::from(0u8), |value, index| {
                     value + (num_bigint::BigUint::from(1u8) << index)
                 });
-            (p, q)
+            if p <= q {
+                (p, q)
+            } else {
+                (q, p)
+            }
         })
     }
 }
@@ -222,7 +226,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "factoring_to_ilp",
         build: || {
-            let source = Factoring::new(3, 3, 35);
+            let source = Factoring::with_factor_bits(35, 3, 3);
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

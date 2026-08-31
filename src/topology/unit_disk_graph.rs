@@ -306,10 +306,8 @@ impl Graph for UnitDiskGraph {
     }
 }
 
-use super::graph::SimpleGraph;
 use crate::impl_variant_param;
-impl_variant_param!(UnitDiskGraph, "graph", parent: SimpleGraph,
-    cast: |g| SimpleGraph::new(g.num_vertices(), Graph::edges(g)));
+impl_variant_param!(UnitDiskGraph, "graph");
 
 #[cfg(test)]
 #[path = "../unit_tests/topology/unit_disk_graph.rs"]

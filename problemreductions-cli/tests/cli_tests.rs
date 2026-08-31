@@ -369,7 +369,7 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
 
 #[test]
 fn test_path_enumerates_without_mode() {
-    let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
+    let output = pred().args(["path", "MIS", "QUBO/f64"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Found"));
@@ -459,7 +459,7 @@ fn test_path_returns_every_enumerated_candidate_in_stable_order() {
             .args([
                 "path",
                 "MIS/SimpleGraph/i64",
-                "QUBO",
+                "QUBO/f64",
                 instance.to_str().unwrap(),
                 "--limit",
                 limit,
@@ -517,7 +517,7 @@ fn test_path_save() {
 #[test]
 fn test_path_limit_bounds_enumeration() {
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--limit", "1", "--json"])
+        .args(["path", "MIS", "QUBO/f64", "--limit", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -543,7 +543,7 @@ fn test_path_rejects_limit_above_maximum() {
 fn test_path_limit_all_is_alias_for_999() {
     let run = |limit: &str| {
         let output = pred()
-            .args(["path", "MIS", "QUBO", "--limit", limit, "--json"])
+            .args(["path", "MIS", "QUBO/f64", "--limit", limit, "--json"])
             .output()
             .unwrap();
         assert!(
@@ -572,7 +572,7 @@ fn test_path_rejects_zero_limit() {
 fn test_path_set_save() {
     let file = std::env::temp_dir().join("pred_test_paths.json");
     let output = pred()
-        .args(["path", "MIS", "QUBO", "-o", file.to_str().unwrap()])
+        .args(["path", "MIS", "QUBO/f64", "-o", file.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(
@@ -1436,7 +1436,7 @@ fn test_reduce() {
     std::fs::write(&input, problem_json).unwrap();
     write_named_route(
         "MIS/SimpleGraph/i64",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumSetPacking",
@@ -1498,7 +1498,7 @@ fn test_reduce_via_path() {
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
     write_named_route(
         "MIS/SimpleGraph/i64",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumSetPacking",
@@ -1558,7 +1558,7 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
     assert!(create.status.success());
     write_named_route(
         "MIS/SimpleGraph/i64",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumSetPacking",
@@ -1695,7 +1695,7 @@ fn test_reduce_via_infer_target() {
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_infer_path.json");
     write_named_route(
         "MIS/SimpleGraph/i64",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumSetPacking",
@@ -3082,7 +3082,7 @@ fn test_create_qubo() {
             "create",
             "QUBO",
             "--matrix",
-            "1,0.5;0.5,2",
+            "1,-1;0,2",
         ])
         .output()
         .unwrap();
@@ -3096,6 +3096,33 @@ fn test_create_qubo() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "QUBO");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_qubo_f64() {
+    let output_file = std::env::temp_dir().join("pred_test_create_qubo_f64.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "QUBO/f64",
+            "--matrix",
+            "1,0.5;0,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["variant"]["weight"], "f64");
 
     std::fs::remove_file(&output_file).ok();
 }
@@ -3315,7 +3342,7 @@ fn test_solve_bundle() {
     let reduce_out = reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -5509,7 +5536,7 @@ fn test_reduce_stdout() {
     let route_file = std::env::temp_dir().join("pred_test_reduce_stdout_route.json");
     write_named_route(
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -5563,7 +5590,7 @@ fn test_reduce_auto_json_output() {
     let route_file = std::env::temp_dir().join("pred_test_reduce_human_route.json");
     write_named_route(
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -5689,7 +5716,7 @@ fn test_solve_bundle_no_hint_when_piped() {
     let reduce_out = reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -6183,7 +6210,7 @@ fn test_create_pipe_to_reduce() {
     let route_file = std::env::temp_dir().join("pred_test_pipe_reduce_route.json");
     write_named_route(
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -6474,7 +6501,7 @@ fn test_inspect_bundle() {
     let reduce_out = reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -7240,17 +7267,29 @@ fn test_create_factoring_no_flags_shows_help() {
 }
 
 #[test]
-fn test_create_factoring_missing_bits() {
+fn test_create_factoring_derives_missing_bits() {
     let output = pred()
         .args(["create", "Factoring", "--target", "15"])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--m"),
-        "expected '--m' in error, got: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["m"], 2);
+    assert_eq!(json["data"]["n"], 3);
+}
+
+#[test]
+fn test_create_factoring_requires_bits_together() {
+    let output = pred()
+        .args(["create", "Factoring", "--target", "15", "--m", "2"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("provided together"));
 }
 
 #[test]
@@ -8247,7 +8286,7 @@ fn test_show_ksat_works() {
 #[test]
 fn test_path_limit_truncates() {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--limit", "3", "--json"])
+        .args(["path", "KSat", "QUBO/f64", "--limit", "3", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -8276,7 +8315,7 @@ fn test_path_limit_truncates() {
 // per-path step counts.
 fn path_step_counts(limit: &str) -> Vec<u64> {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--limit", limit, "--json"])
+        .args(["path", "KSat", "QUBO/f64", "--limit", limit, "--json"])
         .output()
         .unwrap();
     assert!(
@@ -8330,7 +8369,7 @@ fn test_path_truncates_after_sorting_not_before() {
 #[test]
 fn test_path_limit_text_truncation_note() {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--limit", "2"])
+        .args(["path", "KSat", "QUBO/f64", "--limit", "2"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -9243,7 +9282,7 @@ fn test_solve_bundle_rejects_unavailable_customized_solver_without_panicking() {
     let reduce_out = reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -9376,7 +9415,7 @@ fn test_extract_roundtrip_mis_to_qubo() {
     let reduce_out = reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -9557,7 +9596,7 @@ fn test_extract_rejects_wrong_config_length() {
     reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -9607,7 +9646,7 @@ fn test_extract_rejects_non_boolean_solution_value() {
     reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -9667,7 +9706,7 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
     reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -9733,7 +9772,7 @@ fn test_extract_rejects_tampered_target_data() {
     reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -9820,7 +9859,7 @@ fn test_extract_reads_bundle_from_stdin() {
     reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",

@@ -1,4 +1,4 @@
-//! Variant cast reductions for KSatisfiability.
+//! Variant reductions for KSatisfiability.
 
 use crate::impl_variant_reduction;
 use crate::models::formula::KSatisfiability;

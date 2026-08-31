@@ -546,7 +546,6 @@ pub(super) fn parse_field_value(
         "Vec<KnownValue>" => serde_json::to_value(parse_cdft_known_values_value(raw, context)?)?,
         "Vec<Relation>" => serde_json::to_value(parse_cbq_relations(raw, context)?)?,
         "Vec<String>" => parse_string_list_value(raw)?,
-        "Vec<VarBounds>" => parse_cvp_bounds_value(Some(raw), context)?,
         "Vec<BigUint>" => parse_biguint_list_value(raw)?,
         "BigUint" => parse_biguint_value(raw)?,
         "Vec<Option<bool>>" => parse_optional_bool_list_value(raw)?,
@@ -994,33 +993,6 @@ pub(super) fn parse_cdft_known_values_value(
         anyhow::anyhow!("CDFT known-value parsing requires prior num_objects field")
     })?;
     parse_cdft_known_values(Some(raw), num_objects, &attribute_domains)
-}
-
-pub(super) fn parse_cvp_bounds_value(
-    raw: Option<&str>,
-    context: &CreateContext,
-) -> Result<serde_json::Value> {
-    let basis_len = context
-        .parsed_fields
-        .get("basis")
-        .and_then(serde_json::Value::as_array)
-        .map(Vec::len)
-        .ok_or_else(|| anyhow::anyhow!("CVP bounds parsing requires a prior basis field"))?;
-
-    let (lower, upper) = match raw {
-        Some(raw) => {
-            let parts: Vec<i64> = util::parse_comma_list(raw)?;
-            anyhow::ensure!(
-                parts.len() == 2,
-                "--bounds expects \"lower,upper\" (e.g., \"-10,10\")"
-            );
-            (parts[0], parts[1])
-        }
-        None => (-10, 10),
-    };
-    let bounds =
-        vec![problemreductions::models::algebraic::VarBounds::bounded(lower, upper); basis_len];
-    Ok(serde_json::to_value(bounds)?)
 }
 
 pub(super) fn parse_biguint_list_value(raw: &str) -> Result<serde_json::Value> {

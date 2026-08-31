@@ -276,20 +276,17 @@ pub trait ReduceToAggregate<T: Problem>: Problem {
     fn reduce_to_aggregate(&self) -> Result<Self::Result, ReductionError>;
 }
 
-/// Generic reduction result for natural-edge (subtype) reductions.
+/// Reduction result for an explicit conversion between variants of one model.
 ///
-/// Used when a problem on a specific graph type is trivially reducible to
-/// the same problem on a more general graph type (e.g., `MIS<Triangular>` →
-/// `MIS<SimpleGraph>`). The solution mapping is identity — vertex indices
-/// are preserved.
+/// The target witness is also the source witness.
 #[derive(Debug, Clone)]
-pub struct ReductionAutoCast<S: Problem, T: Problem> {
+pub struct VariantReductionResult<S: Problem, T: Problem> {
     target: T,
     _phantom: PhantomData<S>,
 }
 
-impl<S: Problem, T: Problem> ReductionAutoCast<S, T> {
-    /// Create a new auto-cast reduction result.
+impl<S: Problem, T: Problem> VariantReductionResult<S, T> {
+    /// Store the constructed target variant.
     pub fn new(target: T) -> Self {
         Self {
             target,
@@ -298,7 +295,7 @@ impl<S: Problem, T: Problem> ReductionAutoCast<S, T> {
     }
 }
 
-impl<S, T> ReductionResult for ReductionAutoCast<S, T>
+impl<S, T> ReductionResult for VariantReductionResult<S, T>
 where
     S: Problem,
     T: Problem<Solution = S::Solution>,
@@ -318,7 +315,7 @@ where
 }
 
 impl<S: Problem, T: Problem<Value = S::Value>> AggregateReductionResult
-    for ReductionAutoCast<S, T>
+    for VariantReductionResult<S, T>
 {
     type Source = S;
     type Target = T;

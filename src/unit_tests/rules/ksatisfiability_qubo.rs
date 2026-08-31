@@ -18,7 +18,7 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
             CNFClause::new(vec![-2, -3]), // ¬x2 ∨ ¬x3
         ],
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -35,7 +35,7 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
 fn test_ksatisfiability_to_qubo_simple() {
     // 2 vars, 1 clause: (x1 ∨ x2) → 3 satisfying assignments
     let ksat = KSatisfiability::<K2>::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -59,7 +59,7 @@ fn test_ksatisfiability_to_qubo_contradiction() {
             CNFClause::new(vec![-1, -1]), // ¬x1 ∨ ¬x1 = ¬x1
         ],
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -80,7 +80,7 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
             CNFClause::new(vec![1, 2]),
         ],
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -98,7 +98,7 @@ fn test_ksatisfiability_to_qubo_structure() {
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // QUBO should have at least the original variables
@@ -120,7 +120,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
             CNFClause::new(vec![3, -4, -5]), // x3 ∨ ¬x4 ∨ ¬x5
         ],
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // QUBO should have 5 + 7 = 12 variables
@@ -142,7 +142,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 fn test_k3satisfiability_to_qubo_single_clause() {
     // Single 3-SAT clause: (x1 ∨ x2 ∨ x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 3 vars + 1 auxiliary = 4 total
@@ -165,7 +165,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 fn test_k3satisfiability_to_qubo_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();

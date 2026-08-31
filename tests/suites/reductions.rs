@@ -243,7 +243,7 @@ mod sg_qubo_reductions {
         let sg =
             SpinGlass::<SimpleGraph, _>::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]).unwrap();
 
-        let result = ReduceTo::<QUBO>::reduce_to(&sg).expect("reduction should succeed");
+        let result = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
         let qubo = result.target_problem();
 
         assert_eq!(qubo.num_variables(), 2);
@@ -287,7 +287,7 @@ mod sg_qubo_reductions {
         )
         .unwrap();
 
-        let result = ReduceTo::<QUBO>::reduce_to(&sg).expect("reduction should succeed");
+        let result = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
         let qubo = result.target_problem();
 
         // Check that ground states correspond
@@ -651,7 +651,7 @@ mod qubo_reductions {
         let data: SPToQuboData = serde_json::from_str(&json).unwrap();
 
         let sp = MaximumSetPacking::with_weights(data.source.sets, data.source.weights).unwrap();
-        let reduction = ReduceTo::<QUBO>::reduce_to(&sp).expect("reduction should succeed");
+        let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
@@ -808,7 +808,7 @@ mod qubo_reductions {
             ObjectiveSense::Maximize,
         )
         .unwrap();
-        let reduction = ReduceTo::<QUBO>::reduce_to(&ilp).expect("reduction should succeed");
+        let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         // QUBO may have more variables (slack), but original count matches
@@ -949,7 +949,7 @@ mod io_tests {
         let json = to_json(&qubo).unwrap();
 
         // Deserialize
-        let restored: QUBO = from_json(&json).unwrap();
+        let restored: QUBO<f64> = from_json(&json).unwrap();
 
         // Reduce to SG
         let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&restored)

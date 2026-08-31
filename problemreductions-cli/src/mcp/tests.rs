@@ -127,7 +127,7 @@ fn test_find_path_limit_all_resolves_to_999() {
 fn test_find_path_is_capped_explicitly() {
     let server = McpServer::new();
     let json: serde_json::Value =
-        serde_json::from_str(&server.find_path_inner("MIS", "QUBO", 1, None).unwrap()).unwrap();
+        serde_json::from_str(&server.find_path_inner("MIS", "QUBO/f64", 1, None).unwrap()).unwrap();
     assert_eq!(json["paths"].as_array().unwrap().len(), 1);
     assert!(json.get("returned").is_none());
     assert!(json.get("max_paths").is_none());
@@ -191,11 +191,21 @@ fn test_create_problem_sat() {
 #[test]
 fn test_create_problem_qubo() {
     let server = McpServer::new();
-    let params = serde_json::json!({"matrix": [[1.0, 0.5], [0.5, 2.0]]});
+    let params = serde_json::json!({"matrix": [[1, -1], [0, 2]]});
     let result = server.create_problem_inner("QUBO", &params);
     assert!(result.is_ok());
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
     assert_eq!(json["type"], "QUBO");
+}
+
+#[test]
+fn test_create_problem_qubo_f64() {
+    let server = McpServer::new();
+    let params = serde_json::json!({"matrix": [[1.0, 0.5], [0.0, 2.0]]});
+    let result = server.create_problem_inner("QUBO/f64", &params);
+    assert!(result.is_ok());
+    let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+    assert_eq!(json["variant"]["weight"], "f64");
 }
 
 #[test]
@@ -255,12 +265,14 @@ fn test_create_problem_kcoloring() {
 #[test]
 fn test_create_problem_factoring() {
     let server = McpServer::new();
-    let params = serde_json::json!({"target": "15", "m": 4, "n": 4});
+    let params = serde_json::json!({"target": "15"});
     let result = server.create_problem_inner("Factoring", &params);
     assert!(result.is_ok(), "{result:?}");
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
     assert_eq!(json["type"], "Factoring");
     assert_eq!(json["data"]["target"], "15");
+    assert_eq!(json["data"]["m"], 2);
+    assert_eq!(json["data"]["n"], 3);
 }
 
 #[test]
@@ -318,7 +330,7 @@ fn test_reduce() {
     let route = explicit_route(
         &server,
         "MIS/SimpleGraph/i64",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumSetPacking",
@@ -349,7 +361,7 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
     let route = explicit_route(
         &server,
         "MIS/SimpleGraph/i64",
-        "QUBO",
+        "QUBO/f64",
         &[
             "MaximumIndependentSet",
             "MaximumSetPacking",
@@ -465,7 +477,7 @@ fn test_solve_bundle() {
             &explicit_route(
                 &server,
                 "MIS/SimpleGraph/i64",
-                "QUBO",
+                "QUBO/f64",
                 &[
                     "MaximumIndependentSet",
                     "MaximumSetPacking",
@@ -547,7 +559,7 @@ fn test_solve_bundle_rejects_unavailable_customized_solver() {
             &explicit_route(
                 &server,
                 "MIS/SimpleGraph/i64",
-                "QUBO",
+                "QUBO/f64",
                 &[
                     "MaximumIndependentSet",
                     "MaximumSetPacking",
@@ -576,7 +588,7 @@ fn test_inspect_bundle() {
             &explicit_route(
                 &server,
                 "MIS/SimpleGraph/i64",
-                "QUBO",
+                "QUBO/f64",
                 &[
                     "MaximumIndependentSet",
                     "MaximumSetPacking",

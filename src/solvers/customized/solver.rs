@@ -13,7 +13,7 @@ use crate::traits::Problem;
 use std::collections::HashSet;
 
 macro_rules! register_customized_solver {
-    ($problem:ty, $implementation:literal, $solve:path) => {
+    ($problem:ty, $implementation:literal, $solve:expr) => {
         inventory::submit! {
             CustomizedSolverRegistration {
                 source_name: <$problem as Problem>::NAME,
@@ -23,9 +23,11 @@ macro_rules! register_customized_solver {
                     let problem = any.downcast_ref::<$problem>().expect(
                         "customized solver registration received the wrong concrete type",
                     );
-                    $solve(problem).map(|solution: <$problem as Problem>::Solution| {
-                        serde_json::to_value(solution)
-                            .expect("customized solution serialization must succeed")
+                    $solve(problem).map(|solution| {
+                        solution.map(|solution: <$problem as Problem>::Solution| {
+                            serde_json::to_value(solution)
+                                .expect("customized solution serialization must succeed")
+                        })
                     })
                 },
             }
@@ -36,33 +38,44 @@ macro_rules! register_customized_solver {
 register_customized_solver!(
     MinimumCardinalityKey,
     "fd-minimum-cardinality-key",
-    solve_minimum_cardinality_key
+    |problem| Ok(solve_minimum_cardinality_key(problem))
 );
-register_customized_solver!(AdditionalKey, "fd-additional-key", solve_additional_key);
-register_customized_solver!(
-    PrimeAttributeName,
-    "fd-prime-attribute-name",
-    solve_prime_attribute_name
-);
+register_customized_solver!(AdditionalKey, "fd-additional-key", |problem| Ok(
+    solve_additional_key(problem)
+));
+register_customized_solver!(PrimeAttributeName, "fd-prime-attribute-name", |problem| Ok(
+    solve_prime_attribute_name(problem)
+));
 register_customized_solver!(
     BoyceCoddNormalFormViolation,
     "fd-bcnf-violation",
-    solve_bcnf_violation
+    |problem| Ok(solve_bcnf_violation(problem))
 );
 register_customized_solver!(
     PartialFeedbackEdgeSet<SimpleGraph>,
     "partial-feedback-edge-set",
-    super::partial_feedback_edge_set::solve
+    |problem| Ok(super::partial_feedback_edge_set::solve(problem))
 );
 register_customized_solver!(
     RootedTreeArrangement<SimpleGraph>,
     "rooted-tree-arrangement",
-    super::rooted_tree_arrangement::solve
+    |problem| Ok(super::rooted_tree_arrangement::solve(problem))
 );
 register_customized_solver!(
     TimetableDesign,
     "timetable-required-assignments",
-    TimetableDesign::solve_via_required_assignments
+    |problem| Ok(TimetableDesign::solve_via_required_assignments(problem))
+);
+
+register_customized_solver!(
+    crate::models::algebraic::ClosestVectorProblem<i64>,
+    "cvp-sphere-enumeration",
+    |problem| super::closest_vector_problem::solve(problem).map(Some)
+);
+register_customized_solver!(
+    crate::models::algebraic::ClosestVectorProblem<f64>,
+    "cvp-sphere-enumeration",
+    |problem| super::closest_vector_problem::solve(problem).map(Some)
 );
 
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.

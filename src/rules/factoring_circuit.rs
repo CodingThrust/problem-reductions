@@ -42,8 +42,7 @@ impl ReductionResult for ReductionFactoringToCircuit {
 
     /// Extract a Factoring solution from a CircuitSAT solution.
     ///
-    /// Returns a configuration where the first m bits are the first factor p,
-    /// and the next n bits are the second factor q.
+    /// Returns the decoded factors in ascending order.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
@@ -77,7 +76,13 @@ impl ReductionResult for ReductionFactoringToCircuit {
                         })
                     })
             };
-            (decode(&self.p_vars)?, decode(&self.q_vars)?)
+            let left = decode(&self.p_vars)?;
+            let right = decode(&self.q_vars)?;
+            if left <= right {
+                (left, right)
+            } else {
+                (right, left)
+            }
         })
     }
 }
@@ -301,7 +306,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "factoring_to_circuitsat",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, CircuitSAT>(
-                Factoring::new(3, 3, 35),
+                Factoring::with_factor_bits(35, 3, 3),
                 SolutionPair {
                     source_config: serde_json::to_value((BigUint::from(5u32), BigUint::from(7u32)))
                         .expect("solution serialization must succeed"),
