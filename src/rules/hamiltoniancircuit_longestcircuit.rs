@@ -33,7 +33,25 @@ impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
     }
 }
 
+impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
+    type Source = HamiltonianCircuit<SimpleGraph>;
+    type Target = LongestCircuit<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: crate::types::Max<i64>) -> crate::types::Or {
+        crate::types::Or(
+            target_value
+                .0
+                .is_some_and(|length| usize::try_from(length) == Ok(self.target.num_vertices())),
+        )
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",

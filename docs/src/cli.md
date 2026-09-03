@@ -376,6 +376,10 @@ Successful exact solves report `"status": "optimal"` and always include
 `"status": "infeasible"` without `solution` or `evaluation`. Timeout, registry,
 and extraction failures remain command errors.
 
+For `Decision<P>` solved through its optimization problem `P`, the inner optimum
+must satisfy the decision bound before a witness is returned. If it does not,
+the decision instance reports `"status": "infeasible"`, even though `P` has an optimum.
+
 > **Note:** Solver availability is determined by the exact problem variant's
 > registered capabilities. `pred path <PROBLEM> ILP` reports reduction-graph
 > reachability; it does not register a solver pipeline and therefore does not

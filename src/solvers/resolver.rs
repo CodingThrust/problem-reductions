@@ -72,11 +72,11 @@ fn solve_ilp(
     pipeline: &CompiledIlpPipeline,
 ) -> Result<SolveResult, super::SolveError> {
     let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
-        Ok(solution) => SolveOutcome::Optimal {
+        Ok(Some(solution)) => SolveOutcome::Optimal {
             evaluation: problem.evaluate_dyn(&solution)?,
             solution,
         },
-        Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
+        Ok(None) | Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
         Err(source) => {
             return Err(super::SolveError::IlpSolve {
                 problem: problem_key(problem).label(),

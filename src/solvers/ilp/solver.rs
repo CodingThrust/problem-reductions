@@ -41,15 +41,8 @@ pub enum ILPSolveError {
     Reduction(#[from] crate::rules::ReductionError),
 }
 
-fn classify_backend_error(
-    error: ResolutionError,
-    time_limit: Option<f64>,
-    has_unbounded_variable: bool,
-) -> ILPSolveError {
+fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> ILPSolveError {
     match error {
-        ResolutionError::Infeasible if has_unbounded_variable => ILPSolveError::BackendFailure(
-            "good_lp cannot distinguish an infeasible backend result from an infeasible-or-unbounded result for a model with unbounded variable domains".into(),
-        ),
         ResolutionError::Infeasible => ILPSolveError::Infeasible,
         ResolutionError::Unbounded => ILPSolveError::Unbounded,
         ResolutionError::Other("NoSolutionFound") if time_limit.is_some() => ILPSolveError::Timeout,
@@ -106,6 +99,14 @@ impl ILPSolver {
     /// The returned solution contains the mathematical integer value of each
     /// variable in model order.
     pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Result<Vec<i64>, ILPSolveError> {
+        self.solve_with_objective(problem, problem.objective())
+    }
+
+    fn solve_with_objective<V: VariableDomain>(
+        &self,
+        problem: &ILP<V>,
+        objective_terms: &[(usize, f64)],
+    ) -> Result<Vec<i64>, ILPSolveError> {
         let n = problem.num_vars();
         if n == 0 {
             return if problem
@@ -135,8 +136,7 @@ impl ILPSolver {
             .collect::<Result<_, ILPSolveError>>()?;
 
         // Build objective expression
-        let objective: good_lp::Expression = problem
-            .objective()
+        let objective: good_lp::Expression = objective_terms
             .iter()
             .map(|&(var_idx, coef)| coef * vars[var_idx])
             .sum();
@@ -183,14 +183,20 @@ impl ILPSolver {
         }
 
         // Solve
-        let effective_time_limit = self.time_limit;
-        let has_unbounded_variable = problem
-            .variables()
-            .iter()
-            .any(|variable| variable.lower_bound().is_none() || variable.upper_bound().is_none());
-        let solution = model.solve().map_err(|error| {
-            classify_backend_error(error, effective_time_limit, has_unbounded_variable)
-        })?;
+        let solution = match model.solve() {
+            Ok(solution) => solution,
+            Err(ResolutionError::Infeasible)
+                if !objective_terms.is_empty()
+                    && problem.variables().iter().any(|variable| {
+                        variable.lower_bound().is_none() || variable.upper_bound().is_none()
+                    }) =>
+            {
+                // A zero objective cannot be unbounded, so feasibility distinguishes the two states.
+                self.solve_with_objective(problem, &[])?;
+                return Err(ILPSolveError::Unbounded);
+            }
+            Err(error) => return Err(classify_backend_error(error, self.time_limit)),
+        };
 
         match solution.status() {
             SolutionStatus::Optimal => {}

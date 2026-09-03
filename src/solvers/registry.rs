@@ -1,7 +1,7 @@
 //! Deterministic solver capabilities for exact problem variants.
 
 use crate::registry::VariantEntry;
-use crate::rules::registry::{reduction_entries, ReduceFn, ReductionEntry};
+use crate::rules::registry::{reduction_entries, AggregateReduceFn, ReduceFn, ReductionEntry};
 use crate::rules::DynReductionResult;
 use serde::Serialize;
 use std::any::Any;
@@ -102,7 +102,7 @@ inventory::collect!(CustomizedSolverRegistration);
 #[derive(Debug)]
 pub(crate) struct CompiledIlpPipeline {
     path: Vec<ExactProblemKey>,
-    reducers: Vec<ReduceFn>,
+    reducers: Vec<(ReduceFn, Option<AggregateReduceFn>)>,
 }
 
 impl CompiledIlpPipeline {
@@ -118,15 +118,15 @@ impl CompiledIlpPipeline {
         &self,
         source: &dyn Any,
         solver: &super::ILPSolver,
-    ) -> Result<serde_json::Value, super::ILPSolveError> {
+    ) -> Result<Option<serde_json::Value>, super::ILPSolveError> {
         if self.reducers.is_empty() {
             return solver.solve_dyn(source).map(|solution| {
-                serde_json::to_value(solution).expect("ILP solution serialization failed")
+                Some(serde_json::to_value(solution).expect("ILP solution serialization failed"))
             });
         }
 
         let mut reductions: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        for reducer in &self.reducers {
+        for (reducer, _) in &self.reducers {
             let input = reductions
                 .last()
                 .map(|step| step.target_problem_any())
@@ -140,11 +140,26 @@ impl CompiledIlpPipeline {
             .target_problem_any();
         let solution = solver.solve_dyn(target)?;
         let mut source_solution: Box<dyn Any> = Box::new(solution);
-        for step in reductions.iter().rev() {
+        for (index, step) in reductions.iter().enumerate().rev() {
+            if let Some(reduce) = self.reducers[index].1 {
+                let input = if index == 0 {
+                    source
+                } else {
+                    reductions[index - 1].target_problem_any()
+                };
+                let aggregate = reduce(input)?;
+                // Downstream reductions have recovered an optimal target witness.
+                // Its aggregate may still prove that the source decision is NO.
+                let value = aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
+                if value.downcast_ref::<crate::types::Or>() == Some(&crate::types::Or(false)) {
+                    return Ok(None);
+                }
+            }
             source_solution = step.extract_solution_dyn(source_solution.as_ref())?;
         }
         reductions[0]
             .source_solution_json(source_solution.as_ref())
+            .map(Some)
             .map_err(super::ILPSolveError::from)
     }
 }
@@ -354,11 +369,12 @@ fn build_registry(
                     matches: matches.len(),
                 });
             }
-            reducers.push(
+            reducers.push((
                 matches[0]
                     .reduce_fn
                     .expect("indexed only entries with reduce_fn"),
-            );
+                matches[0].reduce_aggregate_fn,
+            ));
         }
 
         if registry

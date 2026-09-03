@@ -4,11 +4,13 @@
 //! the source vertices into an edge-clique cover. The target graph contains
 //! left/right copies of the source vertices, one directed gadget per source
 //! edge, and two side-clique anchors.
+//! The source is satisfiable iff the target optimum is at most K + 2|E| + 2.
 
 use crate::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::{Min, OptimizationValue, Or};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -88,12 +90,29 @@ fn add_clique_edges(vertices: &[usize], edges: &mut Vec<(usize, usize)>) {
     }
 }
 
+fn target_clique_bound(
+    num_cliques: i64,
+    num_edges: i64,
+) -> Result<i64, crate::rules::ReductionError> {
+    num_edges
+        .checked_mul(2)
+        .and_then(|offset| offset.checked_add(2))
+        .and_then(|offset| num_cliques.checked_add(offset))
+        .ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                PartitionIntoCliques<SimpleGraph>,
+                MinimumCoveringByCliques<SimpleGraph>,
+            >("computing target clique bound")
+        })
+}
+
 /// Result of reducing PartitionIntoCliques to MinimumCoveringByCliques.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
     target: MinimumCoveringByCliques<SimpleGraph>,
     source_graph: SimpleGraph,
     source_num_cliques: usize,
+    target_bound: i64,
 }
 
 impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
@@ -168,7 +187,23 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
     }
 }
 
+impl crate::rules::AggregateReductionResult
+    for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
+{
+    type Source = PartitionIntoCliques<SimpleGraph>;
+    type Target = MinimumCoveringByCliques<SimpleGraph>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Min<i64>) -> Or {
+        Or(Min::meets_bound(&target_value, &self.target_bound))
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vertices = "2 * num_vertices + 4 * num_edges + 2",
         num_edges = "(num_vertices + 2 * num_edges)^2 + 2 * num_vertices + 10 * num_edges",
@@ -178,6 +213,9 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
     type Result = ReductionPartitionIntoCliquesToMinimumCoveringByCliques;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let source_bound = Self::exact_i64(self.num_cliques(), "converting clique bound")?;
+        let source_edges = Self::exact_i64(self.num_edges(), "converting edge count")?;
+        let target_bound = target_clique_bound(source_bound, source_edges)?;
         let layout = OrlinLayout::new(self.graph());
         let left_vertices = layout.left_vertices();
         let right_vertices = layout.right_vertices();
@@ -215,6 +253,7 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
             target,
             source_graph: self.graph().clone(),
             source_num_cliques: self.num_cliques(),
+            target_bound,
         })
     }
 }

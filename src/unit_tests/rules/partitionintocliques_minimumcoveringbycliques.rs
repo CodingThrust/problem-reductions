@@ -5,6 +5,35 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn test_partitionintocliques_target_bound_rejects_overflow() {
+    assert_eq!(target_clique_bound(1, (i64::MAX - 3) / 2), Ok(i64::MAX));
+    for (cliques, edges) in [(2, (i64::MAX - 3) / 2), (1, i64::MAX / 2), (1, i64::MAX)] {
+        assert!(matches!(
+            target_clique_bound(cliques, edges),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_partitionintocliques_aggregate_applies_gadget_offset() {
+    let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source).unwrap();
+    // K + 2m + 2 = 6, including both directed-edge gadgets and the side cliques.
+    for (value, expected) in [
+        (Min(None), false),
+        (Min(Some(5)), true),
+        (Min(Some(6)), true),
+        (Min(Some(7)), false),
+    ] {
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+            crate::types::Or(expected),
+        );
+    }
+}
+
+#[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(1, vec![]), 1);
     let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)

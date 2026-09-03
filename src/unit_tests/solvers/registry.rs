@@ -5,6 +5,123 @@ const BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool")];
 const I64_VARIANT: &[(&str, &str)] = &[("variable", "i64")];
 const NO_VARIANT: &[(&str, &str)] = &[];
 
+#[test]
+fn generic_decision_ilp_respects_maximization_bounds() {
+    use crate::models::decision::Decision;
+    use crate::models::graph::MaximumIndependentSet;
+    use crate::solvers::BruteForce;
+    use crate::topology::SimpleGraph;
+
+    // Exercise the same generic decision edge without adding a production solver registration.
+    static PIPELINE: IlpPipelineRegistration = IlpPipelineRegistration {
+        path: &[
+            StaticProblemStep {
+                name: "DecisionMaximumIndependentSet",
+                variant: &[("graph", "SimpleGraph"), ("weight", "i64")],
+            },
+            StaticProblemStep {
+                name: "MaximumIndependentSet",
+                variant: &[("graph", "SimpleGraph"), ("weight", "i64")],
+            },
+            StaticProblemStep {
+                name: "MaximumSetPacking",
+                variant: &[("weight", "i64")],
+            },
+            StaticProblemStep {
+                name: "ILP",
+                variant: BOOL_VARIANT,
+            },
+        ],
+    };
+    let registry = build_registry(
+        &registered_variant_keys(),
+        inventory::iter::<CustomizedSolverRegistration>(),
+        inventory::iter::<IlpPipelineRegistration>().chain([&PIPELINE]),
+        inventory::iter::<crate::solvers::BruteForceRegistration>(),
+        &reduction_entries(),
+    )
+    .unwrap();
+    let source = ExactProblemKey::from_static(&PIPELINE.path[0]);
+    let pipeline = registry.lookup(&source).ilp.unwrap();
+    let inner = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i64; 3],
+    );
+    for bound in [0, 1, 2] {
+        let decision = Decision::new(inner.clone(), bound);
+        let result = pipeline
+            .solve(&decision, &crate::solvers::ILPSolver::new())
+            .unwrap();
+        assert_eq!(result.is_some(), bound <= 1);
+        assert_eq!(
+            result.is_some(),
+            BruteForce::new().solve(&decision).unwrap().is_some()
+        );
+        if let Some(solution) = result {
+            let solution: Vec<bool> = serde_json::from_value(solution).unwrap();
+            assert_eq!(
+                crate::traits::Problem::evaluate(&decision, &solution).unwrap(),
+                crate::types::Or(true)
+            );
+        }
+    }
+}
+
+#[test]
+fn generic_decision_ilp_skips_no_witness_but_preserves_extraction_errors() {
+    use crate::models::decision::Decision;
+    use crate::models::graph::MinimumVertexCover;
+    use crate::rules::{ExtractionError, ReductionResult};
+    use crate::solvers::{ILPSolveError, ILPSolver};
+    use crate::topology::SimpleGraph;
+    use crate::traits::Problem;
+
+    type Inner = MinimumVertexCover<SimpleGraph, i64>;
+    struct BrokenExtractor(Inner);
+    impl ReductionResult for BrokenExtractor {
+        type Source = Decision<Inner>;
+        type Target = Inner;
+
+        fn target_problem(&self) -> &Inner {
+            &self.0
+        }
+
+        fn extract_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
+            Err(ExtractionError::invalid("broken witness decoder"))
+        }
+    }
+
+    let source = ExactProblemKey::new(
+        Decision::<Inner>::NAME,
+        Decision::<Inner>::variant()
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect(),
+    );
+    let registry = solver_capability_registry().unwrap();
+    let original = registry.lookup(&source).ilp.unwrap();
+    let mut pipeline = CompiledIlpPipeline {
+        path: original.path.clone(),
+        reducers: original.reducers.clone(),
+    };
+    pipeline.reducers[0].0 = |source| {
+        let source = source.downcast_ref::<Decision<Inner>>().unwrap();
+        Ok(Box::new(BrokenExtractor(source.inner().clone())))
+    };
+    let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
+    assert_eq!(
+        pipeline
+            .solve(&Decision::new(inner.clone(), 0), &ILPSolver::new())
+            .unwrap(),
+        None
+    );
+    assert!(matches!(
+        pipeline.solve(&Decision::new(inner, 1), &ILPSolver::new()),
+        Err(ILPSolveError::Extraction(ExtractionError::Reduction { message, .. }))
+            if message == "broken witness decoder"
+    ));
+}
+
 static DIRECT_BOOL_A: IlpPipelineRegistration = IlpPipelineRegistration {
     path: &[StaticProblemStep {
         name: "ILP",
@@ -396,12 +513,18 @@ fn solver_capability_registry_ignores_unrelated_reduction_edges() {
         minimal_pipeline
             .reducers
             .iter()
-            .map(|reducer| *reducer as usize)
+            .map(|(reducer, aggregate)| (
+                *reducer as usize,
+                aggregate.map(|reduce| reduce as usize)
+            ))
             .collect::<Vec<_>>(),
         expanded_pipeline
             .reducers
             .iter()
-            .map(|reducer| *reducer as usize)
+            .map(|(reducer, aggregate)| (
+                *reducer as usize,
+                aggregate.map(|reduce| reduce as usize)
+            ))
             .collect::<Vec<_>>()
     );
 }

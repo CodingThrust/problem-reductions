@@ -5,6 +5,218 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn decision_reductions_check_target_optimum_before_extracting_witness() {
+    let variant = BTreeMap::from([("graph".into(), "SimpleGraph".into())]);
+    let cases = [
+        (
+            "HamiltonianCircuit",
+            serde_json::json!({"graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[0,2],[2,3]]}}),
+            false,
+        ),
+        (
+            "HamiltonianCircuit",
+            serde_json::json!({"graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3],[0,3]]}}),
+            true,
+        ),
+        (
+            "HamiltonianCircuit",
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,2]]}}),
+            false,
+        ),
+        (
+            "PartitionIntoCliques",
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": []}, "num_cliques": 2}),
+            false,
+        ),
+        (
+            "PartitionIntoCliques",
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": []}, "num_cliques": 3}),
+            true,
+        ),
+    ];
+    for (name, data, expected) in cases {
+        let problem = load_dyn(name, &variant, data).unwrap();
+        for backend in [
+            SolverRequest::BruteForce,
+            SolverRequest::Ilp,
+            SolverRequest::Default,
+        ] {
+            match solve(&problem, backend).unwrap().outcome {
+                SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
+                } => {
+                    assert!(expected, "{name}, {backend:?}");
+                    assert_eq!(evaluation, "Or(true)");
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+                SolveOutcome::Infeasible => assert!(!expected, "{name}, {backend:?}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn hamiltonian_ilp_matches_exhaustive_search_on_small_graphs() {
+    let variant = BTreeMap::from([("graph".into(), "SimpleGraph".into())]);
+    let edges = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
+    for mask in 0..64 {
+        let selected: Vec<_> = edges
+            .iter()
+            .enumerate()
+            .filter_map(|(i, edge)| (mask & (1 << i) != 0).then_some(edge))
+            .collect();
+        let problem = load_dyn(
+            "HamiltonianCircuit",
+            &variant,
+            serde_json::json!({"graph": {"num_vertices": 4, "edges": selected}}),
+        )
+        .unwrap();
+        let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
+        let actual = solve(&problem, SolverRequest::Ilp).unwrap();
+        assert_eq!(
+            matches!(actual.outcome, SolveOutcome::Infeasible),
+            matches!(reference.outcome, SolveOutcome::Infeasible),
+            "graph {mask}"
+        );
+        if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+            assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+        }
+    }
+}
+
+#[test]
+fn generic_decision_ilp_compares_inner_optimum_with_bound() {
+    use crate::models::graph::{
+        MinimumDominatingSet, MinimumVertexCover, OptimalLinearArrangement,
+    };
+    use crate::topology::SimpleGraph;
+
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let weighted_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i64".to_string()),
+    ]);
+    let cases = [
+        (
+            "DecisionMinimumVertexCover",
+            weighted_variant.clone(),
+            serde_json::to_value(MinimumVertexCover::new(graph.clone(), vec![1i64; 3])).unwrap(),
+            2,
+        ),
+        (
+            "DecisionMinimumDominatingSet",
+            weighted_variant,
+            serde_json::to_value(MinimumDominatingSet::new(graph.clone(), vec![1i64; 3])).unwrap(),
+            1,
+        ),
+        (
+            "DecisionOptimalLinearArrangement",
+            BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+            serde_json::to_value(OptimalLinearArrangement::new(graph)).unwrap(),
+            4,
+        ),
+    ];
+    for (name, variant, inner, optimum) in cases {
+        for bound in [optimum - 1, optimum, optimum + 1] {
+            let loaded = load_dyn(
+                name,
+                &variant,
+                serde_json::json!({"inner": inner, "bound": bound}),
+            )
+            .unwrap();
+            for backend in [
+                SolverRequest::BruteForce,
+                SolverRequest::Ilp,
+                SolverRequest::Default,
+            ] {
+                let result = solve(&loaded, backend).unwrap();
+                if bound < optimum {
+                    assert_eq!(
+                        result.outcome,
+                        SolveOutcome::Infeasible,
+                        "{name}, {bound}, {backend:?}"
+                    );
+                } else {
+                    let SolveOutcome::Optimal {
+                        solution,
+                        evaluation,
+                    } = result.outcome
+                    else {
+                        panic!("expected a witness for {name}, {bound}, {backend:?}");
+                    };
+                    assert_eq!(evaluation, "Or(true)");
+                    assert_eq!(loaded.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
+    use crate::models::graph::{
+        MinimumDominatingSet, MinimumVertexCover, OptimalLinearArrangement,
+    };
+    use crate::topology::SimpleGraph;
+
+    let weighted = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i64".to_string()),
+    ]);
+    let unweighted = BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]);
+    for mask in 0..8 {
+        let graph = SimpleGraph::new(
+            3,
+            [(0, 1), (0, 2), (1, 2)]
+                .into_iter()
+                .enumerate()
+                .filter_map(|(i, edge)| (mask & (1 << i) != 0).then_some(edge))
+                .collect(),
+        );
+        let models = [
+            (
+                "DecisionMinimumVertexCover",
+                &weighted,
+                serde_json::to_value(MinimumVertexCover::new(graph.clone(), vec![1i64, 2, 3]))
+                    .unwrap(),
+            ),
+            (
+                "DecisionMinimumDominatingSet",
+                &weighted,
+                serde_json::to_value(MinimumDominatingSet::new(graph.clone(), vec![1i64, 2, 3]))
+                    .unwrap(),
+            ),
+            (
+                "DecisionOptimalLinearArrangement",
+                &unweighted,
+                serde_json::to_value(OptimalLinearArrangement::new(graph)).unwrap(),
+            ),
+        ];
+        for (name, variant, inner) in models {
+            for bound in 0..=6 {
+                let loaded = load_dyn(
+                    name,
+                    variant,
+                    serde_json::json!({"inner": inner, "bound": bound}),
+                )
+                .unwrap();
+                let reference = solve(&loaded, SolverRequest::BruteForce).unwrap();
+                let actual = solve(&loaded, SolverRequest::Ilp).unwrap();
+                assert_eq!(
+                    matches!(actual.outcome, SolveOutcome::Infeasible),
+                    matches!(reference.outcome, SolveOutcome::Infeasible),
+                    "{name}, graph {mask}, bound {bound}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                    assert_eq!(loaded.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn deterministic_solver_dispatch_customized_registration_wins_default_dispatch() {
     use crate::models::set::MinimumCardinalityKey;
 

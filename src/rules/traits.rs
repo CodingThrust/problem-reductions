@@ -405,13 +405,21 @@ pub trait DynAggregateReductionResult {
     fn target_problem_any(&self) -> &dyn Any;
     /// Extract an aggregate value from target space to source space.
     fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value;
+    /// Map the value of a target solution without erasing the source value's type.
+    /// The caller must establish that the solution realizes the target aggregate
+    /// before interpreting the result as the source aggregate.
+    fn extract_value_from_solution_dyn(
+        &self,
+        target_solution: &dyn Any,
+    ) -> ExtractionResult<Box<dyn Any>>;
 }
 
 impl<R: AggregateReductionResult + 'static> DynAggregateReductionResult for R
 where
     R::Target: 'static,
+    <R::Target as Problem>::Solution: 'static,
     <R::Target as Problem>::Value: Serialize + DeserializeOwned,
-    <R::Source as Problem>::Value: Serialize,
+    <R::Source as Problem>::Value: Serialize + 'static,
 {
     fn target_problem_any(&self) -> &dyn Any {
         self.target_problem() as &dyn Any
@@ -423,6 +431,22 @@ where
         let source_value = self.extract_value(target_value);
         serde_json::to_value(source_value)
             .expect("DynAggregateReductionResult source value serialize failed")
+    }
+
+    fn extract_value_from_solution_dyn(
+        &self,
+        target_solution: &dyn Any,
+    ) -> ExtractionResult<Box<dyn Any>> {
+        let target_solution = target_solution
+            .downcast_ref::<<R::Target as Problem>::Solution>()
+            .ok_or_else(|| {
+                ExtractionError::invalid(format!(
+                    "target solution type mismatch: expected {}",
+                    std::any::type_name::<<R::Target as Problem>::Solution>()
+                ))
+            })?;
+        let target_value = self.target_problem().evaluate(target_solution)?;
+        Ok(Box::new(self.extract_value(target_value)))
     }
 }
 

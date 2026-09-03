@@ -12,6 +12,24 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 }
 
 #[test]
+fn test_hamiltoniancircuit_aggregate_requires_a_spanning_cycle() {
+    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&cycle4_hc()).unwrap();
+    for (value, expected) in [
+        (Max(None), false),
+        (Max(Some(3)), false),
+        (Max(Some(4)), true),
+    ] {
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+            crate::types::Or(expected),
+        );
+    }
+    let short_cycle = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]));
+    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&short_cycle).unwrap();
+    assert!(reduction.extract_solution(&vec![true; 3]).is_err());
+}
+
+#[test]
 fn test_hamiltoniancircuit_to_longestcircuit_closed_loop() {
     let source = cycle4_hc();
     let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source)

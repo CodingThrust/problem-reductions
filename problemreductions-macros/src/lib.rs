@@ -205,8 +205,8 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
 /// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
-/// - `aggregate = identity` — explicitly register an aggregate executor; compilation
-///   requires the reduction result to prove source/target value-type equality
+/// - `aggregate = identity` or `aggregate = custom` — register the reduction result's
+///   `AggregateReductionResult` implementation alongside its witness extractor
 ///
 /// ## Syntax
 /// ```ignore
@@ -239,7 +239,7 @@ struct ReductionAttrs {
     relation: Option<ParameterRelationAttr>,
     fields: Option<Vec<(String, String)>>,
     unavailable: Option<Vec<(String, String)>>,
-    identity_aggregate: bool,
+    aggregate: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -255,7 +255,7 @@ impl syn::parse::Parse for ReductionAttrs {
             relation: None,
             fields: None,
             unavailable: None,
-            identity_aggregate: false,
+            aggregate: false,
         };
 
         while !input.is_empty() {
@@ -307,10 +307,13 @@ impl syn::parse::Parse for ReductionAttrs {
                 }
                 "aggregate" => {
                     let value: syn::Ident = input.parse()?;
-                    if value != "identity" {
-                        return Err(syn::Error::new(value.span(), "expected `identity`"));
+                    if value != "identity" && value != "custom" {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "expected `identity` or `custom`",
+                        ));
                     }
-                    attrs.identity_aggregate = true;
+                    attrs.aggregate = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -514,7 +517,7 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    let reduce_aggregate_fn = if attrs.identity_aggregate {
+    let reduce_aggregate_fn = if attrs.aggregate {
         quote! {
             Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError> {
                 let src = src.downcast_ref::<#source_type>().ok_or_else(
@@ -1268,6 +1271,31 @@ mod tests {
             Err(err) => err,
         };
         assert!(err.to_string().contains("unknown attribute: extra"));
+    }
+
+    #[test]
+    fn reduction_registers_explicit_aggregate_mapping() {
+        let implementation: syn::ItemImpl = syn::parse_quote! {
+            impl ReduceTo<Target> for Source {}
+        };
+        for (declaration, enabled) in [
+            (quote! {}, false),
+            (quote! { aggregate = identity, }, true),
+            (quote! { aggregate = custom, }, true),
+        ] {
+            let attrs: ReductionAttrs = syn::parse2(quote! {
+                #declaration transform = exact { num_vertices = "num_vertices" }
+            })
+            .unwrap();
+            let tokens = generate_reduction_entry(&attrs, &implementation)
+                .unwrap()
+                .to_string();
+            assert_eq!(tokens.contains("reduce_aggregate_fn : Some"), enabled);
+        }
+        assert!(syn::parse2::<ReductionAttrs>(quote! {
+            aggregate = unknown, transform = exact { num_vertices = "num_vertices" }
+        })
+        .is_err());
     }
 
     #[test]

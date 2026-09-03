@@ -126,6 +126,33 @@ fn target_solution_validation_rejects_shape_and_domain_errors() {
     assert!(validate_target_solution(&target, &vec![1, 2]).is_err());
 }
 
+#[test]
+fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
+    use crate::models::decision::Decision;
+    use crate::models::graph::MinimumVertexCover;
+    use crate::rules::ExtractionError;
+    use crate::topology::SimpleGraph;
+    use crate::types::Or;
+
+    let source = Decision::new(
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]),
+        0,
+    );
+    let reduction = source.reduce_to_aggregate().unwrap();
+    let value = reduction
+        .extract_value_from_solution_dyn(&vec![true, false])
+        .unwrap();
+    assert_eq!(value.downcast_ref::<Or>(), Some(&Or(false)));
+    assert!(matches!(
+        reduction.extract_value_from_solution_dyn(&vec![true]),
+        Err(ExtractionError::Evaluation(_))
+    ));
+    assert!(matches!(
+        reduction.extract_value_from_solution_dyn(&vec![1i64, 0]),
+        Err(ExtractionError::InvalidTargetSolution(_))
+    ));
+}
+
 #[derive(Clone)]
 struct AggregateSourceProblem;
 

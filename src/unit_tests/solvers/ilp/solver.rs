@@ -68,7 +68,7 @@ fn test_ilp_empty_problem_with_infeasible_constraint_returns_infeasible() {
 }
 
 #[test]
-fn test_ilp_solver_preserves_ambiguous_unbounded_status_as_backend_error() {
+fn test_ilp_solver_disambiguates_unbounded_model() {
     let ilp = ILP::<i64>::with_variables(
         vec![IntegerVariable::free()],
         vec![LinearConstraint::ge(vec![(0, 1)], 0)],
@@ -77,11 +77,23 @@ fn test_ilp_solver_preserves_ambiguous_unbounded_status_as_backend_error() {
     )
     .unwrap();
 
-    assert!(matches!(
-        ILPSolver::new().solve(&ilp),
-        Err(ILPSolveError::BackendFailure(message))
-            if message.contains("cannot distinguish")
-    ));
+    assert_eq!(ILPSolver::new().solve(&ilp), Err(ILPSolveError::Unbounded));
+}
+
+#[test]
+fn test_ilp_solver_disambiguates_infeasible_model() {
+    let ilp = ILP::<i64>::with_variables(
+        vec![IntegerVariable::free()],
+        vec![
+            LinearConstraint::ge(vec![(0, 1)], 1),
+            LinearConstraint::le(vec![(0, 1)], 0),
+        ],
+        vec![(0, 1.0)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+
+    assert_eq!(ILPSolver::new().solve(&ilp), Err(ILPSolveError::Infeasible));
 }
 
 #[test]
@@ -104,29 +116,20 @@ fn test_ilp_solver_rejects_inexact_integer_transport() {
 #[test]
 fn test_backend_errors_are_classified_without_losing_the_cause() {
     assert_eq!(
-        classify_backend_error(ResolutionError::Infeasible, None, false),
+        classify_backend_error(ResolutionError::Infeasible, None),
         ILPSolveError::Infeasible,
     );
     assert_eq!(
-        classify_backend_error(ResolutionError::Unbounded, None, false),
+        classify_backend_error(ResolutionError::Unbounded, None),
         ILPSolveError::Unbounded,
     );
     assert_eq!(
-        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1), false,),
+        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
         ILPSolveError::Timeout,
     );
     assert!(matches!(
-        classify_backend_error(ResolutionError::Other("SolveError"), None, false),
+        classify_backend_error(ResolutionError::Other("SolveError"), None),
         ILPSolveError::BackendFailure(message) if message.contains("SolveError")
-    ));
-}
-
-#[test]
-fn test_ambiguous_infeasible_status_is_not_reported_as_proven_infeasible() {
-    assert!(matches!(
-        classify_backend_error(ResolutionError::Infeasible, None, true),
-        ILPSolveError::BackendFailure(message)
-            if message.contains("cannot distinguish")
     ));
 }
 
