@@ -559,6 +559,12 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
+    ("MinimumFeedbackArcSet", [("weight", "i64")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "f64")]),
+}
+
+register_ilp_pipeline! {
     ("MinimumFeedbackVertexSet", [("weight", "i64")]),
     ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
     ("ILP", [("variable", "i64"), ("coefficient", "f64")]),
@@ -669,6 +675,12 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
+    ("MultipleChoiceBranching", [("weight", "i64")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "f64")]),
+}
+
+register_ilp_pipeline! {
     ("MultiprocessorScheduling", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "f64")]),
@@ -732,7 +744,6 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("PartitionIntoCliques", [("graph", "SimpleGraph")]),
-    ("MinimumCoveringByCliques", [("graph", "SimpleGraph")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "f64")]),
 }

@@ -213,8 +213,14 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
     type Result = ReductionPartitionIntoCliquesToMinimumCoveringByCliques;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let source_bound = Self::exact_i64(self.num_cliques(), "converting clique bound")?;
-        let source_edges = Self::exact_i64(self.num_edges(), "converting edge count")?;
+        let source_bound = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            self.num_cliques(),
+            "converting clique bound",
+        )?;
+        let source_edges = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            self.num_edges(),
+            "converting edge count",
+        )?;
         let target_bound = target_clique_bound(source_bound, source_edges)?;
         let layout = OrlinLayout::new(self.graph());
         let left_vertices = layout.left_vertices();

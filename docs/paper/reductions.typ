@@ -13201,6 +13201,26 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 The following reductions to Integer Linear Programming are straightforward formulations where problem constraints map directly to linear inequalities.
 
+#reduction-rule("MultipleChoiceBranching", "ILP")[
+  A topological-order formulation makes the branching acyclicity condition linear while retaining the source indegree, partition, and weight inequalities directly.
+][
+  _Construction._ For every arc $a$ introduce a nonnegative integer $x_a <= 1$, and for every vertex $v$ introduce an integer order $0 <= p_v <= n-1$. Add $sum_(a in A_i)x_a <= 1$ for each partition group, $sum_(a in delta^-(v))x_a <= 1$ for each vertex, and $sum_a w_a x_a >= K$. For every arc $a=(u,v)$ add $p_u-p_v+n x_a <= n-1$. The target has exactly $m+n$ variables and $2m+2n+g+1$ constraints for $g$ partition groups.
+
+  _Correctness._ A source branching admits a topological order, which satisfies the order rows. Conversely, selecting $(u,v)$ forces $p_v >= p_u+1$, so selected arcs cannot contain a directed cycle. All remaining source conditions are represented verbatim by their corresponding rows.
+
+  _Solution extraction._ Return arc $a$ exactly when $x_a=1$.
+]
+
+#reduction-rule("PartitionIntoCliques", "ILP")[
+  The standard one-hot coloring formulation applied to the complement graph assigns every source vertex to one of the available clique labels and forbids non-adjacent vertices from sharing a label.
+][
+  _Construction._ Introduce $x_(v,c) in {0,1}$ for every vertex $v$ and clique label $c$. Require $sum_c x_(v,c)=1$ for every vertex. For every source non-edge ${u,v}$ and label $c$, require $x_(u,c)+x_(v,c) <= 1$. Use the zero objective. Since $K <= n$, the target has at most $n^2$ variables and $n+n^3$ constraints.
+
+  _Correctness._ A clique partition satisfies all one-hot rows, and no non-edge has both endpoints in one part. Conversely, the unique selected label of each vertex defines a partition; every two vertices sharing a label must be adjacent, so each part is a clique.
+
+  _Solution extraction._ For each vertex $v$, return the unique label $c$ with $x_(v,c)=1$.
+]
+
 #reduction-rule("MaximumSetPacking", "ILP")[
   Each set is either selected or not, and every universe element may belong to at most one selected set -- an element-based constraint that is directly linear in binary indicator variables.
 ][

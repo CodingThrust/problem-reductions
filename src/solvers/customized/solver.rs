@@ -4,8 +4,14 @@ use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
     is_minimal_key, is_superkey, BranchDecision,
 };
-use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation, TimetableDesign};
+use crate::models::graph::{
+    MinimumCostCirculation, MinimumIntersectionGraphBasis, PartialFeedbackEdgeSet,
+    RootedTreeArrangement,
+};
+use crate::models::misc::{
+    AdditionalKey, BoyceCoddNormalFormViolation, EnsembleComputation, GroupingBySwapping,
+    MinimumDecisionTree, ShortestCommonSuperstring, TimetableDesign,
+};
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
 use crate::solvers::registry::CustomizedSolverRegistration;
 use crate::topology::SimpleGraph;
@@ -60,6 +66,28 @@ register_customized_solver!(
     RootedTreeArrangement<SimpleGraph>,
     "rooted-tree-arrangement",
     |problem| Ok(super::rooted_tree_arrangement::solve(problem))
+);
+register_customized_solver!(GroupingBySwapping, "symbol-block-order", |problem| Ok(
+    super::grouping_by_swapping::solve(problem)
+));
+register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| Ok(
+    super::shortest_common_superstring::solve(problem)
+));
+register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| Ok(
+    super::minimum_decision_tree::solve(problem)
+));
+register_customized_solver!(EnsembleComputation, "breadth-first-search", |problem| Ok(
+    super::ensemble_computation::solve(problem)
+));
+register_customized_solver!(
+    MinimumCostCirculation,
+    "negative-cycle-canceling",
+    |problem| Ok(super::minimum_cost_circulation::solve(problem))
+);
+register_customized_solver!(
+    MinimumIntersectionGraphBasis<SimpleGraph>,
+    "maximal-clique-edge-cover",
+    |problem| Ok(super::minimum_intersection_graph_basis::solve(problem))
 );
 register_customized_solver!(
     TimetableDesign,
