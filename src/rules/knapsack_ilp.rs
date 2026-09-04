@@ -9,7 +9,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Knapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing Knapsack to ILP.
 #[derive(Debug, Clone)]
@@ -50,15 +49,7 @@ impl ReduceTo<ILP<bool>> for Knapsack {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_items();
         let weights = self.weights();
-        let values = self
-            .values()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
-            })?;
+        let values = self.values();
         let capacity = self.capacity();
         let constraints = vec![LinearConstraint::le(
             weights
@@ -68,7 +59,7 @@ impl ReduceTo<ILP<bool>> for Knapsack {
                 .collect(),
             capacity,
         )];
-        let objective = values.into_iter().enumerate().collect();
+        let objective = values.iter().copied().enumerate().collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 

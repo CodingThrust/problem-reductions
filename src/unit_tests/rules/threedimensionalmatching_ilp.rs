@@ -140,7 +140,7 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     assert_eq!(problem.evaluate(&direct_source).unwrap(), Or(true));
     let indirect_solution = solver.solve(indirect.target_problem());
     assert!(
-        matches!(indirect_solution, Err(ILPSolveError::InvalidSolution(_))),
+        matches!(indirect_solution, Err(ILPSolveError::Extraction(_))),
         "the numerically unstable indirect ILP should be rejected: {indirect_solution:?}"
     );
     assert!(direct.target_problem().num_vars() < indirect.target_problem().num_vars());

@@ -24,6 +24,18 @@ fn test_spinglass_to_qubo_closed_loop() {
 }
 
 #[test]
+fn test_integer_spinglass_to_integer_qubo() {
+    let source = SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), 1)], vec![0, 0]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
+
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "integer SpinGlass->QUBO",
+    );
+}
+
+#[test]
 fn test_with_onsite_fields() {
     // SpinGlass with only on-site field h_0 = 1
     // Energy = h_0 * s_0 = s_0

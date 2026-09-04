@@ -92,7 +92,7 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
             .collect();
 
         // Objective: maximize sum of z_j indicators
-        let objective: Vec<(usize, f64)> = (0..m).map(|j| (n + j, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|j| (n + j, 1)).collect();
 
         let target = ILP::new(
             num_ilp_vars,

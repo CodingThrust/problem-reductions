@@ -22,16 +22,13 @@
 //! sparse graphs with compact formulations," EURO J. Comput. Optim. 3(1)
 //! (2015).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILPCoefficient, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumEdgeWeightedKClique;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
-use crate::types::i64_to_exact_f64;
-use crate::types::WeightElement;
 use crate::variant::VariantParam;
-use std::marker::PhantomData;
 
 /// Result of reducing MaximumEdgeWeightedKClique to ILP.
 ///
@@ -40,20 +37,22 @@ use std::marker::PhantomData;
 /// - `y_uv` at index `num_vertices + e` for the `e`-th graph edge in
 ///   `graph.edges()` order.
 #[derive(Debug, Clone)]
-pub struct ReductionMaximumEdgeWeightedKCliqueToILP<W> {
-    target: ILP<bool>,
+pub struct ReductionMaximumEdgeWeightedKCliqueToILP<W>
+where
+    W: ILPCoefficient,
+{
+    target: ILP<bool, W>,
     num_vertices: usize,
-    _marker: PhantomData<W>,
 }
 
 impl<W> ReductionResult for ReductionMaximumEdgeWeightedKCliqueToILP<W>
 where
-    W: WeightElement + VariantParam,
+    W: ILPCoefficient + VariantParam,
 {
     type Source = MaximumEdgeWeightedKClique<W>;
-    type Target = ILP<bool>;
+    type Target = ILP<bool, W>;
 
-    fn target_problem(&self) -> &ILP<bool> {
+    fn target_problem(&self) -> &ILP<bool, W> {
         &self.target
     }
 
@@ -74,36 +73,43 @@ where
 
 fn build_reduction<W>(
     src: &MaximumEdgeWeightedKClique<W>,
-    objective_coefficients: Vec<f64>,
 ) -> Result<ReductionMaximumEdgeWeightedKCliqueToILP<W>, crate::rules::ReductionError>
 where
-    W: WeightElement + VariantParam,
+    W: ILPCoefficient + VariantParam + From<i8>,
 {
     let n = src.num_vertices();
     let edges = src.graph().edges();
     let m = edges.len();
-    debug_assert_eq!(objective_coefficients.len(), m);
-
     let num_vars = n + m;
-    let k = i64::try_from(src.k()).map_err(|_| {
-        crate::rules::ReductionError::integer_overflow::<MaximumEdgeWeightedKClique<W>, ILP<bool>>(
-            "encoding the clique cardinality",
-        )
-    })?;
+    let k =
+        i64::try_from(src.k()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                MaximumEdgeWeightedKClique<W>,
+                ILP<bool, W>,
+            >("encoding the clique cardinality")
+        })?;
     let x_idx = |v: usize| -> usize { v };
     let y_idx = |e: usize| -> usize { n + e };
 
-    let mut constraints: Vec<LinearConstraint> = Vec::new();
+    let mut constraints: Vec<LinearConstraint<W>> = Vec::new();
 
     // Exact-cardinality constraint: sum_v x_v = k.
-    let cardinality_terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v), 1)).collect();
+    let cardinality_terms = (0..n).map(|v| (x_idx(v), 1_i8.into())).collect();
+    let k = W::from_integer(k).map_err(|error| {
+        crate::rules::ReductionError::invalid_target::<MaximumEdgeWeightedKClique<W>, ILP<bool, W>>(
+            error.to_string(),
+        )
+    })?;
     constraints.push(LinearConstraint::eq(cardinality_terms, k));
 
     // Non-edge clique constraints: x_u + x_v <= 1 for every non-edge.
     for u in 0..n {
         for v in (u + 1)..n {
             if !src.graph().has_edge(u, v) {
-                constraints.push(LinearConstraint::le(vec![(x_idx(u), 1), (x_idx(v), 1)], 1));
+                constraints.push(LinearConstraint::le(
+                    vec![(x_idx(u), 1_i8.into()), (x_idx(v), 1_i8.into())],
+                    1_i8.into(),
+                ));
             }
         }
     }
@@ -114,20 +120,21 @@ where
     }
 
     // Objective: maximize sum_e w_e * y_e.
-    let objective: Vec<(usize, f64)> = objective_coefficients
-        .into_iter()
+    let objective: Vec<(usize, W)> = src
+        .edge_weights()
+        .iter()
+        .copied()
         .enumerate()
         .map(|(e, w)| (y_idx(e), w))
         .collect();
 
     let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize).map_err(
-        crate::rules::ReductionError::construction::<MaximumEdgeWeightedKClique<W>, ILP<bool>>,
+        crate::rules::ReductionError::construction::<MaximumEdgeWeightedKClique<W>, ILP<bool, W>>,
     )?;
 
     Ok(ReductionMaximumEdgeWeightedKCliqueToILP {
         target,
         num_vertices: n,
-        _marker: PhantomData,
     })
 }
 
@@ -144,19 +151,7 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<i64>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let coefficients = self
-            .edge_weights()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MaximumEdgeWeightedKClique<i64>,
-                    ILP<bool>,
-                >(error)
-            })?;
-        build_reduction(self, coefficients)
+        build_reduction(self)
     }
 }
 
@@ -169,12 +164,11 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<f64> {
+impl ReduceTo<ILP<bool, f64>> for MaximumEdgeWeightedKClique<f64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<f64>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let coefficients: Vec<f64> = self.edge_weights().to_vec();
-        build_reduction(self, coefficients)
+        build_reduction(self)
     }
 }
 
@@ -205,7 +199,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     3,
                 )
                 .unwrap();
-                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+                crate::example_db::specs::rule_example_via_float_ilp::<_, bool>(source)
             },
         },
     ]

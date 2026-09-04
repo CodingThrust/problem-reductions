@@ -11,7 +11,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::CapacityAssignment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing CapacityAssignment to ILP.
 ///
@@ -67,22 +66,7 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
         let num_capacities = self.num_capacities();
         let num_vars = num_links * num_capacities;
         let delay = self.delay();
-        let cost = self
-            .cost()
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .copied()
-                    .map(i64_to_exact_f64)
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    CapacityAssignment,
-                    ILP<bool>,
-                >(error)
-            })?;
+        let cost = self.cost();
         let delay_budget = self.delay_budget();
 
         let mut constraints = Vec::with_capacity(num_links + 1);

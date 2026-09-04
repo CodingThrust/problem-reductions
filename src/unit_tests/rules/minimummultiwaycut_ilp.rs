@@ -131,13 +131,13 @@ fn test_solution_extraction() {
 }
 
 #[test]
-fn test_solve_reduced() {
+fn test_solve_via_ilp_pipeline() {
     let problem = canonical_instance();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should work");
+        .solve(&problem)
+        .expect("ILP pipeline should solve the problem");
 
     assert!(problem.evaluate(&solution).unwrap().is_valid());
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(8)));

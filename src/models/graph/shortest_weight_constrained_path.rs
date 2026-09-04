@@ -5,12 +5,11 @@
 //! the total weight within a prescribed bound.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::{is_simple_st_path, Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -288,10 +287,6 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             return Ok(Some(N::Sum::zero()));
         }
 
-        let edges = self.graph.edges();
-        let mut degree = vec![0usize; self.graph.num_vertices()];
-        let mut adjacency = vec![Vec::new(); self.graph.num_vertices()];
-        let mut selected_edge_count = 0usize;
         let mut total_length = N::Sum::zero();
         let mut total_weight = N::Sum::zero();
 
@@ -299,12 +294,6 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             if !selected {
                 continue;
             }
-            let (u, v) = edges[idx];
-            degree[u] += 1;
-            degree[v] += 1;
-            adjacency[u].push(v);
-            adjacency[v].push(u);
-            selected_edge_count += 1;
             total_length = N::checked_add_to_sum(
                 total_length,
                 self.edge_lengths[idx].to_sum(),
@@ -317,59 +306,19 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             )?;
         }
 
-        if selected_edge_count == 0 {
-            return Ok(None);
-        }
-
         if total_weight > self.weight_bound.clone() {
             return Ok(None);
         }
-
-        if degree[self.source_vertex] != 1 || degree[self.target_vertex] != 1 {
-            return Ok(None);
-        }
-
-        for (vertex, &vertex_degree) in degree.iter().enumerate() {
-            if vertex == self.source_vertex || vertex == self.target_vertex {
-                continue;
-            }
-            if vertex_degree != 0 && vertex_degree != 2 {
-                return Ok(None);
-            }
-        }
-
-        let mut visited = vec![false; self.graph.num_vertices()];
-        let mut queue = VecDeque::new();
-        visited[self.source_vertex] = true;
-        queue.push_back(self.source_vertex);
-
-        while let Some(vertex) = queue.pop_front() {
-            for &neighbor in &adjacency[vertex] {
-                if !visited[neighbor] {
-                    visited[neighbor] = true;
-                    queue.push_back(neighbor);
-                }
-            }
-        }
-
-        if !visited[self.target_vertex] {
-            return Ok(None);
-        }
-
-        let used_vertex_count = degree
-            .iter()
-            .filter(|&&vertex_degree| vertex_degree > 0)
-            .count();
-        for (vertex, &vertex_degree) in degree.iter().enumerate() {
-            if vertex_degree > 0 && !visited[vertex] {
-                return Ok(None);
-            }
-        }
-
-        if used_vertex_count == selected_edge_count + 1 {
-            Ok(Some(total_length))
-        } else {
+        if !is_simple_st_path(
+            self.graph.num_vertices(),
+            &self.graph.edges(),
+            self.source_vertex,
+            self.target_vertex,
+            config,
+        ) {
             Ok(None)
+        } else {
+            Ok(Some(total_length))
         }
     }
 }

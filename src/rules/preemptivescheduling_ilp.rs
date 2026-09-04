@@ -147,7 +147,7 @@ impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
         }
 
         // Objective: minimize M
-        let objective = vec![(m_var, 1.0)];
+        let objective = vec![(m_var, 1)];
 
         Ok(ReductionPSToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

@@ -32,7 +32,7 @@ fn test_closeststring_to_ilp_structure() {
     assert_eq!(ilp.objective().len(), 1);
     let (r_idx, r_coeff) = ilp.objective()[0];
     assert_eq!(r_idx, 2 * 3);
-    assert!((r_coeff - 1.0).abs() < 1e-9);
+    assert_eq!(r_coeff, 1);
 
     // Each assignment constraint has q = 2 terms and rhs = 1.
     for c in ilp.constraints().iter().take(3) {

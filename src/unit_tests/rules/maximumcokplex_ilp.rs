@@ -36,7 +36,7 @@ fn test_maximumcokplex_to_ilp_issue_structure() {
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     assert_eq!(
         ilp.objective(),
-        vec![(0, 5.0), (1, 1.0), (2, 4.0), (3, 1.0), (4, 3.0)]
+        vec![(0, 5), (1, 1), (2, 4), (3, 1), (4, 3)]
     );
 
     let expected_constraints = vec![

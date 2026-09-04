@@ -15,7 +15,7 @@ fn canonical_bits() -> Vec<bool> {
 #[test]
 fn test_closestvectorproblem_to_qubo_closed_loop() {
     let source = canonical_cvp();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let target_solution = BruteForce::new()
         .solve(reduction.target_problem())
         .unwrap()
@@ -29,18 +29,18 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
 
 #[test]
 fn test_closestvectorproblem_to_qubo_coefficients() {
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp()).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
     let qubo = reduction.target_problem();
 
-    assert_eq!(qubo.get(0, 0), Some(&-248.0));
-    assert_eq!(qubo.get(0, 1), Some(&16.0));
-    assert_eq!(qubo.get(0, 6), Some(&4.0));
-    assert_eq!(qubo.get(6, 6), Some(&-241.0));
+    assert_eq!(qubo.get(0, 0), Some(&-248));
+    assert_eq!(qubo.get(0, 1), Some(&16));
+    assert_eq!(qubo.get(0, 6), Some(&4));
+    assert_eq!(qubo.get(6, 6), Some(&-241));
 }
 
 #[test]
 fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp()).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
     assert_eq!(
         reduction.extract_solution(&canonical_bits()).unwrap(),
         vec![1, 1]
@@ -62,7 +62,7 @@ fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
 #[test]
 fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
     let source = ClosestVectorProblem::new(vec![vec![1]], vec![20_i64]).unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let target_solution = BruteForce::new()
         .solve(reduction.target_problem())
         .unwrap()
@@ -77,15 +77,12 @@ fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
 fn test_closestvectorproblem_to_qubo_reports_numeric_boundaries() {
     let absolute_value = ClosestVectorProblem::new(vec![vec![1]], vec![i64::MIN]).unwrap();
     assert!(matches!(
-        ReduceTo::<QUBO<f64>>::reduce_to(&absolute_value),
+        ReduceTo::<QUBO<i64>>::reduce_to(&absolute_value),
         Err(crate::rules::ReductionError::IntegerOverflow { .. })
     ));
 
-    let inexact_float = ClosestVectorProblem::new(vec![vec![100_000_000]], vec![1_i64]).unwrap();
-    assert!(matches!(
-        ReduceTo::<QUBO<f64>>::reduce_to(&inexact_float),
-        Err(crate::rules::ReductionError::InexactFloatConversion { .. })
-    ));
+    let large_exact = ClosestVectorProblem::new(vec![vec![100_000_000]], vec![1_i64]).unwrap();
+    assert!(ReduceTo::<QUBO<i64>>::reduce_to(&large_exact).is_ok());
 }
 
 #[cfg(feature = "example-db")]

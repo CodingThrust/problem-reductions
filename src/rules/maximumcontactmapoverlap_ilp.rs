@@ -141,7 +141,7 @@ impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
         }
 
         // Objective: maximize the number of preserved contacts.
-        let objective: Vec<(usize, f64)> = (0..num_y).map(|s| (y_idx(s), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..num_y).map(|s| (y_idx(s), 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;

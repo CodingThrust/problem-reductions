@@ -9,7 +9,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::{i64_to_exact_f64, WeightElement};
+use crate::types::WeightElement;
 
 /// Result of reducing MixedChinesePostman to ILP.
 #[derive(Debug, Clone)]
@@ -80,26 +80,14 @@ impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
 
         // Build available arc list with lengths
         let mut avail_arcs: Vec<(usize, usize)> = Vec::with_capacity(l);
-        let mut avail_lengths: Vec<f64> = Vec::with_capacity(l);
+        let mut avail_lengths: Vec<i64> = Vec::with_capacity(l);
 
         for (i, &(u, v)) in original_arcs.iter().enumerate() {
             avail_arcs.push((u, v));
-            avail_lengths.push(i64_to_exact_f64(self.arc_weights()[i].to_sum()).map_err(
-                |error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        MixedChinesePostman<i64>,
-                        ILP<i64>,
-                    >(error)
-                },
-            )?);
+            avail_lengths.push(self.arc_weights()[i].to_sum());
         }
         for (k, &(u, v)) in undirected_edges.iter().enumerate() {
-            let length = i64_to_exact_f64(self.edge_weights()[k].to_sum()).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MixedChinesePostman<i64>,
-                    ILP<i64>,
-                >(error)
-            })?;
+            let length = self.edge_weights()[k].to_sum();
             avail_arcs.push((u, v)); // forward
             avail_lengths.push(length);
             avail_arcs.push((v, u)); // reverse

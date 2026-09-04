@@ -11,7 +11,6 @@ use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumMultiwayCut to ILP.
 ///
@@ -128,20 +127,11 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
         }
 
         // Objective: minimize sum_e w_e * x_e
-        let objective: Vec<(usize, f64)> = weights
+        let objective: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(e_idx, &w)| {
-                i64_to_exact_f64(w)
-                    .map(|weight| (k * n + e_idx, weight))
-                    .map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            MinimumMultiwayCut<SimpleGraph, i64>,
-                            ILP<bool>,
-                        >(error)
-                    })
-            })
-            .collect::<Result<_, _>>()?;
+            .map(|(e_idx, &weight)| (k * n + e_idx, weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

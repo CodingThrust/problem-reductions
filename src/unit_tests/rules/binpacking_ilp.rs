@@ -132,18 +132,18 @@ fn test_ilp_structure_constraints() {
     assert!(obj_vars.contains(&4));
     assert!(obj_vars.contains(&5));
     for &(_, coef) in ilp.objective() {
-        assert!((coef - 1.0).abs() < 1e-9);
+        assert_eq!(coef, 1);
     }
 }
 
 #[test]
-fn test_solve_reduced() {
+fn test_solve_via_ilp_pipeline() {
     let problem = BinPacking::new(vec![6, 5, 5, 4, 3], 10).unwrap();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should work");
+        .solve(&problem)
+        .expect("ILP pipeline should solve the problem");
 
     assert!(problem.evaluate(&solution).unwrap().is_valid());
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(3)));

@@ -127,7 +127,7 @@ impl AggregateReductionResult for AggregateValueToIlpReduction {
         &self.target
     }
 
-    fn extract_value(&self, _target_value: Extremum<f64>) -> Max<i64> {
+    fn extract_value(&self, _target_value: Extremum<i64>) -> Max<i64> {
         Max(Some(0))
     }
 }

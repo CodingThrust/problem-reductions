@@ -41,10 +41,10 @@ fn test_minimum_matrix_cover_to_ilp_structure() {
     // y_{01} coefficient: 4*(a_01 + a_10) = 4*(3+2) = 20
     // x_0 coefficient: -2*(a_01+a_10) = -2*(3+2) = -10
     // x_1 coefficient: -2*(a_10+a_01) = -2*(2+3) = -10
-    let obj_map: std::collections::HashMap<usize, f64> = ilp.objective().iter().copied().collect();
-    assert_eq!(*obj_map.get(&0).unwrap_or(&0.0), -10.0);
-    assert_eq!(*obj_map.get(&1).unwrap_or(&0.0), -10.0);
-    assert_eq!(*obj_map.get(&2).unwrap_or(&0.0), 20.0);
+    let obj_map: std::collections::HashMap<usize, i64> = ilp.objective().iter().copied().collect();
+    assert_eq!(*obj_map.get(&0).unwrap_or(&0), -10);
+    assert_eq!(*obj_map.get(&1).unwrap_or(&0), -10);
+    assert_eq!(*obj_map.get(&2).unwrap_or(&0), 20);
 }
 
 #[test]

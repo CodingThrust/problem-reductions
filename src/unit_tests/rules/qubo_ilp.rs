@@ -10,15 +10,26 @@ fn test_qubo_to_ilp_closed_loop() {
     // x=0,0 -> 0, x=1,0 -> 2, x=0,1 -> -3, x=1,1 -> 0
     // Optimal: x = [0, 1] with obj = -3
     let qubo = QUBO::from_matrix(vec![vec![2.0, 1.0], vec![0.0, -3.0]]).unwrap();
+    let reduction = ReduceTo::<ILP<bool, f64>>::reduce_to(&qubo).expect("reduction should succeed");
+    assert_bf_vs_ilp(&qubo, &reduction);
+}
+
+#[test]
+fn test_integer_qubo_to_integer_ilp() {
+    let qubo = QUBO::from_matrix(vec![vec![2, 1], vec![0, -3]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo).expect("reduction should succeed");
     assert_bf_vs_ilp(&qubo, &reduction);
+    assert_eq!(
+        reduction.target_problem().objective(),
+        &[(0, 2), (1, -3), (2, 1)]
+    );
 }
 
 #[test]
 fn test_qubo_to_ilp_bf_vs_ilp() {
     // QUBO: minimize 2*x0 - 3*x1 + x0*x1
     let qubo = QUBO::from_matrix(vec![vec![2.0, 1.0], vec![0.0, -3.0]]).unwrap();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo).expect("reduction should succeed");
+    let reduction = ReduceTo::<ILP<bool, f64>>::reduce_to(&qubo).expect("reduction should succeed");
 
     let bf_solutions = BruteForce::new().find_all_witnesses(&qubo).unwrap();
     let bf_value = qubo.evaluate(&bf_solutions[0]).unwrap();
@@ -37,7 +48,7 @@ fn test_qubo_to_ilp_diagonal_only() {
     // No quadratic terms: minimize 3*x0 - 2*x1
     // Optimal: x = [0, 1] with obj = -2
     let qubo = QUBO::from_matrix(vec![vec![3.0, 0.0], vec![0.0, -2.0]]).unwrap();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo).expect("reduction should succeed");
+    let reduction = ReduceTo::<ILP<bool, f64>>::reduce_to(&qubo).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // No auxiliary variables when no off-diagonal terms
@@ -59,7 +70,7 @@ fn test_qubo_to_ilp_3var() {
         vec![0.0, 0.0, -1.0],
     ])
     .unwrap();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo).expect("reduction should succeed");
+    let reduction = ReduceTo::<ILP<bool, f64>>::reduce_to(&qubo).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 3 original + 2 auxiliary (for two off-diagonal terms)

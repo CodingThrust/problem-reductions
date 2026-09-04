@@ -6,7 +6,7 @@ use crate::types::Extremum;
 fn binary_ilp(
     num_vars: usize,
     constraints: Vec<LinearConstraint>,
-    objective: Vec<(usize, f64)>,
+    objective: Vec<(usize, i64)>,
     sense: ObjectiveSense,
 ) -> ILP<bool> {
     ILP::new(num_vars, constraints, objective, sense).unwrap()
@@ -16,8 +16,59 @@ fn binary_ilp(
 fn ilp_variant_identifies_variable_domain() {
     assert_eq!(
         <ILP<bool> as Problem>::variant(),
-        vec![("variable", "bool")]
+        vec![("variable", "bool"), ("coefficient", "i64")]
     );
+}
+
+#[test]
+fn ilp_variant_identifies_float_coefficients() {
+    assert_eq!(
+        <ILP<bool, f64> as Problem>::variant(),
+        vec![("variable", "bool"), ("coefficient", "f64")]
+    );
+}
+
+#[test]
+fn integer_objective_keeps_adjacent_large_values_distinct() {
+    let smaller = crate::types::MAX_EXACT_F64_INTEGER + 3;
+    let larger = smaller + 1;
+    let ilp = ILP::<bool>::new(
+        2,
+        vec![],
+        vec![(0, smaller), (1, larger)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+
+    assert_eq!(ilp.evaluate_objective(&[1, 0]).unwrap(), smaller);
+    assert_eq!(ilp.evaluate_objective(&[0, 1]).unwrap(), larger);
+}
+
+#[test]
+fn float_constraints_use_float_arithmetic() {
+    let ilp = ILP::<bool, f64>::new(
+        2,
+        vec![LinearConstraint::eq(vec![(0, 0.1), (1, 0.2)], 0.3)],
+        vec![(0, 0.5)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+
+    assert!(ilp.is_feasible(&[1, 1]).unwrap());
+    assert_eq!(ilp.evaluate_objective(&[1, 0]).unwrap(), 0.5);
+}
+
+#[test]
+fn float_ilp_rejects_non_finite_coefficients() {
+    assert!(matches!(
+        ILP::<bool, f64>::new(
+            1,
+            vec![],
+            vec![(0, f64::INFINITY)],
+            ObjectiveSense::Minimize,
+        ),
+        Err(crate::registry::ConstructionError::NonFiniteFloat(_))
+    ));
 }
 
 #[test]
@@ -119,7 +170,7 @@ fn test_ilp_new() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     );
     assert_eq!(ilp.num_vars(), 2);
@@ -141,16 +192,16 @@ fn test_ilp_evaluate_objective() {
     let ilp = binary_ilp(
         3,
         vec![],
-        vec![(0, 2.0), (1, 3.0), (2, -1.0)],
+        vec![(0, 2), (1, 3), (2, -1)],
         ObjectiveSense::Maximize,
     );
-    assert_eq!(ilp.evaluate_objective(&[1, 1, 0]).unwrap(), 5.0);
-    assert_eq!(ilp.evaluate_objective(&[0, 0, 1]).unwrap(), -1.0);
+    assert_eq!(ilp.evaluate_objective(&[1, 1, 0]).unwrap(), 5);
+    assert_eq!(ilp.evaluate_objective(&[0, 0, 1]).unwrap(), -1);
 }
 
 #[test]
 fn test_ilp_objective_rejects_short_assignment() {
-    let ilp = binary_ilp(2, vec![], vec![(1, 1.0)], ObjectiveSense::Maximize);
+    let ilp = binary_ilp(2, vec![], vec![(1, 1)], ObjectiveSense::Maximize);
     assert!(matches!(
         ilp.evaluate_objective(&[0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -199,16 +250,16 @@ fn test_ilp_evaluate_valid() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     );
     assert_eq!(
         ilp.evaluate(&vec![0, 1]).unwrap(),
-        Extremum::maximize(Some(2.0))
+        Extremum::maximize(Some(2))
     );
     assert_eq!(
         ilp.evaluate(&vec![1, 0]).unwrap(),
-        Extremum::maximize(Some(1.0))
+        Extremum::maximize(Some(1))
     );
 }
 
@@ -228,7 +279,7 @@ fn test_ilp_solver_maximization() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     );
     assert_eq!(ILPSolver::new().solve(&ilp).unwrap(), vec![0, 1]);
@@ -239,7 +290,7 @@ fn test_ilp_solver_minimization() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::ge(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 1.0)],
+        vec![(0, 1), (1, 1)],
         ObjectiveSense::Minimize,
     );
     let solution = ILPSolver::new().solve(&ilp).unwrap();
@@ -264,12 +315,7 @@ fn test_ilp_solver_infeasible() {
 
 #[test]
 fn test_ilp_unconstrained() {
-    let ilp = binary_ilp(
-        2,
-        vec![],
-        vec![(0, 1.0), (1, 1.0)],
-        ObjectiveSense::Maximize,
-    );
+    let ilp = binary_ilp(2, vec![], vec![(0, 1), (1, 1)], ObjectiveSense::Maximize);
     assert_eq!(ILPSolver::new().solve(&ilp).unwrap(), vec![1, 1]);
 }
 
@@ -278,7 +324,7 @@ fn test_ilp_equality_constraint() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::eq(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0)],
+        vec![(0, 1)],
         ObjectiveSense::Minimize,
     );
     assert_eq!(ILPSolver::new().solve(&ilp).unwrap(), vec![0, 1]);
@@ -292,7 +338,7 @@ fn test_ilp_multiple_constraints() {
             LinearConstraint::le(vec![(0, 1), (1, 1)], 1),
             LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
         ],
-        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        vec![(0, 1), (1, 1), (2, 1)],
         ObjectiveSense::Maximize,
     );
     assert_eq!(ILPSolver::new().solve(&ilp).unwrap(), vec![1, 0, 1]);
@@ -311,39 +357,34 @@ fn test_ilp_problem() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     );
     assert_eq!(
         ilp.evaluate(&vec![0, 0]).unwrap(),
-        Extremum::maximize(Some(0.0))
+        Extremum::maximize(Some(0))
     );
     assert_eq!(
         ilp.evaluate(&vec![0, 1]).unwrap(),
-        Extremum::maximize(Some(2.0))
+        Extremum::maximize(Some(2))
     );
     assert_eq!(
         ilp.evaluate(&vec![1, 0]).unwrap(),
-        Extremum::maximize(Some(1.0))
+        Extremum::maximize(Some(1))
     );
     assert_eq!(ilp.evaluate(&vec![1, 1]).unwrap(), Extremum::maximize(None));
 }
 
 #[test]
 fn test_ilp_problem_minimize() {
-    let ilp = binary_ilp(
-        2,
-        vec![],
-        vec![(0, 1.0), (1, 1.0)],
-        ObjectiveSense::Minimize,
-    );
+    let ilp = binary_ilp(2, vec![], vec![(0, 1), (1, 1)], ObjectiveSense::Minimize);
     assert_eq!(
         ilp.evaluate(&vec![0, 0]).unwrap(),
-        Extremum::minimize(Some(0.0))
+        Extremum::minimize(Some(0))
     );
     assert_eq!(
         ilp.evaluate(&vec![1, 1]).unwrap(),
-        Extremum::minimize(Some(2.0))
+        Extremum::minimize(Some(2))
     );
 }
 
@@ -355,7 +396,7 @@ fn test_parameter_getters() {
             LinearConstraint::le(vec![(0, 1), (1, 1)], 3),
             LinearConstraint::le(vec![(0, 1)], 2),
         ],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     );
     assert_eq!(ilp.num_vars(), 2);
@@ -428,18 +469,18 @@ fn test_ilp_paper_example() {
             LinearConstraint::le(vec![(0, 1), (1, 1)], 5),
             LinearConstraint::le(vec![(0, 4), (1, 7)], 28),
         ],
-        vec![(0, -5.0), (1, -6.0)],
+        vec![(0, -5), (1, -6)],
         ObjectiveSense::Minimize,
     )
     .unwrap();
     assert_eq!(
         ilp.evaluate(&vec![3, 2]).unwrap(),
-        Extremum::minimize(Some(-27.0))
+        Extremum::minimize(Some(-27))
     );
     assert!(ilp.is_feasible(&[3, 2]).unwrap());
     assert!(!ilp.is_feasible(&[4, 4]).unwrap());
     assert_eq!(
         ilp.evaluate(&vec![0, 4]).unwrap(),
-        Extremum::minimize(Some(-24.0))
+        Extremum::minimize(Some(-24))
     );
 }

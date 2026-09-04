@@ -37,15 +37,15 @@ fn test_reduction_creates_valid_ilp() {
     assert_eq!(
         ilp.objective(),
         vec![
-            (6, 1.0),
-            (7, 1.0),
-            (8, 1.0),
-            (9, 1.0),
-            (10, 1.0),
-            (11, 1.0),
-            (12, 1.0),
-            (13, 1.0),
-            (14, 1.0),
+            (6, 1),
+            (7, 1),
+            (8, 1),
+            (9, 1),
+            (10, 1),
+            (11, 1),
+            (12, 1),
+            (13, 1),
+            (14, 1),
         ]
     );
 }
@@ -129,13 +129,13 @@ fn test_solution_extraction() {
 }
 
 #[test]
-fn test_solve_reduced() {
+fn test_solve_via_ilp_pipeline() {
     let problem = canonical_instance();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should work");
+        .solve(&problem)
+        .expect("ILP pipeline should solve the problem");
 
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(3)));
 }

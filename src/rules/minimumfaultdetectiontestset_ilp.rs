@@ -121,7 +121,7 @@ impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {
             })
             .collect();
 
-        let objective = (0..num_pairs).map(|pair_idx| (pair_idx, 1.0)).collect();
+        let objective = (0..num_pairs).map(|pair_idx| (pair_idx, 1)).collect();
 
         Ok(ReductionMFDTSToILP {
             target: ILP::new(num_pairs, constraints, objective, ObjectiveSense::Minimize)

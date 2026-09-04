@@ -1,8 +1,9 @@
 use super::*;
 use std::collections::BTreeMap;
 
-const BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool")];
-const I64_VARIANT: &[(&str, &str)] = &[("variable", "i64")];
+const BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "i64")];
+const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "f64")];
+const FLOAT_I64_VARIANT: &[(&str, &str)] = &[("variable", "i64"), ("coefficient", "f64")];
 const NO_VARIANT: &[(&str, &str)] = &[];
 
 #[test]
@@ -30,6 +31,10 @@ fn generic_decision_ilp_respects_maximization_bounds() {
             StaticProblemStep {
                 name: "ILP",
                 variant: BOOL_VARIANT,
+            },
+            StaticProblemStep {
+                name: "ILP",
+                variant: FLOAT_BOOL_VARIANT,
             },
         ],
     };
@@ -125,13 +130,13 @@ fn generic_decision_ilp_skips_no_witness_but_preserves_extraction_errors() {
 static DIRECT_BOOL_A: IlpPipelineRegistration = IlpPipelineRegistration {
     path: &[StaticProblemStep {
         name: "ILP",
-        variant: BOOL_VARIANT,
+        variant: FLOAT_BOOL_VARIANT,
     }],
 };
 static DIRECT_BOOL_B: IlpPipelineRegistration = IlpPipelineRegistration {
     path: &[StaticProblemStep {
         name: "ILP",
-        variant: BOOL_VARIANT,
+        variant: FLOAT_BOOL_VARIANT,
     }],
 };
 static MISSING_EDGE: IlpPipelineRegistration = IlpPipelineRegistration {
@@ -142,7 +147,7 @@ static MISSING_EDGE: IlpPipelineRegistration = IlpPipelineRegistration {
         },
         StaticProblemStep {
             name: "ILP",
-            variant: BOOL_VARIANT,
+            variant: FLOAT_BOOL_VARIANT,
         },
     ],
 };
@@ -150,11 +155,11 @@ static CONTINUES_AFTER_ILP: IlpPipelineRegistration = IlpPipelineRegistration {
     path: &[
         StaticProblemStep {
             name: "ILP",
-            variant: BOOL_VARIANT,
+            variant: FLOAT_BOOL_VARIANT,
         },
         StaticProblemStep {
             name: "ILP",
-            variant: I64_VARIANT,
+            variant: FLOAT_I64_VARIANT,
         },
     ],
 };
@@ -210,7 +215,10 @@ fn exact_problem_key_has_canonical_label() {
 fn solver_capability_registry_duplicate_ilp_registration_is_rejected_independent_of_order() {
     let variants = BTreeSet::from([ExactProblemKey::new(
         "ILP",
-        BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "f64".to_string()),
+        ]),
     )]);
     for pipelines in [
         [&DIRECT_BOOL_A, &DIRECT_BOOL_B],
@@ -259,7 +267,10 @@ fn solver_capability_registry_unknown_customized_variant_is_rejected() {
 fn solver_capability_registry_unknown_pipeline_variant_is_rejected() {
     let variants = BTreeSet::from([ExactProblemKey::new(
         "ILP",
-        BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     )]);
     let error = build_registry(
         &variants,
@@ -305,7 +316,10 @@ fn solver_capability_registry_pipeline_with_missing_exact_edge_is_rejected() {
         ExactProblemKey::new("Source", BTreeMap::new()),
         ExactProblemKey::new(
             "ILP",
-            BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+            BTreeMap::from([
+                ("variable".to_string(), "bool".to_string()),
+                ("coefficient".to_string(), "f64".to_string()),
+            ]),
         ),
     ]);
     let error = build_registry(
@@ -327,11 +341,17 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
     let variants = BTreeSet::from([
         ExactProblemKey::new(
             "ILP",
-            BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+            BTreeMap::from([
+                ("variable".to_string(), "bool".to_string()),
+                ("coefficient".to_string(), "f64".to_string()),
+            ]),
         ),
         ExactProblemKey::new(
             "ILP",
-            BTreeMap::from([("variable".to_string(), "i64".to_string())]),
+            BTreeMap::from([
+                ("variable".to_string(), "i64".to_string()),
+                ("coefficient".to_string(), "f64".to_string()),
+            ]),
         ),
     ]);
     let error = build_registry(
@@ -389,7 +409,11 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        ["MaximumClique<SimpleGraph, i64>", "ILP<bool>"]
+        [
+            "MaximumClique<SimpleGraph, i64>",
+            "ILP<i64, bool>",
+            "ILP<f64, bool>"
+        ]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -412,8 +436,12 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(brute_force_only.customized.is_none());
     assert!(brute_force_only.ilp.is_none());
 
-    let ilp_itself = solver_capabilities(&key("ILP", &[("variable", "bool")])).unwrap();
-    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<bool>"]);
+    let ilp_itself =
+        solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
+    assert_eq!(
+        ilp_itself.ilp.unwrap().path_labels(),
+        ["ILP<i64, bool>", "ILP<f64, bool>"]
+    );
 }
 
 #[test]

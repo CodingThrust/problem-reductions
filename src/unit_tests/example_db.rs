@@ -282,7 +282,10 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     };
     let target = ProblemRef {
         name: "ILP".to_string(),
-        variant: BTreeMap::from([("variable".to_string(), "i64".to_string())]),
+        variant: BTreeMap::from([
+            ("variable".to_string(), "i64".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     };
 
     let example = find_rule_example(&source, &target).expect("IntegralFlowBundles -> ILP exists");
@@ -309,7 +312,10 @@ fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instance
     };
     let target = ProblemRef {
         name: "ILP".to_string(),
-        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        variant: BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     };
 
     let example =
@@ -355,7 +361,10 @@ fn test_find_rule_example_rejects_composed_path_pairs() {
     };
     let target = ProblemRef {
         name: "ILP".to_string(),
-        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        variant: BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     };
 
     let result = find_rule_example(&source, &target);

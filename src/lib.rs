@@ -97,7 +97,6 @@ pub mod prelude {
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack,
         MaximumSetPacking, MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering,
         PrimeAttributeName, RootedTreeStorageAssignment, SetBasis, SetSplitting,
-        ThreeMatroidIntersection,
     };
 
     // Core traits

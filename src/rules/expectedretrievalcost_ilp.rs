@@ -41,7 +41,7 @@ fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
 /// Total: num_records * num_sectors + (num_records * num_sectors)^2 variables.
 #[derive(Debug, Clone)]
 pub struct ReductionERCToILP {
-    target: ILP<bool>,
+    target: ILP<bool, f64>,
     num_records: usize,
     num_sectors: usize,
 }
@@ -59,9 +59,9 @@ impl ReductionERCToILP {
 
 impl ReductionResult for ReductionERCToILP {
     type Source = ExpectedRetrievalCost;
-    type Target = ILP<bool>;
+    type Target = ILP<bool, f64>;
 
-    fn target_problem(&self) -> &ILP<bool> {
+    fn target_problem(&self) -> &ILP<bool, f64> {
         &self.target
     }
 
@@ -85,7 +85,7 @@ impl ReductionResult for ReductionERCToILP {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
+impl ReduceTo<ILP<bool, f64>> for ExpectedRetrievalCost {
     type Result = ReductionERCToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -100,13 +100,14 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
             num_sectors,
         };
 
-        let mut constraints = Vec::new();
+        let mut constraints: Vec<LinearConstraint<f64>> = Vec::new();
 
         // Assignment constraints: for each record r, Σ_s x_{r,s} = 1
         for r in 0..num_records {
-            let terms: Vec<(usize, i64)> =
-                (0..num_sectors).map(|s| (result.x_var(r, s), 1)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1));
+            let terms: Vec<(usize, f64)> = (0..num_sectors)
+                .map(|s| (result.x_var(r, s), 1.0))
+                .collect();
+            constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
         // McCormick linearization constraints for each product z_{r,s,r',s'}
@@ -170,12 +171,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap();
             // Compute target_config from solver to ensure consistency
             let reduction: ReductionERCToILP =
-                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+                ReduceTo::<ILP<bool, f64>>::reduce_to(&source).expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();
             let target_config = solver
                 .solve(reduction.target_problem())
                 .expect("canonical example should be feasible");
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool, f64>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![0, 1]),

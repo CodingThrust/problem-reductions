@@ -1,7 +1,7 @@
 //! Numerical 3-Dimensional Matching (N3DM) problem implementation.
 //!
-//! Given disjoint sets W, X, Y each with m elements, sizes s(a) ∈ Z⁺ for
-//! every element with B/4 < s(a) < B/2, and a bound B where the total sum
+//! Given disjoint sets W, X, Y each with m elements, positive integer sizes
+//! s(a), and a positive integer bound B where the total sum
 //! equals mB.  Decide whether W ∪ X ∪ Y can be partitioned into m triples,
 //! each containing one element from W, X, and Y, with each triple summing
 //! to exactly B.
@@ -57,26 +57,15 @@ impl Numerical3DimensionalMatching {
                     .into(),
             );
         }
-        if bound == 0 {
+        if bound <= 0 {
             return Err("Numerical3DimensionalMatching requires a positive bound"
                 .to_string()
                 .into());
         }
 
         for &size in sizes_w.iter().chain(sizes_x.iter()).chain(sizes_y.iter()) {
-            if size == 0 {
+            if size <= 0 {
                 return Err("All sizes must be positive (> 0)".to_string().into());
-            }
-            let four_times_size = size
-                .checked_mul(4)
-                .ok_or("four times a size exceeds i64 range")?;
-            let two_times_size = size
-                .checked_mul(2)
-                .ok_or("two times a size exceeds i64 range")?;
-            if !(four_times_size > bound && two_times_size < bound) {
-                return Err("Every size must lie strictly between B/4 and B/2"
-                    .to_string()
-                    .into());
             }
         }
 
@@ -200,9 +189,6 @@ impl Problem for Numerical3DimensionalMatching {
                 let mut y_used = vec![false; m];
 
                 for i in 0..m {
-                    if x_perm[i] >= m || y_perm[i] >= m {
-                        return Ok(Or(false));
-                    }
                     if x_used[x_perm[i]] || y_used[y_perm[i]] {
                         return Ok(Or(false));
                     }

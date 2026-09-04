@@ -29,7 +29,7 @@ fn test_integerknapsack_to_ilp_structure() {
     assert_eq!(ilp.num_vars(), 3);
     assert_eq!(ilp.num_constraints(), 4);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
-    assert_eq!(ilp.objective(), vec![(0, 4.0), (1, 5.0), (2, 7.0)]);
+    assert_eq!(ilp.objective(), vec![(0, 4), (1, 5), (2, 7)]);
 
     let capacity = &ilp.constraints()[0];
     assert_eq!(capacity.comparison(), Comparison::Le);

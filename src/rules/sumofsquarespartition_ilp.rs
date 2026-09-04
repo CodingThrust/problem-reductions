@@ -21,7 +21,6 @@ use crate::models::misc::SumOfSquaresPartition;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing SumOfSquaresPartition to ILP.
 ///
@@ -119,7 +118,7 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
 
         // Objective: Minimize Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g}
         let sizes = self.sizes();
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for i in 0..n {
             for j in 0..n {
                 for g in 0..k {
@@ -129,13 +128,8 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
                             ILP<bool>,
                         >("multiplying two partition element sizes")
                     })?;
-                    let coeff = i64_to_exact_f64(product).map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            SumOfSquaresPartition,
-                            ILP<bool>,
-                        >(error)
-                    })?;
-                    if coeff.abs() > 0.0 {
+                    let coeff = product;
+                    if coeff != 0 {
                         objective.push((result.z_var(i, j, g), coeff));
                     }
                 }

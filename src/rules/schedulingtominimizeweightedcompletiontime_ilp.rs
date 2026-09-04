@@ -10,7 +10,6 @@ use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 
 /// Result of reducing SchedulingToMinimizeWeightedCompletionTime to ILP.
 ///
@@ -89,46 +88,8 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
                     ILP<i64>,
                 >("summing task processing times")
             })?;
-        let total_weight = self
-            .weights()
-            .iter()
-            .try_fold(0_i64, |total, &weight| total.checked_add(weight))
-            .ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<
-                    SchedulingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
-                >("summing task weights")
-            })?;
-        let maximum_objective =
-            total_processing_time
-                .checked_mul(total_weight)
-                .ok_or_else(|| {
-                    crate::rules::ReductionError::integer_overflow::<
-                        SchedulingToMinimizeWeightedCompletionTime,
-                        ILP<i64>,
-                    >("bounding the weighted completion objective")
-                })?;
-        if maximum_objective > MAX_EXACT_F64_INTEGER {
-            return Err(crate::rules::ReductionError::invalid_target::<
-                SchedulingToMinimizeWeightedCompletionTime,
-                ILP<i64>,
-            >(
-                "weighted completion objective is not exactly representable by the ILP backend",
-            ));
-        }
         let lengths = self.lengths();
-        let weights = self
-            .weights()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    SchedulingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
-                >(error)
-            })?;
+        let weights = self.weights();
         let big_m = total_processing_time;
         let two_big_m = big_m.checked_mul(2).ok_or_else(|| {
             crate::rules::ReductionError::integer_overflow::<
@@ -222,8 +183,9 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
         }
 
         // Objective: minimize sum_t w_t * C_t
-        let objective: Vec<(usize, f64)> = weights
-            .into_iter()
+        let objective: Vec<(usize, i64)> = weights
+            .iter()
+            .copied()
             .enumerate()
             .map(|(task, weight)| (result.c_var(task), weight))
             .collect();

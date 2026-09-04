@@ -9,7 +9,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 
 #[derive(Debug, Clone)]
 pub struct ReductionSTMWCTToILP {
@@ -75,47 +74,8 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
                 >("summing task processing times")
             })
         })?;
-        let total_weight = self
-            .weights()
-            .iter()
-            .try_fold(0i64, |acc, &weight| acc.checked_add(weight))
-            .ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<
-                    SequencingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
-                >("summing task weights")
-            })?;
-        let maximum_objective =
-            total_processing_time
-                .checked_mul(total_weight)
-                .ok_or_else(|| {
-                    crate::rules::ReductionError::integer_overflow::<
-                        SequencingToMinimizeWeightedCompletionTime,
-                        ILP<i64>,
-                    >("bounding the weighted completion objective")
-                })?;
-        if maximum_objective > MAX_EXACT_F64_INTEGER {
-            return Err(crate::rules::ReductionError::invalid_target::<
-                SequencingToMinimizeWeightedCompletionTime,
-                ILP<i64>,
-            >(
-                "weighted completion objective is not exactly representable by the ILP backend",
-            ));
-        }
-
         let lengths = self.lengths();
-        let weights = self
-            .weights()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    SequencingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
-                >(error)
-            })?;
+        let weights = self.weights();
         let num_order_vars = num_tasks * (num_tasks.saturating_sub(1)) / 2;
         let num_vars = num_tasks + num_order_vars;
 
@@ -170,7 +130,7 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
             ));
         }
 
-        let objective = weights.into_iter().enumerate().collect();
+        let objective = weights.iter().copied().enumerate().collect();
 
         Ok(Self::Result {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

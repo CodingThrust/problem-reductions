@@ -22,15 +22,15 @@ fn test_reduction_creates_valid_ilp_structure() {
     assert!(ilp
         .objective()
         .iter()
-        .any(|&(idx, coeff)| idx == 6 && coeff == 4.0));
+        .any(|&(idx, coeff)| idx == 6 && coeff == 4));
     assert!(ilp
         .objective()
         .iter()
-        .any(|&(idx, coeff)| idx == 7 && coeff == 2.0));
+        .any(|&(idx, coeff)| idx == 7 && coeff == 2));
     assert!(ilp
         .objective()
         .iter()
-        .any(|&(idx, coeff)| idx == 8 && coeff == 1.0));
+        .any(|&(idx, coeff)| idx == 8 && coeff == 1));
 }
 
 #[test]

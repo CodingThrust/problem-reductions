@@ -27,15 +27,7 @@ fn test_reduction_creates_expected_ilp_shape() {
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert_eq!(
         ilp.objective(),
-        vec![
-            (0, 2.0),
-            (1, 2.0),
-            (2, 1.0),
-            (3, 1.0),
-            (4, 5.0),
-            (5, 5.0),
-            (6, 6.0),
-        ]
+        vec![(0, 2), (1, 2), (2, 1), (3, 1), (4, 5), (5, 5), (6, 6),]
     );
 }
 
@@ -75,11 +67,13 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 }
 
 #[test]
-fn test_solve_reduced_uses_new_rule() {
+fn test_reduction_closed_loop() {
     let problem = canonical_instance();
-    let solution = ILPSolver::new()
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should find the Steiner tree via ILP");
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    let target_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("target ILP should be solvable");
+    let solution = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(6)));
 }
 

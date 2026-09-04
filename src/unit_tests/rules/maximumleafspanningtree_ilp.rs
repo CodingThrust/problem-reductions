@@ -42,10 +42,7 @@ fn test_reduction_creates_expected_ilp_shape() {
     assert_eq!(ilp.num_vars(), 16);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective should be z_0 + z_1 + z_2 + z_3 (indices 4..8)
-    assert_eq!(
-        ilp.objective(),
-        vec![(4, 1.0), (5, 1.0), (6, 1.0), (7, 1.0)]
-    );
+    assert_eq!(ilp.objective(), vec![(4, 1), (5, 1), (6, 1), (7, 1)]);
 }
 
 #[test]

@@ -1,7 +1,9 @@
 //! ILP solver implementation using HiGHS.
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
-use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::registry::solver_capability_registry;
+use crate::solvers::ExactProblemKey;
+use crate::traits::Problem;
 use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 use good_lp::highs;
 use good_lp::solvers::highs::HighsParallelType;
@@ -25,8 +27,17 @@ pub enum ILPSolveError {
     #[error("the ILP backend failed: {0}")]
     BackendFailure(String),
     /// Type-erased dispatch received a value other than a supported ILP variant.
-    #[error("the ILP backend supports only ILP<bool> and ILP<i64>")]
+    #[error("the ILP backend requires bool/i64 variables and f64 coefficients")]
     UnsupportedProblemType,
+    /// No ILP pipeline is registered for the exact problem variant.
+    #[error("no ILP pipeline is registered for {0}")]
+    MissingPipeline(String),
+    /// The solver capability registry is invalid.
+    #[error("solver capability registry is invalid: {0}")]
+    InvalidRegistry(String),
+    /// A registered pipeline returned a solution for a different source type.
+    #[error("registered ILP pipeline returned the wrong solution type for {0}")]
+    PipelineTypeMismatch(String),
     /// HiGHS reported an optimal solution that is invalid after integer rounding.
     #[error("the ILP backend returned an invalid rounded solution: {0}")]
     InvalidSolution(String),
@@ -52,7 +63,8 @@ fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> IL
 
 /// An ILP solver using the HiGHS backend.
 ///
-/// This solver solves Integer Linear Programming problems directly using the HiGHS solver.
+/// Registered reductions map a source problem to an `ILP<V, f64>` terminal,
+/// which this solver sends to HiGHS before extracting the source solution.
 ///
 /// # Example
 ///
@@ -61,9 +73,9 @@ fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> IL
 /// use problemreductions::solvers::ILPSolver;
 ///
 /// // Create a simple binary ILP: maximize x0 + 2*x1 subject to x0 + x1 <= 1
-/// let ilp = ILP::<bool>::new(
+/// let ilp = ILP::<bool, f64>::new(
 ///     2,
-///     vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
+///     vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
 ///     vec![(0, 1.0), (1, 2.0)],
 ///     ObjectiveSense::Maximize,
 /// )?;
@@ -92,21 +104,42 @@ impl ILPSolver {
         }
     }
 
-    /// Solve an ILP problem directly.
+    /// Solve a problem through its registered ILP pipeline.
     ///
     /// Returns a classified error when the problem is infeasible, the time
-    /// limit is reached, or the backend fails.
-    /// The returned solution contains the mathematical integer value of each
-    /// variable in model order.
-    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Result<Vec<i64>, ILPSolveError> {
+    /// limit is reached, the pipeline is missing, or the backend fails.
+    pub fn solve<P>(&self, problem: &P) -> Result<P::Solution, ILPSolveError>
+    where
+        P: Problem + 'static,
+        P::Solution: 'static,
+    {
+        let key = ExactProblemKey::new(P::NAME, crate::export::variant_to_map(P::variant()));
+        let registry = solver_capability_registry()
+            .map_err(|error| ILPSolveError::InvalidRegistry(error.to_string()))?;
+        let pipeline = registry
+            .lookup(&key)
+            .ilp
+            .ok_or_else(|| ILPSolveError::MissingPipeline(key.label()))?;
+        pipeline
+            .solve_typed(problem, self)?
+            .ok_or(ILPSolveError::Infeasible)
+    }
+
+    fn solve_backend<V>(&self, problem: &ILP<V, f64>) -> Result<Vec<i64>, ILPSolveError>
+    where
+        V: VariableDomain,
+    {
         self.solve_with_objective(problem, problem.objective())
     }
 
-    fn solve_with_objective<V: VariableDomain>(
+    fn solve_with_objective<V>(
         &self,
-        problem: &ILP<V>,
+        problem: &ILP<V, f64>,
         objective_terms: &[(usize, f64)],
-    ) -> Result<Vec<i64>, ILPSolveError> {
+    ) -> Result<Vec<i64>, ILPSolveError>
+    where
+        V: VariableDomain,
+    {
         let n = problem.num_vars();
         if n == 0 {
             return if problem
@@ -138,7 +171,7 @@ impl ILPSolver {
         // Build objective expression
         let objective: good_lp::Expression = objective_terms
             .iter()
-            .map(|&(var_idx, coef)| coef * vars[var_idx])
+            .map(|&(var_idx, coefficient)| coefficient * vars[var_idx])
             .sum();
 
         // Build the model with objective
@@ -163,14 +196,13 @@ impl ILPSolver {
         // Add constraints
         for constraint in problem.constraints() {
             // Build left-hand side expression
-            let lhs: good_lp::Expression = constraint.terms().iter().try_fold(
-                good_lp::Expression::from(0.0),
-                |lhs, &(var_idx, coefficient)| {
-                    Ok::<_, ILPSolveError>(lhs + i64_to_exact_f64(coefficient)? * vars[var_idx])
-                },
-            )?;
+            let lhs: good_lp::Expression = constraint
+                .terms()
+                .iter()
+                .map(|&(var_idx, coefficient)| coefficient * vars[var_idx])
+                .sum();
 
-            let rhs = i64_to_exact_f64(constraint.rhs())?;
+            let rhs = constraint.rhs();
 
             // Create the constraint based on comparison type
             let good_lp_constraint = match constraint.comparison() {
@@ -245,50 +277,13 @@ impl ILPSolver {
         Ok(result)
     }
 
-    /// Solve any problem that reduces directly to `ILP<V>`.
-    ///
-    /// This method first reduces the problem to the selected ILP domain, solves the ILP,
-    /// and then extracts the solution back to the original problem space.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use problemreductions::prelude::*;
-    /// use problemreductions::solvers::ILPSolver;
-    ///
-    /// // Create a problem that reduces directly to ILP.
-    /// let problem = MaximumSetPacking::<i64>::new(vec![
-    ///     vec![0, 1],
-    ///     vec![1, 2],
-    ///     vec![3, 4],
-    /// ]);
-    ///
-    /// // Solve using ILP solver
-    /// let solver = ILPSolver::new();
-    /// let solution = solver.solve_reduced::<bool, _>(&problem)?;
-    /// println!("Solution: {:?}", solution);
-    /// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
-    /// ```
-    pub fn solve_reduced<V, P>(
-        &self,
-        problem: &P,
-    ) -> Result<<P as crate::traits::Problem>::Solution, ILPSolveError>
-    where
-        V: VariableDomain,
-        P: ReduceTo<ILP<V>>,
-    {
-        let reduction = problem.reduce_to()?;
-        let ilp_solution = self.solve(reduction.target_problem())?;
-        Ok(reduction.extract_solution(&ilp_solution)?)
-    }
-
     /// Solve a type-erased supported ILP variant directly.
     pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<i64>, ILPSolveError> {
-        if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
-            return self.solve(ilp);
+        if let Some(ilp) = any.downcast_ref::<ILP<bool, f64>>() {
+            return self.solve_backend(ilp);
         }
-        if let Some(ilp) = any.downcast_ref::<ILP<i64>>() {
-            return self.solve(ilp);
+        if let Some(ilp) = any.downcast_ref::<ILP<i64, f64>>() {
+            return self.solve_backend(ilp);
         }
         Err(ILPSolveError::UnsupportedProblemType)
     }

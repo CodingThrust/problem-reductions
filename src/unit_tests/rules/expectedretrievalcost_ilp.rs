@@ -8,7 +8,7 @@ fn test_reduction_creates_valid_ilp() {
     // 2 records, 2 sectors
     let problem = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap();
     let reduction: ReductionERCToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool, f64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // num_records=2, num_sectors=2: n=4 x-vars, n^2=16 z-vars -> 20 total
@@ -38,7 +38,7 @@ fn test_expectedretrievalcost_to_ilp_bf_vs_ilp() {
     // 3 records, 2 sectors
     let problem = ExpectedRetrievalCost::new(vec![0.3, 0.4, 0.3], 2).unwrap();
     let reduction: ReductionERCToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool, f64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -63,7 +63,7 @@ fn test_solution_extraction() {
     // 2 records, 2 sectors
     let problem = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap();
     let reduction: ReductionERCToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool, f64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // record 0 -> sector 0, record 1 -> sector 1
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1
@@ -86,7 +86,7 @@ fn test_expectedretrievalcost_to_ilp_closed_loop() {
     // 2 records, 2 sectors
     let problem = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap();
     let reduction: ReductionERCToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool, f64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();

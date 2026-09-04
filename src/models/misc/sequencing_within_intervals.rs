@@ -36,7 +36,7 @@ inventory::submit! {
 ///
 /// Each task has a variable representing its start time offset from the release time.
 /// Variable `i` takes values in `{0, ..., d(i) - r(i) - l(i)}`, so the actual start
-/// time is `r(i) + config[i]`.
+/// time is `r(i) + config[i]`. If this range is empty, the instance is infeasible.
 ///
 /// # Example
 ///
@@ -104,29 +104,7 @@ impl SequencingWithinIntervals {
         }
         let mut total_slots = 0usize;
         for i in 0..release_times.len() {
-            let sum = release_times[i].checked_add(lengths[i]).ok_or_else(|| {
-                ConstructionError::IntegerOverflow(format!(
-                    "task {i} release time plus length overflows i64"
-                ))
-            })?;
-            if sum > deadlines[i] {
-                return Err(ConstructionError::Conversion(format!(
-                    "task {i} has an empty time window"
-                )));
-            }
-            let slots = deadlines[i]
-                .checked_sub(sum)
-                .and_then(|slack| slack.checked_add(1))
-                .ok_or_else(|| {
-                    ConstructionError::IntegerOverflow(format!(
-                        "task {i} start-slot count overflows i64"
-                    ))
-                })?;
-            let slots = usize::try_from(slots).map_err(|_| {
-                ConstructionError::IntegerOverflow(format!(
-                    "task {i} start-slot count does not fit usize"
-                ))
-            })?;
+            let slots = start_slot_count(release_times[i], deadlines[i], lengths[i])?;
             total_slots = total_slots.checked_add(slots).ok_or_else(|| {
                 ConstructionError::IntegerOverflow("total start-slot count exceeds usize".into())
             })?;
@@ -160,18 +138,32 @@ impl SequencingWithinIntervals {
 
     /// Return the total number of feasible start slots across all tasks.
     pub fn num_start_slots(&self) -> usize {
+        self.start_slot_counts().sum()
+    }
+
+    pub(crate) fn start_slot_counts(&self) -> impl Iterator<Item = usize> + '_ {
         self.release_times
             .iter()
             .zip(&self.deadlines)
             .zip(&self.lengths)
-            .map(|((&release, &deadline), &length)| deadline - release - length + 1)
-            .fold(0usize, |total, slots| {
-                let slots = usize::try_from(slots).expect("start-slot count does not fit usize");
-                total
-                    .checked_add(slots)
-                    .expect("total start-slot count overflow")
+            .map(|((&release, &deadline), &length)| {
+                start_slot_count(release, deadline, length)
+                    .expect("start-slot count validated at construction")
             })
     }
+}
+
+fn start_slot_count(release: i64, deadline: i64, length: i64) -> Result<usize, ConstructionError> {
+    let latest_start = deadline - length;
+    if latest_start < release {
+        return Ok(0);
+    }
+    let count = (latest_start - release).checked_add(1).ok_or_else(|| {
+        ConstructionError::IntegerOverflow("task start-slot count overflows i64".into())
+    })?;
+    usize::try_from(count).map_err(|_| {
+        ConstructionError::IntegerOverflow("task start-slot count does not fit usize".into())
+    })
 }
 
 impl<'de> Deserialize<'de> for SequencingWithinIntervals {
@@ -220,16 +212,14 @@ impl Problem for SequencingWithinIntervals {
 
                 // Check each variable is within range and compute start times
                 let mut starts = Vec::with_capacity(n);
-                for (i, &c) in config.iter().enumerate() {
-                    let dim =
-                        (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
+                for (i, (&c, dim)) in config.iter().zip(self.start_slot_counts()).enumerate() {
                     if c >= dim {
                         return Err(crate::traits::EvaluationError::InvalidConfiguration(
                             "schedule contains an out-of-range start offset".into(),
                         ));
                     }
                     // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
-                    // so start + l[i] <= d[i] is guaranteed by construction.
+                    // so start + l[i] <= d[i] follows from the offset range check.
                     let offset = i64::try_from(c).map_err(|_| {
                         crate::traits::EvaluationError::IntegerOverflow(
                             "converting a sequencing start offset to i64".into(),
@@ -272,9 +262,7 @@ impl Problem for SequencingWithinIntervals {
 
 impl crate::solvers::BruteForceProblem for SequencingWithinIntervals {
     fn dimensions(&self) -> Vec<usize> {
-        (0..self.num_tasks())
-            .map(|i| (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize)
-            .collect()
+        self.start_slot_counts().collect()
     }
 }
 

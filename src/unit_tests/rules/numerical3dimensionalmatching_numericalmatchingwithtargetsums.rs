@@ -23,15 +23,19 @@ fn test_n3dm_to_nmts_structure() {
 
 #[test]
 fn test_n3dm_to_nmts_closed_loop() {
-    let source = yes_problem();
-    let reduction = ReduceTo::<NumericalMatchingWithTargetSums>::reduce_to(&source)
-        .expect("reduction should succeed");
-
-    assert_satisfaction_round_trip_from_satisfaction_target(
-        &source,
-        &reduction,
-        "N3DM -> NMTS closed loop",
-    );
+    for source in [
+        yes_problem(),
+        Numerical3DimensionalMatching::new(vec![1, 2], vec![2, 3], vec![12, 10], 15),
+        Numerical3DimensionalMatching::new(vec![i64::MAX - 2], vec![1], vec![1], i64::MAX),
+    ] {
+        let reduction = ReduceTo::<NumericalMatchingWithTargetSums>::reduce_to(&source)
+            .expect("reduction should succeed");
+        assert_satisfaction_round_trip_from_satisfaction_target(
+            &source,
+            &reduction,
+            "N3DM -> NMTS closed loop",
+        );
+    }
 }
 
 #[test]
@@ -77,15 +81,20 @@ fn test_n3dm_to_nmts_handles_repeated_targets() {
 
 #[test]
 fn test_n3dm_to_nmts_unsatisfiable_maps_to_unsatisfiable() {
-    let source = Numerical3DimensionalMatching::new(vec![4, 6], vec![4, 6], vec![4, 6], 15);
-    let reduction = ReduceTo::<NumericalMatchingWithTargetSums>::reduce_to(&source)
-        .expect("reduction should succeed");
-
-    assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    for source in [
+        Numerical3DimensionalMatching::new(vec![4, 6], vec![4, 6], vec![4, 6], 15),
+        // Zero and negative complements remain valid, infeasible NMTS targets.
+        Numerical3DimensionalMatching::new(vec![15, 1], vec![2, 3], vec![4, 5], 15),
+        Numerical3DimensionalMatching::new(vec![16, 1], vec![2, 3], vec![4, 4], 15),
+    ] {
+        let reduction = ReduceTo::<NumericalMatchingWithTargetSums>::reduce_to(&source)
+            .expect("reduction should succeed");
+        assert!(BruteForce::new().solve(&source).unwrap().is_none());
+        assert!(BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none());
+    }
 }
 
 #[cfg(feature = "example-db")]

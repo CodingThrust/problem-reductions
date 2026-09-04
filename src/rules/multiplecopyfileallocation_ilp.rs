@@ -19,7 +19,6 @@ use crate::models::graph::MultipleCopyFileAllocation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 use std::collections::VecDeque;
 
 /// Result of reducing MultipleCopyFileAllocation to ILP.
@@ -142,15 +141,10 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
         }
 
         // Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} usage(v)·dist(v,u)·y_{v,u}
-        let mut objective: Vec<(usize, f64)> = Vec::with_capacity(num_vars);
+        let mut objective: Vec<(usize, i64)> = Vec::with_capacity(num_vars);
         for v in 0..n {
-            let sc = i64_to_exact_f64(self.storage()[v]).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MultipleCopyFileAllocation,
-                    ILP<bool>,
-                >(error)
-            })?;
-            if sc != 0.0 {
+            let sc = self.storage()[v];
+            if sc != 0 {
                 objective.push((x_var(v), sc));
             }
         }
@@ -163,13 +157,8 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
                             ILP<bool>,
                         >("multiplying usage by service distance")
                     })?;
-                let coeff = i64_to_exact_f64(service_cost).map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        MultipleCopyFileAllocation,
-                        ILP<bool>,
-                    >(error)
-                })?;
-                if coeff != 0.0 {
+                let coeff = service_cost;
+                if coeff != 0 {
                     objective.push((y_var(v, u), coeff));
                 }
             }

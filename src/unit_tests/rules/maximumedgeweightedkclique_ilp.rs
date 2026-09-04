@@ -34,10 +34,7 @@ fn test_maximumedgeweightedkclique_to_ilp_structure() {
     assert_eq!(ilp.num_vars(), 9);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective is on the edge variables (indices 4..9).
-    assert_eq!(
-        ilp.objective(),
-        vec![(4, 5.0), (5, 4.0), (6, -1.0), (7, 1.0)]
-    );
+    assert_eq!(ilp.objective(), vec![(4, 5), (5, 4), (6, -1), (7, 1)]);
 }
 
 #[test]

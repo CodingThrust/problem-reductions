@@ -10,7 +10,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumFeedbackVertexSet to ILP.
 ///
@@ -100,18 +99,12 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
         }
 
         // Objective: minimize sum w_i * x_i
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(vertex, &weight)| Ok((vertex, i64_to_exact_f64(weight)?)))
-            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumFeedbackVertexSet<i64>,
-                    ILP<i64>,
-                >(error)
-            })?;
+            .map(|(vertex, &weight)| (vertex, weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;

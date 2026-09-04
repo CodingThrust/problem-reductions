@@ -37,7 +37,7 @@ fn test_maximumcontactmapoverlap_to_ilp_structure() {
     assert_eq!(ilp.constraints().len(), expected_constraints);
 
     // Objective is the sum of y variables only.
-    let expected_obj: Vec<(usize, f64)> = (0..num_y).map(|s| (num_x + s, 1.0)).collect();
+    let expected_obj: Vec<(usize, i64)> = (0..num_y).map(|s| (num_x + s, 1)).collect();
     assert_eq!(ilp.objective(), expected_obj);
 }
 

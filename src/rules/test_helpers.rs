@@ -236,7 +236,7 @@ where
         .expect("source problem must be feasible");
     let bf_value = source.evaluate(&bf_solution).unwrap();
     let ilp_solution = ILPSolver::new()
-        .solve_dyn(reduction.target_problem())
+        .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), bf_value);

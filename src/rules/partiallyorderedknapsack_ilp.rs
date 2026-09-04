@@ -7,7 +7,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PartiallyOrderedKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionPOKToILP {
@@ -48,18 +47,7 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
         let n = self.num_items();
         let mut constraints = Vec::new();
         let weights = self.weights();
-        let values = self
-            .values()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    PartiallyOrderedKnapsack,
-                    ILP<bool>,
-                >(error)
-            })?;
+        let values = self.values();
         let capacity = self.capacity();
 
         // Capacity constraint: Σ w_i·x_i ≤ capacity
@@ -76,7 +64,7 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
         }
 
         // Objective: Maximize Σ v_i·x_i
-        let objective = values.into_iter().enumerate().collect();
+        let objective = values.iter().copied().enumerate().collect();
 
         let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;

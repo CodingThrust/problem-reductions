@@ -12,7 +12,7 @@ fn test_ilp_bool_to_ilp_i64_closed_loop() {
             LinearConstraint::le(vec![(0, 1), (1, 1), (2, 1)], 2),
             LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
         ],
-        vec![(0, 1.0), (1, 2.0), (2, 3.0)],
+        vec![(0, 1), (1, 2), (2, 3)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
@@ -53,7 +53,7 @@ fn test_ilp_bool_to_ilp_i64_preserves_constraints() {
             LinearConstraint::ge(vec![(0, 1)], 0),
             LinearConstraint::eq(vec![(2, 1)], 1),
         ],
-        vec![(0, 1.0)],
+        vec![(0, 1)],
         ObjectiveSense::Maximize,
     )
     .unwrap();

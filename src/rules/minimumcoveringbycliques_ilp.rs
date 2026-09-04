@@ -128,7 +128,7 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
             constraints.push(LinearConstraint::ge(terms, 1));
         }
 
-        let objective: Vec<(usize, f64)> = (0..num_slots).map(|slot| (z_idx(slot), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..num_slots).map(|slot| (z_idx(slot), 1)).collect();
         let target = ILP::new(
             y_offset + num_edges * num_slots,
             constraints,

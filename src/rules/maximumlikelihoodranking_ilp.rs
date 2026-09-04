@@ -14,7 +14,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MaximumLikelihoodRanking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumLikelihoodRanking to ILP.
 #[derive(Debug, Clone)]
@@ -91,7 +90,7 @@ impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
         let matrix = self.matrix();
 
         // Build objective: minimize sum_{i<j} (a_{ji} - a_{ij}) * x_{ij}
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (i, row_i) in matrix.iter().enumerate() {
             for j in (i + 1)..n {
                 let difference = matrix[j][i].checked_sub(row_i[j]).ok_or_else(|| {
@@ -100,13 +99,8 @@ impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
                         ILP<bool>,
                     >("subtracting ranking matrix entries")
                 })?;
-                let coeff = i64_to_exact_f64(difference).map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        MaximumLikelihoodRanking,
-                        ILP<bool>,
-                    >(error)
-                })?;
-                if coeff != 0.0 {
+                let coeff = difference;
+                if coeff != 0 {
                     objective.push((pair_index(i, j, n), coeff));
                 }
             }

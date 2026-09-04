@@ -67,7 +67,7 @@ fn test_maximum2satisfiability_to_ilp_structure() {
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 
     // Objective: maximize sum of z_4..z_10
-    let expected_objective: Vec<(usize, f64)> = (4..11).map(|j| (j, 1.0)).collect();
+    let expected_objective: Vec<(usize, i64)> = (4..11).map(|j| (j, 1)).collect();
     assert_eq!(ilp.objective(), expected_objective);
 
     // Check first constraint: clause (x1 OR x2) -> z_4 - y_0 - y_1 <= 0

@@ -11,7 +11,7 @@ use crate::models::graph::ShortestWeightConstrainedPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{i64_to_exact_f64, WeightElement};
+use crate::types::WeightElement;
 
 /// Result of reducing ShortestWeightConstrainedPath to ILP.
 ///
@@ -197,19 +197,12 @@ impl ReduceTo<ILP<i64>> for ShortestWeightConstrainedPath<SimpleGraph, i64> {
         constraints.push(LinearConstraint::le(weight_terms, *self.weight_bound()));
 
         // --- Objective: minimize total path length ---
-        let edge_lengths: Vec<f64> = self
+        let edge_lengths: Vec<i64> = self
             .edge_lengths()
             .iter()
-            .map(|length| {
-                i64_to_exact_f64(length.to_sum()).map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        ShortestWeightConstrainedPath<SimpleGraph, i64>,
-                        ILP<i64>,
-                    >(error)
-                })
-            })
-            .collect::<Result<_, _>>()?;
-        let objective: Vec<(usize, f64)> = edges
+            .map(WeightElement::to_sum)
+            .collect();
+        let objective: Vec<(usize, i64)> = edges
             .iter()
             .enumerate()
             .flat_map(|(edge_idx, _)| {

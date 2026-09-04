@@ -47,7 +47,7 @@ fn test_openshopscheduling_to_ilp_structure_small() {
     );
     assert_eq!(
         ilp.objective(),
-        vec![(8, 1.0)],
+        vec![(8, 1)],
         "objective should minimize C (index 8)"
     );
 }

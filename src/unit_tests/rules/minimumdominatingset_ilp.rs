@@ -38,13 +38,11 @@ fn test_reduction_weighted() {
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
-    let mut coeffs: Vec<f64> = vec![0.0; 3];
+    let mut coeffs: Vec<i64> = vec![0; 3];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
     }
-    assert!((coeffs[0] - 5.0).abs() < 1e-9);
-    assert!((coeffs[1] - 10.0).abs() < 1e-9);
-    assert!((coeffs[2] - 15.0).abs() < 1e-9);
+    assert_eq!(coeffs, vec![5, 10, 15]);
 }
 
 #[test]

@@ -2,19 +2,18 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
-fn create_spec_rejects_empty_window() {
+fn create_spec_accepts_empty_window() {
     assert_eq!(
         SequencingWithinIntervalsCreateSpec::FIELDS[0].name,
         "release_times"
     );
-    assert!(
-        SequencingWithinIntervals::try_from(SequencingWithinIntervalsCreateSpec {
-            release_times: vec![2],
-            deadlines: vec![2],
-            lengths: vec![1]
-        })
-        .is_err()
-    );
+    let problem = SequencingWithinIntervals::try_from(SequencingWithinIntervalsCreateSpec {
+        release_times: vec![2],
+        deadlines: vec![2],
+        lengths: vec![1],
+    })
+    .unwrap();
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
@@ -184,7 +183,7 @@ fn test_sequencing_within_intervals_single_task() {
 
 #[test]
 fn test_sequencing_within_intervals_find_all_witnesses() {
-    // Issue #219 canonical instance: 5 tasks with overlapping windows
+    // Canonical instance: 5 tasks with overlapping windows
     // dims = [4, 6, 5, 4, 11], search space = 5280
     let problem = SequencingWithinIntervals::new(
         vec![0, 1, 3, 6, 0],
@@ -211,14 +210,35 @@ fn test_sequencing_within_intervals_find_all_witnesses_empty() {
 }
 
 #[test]
-fn test_sequencing_within_intervals_invalid_window() {
-    // r + l > d: impossible task
-    assert!(SequencingWithinIntervals::new(vec![5], vec![3], vec![2]).is_err());
+fn test_sequencing_within_intervals_empty_start_domain() {
+    for (release, deadline, length) in [(2, 50, 49), (5, 3, 2), (i64::MAX, 0, i64::MAX)] {
+        let problem =
+            SequencingWithinIntervals::new(vec![0, release], vec![3, deadline], vec![2, length])
+                .unwrap();
+        let restored: SequencingWithinIntervals =
+            serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+        assert_eq!(restored.dimensions(), vec![2, 0]);
+        assert_eq!(restored.num_start_slots(), 2);
+        let (value, witnesses) = BruteForce::new().solve_with_witnesses(&restored).unwrap();
+        assert_eq!(value, crate::types::Or(false));
+        assert!(witnesses.is_empty());
+        assert!(matches!(
+            restored.evaluate(&vec![0, 0]),
+            Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+        ));
+    }
 }
 
 #[test]
 fn test_sequencing_within_intervals_rejects_overflow_and_invalid_deserialization() {
-    assert!(SequencingWithinIntervals::new(vec![0], vec![i64::MAX], vec![0]).is_err());
-    let json = r#"{"release_times":[5],"deadlines":[3],"lengths":[2]}"#;
+    assert!(matches!(
+        SequencingWithinIntervals::new(vec![0], vec![i64::MAX], vec![0]),
+        Err(ConstructionError::IntegerOverflow(_))
+    ));
+    assert!(matches!(
+        SequencingWithinIntervals::new(vec![0; 3], vec![i64::MAX; 3], vec![1; 3]),
+        Err(ConstructionError::IntegerOverflow(_))
+    ));
+    let json = r#"{"release_times":[-1],"deadlines":[3],"lengths":[2]}"#;
     assert!(serde_json::from_str::<SequencingWithinIntervals>(json).is_err());
 }

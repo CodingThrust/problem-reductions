@@ -69,12 +69,12 @@ fn test_cdft_to_ilp_unsat_instance_is_infeasible() {
 }
 
 #[test]
-fn test_cdft_to_ilp_solve_reduced() {
+fn test_cdft_solve_via_ilp_pipeline() {
     let problem = small_yes_instance();
     let solver = ILPSolver::new();
     let solution = solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should find a satisfying assignment");
+        .solve(&problem)
+        .expect("ILP pipeline should find a satisfying assignment");
     assert!(problem.evaluate(&solution).unwrap());
 }
 

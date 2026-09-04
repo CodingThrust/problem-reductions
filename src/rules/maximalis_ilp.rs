@@ -8,7 +8,6 @@ use crate::models::graph::MaximalIS;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionMxISToILP {
@@ -69,20 +68,11 @@ impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {
 
         // Objective: Maximize Σ w_v·x_v
         let weights = self.weights();
-        let objective: Vec<(usize, f64)> = weights
+        let objective: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(i, &w)| {
-                i64_to_exact_f64(w)
-                    .map(|weight| (i, weight))
-                    .map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            MaximalIS<SimpleGraph, i64>,
-                            ILP<bool>,
-                        >(error)
-                    })
-            })
-            .collect::<Result<_, _>>()?;
+            .map(|(i, &weight)| (i, weight))
+            .collect();
 
         let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;

@@ -139,7 +139,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
             constraints.push(LinearConstraint::le(terms, deadline));
         }
 
-        let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|j| (u_var(j), 1)).collect();
 
         Ok(ReductionMTSToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
@@ -209,7 +209,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
             }
         }
 
-        let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|j| (u_var(j), 1)).collect();
 
         Ok(ReductionMTSWeightedToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

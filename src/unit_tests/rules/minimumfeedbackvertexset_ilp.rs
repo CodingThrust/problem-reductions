@@ -145,13 +145,11 @@ fn test_weighted() {
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
-    let mut coeffs: Vec<f64> = vec![0.0; ilp.num_vars()];
+    let mut coeffs: Vec<i64> = vec![0; ilp.num_vars()];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
     }
-    assert!((coeffs[0] - 10.0).abs() < 1e-9);
-    assert!((coeffs[1] - 1.0).abs() < 1e-9);
-    assert!((coeffs[2] - 10.0).abs() < 1e-9);
+    assert_eq!(&coeffs[..3], &[10, 1, 10]);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

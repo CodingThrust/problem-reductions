@@ -45,10 +45,7 @@ fn test_knapsack_to_ilp_structure() {
     assert_eq!(ilp.num_vars(), 4);
     assert_eq!(ilp.num_constraints(), 1);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
-    assert_eq!(
-        ilp.objective(),
-        vec![(0, 1.0), (1, 4.0), (2, 5.0), (3, 7.0)]
-    );
+    assert_eq!(ilp.objective(), vec![(0, 1), (1, 4), (2, 5), (3, 7)]);
 
     let constraint = &ilp.constraints()[0];
     assert_eq!(constraint.comparison(), Comparison::Le);

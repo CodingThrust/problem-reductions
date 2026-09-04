@@ -34,10 +34,7 @@ fn test_reduction_creates_covering_ilp() {
     assert_eq!(ilp.num_vars(), 4);
     assert_eq!(ilp.constraints().len(), 3);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
-    assert_eq!(
-        ilp.objective(),
-        vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]
-    );
+    assert_eq!(ilp.objective(), vec![(0, 1), (1, 1), (2, 1), (3, 1)]);
 
     assert_eq!(ilp.constraints()[0].comparison(), Comparison::Ge);
     assert_eq!(ilp.constraints()[0].rhs(), 1);

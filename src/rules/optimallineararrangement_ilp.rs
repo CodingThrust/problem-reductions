@@ -131,7 +131,7 @@ impl ReduceTo<ILP<i64>> for OptimalLinearArrangement<SimpleGraph> {
         }
 
         // Objective: minimize sum z_e
-        let objective: Vec<(usize, f64)> = (0..m).map(|e| (z_idx(e), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|e| (z_idx(e), 1)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
 

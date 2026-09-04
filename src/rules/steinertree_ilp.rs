@@ -12,7 +12,6 @@ use crate::models::graph::SteinerTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing SteinerTree to ILP.
 ///
@@ -128,18 +127,12 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
             }
         }
 
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .edge_weights()
             .iter()
             .enumerate()
-            .map(|(edge_idx, &weight)| Ok((edge_var(edge_idx), i64_to_exact_f64(weight)?)))
-            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    SteinerTree<SimpleGraph, i64>,
-                    ILP<bool>,
-                >(error)
-            })?;
+            .map(|(edge_idx, &weight)| (edge_var(edge_idx), weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

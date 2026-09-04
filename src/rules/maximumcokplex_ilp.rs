@@ -10,7 +10,7 @@ use crate::models::graph::MaximumCoKPlex;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{i64_to_exact_f64, One, WeightElement};
+use crate::types::{One, WeightElement};
 use crate::variant::{VariantParam, KN};
 use std::marker::PhantomData;
 
@@ -63,7 +63,7 @@ fn build_constraints(graph: &SimpleGraph, bound_k: usize) -> Result<Vec<LinearCo
 fn reduce_cokplex_to_ilp<W>(
     src: &MaximumCoKPlex<SimpleGraph, W, KN>,
     constraints: Vec<LinearConstraint>,
-    objective: Vec<(usize, f64)>,
+    objective: Vec<(usize, i64)>,
 ) -> Result<ReductionCoKPlexToILP<W>, crate::registry::ConstructionError>
 where
     W: WeightElement + VariantParam,
@@ -93,18 +93,12 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i64, KN> {
     type Result = ReductionCoKPlexToILP<i64>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(vertex, &weight)| Ok((vertex, i64_to_exact_f64(weight)?)))
-            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MaximumCoKPlex<SimpleGraph, i64, KN>,
-                    ILP<bool>,
-                >(error)
-            })?;
+            .map(|(vertex, &weight)| (vertex, weight))
+            .collect();
         let constraints = build_constraints(self.graph(), self.bound_k()).map_err(|_| {
             crate::rules::ReductionError::integer_overflow::<
                 MaximumCoKPlex<SimpleGraph, i64, KN>,
@@ -128,11 +122,11 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
     type Result = ReductionCoKPlexToILP<One>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(v, _)| (v, 1.0))
+            .map(|(v, _)| (v, 1))
             .collect();
         let constraints = build_constraints(self.graph(), self.bound_k()).map_err(|_| {
             crate::rules::ReductionError::integer_overflow::<

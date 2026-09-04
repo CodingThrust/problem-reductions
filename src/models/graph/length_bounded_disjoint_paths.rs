@@ -4,7 +4,7 @@
 //! each using at most `K` edges, over up to `max_paths` path slots.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::{is_simple_st_path, Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::Max;
 use crate::variant::VariantParam;
@@ -27,9 +27,9 @@ inventory::submit! {
 
 /// Length-Bounded Disjoint Paths on an undirected graph.
 ///
-/// A configuration uses `max_paths * |V|` binary choices. For each path slot
-/// `j` and vertex `v`, `x_{j,v} = 1` means that `v` belongs to slot `j`'s
-/// path. Each non-empty slot must induce a simple `s-t` path, and the internal
+/// A configuration uses `max_paths * |E|` binary choices. For each path slot
+/// `j` and edge `e` in `graph.edges()` order, `x_{j,e} = 1` means that the
+/// path uses that edge. Each non-empty slot must form a simple `s-t` path, and the internal
 /// vertices of different slots must be disjoint. Empty slots (all zeros) are
 /// unused and do not count toward the objective. The objective is to maximize
 /// the number of non-empty valid path slots.
@@ -223,7 +223,7 @@ where
         if solution.len() != self.max_paths
             || solution
                 .iter()
-                .any(|path| path.len() != self.graph.num_vertices())
+                .any(|path| path.len() != self.graph.num_edges())
         {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
                 "path collection dimensions do not match the instance".into(),
@@ -244,7 +244,7 @@ where
     G: Graph + VariantParam,
 {
     fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.max_paths * self.graph.num_vertices()]
+        vec![2; self.max_paths * self.graph.num_edges()]
     }
 }
 
@@ -257,25 +257,39 @@ fn validate_path_collection<G: Graph>(
     max_length: usize,
     solution: &[Vec<bool>],
 ) -> Result<Max<i64>, crate::traits::EvaluationError> {
-    let num_vertices = graph.num_vertices();
-    let mut used_internal = vec![false; num_vertices];
+    let edges = graph.edges();
+    let mut internal_owner = vec![None; graph.num_vertices()];
     let mut used_direct_path = false;
     let mut count = 0_i64;
-    for slot in solution {
-        // Check if slot is empty (all zeros)
-        if slot.iter().all(|&v| !v) {
+    for (path_index, slot) in solution.iter().enumerate() {
+        let edge_count = slot.iter().filter(|&&selected| selected).count();
+        if edge_count == 0 {
             continue;
         }
-        if !is_valid_path_slot(
-            graph,
-            source,
-            sink,
-            max_length,
-            slot,
-            &mut used_internal,
-            &mut used_direct_path,
-        ) {
+        if edge_count > max_length
+            || !is_simple_st_path(graph.num_vertices(), &edges, source, sink, slot)
+        {
             return Ok(Max(None));
+        }
+        if edge_count == 1 {
+            if used_direct_path {
+                return Ok(Max(None));
+            }
+            used_direct_path = true;
+        }
+        for (&selected, &(u, v)) in slot.iter().zip(&edges) {
+            if !selected {
+                continue;
+            }
+            for vertex in [u, v] {
+                if vertex == source || vertex == sink {
+                    continue;
+                }
+                if internal_owner[vertex].is_some_and(|owner| owner != path_index) {
+                    return Ok(Max(None));
+                }
+                internal_owner[vertex] = Some(path_index);
+            }
         }
         count = count.checked_add(1).ok_or_else(|| {
             crate::traits::EvaluationError::IntegerOverflow("counting disjoint paths".to_string())
@@ -284,100 +298,12 @@ fn validate_path_collection<G: Graph>(
     Ok(Max(Some(count)))
 }
 
-fn is_valid_path_slot<G: Graph>(
-    graph: &G,
-    source: usize,
-    sink: usize,
-    max_length: usize,
-    slot: &[bool],
-    used_internal: &mut [bool],
-    used_direct_path: &mut bool,
-) -> bool {
-    if slot.len() != graph.num_vertices()
-        || slot.get(source) != Some(&true)
-        || slot.get(sink) != Some(&true)
-    {
-        return false;
-    }
-
-    let selected = slot
-        .iter()
-        .enumerate()
-        .filter_map(|(vertex, &chosen)| chosen.then_some(vertex))
-        .collect::<Vec<_>>();
-    if selected.len() < 2 {
-        return false;
-    }
-
-    let mut in_path = vec![false; graph.num_vertices()];
-    for &vertex in &selected {
-        in_path[vertex] = true;
-        if vertex != source && vertex != sink && used_internal[vertex] {
-            return false;
-        }
-    }
-
-    let mut degree_sum = 0usize;
-    for &vertex in &selected {
-        let degree = graph
-            .neighbors(vertex)
-            .into_iter()
-            .filter(|&neighbor| in_path[neighbor])
-            .count();
-        degree_sum += degree;
-
-        if vertex == source || vertex == sink {
-            if degree != 1 {
-                return false;
-            }
-        } else if degree != 2 {
-            return false;
-        }
-    }
-
-    let edge_count = degree_sum / 2;
-    if edge_count + 1 != selected.len() || edge_count > max_length {
-        return false;
-    }
-    if edge_count == 1 {
-        if *used_direct_path {
-            return false;
-        }
-        *used_direct_path = true;
-    }
-
-    let mut seen = vec![false; graph.num_vertices()];
-    let mut stack = vec![source];
-    seen[source] = true;
-    let mut seen_count = 0usize;
-    while let Some(vertex) = stack.pop() {
-        seen_count += 1;
-        for neighbor in graph.neighbors(vertex) {
-            if in_path[neighbor] && !seen[neighbor] {
-                seen[neighbor] = true;
-                stack.push(neighbor);
-            }
-        }
-    }
-
-    if !seen[sink] || seen_count != selected.len() {
-        return false;
-    }
-
-    for &vertex in &selected {
-        if vertex != source && vertex != sink {
-            used_internal[vertex] = true;
-        }
-    }
-    true
-}
-
 #[cfg(any(test, feature = "example-db"))]
-fn encode_paths(num_vertices: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<Vec<bool>> {
-    let mut paths = vec![vec![false; num_vertices]; max_paths];
-    for (slot_index, slot_vertices) in slots.iter().enumerate() {
-        for &vertex in *slot_vertices {
-            paths[slot_index][vertex] = true;
+fn encode_paths(num_edges: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<Vec<bool>> {
+    let mut paths = vec![vec![false; num_edges]; max_paths];
+    for (slot_index, slot_edges) in slots.iter().enumerate() {
+        for &edge in *slot_edges {
+            paths[slot_index][edge] = true;
         }
     }
     paths
@@ -387,16 +313,12 @@ fn encode_paths(num_vertices: usize, max_paths: usize, slots: &[&[usize]]) -> Ve
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]);
     // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
-    // Three path-incidence rows over five vertices.
+    // Three edge-selection rows over six edges.
     // Optimal: 3 disjoint paths [0,1,4], [0,2,4], [0,3,4]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
         instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3)),
-        optimal_config: serde_json::json!(encode_paths(
-            5,
-            3,
-            &[&[0, 1, 4], &[0, 2, 4], &[0, 3, 4]]
-        )),
+        optimal_config: serde_json::json!(encode_paths(6, 3, &[&[0, 1], &[2, 3], &[4, 5]])),
         optimal_value: serde_json::json!(3),
     }]
 }
@@ -427,11 +349,16 @@ crate::impl_random_generate!(
 );
 
 crate::declare_variants! {
-    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(max_paths * num_vertices)" create LengthBoundedDisjointPathsCreateSpec random,
+    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(max_paths * num_edges)" create LengthBoundedDisjointPathsCreateSpec random,
 }
 
 crate::register_brute_force! {
-    LengthBoundedDisjointPaths<SimpleGraph> decode |problem: &LengthBoundedDisjointPaths<SimpleGraph>, indices: Vec<usize>| indices.chunks(problem.num_vertices()).map(crate::config::config_to_bits).collect(),
+    LengthBoundedDisjointPaths<SimpleGraph> decode |problem: &LengthBoundedDisjointPaths<SimpleGraph>, indices: Vec<usize>| {
+        let m = problem.num_edges();
+        (0..problem.max_paths())
+            .map(|slot| crate::config::config_to_bits(&indices[slot * m..(slot + 1) * m]))
+            .collect()
+    },
 }
 
 #[cfg(test)]

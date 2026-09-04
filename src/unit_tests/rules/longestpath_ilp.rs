@@ -43,16 +43,16 @@ fn test_reduction_creates_expected_ilp_shape() {
     assert_eq!(ilp.constraints().len(), 23);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 
-    let mut objective = vec![0.0; ilp.num_vars()];
+    let mut objective = vec![0; ilp.num_vars()];
     for &(var, coeff) in ilp.objective() {
         objective[var] = coeff;
     }
 
-    assert_eq!(objective[0], 2.0);
-    assert_eq!(objective[1], 2.0);
-    assert_eq!(objective[2], 3.0);
-    assert_eq!(objective[3], 3.0);
-    assert_eq!(objective[4], 0.0);
+    assert_eq!(objective[0], 2);
+    assert_eq!(objective[1], 2);
+    assert_eq!(objective[2], 3);
+    assert_eq!(objective[3], 3);
+    assert_eq!(objective[4], 0);
 }
 
 #[test]

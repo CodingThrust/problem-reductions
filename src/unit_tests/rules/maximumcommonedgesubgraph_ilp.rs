@@ -53,7 +53,7 @@ fn test_maximumcommonedgesubgraph_to_ilp_structure() {
     assert_eq!(ilp.constraints().len(), 3 + 3 + 3 * num_y);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective is sum of y variables only.
-    assert_eq!(ilp.objective(), vec![(num_x, 1.0), (num_x + 1, 1.0)]);
+    assert_eq!(ilp.objective(), vec![(num_x, 1), (num_x + 1, 1)]);
 }
 
 #[test]

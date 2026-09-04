@@ -37,12 +37,11 @@ fn test_reduction_weighted() {
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
-    let mut coeffs: Vec<f64> = vec![0.0; 2];
+    let mut coeffs: Vec<i64> = vec![0; 2];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
     }
-    assert!((coeffs[0] - 5.0).abs() < 1e-9);
-    assert!((coeffs[1] - 10.0).abs() < 1e-9);
+    assert_eq!(coeffs, vec![5, 10]);
 }
 
 #[test]
@@ -246,15 +245,14 @@ fn test_bipartite_graph() {
 }
 
 #[test]
-fn test_solve_reduced() {
-    // Test the ILPSolver::solve_reduced method
+fn test_solve_via_ilp_pipeline() {
     let problem =
         MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should work");
+        .solve(&problem)
+        .expect("ILP pipeline should solve the problem");
 
     assert!(problem.evaluate(&solution).unwrap().is_valid());
     assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(2)));

@@ -12,7 +12,6 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumMatrixCover to ILP.
 #[derive(Debug, Clone)]
@@ -97,7 +96,7 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
         // source solution is evaluated by the source problem, so omit it here.
 
         let matrix = self.matrix();
-        let mut obj_coeffs = vec![0f64; num_vars];
+        let mut obj_coeffs = vec![0i64; num_vars];
 
         // y_{ij} coefficients: 4·(a_ij + a_ji) for each i<j
         for (i, row_i) in matrix.iter().enumerate() {
@@ -114,12 +113,7 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
                             "computing an off-diagonal matrix-cover coefficient"
                         )
                     })?;
-                obj_coeffs[y] = i64_to_exact_f64(coefficient).map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        MinimumMatrixCover,
-                        ILP<bool>,
-                    >(error)
-                })?;
+                obj_coeffs[y] = coefficient;
             }
         }
 
@@ -142,18 +136,13 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
                     "scaling a matrix-cover row coefficient",
                 )
             })?;
-            obj_coeffs[k] = i64_to_exact_f64(coefficient).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumMatrixCover,
-                    ILP<bool>,
-                >(error)
-            })?;
+            obj_coeffs[k] = coefficient;
         }
 
-        let objective: Vec<(usize, f64)> = obj_coeffs
+        let objective: Vec<(usize, i64)> = obj_coeffs
             .into_iter()
             .enumerate()
-            .filter(|&(_, c)| c != 0.0)
+            .filter(|&(_, c)| c != 0)
             .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

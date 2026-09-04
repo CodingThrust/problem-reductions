@@ -25,7 +25,7 @@ use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{i64_to_exact_f64, WeightElement};
+use crate::types::WeightElement;
 
 /// Result of reducing MinimumCapacitatedSpanningTree to ILP.
 #[derive(Debug, Clone)]
@@ -76,14 +76,6 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
         let edges = self.graph().edges();
         let root = self.root();
         let requirements = self.requirements();
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
-                    ILP<i64>,
-                >(error)
-            })
-        };
         let cap = *self.capacity();
 
         let num_vars = 3 * m;
@@ -167,12 +159,12 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
         }
 
         // Objective: minimize sum(w_e * y_e)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(edge_idx, w)| exact_f64(w.to_sum()).map(|weight| (edge_var(edge_idx), weight)))
-            .collect::<Result<_, _>>()?;
+            .map(|(edge_idx, weight)| (edge_var(edge_idx), weight.to_sum()))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

@@ -165,7 +165,7 @@ impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
         }
 
         // Objective: minimize b
-        let objective = vec![(b_idx, 1.0)];
+        let objective = vec![(b_idx, 1)];
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

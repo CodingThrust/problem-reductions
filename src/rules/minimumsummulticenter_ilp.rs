@@ -25,7 +25,6 @@ use crate::models::graph::MinimumSumMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumSumMulticenter to ILP.
 #[derive(Debug, Clone)]
@@ -175,7 +174,7 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
         }
 
         // Objective: Minimize Σ_{i,j} w_i · d(i,j) · y_{i,j}
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (i, &w) in vertex_weights.iter().enumerate() {
             for (j, distance) in all_dist[i].iter().enumerate() {
                 if let Some(distance) = distance {
@@ -187,13 +186,8 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
                             "multiplying a vertex weight by a shortest-path distance"
                         )
                     })?;
-                    let coeff = i64_to_exact_f64(weighted_distance).map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            MinimumSumMulticenter<SimpleGraph, i64>,
-                            ILP<bool>,
-                        >(error)
-                    })?;
-                    if coeff != 0.0 {
+                    let coeff = weighted_distance;
+                    if coeff != 0 {
                         objective.push((y_var(i, j), coeff));
                     }
                 }

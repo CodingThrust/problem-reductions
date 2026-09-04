@@ -87,7 +87,7 @@ impl ReduceTo<ILP<bool>> for BinPacking<i64> {
         }
 
         // Objective: minimize sum_j y_j
-        let objective: Vec<(usize, f64)> = (0..n).map(|j| (n * n + j, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|j| (n * n + j, 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

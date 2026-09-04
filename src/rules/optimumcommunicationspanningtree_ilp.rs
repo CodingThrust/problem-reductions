@@ -11,7 +11,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::OptimumCommunicationSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing OptimumCommunicationSpanningTree to ILP.
 ///
@@ -143,7 +142,7 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
 
         // Objective: minimize sum over commodities k of r(s,t) * sum_e w(e) * (f^k_e_fwd + f^k_e_bwd)
         // This equals sum_{s<t} r(s,t) * W_T(s,t) because flow routes exactly along the tree path.
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (k, &(s, t)) in commodities.iter().enumerate() {
             for (edge_idx, &(i, j)) in edges.iter().enumerate() {
                 let communication_cost = r[s][t].checked_mul(w[i][j]).ok_or_else(|| {
@@ -154,13 +153,8 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
                         "multiplying a communication requirement by an edge weight"
                     )
                 })?;
-                let coeff = i64_to_exact_f64(communication_cost).map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        OptimumCommunicationSpanningTree,
-                        ILP<bool>,
-                    >(error)
-                })?;
-                if coeff != 0.0 {
+                let coeff = communication_cost;
+                if coeff != 0 {
                     objective.push((flow_var(k, edge_idx, 0), coeff));
                     objective.push((flow_var(k, edge_idx, 1), coeff));
                 }

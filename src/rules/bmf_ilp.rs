@@ -114,9 +114,8 @@ impl ReduceTo<ILP<bool>> for BMF {
         }
 
         // Objective: minimize sum_{i,r} b_{i,r} + sum_{r,j} c_{r,j} (total factor size)
-        let mut objective: Vec<(usize, f64)> =
-            (0..m * k).map(|idx| (b_offset + idx, 1.0)).collect();
-        objective.extend((0..k * n).map(|idx| (c_offset + idx, 1.0)));
+        let mut objective: Vec<(usize, i64)> = (0..m * k).map(|idx| (b_offset + idx, 1)).collect();
+        objective.extend((0..k * n).map(|idx| (c_offset + idx, 1)));
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

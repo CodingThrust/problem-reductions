@@ -241,7 +241,7 @@ fn test_target_ilp_structure() {
 }
 
 #[test]
-fn test_solve_reduced() {
+fn test_integer_ilp_pipeline_solution() {
     let problem = Factoring::with_factor_bits(6, 2, 2);
 
     let reduction: ReductionFactoringToILP =

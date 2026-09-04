@@ -55,7 +55,7 @@ fn test_minimumedgecostflow_to_ilp_structure() {
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Zero-priced arcs are omitted by sparse objective normalization.
-    assert_eq!(ilp.objective(), vec![(6, 3.0), (7, 1.0), (8, 2.0)]);
+    assert_eq!(ilp.objective(), vec![(6, 3), (7, 1), (8, 2)]);
 
     // Constraints: 6 linking + 6 binary + (5-2)=3 conservation + 1 flow req = 16
     // That is 2*6 + 5 - 1 = 16

@@ -12,7 +12,6 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_assignment_constraints};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing QuadraticAssignment to ILP.
 ///
@@ -110,13 +109,8 @@ impl ReduceTo<ILP<bool>> for QuadraticAssignment {
                     "multiplying a quadratic-assignment cost by a distance",
                 )
             })?;
-            let coeff = i64_to_exact_f64(coefficient).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    QuadraticAssignment,
-                    ILP<bool>,
-                >(error)
-            })?;
-            if coeff != 0.0 {
+            let coeff = coefficient;
+            if coeff != 0 {
                 objective.push((z_idx(z_seq), coeff));
             }
         }

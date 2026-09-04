@@ -80,7 +80,7 @@ impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
         }
 
         // Objective: minimize Σ z_v (unit weights)
-        let objective: Vec<(usize, f64)> = (0..n).map(|v| (v, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|v| (v, 1)).collect();
 
         let target = ILP::new(n, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

@@ -11,7 +11,6 @@ use crate::models::graph::MaximumClique;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumClique to ILP.
 ///
@@ -74,21 +73,12 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
         }
 
         // Objective: maximize sum of w_i * x_i (weighted sum of selected vertices)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(i, &w)| {
-                i64_to_exact_f64(w)
-                    .map(|weight| (i, weight))
-                    .map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            MaximumClique<SimpleGraph, i64>,
-                            ILP<bool>,
-                        >(error)
-                    })
-            })
-            .collect::<Result<_, _>>()?;
+            .map(|(i, &weight)| (i, weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

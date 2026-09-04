@@ -11,7 +11,6 @@ use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing TravelingSalesman to ILP.
 #[derive(Debug, Clone)]
@@ -84,17 +83,10 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
         let edges_with_weights = self.edges();
         let source_edges: Vec<(usize, usize)> =
             edges_with_weights.iter().map(|&(u, v, _)| (u, v)).collect();
-        let edge_weights: Vec<f64> = edges_with_weights
+        let edge_weights: Vec<i64> = edges_with_weights
             .iter()
-            .map(|&(_, _, w)| {
-                i64_to_exact_f64(w).map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        TravelingSalesman<SimpleGraph, i64>,
-                        ILP<bool>,
-                    >(error)
-                })
-            })
-            .collect::<Result<_, _>>()?;
+            .map(|&(_, _, weight)| weight)
+            .collect();
         let m = source_edges.len();
 
         // Variable layout:
@@ -168,7 +160,7 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
         }
 
         // Objective: minimize Σ_{e=(u,v)} w_e * Σ_k (y_{e,k,0} + y_{e,k,1})
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (e, &w) in edge_weights.iter().enumerate() {
             for k in 0..n {
                 objective.push((y_idx(e, k, 0), w));

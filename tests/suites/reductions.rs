@@ -756,7 +756,7 @@ mod qubo_reductions {
     #[derive(Deserialize)]
     struct ILPSource {
         num_variables: usize,
-        objective: Vec<f64>,
+        objective: Vec<i64>,
         constraints_lhs: Vec<Vec<i64>>,
         constraints_rhs: Vec<i64>,
         constraint_signs: Vec<i64>,
@@ -791,12 +791,12 @@ mod qubo_reductions {
             .collect();
 
         // Build objective (dense to sparse)
-        let objective: Vec<(usize, f64)> = data
+        let objective: Vec<(usize, i64)> = data
             .source
             .objective
             .iter()
             .enumerate()
-            .filter(|(_, &c)| c.abs() > 1e-15)
+            .filter(|(_, &c)| c != 0)
             .map(|(i, &c)| (i, c))
             .collect();
 
@@ -808,7 +808,7 @@ mod qubo_reductions {
             ObjectiveSense::Maximize,
         )
         .unwrap();
-        let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         // QUBO may have more variables (slack), but original count matches

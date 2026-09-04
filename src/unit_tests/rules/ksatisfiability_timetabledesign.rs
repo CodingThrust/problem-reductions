@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::TimetableDesign;
 use crate::solvers::ILPSolver;
@@ -90,10 +91,12 @@ fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let source = satisfiable_instance();
     let reduction =
         ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
-
-    let target_solution = ILPSolver::new()
-        .solve_reduced::<bool, _>(reduction.target_problem())
+    let target_reduction = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem())
+        .expect("timetable reduction should succeed");
+    let ilp_solution = ILPSolver::new()
+        .solve(target_reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible timetable");
+    let target_solution = target_reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
         reduction
@@ -112,10 +115,12 @@ fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
     let source = unsatisfiable_instance();
     let reduction =
         ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
+    let target_reduction = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem())
+        .expect("timetable reduction should succeed");
 
     assert!(
         ILPSolver::new()
-            .solve_reduced::<bool, _>(reduction.target_problem())
+            .solve(target_reduction.target_problem())
             .is_err(),
         "unsatisfiable 3SAT instance should produce an infeasible timetable"
     );

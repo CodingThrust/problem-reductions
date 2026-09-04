@@ -18,11 +18,28 @@ pub fn decode_usize_values(values: &[i64]) -> crate::rules::ExtractionResult<Vec
 }
 
 /// McCormick linearization: `y = x_a * x_b` for binary variables.
-pub fn mccormick_product(y_idx: usize, x_a: usize, x_b: usize) -> [LinearConstraint; 3] {
+pub fn mccormick_product<C: From<i8>>(
+    y_idx: usize,
+    x_a: usize,
+    x_b: usize,
+) -> [LinearConstraint<C>; 3] {
     [
-        LinearConstraint::le(vec![(y_idx, 1), (x_a, -1)], 0),
-        LinearConstraint::le(vec![(y_idx, 1), (x_b, -1)], 0),
-        LinearConstraint::le(vec![(x_a, 1), (x_b, 1), (y_idx, -1)], 1),
+        LinearConstraint::le(
+            vec![(y_idx, 1_i8.into()), (x_a, (-1_i8).into())],
+            0_i8.into(),
+        ),
+        LinearConstraint::le(
+            vec![(y_idx, 1_i8.into()), (x_b, (-1_i8).into())],
+            0_i8.into(),
+        ),
+        LinearConstraint::le(
+            vec![
+                (x_a, 1_i8.into()),
+                (x_b, 1_i8.into()),
+                (y_idx, (-1_i8).into()),
+            ],
+            1_i8.into(),
+        ),
     ]
 }
 

@@ -17,7 +17,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MinimumExternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Index layout for ILP variables.
 #[derive(Debug, Clone)]
@@ -229,12 +228,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.string_length();
         let k = self.alphabet_size();
-        let h = i64_to_exact_f64(self.pointer_cost()).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<
-                MinimumExternalMacroDataCompression,
-                ILP<i64>,
-            >(error)
-        })?;
+        let h = self.pointer_cost();
         let s = self.string();
 
         // Handle empty string
@@ -365,12 +359,12 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
         // objective already penalizes literals.
 
         // Objective: minimize sum d_used[j] + sum lit[i] + h * sum ptr[i][l][d_start]
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for j in 0..n {
-            objective.push((layout.d_used_var(j), 1.0));
+            objective.push((layout.d_used_var(j), 1));
         }
         for i in 0..n {
-            objective.push((layout.lit_var(i), 1.0));
+            objective.push((layout.lit_var(i), 1));
         }
         for (idx, _) in layout.ptr_triples.iter().enumerate() {
             objective.push((layout.ptr_offset + idx, h));

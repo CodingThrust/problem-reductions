@@ -154,8 +154,8 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
 
         // Objective: maximize number of non-padding positions.
         // maximize sum_p sum_{a != padding} x_(p,a)
-        let objective: Vec<(usize, f64)> = (0..max_length)
-            .flat_map(|p| (0..alphabet_size).map(move |a| (p * num_symbols + a, 1.0)))
+        let objective: Vec<(usize, i64)> = (0..max_length)
+            .flat_map(|p| (0..alphabet_size).map(move |a| (p * num_symbols + a, 1)))
             .collect();
 
         let target = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize)

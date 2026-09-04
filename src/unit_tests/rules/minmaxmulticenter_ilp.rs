@@ -29,7 +29,7 @@ fn test_reduction_creates_valid_ilp() {
     );
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     // Objective should minimize z (last variable)
-    assert_eq!(ilp.objective(), vec![(12, 1.0)]);
+    assert_eq!(ilp.objective(), vec![(12, 1)]);
 }
 
 #[test]

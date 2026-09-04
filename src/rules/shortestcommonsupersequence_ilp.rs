@@ -138,7 +138,7 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
         }
 
         // Objective: minimize non-padding positions = maximize padding positions
-        let objective: Vec<(usize, f64)> = (0..b).map(|p| (p * k + pad, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..b).map(|p| (p * k + pad, 1)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;
         Ok(ReductionSCSToILP {

@@ -99,7 +99,7 @@ impl ReduceTo<ILP<bool>> for PaintShop {
         }
 
         // Objective: minimize Σ c_p for p in 1..seq_len
-        let objective: Vec<(usize, f64)> = (1..seq_len).map(|p| (c_offset + p, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (1..seq_len).map(|p| (c_offset + p, 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

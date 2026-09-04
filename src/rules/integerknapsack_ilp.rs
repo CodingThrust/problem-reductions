@@ -8,7 +8,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::IntegerKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionIntegerKnapsackToILP {
@@ -48,20 +47,8 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_items();
         let mut constraints = Vec::with_capacity(num_vars + 1);
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<IntegerKnapsack, ILP<i64>>(
-                    error,
-                )
-            })
-        };
         let sizes = self.sizes();
-        let values = self
-            .values()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
+        let values = self.values();
 
         constraints.push(LinearConstraint::le(
             sizes
@@ -77,7 +64,7 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
             constraints.push(LinearConstraint::le(vec![(i, 1)], upper_bound));
         }
 
-        let objective = values.into_iter().enumerate().collect();
+        let objective = values.iter().copied().enumerate().collect();
 
         Ok(ReductionIntegerKnapsackToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)

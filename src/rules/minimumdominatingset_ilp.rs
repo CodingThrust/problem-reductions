@@ -11,7 +11,6 @@ use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumDominatingSet to ILP.
 ///
@@ -76,18 +75,12 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {
             .collect();
 
         // Objective: minimize sum of w_i * x_i (weighted sum of selected vertices)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(vertex, &weight)| Ok((vertex, i64_to_exact_f64(weight)?)))
-            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumDominatingSet<SimpleGraph, i64>,
-                    ILP<bool>,
-                >(error)
-            })?;
+            .map(|(vertex, &weight)| (vertex, weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

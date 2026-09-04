@@ -9,7 +9,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::MaximumSetPacking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumSetPacking to ILP.
 ///
@@ -73,18 +72,12 @@ impl ReduceTo<ILP<bool>> for MaximumSetPacking<i64> {
             })
             .collect();
 
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights_ref()
             .iter()
             .enumerate()
-            .map(|(set, &weight)| Ok((set, i64_to_exact_f64(weight)?)))
-            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MaximumSetPacking<i64>,
-                    ILP<bool>,
-                >(error)
-            })?;
+            .map(|(set, &weight)| (set, weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

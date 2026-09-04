@@ -9,7 +9,6 @@ use crate::models::misc::SequencingToMinimizeTardyTaskWeight;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing SequencingToMinimizeTardyTaskWeight to `ILP<bool>`.
 #[derive(Debug, Clone)]
@@ -68,23 +67,10 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
                     ILP<bool>,
                 >("summing task processing times")
             })?;
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    SequencingToMinimizeTardyTaskWeight,
-                    ILP<bool>,
-                >(error)
-            })
-        };
         let big_m = total_length;
         let lengths = self.lengths();
         let deadlines = self.deadlines();
-        let weights = self
-            .weights()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
+        let weights = self.weights();
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
         let u_var = |j: usize| -> usize { num_x_vars + j };
@@ -131,7 +117,7 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
         }
 
         // Objective: minimize sum w_j * u_j
-        let objective: Vec<(usize, f64)> =
+        let objective: Vec<(usize, i64)> =
             (0..n).map(|task| (u_var(task), weights[task])).collect();
 
         Ok(ReductionSTMTTWToILP {

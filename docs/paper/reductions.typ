@@ -278,7 +278,6 @@
   "ClosestSubstring": [Closest Substring],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "ThreeDimensionalMatching": [Three-Dimensional Matching],
-  "ThreeMatroidIntersection": [Three-Matroid Intersection],
   "SubsetProduct": [Subset Product],
   "SubsetSum": [Subset Sum],
   "CosineProductIntegration": [Cosine Product Integration],
@@ -1805,7 +1804,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("LengthBoundedDisjointPaths")[
       Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and a positive integer $K$, maximize the number of pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
     ][
-      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses $M dot |V|$ binary variables where $M = min(deg(s), deg(t))$ is an upper bound on the number of vertex-disjoint $s$-$t$ paths, so brute-force search over configurations runs in $O^*(2^(M dot |V|))$.
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses $M dot |E|$ binary variables where $M = min(deg(s), deg(t))$ is an upper bound on the number of vertex-disjoint $s$-$t$ paths, so brute-force search over configurations runs in $O^*(2^(M dot |E|))$. Each row selects the edges of one path in the input graph's edge order; an all-zero row is unused.
 
       *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, and $K = #K$. Here $M = #M$ path slots are available. The three paths $P_1 = v_0 arrow v_1 arrow v_4$, $P_2 = v_0 arrow v_2 arrow v_4$, and $P_3 = v_0 arrow v_3 arrow v_4$ are each of length 2 (at most $K = 3$), and their internal vertex sets ${v_1}$, ${v_2}$, and ${v_3}$ are pairwise disjoint. The optimal value is therefore $3$.
 
@@ -4424,71 +4423,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       }),
       caption: [Three-Dimensional Matching: tripartite layout with $W$, $X$, $Y$ columns. The matching $M' = {#selected.map(i => $t_#(i + 1)$).join(", ")}$ (colored paths) covers every element exactly once.]
     ) <fig:three-dimensional-matching>
-    ]
-  ]
-}
-
-#{
-  let tmi = load-model-example("ThreeMatroidIntersection")
-  let n = tmi.instance.ground_set_size
-  let parts = tmi.instance.partitions
-  let K = tmi.instance.bound
-  let sol = tmi.optimal_config
-  let selected = sol.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
-  let fmt-set(items) = if items.len() == 0 {
-    $emptyset$
-  } else {
-    "{" + items.map(e => str(e)).join(", ") + "}"
-  }
-  let fmt-group(g) = $#("{" + g.map(e => str(e)).join(", ") + "}")$
-  [
-    #problem-def("ThreeMatroidIntersection")[
-      Given three partition matroids $(E, cal(F)_1)$, $(E, cal(F)_2)$, $(E, cal(F)_3)$ on a common ground set $E$ with $|E| = n$, and a positive integer $K <= n$, does there exist a subset $E' subset.eq E$ with $|E'| = K$ that is independent in all three matroids? A partition matroid partitions $E$ into groups; a set $S$ is independent if $|S inter G| <= 1$ for every group $G$.
-    ][
-    Three-Matroid Intersection is problem SP11 in Garey & Johnson @garey1979 (section A3). While 2-matroid intersection is solvable in polynomial time (Edmonds, 1970) @edmonds1970, the jump to three matroids captures NP-hardness. NP-completeness is established by transformation from Three-Dimensional Matching, where each dimension induces a partition matroid. The restriction to partition matroids suffices for NP-completeness.
-
-    Doron-Arad, Kulik, and Shachnai (2024) @doron2024 showed that brute force essentially cannot be beaten: any algorithm requires $Omega(2^(n - 5 sqrt(n) log n))$ oracle queries. A marginal improvement to $2^(n - Omega(log^2 n))$ exists via Monotone Local Search @fomin2019. The direct brute-force algorithm runs in $O^*(2^n)$ time where $n = |E|$.
-
-    *Example.* Let $E = {0, 1, dots, #(n - 1)}$ with $K = #K$. The three partition matroids have groups: $cal(F)_1$: #parts.at(0).map(fmt-group).join(", "); $cal(F)_2$: #parts.at(1).map(fmt-group).join(", "); $cal(F)_3$: #parts.at(2).map(fmt-group).join(", "). The subset $E' = #fmt-set(selected)$ is a valid common independent set of size $#K$: each matroid has at most one selected element per group.
-
-    #pred-commands(
-      "pred create --example ThreeMatroidIntersection -o three-matroid-intersection.json",
-      "pred solve three-matroid-intersection.json",
-      "pred evaluate three-matroid-intersection.json --config " + cli-config(tmi.optimal_config),
-    )
-
-    // Three rows of partition groups, elements shown in each
-    #figure(
-      canvas(length: 1cm, {
-        import draw: *
-        let matroid-labels = ($cal(F)_1$, $cal(F)_2$, $cal(F)_3$)
-        let row-y = (1.6, 0.0, -1.6)
-        let group-colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#59a14f"))
-        for (mi, partition) in parts.enumerate() {
-          let y = row-y.at(mi)
-          let total-groups = partition.len()
-          // Label
-          content((-3.2, y), text(9pt, matroid-labels.at(mi)), anchor: "east")
-          // Draw each group as a rounded rectangle with elements inside
-          for (gi, group) in partition.enumerate() {
-            let gx = (gi - (total-groups - 1) / 2) * 2.2
-            let w = group.len() * 0.55 + 0.3
-            rect((gx - w / 2, y - 0.35), (gx + w / 2, y + 0.35),
-              stroke: 0.8pt + group-colors.at(mi), radius: 4pt)
-            // Elements inside the group
-            for (ei, elem) in group.enumerate() {
-              let ex = gx + (ei - (group.len() - 1) / 2) * 0.5
-              let is-sel = selected.contains(elem)
-              circle((ex, y), radius: 0.18,
-                fill: if is-sel { graph-colors.at(0) } else { white },
-                stroke: 0.6pt + black)
-              content((ex, y), text(7pt, fill: if is-sel { white } else { black }, str(elem)))
-            }
-          }
-        }
-      }),
-      caption: [Three-Matroid Intersection: each row shows one partition matroid's groups (rounded boxes). The selected elements $E' = #fmt-set(selected)$ (blue) place at most one element per group in all three matroids.]
-    ) <fig:three-matroid-intersection>
     ]
   ]
 }
@@ -7959,9 +7893,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let y-perm = config.slice(m)
   [
     #problem-def("Numerical3DimensionalMatching")[
-      Given disjoint sets $W$, $X$, $Y$ each with $m$ elements, positive integer sizes $s(a)$ with $B\/4 < s(a) < B\/2$ for every element, and a bound $B in ZZ^+$ such that $sum s(a) = m B$, determine whether $W union X union Y$ can be partitioned into $m$ triples, each containing one element from $W$, $X$, and $Y$, with each triple summing to exactly $B$.
+      Given disjoint sets $W$, $X$, $Y$ each with $m >= 1$ elements, positive integer sizes $s(a)$, and a bound $B in ZZ^+$ such that $sum s(a) = m B$, determine whether $W union X union Y$ can be partitioned into $m$ triples, each containing one element from $W$, $X$, and $Y$, with each triple summing to exactly $B$.
     ][
-      Numerical 3-Dimensional Matching is strongly NP-complete (SP16 in Garey and Johnson @garey1979). The strict size window $B\/4 < s(a) < B\/2$ forces every feasible triple to contain exactly one element from each set. The problem is a key intermediate in strong NP-completeness reductions to bin packing, scheduling, and layout problems. Brute-force enumeration runs in $O^*(m^(2m))$ time.
+      Numerical 3-Dimensional Matching is strongly NP-complete (SP16 in Garey and Johnson @garey1979). This model requires the necessary total-sum equality as an input precondition; membership in $W$, $X$, and $Y$ determines the three elements of each triple. The problem is a key intermediate in strong NP-completeness reductions to bin packing, scheduling, and layout problems. Brute-force enumeration runs in $O^*(m^(2m))$ time.
 
       *Example.* Let $m = #m$ and $B = #bound$. The sizes are $W = (#fmt-values(sw))$, $X = (#fmt-values(sx))$, $Y = (#fmt-values(sy))$. The matching pairs each $w_i$ with $x_(pi(i))$ and $y_(sigma(i))$: #range(m).map(i => [$w_#i + x_#(x-perm.at(i)) + y_#(y-perm.at(i)) = #(sw.at(i) + sx.at(x-perm.at(i)) + sy.at(y-perm.at(i)))$]).join(", "), all equal to $B$.
 
@@ -9732,7 +9666,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let max-t = calc.max(..range(ntasks).map(i => deadline.at(i)))
   [
     #problem-def("SequencingWithinIntervals")[
-      Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
+      Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
     ][
       Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units on a single machine, and no two tasks may overlap.
 
@@ -11989,10 +11923,17 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Solution extraction._ Convert spins to binary: $x_i = (s_i + 1) \/ 2$, i.e.\ $s_i = +1 arrow.r x_i = 1$, $s_i = -1 arrow.r x_i = 0$.
 ]
 
-#let sg_qubo = load-example("SpinGlass", "QUBO")
+#let sg_qubo = load-example(
+  "SpinGlass",
+  "QUBO",
+  source-variant: (graph: "SimpleGraph", weight: "f64"),
+  target-variant: (weight: "f64"),
+)
 #let sg_qubo_sol = sg_qubo.solutions.at(0)
 #reduction-rule("SpinGlass", "QUBO",
   example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "f64"),
+  example-target-variant: (weight: "f64"),
   example-caption: [10-spin Ising model on Petersen graph],
   extra: [
     #pred-commands(
@@ -12649,10 +12590,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ The $n$-variable QUBO assignment directly encodes the vertex-side assignment: $x_v = 0$ means side $A$, $x_v = 1$ means side $B$.
 ]
 
-#let qubo_ilp = load-example("QUBO", "ILP")
+#let qubo_ilp = load-example(
+  "QUBO",
+  "ILP",
+  source-variant: (weight: "f64"),
+  target-variant: (coefficient: "f64", variable: "bool"),
+)
 #let qubo_ilp_sol = qubo_ilp.solutions.at(0)
 #reduction-rule("QUBO", "ILP",
   example: true,
+  example-source-variant: (weight: "f64"),
+  example-target-variant: (coefficient: "f64", variable: "bool"),
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     #pred-commands(
@@ -13436,13 +13384,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   "MaximumCoKPlex",
   "ILP",
   source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
-  target-variant: (variable: "bool"),
+  target-variant: (coefficient: "i64", variable: "bool"),
 )
 #let mckp_ilp_sol = mckp_ilp.solutions.at(0)
 #reduction-rule("MaximumCoKPlex", "ILP",
   example: true,
   example-source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
-  example-target-variant: (variable: "bool"),
+  example-target-variant: (coefficient: "i64", variable: "bool"),
   example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
   extra: [
     #pred-commands(
@@ -13471,12 +13419,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let mces_ilp = load-example(
   "MaximumCommonEdgeSubgraph",
   "ILP",
-  target-variant: (variable: "bool"),
+  target-variant: (coefficient: "i64", variable: "bool"),
 )
 #let mces_ilp_sol = mces_ilp.solutions.at(0)
 #reduction-rule("MaximumCommonEdgeSubgraph", "ILP",
   example: true,
-  example-target-variant: (variable: "bool"),
+  example-target-variant: (coefficient: "i64", variable: "bool"),
   example-caption: [Two labelled 3-vertex digraphs with 2 arcs each],
   extra: [
     #pred-commands(
@@ -13509,12 +13457,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cmo_ilp = load-example(
   "MaximumContactMapOverlap",
   "ILP",
-  target-variant: (variable: "bool"),
+  target-variant: (coefficient: "i64", variable: "bool"),
 )
 #let cmo_ilp_sol = cmo_ilp.solutions.at(0)
 #reduction-rule("MaximumContactMapOverlap", "ILP",
   example: true,
-  example-target-variant: (variable: "bool"),
+  example-target-variant: (coefficient: "i64", variable: "bool"),
   example-caption: [$|V_1| = #cmo_ilp.source.instance.num_vertices_1$, $|E_1| = #cmo_ilp.source.instance.contacts_1.len()$, $|V_2| = #cmo_ilp.source.instance.num_vertices_2$, $|E_2| = #cmo_ilp.source.instance.contacts_2.len()$],
   extra: [
     #pred-commands(
@@ -13548,13 +13496,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   "MaximumEdgeWeightedKClique",
   "ILP",
   source-variant: (weight: "i64"),
-  target-variant: (variable: "bool"),
+  target-variant: (coefficient: "i64", variable: "bool"),
 )
 #let mewkc_ilp_sol = mewkc_ilp.solutions.at(0)
 #reduction-rule("MaximumEdgeWeightedKClique", "ILP",
   example: true,
   example-source-variant: (weight: "i64"),
-  example-target-variant: (variable: "bool"),
+  example-target-variant: (coefficient: "i64", variable: "bool"),
   example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
   extra: [
     #pred-commands(
@@ -14062,12 +14010,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cs_ilp_str = load-example(
   "ClosestString",
   "ILP",
-  target-variant: (variable: "i64"),
+  target-variant: (coefficient: "i64", variable: "i64"),
 )
 #let cs_ilp_str_sol = cs_ilp_str.solutions.at(0)
 #reduction-rule("ClosestString", "ILP",
   example: true,
-  example-target-variant: (variable: "i64"),
+  example-target-variant: (coefficient: "i64", variable: "i64"),
   example-caption: [Binary alphabet, 4 length-3 strings],
   extra: [
     #pred-commands(
@@ -14105,12 +14053,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let css_ilp = load-example(
   "ClosestSubstring",
   "ILP",
-  target-variant: (variable: "i64"),
+  target-variant: (coefficient: "i64", variable: "i64"),
 )
 #let css_ilp_sol = css_ilp.solutions.at(0)
 #reduction-rule("ClosestSubstring", "ILP",
   example: true,
-  example-target-variant: (variable: "i64"),
+  example-target-variant: (coefficient: "i64", variable: "i64"),
   example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
   extra: [
     #pred-commands(
@@ -14990,7 +14938,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     & x_(j,t) in {0, 1}.
   $
 
-  _Correctness._ One-hot ensures each task starts once within its feasible window; non-overlap prevents simultaneous execution.
+  _Correctness._ One-hot ensures each task starts once within its feasible window; non-overlap prevents simultaneous execution. If a task has no feasible start time, its one-hot constraint is $0 = 1$, making the ILP infeasible.
 
   _Solution extraction._ Task $j$ starts at time $arg max_t x_(j,t)$; config$[j] = t - r_j$.
 ]
@@ -15140,25 +15088,24 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LengthBoundedDisjointPaths", "ILP")[
-  Use one unit-flow commodity for each requested path and add hop variables so every chosen path has at most the source bound $K$ edges.
+  Maximize the number of active unit-flow commodities, each using at most $K$ edges, with shared internal-vertex capacities.
 ][
-  _Construction._ Variables: binary $f^k_(u,v)$ on each orientation of each edge for each path slot $k$, plus integer hop variables $h^k_v in {0, dots, K}$, where $K$ is the path-length bound and $M = K + 1$. The ILP is:
+  _Construction._ Let $A$ contain both orientations of every edge. Use binary $f^k_(u,v)$ for each arc and path slot $k$, together with binary activation variables $a_k$. The ILP is:
   $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(w) f^k_(s,w) - sum_(u) f^k_(u,s) = 1 quad forall k \
-    & sum_(u) f^k_(u,t) - sum_(w) f^k_(t,w) = 1 quad forall k \
+    max quad & sum_k a_k \
+    "subject to" quad & sum_(w) f^k_(s,w) - sum_(u) f^k_(u,s) = a_k quad forall k \
+    & sum_(u) f^k_(u,t) - sum_(w) f^k_(t,w) = a_k quad forall k \
     & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = 0 quad forall k, v in V backslash {s, t} \
     & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
+    & sum_k (f^k_(u,v) + f^k_(v,u)) <= 1 quad forall {u, v} in E \
     & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall v in V backslash {s, t} \
-    & h^k_s = 0 quad forall k \
-    & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
-    & h^k_t <= K quad forall k \
-    & f^k_(u,v) in {0, 1}, h^k_v in {0, dots, K}.
+    & sum_((u,v) in A) f^k_(u,v) <= K a_k quad forall k \
+    & f^k_(u,v), a_k in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) A collection of $J$ internally disjoint $s$-$t$ paths of length at most $K$ yields feasible commodity flows and consistent hop labels. ($arrow.l.double$) The flow and hop constraints force each commodity to be a simple $s$-$t$ path, while the vertex-disjointness inequalities match the source requirement.
+  _Correctness._ ($arrow.r.double$) Orient each source path from $s$ to $t$ and activate its slot. The resulting flows satisfy all constraints and have objective equal to the number of paths. ($arrow.l.double$) Each active commodity has a unit net flow from $s$ to $t$, so its positive-flow arcs contain a simple $s$-$t$ path. Extracting one such path discards any extra circulation and cannot increase its length beyond $K$. Shared internal-vertex capacities prevent different extracted paths from sharing internal vertices, and edge capacities prevent repeated use of the direct $s$-$t$ edge. Inactive slots have zero flow. Thus extraction preserves the number of active paths and the objective value.
 
-  _Solution extraction._ For each path slot $k$, set the source vertex-indicator block to 1 exactly on the vertices incident to the commodity-$k$ path, including $s$ and $t$.
+  _Solution extraction._ For each active slot, run breadth-first search on its positive-flow arcs and mark the edges of the resulting simple $s$-$t$ path in the source graph's edge order. Return an all-zero edge-selection row for each inactive slot.
 ]
 
 #reduction-rule("MixedChinesePostman", "ILP")[
@@ -15523,12 +15470,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let hcd_ilp = load-example(
   "HighlyConnectedDeletion",
   "ILP",
-  target-variant: (variable: "bool"),
+  target-variant: (coefficient: "i64", variable: "bool"),
 )
 #let hcd_ilp_sol = hcd_ilp.solutions.at(0)
 #reduction-rule("HighlyConnectedDeletion", "ILP",
   example: true,
-  example-target-variant: (variable: "bool"),
+  example-target-variant: (coefficient: "i64", variable: "bool"),
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
@@ -15557,12 +15504,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let ep_ilp = load-example(
   "EulerianPath",
   "ILP",
-  target-variant: (variable: "i64"),
+  target-variant: (coefficient: "i64", variable: "i64"),
 )
 #let ep_ilp_sol = ep_ilp.solutions.at(0)
 #reduction-rule("EulerianPath", "ILP",
   example: true,
-  example-target-variant: (variable: "i64"),
+  example-target-variant: (coefficient: "i64", variable: "i64"),
   example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
   extra: [
     #pred-commands(
@@ -15653,19 +15600,21 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LongestCircuit", "ILP")[
-  A direct cycle-selection ILP uses binary edge variables, degree constraints, and a connectivity witness to force exactly one simple circuit of length at least the bound.
+  A direct cycle-selection ILP maximizes total edge length, using degree constraints and binary multi-commodity flows from a root chosen on the circuit. For $n$ vertices and $m$ edges, it uses $m + 2n + 2m n$ binary variables.
 ][
-  _Construction._ Variables: binary $y_e$ for edges, binary $s_v$ indicating whether vertex $v$ lies on the circuit, and root-flow variables on selected edges. The ILP is:
+  _Construction._ Let $G = (V, E)$ have $n = |V|$ vertices, $m = |E|$ edges, and positive edge lengths $l_e$. Introduce binary edge selections $y_e$, vertex selections $s_v$, root selections $r_v$, and a binary directed flow $f^t_(u v)$ in each direction of each edge for every destination $t in V$. Define the flow divergence $D^t_v = sum_(u : {v,u} in E) (f^t_(v u) - f^t_(u v))$. The ILP is:
   $
-    "find" quad & bold(x) \
+    max quad & sum_(e in E) l_e y_e \
     "subject to" quad & sum_(e : v in e) y_e = 2 s_v quad forall v \
     & sum_e y_e >= 3 \
-    & sum_e l_e y_e >= K \
-    & "root-flow connectivity constraints hold on the selected edges" \
-    & y_e, s_v in {0, 1}.
+    & sum_v r_v = 1, quad r_v <= s_v quad forall v \
+    & D^t_t = r_t - s_t quad forall t \
+    & 0 <= D^t_v <= r_v quad forall t, v != t \
+    & f^t_(u v) <= y_({u,v}) quad forall t, {u,v} in E " (both directions)" \
+    & y_e, s_v, r_v, f^t_(u v) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) A simple circuit has degree 2 at each used vertex, is connected, and meets the length bound $K$. ($arrow.l.double$) The degree and connectivity constraints force the selected edges to form exactly one simple circuit, and the final inequality enforces the required total length.
+  _Correctness._ ($arrow.r.double$) Given any simple circuit, select its edges and vertices and choose any of its vertices as root. For each selected non-root destination, send one unit along a simple path on the circuit from the root to that destination; set all other commodity flows to zero. Every constraint holds, and the objective equals the circuit length. ($arrow.l.double$) Degree constraints make the nonempty selected subgraph a disjoint union of simple circuits. If a selected destination $t$ were outside the root's component, summing its commodity's divergence over its component would give $-1$: the destination consumes one unit and every other vertex there has zero divergence. But no flow can cross that component's boundary, a contradiction. Thus all selected vertices lie in the root's component, giving exactly one simple circuit. The objective is preserved in both directions.
 
   _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
 ]
@@ -16766,7 +16715,12 @@ The following table shows concrete target-variable counts for example instances,
   (source: "MinimumVertexCover", target: "MinimumSetCovering"),
   (source: "MaxCut", target: "SpinGlass"),
   (source: "SpinGlass", target: "MaxCut"),
-  (source: "SpinGlass", target: "QUBO"),
+  (
+    source: "SpinGlass",
+    target: "QUBO",
+    source-variant: (graph: "SimpleGraph", weight: "f64"),
+    target-variant: (weight: "f64"),
+  ),
   (source: "QUBO", target: "SpinGlass"),
   (source: "ClosestVectorProblem", target: "QUBO"),
   (source: "KColoring", target: "QUBO"),
@@ -16967,16 +16921,13 @@ The following table shows concrete target-variable counts for example instances,
 // === Non-ILP reduction rules (issue #974) ===
 
 #reduction-rule("ILP", "ILP")[
-  Integer variables with finite upper bounds are replaced by groups of binary variables using truncated binary encoding. Feasibility-Based Bound Tightening (FBBT) first infers per-variable upper bounds $U_i$ from the constraint system; each integer variable $x_i in {0, dots, U_i}$ is then encoded as $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ where $y_(i j) in {0, 1}$ and the weights are powers of two with a truncated final weight ensuring $sum w_(i j) = U_i$.
+  ILP variants convert between binary and bounded integer variable domains and between exact-integer and floating-point coefficients. Binary variables embed directly into integer variables. A finitely bounded integer variable is encoded by binary variables with truncated positional weights. Integer coefficients are embedded only when every stored coefficient and right-hand side has an exact `f64` representation.
 ][
-  _Construction._ Given an ILP over $n$ non-negative integer variables with constraints $A x <= b$ (and/or $>=, =$) and objective $c^top x$:
-  (1) Run FBBT to infer upper bounds $U_1, dots, U_n$. If infeasible, return a trivially infeasible binary ILP. If unbounded, fall back to $U_i = 2^(31) - 1$.
-  (2) For each $x_i$, compute $K_i = ceil(log_2(U_i + 1))$ and weights $w_(i 0) = 1, w_(i 1) = 2, dots, w_(i, K_i - 2) = 2^(K_i - 2), w_(i, K_i - 1) = U_i - (2^(K_i - 1) - 1)$.
-  (3) Substitute $x_i = sum_j w_(i j) y_(i j)$ into every constraint and objective term, expanding each integer coefficient into a sum over binary coefficients.
+  _Construction._ For the binary-to-integer edge, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge rejects variables without two finite bounds. For the coefficient edge, copy the variable bounds and optimization direction and convert each entry of the constraint matrix, right-hand side, and objective independently; reject the instance if any integer lies outside the exactly representable `f64` integer range.
 
-  _Correctness._ ($arrow.r.double$) Any integer assignment $x_i in {0, dots, U_i}$ has a unique truncated binary representation $y_(i j)$ with $sum w_(i j) y_(i j) = x_i$, preserving all constraints and the objective value. ($arrow.l.double$) Any binary assignment $y_(i j) in {0,1}$ yields $x_i = sum w_(i j) y_(i j) in {0, dots, U_i}$, so the decoded integer assignment satisfies the original constraints.
+  _Correctness._ The binary-to-integer embedding changes no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and objective values. Exact conversion preserves every stored coefficient, so it constructs the same formal linear objective and constraints over the same integer variables.
 
-  _Solution extraction._ For each source variable $x_i$, compute $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ from the binary solution.
+  _Solution extraction._ Binary-to-integer and coefficient conversions preserve the assignment; coefficient conversion additionally checks the assignment against the source integer ILP. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
@@ -19060,35 +19011,6 @@ The following table shows concrete target-variable counts for example instances,
 
 #let tdm_tp = load-example("ThreeDimensionalMatching", "ThreePartition")
 #let tdm_tp_sol = tdm_tp.solutions.at(0)
-#let tdm_tmi = load-example("ThreeDimensionalMatching", "ThreeMatroidIntersection")
-#let tdm_tmi_sol = tdm_tmi.solutions.at(0)
-#reduction-rule("ThreeDimensionalMatching", "ThreeMatroidIntersection",
-  example: true,
-  example-caption: [$q = 3$, $t = 5$ triples],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(tdm_tmi.source) + " -o source.json",
-      "pred reduce source.json --via route.json -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate source.json --config " + cli-config(tdm_tmi_sol.source_config),
-    )
-    Source 3DM witness $(#fmt-values(tdm_tmi_sol.source_config))$, target common-independent witness $(#fmt-values(tdm_tmi_sol.target_config))$.
-  ],
-)[
-  This $O(t + q)$ direct embedding @garey1979[SP11] takes the triple set itself as the common ground set and builds three partition matroids, one per coordinate family. The target has $t = |T|$ ground-set elements, $3 q$ groups in total, and bound $K = q$.
-][
-  _Construction._ Let the 3DM instance have universe size $q$ and triples $T = {t_0, dots, t_(t - 1)} subset.eq W times X times Y$, where $t_l = (w_(a_l), x_(b_l), y_(c_l))$. Create a Three-Matroid Intersection instance whose ground set is $E = {0, dots, t - 1}$, with element $l$ representing triple $t_l$.
-
-  Build three partition matroids on $E$. For each $i in {0, dots, q - 1}$, let
-  $ G_i^W = {l in E : a_l = i}, quad G_i^X = {l in E : b_l = i}, quad G_i^Y = {l in E : c_l = i}. $
-  A subset $S subset.eq E$ is independent in the first matroid iff $|S inter G_i^W| <= 1$ for every $i$; define the second and third matroids analogously using the $X$- and $Y$-coordinate groups. Set the target bound to $K = q$.
-
-  _Correctness._ ($arrow.r.double$) If $M subset.eq T$ is a perfect 3-dimensional matching, let $S subset.eq E$ contain exactly the indices of the triples in $M$. Because no two triples in $M$ share a $W$-, $X$-, or $Y$-coordinate, $S$ meets every group $G_i^W$, $G_i^X$, and $G_i^Y$ in at most one element, so $S$ is independent in all three matroids. Also $|S| = |M| = q$, hence $S$ is a feasible Three-Matroid Intersection solution.
-
-  ($arrow.l.double$) Let $S subset.eq E$ be a common independent set of size $q$. Independence in the first matroid implies that the selected triples use $q$ distinct $W$-coordinates; since only $q$ such coordinates exist, they use each element of $W$ exactly once. The same argument applies to $X$ and $Y$. Therefore the triples indexed by $S$ form a perfect 3-dimensional matching.
-
-  _Solution extraction._ Return the same binary indicator vector: target element $l$ is selected iff source triple $t_l$ is selected.
-]
 
 #reduction-rule("ThreeDimensionalMatching", "ThreePartition",
   example: true,

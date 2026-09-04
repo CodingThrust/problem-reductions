@@ -156,7 +156,7 @@ fn test_problem_parameters_ilp() {
     let ilp = ILP::<bool>::new(
         2,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 3)],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     )
     .unwrap();

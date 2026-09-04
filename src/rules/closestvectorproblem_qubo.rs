@@ -9,10 +9,9 @@ use crate::export::SolutionPair;
 use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 type Source = ClosestVectorProblem<i64>;
-type Target = QUBO<f64>;
+type Target = QUBO<i64>;
 
 #[derive(Debug, Clone)]
 struct EncodingSpan {
@@ -226,7 +225,7 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
 #[reduction(transform = unavailable {
     num_vars = "the exact encoding size depends on the concrete basis and target values",
 })]
-impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i64> {
+impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
     type Result = ReductionCVPToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -310,24 +309,8 @@ impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i64> {
             }
         }
 
-        let matrix = integer_matrix
-            .into_iter()
-            .map(|row| {
-                row.into_iter()
-                    .map(|value| {
-                        i64_to_exact_f64(value).map_err(|error| {
-                                crate::rules::ReductionError::inexact_float_conversion::<
-                                    Source,
-                                    Target,
-                                >(error)
-                            })
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
         Ok(ReductionCVPToQUBO {
-            target: QUBO::from_matrix(matrix)
+            target: QUBO::from_matrix(integer_matrix)
                 .map_err(crate::rules::ReductionError::construction::<Source, Target>)?,
             encodings,
         })
@@ -345,7 +328,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "closestvectorproblem_to_qubo",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 canonical_cvp_instance(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![1, 1]),

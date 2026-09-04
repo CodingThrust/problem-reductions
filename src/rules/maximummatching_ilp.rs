@@ -11,7 +11,6 @@ use crate::models::graph::MaximumMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumMatching to ILP.
 ///
@@ -75,17 +74,11 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {
 
         // Objective: maximize sum of w_e * x_e (weighted sum of selected edges)
         let weights = self.weights();
-        let objective: Vec<(usize, f64)> = weights
+        let objective: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(edge, &weight)| Ok((edge, i64_to_exact_f64(weight)?)))
-            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MaximumMatching<SimpleGraph, i64>,
-                    ILP<bool>,
-                >(error)
-            })?;
+            .map(|(edge, &weight)| (edge, weight))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

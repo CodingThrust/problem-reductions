@@ -14,18 +14,21 @@ use crate::models::algebraic::QUBO;
 use crate::models::misc::Knapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
+
+fn overflow(operation: &'static str) -> crate::rules::ReductionError {
+    crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<i64>>(operation)
+}
 
 /// Result of reducing Knapsack to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKnapsackToQUBO {
-    target: QUBO<f64>,
+    target: QUBO<i64>,
     num_items: usize,
 }
 
 impl ReductionResult for ReductionKnapsackToQUBO {
     type Source = Knapsack;
-    type Target = QUBO<f64>;
+    type Target = QUBO<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -44,7 +47,7 @@ impl ReductionResult for ReductionKnapsackToQUBO {
 #[reduction(transform = unavailable {
     num_vars = "the exact piecewise slack-bit count is not representable in the parameter-expression language",
 })]
-impl ReduceTo<QUBO<f64>> for Knapsack {
+impl ReduceTo<QUBO<i64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -59,27 +62,17 @@ impl ReduceTo<QUBO<f64>> for Knapsack {
             .iter()
             .try_fold(0_i64, |total, &value| total.checked_add(value))
             .ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<f64>>(
+                crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<i64>>(
                     "summing item values for the QUBO penalty",
                 )
             })?;
         let penalty_i64 = sum_values.checked_add(1).ok_or_else(|| {
-            crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<f64>>(
+            crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<i64>>(
                 "incrementing the QUBO penalty",
             )
         })?;
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<Knapsack, QUBO<f64>>(error)
-            })
-        };
-        let penalty = exact_f64(penalty_i64)?;
-        let values = self
-            .values()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
+        let penalty = penalty_i64;
+        let values = self.values();
 
         // Build QUBO matrix
         // H = -sum(v_i * x_i) + P * (sum(w_i * x_i) + sum(2^j * s_j) - C)^2
@@ -97,45 +90,61 @@ impl ReduceTo<QUBO<f64>> for Knapsack {
         // Off-diagonal terms (i < j):
         //   Q[i][j] = 2P * a_i * a_j
 
-        let mut coeffs = vec![0.0f64; total];
+        let mut coeffs = vec![0_i64; total];
         for (i, coeff) in coeffs.iter_mut().enumerate().take(n) {
-            *coeff = exact_f64(self.weights()[i])?;
+            *coeff = self.weights()[i];
         }
         for j in 0..b {
             let bit = u32::try_from(j).map_err(|_| {
-                crate::rules::ReductionError::invalid_target::<Knapsack, QUBO<f64>>(
+                crate::rules::ReductionError::invalid_target::<Knapsack, QUBO<i64>>(
                     "slack-bit index does not fit u32",
                 )
             })?;
             let weight = 1_i64.checked_shl(bit).ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<f64>>(
+                crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<i64>>(
                     "constructing a slack-bit weight",
                 )
             })?;
-            coeffs[n + j] = exact_f64(weight)?;
+            coeffs[n + j] = weight;
         }
 
-        let c_f = exact_f64(c)?;
-        let mut matrix = vec![vec![0.0f64; total]; total];
+        let mut matrix = vec![vec![0_i64; total]; total];
 
         // Diagonal: P * a_k^2 - 2P * C * a_k - v_k (for items)
         for k in 0..total {
-            matrix[k][k] = penalty * coeffs[k] * coeffs[k] - 2.0 * penalty * c_f * coeffs[k];
+            let square = penalty
+                .checked_mul(coeffs[k])
+                .and_then(|value| value.checked_mul(coeffs[k]))
+                .ok_or_else(|| overflow("computing a knapsack QUBO square penalty"))?;
+            let linear = penalty
+                .checked_mul(c)
+                .and_then(|value| value.checked_mul(coeffs[k]))
+                .and_then(|value| value.checked_mul(2))
+                .ok_or_else(|| overflow("computing a knapsack QUBO linear penalty"))?;
+            matrix[k][k] = square
+                .checked_sub(linear)
+                .ok_or_else(|| overflow("combining knapsack QUBO diagonal penalties"))?;
             if k < n {
-                matrix[k][k] -= values[k];
+                matrix[k][k] = matrix[k][k]
+                    .checked_sub(values[k])
+                    .ok_or_else(|| overflow("adding a knapsack value to the QUBO objective"))?;
             }
         }
 
         // Off-diagonal (upper triangular): 2P * a_i * a_j
         for i in 0..total {
             for j in (i + 1)..total {
-                matrix[i][j] = 2.0 * penalty * coeffs[i] * coeffs[j];
+                matrix[i][j] = penalty
+                    .checked_mul(coeffs[i])
+                    .and_then(|value| value.checked_mul(coeffs[j]))
+                    .and_then(|value| value.checked_mul(2))
+                    .ok_or_else(|| overflow("computing a knapsack QUBO interaction"))?;
             }
         }
 
         Ok(ReductionKnapsackToQUBO {
             target: QUBO::from_matrix(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<Knapsack, QUBO<f64>>(message)
+                crate::rules::ReductionError::construction::<Knapsack, QUBO<i64>>(message)
             })?,
             num_items: n,
         })
@@ -149,7 +158,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "knapsack_to_qubo",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, true]),

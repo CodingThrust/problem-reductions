@@ -30,7 +30,7 @@ fn test_preemptivescheduling_to_ilp_structure() {
     assert_eq!(ilp.num_vars(), 5, "expected n*D_max+1 = 5 variables");
     assert_eq!(
         ilp.objective(),
-        vec![(4, 1.0)],
+        vec![(4, 1)],
         "objective: minimize M at index 4"
     );
 
@@ -58,10 +58,10 @@ fn test_preemptivescheduling_to_ilp_closed_loop() {
 }
 
 #[test]
-fn test_solve_reduced_supports_direct_ilp_i64_reductions() {
+fn test_solve_via_registered_integer_ilp_pipeline() {
     let problem = small_instance();
     let solution = ILPSolver::new()
-        .solve_reduced::<i64, _>(&problem)
+        .solve(&problem)
         .expect("direct ILP<i64> reduction should be solvable");
 
     assert!(problem.evaluate(&solution).unwrap().0.is_some());

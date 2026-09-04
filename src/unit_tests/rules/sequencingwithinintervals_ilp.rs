@@ -79,6 +79,24 @@ fn test_sequencingwithinintervals_to_ilp_infeasible() {
 }
 
 #[test]
+fn test_sequencingwithinintervals_to_ilp_empty_start_domain() {
+    for problem in [
+        SequencingWithinIntervals::new(vec![2], vec![50], vec![49]).unwrap(),
+        SequencingWithinIntervals::new(vec![0, 5], vec![3, 3], vec![2, 2]).unwrap(),
+        SequencingWithinIntervals::new(vec![i64::MAX], vec![0], vec![i64::MAX]).unwrap(),
+    ] {
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+        let ilp = reduction.target_problem();
+        assert_eq!(ilp.num_vars(), problem.num_start_slots());
+        assert!(BruteForce::new().solve(&problem).unwrap().is_none());
+        assert!(matches!(
+            ILPSolver::new().solve(ilp),
+            Err(crate::solvers::ILPSolveError::Infeasible)
+        ));
+    }
+}
+
+#[test]
 fn test_sequencingwithinintervals_to_ilp_extract_solution() {
     let problem = feasible_instance();
     let reduction: ReductionSWIToILP =

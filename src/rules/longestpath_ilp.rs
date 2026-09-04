@@ -10,7 +10,6 @@ use crate::models::graph::LongestPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionLongestPathToILP {
@@ -168,12 +167,7 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
 
         let mut objective = Vec::with_capacity(2 * num_edges);
         for (edge_idx, length) in self.edge_lengths().iter().enumerate() {
-            let coeff = i64_to_exact_f64(*length).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    LongestPath<SimpleGraph, i64>,
-                    ILP<i64>,
-                >(error)
-            })?;
+            let coeff = *length;
             objective.push((ReductionLongestPathToILP::arc_var(edge_idx, 0), coeff));
             objective.push((ReductionLongestPathToILP::arc_var(edge_idx, 1), coeff));
         }

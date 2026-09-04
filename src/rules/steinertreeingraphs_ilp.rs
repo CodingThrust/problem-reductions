@@ -11,7 +11,7 @@ use crate::models::graph::SteinerTreeInGraphs;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{i64_to_exact_f64, WeightElement};
+use crate::types::WeightElement;
 
 /// Result of reducing SteinerTreeInGraphs to ILP.
 ///
@@ -129,20 +129,11 @@ impl ReduceTo<ILP<bool>> for SteinerTreeInGraphs<SimpleGraph, i64> {
 
         // Objective: minimize total weight
         let edge_weights = self.weights();
-        let objective: Vec<(usize, f64)> = edge_weights
+        let objective: Vec<(usize, i64)> = edge_weights
             .iter()
             .enumerate()
-            .map(|(edge_idx, w)| {
-                i64_to_exact_f64(w.to_sum())
-                    .map(|weight| (edge_var(edge_idx), weight))
-                    .map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            SteinerTreeInGraphs<SimpleGraph, i64>,
-                            ILP<bool>,
-                        >(error)
-                    })
-            })
-            .collect::<Result<_, _>>()?;
+            .map(|(edge_idx, weight)| (edge_var(edge_idx), weight.to_sum()))
+            .collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

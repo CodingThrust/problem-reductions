@@ -278,7 +278,7 @@ impl ReduceTo<ILP<i64>> for OpenShopScheduling {
         }
 
         // Objective: minimize C
-        let objective = vec![(c_var, 1.0)];
+        let objective = vec![(c_var, 1)];
 
         Ok(ReductionOSSToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

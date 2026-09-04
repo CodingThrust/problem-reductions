@@ -315,11 +315,14 @@ fn deterministic_solver_dispatch_customized_infeasibility_does_not_fall_back() {
 }
 
 #[test]
-fn deterministic_solver_dispatch_direct_ilp_uses_registered_one_node_pipeline() {
+fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
     let problem = ILP::<bool>::new(0, vec![], vec![], ObjectiveSense::Minimize).unwrap();
     let loaded = load_dyn(
         ILP::<bool>::NAME,
-        &BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        &BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
         serde_json::to_value(problem).unwrap(),
     )
     .unwrap();
@@ -328,7 +331,7 @@ fn deterministic_solver_dispatch_direct_ilp_uses_registered_one_node_pipeline() 
     assert_eq!(
         result.solver,
         SolverExecution::Ilp {
-            reduction_path: vec!["ILP<bool>".to_string()]
+            reduction_path: vec!["ILP<i64, bool>".to_string(), "ILP<f64, bool>".to_string()]
         }
     );
     assert!(matches!(
@@ -351,7 +354,10 @@ fn deterministic_solver_dispatch_ilp_infeasibility_does_not_fall_back() {
     .unwrap();
     let loaded = load_dyn(
         ILP::<bool>::NAME,
-        &BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        &BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
         serde_json::to_value(problem).unwrap(),
     )
     .unwrap();
@@ -375,12 +381,12 @@ fn deterministic_solver_execution_has_stable_tagged_json_contract() {
     );
     assert_eq!(
         serde_json::to_value(SolverExecution::Ilp {
-            reduction_path: vec!["Source".to_string(), "ILP<bool>".to_string()]
+            reduction_path: vec!["Source".to_string(), "ILP<i64, bool>".to_string()]
         })
         .unwrap(),
         serde_json::json!({
             "kind": "ilp",
-            "reduction_path": ["Source", "ILP<bool>"]
+            "reduction_path": ["Source", "ILP<i64, bool>"]
         })
     );
     assert_eq!(
@@ -441,7 +447,8 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
             "MaximumIndependentSet<SimpleGraph, One>",
             "MaximumIndependentSet<SimpleGraph, i64>",
             "MaximumSetPacking<i64>",
-            "ILP<bool>",
+            "ILP<i64, bool>",
+            "ILP<f64, bool>",
         ]
     );
 }

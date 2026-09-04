@@ -53,6 +53,7 @@ impl ExactProblemKey {
                 self.variant.get("variable").map(String::as_str),
                 Some("bool" | "i64")
             )
+            && self.variant.get("coefficient").map(String::as_str) == Some("f64")
     }
 }
 
@@ -114,15 +115,17 @@ impl CompiledIlpPipeline {
         self.path.iter().map(ExactProblemKey::label).collect()
     }
 
-    pub(crate) fn solve(
+    fn solve_with<R>(
         &self,
         source: &dyn Any,
         solver: &super::ILPSolver,
-    ) -> Result<Option<serde_json::Value>, super::ILPSolveError> {
+        finish: impl FnOnce(
+            Box<dyn Any>,
+            Option<&dyn DynReductionResult>,
+        ) -> Result<R, super::ILPSolveError>,
+    ) -> Result<Option<R>, super::ILPSolveError> {
         if self.reducers.is_empty() {
-            return solver.solve_dyn(source).map(|solution| {
-                Some(serde_json::to_value(solution).expect("ILP solution serialization failed"))
-            });
+            return finish(Box::new(solver.solve_dyn(source)?), None).map(Some);
         }
 
         let mut reductions: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -157,10 +160,47 @@ impl CompiledIlpPipeline {
             }
             source_solution = step.extract_solution_dyn(source_solution.as_ref())?;
         }
-        reductions[0]
-            .source_solution_json(source_solution.as_ref())
-            .map(Some)
-            .map_err(super::ILPSolveError::from)
+        finish(source_solution, Some(reductions[0].as_ref())).map(Some)
+    }
+
+    pub(crate) fn solve(
+        &self,
+        source: &dyn Any,
+        solver: &super::ILPSolver,
+    ) -> Result<Option<serde_json::Value>, super::ILPSolveError> {
+        self.solve_with(source, solver, |solution, first_reduction| {
+            if let Some(reduction) = first_reduction {
+                return reduction
+                    .source_solution_json(solution.as_ref())
+                    .map_err(super::ILPSolveError::from);
+            }
+            Ok(serde_json::to_value(
+                *solution
+                    .downcast::<Vec<i64>>()
+                    .expect("ILP backend returned the wrong solution type"),
+            )
+            .expect("ILP solution serialization failed"))
+        })
+    }
+
+    pub(crate) fn solve_typed<S: 'static>(
+        &self,
+        source: &dyn Any,
+        solver: &super::ILPSolver,
+    ) -> Result<Option<S>, super::ILPSolveError> {
+        self.solve_with(source, solver, |solution, _| {
+            solution
+                .downcast::<S>()
+                .map(|solution| *solution)
+                .map_err(|_| {
+                    super::ILPSolveError::PipelineTypeMismatch(
+                        self.path
+                            .first()
+                            .expect("compiled pipeline has a source")
+                            .label(),
+                    )
+                })
+        })
     }
 }
 
@@ -245,7 +285,7 @@ pub enum RegistryBuildError {
     MissingSolverCapability(String),
     #[error("ILP pipeline must contain at least one node")]
     EmptyPipeline,
-    #[error("ILP pipeline for {0} does not end at ILP<bool> or ILP<i64>")]
+    #[error("ILP pipeline for {0} does not end at an f64-coefficient ILP")]
     UnsupportedTarget(String),
     #[error("ILP pipeline for {0} continues after reaching a supported ILP node")]
     ContinuesAfterIlp(String),

@@ -40,7 +40,7 @@ fn test_closestsubstring_to_ilp_structure() {
     assert_eq!(ilp.objective().len(), 1);
     let (r_idx, r_coeff) = ilp.objective()[0];
     assert_eq!(r_idx, ilp.num_vars() - 1);
-    assert!((r_coeff - 1.0).abs() < 1e-9);
+    assert_eq!(r_coeff, 1);
 
     // First ell = 3 constraints are assignment constraints (q = 2 terms, rhs = 1).
     for c in ilp.constraints().iter().take(3) {

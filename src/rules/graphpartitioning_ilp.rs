@@ -75,7 +75,7 @@ impl ReduceTo<ILP<bool>> for GraphPartitioning<SimpleGraph> {
             constraints.push(LinearConstraint::ge(vec![(y_var, 1), (*u, 1), (*v, -1)], 0));
         }
 
-        let objective: Vec<(usize, f64)> = (0..m).map(|edge_idx| (n + edge_idx, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|edge_idx| (n + edge_idx, 1)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 

@@ -76,6 +76,30 @@ where
         ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V>>,
     S::Solution: Serialize,
 {
+    rule_example_via_typed_ilp::<S, V, i64>(source)
+}
+
+/// Float-coefficient counterpart of [`rule_example_via_ilp`].
+pub fn rule_example_via_float_ilp<S, V>(source: S) -> RuleExample
+where
+    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V, f64>>,
+    V: crate::models::algebraic::VariableDomain,
+    <S as ReduceTo<crate::models::algebraic::ILP<V, f64>>>::Result:
+        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V, f64>>,
+    S::Solution: Serialize,
+{
+    rule_example_via_typed_ilp::<S, V, f64>(source)
+}
+
+fn rule_example_via_typed_ilp<S, V, C>(source: S) -> RuleExample
+where
+    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V, C>>,
+    V: crate::models::algebraic::VariableDomain,
+    C: crate::models::algebraic::ILPCoefficient + Serialize,
+    <S as ReduceTo<crate::models::algebraic::ILP<V, C>>>::Result:
+        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V, C>>,
+    S::Solution: Serialize,
+{
     use crate::export::SolutionPair;
     let reduction = source.reduce_to().expect("reduction should succeed");
     let ilp_solution = crate::solvers::ILPSolver::new()

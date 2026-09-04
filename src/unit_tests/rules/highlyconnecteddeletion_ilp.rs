@@ -24,13 +24,13 @@ fn test_highlyconnecteddeletion_to_ilp_issue_structure() {
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 
     // The induced-edge counts: singletons contribute 0, triangle contributes 3.
-    let triangle_coeffs: Vec<f64> = ilp
+    let triangle_coeffs: Vec<i64> = ilp
         .objective()
         .iter()
-        .filter(|(_, w)| *w > 0.0)
+        .filter(|(_, w)| *w > 0)
         .map(|(_, w)| *w)
         .collect();
-    assert_eq!(triangle_coeffs, vec![3.0]);
+    assert_eq!(triangle_coeffs, vec![3]);
 
     // Vertex 3 only appears in its own singleton, so its partition constraint
     // is `x_{3} = 1` -- a single-term equality with rhs 1.
@@ -120,7 +120,7 @@ fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
     // any 4+ subsets crossing it fail edge-connectivity). The two triangles
     // are feasible; mixed 4-vertex sets are not.
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
-    let large_cluster_count = ilp.objective().iter().filter(|(_, w)| *w > 0.0).count();
+    let large_cluster_count = ilp.objective().iter().filter(|(_, w)| *w > 0).count();
     assert_eq!(large_cluster_count, 2);
 
     assert_bf_vs_ilp(&source, &reduction);

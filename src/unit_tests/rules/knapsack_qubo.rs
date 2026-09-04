@@ -6,7 +6,7 @@ use crate::traits::Problem;
 #[test]
 fn test_knapsack_to_qubo_closed_loop() {
     let knapsack = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&knapsack).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&knapsack).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 7);
@@ -21,7 +21,7 @@ fn test_knapsack_to_qubo_closed_loop() {
 #[test]
 fn test_knapsack_to_qubo_single_item() {
     let knapsack = Knapsack::new(vec![1], vec![1], 1);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&knapsack).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&knapsack).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 2);
@@ -35,7 +35,7 @@ fn test_knapsack_to_qubo_single_item() {
 #[test]
 fn test_knapsack_to_qubo_infeasible_rejected() {
     let knapsack = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&knapsack).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&knapsack).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -54,7 +54,7 @@ fn test_knapsack_to_qubo_infeasible_rejected() {
 #[test]
 fn test_knapsack_to_qubo_empty() {
     let knapsack = Knapsack::new(vec![1, 2], vec![3, 4], 0);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&knapsack).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&knapsack).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 3);

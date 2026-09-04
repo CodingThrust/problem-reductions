@@ -14,11 +14,11 @@ fn test_ilp_to_qubo_closed_loop() {
             LinearConstraint::le(vec![(0, 1), (1, 1)], 1),
             LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
         ],
-        vec![(0, 1.0), (1, 2.0), (2, 3.0)],
+        vec![(0, 1), (1, 2), (2, 3)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -42,11 +42,11 @@ fn test_ilp_to_qubo_minimize() {
     let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::ge(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0), (2, 3.0)],
+        vec![(0, 1), (1, 2), (2, 3)],
         ObjectiveSense::Minimize,
     )
     .unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -69,11 +69,11 @@ fn test_ilp_to_qubo_equality() {
     let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::eq(vec![(0, 1), (1, 1), (2, 1)], 2)],
-        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        vec![(0, 1), (1, 1), (2, 1)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -97,11 +97,11 @@ fn test_ilp_to_qubo_ge_with_slack() {
     let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::ge(vec![(0, 1), (1, 1), (2, 1)], 1)],
-        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        vec![(0, 1), (1, 1), (2, 1)],
         ObjectiveSense::Minimize,
     )
     .unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
@@ -128,11 +128,11 @@ fn test_ilp_to_qubo_le_with_slack() {
     let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1), (2, 1)], 2)],
-        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        vec![(0, 1), (1, 1), (2, 1)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
@@ -156,11 +156,11 @@ fn test_ilp_to_qubo_structure() {
     let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0), (2, 3.0)],
+        vec![(0, 1), (1, 2), (2, 3)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // Verify QUBO has appropriate structure

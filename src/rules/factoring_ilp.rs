@@ -212,7 +212,7 @@ impl ReduceTo<ILP<i64>> for Factoring {
         }
 
         // Objective: feasibility problem (minimize 0)
-        let objective: Vec<(usize, f64)> = vec![];
+        let objective: Vec<(usize, i64)> = vec![];
 
         let ilp = ILP::<i64>::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;

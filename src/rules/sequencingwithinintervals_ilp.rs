@@ -2,12 +2,12 @@
 //!
 //! Uses a time-indexed binary formulation:
 //! - Variables: Binary x_{j,k} where x_{j,k} = 1 iff task j starts at offset k
-//!   from its release time (actual start = r_j + k), k in 0..(d_j - r_j - l_j).
+//!   from its release time (actual start = r_j + k), 0 <= k <= d_j - r_j - l_j.
 //! - Variable index: task j at offset k has global index: Σ_{i<j} slot_count_i + k,
-//!   where slot_count_i = d_i - r_i - l_i + 1 is the number of valid start offsets.
+//!   where slot_count_i = max(0, d_i - r_i - l_i + 1) counts valid start offsets.
 //!   For simplicity we use a flat layout: each task j occupies slot_count[j] variables.
 //! - Constraints:
-//!   1. One-hot: Σ_k x_{j,k} = 1 for each task j
+//!   1. One-hot: Σ_k x_{j,k} = 1 for each task j (0 = 1 for an empty start domain).
 //!   2. Non-overlap: for each pair (i, j), they cannot be active at the same time.
 //!      Active time of task j starting at r_j+k: [r_j+k, r_j+k+l_j).
 //!      Non-overlap: no shared time. Modeled with: for each pair (i,j) with i<j,
@@ -23,7 +23,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing SequencingWithinIntervals to `ILP<bool>`.
 ///
 /// Variable layout: task j occupies variables at offsets [base_j, base_j + slot_count_j).
-/// where base_j = Σ_{i<j} slot_count_i and slot_count_j = d_j - r_j - l_j + 1.
+/// where base_j = Σ_{i<j} slot_count_i and slot_count_j = max(0, d_j - r_j - l_j + 1).
 #[derive(Debug, Clone)]
 pub struct ReductionSWIToILP {
     target: ILP<bool>,
@@ -83,24 +83,13 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let release = self.release_times();
-        let deadlines = self.deadlines();
         let lengths = self.lengths();
 
         // Compute per-task variable layout: how many start slots each task has
         let overflow = |operation| {
             crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(operation)
         };
-        let slot_counts: Vec<usize> = (0..n)
-            .map(|j| {
-                let count = deadlines[j]
-                    .checked_sub(release[j])
-                    .and_then(|value| value.checked_sub(lengths[j]))
-                    .and_then(|value| value.checked_add(1))
-                    .ok_or_else(|| overflow("computing a task's start-slot count"))?;
-                usize::try_from(count)
-                    .map_err(|_| overflow("converting a task's start-slot count to usize"))
-            })
-            .collect::<Result<_, _>>()?;
+        let slot_counts: Vec<usize> = self.start_slot_counts().collect();
 
         let mut bases = vec![0usize; n];
         for j in 1..n {

@@ -128,7 +128,7 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeMaximumCumulativeCost {
         constraints.push(LinearConstraint::le(vec![(z_var, 1)], z_upper));
 
         // Objective: minimize z (the maximum cumulative cost)
-        let objective = vec![(z_var, 1.0)];
+        let objective = vec![(z_var, 1)];
 
         Ok(ReductionSTMMCCToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

@@ -563,7 +563,7 @@ mod tests {
     fn solve_result_json_preserves_structured_solver_contract() {
         let result = SolveResult {
             solver: problemreductions::solvers::SolverExecution::Ilp {
-                reduction_path: vec!["Source".to_string(), "ILP<bool>".to_string()],
+                reduction_path: vec!["Source".to_string(), "ILP<i64, bool>".to_string()],
             },
             outcome: SolveOutcome::Optimal {
                 solution: serde_json::json!([true, false]),
@@ -577,7 +577,7 @@ mod tests {
         assert_eq!(json["status"], "optimal");
         assert_eq!(
             json["solver"]["reduction_path"],
-            serde_json::json!(["Source", "ILP<bool>"])
+            serde_json::json!(["Source", "ILP<i64, bool>"])
         );
         assert_eq!(json["solution"], serde_json::json!([true, false]));
         assert!(json.get("reduced_to").is_none());

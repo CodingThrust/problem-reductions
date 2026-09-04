@@ -443,7 +443,7 @@ proved infeasibility, and `Err` reports an operational failure.
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
-| **ILPSolver** | Solves `ILP<bool>` and `ILP<i64>` instances directly with HiGHS via `good_lp`. Also provides `solve_reduced::<V, _>()` for problems that implement `ReduceTo<ILP<V>>`. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved by HiGHS via `good_lp`. |
 
 ## JSON Serialization
 

@@ -136,14 +136,13 @@ fn test_solution_extraction_structure() {
 }
 
 #[test]
-fn test_solve_reduced() {
-    // Test via ILPSolver::solve_reduced
+fn test_solve_via_ilp_pipeline() {
     let problem = k4_tsp();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should work");
+        .solve(&problem)
+        .expect("ILP pipeline should solve the problem");
 
     let metric = problem.evaluate(&solution).unwrap();
     assert!(metric.is_valid());

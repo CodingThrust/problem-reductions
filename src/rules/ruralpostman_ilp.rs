@@ -9,7 +9,7 @@ use crate::models::graph::RuralPostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{i64_to_exact_f64, WeightElement};
+use crate::types::WeightElement;
 
 /// Result of reducing RuralPostman to ILP.
 #[derive(Debug, Clone)]
@@ -197,18 +197,9 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
 
         // Objective: minimize total route cost
         let edge_lengths = self.edge_lengths();
-        let objective: Vec<(usize, f64)> = (0..m)
-            .map(|e| {
-                i64_to_exact_f64(edge_lengths[e].to_sum())
-                    .map(|length| (t_idx(e), length))
-                    .map_err(|error| {
-                        crate::rules::ReductionError::inexact_float_conversion::<
-                            RuralPostman<SimpleGraph, i64>,
-                            ILP<i64>,
-                        >(error)
-                    })
-            })
-            .collect::<Result<_, _>>()?;
+        let objective: Vec<(usize, i64)> = (0..m)
+            .map(|e| (t_idx(e), edge_lengths[e].to_sum()))
+            .collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
 

@@ -34,14 +34,14 @@ fn test_length_bounded_disjoint_paths_creation() {
     assert_eq!(problem.num_edges(), 6);
     assert_eq!(problem.max_paths(), 3);
     assert_eq!(problem.max_length(), 3);
-    // 3 slots * 5 vertices = 15 binary variables
-    assert_eq!(problem.dimensions(), vec![2; 15]);
+    // 3 slots * 6 edges = 18 binary variables
+    assert_eq!(problem.dimensions(), vec![2; 18]);
 }
 
 #[test]
 fn test_length_bounded_disjoint_paths_allows_large_bounds() {
     let problem = LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 10);
-    let config = encode_paths(5, 3, &[&[0, 1, 4], &[0, 2, 4]]);
+    let config = encode_paths(6, 3, &[&[0, 1], &[2, 3]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));
 }
 
@@ -73,7 +73,7 @@ fn test_length_bounded_disjoint_paths_creation_rejects_zero_bound() {
 fn test_length_bounded_disjoint_paths_evaluate_optimal() {
     let problem = sample_problem();
     // All 3 paths used
-    let config = encode_paths(5, 3, &[&[0, 1, 4], &[0, 2, 4], &[0, 3, 4]]);
+    let config = encode_paths(6, 3, &[&[0, 1], &[2, 3], &[4, 5]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(3)));
 }
 
@@ -81,7 +81,7 @@ fn test_length_bounded_disjoint_paths_evaluate_optimal() {
 fn test_length_bounded_disjoint_paths_evaluate_partial() {
     let problem = sample_problem();
     // Only 2 of 3 slots used, third slot empty
-    let config = encode_paths(5, 3, &[&[0, 1, 4], &[0, 2, 4]]);
+    let config = encode_paths(6, 3, &[&[0, 1], &[2, 3]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));
 }
 
@@ -89,7 +89,7 @@ fn test_length_bounded_disjoint_paths_evaluate_partial() {
 fn test_length_bounded_disjoint_paths_evaluate_single_path() {
     let problem = sample_problem();
     // Only 1 slot used
-    let config = encode_paths(5, 3, &[&[0, 1, 4]]);
+    let config = encode_paths(6, 3, &[&[0, 1]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(1)));
 }
 
@@ -97,7 +97,7 @@ fn test_length_bounded_disjoint_paths_evaluate_single_path() {
 fn test_length_bounded_disjoint_paths_evaluate_empty_config() {
     let problem = sample_problem();
     // All slots empty → 0 paths
-    let config = vec![vec![false; 5]; 3];
+    let config = vec![vec![false; 6]; 3];
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(0)));
 }
 
@@ -105,15 +105,15 @@ fn test_length_bounded_disjoint_paths_evaluate_empty_config() {
 fn test_length_bounded_disjoint_paths_rejects_missing_terminal() {
     let problem = sample_problem();
     // Slot 1 is non-empty but missing sink
-    let config = encode_paths(5, 3, &[&[0, 1], &[0, 2, 4]]);
+    let config = encode_paths(6, 3, &[&[0], &[2, 3]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_disconnected_slot() {
     let problem = sample_problem();
-    // Slot has non-adjacent vertices (0 and 3 are adjacent, but 3 and 1 are not)
-    let config = encode_paths(5, 3, &[&[0, 1, 3, 4]]);
+    // The selected edges 0-1 and 3-4 do not connect the terminals.
+    let config = encode_paths(6, 3, &[&[0, 5]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
@@ -124,7 +124,7 @@ fn test_length_bounded_disjoint_paths_rejects_overlong_slot() {
     // max_paths = min(deg(0), deg(3)) = min(2, 2) = 2
     let problem = LengthBoundedDisjointPaths::new(graph, 0, 3, 1);
     // Path [0,1,2,3] has 3 edges but max_length=1
-    let config = encode_paths(4, 2, &[&[0, 1, 2, 3]]);
+    let config = encode_paths(4, 2, &[&[0, 1, 2]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
@@ -132,7 +132,7 @@ fn test_length_bounded_disjoint_paths_rejects_overlong_slot() {
 fn test_length_bounded_disjoint_paths_rejects_shared_internal_vertices() {
     let problem = sample_problem();
     // Two slots share internal vertex 1
-    let config = encode_paths(5, 3, &[&[0, 1, 4], &[0, 1, 4]]);
+    let config = encode_paths(6, 3, &[&[0, 1], &[0, 1]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
@@ -140,8 +140,16 @@ fn test_length_bounded_disjoint_paths_rejects_shared_internal_vertices() {
 fn test_length_bounded_disjoint_paths_rejects_reused_direct_edge() {
     let problem = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]), 0, 1, 1);
     // max_paths = min(deg(0), deg(1)) = 1, so only 1 slot
-    let config = encode_paths(2, 1, &[&[0, 1]]);
+    let config = encode_paths(1, 1, &[&[0]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(1)));
+    let triangle =
+        LengthBoundedDisjointPaths::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 0, 2, 2);
+    assert_eq!(
+        triangle
+            .evaluate(&encode_paths(3, 2, &[&[2], &[2]]))
+            .unwrap(),
+        Max(None)
+    );
 }
 
 #[test]
@@ -149,7 +157,11 @@ fn test_length_bounded_disjoint_paths_rejects_non_binary_entries() {
     let problem = sample_problem();
     assert!(crate::registry::DynProblem::evaluate_dyn(
         &problem,
-        &serde_json::json!([[1, 1, 0, 2, 1], [1, 0, 1, 0, 1], [0, 0, 0, 0, 0]])
+        &serde_json::json!([
+            [true, true, false, 2, false, false],
+            vec![false; 6],
+            vec![false; 6]
+        ])
     )
     .is_err());
 }
@@ -184,11 +196,47 @@ fn test_length_bounded_disjoint_paths_graph_getter() {
 #[test]
 fn test_length_bounded_disjoint_paths_num_variables() {
     let problem = sample_problem();
-    assert_eq!(problem.num_variables(), 15);
+    assert_eq!(problem.num_variables(), 18);
 }
 
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_wrong_length_config() {
     let problem = sample_problem();
     assert!(problem.evaluate(&vec![vec![false, true, false]]).is_err());
+    assert!(problem.evaluate(&vec![vec![false; 5]; 3]).is_err());
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_chorded_path() {
+    let problem =
+        LengthBoundedDisjointPaths::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 0, 2, 2);
+    let solution = encode_paths(3, 2, &[&[0, 1], &[2]]);
+    assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(2)));
+    let best = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Max(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&encode_paths(3, 2, &[&[0, 1, 2]]))
+            .unwrap(),
+        Max(None)
+    );
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_rejects_disconnected_cycle() {
+    let problem = LengthBoundedDisjointPaths::new(
+        SimpleGraph::new(5, vec![(0, 1), (2, 3), (3, 4), (4, 2)]),
+        0,
+        1,
+        4,
+    );
+    assert_eq!(problem.evaluate(&vec![vec![true; 4]]).unwrap(), Max(None));
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_edgeless_graph() {
+    let problem = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![]), 0, 1, 1);
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert!(solution.is_empty());
+    assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(0)));
 }

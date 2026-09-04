@@ -94,7 +94,7 @@ impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
         }
 
         // Objective: minimize Σ x_j
-        let objective: Vec<(usize, f64)> = (0..m).map(|j| (x(j), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|j| (x(j), 1)).collect();
 
         Ok(ReductionMinimumWeightDecodingToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)

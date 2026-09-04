@@ -9,7 +9,6 @@ use crate::models::misc::StackerCrane;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing StackerCrane to ILP.
 ///
@@ -128,13 +127,7 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
                     let tail_j = self.arcs()[j].0;
                     let dist = distances[head_i][tail_j];
                     if dist < i64::MAX {
-                        let distance = i64_to_exact_f64(dist).map_err(|error| {
-                            crate::rules::ReductionError::inexact_float_conversion::<
-                                StackerCrane,
-                                ILP<bool>,
-                            >(error)
-                        })?;
-                        objective.push((z_idx(i, j, p), distance));
+                        objective.push((z_idx(i, j, p), dist));
                     }
                 }
             }

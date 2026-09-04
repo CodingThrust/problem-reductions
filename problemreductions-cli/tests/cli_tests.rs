@@ -3527,7 +3527,7 @@ fn test_solve_direct_ilp_i64_problem() {
             "--example",
             "SequencingToMinimizeWeightedCompletionTime",
             "--to",
-            "ILP/i64",
+            "ILP/variable=i64",
             "--example-side",
             "target",
         ])
@@ -5011,6 +5011,60 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
     // max_paths is auto-computed: min(deg(0), deg(3)) = min(2, 2) = 2
     assert_eq!(json["data"]["max_paths"], 2);
     assert_eq!(json["data"]["max_length"], 2);
+}
+
+#[test]
+fn test_solve_length_bounded_disjoint_paths_with_chord() {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let created = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2,0-2",
+            "--source",
+            "0",
+            "--sink",
+            "2",
+            "--max-length",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let mut child = pred()
+        .args(["solve", "-", "--json", "--quiet"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&created.stdout)
+        .unwrap();
+    let solved = child.wait_with_output().unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(json["status"], "optimal");
+    assert_eq!(json["solver"]["kind"], "ilp");
+    assert_eq!(json["evaluation"], "Max(2)");
+    let paths = json["solution"].as_array().unwrap();
+    assert_eq!(paths.len(), 2);
+    assert!(paths.contains(&serde_json::json!([true, true, false])));
+    assert!(paths.contains(&serde_json::json!([false, false, true])));
 }
 
 #[test]
@@ -9058,7 +9112,7 @@ fn test_create_minimum_multiway_cut_rejects_single_terminal() {
 }
 
 #[test]
-fn test_create_sequencing_within_intervals_rejects_empty_window() {
+fn test_create_and_solve_sequencing_within_intervals_empty_window() {
     let output = pred()
         .args([
             "create",
@@ -9072,16 +9126,35 @@ fn test_create_sequencing_within_intervals_rejects_empty_window() {
         ])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        !stderr.contains("panicked at"),
-        "expected graceful CLI error, got panic: {stderr}"
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        stderr.contains("task 0 has an empty time window"),
-        "expected empty-window validation error, got: {stderr}"
-    );
+    for solver in ["brute-force", "ilp"] {
+        use std::io::Write;
+        let mut child = pred()
+            .args(["solve", "-", "--solver", solver, "--json"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&output.stdout)
+            .unwrap();
+        let solved = child.wait_with_output().unwrap();
+        assert!(
+            solved.status.success(),
+            "{}",
+            String::from_utf8_lossy(&solved.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+        assert_eq!(json["status"], "infeasible");
+    }
 }
 
 #[test]
@@ -9118,11 +9191,11 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
             "create",
             "SequencingWithinIntervals",
             "--release-times",
-            "9223372036854775807",
+            "0",
             "--deadlines",
             "9223372036854775807",
             "--lengths",
-            "1",
+            "0",
         ])
         .output()
         .unwrap();
@@ -9133,7 +9206,7 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
         "expected graceful CLI error, got panic: {stderr}"
     );
     assert!(
-        stderr.contains("task 0 release time plus length overflows i64"),
+        stderr.contains("task start-slot count overflows i64"),
         "expected overflow validation error, got: {stderr}"
     );
 }

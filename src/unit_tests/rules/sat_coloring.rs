@@ -333,7 +333,7 @@ fn test_jl_parity_sat_to_coloring() {
         let ilp_solver = crate::solvers::ILPSolver::new();
         let target = result.target_problem();
         let target_sol = ilp_solver
-            .solve_reduced::<bool, _>(target)
+            .solve(target)
             .expect("ILP should find a coloring");
         let extracted = result.extract_solution(&target_sol).unwrap();
         let best_source: HashSet<Vec<bool>> = BruteForce::new()

@@ -637,9 +637,9 @@ fn test_weighted_map_config_back_standard_graphs() {
         let grid_edges = result.edges();
         let num_grid = result.positions.len();
 
-        let constraints: Vec<LinearConstraint> = grid_edges
+        let constraints: Vec<LinearConstraint<f64>> = grid_edges
             .iter()
-            .map(|&(i, j)| LinearConstraint::le(vec![(i, 1), (j, 1)], 1))
+            .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
             .collect();
 
         let objective: Vec<(usize, f64)> = mapped_weights
@@ -648,7 +648,7 @@ fn test_weighted_map_config_back_standard_graphs() {
             .map(|(i, &w)| (i, w))
             .collect();
 
-        let ilp = ILP::<bool>::new(num_grid, constraints, objective, ObjectiveSense::Maximize)
+        let ilp = ILP::<bool, f64>::new(num_grid, constraints, objective, ObjectiveSense::Maximize)
             .expect("weighted mapping test ILP must be valid");
         let solver = ILPSolver::new();
         let grid_config: Vec<usize> = solver

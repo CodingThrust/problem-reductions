@@ -3,7 +3,7 @@ use crate::models::algebraic::{Comparison, LinearConstraint};
 
 #[test]
 fn test_mccormick_product_constraints() {
-    let constraints = mccormick_product(2, 0, 1);
+    let constraints: [LinearConstraint; 3] = mccormick_product(2, 0, 1);
     assert_eq!(constraints.len(), 3);
 
     // y <= x_a: y - x_a <= 0
@@ -24,7 +24,7 @@ fn test_mccormick_product_constraints() {
 
 #[test]
 fn test_mccormick_product_satisfies_truth_table() {
-    let constraints = mccormick_product(2, 0, 1);
+    let constraints: [LinearConstraint; 3] = mccormick_product(2, 0, 1);
     // (x_a, x_b, y) -> product: y = x_a * x_b
     let cases = vec![
         (vec![0, 0, 0], true),  // 0*0=0

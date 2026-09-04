@@ -154,7 +154,7 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
         }
 
         // Objective: maximize sum(z_v)
-        let objective: Vec<(usize, f64)> = (0..n).map(|v| (leaf_var(v), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|v| (leaf_var(v), 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;

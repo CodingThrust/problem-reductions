@@ -3,7 +3,6 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::unitdiskmapping::MappingResult;
 use crate::solvers::ILPSolver;
-use crate::types::i64_to_exact_f64;
 
 fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i64]) -> ILP<bool> {
     let constraints: Vec<LinearConstraint> = edges
@@ -11,16 +10,7 @@ fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i64])
         .map(|&(i, j)| LinearConstraint::le(vec![(i, 1), (j, 1)], 1))
         .collect();
 
-    let objective: Vec<(usize, f64)> = weights
-        .iter()
-        .enumerate()
-        .map(|(i, &w)| {
-            (
-                i,
-                i64_to_exact_f64(w).expect("test MIS weight must be exactly representable as f64"),
-            )
-        })
-        .collect();
+    let objective: Vec<(usize, i64)> = weights.iter().enumerate().map(|(i, &w)| (i, w)).collect();
 
     ILP::<bool>::new(
         num_vertices,

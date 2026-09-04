@@ -4,7 +4,6 @@ use crate::models::algebraic::{Comparison, LinearConstraint, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::ReductionError;
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 struct VarEncoding {
@@ -161,21 +160,15 @@ impl ReduceTo<ILP<bool>> for ILP<i64> {
             let encoding = &encodings[variable];
             for (offset, &weight) in encoding.weights.iter().enumerate() {
                 let encoded_coefficient = coefficient
-                    * i64_to_exact_f64(weight).map_err(|error| {
-                        ReductionError::inexact_float_conversion::<ILP<i64>, ILP<bool>>(error)
-                    })?;
-                if !encoded_coefficient.is_finite() {
-                    return Err(ReductionError::non_finite_result::<ILP<i64>, ILP<bool>>(
-                        "encoding an integer ILP objective coefficient",
-                    ));
-                }
+                    .checked_mul(weight)
+                    .ok_or_else(|| overflow("encoding an integer ILP objective coefficient"))?;
                 objective.push((encoding.start + offset, encoded_coefficient));
             }
         }
 
         Ok(ReductionIntILPToBinaryILP {
             target: ILP::<bool>::new(num_binary_variables, constraints, objective, self.sense())
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             encodings,
         })
     }

@@ -96,7 +96,7 @@ impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
         }
 
         // Objective: minimize sum e_i
-        let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..num_vars).map(|i| (i, 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

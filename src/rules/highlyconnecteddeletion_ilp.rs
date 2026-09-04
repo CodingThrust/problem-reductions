@@ -189,11 +189,20 @@ impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
         }
 
         // Objective: maximize sum_S |E(G[S])| * x_S.
-        let objective: Vec<(usize, f64)> = clusters
+        let objective: Vec<(usize, i64)> = clusters
             .iter()
             .enumerate()
-            .map(|(c, cluster)| (c, induced_edge_count(graph, cluster) as f64))
-            .collect();
+            .map(|(c, cluster)| {
+                i64::try_from(induced_edge_count(graph, cluster))
+                    .map(|count| (c, count))
+                    .map_err(|_| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            HighlyConnectedDeletion<SimpleGraph>,
+                            ILP<bool>,
+                        >("encoding an induced edge count")
+                    })
+            })
+            .collect::<Result<_, _>>()?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;

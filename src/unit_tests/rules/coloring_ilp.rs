@@ -242,14 +242,13 @@ fn test_bipartite_graph() {
 }
 
 #[test]
-fn test_solve_reduced() {
-    // Test the ILPSolver::solve_reduced method
+fn test_reduction_closed_loop() {
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-
-    let ilp_solver = ILPSolver::new();
-    let solution = ilp_solver
-        .solve_reduced::<bool, _>(&problem)
-        .expect("solve_reduced should work");
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    let target_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("target ILP should be solvable");
+    let solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(problem.evaluate(&solution).unwrap());
 }

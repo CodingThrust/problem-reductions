@@ -20,7 +20,7 @@ fn test_reduction_creates_expected_ilp_shape() {
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Objective is w_0 * C_0 + w_1 * C_1.
-    assert_eq!(ilp.objective(), vec![(0, 3.0), (1, 5.0)]);
+    assert_eq!(ilp.objective(), vec![(0, 3), (1, 5)]);
 }
 
 #[test]
@@ -121,27 +121,29 @@ fn test_reduction_rejects_total_processing_time_outside_i64_domain() {
 }
 
 #[test]
-fn test_reduction_rejects_a_weight_outside_exact_f64_integer_range() {
+fn test_reduction_preserves_a_weight_outside_exact_f64_integer_range() {
     let problem =
         SequencingToMinimizeWeightedCompletionTime::new(vec![1], vec![(1i64 << 53) + 1], vec![]);
-    assert!(matches!(
-        ReduceTo::<ILP<i64>>::reduce_to(&problem),
-        Err(crate::rules::ReductionError::InvalidTarget { .. })
-    ));
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    assert_eq!(
+        reduction.target_problem().objective(),
+        &[(0, (1i64 << 53) + 1)]
+    );
 }
 
 #[test]
-fn test_reduction_rejects_weighted_completion_objective_outside_exact_f64_range() {
+fn test_reduction_preserves_large_weighted_completion_objective() {
     let problem =
         SequencingToMinimizeWeightedCompletionTime::new(vec![1, 1], vec![1 << 52, 1 << 52], vec![]);
-    assert!(matches!(
-        ReduceTo::<ILP<i64>>::reduce_to(&problem),
-        Err(crate::rules::ReductionError::InvalidTarget { .. })
-    ));
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    assert_eq!(
+        reduction.target_problem().objective(),
+        &[(0, 1 << 52), (1, 1 << 52)]
+    );
 }
 
 #[test]
-fn test_solve_reduced_matches_source_optimum() {
+fn test_ilp_pipeline_matches_source_optimum() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(
         vec![2, 1, 3, 1, 2],
         vec![3, 5, 1, 4, 2],

@@ -5,7 +5,7 @@ use crate::traits::Problem;
 fn binary_ilp(
     num_vars: usize,
     constraints: Vec<LinearConstraint>,
-    objective: Vec<(usize, f64)>,
+    objective: Vec<(usize, i64)>,
     sense: ObjectiveSense,
 ) -> ILP<bool> {
     ILP::new(num_vars, constraints, objective, sense).unwrap()
@@ -16,12 +16,12 @@ fn test_ilp_solver_basic_maximize() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 2.0)],
+        vec![(0, 1), (1, 2)],
         ObjectiveSense::Maximize,
     );
     let solution = ILPSolver::new().solve(&ilp).unwrap();
     assert_eq!(solution, vec![0, 1]);
-    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 2.0);
+    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 2);
 }
 
 #[test]
@@ -29,11 +29,11 @@ fn test_ilp_solver_basic_minimize() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::ge(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0), (1, 1.0)],
+        vec![(0, 1), (1, 1)],
         ObjectiveSense::Minimize,
     );
     let solution = ILPSolver::new().solve(&ilp).unwrap();
-    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 1.0);
+    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 1);
 }
 
 #[test]
@@ -44,11 +44,11 @@ fn test_ilp_solver_matches_brute_force() {
             LinearConstraint::le(vec![(0, 1), (1, 1)], 1),
             LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
         ],
-        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        vec![(0, 1), (1, 1), (2, 1)],
         ObjectiveSense::Maximize,
     );
     let solution = ILPSolver::new().solve(&ilp).unwrap();
-    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 2.0);
+    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 2);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_ilp_solver_disambiguates_unbounded_model() {
     let ilp = ILP::<i64>::with_variables(
         vec![IntegerVariable::free()],
         vec![LinearConstraint::ge(vec![(0, 1)], 0)],
-        vec![(0, 1.0)],
+        vec![(0, 1)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
@@ -88,7 +88,7 @@ fn test_ilp_solver_disambiguates_infeasible_model() {
             LinearConstraint::ge(vec![(0, 1)], 1),
             LinearConstraint::le(vec![(0, 1)], 0),
         ],
-        vec![(0, 1.0)],
+        vec![(0, 1)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
@@ -138,7 +138,7 @@ fn test_ilp_rejects_solution_that_is_infeasible_after_rounding() {
     let ilp = binary_ilp(
         1,
         vec![LinearConstraint::le(vec![(0, 1)], 0)],
-        vec![(0, 1.0)],
+        vec![(0, 1)],
         ObjectiveSense::Maximize,
     );
     let solution = ILPSolver::new().solve(&ilp).unwrap();
@@ -151,7 +151,7 @@ fn test_ilp_equality_constraint() {
     let ilp = binary_ilp(
         2,
         vec![LinearConstraint::eq(vec![(0, 1), (1, 1)], 1)],
-        vec![(0, 1.0)],
+        vec![(0, 1)],
         ObjectiveSense::Minimize,
     );
     assert_eq!(ILPSolver::new().solve(&ilp).unwrap(), vec![0, 1]);
@@ -165,7 +165,7 @@ fn bounded_integer_ilp(upper_bounds: &[i64]) -> ILP<i64> {
     ILP::with_variables(
         variables,
         vec![],
-        (0..upper_bounds.len()).map(|index| (index, 1.0)).collect(),
+        (0..upper_bounds.len()).map(|index| (index, 1)).collect(),
         ObjectiveSense::Maximize,
     )
     .unwrap()
@@ -179,12 +179,12 @@ fn test_ilp_non_binary_bounds() {
             IntegerVariable::new(Some(0), Some(2)).unwrap(),
         ],
         vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 4)],
-        vec![(0, 1.0), (1, 1.0)],
+        vec![(0, 1), (1, 1)],
         ObjectiveSense::Maximize,
     )
     .unwrap();
     let solution = ILPSolver::new().solve(&ilp).unwrap();
-    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 4.0);
+    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 4);
 }
 
 #[test]
@@ -209,21 +209,16 @@ fn test_ilp_multiple_constraints() {
             LinearConstraint::le(vec![(0, 1), (1, 1), (2, 1)], 2),
             LinearConstraint::ge(vec![(0, 1), (1, 1)], 1),
         ],
-        vec![(0, 2.0), (1, 3.0), (2, 1.0)],
+        vec![(0, 2), (1, 3), (2, 1)],
         ObjectiveSense::Maximize,
     );
     let solution = ILPSolver::new().solve(&ilp).unwrap();
-    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 5.0);
+    assert_eq!(ilp.evaluate_objective(&solution).unwrap(), 5);
 }
 
 #[test]
 fn test_ilp_unconstrained() {
-    let ilp = binary_ilp(
-        2,
-        vec![],
-        vec![(0, 1.0), (1, 1.0)],
-        ObjectiveSense::Maximize,
-    );
+    let ilp = binary_ilp(2, vec![], vec![(0, 1), (1, 1)], ObjectiveSense::Maximize);
     assert_eq!(ILPSolver::new().solve(&ilp).unwrap(), vec![1, 1]);
 }
 
@@ -231,7 +226,7 @@ fn test_ilp_unconstrained() {
 fn test_ilp_with_time_limit() {
     let solver = ILPSolver::with_time_limit(10.0);
     assert_eq!(solver.time_limit, Some(10.0));
-    let ilp = binary_ilp(1, vec![], vec![(0, 1.0)], ObjectiveSense::Maximize);
+    let ilp = binary_ilp(1, vec![], vec![(0, 1)], ObjectiveSense::Maximize);
     assert!(solver.solve(&ilp).is_ok());
 }
 
@@ -265,7 +260,7 @@ fn test_registered_ilp_pipeline_success() {
 
 #[test]
 fn test_ilp_solve_dyn_bool() {
-    let ilp = binary_ilp(1, vec![], vec![(0, 1.0)], ObjectiveSense::Maximize);
+    let ilp = ILP::<bool, f64>::new(1, vec![], vec![(0, 1.0)], ObjectiveSense::Maximize).unwrap();
     assert!(ILPSolver::new()
         .solve_dyn(&ilp as &dyn std::any::Any)
         .is_ok());
@@ -273,7 +268,16 @@ fn test_ilp_solve_dyn_bool() {
 
 #[test]
 fn test_ilp_solve_dyn_i64() {
-    let ilp = bounded_integer_ilp(&[3, 3]);
+    let ilp = ILP::<i64, f64>::with_variables(
+        vec![
+            IntegerVariable::new(Some(0), Some(3)).unwrap(),
+            IntegerVariable::new(Some(0), Some(3)).unwrap(),
+        ],
+        vec![],
+        vec![],
+        ObjectiveSense::Minimize,
+    )
+    .unwrap();
     assert!(ILPSolver::new()
         .solve_dyn(&ilp as &dyn std::any::Any)
         .is_ok());

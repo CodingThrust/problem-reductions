@@ -53,7 +53,7 @@ fn test_maximumdomaticnumber_to_ilp_structure() {
     assert_eq!(ilp.objective().len(), 3);
     for &(var, coef) in ilp.objective() {
         assert!(var >= 9); // y_i at indices 9, 10, 11
-        assert!((coef - 1.0).abs() < 1e-9);
+        assert_eq!(coef, 1);
     }
 }
 

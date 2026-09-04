@@ -96,20 +96,20 @@ assert!(metric.is_valid());
 Packing solution: [1, 0, 1, 1] -> size Max(3)
 ```
 
-For convenience, `ILPSolver::solve_reduced` combines reduce + solve + extract
-in a single call:
+`ILPSolver::solve` executes the problem's registered ILP pipeline, including
+all reductions and reverse witness extraction:
 
 ```rust,ignore
 let solution = ILPSolver::new()
-    .solve_reduced::<bool, _>(&problem)
+    .solve(&problem)
     .unwrap();
 assert!(problem.evaluate(&solution).is_valid());
 ```
 
-The ILP domain is explicit because a source type may provide more than one
-direct ILP reduction. Both `bool` and `i64` are supported. `solve` and
-`solve_reduced` return `ILPSolveError`, which distinguishes infeasibility,
-timeout, unboundedness, unsupported dynamic input, and backend failure.
+The registered path determines the ILP variable domain. Every path ends at an
+`ILP<V, f64>` terminal accepted by the HiGHS backend. `solve` returns
+`ILPSolveError`, which distinguishes infeasibility, timeout, unboundedness,
+missing pipelines, unsupported dynamic input, and backend failure.
 
 ### Example 2: Reduction path search — integer factoring to spin glass
 
@@ -145,10 +145,9 @@ returning the canonical pair **2 × 3**.
 
 #### Step 3 — Solve with ILPSolver
 
-`solve_reduced` reduces the problem to ILP internally and solves it in one
-call. It returns a configuration vector for the original problem — no manual
-extraction needed. For small instances you can also use `BruteForce`, but
-`ILPSolver` scales to much larger problems.
+`solve` executes the registered ILP pipeline and returns a configuration for
+the original problem — no manual extraction needed. For small instances you
+can also use `BruteForce`, but `ILPSolver` scales to much larger problems.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step3}}

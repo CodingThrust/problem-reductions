@@ -39,9 +39,6 @@ pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("MinimumCodeGenerationParallelAssignments") {
         return "MinimumCodeGenerationParallelAssignments".to_string();
     }
-    if input.eq_ignore_ascii_case("ThreeMatroidIntersection") {
-        return "ThreeMatroidIntersection".to_string();
-    }
     if let Some((entry, _)) = problemreductions::registry::find_variant_by_alias(input) {
         return entry.name.to_string();
     }
@@ -140,6 +137,23 @@ fn resolve_variant_updates(
     let mut updated_dimensions = BTreeSet::new();
 
     for token in &spec.variant_values {
+        if let Some((dimension, value)) = token.split_once('=') {
+            let values = token_index.get(dimension).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown variant dimension \"{dimension}\" for {}",
+                    spec.name
+                )
+            })?;
+            if !values.contains(value) {
+                anyhow::bail!("Unknown value \"{value}\" for variant dimension \"{dimension}\"");
+            }
+            if !updated_dimensions.insert(dimension.to_string()) {
+                anyhow::bail!("Variant dimension \"{dimension}\" was specified more than once");
+            }
+            resolved.insert(dimension.to_string(), value.to_string());
+            continue;
+        }
+
         let matching_dimensions = token_index
             .iter()
             .filter(|(_, values)| values.contains(token))
@@ -366,6 +380,14 @@ mod tests {
         let spec = parse_problem_spec("MIS/SimpleGraph/f64").unwrap();
         assert_eq!(spec.name, "MaximumIndependentSet");
         assert_eq!(spec.variant_values, vec!["SimpleGraph", "f64"]);
+    }
+
+    #[test]
+    fn resolve_problem_ref_accepts_named_variant_dimension() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let resolved = resolve_problem_ref("ILP/variable=i64", &graph).unwrap();
+        assert_eq!(resolved.variant["variable"], "i64");
+        assert_eq!(resolved.variant["coefficient"], "i64");
     }
 
     #[test]
