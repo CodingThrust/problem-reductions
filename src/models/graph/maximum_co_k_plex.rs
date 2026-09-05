@@ -8,7 +8,7 @@
 //! For k = 1 the problem degenerates to [`MaximumIndependentSet`]; for larger
 //! k it is the maximum (k-1)-dependent set / co-k-plex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -23,23 +23,13 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "One", &["One", "i32"]),
+            VariantDimension::new("weight", "One", &["One", "i64"]),
             VariantDimension::new("k", "KN", &["KN"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum-weight vertex subset whose induced subgraph has maximum degree at most k-1",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Co-k-plex parameter k >= 1; selected-vertex induced degree must be at most k-1" },
-        ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MaximumCoKPlex",
-        fields: &["num_vertices", "num_edges"],
+        fields: MaximumCoKPlexCreateSpec::<One>::FIELDS,
     }
 }
 
@@ -53,7 +43,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - Graph type (e.g., [`SimpleGraph`]).
-/// * `W` - Weight type (e.g., [`One`], `i32`).
+/// * `W` - Weight type (e.g., [`One`], `i64`).
 /// * `K` - Compile-time [`KValue`] tag. [`KN`] stores `k` at runtime; fixed
 ///   variants (`K1`, `K2`, ...) can be added later by registering more
 ///   `declare_variants!` entries.
@@ -65,7 +55,7 @@ inventory::submit! {
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::types::One;
 /// use problemreductions::variant::KN;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Problem};
 ///
 /// // 5-cycle C_5 with k = 2 (induced degree <= 1).
 /// let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
@@ -89,6 +79,37 @@ pub struct MaximumCoKPlex<G, W, K: KValue> {
     bound_k: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumCoKPlexCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Vec<W>,
+    /// Co-k-plex parameter k >= 1.
+    k: usize,
+}
+
+impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
+    for MaximumCoKPlex<SimpleGraph, W, KN>
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: MaximumCoKPlexCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                spec.weights.len(),
+                spec.graph.num_vertices()
+            )
+            .into());
+        }
+        if spec.k == 0 {
+            return Err("k must be at least 1".to_string().into());
+        }
+        Ok(Self::with_k(spec.graph, spec.weights, spec.k))
+    }
 }
 
 impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
@@ -153,7 +174,7 @@ impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
     }
 
     /// Check if a configuration satisfies the co-k-plex constraint.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_co_k_plex_config(&self.graph, config, self.bound_k)
     }
 }
@@ -177,41 +198,65 @@ where
     K: KValue,
 {
     const NAME: &'static str = "MaximumCoKPlex";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W, K]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_co_k_plex_config(&self.graph, config, self.bound_k) {
-            return Max(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
+        Ok({
+            if !is_co_k_plex_config(&self.graph, config, self.bound_k) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected co-k-plex weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
+    }
+}
+
+impl<G, W, K> crate::solvers::BruteForceProblem for MaximumCoKPlex<G, W, K>
+where
+    G: Graph + VariantParam,
+    W: WeightElement + VariantParam,
+    K: KValue,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
 /// Return true iff every selected vertex has at most `k - 1` selected
 /// neighbours in the induced subgraph.
-fn is_co_k_plex_config<G: Graph>(graph: &G, config: &[usize], bound_k: usize) -> bool {
+fn is_co_k_plex_config<G: Graph>(graph: &G, config: &[bool], bound_k: usize) -> bool {
     if bound_k == 0 {
         return false;
     }
     let n = graph.num_vertices();
     let mut induced_degree = vec![0usize; n];
     for (u, v) in graph.edges() {
-        let u_selected = config.get(u).copied().unwrap_or(0) == 1;
-        let v_selected = config.get(v).copied().unwrap_or(0) == 1;
+        let u_selected = config.get(u).copied().unwrap_or(false);
+        let v_selected = config.get(v).copied().unwrap_or(false);
         if u_selected && v_selected {
             induced_degree[u] += 1;
             induced_degree[v] += 1;
@@ -224,20 +269,25 @@ fn is_co_k_plex_config<G: Graph>(graph: &G, config: &[usize], bound_k: usize) ->
 }
 
 crate::declare_variants! {
-    default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices",
-    MaximumCoKPlex<SimpleGraph, i32, KN>          => "2^num_vertices",
+    default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices" create MaximumCoKPlexCreateSpec<One>,
+    MaximumCoKPlex<SimpleGraph, i64, KN>          => "2^num_vertices" create MaximumCoKPlexCreateSpec<i64>,
+}
+
+crate::register_brute_force! {
+    MaximumCoKPlex<SimpleGraph, One, KN> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumCoKPlex<SimpleGraph, i64, KN> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_co_k_plex_simplegraph_i32",
-        instance: Box::new(MaximumCoKPlex::<_, i32, KN>::with_k(
+        id: "maximum_co_k_plex_simplegraph",
+        instance: Box::new(MaximumCoKPlex::<_, i64, KN>::with_k(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
             vec![5, 1, 4, 1, 3],
             2,
         )),
-        optimal_config: vec![1, 0, 1, 0, 1],
+        optimal_config: serde_json::json!([true, false, true, false, true]),
         optimal_value: serde_json::json!(12),
     }]
 }

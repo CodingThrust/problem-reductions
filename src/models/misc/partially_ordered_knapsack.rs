@@ -4,7 +4,7 @@
 //! an item requires including all its predecessors (downward-closed set).
 //! NP-complete in the strong sense (Garey & Johnson, A6 MP12).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -15,14 +15,10 @@ inventory::submit! {
         display_name: "Partially Ordered Knapsack",
         aliases: &["POK"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Select items to maximize total value subject to precedence constraints and weight capacity",
-        fields: &[
-            FieldInfo { name: "weights", type_name: "Vec<i64>", description: "Item weights w(u) for each item" },
-            FieldInfo { name: "values", type_name: "Vec<i64>", description: "Item values v(u) for each item" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (a, b) meaning a must be included before b" },
-            FieldInfo { name: "capacity", type_name: "i64", description: "Knapsack capacity B" },
-        ],
+        fields: PartiallyOrderedKnapsackCreateSpec::FIELDS,
     }
 }
 
@@ -43,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::PartiallyOrderedKnapsack;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = PartiallyOrderedKnapsack::new(
 ///     vec![2, 3, 4, 1, 2, 3],  // weights
@@ -52,7 +48,7 @@ inventory::submit! {
 ///     11,  // capacity
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 ///
@@ -74,6 +70,70 @@ pub struct PartiallyOrderedKnapsack {
     /// Precomputed transitive predecessors for each item.
     /// `predecessors[b]` contains all items that must be selected when `b` is selected.
     predecessors: Vec<Vec<usize>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PartiallyOrderedKnapsackCreateSpec {
+    weights: Vec<i64>,
+    values: Vec<i64>,
+    precedences: Option<Vec<(usize, usize)>>,
+    capacity: i64,
+}
+
+impl TryFrom<PartiallyOrderedKnapsackCreateSpec> for PartiallyOrderedKnapsack {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: PartiallyOrderedKnapsackCreateSpec) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.values.len() {
+            return Err("weights and values must have the same length"
+                .to_string()
+                .into());
+        }
+        if spec.capacity < 0 {
+            return Err("capacity must be non-negative".to_string().into());
+        }
+        if let Some((index, weight)) = spec
+            .weights
+            .iter()
+            .enumerate()
+            .find(|(_, weight)| **weight < 0)
+        {
+            return Err(format!("weight[{index}] must be non-negative, got {weight}").into());
+        }
+        if let Some((index, value)) = spec
+            .values
+            .iter()
+            .enumerate()
+            .find(|(_, value)| **value < 0)
+        {
+            return Err(format!("value[{index}] must be non-negative, got {value}").into());
+        }
+        let precedences = spec.precedences.unwrap_or_default();
+        let num_items = spec.weights.len();
+        if let Some(&(pred, succ)) = precedences
+            .iter()
+            .find(|&&(pred, succ)| pred >= num_items || succ >= num_items)
+        {
+            return Err(format!(
+                "precedence ({pred}, {succ}) is out of range for {num_items} items"
+            )
+            .into());
+        }
+        let predecessors = Self::compute_predecessors(&precedences, num_items);
+        if let Some(item) = predecessors
+            .iter()
+            .enumerate()
+            .find_map(|(item, preds)| preds.contains(&item).then_some(item))
+        {
+            return Err(format!("precedences contain a cycle involving item {item}").into());
+        }
+        Ok(Self::new(
+            spec.weights,
+            spec.values,
+            precedences,
+            spec.capacity,
+        ))
+    }
 }
 
 impl Serialize for PartiallyOrderedKnapsack {
@@ -207,11 +267,11 @@ impl PartiallyOrderedKnapsack {
     ///
     /// Uses precomputed transitive predecessors: if item `b` is selected,
     /// all its predecessors must also be selected.
-    fn is_downward_closed(&self, config: &[usize]) -> bool {
+    fn is_downward_closed(&self, config: &[bool]) -> bool {
         for (b, preds) in self.predecessors.iter().enumerate() {
-            if config[b] == 1 {
+            if config[b] {
                 for &a in preds {
-                    if config[a] != 1 {
+                    if !config[a] {
                         return false;
                     }
                 }
@@ -223,50 +283,78 @@ impl PartiallyOrderedKnapsack {
 
 impl Problem for PartiallyOrderedKnapsack {
     const NAME: &'static str = "PartiallyOrderedKnapsack";
+    type Solution = Vec<bool>;
     type Value = Max<i64>;
+
+    crate::problem_parameters![
+        ("num_items", num_items),
+        ("num_precedences", num_precedences),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_items()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_items() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "item-selection length does not match the instance".into(),
+                ));
+            }
+            // Check downward-closure (precedence constraints)
+            if !self.is_downward_closed(config) {
+                return Ok(Max(None));
+            }
+            // Check capacity constraint
+            let total_weight = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x)
+                .map(|(i, _)| self.weights[i])
+                .try_fold(0_i64, |total, weight| {
+                    total.checked_add(weight).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected partially ordered knapsack weights".into(),
+                        )
+                    })
+                })?;
+            if total_weight > self.capacity {
+                return Ok(Max(None));
+            }
+            // Compute total value
+            let total_value = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x)
+                .map(|(i, _)| self.values[i])
+                .try_fold(0_i64, |total, value| {
+                    total.checked_add(value).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected partially ordered knapsack values".into(),
+                        )
+                    })
+                })?;
+            Max(Some(total_value))
+        })
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        if config.len() != self.num_items() {
-            return Max(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Max(None);
-        }
-        // Check downward-closure (precedence constraints)
-        if !self.is_downward_closed(config) {
-            return Max(None);
-        }
-        // Check capacity constraint
-        let total_weight: i64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.weights[i])
-            .sum();
-        if total_weight > self.capacity {
-            return Max(None);
-        }
-        // Compute total value
-        let total_value: i64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.values[i])
-            .sum();
-        Max(Some(total_value))
+impl crate::solvers::BruteForceProblem for PartiallyOrderedKnapsack {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_items()]
     }
 }
 
 crate::declare_variants! {
-    default PartiallyOrderedKnapsack => "2^num_items",
+    default PartiallyOrderedKnapsack => "2^num_items" create PartiallyOrderedKnapsackCreateSpec,
+}
+
+crate::register_brute_force! {
+    PartiallyOrderedKnapsack decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -279,7 +367,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],
             11,
         )),
-        optimal_config: vec![1, 1, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, true, true, true]),
         optimal_value: serde_json::json!(20),
     }]
 }

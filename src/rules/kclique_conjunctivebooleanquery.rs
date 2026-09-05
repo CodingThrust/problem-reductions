@@ -34,13 +34,21 @@ impl ReductionResult for ReductionKCliqueToCBQ {
     /// CBQ config: vec of length k, each value is a domain element (vertex index).
     /// KClique config: binary vec of length n; set config[v]=1 for each v in
     /// the CBQ assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        KClique::<SimpleGraph>::config_from_vertices(self.num_vertices, target_solution)
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(KClique::<SimpleGraph>::config_from_vertices(
+            self.num_vertices,
+            target_solution,
+        ))
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         domain_size = "num_vertices",
         num_relations = "1",
         num_variables = "k",
@@ -50,7 +58,7 @@ impl ReductionResult for ReductionKCliqueToCBQ {
 impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToCBQ;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
 
@@ -72,10 +80,10 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
 
         let target = ConjunctiveBooleanQuery::new(n, vec![relation], k, conjuncts);
 
-        ReductionKCliqueToCBQ {
+        Ok(ReductionKCliqueToCBQ {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -94,8 +102,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ConjunctiveBooleanQuery>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1, 0, 0],
-                    target_config: vec![0, 1, 2],
+                    source_config: serde_json::json!(vec![true, true, true, false, false]),
+                    target_config: serde_json::json!(vec![0, 1, 2]),
                 },
             )
         },

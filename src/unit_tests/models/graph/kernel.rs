@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -12,7 +13,7 @@ fn test_kernel_creation() {
     let problem = Kernel::new(graph);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 7);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
 }
 
 #[test]
@@ -26,7 +27,12 @@ fn test_kernel_evaluate_valid() {
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
     let problem = Kernel::new(graph);
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1, 0]), crate::types::Or(true));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, false, false, true, false])
+            .unwrap(),
+        crate::types::Or(true)
+    );
 }
 
 #[test]
@@ -37,7 +43,12 @@ fn test_kernel_evaluate_not_independent() {
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
     let problem = Kernel::new(graph);
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0, 0]), crate::types::Or(false));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, true, false, false, false])
+            .unwrap(),
+        crate::types::Or(false)
+    );
 }
 
 #[test]
@@ -53,7 +64,12 @@ fn test_kernel_evaluate_not_absorbing() {
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
     let problem = Kernel::new(graph);
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0, 0]), crate::types::Or(false));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, false, false, false, false])
+            .unwrap(),
+        crate::types::Or(false)
+    );
 }
 
 #[test]
@@ -64,8 +80,11 @@ fn test_kernel_brute_force() {
     );
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).expect("should have a kernel");
-    assert_eq!(problem.evaluate(&solution), crate::types::Or(true));
+    let solution = solver
+        .solve(&problem)
+        .unwrap()
+        .expect("should have a kernel");
+    assert_eq!(problem.evaluate(&solution).unwrap(), crate::types::Or(true));
 }
 
 #[test]
@@ -79,7 +98,7 @@ fn test_kernel_no_solution() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -100,7 +119,13 @@ fn test_kernel_empty_graph() {
     let graph = DirectedGraph::new(3, vec![]);
     let problem = Kernel::new(graph);
     // All selected: independent (no arcs), absorbing (no unselected vertices)
-    assert_eq!(problem.evaluate(&[1, 1, 1]), crate::types::Or(true));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true]).unwrap(),
+        crate::types::Or(true)
+    );
     // Not all selected: e.g., {0} → vertex 1 has no arc to 0, not absorbing
-    assert_eq!(problem.evaluate(&[1, 0, 0]), crate::types::Or(false));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false]).unwrap(),
+        crate::types::Or(false)
+    );
 }

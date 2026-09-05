@@ -199,35 +199,47 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if self.layout.num_vars == 0 {
-            return Vec::new();
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let cutoff = target_solution[self.layout.w(self.layout.num_vars - 1)];
-        (0..self.layout.num_vars)
-            .map(|var| {
-                let x_pos_before = target_solution[self.layout.x_pos(var)] < cutoff;
-                let x_neg_before = target_solution[self.layout.x_neg(var)] < cutoff;
-                debug_assert!(
-                    !(x_pos_before && x_neg_before),
-                    "Sethi extraction expects at most one of x_pos/x_neg before w[n]",
-                );
-                usize::from(x_pos_before)
-            })
-            .collect()
+        Ok({
+            if self.layout.num_vars == 0 {
+                return Ok(Vec::new());
+            }
+
+            let cutoff = target_solution[self.layout.w(self.layout.num_vars - 1)];
+            (0..self.layout.num_vars)
+                .map(|var| {
+                    let x_pos_before = target_solution[self.layout.x_pos(var)] < cutoff;
+                    let x_neg_before = target_solution[self.layout.x_neg(var)] < cutoff;
+                    if x_pos_before && x_neg_before {
+                        Err(crate::rules::ExtractionError::invalid(format!(
+                            "both literals of variable {var} precede the extraction cutoff"
+                        )))
+                    } else {
+                        Ok(x_pos_before)
+                    }
+                })
+                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "3 * num_vars^2 + 9 * num_vars + 4 * num_clauses + register_sufficiency_padding + 4",
-    num_arcs = "6 * num_vars^2 + 19 * num_vars + 16 * num_clauses + 2 * register_sufficiency_padding + 1",
-    bound = "3 * num_clauses + 4 * num_vars + 1 + register_sufficiency_padding",
-})]
+#[reduction(
+    transform = unavailable {
+        num_vertices = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
+        num_arcs = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
+        bound = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
+            num_sinks = "the exact target parameter is not represented by this reduction's symbolic transform",
+}
+)]
 impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
     type Result = Reduction3SATToRegisterSufficiency;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let layout = SethiRegisterLayout::new(self.num_vars(), self.num_clauses());
         let mut arcs = Vec::with_capacity(
             6 * self.num_vars() * self.num_vars()
@@ -346,10 +358,10 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
             }
         }
 
-        Reduction3SATToRegisterSufficiency {
+        Ok(Reduction3SATToRegisterSufficiency {
             target: RegisterSufficiency::new(layout.total_vertices(), arcs, layout.bound()),
             layout,
-        }
+        })
     }
 }
 
@@ -369,7 +381,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
             );
             let to_registers =
-                <KSatisfiability<K3> as ReduceTo<RegisterSufficiency>>::reduce_to(&source);
+                <KSatisfiability<K3> as ReduceTo<RegisterSufficiency>>::reduce_to(&source)
+                    .expect("reduction should succeed");
 
             // Use the B&B solver on the RS instance directly, avoiding the
             // expensive RS→ILP chain (17K vars, minutes on CI).
@@ -377,14 +390,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .target_problem()
                 .solve_exact()
                 .expect("satisfying 3-SAT instance must yield a feasible RS witness");
-            let source_config = to_registers.extract_solution(&target_config);
+            let source_config = to_registers.extract_solution(&target_config).unwrap();
 
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 to_registers.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

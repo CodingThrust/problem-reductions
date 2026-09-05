@@ -21,30 +21,40 @@ impl ReductionResult for ReductionVCToLCS {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut cover = vec![1; self.num_vertices];
-        for &symbol in target_solution {
-            if symbol >= self.num_vertices {
-                break;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let mut cover = vec![true; self.num_vertices];
+            for &symbol in target_solution {
+                let Some(symbol) = symbol else { break };
+                cover[symbol] = false;
             }
-            cover[symbol] = 0;
-        }
-        cover
+            cover
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         alphabet_size = "num_vertices",
         num_strings = "num_edges + 1",
         max_length = "num_vertices",
         total_length = "num_vertices + 2 * num_edges * num_vertices - 2 * num_edges",
+    },
+    unavailable = {
+        cross_frequency_product = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_transitions = "the exact target parameter is not represented by this reduction's symbolic transform",
+        sum_triangular_lengths = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToLCS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.graph().num_vertices();
         let mut strings = Vec::with_capacity(self.graph().num_edges() + 1);
         strings.push((0..num_vertices).collect());
@@ -63,10 +73,10 @@ impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One>
         }
 
         let target = LongestCommonSubsequence::new(num_vertices, strings);
-        ReductionVCToLCS {
+        Ok(ReductionVCToLCS {
             target,
             num_vertices,
-        }
+        })
     }
 }
 
@@ -90,8 +100,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, LongestCommonSubsequence>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 3, 4, 4],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![Some(0), Some(3), None, None]),
                 },
             )
         },

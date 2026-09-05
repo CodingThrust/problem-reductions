@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Minimum Code Generation (Unlimited Registers)",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum-length instruction sequence for an unlimited-register machine with 2-address instructions to evaluate an expression DAG",
         fields: &[
@@ -48,7 +49,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumCodeGenerationUnlimitedRegisters;
-/// use problemreductions::{Problem, Solver, BruteForce, Min};
+/// use problemreductions::{Problem, BruteForce, Min};
 ///
 /// // 5 vertices: leaves {3,4}, internal {0,1,2}
 /// // v1 = op(v3, v4), v2 = op(v3, v4), v0 = op(v1, v2)
@@ -57,8 +58,8 @@ inventory::submit! {
 ///     vec![(1,3),(2,3),(0,1)],  // left arcs (child destroyed)
 ///     vec![(1,4),(2,4),(0,2)],  // right arcs (child preserved)
 /// );
-/// let result = BruteForce::new().solve(&problem);
-/// assert_eq!(result, Min(Some(4)));
+/// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(4)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumCodeGenerationUnlimitedRegisters {
@@ -213,11 +214,14 @@ impl MinimumCodeGenerationUnlimitedRegisters {
     /// - LOAD: copies a register value (needed when a left operand is still
     ///   needed later and would be destroyed)
     /// - Cost = num_OPs + num_LOADs
-    pub fn simulate(&self, config: &[usize]) -> Option<usize> {
+    pub fn simulate(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let internal = self.internal_vertices();
         let n_internal = internal.len();
         if config.len() != n_internal {
-            return None;
+            return Ok(None);
         }
 
         // config[i] = evaluation position for internal vertex index i
@@ -226,10 +230,10 @@ impl MinimumCodeGenerationUnlimitedRegisters {
         let mut used = vec![false; n_internal];
         for (i, &pos) in config.iter().enumerate() {
             if pos >= n_internal {
-                return None;
+                return Ok(None);
             }
             if used[pos] {
-                return None;
+                return Ok(None);
             }
             used[pos] = true;
             order[pos] = i;
@@ -270,7 +274,7 @@ impl MinimumCodeGenerationUnlimitedRegisters {
             }
         }
 
-        let mut instructions = 0usize;
+        let mut instructions = 0_i64;
 
         // With unlimited registers, each value has its own register.
         // When OP v executes: result goes into left_child's register.
@@ -285,12 +289,12 @@ impl MinimumCodeGenerationUnlimitedRegisters {
             // Check dependencies
             if let Some(l) = lc {
                 if !computed[l] {
-                    return None;
+                    return Ok(None);
                 }
             }
             if let Some(r) = rc {
                 if !computed[r] {
-                    return None;
+                    return Ok(None);
                 }
             }
 
@@ -306,41 +310,72 @@ impl MinimumCodeGenerationUnlimitedRegisters {
             if let Some(l) = lc {
                 let still_needed = future_left_uses[l] + future_right_uses[l] > 0;
                 if still_needed {
-                    instructions += 1; // LOAD (copy)
+                    instructions = instructions.checked_add(1).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting unlimited-register instructions".to_string(),
+                        )
+                    })?; // LOAD
                 }
             }
 
             // OP v
-            instructions += 1;
+            instructions = instructions.checked_add(1).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "counting unlimited-register instructions".to_string(),
+                )
+            })?;
 
             // Mark v as computed
             computed[v] = true;
         }
 
-        Some(instructions)
+        Ok(Some(instructions))
     }
 }
 
 impl Problem for MinimumCodeGenerationUnlimitedRegisters {
     const NAME: &'static str = "MinimumCodeGenerationUnlimitedRegisters";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let n = self.internal_vertices().len();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering length does not match the internal vertices".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering contains an out-of-range position".into(),
+            ));
+        }
+        Ok(Min(self.simulate(config)?))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumCodeGenerationUnlimitedRegisters {
+    fn dimensions(&self) -> Vec<usize> {
         let n_internal = self.num_internal();
         vec![n_internal; n_internal]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        Min(self.simulate(config))
     }
 }
 
 crate::declare_variants! {
     default MinimumCodeGenerationUnlimitedRegisters => "2 ^ num_vertices",
+}
+
+crate::register_brute_force! {
+    MinimumCodeGenerationUnlimitedRegisters,
 }
 
 #[cfg(feature = "example-db")]
@@ -359,7 +394,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(1, 3), (2, 3), (0, 1)],
             vec![(1, 4), (2, 4), (0, 2)],
         )),
-        optimal_config: vec![2, 0, 1],
+        optimal_config: serde_json::json!(vec![2, 0, 1]),
         optimal_value: serde_json::json!(4),
     }]
 }

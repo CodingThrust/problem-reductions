@@ -30,17 +30,24 @@ impl ReductionResult for Reduction3SATToCyclicOrdering {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|var_idx| {
-                let (alpha, beta, gamma) = variable_triple(var_idx);
-                usize::from(!is_cyclic_order(
-                    target_solution[alpha],
-                    target_solution[beta],
-                    target_solution[gamma],
-                ))
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.source_num_vars)
+                .map(|var_idx| {
+                    let (alpha, beta, gamma) = variable_triple(var_idx);
+                    !is_cyclic_order(
+                        target_solution[alpha],
+                        target_solution[beta],
+                        target_solution[gamma],
+                    )
+                })
+                .collect()
+        })
     }
 }
 
@@ -49,7 +56,7 @@ fn variable_triple(var_idx: usize) -> (usize, usize, usize) {
     (base, base + 1, base + 2)
 }
 
-fn literal_triple(literal: i32) -> (usize, usize, usize) {
+fn literal_triple(literal: i64) -> (usize, usize, usize) {
     let (alpha, beta, gamma) = variable_triple((literal.unsigned_abs() as usize) - 1);
     if literal > 0 {
         (alpha, beta, gamma)
@@ -64,7 +71,7 @@ fn is_cyclic_order(a: usize, b: usize, c: usize) -> bool {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_elements = "3 * num_vars + 5 * num_clauses",
         num_triples = "10 * num_clauses",
     }
@@ -72,7 +79,7 @@ fn is_cyclic_order(a: usize, b: usize, c: usize) -> bool {
 impl ReduceTo<CyclicOrdering> for KSatisfiability<K3> {
     type Result = Reduction3SATToCyclicOrdering;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let num_elements = 3 * num_vars + 5 * num_clauses;
@@ -104,10 +111,10 @@ impl ReduceTo<CyclicOrdering> for KSatisfiability<K3> {
             ]);
         }
 
-        Reduction3SATToCyclicOrdering {
+        Ok(Reduction3SATToCyclicOrdering {
             target: CyclicOrdering::new(num_elements, triples),
             source_num_vars: num_vars,
-        }
+        })
     }
 }
 
@@ -122,8 +129,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, CyclicOrdering>(
                 KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]),
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![0, 11, 1, 9, 12, 10, 6, 13, 7, 2, 3, 4, 8, 5],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        0, 11, 1, 9, 12, 10, 6, 13, 7, 2, 3, 4, 8, 5
+                    ]),
                 },
             )
         },

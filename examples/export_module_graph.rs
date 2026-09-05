@@ -134,14 +134,7 @@ fn main() {
         (
             "variant",
             "core",
-            &[
-                ("VariantParam", "trait", "Trait for variant parameter types"),
-                (
-                    "CastToParent",
-                    "trait",
-                    "Trait for variant cast conversions",
-                ),
-            ],
+            &[("VariantParam", "trait", "Trait for variant parameter types")],
         ),
         (
             "topology",
@@ -195,11 +188,6 @@ fn main() {
             &[
                 ("BruteForce", "struct", "Exhaustive search solver"),
                 ("ILPSolver", "struct", "Integer linear programming solver"),
-                (
-                    "Solver",
-                    "trait",
-                    "Solver trait for aggregate value computation",
-                ),
             ],
         ),
         (

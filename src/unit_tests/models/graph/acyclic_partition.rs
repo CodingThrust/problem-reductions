@@ -1,12 +1,12 @@
 use super::*;
-use crate::registry::declared_size_fields;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;
 use std::collections::{BTreeSet, HashSet};
 
-fn yes_instance() -> AcyclicPartition<i32> {
+fn yes_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
         DirectedGraph::new(
             6,
@@ -28,7 +28,7 @@ fn yes_instance() -> AcyclicPartition<i32> {
     )
 }
 
-fn no_cost_instance() -> AcyclicPartition<i32> {
+fn no_cost_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
         DirectedGraph::new(
             6,
@@ -50,7 +50,7 @@ fn no_cost_instance() -> AcyclicPartition<i32> {
     )
 }
 
-fn quotient_cycle_instance() -> AcyclicPartition<i32> {
+fn quotient_cycle_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![1, 1, 1],
@@ -81,7 +81,7 @@ fn test_acyclic_partition_creation_and_accessors() {
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 8);
-    assert_eq!(problem.dims(), vec![6; 6]);
+    assert_eq!(problem.dimensions(), vec![6; 6]);
     assert_eq!(problem.graph().arcs().len(), 8);
     assert_eq!(problem.vertex_weights(), &[2, 3, 2, 1, 3, 1]);
     assert_eq!(problem.arc_costs(), &[1, 1, 1, 1, 1, 1, 1, 1]);
@@ -121,38 +121,44 @@ fn test_acyclic_partition_rejects_arc_cost_length_mismatch() {
 fn test_acyclic_partition_evaluate_yes_instance() {
     let problem = yes_instance();
     let config = vec![0, 1, 0, 2, 2, 2];
-    assert!(problem.evaluate(&config));
-    assert!(problem.is_valid_solution(&config));
+    assert!(problem.evaluate(&config).unwrap());
+    assert!(problem.is_valid_solution(&config).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_too_small_cost_bound() {
     let problem = no_cost_instance();
-    assert!(!problem.evaluate(&[0, 1, 0, 2, 2, 2]));
+    assert!(!problem.evaluate(&vec![0, 1, 0, 2, 2, 2]).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_quotient_cycle() {
     let problem = quotient_cycle_instance();
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&vec![0, 1, 2]).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_weight_bound_violation() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 1, 1]));
+    assert!(!problem.evaluate(&vec![0, 0, 0, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_wrong_config_length() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_acyclic_partition_rejects_out_of_range_label() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 1, 0, 2, 2, 6]));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0, 2, 2, 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -160,15 +166,15 @@ fn test_acyclic_partition_solver_finds_issue_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
 
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_solver_has_four_canonical_solutions() {
     let problem = yes_instance();
-    let solutions = BruteForce::new().find_all_witnesses(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
     let normalized: BTreeSet<Vec<usize>> = solutions
         .iter()
         .map(|config| canonicalize_labels(config))
@@ -187,14 +193,14 @@ fn test_acyclic_partition_solver_has_four_canonical_solutions() {
 #[test]
 fn test_acyclic_partition_no_solution_when_cost_bound_is_four() {
     let problem = no_cost_instance();
-    assert!(BruteForce::new().find_witness(&problem).is_none());
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_acyclic_partition_serialization() {
     let problem = yes_instance();
     let json = serde_json::to_string(&problem).unwrap();
-    let deserialized: AcyclicPartition<i32> = serde_json::from_str(&json).unwrap();
+    let deserialized: AcyclicPartition<i64> = serde_json::from_str(&json).unwrap();
 
     assert_eq!(deserialized.num_vertices(), 6);
     assert_eq!(deserialized.num_arcs(), 8);
@@ -209,9 +215,38 @@ fn test_acyclic_partition_num_variables() {
 }
 
 #[test]
-fn test_acyclic_partition_declares_problem_size_fields() {
-    let fields: HashSet<&'static str> = declared_size_fields("AcyclicPartition")
-        .into_iter()
+fn test_acyclic_partition_declares_problem_parameters() {
+    let fields: HashSet<&'static str> = AcyclicPartition::<i64>::parameter_names()
+        .iter()
+        .copied()
         .collect();
     assert_eq!(fields, HashSet::from(["num_vertices", "num_arcs"]));
+}
+#[test]
+fn create_spec_maps_weight_inputs_to_canonical_fields() {
+    let problem = AcyclicPartition::try_from(AcyclicPartitionCreateSpec {
+        arcs: vec![(0, 1)],
+        num_vertices: Some(3),
+        weights: None,
+        arc_weights: Some(vec![2]),
+        weight_bound: 3,
+        cost_bound: 2,
+    })
+    .unwrap();
+    assert_eq!(problem.vertex_weights(), &[1, 1, 1]);
+    assert_eq!(problem.arc_costs(), &[2]);
+    assert_eq!(
+        AcyclicPartitionCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        [
+            "arcs",
+            "num_vertices",
+            "weights",
+            "arc_costs",
+            "weight_bound",
+            "cost_bound"
+        ]
+    );
 }

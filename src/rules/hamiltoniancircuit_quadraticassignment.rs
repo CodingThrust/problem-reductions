@@ -26,15 +26,22 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // QAP config is a permutation γ mapping positions to vertices,
-        // which is directly the Hamiltonian circuit visit order.
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // QAP config is a permutation γ mapping positions to vertices,
+            // which is directly the Hamiltonian circuit visit order.
+            target_solution.to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_facilities = "num_vertices",
         num_locations = "num_vertices",
     }
@@ -42,9 +49,16 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
 impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToQuadraticAssignment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let omega = (n + 1) as i64;
+        let omega = i64::try_from(n)
+            .ok()
+            .and_then(|n| n.checked_add(1))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<Self, QuadraticAssignment>(
+                    "computing the non-edge penalty",
+                )
+            })?;
 
         // Cost matrix C: cycle adjacency on positions.
         // c[i][j] = 1 if j == (i+1) mod n, else 0.
@@ -75,7 +89,7 @@ impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
             .collect();
 
         let target = QuadraticAssignment::new(cost_matrix, distance_matrix);
-        ReductionHamiltonianCircuitToQuadraticAssignment { target }
+        Ok(ReductionHamiltonianCircuitToQuadraticAssignment { target })
     }
 }
 
@@ -90,8 +104,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QuadraticAssignment>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
-                    target_config: vec![0, 1, 2, 3],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
+                    target_config: serde_json::json!(vec![0, 1, 2, 3]),
                 },
             )
         },

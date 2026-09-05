@@ -39,7 +39,7 @@ use problemreductions::prelude::*;
 use problemreductions::models::algebraic::ILP;
 use problemreductions::solvers::ILPSolver;
 
-let problem = MaximumSetPacking::<i32>::new(vec![
+let problem = MaximumSetPacking::<i64>::new(vec![
     vec![0, 1],
     vec![1, 2],
     vec![2, 3],
@@ -96,13 +96,20 @@ assert!(metric.is_valid());
 Packing solution: [1, 0, 1, 1] -> size Max(3)
 ```
 
-For convenience, `ILPSolver::solve_reduced` combines reduce + solve + extract
-in a single call:
+`ILPSolver::solve` executes the problem's registered ILP pipeline, including
+all reductions and reverse witness extraction:
 
 ```rust,ignore
-let solution = ILPSolver::new().solve_reduced(&problem).unwrap();
+let solution = ILPSolver::new()
+    .solve(&problem)
+    .unwrap();
 assert!(problem.evaluate(&solution).is_valid());
 ```
+
+The registered path determines the ILP variable domain. Every path ends at an
+`ILP<V, f64>` terminal accepted by the HiGHS backend. `solve` returns
+`ILPSolveError`, which distinguishes infeasibility, timeout, unboundedness,
+missing pipelines, unsupported dynamic input, and backend failure.
 
 ### Example 2: Reduction path search — integer factoring to spin glass
 
@@ -112,9 +119,10 @@ Let's walk through each step.
 
 #### Step 1 — Discover the reduction path
 
-`ReductionGraph` holds every registered reduction. `find_cheapest_path`
-searches for the shortest chain from a source problem variant to a target
-variant.
+`ReductionGraph` holds every registered reduction. The example enumerates the
+witness-capable simple paths and explicitly selects the documented
+`Factoring -> CircuitSAT -> SpinGlass` route. Path discovery does not rank or
+automatically select a route.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}
@@ -126,9 +134,10 @@ variant.
 
 #### Step 2 — Create the Factoring problem
 
-`Factoring::new(m, n, target)` creates a factoring instance: find two factors
-`p` (m-bit) and `q` (n-bit) such that `p × q = target`. Here we factor **6**
-with two 2-bit factors, expecting **2 × 3** or **3 × 2**.
+`Factoring::new(target)` derives safe factor-width bounds from the target.
+`Factoring::with_factor_bits(target, m, n)` overrides them when a fixed-width
+multiplier is required. Here we factor **6** with explicit 2-bit bounds,
+returning the canonical pair **2 × 3**.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step2}}
@@ -136,10 +145,9 @@ with two 2-bit factors, expecting **2 × 3** or **3 × 2**.
 
 #### Step 3 — Solve with ILPSolver
 
-`solve_reduced` reduces the problem to ILP internally and solves it in one
-call. It returns a configuration vector for the original problem — no manual
-extraction needed. For small instances you can also use `BruteForce`, but
-`ILPSolver` scales to much larger problems.
+`solve` executes the registered ILP pipeline and returns a configuration for
+the original problem — no manual extraction needed. For small instances you
+can also use `BruteForce`, but `ILPSolver` scales to much larger problems.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step3}}
@@ -158,21 +166,6 @@ factors.
 {{#include generated/factoring-result.txt}}
 ```
 
-#### Step 5 — Inspect the overhead
-
-Each reduction edge carries a polynomial overhead mapping source problem
-sizes to target sizes. `path_overheads` returns the per-edge
-polynomials, and `compose_path_overhead` composes them symbolically into a
-single end-to-end formula.
-
-```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:overhead}}
-```
-
-```text
-{{#include generated/factoring-overhead.txt}}
-```
-
 ## Solvers
 
 Three solvers are available:
@@ -180,14 +173,10 @@ Three solvers are available:
 | Solver | Use Case | Notes |
 |--------|----------|-------|
 | [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
-| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Enabled by default (`ilp` feature) |
-| [`CustomizedSolver`](api/problemreductions/solvers/customized/struct.CustomizedSolver.html) | Structure-exploiting | Uses problem-specific exact algorithms |
+| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Uses the bundled HiGHS backend |
+| **Customized backend** | Structure-exploiting | Uses problem-specific exact algorithms registered for exact problem variants |
 
-ILP support is enabled by default. To disable it:
-
-```bash
-cargo add problemreductions --no-default-features
-```
+ILP support through HiGHS is part of the library and is always available.
 
 ## JSON Resources
 

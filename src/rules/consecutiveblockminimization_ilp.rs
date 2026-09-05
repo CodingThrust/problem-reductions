@@ -24,22 +24,29 @@ impl ReductionResult for ReductionCBMToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Decode the column permutation from x_{c,p}
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
         num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
     type Result = ReductionCBMToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
 
@@ -65,13 +72,13 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
             for p in 0..n {
                 let a_idx = a_offset + r * n + p;
                 // a_{r,p} - sum_c A_{r,c} * x_{c,p} = 0
-                let mut terms = vec![(a_idx, 1.0)];
+                let mut terms = vec![(a_idx, 1)];
                 for c in 0..n {
                     if self.matrix()[r][c] {
-                        terms.push((x_offset + c * n + p, -1.0));
+                        terms.push((x_offset + c * n + p, -1));
                     }
                 }
-                constraints.push(LinearConstraint::eq(terms, 0.0));
+                constraints.push(LinearConstraint::eq(terms, 0));
             }
         }
 
@@ -80,7 +87,7 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
             // b_{r,0} = a_{r,0}
             let b_idx = b_offset + r * n;
             let a_idx = a_offset + r * n;
-            constraints.push(LinearConstraint::eq(vec![(b_idx, 1.0), (a_idx, -1.0)], 0.0));
+            constraints.push(LinearConstraint::eq(vec![(b_idx, 1), (a_idx, -1)], 0));
 
             // b_{r,p} >= a_{r,p} - a_{r,p-1} for p > 0
             for p in 1..n {
@@ -88,8 +95,8 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
                 let a_cur = a_offset + r * n + p;
                 let a_prev = a_offset + r * n + (p - 1);
                 constraints.push(LinearConstraint::ge(
-                    vec![(b_idx, 1.0), (a_cur, -1.0), (a_prev, 1.0)],
-                    0.0,
+                    vec![(b_idx, 1), (a_cur, -1), (a_prev, 1)],
+                    0,
                 ));
             }
         }
@@ -98,16 +105,17 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
         let mut bound_terms = Vec::new();
         for r in 0..m {
             for p in 0..n {
-                bound_terms.push((b_offset + r * n + p, 1.0));
+                bound_terms.push((b_offset + r * n + p, 1));
             }
         }
-        constraints.push(LinearConstraint::le(bound_terms, self.bound() as f64));
+        constraints.push(LinearConstraint::le(bound_terms, self.bound()));
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionCBMToILP {
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionCBMToILP {
             target,
             num_cols: n,
-        }
+        })
     }
 }
 

@@ -5,10 +5,12 @@
 //! - Flow on each edge is bounded by the capacity constraint
 //! - Flow-edge linking ensures flow only travels on selected edges
 //!
-//! Variable layout (all non-negative integers, ILP<i32>):
+//! Variable layout (all non-negative integers, `ILP<i64>`):
 //! - `y_e` for each undirected edge `e` (indices `0..m`): edge selector (binary)
 //! - `f_{2e}`, `f_{2e+1}` for each edge `e=(u,v)` (indices `m..3m`):
-//!   directed flow from u to v and v to u respectively
+//!   directed requirement flow from u to v and v to u respectively
+//! - `g_{2e}`, `g_{2e+1}` for each edge `e=(u,v)` (indices `3m..5m`):
+//!   directed unit-demand connectivity flow
 //!
 //! Constraints:
 //! 1. Tree cardinality: sum(y_e) = n-1
@@ -17,6 +19,8 @@
 //!    root absorbs all (total R = sum of requirements)
 //! 4. Flow-edge linking: f_{uv} + f_{vu} <= R * y_e
 //! 5. Capacity: f_{uv} <= c and f_{vu} <= c for each directed edge
+//! 6. Connectivity flow: each non-root vertex sends one unit to the root,
+//!    linked to selected edges by g_{uv} + g_{vu} <= (n-1)y_e
 //!
 //! Objective: minimize sum(w_e * y_e)
 
@@ -30,59 +34,86 @@ use crate::types::WeightElement;
 /// Result of reducing MinimumCapacitatedSpanningTree to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumCapacitatedSpanningTreeToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
-    type Source = MinimumCapacitatedSpanningTree<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = MinimumCapacitatedSpanningTree<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First m variables are edge selectors
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // First m variables are edge selectors
+            target_solution[..self.num_edges]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "3 * num_edges",
-        num_constraints = "5 * num_edges + num_vertices + 1",
+    transform = upper_bound {
+        num_vars = "5 * num_edges",
+        num_constraints = "5 * num_edges + 2 * num_vertices + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     type Result = ReductionMinimumCapacitatedSpanningTreeToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let edges = self.graph().edges();
         let root = self.root();
         let requirements = self.requirements();
-        let cap = *self.capacity() as f64;
+        let cap = *self.capacity();
 
-        let num_vars = 3 * m;
+        let num_vars = 5 * m;
 
         // Variable indices
         let edge_var = |e: usize| e; // y_e: 0..m
         let flow_var = |e: usize, dir: usize| m + 2 * e + dir; // f: m..3m
+        let connectivity_var = |e: usize, dir: usize| 3 * m + 2 * e + dir; // g: 3m..5m
 
         // Total requirement (flow from all non-root vertices to root)
-        let total_req: f64 = requirements.iter().map(|r| r.to_sum() as f64).sum();
-
+        let total_req = requirements
+            .iter()
+            .enumerate()
+            .filter(|(vertex, _)| *vertex != root)
+            .try_fold(0_i64, |total, (_, requirement)| {
+                total.checked_add(requirement.to_sum()).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
+                        ILP<i64>,
+                    >("summing vertex requirements")
+                })
+            })?;
         let mut constraints = Vec::new();
 
         // 1. Tree cardinality: sum(y_e) = n - 1
-        let terms: Vec<(usize, f64)> = (0..m).map(|e| (edge_var(e), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, (n - 1) as f64));
+        let terms: Vec<(usize, i64)> = (0..m).map(|e| (edge_var(e), 1)).collect();
+        constraints.push(LinearConstraint::eq(
+            terms,
+            Self::exact_i64(n, "encoding the spanning-tree order")? - 1,
+        ));
 
         // 2. Binary edge bounds: y_e <= 1
         for e in 0..m {
-            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1)], 1));
         }
 
         // 3. Flow conservation
@@ -95,15 +126,15 @@ impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
                 // flow_var(e, 1) = flow from v to u
                 if v == vertex {
                     // inflow from u->v direction
-                    terms.push((flow_var(edge_idx, 0), 1.0));
+                    terms.push((flow_var(edge_idx, 0), 1));
                     // outflow from v->u direction
-                    terms.push((flow_var(edge_idx, 1), -1.0));
+                    terms.push((flow_var(edge_idx, 1), -1));
                 }
                 if u == vertex {
                     // outflow from u->v direction
-                    terms.push((flow_var(edge_idx, 0), -1.0));
+                    terms.push((flow_var(edge_idx, 0), -1));
                     // inflow from v->u direction
-                    terms.push((flow_var(edge_idx, 1), 1.0));
+                    terms.push((flow_var(edge_idx, 1), 1));
                 }
             }
 
@@ -113,7 +144,7 @@ impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
             } else {
                 // Non-root vertex generates r(v) units toward root:
                 // net inflow = -r(v)
-                -(req.to_sum() as f64)
+                -req.to_sum()
             };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
@@ -122,40 +153,68 @@ impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
         for edge_idx in 0..m {
             constraints.push(LinearConstraint::le(
                 vec![
-                    (flow_var(edge_idx, 0), 1.0),
-                    (flow_var(edge_idx, 1), 1.0),
+                    (flow_var(edge_idx, 0), 1),
+                    (flow_var(edge_idx, 1), 1),
                     (edge_var(edge_idx), -total_req),
                 ],
-                0.0,
+                0,
             ));
         }
 
         // 5. Capacity bounds: f_{uv} <= c, f_{vu} <= c
         for edge_idx in 0..m {
+            constraints.push(LinearConstraint::le(vec![(flow_var(edge_idx, 0), 1)], cap));
+            constraints.push(LinearConstraint::le(vec![(flow_var(edge_idx, 1), 1)], cap));
+        }
+
+        // 6. Unit-demand flow guarantees that every vertex is connected to the root,
+        // including vertices whose capacity requirement is zero.
+        let connectivity_total = Self::exact_i64(n, "encoding connectivity flow")? - 1;
+        for vertex in 0..n {
+            let mut terms = Vec::new();
+            for (edge_idx, &(u, v)) in edges.iter().enumerate() {
+                if v == vertex {
+                    terms.push((connectivity_var(edge_idx, 0), 1));
+                    terms.push((connectivity_var(edge_idx, 1), -1));
+                }
+                if u == vertex {
+                    terms.push((connectivity_var(edge_idx, 0), -1));
+                    terms.push((connectivity_var(edge_idx, 1), 1));
+                }
+            }
+            let rhs = if vertex == root {
+                connectivity_total
+            } else {
+                -1
+            };
+            constraints.push(LinearConstraint::eq(terms, rhs));
+        }
+        for edge_idx in 0..m {
             constraints.push(LinearConstraint::le(
-                vec![(flow_var(edge_idx, 0), 1.0)],
-                cap,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(flow_var(edge_idx, 1), 1.0)],
-                cap,
+                vec![
+                    (connectivity_var(edge_idx, 0), 1),
+                    (connectivity_var(edge_idx, 1), 1),
+                    (edge_var(edge_idx), -connectivity_total),
+                ],
+                0,
             ));
         }
 
         // Objective: minimize sum(w_e * y_e)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(edge_idx, w)| (edge_var(edge_idx), w.to_sum() as f64))
+            .map(|(edge_idx, weight)| (edge_var(edge_idx), weight.to_sum()))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMinimumCapacitatedSpanningTreeToILP {
+        Ok(ReductionMinimumCapacitatedSpanningTreeToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 
@@ -171,7 +230,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![0, 1, 1, 1],    // requirements
                 2,                   // capacity
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

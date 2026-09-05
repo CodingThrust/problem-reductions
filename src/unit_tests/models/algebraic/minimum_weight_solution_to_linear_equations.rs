@@ -1,4 +1,16 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_rejects_rhs_length_mismatch() {
+    assert!(
+        MinimumWeightSolutionToLinearEquations::try_from(MinimumWeightSolutionCreateSpec {
+            matrix: vec![vec![1, 2]],
+            rhs: vec![]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -15,7 +27,7 @@ fn test_minimum_weight_solution_creation() {
     let problem = example_instance();
     assert_eq!(problem.num_equations(), 2);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2; 4]);
+    assert_eq!(problem.dimensions(), vec![2; 4]);
     assert_eq!(
         <MinimumWeightSolutionToLinearEquations as Problem>::NAME,
         "MinimumWeightSolutionToLinearEquations"
@@ -30,54 +42,65 @@ fn test_minimum_weight_solution_creation() {
 fn test_minimum_weight_solution_evaluate_consistent() {
     let problem = example_instance();
     // Select columns 0,1: submatrix [[1,2],[2,1]], b=[5,4] → y=(1,2). Consistent.
-    let config = vec![1, 1, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(2)));
+    let config = vec![true, true, false, false];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_inconsistent() {
     let problem = example_instance();
     // Select only column 0: [1;2]y=[5;4] → y=5, but 2*5=10 ≠ 4. Inconsistent.
-    let config = vec![1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    let config = vec![true, false, false, false];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_all_selected() {
     let problem = example_instance();
     // All 4 columns selected — system has solution, so feasible with value 4.
-    let config = vec![1, 1, 1, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(4)));
+    let config = vec![true, true, true, true];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_none_selected() {
     let problem = example_instance();
     // No columns selected, b ≠ 0 → infeasible.
-    let config = vec![0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    let config = vec![false, false, false, false];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_wrong_length() {
     let problem = example_instance();
-    assert_eq!(problem.evaluate(&[1, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[1; 5]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true; 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_invalid_variable() {
     let problem = example_instance();
-    let config = vec![2, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, 0, 0, 0]),)
+            .is_err()
+    );
 }
 
 #[test]
 fn test_minimum_weight_solution_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    let val = problem.evaluate(&witness);
+    let witness = solver
+        .solve(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    let val = problem.evaluate(&witness).unwrap();
     assert_eq!(val, Min(Some(2)));
 }
 
@@ -87,8 +110,8 @@ fn test_minimum_weight_solution_zero_rhs() {
     let matrix = vec![vec![1, 1], vec![2, 2]];
     let rhs = vec![0, 0];
     let problem = MinimumWeightSolutionToLinearEquations::new(matrix, rhs);
-    let config = vec![0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(0)));
+    let config = vec![false, false];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
 
 #[test]

@@ -10,7 +10,7 @@ use crate::types::{One, Or};
 fn decision_mds(
     num_vertices: usize,
     edges: &[(usize, usize)],
-    k: i32,
+    k: i64,
 ) -> Decision<MinimumDominatingSet<SimpleGraph, One>> {
     Decision::new(
         MinimumDominatingSet::new(
@@ -28,7 +28,8 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_structure() {
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(
@@ -48,28 +49,31 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let target_solutions = BruteForce::new().find_all_witnesses(target);
+    let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
     assert!(
         !target_solutions.is_empty(),
         "target should have feasible K-center placements"
     );
 
     for target_solution in target_solutions {
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, target_solution);
-        assert_eq!(source.evaluate(&extracted), Or(true));
+        assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     }
 }
 
 #[test]
 fn test_decisionminimumdominatingset_to_minmaxmulticenter_no_witness_when_bound_too_small() {
     let source = decision_mds(4, &[(0, 1), (2, 3)], 1);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
+        .unwrap()
         .is_none());
 }

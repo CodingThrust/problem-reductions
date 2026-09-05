@@ -3,7 +3,7 @@
 //! The 0-1 Knapsack problem asks for a subset of items that maximizes
 //! total value while respecting a weight capacity constraint.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -14,13 +14,10 @@ inventory::submit! {
         display_name: "Knapsack",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Select items to maximize total value subject to weight capacity constraint",
-        fields: &[
-            FieldInfo { name: "weights", type_name: "Vec<i64>", description: "Nonnegative item weights w_i" },
-            FieldInfo { name: "values", type_name: "Vec<i64>", description: "Nonnegative item values v_i" },
-            FieldInfo { name: "capacity", type_name: "i64", description: "Nonnegative knapsack capacity C" },
-        ],
+        fields: KnapsackCreateSpec::FIELDS,
     }
 }
 
@@ -39,11 +36,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::Knapsack;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +51,35 @@ pub struct Knapsack {
     values: Vec<i64>,
     #[serde(deserialize_with = "nonnegative_i64::deserialize")]
     capacity: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct KnapsackCreateSpec {
+    /// Nonnegative item weights; defaults to one per value.
+    weights: Option<Vec<i64>>,
+    /// Nonnegative item values.
+    values: Vec<i64>,
+    /// Nonnegative knapsack capacity.
+    capacity: i64,
+}
+impl TryFrom<KnapsackCreateSpec> for Knapsack {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: KnapsackCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.values.len();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err("weights length must equal values length".to_string().into());
+        }
+        if weights.iter().any(|&value| value < 0)
+            || spec.values.iter().any(|&value| value < 0)
+            || spec.capacity < 0
+        {
+            return Err("weights, values, and capacity must be nonnegative"
+                .to_string()
+                .into());
+        }
+        Ok(Self::new(weights, spec.values, spec.capacity))
+    }
 }
 
 impl Knapsack {
@@ -112,51 +138,76 @@ impl Knapsack {
         if self.capacity == 0 {
             1
         } else {
-            (u64::BITS - (self.capacity as u64).leading_zeros()) as usize
+            self.capacity.ilog2() as usize + 1
         }
     }
 }
 
 impl Problem for Knapsack {
     const NAME: &'static str = "Knapsack";
+    type Solution = Vec<bool>;
     type Value = Max<i64>;
+
+    crate::problem_parameters![("capacity", capacity), ("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_items()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_items() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "item-selection length does not match the instance".into(),
+                ));
+            }
+            let total_weight = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x)
+                .map(|(i, _)| self.weights[i])
+                .try_fold(0_i64, |total, weight| {
+                    total.checked_add(weight).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected knapsack weights".into(),
+                        )
+                    })
+                })?;
+            if total_weight > self.capacity {
+                return Ok(Max(None));
+            }
+            let total_value = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x)
+                .map(|(i, _)| self.values[i])
+                .try_fold(0_i64, |total, value| {
+                    total.checked_add(value).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected knapsack values".into(),
+                        )
+                    })
+                })?;
+            Max(Some(total_value))
+        })
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        if config.len() != self.num_items() {
-            return Max(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Max(None);
-        }
-        let total_weight: i64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.weights[i])
-            .sum();
-        if total_weight > self.capacity {
-            return Max(None);
-        }
-        let total_value: i64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.values[i])
-            .sum();
-        Max(Some(total_value))
+impl crate::solvers::BruteForceProblem for Knapsack {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_items()]
     }
 }
 
 crate::declare_variants! {
-    default Knapsack => "2^(num_items / 2)",
+    default Knapsack => "2^(num_items / 2)" create KnapsackCreateSpec,
+}
+
+crate::register_brute_force! {
+    Knapsack decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 mod nonnegative_i64 {
@@ -202,7 +253,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "knapsack",
         instance: Box::new(Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7)),
-        optimal_config: vec![1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, false, true]),
         optimal_value: serde_json::json!(10),
     }]
 }

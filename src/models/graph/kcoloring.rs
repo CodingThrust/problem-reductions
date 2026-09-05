@@ -3,10 +3,10 @@
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
+use crate::variant::{KValue, VariantParam, K1, K2, K3, K4, K5, KN};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -16,13 +16,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("k", "KN", &["KN", "K2", "K3", "K4", "K5"]),
+            VariantDimension::new("k", "KN", &["KN", "K1", "K2", "K3", "K4", "K5"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find valid k-coloring of a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-        ],
+        fields: RuntimeKColoringCreateSpec::FIELDS,
     }
 }
 
@@ -42,18 +41,18 @@ inventory::submit! {
 /// use problemreductions::models::graph::KColoring;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::variant::K3;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 /// let problem = KColoring::<K3, _>::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Verify all solutions are valid colorings
 /// for sol in &solutions {
-///     assert!(problem.evaluate(sol));
+///     assert!(problem.evaluate(sol).unwrap());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +65,84 @@ pub struct KColoring<K: KValue, G> {
     num_colors: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct FixedKColoringCreateSpec {
+    /// Undirected graph edges.
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated vertices.
+    num_vertices: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct RuntimeKColoringCreateSpec {
+    /// Undirected graph edges.
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated vertices.
+    num_vertices: Option<usize>,
+    /// Runtime color count.
+    k: usize,
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let count = num_vertices.unwrap_or(inferred);
+    if count < inferred {
+        return Err(format!(
+            "num_vertices {count} is too small for graph endpoints; need at least {inferred}"
+        )
+        .into());
+    }
+    Ok(SimpleGraph::new(count, edges))
+}
+
+impl<K: KValue> TryFrom<FixedKColoringCreateSpec> for KColoring<K, SimpleGraph> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: FixedKColoringCreateSpec) -> Result<Self, Self::Error> {
+        let num_colors = K::K.ok_or("runtime KColoring requires k")?;
+        Ok(Self {
+            graph: simple_graph_from_create(spec.graph, spec.num_vertices)?,
+            num_colors,
+            _phantom: std::marker::PhantomData,
+        })
+    }
+}
+
+impl TryFrom<RuntimeKColoringCreateSpec> for KColoring<KN, SimpleGraph> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: RuntimeKColoringCreateSpec) -> Result<Self, Self::Error> {
+        if spec.k == 0 {
+            return Err("k must be positive".to_string().into());
+        }
+        Ok(Self::with_k(
+            simple_graph_from_create(spec.graph, spec.num_vertices)?,
+            spec.k,
+        ))
+    }
 }
 
 fn default_num_colors<K: KValue>() -> usize {
@@ -145,18 +222,43 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "KColoring";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+        ("num_colors", num_colors),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![K, G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_colors; self.graph.num_vertices()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "color assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&color| color >= self.num_colors) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "color assignment contains an out-of-range color".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_valid_coloring(config)))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_coloring(config))
+impl<K: KValue, G> crate::solvers::BruteForceProblem for KColoring<K, G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_colors; self.graph.num_vertices()]
     }
 }
 
@@ -195,18 +297,52 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
-        optimal_config: vec![0, 1, 1, 0, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 0, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }
 
+crate::impl_random_generate!(KColoring<KN, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
+    let k = spec.k.unwrap_or(3);
+    if k == 0 {
+        return Err("k must be positive".to_string().into());
+    }
+    Ok(KColoring::with_k(spec.graph()?, k))
+});
+crate::impl_random_generate!(KColoring<K2, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
+    if spec.k.is_some_and(|k| k != 2) { return Err("k must match the selected K2 variant".to_string().into()); }
+    Ok(KColoring::new(spec.graph()?))
+});
+crate::impl_random_generate!(KColoring<K3, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
+    if spec.k.is_some_and(|k| k != 3) { return Err("k must match the selected K3 variant".to_string().into()); }
+    Ok(KColoring::new(spec.graph()?))
+});
+crate::impl_random_generate!(KColoring<K4, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
+    if spec.k.is_some_and(|k| k != 4) { return Err("k must match the selected K4 variant".to_string().into()); }
+    Ok(KColoring::new(spec.graph()?))
+});
+crate::impl_random_generate!(KColoring<K5, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
+    if spec.k.is_some_and(|k| k != 5) { return Err("k must match the selected K5 variant".to_string().into()); }
+    Ok(KColoring::new(spec.graph()?))
+});
+
 crate::declare_variants! {
-    default KColoring<KN, SimpleGraph> => "2^num_vertices",
-    KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
-    KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
-    KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
+    default KColoring<KN, SimpleGraph> => "2^num_vertices" create RuntimeKColoringCreateSpec random,
+    KColoring<K1, SimpleGraph> => "num_vertices + num_edges" create FixedKColoringCreateSpec,
+    KColoring<K2, SimpleGraph> => "num_vertices + num_edges" create FixedKColoringCreateSpec random,
+    KColoring<K3, SimpleGraph> => "1.3289^num_vertices" create FixedKColoringCreateSpec random,
+    KColoring<K4, SimpleGraph> => "1.7159^num_vertices" create FixedKColoringCreateSpec random,
     // Best known: O*((2-ε)^n) for some ε > 0 (Zamir 2021), concrete ε unknown
-    KColoring<K5, SimpleGraph> => "2^num_vertices",
+    KColoring<K5, SimpleGraph> => "2^num_vertices" create FixedKColoringCreateSpec random,
+}
+
+crate::register_brute_force! {
+    KColoring<KN, SimpleGraph>,
+    KColoring<K1, SimpleGraph>,
+    KColoring<K2, SimpleGraph>,
+    KColoring<K3, SimpleGraph>,
+    KColoring<K4, SimpleGraph>,
+    KColoring<K5, SimpleGraph>,
 }
 
 #[cfg(test)]

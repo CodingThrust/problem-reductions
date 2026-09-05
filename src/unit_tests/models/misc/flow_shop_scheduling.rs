@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -18,9 +19,9 @@ fn test_flow_shop_scheduling_creation() {
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(problem.num_processors(), 3);
     assert_eq!(problem.deadline(), 25);
-    assert_eq!(problem.dims().len(), 5);
+    assert_eq!(problem.dimensions().len(), 5);
     // Lehmer code encoding: dims = [5, 4, 3, 2, 1]
-    assert_eq!(problem.dims(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
 }
 
 #[test]
@@ -41,12 +42,8 @@ fn test_flow_shop_scheduling_evaluate_feasible() {
         25,
     );
 
-    // Lehmer code for job_order [3, 0, 4, 2, 1]:
-    //   available=[0,1,2,3,4], pick 3 -> idx 3; available=[0,1,2,4], pick 0 -> idx 0;
-    //   available=[1,2,4], pick 4 -> idx 2; available=[1,2], pick 2 -> idx 1;
-    //   available=[1], pick 1 -> idx 0
-    let config = vec![3, 0, 2, 1, 0];
-    assert!(problem.evaluate(&config));
+    let config = vec![3, 0, 4, 2, 1];
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -65,21 +62,28 @@ fn test_flow_shop_scheduling_evaluate_infeasible() {
     );
 
     // The sequence j4,j1,j5,j3,j2 gives makespan 23 > 15
-    // Lehmer code for job_order [3, 0, 4, 2, 1] = [3, 0, 2, 1, 0]
-    let config = vec![3, 0, 2, 1, 0];
-    assert!(!problem.evaluate(&config));
+    let config = vec![3, 0, 4, 2, 1];
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_flow_shop_scheduling_invalid_config() {
     let problem = FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10);
 
-    // Lehmer code out of range: dims = [2, 1], so config[0] must be < 2, config[1] must be < 1
-    assert!(!problem.evaluate(&[2, 0])); // config[0] = 2 >= 2
-    assert!(!problem.evaluate(&[0, 1])); // config[1] = 1 >= 1
-                                         // Wrong length
-    assert!(!problem.evaluate(&[0]));
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(!problem.evaluate(&vec![0, 0]).unwrap());
+    // Wrong length
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -113,7 +117,7 @@ fn test_flow_shop_scheduling_compute_makespan() {
     // Machine 0: j0[0,3], j1[3,5], j2[5,6]
     // Machine 1: j0[3,5], j1[5,9], j2[9,12]
     // Makespan = 12
-    assert_eq!(problem.compute_makespan(&[0, 1, 2]), 12);
+    assert_eq!(problem.compute_makespan(&[0, 1, 2]).unwrap(), 12);
 }
 
 #[test]
@@ -121,10 +125,10 @@ fn test_flow_shop_scheduling_brute_force_solver() {
     // Small instance: 2 machines, 3 jobs, generous deadline
     let problem = FlowShopScheduling::new(2, vec![vec![3, 2], vec![2, 4], vec![1, 3]], 20);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let config = solution.unwrap();
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -137,7 +141,7 @@ fn test_flow_shop_scheduling_brute_force_unsatisfiable() {
     // Deadline 10 < 15 => unsatisfiable
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -145,9 +149,9 @@ fn test_flow_shop_scheduling_brute_force_unsatisfiable() {
 fn test_flow_shop_scheduling_empty() {
     let problem = FlowShopScheduling::new(3, vec![], 0);
     assert_eq!(problem.num_jobs(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
     // Empty config should be satisfying (no jobs to schedule)
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
@@ -166,13 +170,12 @@ fn test_flow_shop_scheduling_find_all_witnesses() {
         25,
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
-    // The issue witness sequence [3,0,4,2,1] = Lehmer code [3,0,2,1,0]
-    // gives makespan 23 ≤ 25
-    assert!(solutions.contains(&vec![3, 0, 2, 1, 0]));
+    // The issue witness sequence [3,0,4,2,1] gives makespan 23 ≤ 25.
+    assert!(solutions.contains(&vec![3, 0, 4, 2, 1]));
     // 99 out of 120 permutations have makespan ≤ 25
     assert_eq!(solutions.len(), 99);
 }
@@ -183,7 +186,7 @@ fn test_flow_shop_scheduling_find_all_witnesses_empty() {
     // Both orderings give makespan 15 > 10
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
     let solver = BruteForce::new();
-    assert!(solver.find_all_witnesses(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
 #[test]
@@ -191,7 +194,7 @@ fn test_flow_shop_scheduling_single_job() {
     // 3 machines, 1 job: [2, 3, 4]
     // Makespan = 2 + 3 + 4 = 9
     let problem = FlowShopScheduling::new(3, vec![vec![2, 3, 4]], 10);
-    assert!(problem.evaluate(&[0])); // makespan 9 <= 10
+    assert!(problem.evaluate(&vec![0]).unwrap()); // makespan 9 <= 10
     let tight = FlowShopScheduling::new(3, vec![vec![2, 3, 4]], 8);
-    assert!(!tight.evaluate(&[0])); // makespan 9 > 8
+    assert!(!tight.evaluate(&vec![0]).unwrap()); // makespan 9 > 8
 }

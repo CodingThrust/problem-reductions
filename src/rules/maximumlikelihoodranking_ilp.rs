@@ -39,52 +39,68 @@ impl ReductionResult for ReductionMaximumLikelihoodRankingToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        if n == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Count how many items are ranked before each item i.
-        // config[i] = number of items ranked before i = rank of item i.
-        let mut config = vec![0usize; n];
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let idx = pair_index(i, j, n);
-                if target_solution[idx] == 1 {
-                    // i is before j -> contributes 1 to config[j]
-                    config[j] += 1;
-                } else {
-                    // j is before i -> contributes 1 to config[i]
-                    config[i] += 1;
+        Ok({
+            let n = self.n;
+            if n == 0 {
+                return Ok(vec![]);
+            }
+
+            // Count how many items are ranked before each item i.
+            // config[i] = number of items ranked before i = rank of item i.
+            let mut config = vec![0usize; n];
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    let idx = pair_index(i, j, n);
+                    if target_solution[idx] == 1 {
+                        // i is before j -> contributes 1 to config[j]
+                        config[j] += 1;
+                    } else {
+                        // j is before i -> contributes 1 to config[i]
+                        config[i] += 1;
+                    }
                 }
             }
-        }
 
-        config
+            config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_items * (num_items - 1) / 2",
         num_constraints = "num_items * (num_items - 1) * (num_items - 2) / 3",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
     type Result = ReductionMaximumLikelihoodRankingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_items();
         let num_vars = n * (n.saturating_sub(1)) / 2;
         let matrix = self.matrix();
 
         // Build objective: minimize sum_{i<j} (a_{ji} - a_{ij}) * x_{ij}
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (i, row_i) in matrix.iter().enumerate() {
             for j in (i + 1)..n {
-                let coeff = (matrix[j][i] - row_i[j]) as f64;
-                if coeff != 0.0 {
+                let difference = matrix[j][i].checked_sub(row_i[j]).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        MaximumLikelihoodRanking,
+                        ILP<bool>,
+                    >("subtracting ranking matrix entries")
+                })?;
+                let coeff = difference;
+                if coeff != 0 {
                     objective.push((pair_index(i, j, n), coeff));
                 }
             }
@@ -103,23 +119,18 @@ impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
                     let ac = pair_index(a, c, n);
 
                     // x_{ab} + x_{bc} - x_{ac} <= 1
-                    constraints.push(LinearConstraint::le(
-                        vec![(ab, 1.0), (bc, 1.0), (ac, -1.0)],
-                        1.0,
-                    ));
+                    constraints.push(LinearConstraint::le(vec![(ab, 1), (bc, 1), (ac, -1)], 1));
 
                     // -x_{ab} - x_{bc} + x_{ac} <= 0
-                    constraints.push(LinearConstraint::le(
-                        vec![(ab, -1.0), (bc, -1.0), (ac, 1.0)],
-                        0.0,
-                    ));
+                    constraints.push(LinearConstraint::le(vec![(ab, -1), (bc, -1), (ac, 1)], 0));
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMaximumLikelihoodRankingToILP { target, n }
+        Ok(ReductionMaximumLikelihoodRankingToILP { target, n })
     }
 }
 

@@ -1,4 +1,4 @@
-//! Reduction from TimetableDesign to ILP<bool>.
+//! Reduction from TimetableDesign to `ILP<bool>`.
 //!
 //! The source witness is a binary craftsman-task-period incidence table,
 //! and all feasibility conditions are already linear: availability forcing,
@@ -9,13 +9,16 @@ use crate::models::misc::TimetableDesign;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing TimetableDesign to ILP<bool>.
+/// Result of reducing TimetableDesign to `ILP<bool>`.
 ///
 /// Variable layout: x_{c,t,h} at index `((c * num_tasks) + t) * num_periods + h`
 /// exactly matching the source configuration layout.
 #[derive(Debug, Clone)]
 pub struct ReductionTDToILP {
     target: ILP<bool>,
+    num_craftsmen: usize,
+    num_tasks: usize,
+    num_periods: usize,
 }
 
 impl ReductionResult for ReductionTDToILP {
@@ -28,22 +31,48 @@ impl ReductionResult for ReductionTDToILP {
 
     /// Extract: direct identity mapping — the ILP variable layout matches the
     /// source configuration layout exactly.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok((0..self.num_craftsmen)
+            .map(|craftsman| {
+                (0..self.num_tasks)
+                    .map(|task| {
+                        (0..self.num_periods)
+                            .map(|period| {
+                                let index = ((craftsman * self.num_tasks) + task)
+                                    * self.num_periods
+                                    + period;
+                                target_solution[index] == 1
+                            })
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_craftsmen * num_tasks * num_periods",
-    num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
-})]
+#[reduction(
+    transform = exact {
+        num_vars = "num_craftsmen * num_tasks * num_periods",
+        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let nc = self.num_craftsmen();
         let nt = self.num_tasks();
         let nh = self.num_periods();
+        let requirements = self.requirements();
         let num_vars = nc * nt * nh;
 
         let var = |c: usize, t: usize, h: usize| -> usize { ((c * nt) + t) * nh + h };
@@ -55,7 +84,7 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
             for t in 0..nt {
                 for h in 0..nh {
                     if !self.craftsman_avail()[c][h] || !self.task_avail()[t][h] {
-                        constraints.push(LinearConstraint::eq(vec![(var(c, t, h), 1.0)], 0.0));
+                        constraints.push(LinearConstraint::eq(vec![(var(c, t, h), 1)], 0));
                     }
                 }
             }
@@ -64,33 +93,34 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         // 2. Each craftsman works on at most one task per period: Σ_t x_{c,t,h} <= 1 for all c, h
         for c in 0..nc {
             for h in 0..nh {
-                let terms: Vec<(usize, f64)> = (0..nt).map(|t| (var(c, t, h), 1.0)).collect();
-                constraints.push(LinearConstraint::le(terms, 1.0));
+                let terms: Vec<(usize, i64)> = (0..nt).map(|t| (var(c, t, h), 1)).collect();
+                constraints.push(LinearConstraint::le(terms, 1));
             }
         }
 
         // 3. Each task worked on by at most one craftsman per period: Σ_c x_{c,t,h} <= 1 for all t, h
         for t in 0..nt {
             for h in 0..nh {
-                let terms: Vec<(usize, f64)> = (0..nc).map(|c| (var(c, t, h), 1.0)).collect();
-                constraints.push(LinearConstraint::le(terms, 1.0));
+                let terms: Vec<(usize, i64)> = (0..nc).map(|c| (var(c, t, h), 1)).collect();
+                constraints.push(LinearConstraint::le(terms, 1));
             }
         }
 
         // 4. Exact requirements: Σ_h x_{c,t,h} = r_{c,t} for all c, t
-        for c in 0..nc {
-            for t in 0..nt {
-                let terms: Vec<(usize, f64)> = (0..nh).map(|h| (var(c, t, h), 1.0)).collect();
-                constraints.push(LinearConstraint::eq(
-                    terms,
-                    self.requirements()[c][t] as f64,
-                ));
+        for (c, row) in requirements.iter().enumerate() {
+            for (t, &requirement) in row.iter().enumerate() {
+                let terms: Vec<(usize, i64)> = (0..nh).map(|h| (var(c, t, h), 1)).collect();
+                constraints.push(LinearConstraint::eq(terms, requirement));
             }
         }
 
-        ReductionTDToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
-        }
+        Ok(ReductionTDToILP {
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
+            num_craftsmen: nc,
+            num_tasks: nt,
+            num_periods: nh,
+        })
     }
 }
 

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Instance 1: 6 attributes, cyclic FDs, 3 known keys.
@@ -30,7 +31,7 @@ fn test_additional_key_creation() {
     assert_eq!(problem.num_dependencies(), 5);
     assert_eq!(problem.num_relation_attrs(), 6);
     assert_eq!(problem.num_known_keys(), 3);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
     assert_eq!(<AdditionalKey as Problem>::NAME, "AdditionalKey");
     assert_eq!(<AdditionalKey as Problem>::variant(), vec![]);
     // Data getters
@@ -50,14 +51,18 @@ fn test_additional_key_evaluate_satisfying() {
     // Minimality: remove 0 => {2}, closure of {2} = {2} => does not cover all. OK.
     //             remove 2 => {0}, closure of {0} = {0} => does not cover all. OK.
     // {0,2} sorted is [0,2], not in known_keys [{0,1},{2,3},{4,5}].
-    assert!(problem.evaluate(&[1, 0, 1, 0, 0, 0]));
+    assert!(problem
+        .evaluate(&vec![true, false, true, false, false, false])
+        .unwrap());
 }
 
 #[test]
 fn test_additional_key_evaluate_known_key() {
     let problem = instance1();
     // Config [1,1,0,0,0,0] selects attrs {0,1} which IS in known_keys.
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, true, false, false, false, false])
+        .unwrap());
 }
 
 #[test]
@@ -65,7 +70,9 @@ fn test_additional_key_evaluate_not_a_key() {
     let problem = instance1();
     // Config [0,0,0,0,0,1] selects {5}. Closure of {5} = {5}.
     // Does not cover all attrs.
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 1]));
+    assert!(!problem
+        .evaluate(&vec![false, false, false, false, false, true])
+        .unwrap());
 }
 
 #[test]
@@ -73,7 +80,9 @@ fn test_additional_key_evaluate_non_minimal() {
     let problem = instance1();
     // Config [1,1,1,0,0,0] selects {0,1,2}.
     // {0,1} alone determines all attrs (known key), so {0,1,2} is NOT minimal.
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, true, true, false, false, false])
+        .unwrap());
 }
 
 #[test]
@@ -81,21 +90,31 @@ fn test_additional_key_no_additional_key() {
     let problem = instance2();
     // Only candidate key is {0}, which is already known.
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
 #[test]
 fn test_additional_key_wrong_config_length() {
     let problem = instance1();
-    assert!(!problem.evaluate(&[1, 0]));
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, false, false, false, false, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_additional_key_invalid_variable_value() {
     let problem = instance1();
-    assert!(!problem.evaluate(&[2, 0, 0, 0, 0, 0]));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([2, false, false, false, false, false])
+    )
+    .is_err());
 }
 
 #[test]
@@ -103,20 +122,21 @@ fn test_additional_key_brute_force() {
     let problem = instance1();
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_additional_key_brute_force_all() {
     let problem = instance1();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Exactly 2 additional keys: {0,2} and {0,3,5}
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -131,8 +151,12 @@ fn test_additional_key_serialization() {
     assert_eq!(restored.num_known_keys(), problem.num_known_keys());
     // Verify round-trip produces same evaluation
     assert_eq!(
-        problem.evaluate(&[1, 0, 1, 0, 0, 0]),
-        restored.evaluate(&[1, 0, 1, 0, 0, 0])
+        problem
+            .evaluate(&vec![true, false, true, false, false, false])
+            .unwrap(),
+        restored
+            .evaluate(&vec![true, false, true, false, false, false])
+            .unwrap()
     );
 }
 
@@ -140,7 +164,9 @@ fn test_additional_key_serialization() {
 fn test_additional_key_empty_selection() {
     let problem = instance1();
     // All zeros = no attributes selected = not a key
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![false, false, false, false, false, false])
+        .unwrap());
 }
 
 #[test]

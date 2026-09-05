@@ -1,8 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::Graph;
-use crate::types::Or;
 
 /// q = 2, m = 2: X = {0..5} with C = [{0,1,2}, {3,4,5}].
 /// Both subsets together form the unique exact cover.
@@ -19,7 +18,8 @@ fn no_instance_simple() -> ExactCoverBy3Sets {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_closed_loop() {
     let source = yes_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -31,7 +31,8 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_closed_loop() {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
     let source = yes_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let m = source.num_subsets();
@@ -45,7 +46,7 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
     // Diameter bound is always 4 in the canonical construction.
     assert_eq!(target.diameter_bound(), 4);
     // Weight bound B = 4q + m + 2.
-    let expected_weight_bound = (4 * q + m + 2) as i32;
+    let expected_weight_bound = i64::try_from(4 * q + m + 2).unwrap();
     assert_eq!(*target.weight_bound(), expected_weight_bound);
 
     // Verify the first two edges are the forced-center path with weight 1.
@@ -66,35 +67,37 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let source = yes_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Build a target config that selects both root-to-set edges (indices 2 and 3).
     // The remaining selections do not matter for extraction.
-    let mut target_config = vec![0; reduction.target_problem().num_edges()];
-    target_config[2] = 1;
-    target_config[3] = 1;
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 1]);
+    let mut target_config = vec![false; reduction.target_problem().num_edges()];
+    target_config[2] = true;
+    target_config[3] = true;
+    let extracted = reduction.extract_solution(&target_config).unwrap();
+    assert_eq!(extracted, vec![true, true]);
 
     // Only s_0 selected via root edge.
-    let mut target_config = vec![0; reduction.target_problem().num_edges()];
-    target_config[2] = 1;
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0]);
+    let mut target_config = vec![false; reduction.target_problem().num_edges()];
+    target_config[2] = true;
+    let extracted = reduction.extract_solution(&target_config).unwrap();
+    assert_eq!(extracted, vec![true, false]);
 }
 
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     let source = no_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // The target should be infeasible: no spanning tree satisfies both weight
     // bound B = 4q + m + 2 = 12 and diameter bound D = 4. For an Or-valued
-    // problem with no satisfying configuration, BruteForce::find_witness
+    // problem with no satisfying configuration, BruteForce::solve
     // returns None (witnesses are configs that evaluate to Or(true), and none
     // exist here). Equivalently, the brute-force aggregate evaluates to
     // Or(false).
-    assert!(BruteForce::new().find_witness(target).is_none());
-    assert_eq!(BruteForce::new().solve(target), Or(false));
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }

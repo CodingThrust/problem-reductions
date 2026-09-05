@@ -69,7 +69,7 @@ pub fn list_prompts() -> Vec<Prompt> {
         ),
         Prompt::new(
             "find_reduction",
-            Some("Find the best reduction path between two problems, with cost analysis"),
+            Some("Enumerate symbolic reduction paths between two problems"),
             Some(vec![
                 PromptArgument::new("source")
                     .with_description("Source problem name or alias")
@@ -149,8 +149,8 @@ pub fn get_prompt(
                     "Compare \"{a}\" and \"{b}\".\n\n\
                      How are they related? Is there a direct reduction between them, or do \
                      they connect through intermediate problems? What are the key differences \
-                     in what they model? If one can be reduced to the other, what is the \
-                     overhead?"
+                     in what they model? If one can be reduced to the other, how does the \
+                     problem parameters change?"
                 ),
             ))
         }
@@ -163,7 +163,7 @@ pub fn get_prompt(
                 &format!(
                     "Walk me through reducing a \"{source}\" instance to \"{target}\", step \
                      by step.\n\n\
-                     1. Find the reduction path and explain the overhead.\n\
+                     1. Find the reduction path and explain how the problem parameters change at each step.\n\
                      2. Create a small, concrete example instance of \"{source}\".\n\
                      3. Reduce it to \"{target}\" and show what the transformed instance \
                         looks like.\n\
@@ -195,10 +195,9 @@ pub fn get_prompt(
             Some(prompt_result(
                 &format!("Find reduction path from {source} to {target}"),
                 &format!(
-                    "Find the best way to reduce \"{source}\" to \"{target}\".\n\n\
-                     Show me the cheapest reduction path and explain the cost at each step. \
-                     Are there alternative paths? If so, compare them — which is better for \
-                     small instances vs. large instances?"
+                    "Find reduction paths from \"{source}\" to \"{target}\".\n\n\
+                     Show each route and explain how the problem parameters change at each step. \
+                     Do not rank, prune, or recommend a route."
                 ),
             ))
         }

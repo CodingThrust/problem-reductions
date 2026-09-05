@@ -85,7 +85,7 @@ fn test_big_o_composed_overhead_duplicate() {
 #[test]
 fn test_big_o_exp_with_polynomial() {
     // exp(n) dominates n^10
-    let e = Expr::Exp(Box::new(Expr::Var("n"))) + Expr::pow(Expr::Var("n"), Expr::Const(10.0));
+    let e = Expr::exp(Expr::variable("n")) + Expr::pow(Expr::variable("n"), Expr::integer(10));
     let result = big_o_normal_form(&e).unwrap();
     let s = result.to_string();
     assert!(s.contains("exp"), "expected exp term to survive, got: {s}");
@@ -97,33 +97,40 @@ fn test_big_o_exp_with_polynomial() {
 
 #[test]
 fn test_big_o_pure_constant_returns_one() {
-    let e = Expr::Const(42.0);
+    let e = Expr::integer(42);
     let result = big_o_normal_form(&e).unwrap();
     assert_eq!(result.to_string(), "1");
 }
 
 #[test]
-fn test_big_o_rejects_division() {
-    let e = Expr::Var("n") / Expr::Var("m");
-    assert!(big_o_normal_form(&e).is_err());
+fn test_big_o_rejects_negative_symbolic_power() {
+    let e = Expr::variable("n") / Expr::variable("m");
+    let error = big_o_normal_form(&e).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "unsupported asymptotic expression: negative exponent is unsupported: -1"
+    );
 }
 
 #[test]
-fn test_big_o_rejects_negative_dominant_term() {
-    let e = Expr::Const(-1.0) * Expr::Var("n");
-    assert!(big_o_normal_form(&e).is_err());
+fn test_big_o_drops_negative_constant_factor() {
+    // The growth domain drops constant multipliers, sign included, so `-1 * n`
+    // widens to `n` (an upper bound on its magnitude) instead of being rejected.
+    let e = Expr::integer(-1) * Expr::variable("n");
+    let result = big_o_normal_form(&e).unwrap();
+    assert_eq!(result.to_string(), "n");
 }
 
 #[test]
 fn test_big_o_constant_base_one_becomes_constant() {
-    let e = Expr::pow(Expr::Const(1.0), Expr::Var("n"));
+    let e = Expr::pow(Expr::integer(1), Expr::variable("n"));
     let result = big_o_normal_form(&e).unwrap();
     assert_eq!(result.to_string(), "1");
 }
 
 #[test]
 fn test_big_o_rejects_nonpositive_constant_base_exponential() {
-    let e = Expr::pow(Expr::Const(-2.0), Expr::Var("n"));
+    let e = Expr::pow(Expr::integer(-2), Expr::variable("n"));
     assert!(big_o_normal_form(&e).is_err());
 }
 
@@ -219,11 +226,17 @@ fn test_big_o_multivar_exp_dominates_poly() {
 }
 
 #[test]
-fn test_big_o_pathological_nesting_errors_instead_of_hanging() {
-    // Regression for issue #1069: a deeply-nested power that expands
-    // exponentially must return an error promptly (so callers like `big_o_of`
-    // fall back to the un-expanded expression) rather than OOM/hang.
-    let sum = Expr::Var("a") + Expr::Var("b") + Expr::Var("c") + Expr::Var("d");
-    let e = Expr::pow(Expr::pow(sum, Expr::Const(4.0)), Expr::Const(4.0));
-    assert!(big_o_normal_form(&e).is_err());
+fn test_big_o_pathological_nesting_returns_bound_instantly() {
+    // A deeply nested power that the old expansion pipeline could not normalize.
+    // The growth domain answers it bottom-up: `((a+b+c+d)^4)^4` raises each
+    // variable term to degree 16, so it returns a real bound immediately.
+    let sum = Expr::variable("a") + Expr::variable("b") + Expr::variable("c") + Expr::variable("d");
+    let e = Expr::pow(Expr::pow(sum, Expr::integer(4)), Expr::integer(4));
+    let start = std::time::Instant::now();
+    let result = big_o_normal_form(&e).unwrap();
+    assert!(start.elapsed().as_millis() < 50, "should be instant");
+    let s = result.to_string();
+    for v in ["a^16", "b^16", "c^16", "d^16"] {
+        assert!(s.contains(v), "expected {v} in {s}");
+    }
 }

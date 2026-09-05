@@ -93,107 +93,127 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
     /// and a swap candidate, for a total of `O(|F|^3)` time. The result is a
     /// matching that is an EDS, i.e. an independent EDS, which is precisely a
     /// maximal matching.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let graph = self.source.graph();
-        let edges = graph.edges();
-        let num_source_edges = edges.len();
-        let m = graph.left_size();
-        let target_ones = self.target.ones();
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Step 1: map selected target 1-entries back to source edge indices.
-        // The reduction places source edge `(l_i, r_j)` (in bipartite-local
-        // form) at matrix cell `(i, m + j)`, which equals the global edge
-        // `(i, m + j)` returned by `Graph::edges()`. Build the lookup from
-        // matrix cell -> source edge index so we are robust to any ordering
-        // discrepancy between `Graph::edges()` and row-major 1-entries.
-        let cell_to_source_edge: std::collections::HashMap<(usize, usize), usize> = edges
-            .iter()
-            .enumerate()
-            .map(|(idx, &(u, v))| {
-                // Source edge endpoints in bipartite global coords are
-                // (left_idx, m + right_idx); matrix cell is (row=left, col=m+right).
-                let (row, col) = if u < m { (u, v) } else { (v, u) };
-                ((row, col), idx)
-            })
-            .collect();
-        let mut d: Vec<usize> = target_solution
-            .iter()
-            .zip(target_ones.iter())
-            .filter_map(|(&sel, &cell)| {
-                if sel == 1 {
-                    cell_to_source_edge.get(&cell).copied()
-                } else {
-                    None
+        Ok({
+            let graph = self.source.graph();
+            let edges = graph.edges();
+            let num_source_edges = edges.len();
+            let m = graph.left_size();
+            let target_ones = self.target.ones();
+
+            // Step 1: map selected target 1-entries back to source edge indices.
+            // The reduction places source edge `(l_i, r_j)` (in bipartite-local
+            // form) at matrix cell `(i, m + j)`, which equals the global edge
+            // `(i, m + j)` returned by `Graph::edges()`. Build the lookup from
+            // matrix cell -> source edge index so we are robust to any ordering
+            // discrepancy between `Graph::edges()` and row-major 1-entries.
+            let cell_to_source_edge: std::collections::HashMap<(usize, usize), usize> = edges
+                .iter()
+                .enumerate()
+                .map(|(idx, &(u, v))| {
+                    // Source edge endpoints in bipartite global coords are
+                    // (left_idx, m + right_idx); matrix cell is (row=left, col=m+right).
+                    let (row, col) = if u < m { (u, v) } else { (v, u) };
+                    ((row, col), idx)
+                })
+                .collect();
+            let mut d: Vec<usize> = target_solution
+                .iter()
+                .zip(target_ones.iter())
+                .filter_map(|(&sel, &cell)| {
+                    if sel {
+                        Some(cell_to_source_edge.get(&cell).copied().ok_or_else(|| {
+                            crate::rules::ExtractionError::invalid(format!(
+                                "selected matrix cell {cell:?} has no source edge"
+                            ))
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<crate::rules::ExtractionResult<_>>()?;
+
+            // Step 2: Yannakakis-Gavril EDS -> independent EDS (maximal matching).
+            // Loop invariants: `d` is an EDS of the source graph; each iteration
+            // strictly decreases either |d| or the number of (unordered) pairs of
+            // adjacent edges inside `d`.
+            loop {
+                // Find an adjacent pair (e1_idx, e2_idx) inside `d`, sharing vertex v.
+                let pair = find_adjacent_pair(&d, &edges);
+                let Some((e1_idx, e2_idx, _shared)) = pair else {
+                    break; // `d` is a matching; we are done.
+                };
+
+                // Try dropping e1_idx or e2_idx if the remainder is still an EDS.
+                let mut without_e1 = d.clone();
+                let e1_position = d.iter().position(|&x| x == e1_idx).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "edge-domination transformation lost its selected edge",
+                    )
+                })?;
+                without_e1.swap_remove(e1_position);
+                if is_edge_dominating_set(&without_e1, &edges) {
+                    d = without_e1;
+                    continue;
                 }
-            })
-            .collect();
+                let mut without_e2 = d.clone();
+                let e2_position = d.iter().position(|&x| x == e2_idx).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "edge-domination transformation lost its selected edge",
+                    )
+                })?;
+                without_e2.swap_remove(e2_position);
+                if is_edge_dominating_set(&without_e2, &edges) {
+                    d = without_e2;
+                    continue;
+                }
 
-        // Step 2: Yannakakis-Gavril EDS -> independent EDS (maximal matching).
-        // Loop invariants: `d` is an EDS of the source graph; each iteration
-        // strictly decreases either |d| or the number of (unordered) pairs of
-        // adjacent edges inside `d`.
-        loop {
-            // Find an adjacent pair (e1_idx, e2_idx) inside `d`, sharing vertex v.
-            let pair = find_adjacent_pair(&d, &edges);
-            let Some((e1_idx, e2_idx, _shared)) = pair else {
-                break; // `d` is a matching; we are done.
-            };
+                // Neither drop works -> perform a swap on one of e1 or e2.
+                // Choose endpoint not shared with the other edge: for e1=(u, v),
+                // e2=(v, w), the "non-shared" endpoint of e1 is u.
+                let (e1_a, e1_b) = edges[e1_idx];
+                let (e2_a, e2_b) = edges[e2_idx];
+                let shared = if e1_a == e2_a || e1_a == e2_b {
+                    e1_a
+                } else {
+                    e1_b
+                };
+                let u = if e1_a == shared { e1_b } else { e1_a };
+                let w = if e2_a == shared { e2_b } else { e2_a };
 
-            // Try dropping e1_idx or e2_idx if the remainder is still an EDS.
-            let mut without_e1 = d.clone();
-            without_e1.swap_remove(d.iter().position(|&x| x == e1_idx).unwrap());
-            if is_edge_dominating_set(&without_e1, &edges) {
-                d = without_e1;
-                continue;
-            }
-            let mut without_e2 = d.clone();
-            without_e2.swap_remove(d.iter().position(|&x| x == e2_idx).unwrap());
-            if is_edge_dominating_set(&without_e2, &edges) {
-                d = without_e2;
-                continue;
-            }
+                // Try to swap e1 := (u, x) where x ∉ V(d \ {e1}). The YG proof
+                // guarantees such x exists when neither drop succeeded.
+                if let Some(new_idx) = find_swap_edge(u, e1_idx, &d, &edges) {
+                    d[e1_position] = new_idx;
+                    continue;
+                }
+                // Symmetric swap on e2.
+                if let Some(new_idx) = find_swap_edge(w, e2_idx, &d, &edges) {
+                    d[e2_position] = new_idx;
+                    continue;
+                }
 
-            // Neither drop works -> perform a swap on one of e1 or e2.
-            // Choose endpoint not shared with the other edge: for e1=(u, v),
-            // e2=(v, w), the "non-shared" endpoint of e1 is u.
-            let (e1_a, e1_b) = edges[e1_idx];
-            let (e2_a, e2_b) = edges[e2_idx];
-            let shared = if e1_a == e2_a || e1_a == e2_b {
-                e1_a
-            } else {
-                e1_b
-            };
-            let u = if e1_a == shared { e1_b } else { e1_a };
-            let w = if e2_a == shared { e2_b } else { e2_a };
-
-            // Try to swap e1 := (u, x) where x ∉ V(d \ {e1}). The YG proof
-            // guarantees such x exists when neither drop succeeded.
-            if let Some(new_idx) = find_swap_edge(u, e1_idx, &d, &edges) {
-                replace_in(&mut d, e1_idx, new_idx);
-                continue;
-            }
-            // Symmetric swap on e2.
-            if let Some(new_idx) = find_swap_edge(w, e2_idx, &d, &edges) {
-                replace_in(&mut d, e2_idx, new_idx);
-                continue;
+                // YG guarantees that for an EDS at least one of the four moves
+                // above succeeds. Reaching this point implies the input was not
+                // a valid EDS (i.e., not a feasible MMD witness on the constructed
+                // instance), which violates the reduction's precondition.
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target matrix entries do not encode an edge-dominating set",
+                ));
             }
 
-            // YG guarantees that for an EDS at least one of the four moves
-            // above succeeds. Reaching this point implies the input was not
-            // a valid EDS (i.e., not a feasible MMD witness on the constructed
-            // instance), which violates the reduction's precondition.
-            unreachable!(
-                "Yannakakis-Gavril EDS->IEDS transformation could not progress; \
-                 target witness must be a feasible (dominating) MMD configuration"
-            );
-        }
-
-        // Step 3: encode the matching as a binary configuration over source edges.
-        let mut config = vec![0usize; num_source_edges];
-        for &idx in &d {
-            config[idx] = 1;
-        }
-        config
+            // Step 3: encode the matching as a binary configuration over source edges.
+            let mut config = vec![false; num_source_edges];
+            for &idx in &d {
+                config[idx] = true;
+            }
+            config
+        })
     }
 }
 
@@ -272,18 +292,8 @@ fn find_swap_edge(
     None
 }
 
-/// Replace `old_idx` with `new_idx` inside `d` in-place. Panics if `old_idx`
-/// is not present.
-fn replace_in(d: &mut [usize], old_idx: usize, new_idx: usize) {
-    let pos = d
-        .iter()
-        .position(|&x| x == old_idx)
-        .expect("old_idx must be present in d");
-    d[pos] = new_idx;
-}
-
 #[reduction(
-    overhead = {
+    transform = exact {
         num_rows = "num_vertices",
         num_cols = "num_vertices",
         num_ones = "num_edges",
@@ -292,7 +302,7 @@ fn replace_in(d: &mut [usize], old_idx: usize, new_idx: usize) {
 impl ReduceTo<MinimumMatrixDomination> for MinimumMaximalMatching<BipartiteGraph> {
     type Result = ReductionMMMToMatrixDomination;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let g = self.graph();
         let m = g.left_size();
         let n = g.right_size();
@@ -311,10 +321,10 @@ impl ReduceTo<MinimumMatrixDomination> for MinimumMaximalMatching<BipartiteGraph
 
         let target = MinimumMatrixDomination::new(matrix);
 
-        ReductionMMMToMatrixDomination {
+        Ok(ReductionMMMToMatrixDomination {
             target,
             source: self.clone(),
-        }
+        })
     }
 }
 
@@ -359,8 +369,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumMatrixDomination>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0],
-                    target_config: vec![1, 0, 0, 1, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, false]),
                 },
             )
         },

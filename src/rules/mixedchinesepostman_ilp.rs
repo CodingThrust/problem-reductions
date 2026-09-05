@@ -14,35 +14,48 @@ use crate::types::WeightElement;
 /// Result of reducing MixedChinesePostman to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMCPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_undirected_edges: usize,
 }
 
 impl ReductionResult for ReductionMCPToILP {
-    type Source = MixedChinesePostman<i32>;
-    type Target = ILP<i32>;
+    type Source = MixedChinesePostman<i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Return the orientation bits d_k in source edge order
-        target_solution[..self.num_undirected_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Return the orientation bits d_k in source edge order
+            target_solution[..self.num_undirected_edges]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
-        num_constraints = "num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * (num_arcs + 2 * num_edges) + num_vertices + 1 + num_vertices + 4 * num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * num_vertices",
+        num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
+impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
     type Result = ReductionMCPToILP;
 
     #[allow(clippy::needless_range_loop)]
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_arcs(); // original directed arcs
         let q = self.num_edges(); // undirected edges
@@ -50,10 +63,11 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
         // If R = 0, empty walk is feasible
         if r_count == 0 {
-            return ReductionMCPToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+            return Ok(ReductionMCPToILP {
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 num_undirected_edges: 0,
-            };
+            });
         }
 
         // Available arc list A*: L = m + 2q arcs
@@ -66,17 +80,18 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
         // Build available arc list with lengths
         let mut avail_arcs: Vec<(usize, usize)> = Vec::with_capacity(l);
-        let mut avail_lengths: Vec<f64> = Vec::with_capacity(l);
+        let mut avail_lengths: Vec<i64> = Vec::with_capacity(l);
 
         for (i, &(u, v)) in original_arcs.iter().enumerate() {
             avail_arcs.push((u, v));
-            avail_lengths.push(self.arc_weights()[i].to_sum() as f64);
+            avail_lengths.push(self.arc_weights()[i].to_sum());
         }
         for (k, &(u, v)) in undirected_edges.iter().enumerate() {
+            let length = self.edge_weights()[k].to_sum();
             avail_arcs.push((u, v)); // forward
-            avail_lengths.push(self.edge_weights()[k].to_sum() as f64);
+            avail_lengths.push(length);
             avail_arcs.push((v, u)); // reverse
-            avail_lengths.push(self.edge_weights()[k].to_sum() as f64);
+            avail_lengths.push(length);
         }
 
         // Variable layout (from paper):
@@ -101,29 +116,38 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
         let h_idx = |j: usize| q + 3 * l + 3 * n + 1 + j;
 
         let num_vars = q + 4 * l + 3 * n + 1;
-        let big_g = (r_count * (n - 1)) as f64; // G = R(n-1)
-        let m_use = 1.0 + big_g; // M_use = 1 + G
-        let n_f64 = n as f64;
+        let n_i64 = Self::exact_i64(n, "encoding the active-vertex count")?;
+        let r_count_i64 = Self::exact_i64(r_count, "encoding the required-arc count")?;
+        let big_g = r_count_i64.checked_mul(n_i64 - 1).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<MixedChinesePostman<i64>, ILP<i64>>(
+                "computing the extra-traversal bound",
+            )
+        })?;
+        let m_use = big_g.checked_add(1).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<MixedChinesePostman<i64>, ILP<i64>>(
+                "computing the arc-use bound",
+            )
+        })?;
 
         let mut constraints = Vec::new();
 
         // Binary bounds for d_k: 0 <= d_k <= 1
         for k in 0..q {
-            constraints.push(LinearConstraint::le(vec![(d_idx(k), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(d_idx(k), 1)], 1));
         }
 
         // Bounds on g_j: 0 <= g_j <= G
         for j in 0..l {
-            constraints.push(LinearConstraint::le(vec![(g_idx(j), 1.0)], big_g));
+            constraints.push(LinearConstraint::le(vec![(g_idx(j), 1)], big_g));
         }
 
         // Binary bounds: y_j, z_v, rho_v <= 1
         for j in 0..l {
-            constraints.push(LinearConstraint::le(vec![(y_idx(j), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(y_idx(j), 1)], 1));
         }
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(z_idx(v), 1.0)], 1.0));
-            constraints.push(LinearConstraint::le(vec![(rho_idx(v), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(z_idx(v), 1)], 1));
+            constraints.push(LinearConstraint::le(vec![(rho_idx(v), 1)], 1));
         }
 
         // The required multiplicity r_j(d):
@@ -135,20 +159,20 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
         // sum_{j: tail_j = v} (r_j + g_j) - sum_{j: head_j = v} (r_j + g_j) = 0 for all v
         for v in 0..n {
             let mut terms = Vec::new();
-            let mut constant = 0.0_f64; // constant part of r_j
+            let mut constant = 0_i64; // constant part of r_j
 
             for j in 0..l {
                 let (tail, head) = avail_arcs[j];
                 let sign = if tail == v && head == v {
-                    0.0 // self-loop contributes nothing
+                    0 // self-loop contributes nothing
                 } else if tail == v {
-                    1.0
+                    1
                 } else if head == v {
-                    -1.0
+                    -1
                 } else {
                     continue;
                 };
-                if sign == 0.0 {
+                if sign == 0 {
                     continue;
                 }
 
@@ -180,39 +204,36 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
             if j < m {
                 // r_j = 1: (1 + g_j) <= M_use * y_j => g_j - M_use * y_j <= -1
                 constraints.push(LinearConstraint::le(
-                    vec![(g_idx(j), 1.0), (y_idx(j), -m_use)],
-                    -1.0,
+                    vec![(g_idx(j), 1), (y_idx(j), -m_use)],
+                    -1,
                 ));
                 // y_j <= 1 + g_j => y_j - g_j <= 1
-                constraints.push(LinearConstraint::le(
-                    vec![(y_idx(j), 1.0), (g_idx(j), -1.0)],
-                    1.0,
-                ));
+                constraints.push(LinearConstraint::le(vec![(y_idx(j), 1), (g_idx(j), -1)], 1));
             } else {
                 let k = (j - m) / 2;
                 if (j - m).is_multiple_of(2) {
                     // Forward: r_j = 1 - d_k
                     // (1 - d_k + g_j) <= M_use * y_j => g_j - d_k - M_use * y_j <= -1
                     constraints.push(LinearConstraint::le(
-                        vec![(g_idx(j), 1.0), (d_idx(k), -1.0), (y_idx(j), -m_use)],
-                        -1.0,
+                        vec![(g_idx(j), 1), (d_idx(k), -1), (y_idx(j), -m_use)],
+                        -1,
                     ));
                     // y_j <= 1 - d_k + g_j => y_j + d_k - g_j <= 1
                     constraints.push(LinearConstraint::le(
-                        vec![(y_idx(j), 1.0), (d_idx(k), 1.0), (g_idx(j), -1.0)],
-                        1.0,
+                        vec![(y_idx(j), 1), (d_idx(k), 1), (g_idx(j), -1)],
+                        1,
                     ));
                 } else {
                     // Reverse: r_j = d_k
                     // (d_k + g_j) <= M_use * y_j => d_k + g_j - M_use * y_j <= 0
                     constraints.push(LinearConstraint::le(
-                        vec![(d_idx(k), 1.0), (g_idx(j), 1.0), (y_idx(j), -m_use)],
-                        0.0,
+                        vec![(d_idx(k), 1), (g_idx(j), 1), (y_idx(j), -m_use)],
+                        0,
                     ));
                     // y_j <= d_k + g_j => y_j - d_k - g_j <= 0
                     constraints.push(LinearConstraint::le(
-                        vec![(y_idx(j), 1.0), (d_idx(k), -1.0), (g_idx(j), -1.0)],
-                        0.0,
+                        vec![(y_idx(j), 1), (d_idx(k), -1), (g_idx(j), -1)],
+                        0,
                     ));
                 }
             }
@@ -222,76 +243,73 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
         for j in 0..l {
             let (tail, head) = avail_arcs[j];
             constraints.push(LinearConstraint::le(
-                vec![(y_idx(j), 1.0), (z_idx(tail), -1.0)],
-                0.0,
+                vec![(y_idx(j), 1), (z_idx(tail), -1)],
+                0,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(y_idx(j), 1.0), (z_idx(head), -1.0)],
-                0.0,
+                vec![(y_idx(j), 1), (z_idx(head), -1)],
+                0,
             ));
         }
 
         // z_v <= sum_{j: tail_j=v or head_j=v} y_j
         for v in 0..n {
-            let mut terms = vec![(z_idx(v), 1.0)];
+            let mut terms = vec![(z_idx(v), 1)];
             for j in 0..l {
                 let (tail, head) = avail_arcs[j];
                 if tail == v || head == v {
-                    terms.push((y_idx(j), -1.0));
+                    terms.push((y_idx(j), -1));
                 }
             }
-            constraints.push(LinearConstraint::le(terms, 0.0));
+            constraints.push(LinearConstraint::le(terms, 0));
         }
 
         // s = sum_v z_v
         {
-            let mut terms = vec![(s_idx, -1.0)];
+            let mut terms = vec![(s_idx, -1)];
             for v in 0..n {
-                terms.push((z_idx(v), 1.0));
+                terms.push((z_idx(v), 1));
             }
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Root selection: sum_v rho_v = 1, rho_v <= z_v
         {
-            let terms: Vec<(usize, f64)> = (0..n).map(|v| (rho_idx(v), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|v| (rho_idx(v), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
         for v in 0..n {
             constraints.push(LinearConstraint::le(
-                vec![(rho_idx(v), 1.0), (z_idx(v), -1.0)],
-                0.0,
+                vec![(rho_idx(v), 1), (z_idx(v), -1)],
+                0,
             ));
         }
 
         // Product linearization: b_v = s * rho_v
         // b_v <= s, b_v <= n * rho_v, b_v >= s - n*(1 - rho_v), b_v >= 0
         for v in 0..n {
+            constraints.push(LinearConstraint::le(vec![(b_idx(v), 1), (s_idx, -1)], 0));
             constraints.push(LinearConstraint::le(
-                vec![(b_idx(v), 1.0), (s_idx, -1.0)],
-                0.0,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(b_idx(v), 1.0), (rho_idx(v), -n_f64)],
-                0.0,
+                vec![(b_idx(v), 1), (rho_idx(v), -n_i64)],
+                0,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![(b_idx(v), 1.0), (s_idx, -1.0), (rho_idx(v), -n_f64)],
-                -n_f64,
+                vec![(b_idx(v), 1), (s_idx, -1), (rho_idx(v), -n_i64)],
+                -n_i64,
             ));
-            // b_v >= 0 is implied by ILP<i32> non-negativity
+            // b_v >= 0 is implied by `ILP<i64>` non-negativity
         }
 
         // Flow bounds: 0 <= f_j, h_j <= (n-1) * y_j
-        let flow_big_m = (n as f64) - 1.0;
+        let flow_big_m = n_i64 - 1;
         for j in 0..l {
             constraints.push(LinearConstraint::le(
-                vec![(f_idx(j), 1.0), (y_idx(j), -flow_big_m)],
-                0.0,
+                vec![(f_idx(j), 1), (y_idx(j), -flow_big_m)],
+                0,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(h_idx(j), 1.0), (y_idx(j), -flow_big_m)],
-                0.0,
+                vec![(h_idx(j), 1), (y_idx(j), -flow_big_m)],
+                0,
             ));
         }
 
@@ -302,15 +320,15 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
             for j in 0..l {
                 let (tail, head) = avail_arcs[j];
                 if tail == v {
-                    terms.push((f_idx(j), 1.0));
+                    terms.push((f_idx(j), 1));
                 }
                 if head == v {
-                    terms.push((f_idx(j), -1.0));
+                    terms.push((f_idx(j), -1));
                 }
             }
-            terms.push((b_idx(v), -1.0));
-            terms.push((z_idx(v), 1.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            terms.push((b_idx(v), -1));
+            terms.push((z_idx(v), 1));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Reverse flow conservation:
@@ -320,15 +338,15 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
             for j in 0..l {
                 let (tail, head) = avail_arcs[j];
                 if head == v {
-                    terms.push((h_idx(j), 1.0));
+                    terms.push((h_idx(j), 1));
                 }
                 if tail == v {
-                    terms.push((h_idx(j), -1.0));
+                    terms.push((h_idx(j), -1));
                 }
             }
-            terms.push((b_idx(v), -1.0));
-            terms.push((z_idx(v), 1.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            terms.push((b_idx(v), -1));
+            terms.push((z_idx(v), 1));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Objective: minimize total walk length = sum_j l_j * (r_j + g_j)
@@ -353,12 +371,13 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMCPToILP {
+        Ok(ReductionMCPToILP {
             target,
             num_undirected_edges: q,
-        }
+        })
     }
 }
 
@@ -375,7 +394,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1],
                 vec![1, 1],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

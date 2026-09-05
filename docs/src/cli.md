@@ -33,15 +33,7 @@ cargo run -p problemreductions-cli --bin pred -- --version
 
 ### ILP Backend
 
-The default ILP backend is HiGHS. To use a different backend:
-
-```bash
-cargo install problemreductions-cli --features coin-cbc
-cargo install problemreductions-cli --features scip
-cargo install problemreductions-cli --no-default-features --features clarabel
-```
-
-Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`, `microlp`.
+ILP problems are solved with the bundled HiGHS backend.
 
 ## Quick Start
 
@@ -49,7 +41,7 @@ Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`
 # Create a Maximum Independent Set problem
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 
-# Create a weighted instance (variant auto-upgrades to i32)
+# Create a weighted instance (variant auto-upgrades to i64)
 pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
 
 # Create a Steiner Tree instance
@@ -61,14 +53,14 @@ pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 -
 # Create a Consecutive Block Minimization instance (alias: CBM)
 pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
 
-# CBM currently needs the brute-force solver
-pred solve cbm.json --solver brute-force
+# Solve CBM through its registered fixed ILP pipeline
+pred solve cbm.json
 
 # Or start from a canonical model example
-pred create --example MIS/SimpleGraph/i32 -o example.json
+pred create --example MIS/SimpleGraph/i64 -o example.json
 
 # Or from a canonical rule example
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o example.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 -o example.json
 
 # Inspect what's inside a problem file
 pred inspect problem.json
@@ -76,31 +68,31 @@ pred inspect problem.json
 # Inspect the new path problem
 pred inspect lbdp.json
 
-# Solve it (auto-reduces to ILP)
+# Solve it through the exact variant's registered fixed ILP pipeline
 pred solve problem.json
 
 # Or solve with brute-force
 pred solve problem.json --solver brute-force
 
-# LengthBoundedDisjointPaths currently needs brute-force
-pred solve lbdp.json --solver brute-force
+# LengthBoundedDisjointPaths also has a registered fixed ILP pipeline
+pred solve lbdp.json
 
 # Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
-pred evaluate problem.json --config 1,0,1,0
+pred evaluate problem.json --config '[true,false,true,false]'
 
-# Reduce to another problem type and solve via brute-force
-pred reduce problem.json --to QUBO -o reduced.json
+# Reduce along an explicitly chosen route and solve via brute-force
+pred reduce problem.json --via route.json -o reduced.json
 pred solve reduced.json --solver brute-force
 
 # Pipe commands together (use - to read from stdin)
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
-pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via route.json | pred solve -
 ```
 
 > **Note:** When you provide `--weights` with non-unit values (e.g., `3,1,2,1`), the variant is
-> automatically upgraded from the default unit-weight (`One`) to `i32`. You can also specify the
-> weighted variant explicitly: `pred create MIS/SimpleGraph/i32 --graph 0-1 --weights 3,1`.
+> automatically upgraded from the default unit-weight (`One`) to `i64`. You can also specify the
+> weighted variant explicitly: `pred create MIS/SimpleGraph/i64 --graph 0-1 --weights 3,1`.
 
 ## Global Flags
 
@@ -122,7 +114,7 @@ Lists all registered problem types with their short aliases.
 
 ### `pred show` — Inspect a problem
 
-Show fields, size fields, and reductions for a problem's default variant. Use short aliases like `MIS` for `MaximumIndependentSet`. Use `pred to` or `pred from` for variant-level neighborhood exploration.
+Show fields, parameter fields, and reductions for a problem's default variant. Use short aliases like `MIS` for `MaximumIndependentSet`. Use `pred to` or `pred from` for variant-level neighborhood exploration.
 
 ```text
 {{#include generated/pred-show-mis.txt}}
@@ -144,9 +136,9 @@ Explore which problems the given problem can reduce to, starting **from** it:
 {{#include generated/pred-from-qubo.txt}}
 ```
 
-### `pred path` — Find a reduction path
+### `pred path` — Find reduction paths
 
-Find the cheapest chain of reductions between two problems:
+Enumerate paths between two problems:
 
 ```text
 {{#include generated/pred-path-mis-qubo.txt}}
@@ -158,25 +150,23 @@ Multi-step paths are discovered automatically:
 {{#include generated/pred-path-factoring-spinglass.txt}}
 ```
 
-Show all paths or save for later use with `pred reduce --via`:
+Inspect reduction paths or save the path set for later route selection:
 
 ```bash
-pred path MIS QUBO --all                    # all paths (up to 20)
-pred path MIS QUBO --all --max-paths 50     # increase limit
-pred path MIS QUBO -o path.json             # save path for `pred reduce --via`
-pred path MIS QUBO --all -o paths/          # save all paths to a folder
+pred path MIS QUBO                           # paths (up to 20)
+pred path MIS QUBO --limit 50                # inspect the first 50 paths
+pred path MIS QUBO --limit all               # inspect up to 999 paths
+pred path MIS MaximumClique mis.json         # execute paths on a complete instance
+pred path MIS QUBO -o paths.json             # save the path set
 ```
 
-When using `--all`, the output is capped at `--max-paths` (default: 20). If more paths exist, the output indicates truncation.
-
-Use `--cost` to change the optimization strategy:
-
-```bash
-pred path MIS QUBO --cost minimize-steps           # default
-pred path MIS QUBO --cost minimize:num_variables   # minimize a size field
-```
-
-Use `pred show <problem>` to see which size fields are available.
+Without an instance file, each route explains how problem parameters change. With a
+problem JSON file, every candidate path is executed on the complete source instance
+and the actual parameters of each constructed intermediate are reported. By default,
+the command enumerates and returns the first 20 witness-capable paths without ranking
+or filtering them. `--limit` accepts 1 through 999; `all` is an alias for 999. The JSON
+envelope remains `{"paths": [...], "truncated": bool}`. Extract one route from the path-set
+envelope before passing it to `pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
 
@@ -192,13 +182,14 @@ pred export-graph -o reduction_graph.json   # save to file
 Construct a problem instance from CLI arguments and save as JSON:
 
 ```bash
-pred create --example MIS/SimpleGraph/i32 -o model.json
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o problem.json
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target -o target.json
+pred create --example MIS/SimpleGraph/i64 -o model.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 -o problem.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 --example-side target -o target.json
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
-pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
+pred create QUBO --matrix "1,-1;0,2" -o qubo.json
+pred create QUBO/f64 --matrix "1,0.5;0,2" -o qubo-f64.json
 pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
 pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
@@ -212,8 +203,8 @@ pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-we
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
 pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4 -o lbdp.json
-pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
-pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
+pred create Factoring --target 15 -o factoring.json
+pred create Factoring --target 21 --m 3 --n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
@@ -228,8 +219,8 @@ For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
 `max_length`.
 
 For `ConsecutiveBlockMinimization`, the `--matrix` flag expects a JSON 2D bool array such as
-`'[[true,false,true],[false,true,true]]'`. The example above shows the accepted shape, and solving
-CBM instances currently requires `--solver brute-force`.
+`'[[true,false,true],[false,true,true]]'`. The example above shows the accepted shape. Its exact
+default variant has a registered fixed ILP pipeline, so the default solver dispatch selects ILP.
 
 For problem-specific create help, run `pred create <PROBLEM>` with no additional flags.
 The generic `pred create --help` output lists all flags across all problem types.
@@ -251,7 +242,7 @@ pred create MaxCut --random --num-vertices 20 --edge-prob 0.5 -o maxcut.json
 Without `-o`, the problem JSON is printed to stdout, which can be piped to other commands:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --random --num-vertices 10 | pred inspect -
 ```
@@ -261,7 +252,7 @@ The output file uses a standard wrapper format:
 ```json
 {
   "type": "MaximumIndependentSet",
-  "variant": {"graph": "SimpleGraph", "weight": "i32"},
+  "variant": {"graph": "SimpleGraph", "weight": "i64"},
   "data": { ... }
 }
 ```
@@ -269,8 +260,8 @@ The output file uses a standard wrapper format:
 #### Example: Bounded Component Spanning Forest
 
 `BoundedComponentSpanningForest` uses one component label per vertex in the
-evaluation config. If the graph has `n` vertices and limit `k`, then
-`--config` expects `n` comma-separated integers in `0..k-1`.
+evaluation solution. If the graph has `n` vertices and limit `k`, then
+`--config` expects a JSON array of `n` integers in `0..k-1`.
 
 ```bash
 pred create BoundedComponentSpanningForest \
@@ -280,12 +271,12 @@ pred create BoundedComponentSpanningForest \
   --bound 6 \
   -o bcsf.json
 
-pred evaluate bcsf.json --config 0,0,1,1,1,2,2,0
-pred solve bcsf.json --solver brute-force
+pred evaluate bcsf.json --config '[0,0,1,1,1,2,2,0]'
+pred solve bcsf.json
 ```
 
-The brute-force solver is required here because this model does not yet have an
-ILP reduction path.
+This exact variant has a registered fixed ILP pipeline, so the default dispatch
+selects ILP. Use `pred inspect bcsf.json` to view that capability before solving.
 
 ### `pred evaluate` — Evaluate a configuration
 
@@ -298,7 +289,7 @@ Evaluate a configuration against a problem instance:
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
+pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config '[true,false,true,false]'
 ```
 
 ### `pred inspect` — Inspect a problem file
@@ -307,7 +298,7 @@ Show a summary of what's inside a problem JSON or reduction bundle:
 
 ```bash
 $ pred inspect problem.json
-Type: MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+Type: MaximumIndependentSet {graph=SimpleGraph, weight=i64}
 Size: 5 vertices, 5 edges
 ```
 
@@ -320,13 +311,7 @@ pred create MIS --graph 0-1,1-2 | pred inspect -
 
 ### `pred reduce` — Reduce a problem
 
-Reduce a problem to a target type. Outputs a reduction bundle containing source, target, and path:
-
-```bash
-pred reduce problem.json --to QUBO -o reduced.json
-```
-
-Use a specific reduction path (from `pred path -o`). The target is inferred from the path file, so `--to` is not needed:
+Reduce a problem along a specific route. The target is inferred from the route file:
 
 ```bash
 pred reduce problem.json --via path.json -o reduced.json
@@ -335,7 +320,7 @@ pred reduce problem.json --via path.json -o reduced.json
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via route.json
 ```
 
 The bundle contains everything needed to map solutions back:
@@ -345,7 +330,7 @@ The bundle contains everything needed to map solutions back:
   "source": { "type": "MaximumIndependentSet", "variant": {...}, "data": {...} },
   "target": { "type": "QUBO", "variant": {...}, "data": {...} },
   "path": [
-    {"name": "MaximumIndependentSet", "variant": {"graph": "SimpleGraph", "weight": "i32"}},
+    {"name": "MaximumIndependentSet", "variant": {"graph": "SimpleGraph", "weight": "i64"}},
     {"name": "QUBO", "variant": {"weight": "f64"}}
   ]
 }
@@ -353,10 +338,11 @@ The bundle contains everything needed to map solutions back:
 
 ### `pred solve` — Solve a problem
 
-Solve a problem instance using ILP (default), brute-force, or the customized solver:
+Solve a problem instance using deterministic customized → ILP → brute-force dispatch,
+or explicitly require one solver:
 
 ```bash
-pred solve problem.json                         # ILP solver (default)
+pred solve problem.json                         # customized, then ILP, then brute-force
 pred solve problem.json --solver brute-force    # brute-force solver
 pred solve problem.json --solver customized     # structure-exploiting exact solver
 pred solve problem.json --timeout 30            # abort after 30 seconds
@@ -371,7 +357,9 @@ pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weigh
 pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 
-Output is JSON. When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back:
+Output is JSON. When the exact problem variant has a fixed ILP pipeline in the
+solver capability registry, the ILP backend follows that registered pipeline and
+maps the solution back:
 
 ```json
 {{#include generated/pred-solve-ilp.txt}}
@@ -383,17 +371,28 @@ Solve a reduction bundle (from `pred reduce`):
 {{#include generated/pred-solve-bundle.txt}}
 ```
 
-> **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems do not currently have one. Examples include BoundedComponentSpanningForest,
-> LengthBoundedDisjointPaths, MinimumCardinalityKey, QUBO, SpinGlass, MaxCut, CircuitSAT, MinMaxMulticenter, and MultiprocessorScheduling.
-> Use `pred solve <file> --solver brute-force` for these, or reduce to a problem that supports ILP first.
-> For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
+Successful exact solves report `"status": "optimal"` and always include
+`solution`. A proven infeasible instance is also a successful command result and reports
+`"status": "infeasible"` without `solution` or `evaluation`. Timeout, registry,
+and extraction failures remain command errors.
+
+For `Decision<P>` solved through its optimization problem `P`, the inner optimum
+must satisfy the decision bound before a witness is returned. If it does not,
+the decision instance reports `"status": "infeasible"`, even though `P` has an optimum.
+
+> **Note:** Solver availability is determined by the exact problem variant's
+> registered capabilities. `pred path <PROBLEM> ILP` reports reduction-graph
+> reachability; it does not register a solver pipeline and therefore does not
+> establish that `--solver ilp` is available. Use `pred inspect <file>` to see the
+> instance's default solver, available overrides, customized implementation, and
+> fixed ILP pipeline.
 
 For example, the canonical Minimum Cardinality Key instance can be created and solved with:
 
 ```bash
 pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" -o mck.json
-pred solve mck.json --solver brute-force
+pred inspect mck.json
+pred solve mck.json                    # uses its registered customized solver
 ```
 
 ## Shell Completions
@@ -429,7 +428,7 @@ This is useful for scripting and piping:
 
 ```bash
 pred list --json | jq '.variants[].name'
-pred path MIS QUBO --json | jq '.path'
+pred path MIS QUBO --json | jq '.paths[] | {overall_parameters, path}'
 ```
 
 ## Problem Name Aliases

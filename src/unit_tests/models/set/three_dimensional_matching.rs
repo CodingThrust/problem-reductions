@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -11,7 +12,7 @@ fn test_three_dimensional_matching_creation() {
     assert_eq!(problem.universe_size(), 3);
     assert_eq!(problem.num_triples(), 5);
     assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
 }
 
 #[test]
@@ -24,22 +25,34 @@ fn test_three_dimensional_matching_evaluation() {
     );
 
     // T0, T1, T2: W={0,1,2} distinct, X={1,0,2} distinct, Y={2,1,0} distinct -> valid
-    assert!(problem.evaluate(&[1, 1, 1, 0, 0]));
+    assert!(problem
+        .evaluate(&vec![true, true, true, false, false])
+        .unwrap());
 
     // T0, T3: both have w=0 -> invalid (also only 2 selected, need 3)
-    assert!(!problem.evaluate(&[1, 0, 0, 1, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, false, false, true, false])
+        .unwrap());
 
     // T0, T1, T3: w-coordinates {0,1,0} not distinct -> invalid
-    assert!(!problem.evaluate(&[1, 1, 0, 1, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, true, false, true, false])
+        .unwrap());
 
     // Only T0 selected (need q=3 triples)
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, false, false, false, false])
+        .unwrap());
 
     // All selected (too many)
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1]));
+    assert!(!problem
+        .evaluate(&vec![true, true, true, true, true])
+        .unwrap());
 
     // None selected
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![false, false, false, false, false])
+        .unwrap());
 }
 
 #[test]
@@ -50,14 +63,14 @@ fn test_three_dimensional_matching_solver() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
 
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
     // Verify the known solution is in there
-    assert!(solutions.contains(&vec![1, 1, 1, 0, 0]));
+    assert!(solutions.contains(&vec![true, true, true, false, false]));
 }
 
 #[test]
@@ -66,7 +79,7 @@ fn test_three_dimensional_matching_no_solution() {
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (0, 1, 1), (0, 0, 1)]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
 }
 
@@ -84,10 +97,10 @@ fn test_three_dimensional_matching_serialization() {
 fn test_three_dimensional_matching_empty() {
     // q = 0: trivially satisfiable
     let problem = ThreeDimensionalMatching::new(0, vec![]);
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&vec![]).unwrap());
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
-    assert_eq!(solutions, vec![Vec::<usize>::new()]);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
+    assert_eq!(solutions, vec![Vec::<bool>::new()]);
 }
 
 #[test]
@@ -101,13 +114,18 @@ fn test_three_dimensional_matching_get_triple() {
 #[test]
 fn test_three_dimensional_matching_rejects_wrong_config_length() {
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 1, 0), (1, 0, 1)]);
-    assert!(!problem.evaluate(&[1, 1, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![true, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_three_dimensional_matching_rejects_non_binary_config_values() {
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 1, 0), (1, 0, 1)]);
-    assert!(!problem.evaluate(&[1, 2]));
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([true, 2])).is_err()
+    );
 }
 
 #[test]
@@ -119,8 +137,8 @@ fn test_three_dimensional_matching_element_out_of_range() {
 #[test]
 fn test_three_dimensional_matching_is_valid_solution() {
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 1, 0), (1, 0, 1)]);
-    assert!(problem.evaluate(&[1, 1]).0);
-    assert!(!problem.evaluate(&[1, 0]).0);
+    assert!(problem.evaluate(&vec![true, true]).unwrap().0);
+    assert!(!problem.evaluate(&vec![true, false]).unwrap().0);
 }
 
 #[test]
@@ -130,7 +148,7 @@ fn test_three_dimensional_matching_duplicate_coordinates() {
     // Actually T1+T2: w={1,0} ok, x={1,1} NOT distinct -> invalid
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0)]);
 
-    assert!(problem.evaluate(&[1, 1, 0])); // T0+T1: w={0,1}, x={0,1}, y={0,1} all distinct
-    assert!(!problem.evaluate(&[1, 0, 1])); // T0+T2: w={0,0} not distinct
-    assert!(!problem.evaluate(&[0, 1, 1])); // T1+T2: x={1,1} not distinct
+    assert!(problem.evaluate(&vec![true, true, false]).unwrap()); // T0+T1: w={0,1}, x={0,1}, y={0,1} all distinct
+    assert!(!problem.evaluate(&vec![true, false, true]).unwrap()); // T0+T2: w={0,0} not distinct
+    assert!(!problem.evaluate(&vec![false, true, true]).unwrap()); // T1+T2: x={1,1} not distinct
 }

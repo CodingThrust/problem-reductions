@@ -24,13 +24,18 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinMaxMulticente
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }
@@ -40,7 +45,7 @@ impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
 {
     type Result = ReductionDecisionMinimumDominatingSetToMinMaxMulticenter;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_graph = self.inner().graph();
         let target = MinMaxMulticenter::new(
             SimpleGraph::new(source_graph.num_vertices(), source_graph.edges()),
@@ -48,7 +53,7 @@ impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
             vec![One; source_graph.num_edges()],
             self.k(),
         );
-        ReductionDecisionMinimumDominatingSetToMinMaxMulticenter { target }
+        Ok(ReductionDecisionMinimumDominatingSetToMinMaxMulticenter { target })
     }
 }
 
@@ -74,8 +79,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     2,
                 ),
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0, 0],
-                    target_config: vec![1, 0, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, false, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, false, false]),
                 },
             )
         },

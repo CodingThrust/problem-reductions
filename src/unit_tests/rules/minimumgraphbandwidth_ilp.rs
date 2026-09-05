@@ -7,11 +7,12 @@ use crate::traits::Problem;
 fn test_reduction_creates_valid_ilp() {
     // Star S4: 4 vertices, 3 edges
     let problem = MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
-    let reduction: ReductionMGBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMGBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_x=16, pos_v=4, B=1, total=21
-    assert_eq!(ilp.num_vars, 21);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 21);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -22,25 +23,27 @@ fn test_minimumgraphbandwidth_to_ilp_closed_loop() {
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert!(problem.evaluate(&bf_solution).0.is_some());
+    assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
 
     // Solve via ILP
-    let reduction: ReductionMGBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMGBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
     assert!(
         ilp_value.0.is_some(),
         "ILP solution should produce a valid arrangement"
     );
 
     // BF and ILP should agree on optimal value
-    let bf_value = problem.evaluate(&bf_solution);
+    let bf_value = problem.evaluate(&bf_solution).unwrap();
     assert_eq!(
         ilp_value, bf_value,
         "ILP and BF should find same optimal bandwidth"
@@ -52,13 +55,14 @@ fn test_minimumgraphbandwidth_to_ilp_path() {
     // Path P4: 0-1-2-3 (optimal bandwidth = 1)
     let problem = MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
 
-    let reduction: ReductionMGBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMGBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(
         value,
         crate::types::Min(Some(1)),
@@ -70,7 +74,8 @@ fn test_minimumgraphbandwidth_to_ilp_path() {
 fn test_minimumgraphbandwidth_to_ilp_bf_vs_ilp() {
     // Star S4
     let problem = MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
-    let reduction: ReductionMGBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMGBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -79,6 +84,7 @@ fn test_minimumgraphbandwidth_to_ilp_cycle() {
     // Cycle C4: 0-1-2-3-0 (optimal bandwidth = 2)
     let problem =
         MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]));
-    let reduction: ReductionMGBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMGBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

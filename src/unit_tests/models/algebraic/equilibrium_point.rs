@@ -1,5 +1,6 @@
 use crate::models::algebraic::EquilibriumPoint;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -50,7 +51,7 @@ fn test_equilibrium_point_creation_and_accessors() {
     assert_eq!(p.range_sets()[0], vec![0, 1]);
     assert_eq!(p.range_sets()[1], vec![0, 1]);
     assert_eq!(p.range_sets()[2], vec![0, 1]);
-    assert_eq!(p.dims(), vec![2, 2, 2]);
+    assert_eq!(p.dimensions(), vec![2, 2, 2]);
     assert_eq!(p.num_variables(), 3);
     assert_eq!(<EquilibriumPoint as Problem>::NAME, "EquilibriumPoint");
     assert_eq!(<EquilibriumPoint as Problem>::variant(), vec![]);
@@ -60,7 +61,7 @@ fn test_equilibrium_point_creation_and_accessors() {
 fn test_equilibrium_point_evaluate_canonical_equilibrium() {
     let p = canonical_problem();
     // config [0,1,0] → (0,1,0) is the known equilibrium.
-    assert_eq!(p.evaluate(&[0, 1, 0]), Or(true));
+    assert_eq!(p.evaluate(&vec![0, 1, 0]).unwrap(), Or(true));
 }
 
 #[test]
@@ -73,26 +74,44 @@ fn test_equilibrium_point_evaluate_non_equilibria() {
     // At (1,1,1): F2(1,1,1)=(1-1)*1=0. Dev player2 to 0: F2(1,0,1)=(1-1)*0=0 — no improvement.
     //             But dev player1 (player 1) only affects F1! F1(1,1,1)=1*1*1=1, dev to 0: F1(0,1,1)=0*1*1=0 — no improvement for player1.
     // F3(1,1,1)=1*(1-1)=0. Dev player3 to 0: F3(1,1,0)=1*(1-0)=1 > 0 → player 3 can improve! NOT equilibrium.
-    assert_eq!(p.evaluate(&[1, 1, 1]), Or(false));
+    assert_eq!(p.evaluate(&vec![1, 1, 1]).unwrap(), Or(false));
 
     // (0,0,0): F2(0,0,0)=(1-0)*0=0. Dev player2 to 1: F2(0,1,0)=(1-0)*1=1 > 0 → NOT equilibrium.
-    assert_eq!(p.evaluate(&[0, 0, 0]), Or(false));
+    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Or(false));
+}
+
+#[test]
+fn test_equilibrium_point_evaluate_reports_payoff_overflow() {
+    let problem = EquilibriumPoint::new(vec![vec![vec![0, i64::MAX]]], vec![vec![2]]).unwrap();
+    assert!(matches!(
+        problem.evaluate(&vec![2]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
 }
 
 #[test]
 fn test_equilibrium_point_invalid_config_lengths() {
     let p = canonical_problem();
-    assert_eq!(p.evaluate(&[]), Or(false));
-    assert_eq!(p.evaluate(&[0, 1]), Or(false));
-    assert_eq!(p.evaluate(&[0, 1, 0, 0]), Or(false));
+    assert!(matches!(
+        p.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        p.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        p.evaluate(&vec![0, 1, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_equilibrium_point_brute_force_finds_witness() {
     let solver = BruteForce::new();
     let p = canonical_problem();
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), Or(true));
+    let witness = solver.solve(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
@@ -100,22 +119,22 @@ fn test_equilibrium_point_coordination_game() {
     let p = coordination_problem();
     // (0,0): F1(0,0)=0*0=0. Dev p1 to 1: F1(1,0)=1*0=0 — no improvement. Dev p2 to 1: F2(0,1)=0*1=0 — no improvement.
     // So (0,0) is an equilibrium.
-    assert_eq!(p.evaluate(&[0, 0]), Or(true));
+    assert_eq!(p.evaluate(&vec![0, 0]).unwrap(), Or(true));
     // (1,1): F1(1,1)=1. Dev p1 to 0: F1(0,1)=0 < 1 — no improvement. Dev p2 to 0: F2(1,0)=0 < 1 — no improvement.
     // (1,1) is also an equilibrium.
-    assert_eq!(p.evaluate(&[1, 1]), Or(true));
+    assert_eq!(p.evaluate(&vec![1, 1]).unwrap(), Or(true));
     // (0,1): F1(0,1)=0*1=0. Dev p1 to 1: F1(1,1)=1 > 0 → NOT equilibrium.
-    assert_eq!(p.evaluate(&[0, 1]), Or(false));
+    assert_eq!(p.evaluate(&vec![0, 1]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_equilibrium_point_trivial_constant_payoffs() {
     let p = trivial_equilibrium_problem();
     // Every config is an equilibrium since payoff is always 1.
-    assert_eq!(p.evaluate(&[0, 0]), Or(true));
-    assert_eq!(p.evaluate(&[0, 1]), Or(true));
-    assert_eq!(p.evaluate(&[1, 0]), Or(true));
-    assert_eq!(p.evaluate(&[1, 1]), Or(true));
+    assert_eq!(p.evaluate(&vec![0, 0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![0, 1]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![1, 0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![1, 1]).unwrap(), Or(true));
 }
 
 #[test]
@@ -159,11 +178,11 @@ fn test_equilibrium_point_deserialization_rejects_invalid() {
 fn test_equilibrium_point_paper_example() {
     // Canonical example: config [0,1,0] is the equilibrium.
     let p = canonical_problem();
-    assert_eq!(p.evaluate(&[0, 1, 0]), Or(true));
+    assert_eq!(p.evaluate(&vec![0, 1, 0]).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), Or(true));
+    let witness = solver.solve(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
@@ -184,10 +203,10 @@ fn test_equilibrium_point_validation_panics() {
 fn test_equilibrium_point_single_player() {
     // 1-player game: F1 = x1. M1 = {0, 2}. Equilibrium when player picks max.
     // F1(0) = 0. Deviation to 2: F1(2) = 2 > 0 → config [0] NOT equilibrium.
-    // F1(2) = 2. No deviation improves. config [1] IS equilibrium.
+    // F1(2) = 2. No deviation improves. config [2] IS equilibrium.
     let polynomials = vec![vec![vec![0, 1]]];
     let range_sets = vec![vec![0, 2]];
     let p = EquilibriumPoint::new(polynomials, range_sets).unwrap();
-    assert_eq!(p.evaluate(&[0]), Or(false));
-    assert_eq!(p.evaluate(&[1]), Or(true));
+    assert_eq!(p.evaluate(&vec![0]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&vec![2]).unwrap(), Or(true));
 }

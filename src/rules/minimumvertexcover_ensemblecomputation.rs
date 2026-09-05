@@ -45,42 +45,60 @@ impl ReductionResult for ReductionVCToEC {
     /// We collect all vertices that appear as singleton operands (index < |V|)
     /// in the meaningful steps only (before all required subsets are covered).
     /// Padding steps beyond the coverage point are ignored.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        use crate::traits::Problem;
-        use crate::types::Min;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let meaningful_steps = match self.target.evaluate(target_solution) {
-            Min(Some(n)) => n,
-            _ => return vec![0; self.num_vertices],
-        };
-        let mut cover = vec![0usize; self.num_vertices];
+        Ok({
+            use crate::traits::Problem;
+            use crate::types::Min;
 
-        for step in 0..meaningful_steps {
-            let left = target_solution[2 * step];
-            let right = target_solution[2 * step + 1];
+            let meaningful_steps = match self.target.evaluate(target_solution)? {
+                Min(Some(n)) => usize::try_from(n).map_err(|_| {
+                    crate::rules::ExtractionError::invalid(
+                        "ensemble operation count cannot be represented as usize",
+                    )
+                })?,
+                _ => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "target configuration does not encode a valid ensemble computation",
+                    ))
+                }
+            };
+            let mut cover = vec![false; self.num_vertices];
 
-            if left < self.num_vertices {
-                cover[left] = 1;
+            for step in 0..meaningful_steps {
+                let left = target_solution[2 * step];
+                let right = target_solution[2 * step + 1];
+
+                if left < self.num_vertices {
+                    cover[left] = true;
+                }
+                if right < self.num_vertices {
+                    cover[right] = true;
+                }
             }
-            if right < self.num_vertices {
-                cover[right] = 1;
-            }
-        }
 
-        cover
+            cover
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         universe_size = "num_vertices + 1",
         num_subsets = "num_edges",
+    },
+    unavailable = {
+        budget = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToEC;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.graph().num_vertices();
         let edges = self.graph().edges();
         let num_edges = edges.len();
@@ -98,10 +116,10 @@ impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
 
         let target = EnsembleComputation::new(universe_size, subsets, budget);
 
-        ReductionVCToEC {
+        Ok(ReductionVCToEC {
             target,
             num_vertices,
-        }
+        })
     }
 }
 
@@ -132,13 +150,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 2 meaningful steps. Step 2 is padding and is ignored.
             // Cover {0,1} is valid (though not minimum — the optimal witness
             // is found by BruteForce, giving cover {0} or {1}).
-            let source_config = vec![1, 1];
+            let source_config = vec![true, true];
 
             crate::example_db::specs::rule_example_with_witness::<_, EnsembleComputation>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -44,30 +44,35 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
         &self.target
     }
 
-    /// Solution extraction: identity mapping in the main branch. The target
-    /// codeword `x ∈ {0,1}^m` is the source subset indicator over the same
-    /// triple index set. In the sentinel branch the target witness has length
-    /// `1` (always `[0]`); we return the all-zero source-sized vector,
-    /// which decodes to `S = ∅`. `ThreeDimensionalMatching::evaluate(∅)`
-    /// then yields `Or(true)` iff `q == 0` (the correct answer for both
-    /// sentinel sub-cases).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_num_triples {
-            target_solution.to_vec()
-        } else {
-            vec![0; self.source_num_triples]
+    /// The target codeword prefix is the source subset indicator over the same
+    /// triple index set. The sentinel target appends one synthetic column, so
+    /// an empty source maps back to the empty prefix.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if target_solution.len() != self.target.num_cols() {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} target codeword bits, got {}",
+                self.target.num_cols(),
+                target_solution.len()
+            )));
         }
+
+        Ok(target_solution[..self.source_num_triples].to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_rows = "3 * universe_size",
-    num_cols = "num_triples",
-})]
+#[reduction(
+    transform = exact {
+        num_rows = "3 * universe_size",
+        num_cols = "num_triples",
+    })]
 impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToMinimumWeightDecoding;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let q = self.universe_size();
         let m = self.num_triples();
 
@@ -78,10 +83,10 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
             // own evaluate on the empty set gives the correct answer:
             //   q = 0 → Or(true)  (empty matching of empty universe)
             //   q ≥ 1 → Or(false) (no triples cannot cover non-empty universe).
-            return ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+            return Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
                 target: MinimumWeightDecoding::new(vec![vec![true]], vec![false]),
                 source_num_triples: m,
-            };
+            });
         }
 
         // Main branch: build H ∈ {0,1}^{3q × m} with row blocks W, X, Y and
@@ -95,10 +100,10 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
         }
         let syndrome = vec![true; num_rows];
 
-        ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+        Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
             target: MinimumWeightDecoding::new(matrix, syndrome),
             source_num_triples: m,
-        }
+        })
     }
 }
 
@@ -115,8 +120,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumWeightDecoding>(
                 ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0), (1, 0, 1)]),
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 0],
-                    target_config: vec![1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, false, false]),
+                    target_config: serde_json::json!(vec![true, true, false, false]),
                 },
             )
         },

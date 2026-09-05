@@ -1,6 +1,20 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
+
+#[test]
+fn test_staff_scheduling_create_spec_uses_k_input() {
+    assert_eq!(StaffSchedulingCreateSpec::FIELDS[0].name, "k");
+    let problem = StaffScheduling::try_from(StaffSchedulingCreateSpec {
+        k: 1,
+        schedules: vec![vec![true, false]],
+        requirements: vec![1, 0],
+        num_workers: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.shifts_per_schedule(), 1);
+}
 
 fn issue_example_problem() -> StaffScheduling {
     StaffScheduling::new(
@@ -25,13 +39,7 @@ fn test_staff_scheduling_creation() {
     assert_eq!(problem.num_schedules(), 5);
     assert_eq!(problem.requirements(), &[2, 2, 2, 3, 3, 2, 1]);
     assert_eq!(problem.num_workers(), 4);
-    assert_eq!(problem.dims(), vec![5; 5]);
-}
-
-#[test]
-#[should_panic(expected = "num_workers must fit in usize so dims() can encode 0..=num_workers")]
-fn test_staff_scheduling_new_panics_when_num_workers_exceeds_usize() {
-    let _ = StaffScheduling::new(1, vec![vec![true]], vec![1], u64::MAX);
+    assert_eq!(problem.dimensions(), vec![5; 5]);
 }
 
 #[test]
@@ -59,31 +67,34 @@ fn test_staff_scheduling_new_panics_on_wrong_active_period_count() {
 #[test]
 fn test_staff_scheduling_evaluate_feasible_issue_example() {
     let problem = issue_example_problem();
-    assert!(problem.evaluate(&[1, 1, 1, 1, 0]));
+    assert!(problem.evaluate(&vec![1, 1, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_rejects_invalid_configs() {
     let problem = issue_example_problem();
-    assert!(!problem.evaluate(&[1, 1, 1, 1]));
-    assert!(!problem.evaluate(&[5, 0, 0, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1]));
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 4]));
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1, 1, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(!problem.evaluate(&vec![5, 0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 1, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0, 4]).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_bruteforce_solver_finds_solution() {
     let problem = issue_example_problem();
-    let solution = BruteForce::new().find_witness(&problem);
+    let solution = BruteForce::new().solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_bruteforce_solver_detects_unsat() {
     let problem =
         StaffScheduling::new(1, vec![vec![true, false], vec![false, true]], vec![2, 2], 1);
-    assert!(BruteForce::new().find_witness(&problem).is_none());
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -104,9 +115,9 @@ fn test_staff_scheduling_serialization_round_trip() {
 fn test_staff_scheduling_paper_example() {
     let problem = issue_example_problem();
     let config = vec![1, 1, 1, 1, 0];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
-    let satisfying = BruteForce::new().find_all_witnesses(&problem);
+    let satisfying = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(satisfying.contains(&config));
 }
 

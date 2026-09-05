@@ -1,6 +1,6 @@
 use super::*;
-use crate::registry::declared_size_fields;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 use std::collections::HashSet;
@@ -20,8 +20,19 @@ fn issue_example_problem() -> MinimumHittingSet {
     )
 }
 
-fn issue_example_config() -> Vec<usize> {
-    vec![0, 1, 0, 1, 1, 0]
+#[test]
+fn test_minimum_hitting_set_create_spec_uses_subsets_input() {
+    assert_eq!(MinimumHittingSetCreateSpec::FIELDS[1].name, "subsets");
+    let problem = MinimumHittingSet::try_from(MinimumHittingSetCreateSpec {
+        universe_size: 3,
+        subsets: vec![vec![0, 2]],
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![0, 2]]);
+}
+
+fn issue_example_config() -> Vec<bool> {
+    vec![false, true, false, true, true, false]
 }
 
 #[test]
@@ -31,7 +42,7 @@ fn test_minimum_hitting_set_creation_accessors_and_dimensions() {
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 2);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2; 4]);
+    assert_eq!(problem.dimensions(), vec![2; 4]);
     assert_eq!(problem.sets(), &[vec![1, 2], vec![3]]);
     assert_eq!(problem.get_set(0), Some(&vec![1, 2]));
     assert_eq!(problem.get_set(1), Some(&vec![3]));
@@ -42,22 +53,39 @@ fn test_minimum_hitting_set_creation_accessors_and_dimensions() {
 fn test_minimum_hitting_set_evaluate_valid_and_invalid() {
     let problem = MinimumHittingSet::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
-    assert_eq!(problem.selected_elements(&[0, 1, 0, 1]), Some(vec![1, 3]));
-    assert_eq!(problem.selected_elements(&[0, 2, 0, 1]), None);
-    assert_eq!(problem.evaluate(&[0, 1, 0, 1]), Min(Some(2)));
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 2, 0, 1]), Min(None));
-    assert!(problem.is_valid_solution(&[0, 1, 0, 1]));
-    assert!(!problem.is_valid_solution(&[1, 0, 0, 0]));
-    assert!(!problem.is_valid_solution(&[0, 2, 0, 1]));
+    assert_eq!(
+        problem.selected_elements(&[false, true, false, true]),
+        Some(vec![1, 3])
+    );
+    assert_eq!(
+        problem.evaluate(&vec![false, true, false, true]).unwrap(),
+        Min(Some(2))
+    );
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false, false]).unwrap(),
+        Min(None)
+    );
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([false, 2, false, true])
+    )
+    .is_err());
+    assert!(problem.is_valid_solution(&[false, true, false, true]));
+    assert!(!problem.is_valid_solution(&[true, false, false, false]));
 }
 
 #[test]
 fn test_minimum_hitting_set_empty_set_is_always_invalid() {
     let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![]]);
 
-    assert_eq!(problem.evaluate(&[1, 1, 1]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true]).unwrap(),
+        Min(None)
+    );
+    assert_eq!(
+        problem.evaluate(&vec![false, false, false]).unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
@@ -78,15 +106,15 @@ fn test_minimum_hitting_set_bruteforce_optimum_issue_example() {
     let problem = issue_example_problem();
     let solver = BruteForce::new();
 
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(3)));
+    let best = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
 
-    let best_solutions = solver.find_all_witnesses(&problem);
-    let best_solution_set: HashSet<Vec<usize>> = best_solutions.iter().cloned().collect();
+    let best_solutions = solver.find_all_witnesses(&problem).unwrap();
+    let best_solution_set: HashSet<Vec<bool>> = best_solutions.iter().cloned().collect();
     assert!(best_solution_set.contains(&issue_example_config()));
     assert!(best_solutions
         .iter()
-        .all(|config| problem.evaluate(config) == Min(Some(3))));
+        .all(|config| problem.evaluate(config).unwrap() == Min(Some(3))));
 }
 
 #[test]
@@ -99,8 +127,10 @@ fn test_minimum_hitting_set_serialization_round_trip() {
     assert_eq!(deserialized.num_sets(), problem.num_sets());
     assert_eq!(deserialized.sets(), problem.sets());
     assert_eq!(
-        deserialized.evaluate(&[1, 1, 0, 0]),
-        problem.evaluate(&[1, 1, 0, 0])
+        deserialized
+            .evaluate(&vec![true, true, false, false])
+            .unwrap(),
+        problem.evaluate(&vec![true, true, false, false]).unwrap()
     );
 }
 
@@ -108,13 +138,17 @@ fn test_minimum_hitting_set_serialization_round_trip() {
 fn test_minimum_hitting_set_paper_example_consistency() {
     let problem = issue_example_problem();
 
-    assert_eq!(problem.evaluate(&issue_example_config()), Min(Some(3)));
+    assert_eq!(
+        problem.evaluate(&issue_example_config()).unwrap(),
+        Min(Some(3))
+    );
 }
 
 #[test]
-fn test_minimum_hitting_set_declares_problem_size_fields() {
-    let fields: HashSet<&'static str> = declared_size_fields("MinimumHittingSet")
-        .into_iter()
+fn test_minimum_hitting_set_declares_problem_parameters() {
+    let fields: HashSet<&'static str> = MinimumHittingSet::parameter_names()
+        .iter()
+        .copied()
         .collect();
     assert_eq!(fields, HashSet::from(["num_sets", "universe_size"]),);
 }
@@ -127,7 +161,10 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     let spec = &specs[0];
 
     assert_eq!(spec.id, "minimum_hitting_set");
-    assert_eq!(spec.optimal_config, issue_example_config());
+    assert_eq!(
+        spec.optimal_config,
+        serde_json::json!(issue_example_config())
+    );
     assert_eq!(spec.optimal_value, serde_json::json!(3));
 
     let problem: MinimumHittingSet =
@@ -136,6 +173,6 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     assert_eq!(problem.sets().len(), 7);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(3)));
+    let best = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
 }

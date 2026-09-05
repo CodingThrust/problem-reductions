@@ -21,33 +21,42 @@ impl ReductionResult for ReductionHSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "universe_size",
         num_constraints = "num_sets",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumHittingSet {
     type Result = ReductionHSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.universe_size();
         let constraints: Vec<LinearConstraint> = self
             .sets()
             .iter()
             .map(|set| {
-                let terms: Vec<(usize, f64)> = set.iter().map(|&e| (e, 1.0)).collect();
-                LinearConstraint::ge(terms, 1.0)
+                let terms: Vec<(usize, i64)> = set.iter().map(|&e| (e, 1)).collect();
+                LinearConstraint::ge(terms, 1)
             })
             .collect();
-        let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionHSToILP { target }
+        let objective: Vec<(usize, i64)> = (0..num_vars).map(|i| (i, 1)).collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionHSToILP { target })
     }
 }
 

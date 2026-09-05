@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Minimum Disjunctive Normal Form",
         aliases: &["MinDNF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum-term DNF formula equivalent to a Boolean function",
         fields: &[
@@ -60,13 +61,13 @@ impl PrimeImplicant {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumDisjunctiveNormalForm;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // f(x1,x2,x3) = 1 when exactly 1 or 2 variables are true
 /// let truth_table = vec![false, true, true, true, true, true, true, false];
 /// let problem = MinimumDisjunctiveNormalForm::new(3, truth_table);
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
+/// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumDisjunctiveNormalForm {
@@ -142,39 +143,52 @@ impl MinimumDisjunctiveNormalForm {
 
 impl Problem for MinimumDisjunctiveNormalForm {
     const NAME: &'static str = "MinimumDisjunctiveNormalForm";
-    type Value = Min<usize>;
+    type Solution = Vec<bool>;
+    type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.prime_implicants.len()]
-    }
+    crate::problem_parameters![
+        ("num_variables", num_variables),
+        ("num_prime_implicants", num_prime_implicants),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.prime_implicants.len() {
-            return Min(None);
-        }
-
-        // Collect selected prime implicants
-        let selected: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &v)| if v == 1 { Some(i) } else { None })
-            .collect();
-
-        if selected.is_empty() {
-            return Min(None);
-        }
-
-        // Check that all minterms are covered
-        for &mt in &self.minterms {
-            let covered = selected
-                .iter()
-                .any(|&pi_idx| self.prime_implicants[pi_idx].covers(mt));
-            if !covered {
-                return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.prime_implicants.len() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "implicant-selection length does not match the instance".into(),
+                ));
             }
-        }
 
-        Min(Some(selected.len()))
+            // Collect selected prime implicants
+            let selected: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &v)| if v { Some(i) } else { None })
+                .collect();
+
+            if selected.is_empty() {
+                return Ok(Min(None));
+            }
+
+            // Check that all minterms are covered
+            for &mt in &self.minterms {
+                let covered = selected
+                    .iter()
+                    .any(|&pi_idx| self.prime_implicants[pi_idx].covers(mt));
+                if !covered {
+                    return Ok(Min(None));
+                }
+            }
+
+            Min(Some(i64::try_from(selected.len()).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting DNF term count to i64".into(),
+                )
+            })?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -182,8 +196,18 @@ impl Problem for MinimumDisjunctiveNormalForm {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumDisjunctiveNormalForm {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.prime_implicants.len()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumDisjunctiveNormalForm => "2^(3^num_variables)",
+}
+
+crate::register_brute_force! {
+    MinimumDisjunctiveNormalForm decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 /// Compute all prime implicants of a Boolean function using Quine-McCluskey.
@@ -284,7 +308,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Select prime implicants: p1(¬x1∧x2), p4(x1∧¬x3), p5(¬x2∧x3)
         // The order of PIs depends on the QMC algorithm output.
         // We'll verify this in tests.
-        optimal_config: vec![1, 0, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, true, true, false]),
         optimal_value: serde_json::json!(3),
     }]
 }

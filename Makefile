@@ -1,10 +1,11 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
+.PHONY: help build test bench mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
+TEST_FEATURES := example-db
 
 # Cross-platform sed in-place: macOS needs -i '', Linux needs -i
 SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
@@ -14,6 +15,7 @@ help:
 	@echo "Available targets:"
 	@echo "  build        - Build the project"
 	@echo "  test         - Run all tests"
+	@echo "  bench        - Run solver benchmarks"
 	@echo "  mcp-test     - Run MCP server tests"
 	@echo "  fmt          - Format code with rustfmt"
 	@echo "  fmt-check    - Check code formatting"
@@ -21,7 +23,7 @@ help:
 	@echo "  doc          - Build mdBook documentation"
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
-	@echo "  paper        - Build Typst paper from checked-in fixtures (requires typst)"
+	@echo "  paper        - Generate example data and build the Typst paper (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  check        - Quick check (fmt + clippy + test)"
@@ -62,11 +64,15 @@ help:
 
 # Build the project
 build:
-	cargo build --features ilp-highs
+	cargo build
 
 # Run all workspace tests (including ignored tests)
 test:
-	cargo test --features "ilp-highs example-db" --workspace -- --include-ignored
+	cargo test --features "$(TEST_FEATURES)" --workspace -- --include-ignored
+
+# Compile Criterion only when benchmarks are requested
+bench:
+	cargo bench --features benchmarks
 
 # Run MCP server tests
 mcp-test:  ## Run MCP server tests
@@ -82,7 +88,7 @@ fmt-check:
 
 # Run clippy
 clippy:
-	cargo clippy --all-targets --features ilp-highs -- -D warnings
+	cargo clippy --all-targets --features "$(TEST_FEATURES)" -- -D warnings
 
 node_modules/elkjs/package.json: package.json package-lock.json
 	npm ci
@@ -95,7 +101,7 @@ doc: node_modules/elkjs/package.json
 	cargo run --example export_module_graph
 	bash scripts/generate_doc_snippets.sh target/release/pred
 	mdbook build docs
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
@@ -123,7 +129,7 @@ mdbook: node_modules/elkjs/package.json
 	@echo "Generating CLI doc snippets..."
 	@bash scripts/generate_doc_snippets.sh target/release/pred 2>&1 | tail -1
 	@echo "Building API docs..."
-	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps 2>&1 | tail -1
+	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps 2>&1 | tail -1
 	@echo "Building mdBook..."
 	@mdbook build
 	rm -rf book/api
@@ -140,16 +146,16 @@ export-schemas:
 
 # Build Typst paper (generates example data on demand)
 paper:
-	cargo run --features "example-db" --example export_examples
-	cargo run --example export_petersen_mapping
-	cargo run --example export_graph
-	cargo run --example export_schemas
+	cargo run --features "$(TEST_FEATURES)" --example export_examples
+	cargo run --features "$(TEST_FEATURES)" --example export_petersen_mapping
+	cargo run --features "$(TEST_FEATURES)" --example export_graph
+	cargo run --features "$(TEST_FEATURES)" --example export_schemas
 	typst compile --root . docs/paper/reductions.typ docs/paper/reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	cargo llvm-cov --features ilp-highs --workspace --html --open
+	cargo llvm-cov --workspace --html --open
 
 # Clean build artifacts
 clean:
@@ -212,14 +218,17 @@ compare: rust-export
 		echo ""; \
 		echo "=== $$graph ==="; \
 		echo "-- unweighted --"; \
-		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_unweighted_trace.json)"; \
-		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_unweighted.json)"; \
+		julia=$$(jq -c '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: (.tape | length)}' tests/data/$${graph}_unweighted_trace.json); \
+		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_unweighted.json); \
+		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 		echo "-- weighted --"; \
-		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_weighted_trace.json)"; \
-		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_weighted.json)"; \
+		julia=$$(jq -c '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: (.tape | length)}' tests/data/$${graph}_weighted_trace.json); \
+		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_weighted.json); \
+		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 		echo "-- triangular --"; \
-		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_triangular_trace.json)"; \
-		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_triangular.json)"; \
+		julia=$$(jq -c '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: (.tape | length)}' tests/data/$${graph}_triangular_trace.json); \
+		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_triangular.json); \
+		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 	done
 
 # Run a plan with Codex or Claude
@@ -289,16 +298,12 @@ cli-demo: cli
 	$$PRED from QUBO --hops 1; \
 	\
 	echo ""; \
-	echo "--- 5. path: find reduction paths ---"; \
+	echo "--- 5. path: symbolic path enumeration ---"; \
 	$$PRED path MIS QUBO; \
-	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/path_mis_qubo.json; \
 	$$PRED path Factoring SpinGlass; \
-	$$PRED path MIS QUBO --cost minimize:num_variables; \
-	\
-	echo ""; \
-	echo "--- 6. path --all: enumerate all paths ---"; \
-	$$PRED path MIS QUBO --all; \
-	$$PRED path MIS QUBO --all -o $(CLI_DEMO_DIR)/all_paths/; \
+	echo "--- 5b. explicitly choose one route from the path set ---"; \
+	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/paths_mis_qubo.json; \
+	jq -e 'first(.paths[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MaximumSetPacking", "MaximumSetPacking", "QUBO"]))' $(CLI_DEMO_DIR)/paths_mis_qubo.json > $(CLI_DEMO_DIR)/path_mis_qubo.json; \
 	\
 	echo ""; \
 	echo "--- 7. export-graph: full reduction graph ---"; \
@@ -307,7 +312,7 @@ cli-demo: cli
 	echo ""; \
 	echo "--- 8. create: build problem instances ---"; \
 	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
-	$$PRED create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
+	$$PRED create MaximumIndependentSet/SimpleGraph/i64 --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
 	$$PRED create SAT --num-vars 3 --clauses "1,2;-1,3;2,-3" -o $(CLI_DEMO_DIR)/sat.json; \
 	$$PRED create 3SAT --num-vars 4 --clauses "1,2,3;-1,2,-3;1,-2,3" -o $(CLI_DEMO_DIR)/3sat.json; \
 	$$PRED create QUBO --matrix "1,-0.5;-0.5,2" -o $(CLI_DEMO_DIR)/qubo.json; \
@@ -340,8 +345,8 @@ cli-demo: cli
 	$$PRED solve $(CLI_DEMO_DIR)/mis_weighted.json; \
 	\
 	echo ""; \
-	echo "--- 13. reduce: MIS → QUBO (auto-discover path) ---"; \
-	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --to QUBO -o $(CLI_DEMO_DIR)/bundle_qubo.json; \
+	echo "--- 13. reduce: MIS → QUBO along the explicitly chosen route ---"; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_qubo.json -o $(CLI_DEMO_DIR)/bundle_qubo.json; \
 	\
 	echo ""; \
 	echo "--- 14. solve bundle: brute-force on reduced QUBO ---"; \
@@ -353,7 +358,9 @@ cli-demo: cli
 	\
 	echo ""; \
 	echo "--- 16. solve bundle with ILP: MIS → MVC → ILP ---"; \
-	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --to MVC -o $(CLI_DEMO_DIR)/bundle_mvc.json; \
+	$$PRED path MIS MVC -o $(CLI_DEMO_DIR)/paths_mis_mvc.json; \
+	jq -e 'first(.paths[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MinimumVertexCover"]))' $(CLI_DEMO_DIR)/paths_mis_mvc.json > $(CLI_DEMO_DIR)/path_mis_mvc.json; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_mvc.json -o $(CLI_DEMO_DIR)/bundle_mvc.json; \
 	$$PRED solve $(CLI_DEMO_DIR)/bundle_mvc.json --solver ilp; \
 	\
 	echo ""; \
@@ -370,7 +377,7 @@ cli-demo: cli
 	echo "Solving with ILP..."; \
 	$$PRED solve $(CLI_DEMO_DIR)/big.json -o $(CLI_DEMO_DIR)/big_sol.json; \
 	echo "Reducing to QUBO and solving with brute-force..."; \
-	$$PRED reduce $(CLI_DEMO_DIR)/big.json --to QUBO -o $(CLI_DEMO_DIR)/big_qubo.json; \
+	$$PRED reduce $(CLI_DEMO_DIR)/big.json --via $(CLI_DEMO_DIR)/path_mis_qubo.json -o $(CLI_DEMO_DIR)/big_qubo.json; \
 	$$PRED solve $(CLI_DEMO_DIR)/big_qubo.json --solver brute-force -o $(CLI_DEMO_DIR)/big_qubo_sol.json; \
 	echo "Verifying both solutions have the same evaluation..."; \
 	ILP_EVAL=$$(jq -r '.evaluation' $(CLI_DEMO_DIR)/big_sol.json); \

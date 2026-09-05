@@ -19,6 +19,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SumOfSquaresPartition;
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing SumOfSquaresPartition to ILP.
@@ -56,31 +57,34 @@ impl ReductionResult for ReductionSSPToILP {
     }
 
     /// Extract solution: for each element i, find the unique group g where x_{i,g} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_groups = self.num_groups;
-        (0..self.num_elements)
-            .map(|i| {
-                (0..num_groups)
-                    .find(|&g| {
-                        let idx = i * num_groups + g;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_elements,
+            self.num_groups,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_elements * num_groups + num_elements^2 * num_groups",
         num_constraints = "num_elements + 3 * num_elements^2 * num_groups",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
     type Result = ReductionSSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_elements();
         let k = self.num_groups();
         let num_vars = n * k + n * n * k;
@@ -95,8 +99,8 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
 
         // Assignment constraints: for each element i, Σ_g x_{i,g} = 1
         for i in 0..n {
-            let terms: Vec<(usize, f64)> = (0..k).map(|g| (result.x_var(i, g), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|g| (result.x_var(i, g), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // McCormick linearization for z_{i,j,g} = x_{i,g} * x_{j,g}
@@ -107,40 +111,39 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
                     let xi = result.x_var(i, g);
                     let xj = result.x_var(j, g);
 
-                    // z ≤ x_{i,g}
-                    constraints.push(LinearConstraint::le(vec![(z, 1.0), (xi, -1.0)], 0.0));
-                    // z ≤ x_{j,g}
-                    constraints.push(LinearConstraint::le(vec![(z, 1.0), (xj, -1.0)], 0.0));
-                    // z ≥ x_{i,g} + x_{j,g} - 1  →  -z + x_{i,g} + x_{j,g} ≤ 1
-                    constraints.push(LinearConstraint::le(
-                        vec![(z, -1.0), (xi, 1.0), (xj, 1.0)],
-                        1.0,
-                    ));
+                    constraints.extend(mccormick_product(z, xi, xj));
                 }
             }
         }
 
         // Objective: Minimize Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g}
         let sizes = self.sizes();
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for i in 0..n {
             for j in 0..n {
                 for g in 0..k {
-                    let coeff = sizes[i] as f64 * sizes[j] as f64;
-                    if coeff.abs() > 0.0 {
+                    let product = sizes[i].checked_mul(sizes[j]).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            SumOfSquaresPartition,
+                            ILP<bool>,
+                        >("multiplying two partition element sizes")
+                    })?;
+                    let coeff = product;
+                    if coeff != 0 {
                         objective.push((result.z_var(i, j, g), coeff));
                     }
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionSSPToILP {
+        Ok(ReductionSSPToILP {
             target,
             num_elements: n,
             num_groups: k,
-        }
+        })
     }
 }
 

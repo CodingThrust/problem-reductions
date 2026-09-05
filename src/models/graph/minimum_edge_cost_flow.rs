@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Minimum Edge-Cost Flow",
         aliases: &["MECF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow minimizing the number of arcs with nonzero flow (weighted by price)",
         fields: &[
@@ -48,7 +49,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumEdgeCostFlow;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 5-vertex network: s=0, t=4, R=3
 /// let graph = DirectedGraph::new(5, vec![
@@ -61,8 +62,8 @@ inventory::submit! {
 ///     0, 4, 3,
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
-/// assert_eq!(problem.evaluate(&witness), problemreductions::types::Min(Some(3)));
+/// let witness = solver.solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&witness).unwrap(), problemreductions::types::Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumEdgeCostFlow {
@@ -195,17 +196,22 @@ impl MinimumEdgeCostFlow {
     /// 1. Each arc's flow does not exceed its capacity
     /// 2. Flow is conserved at every non-terminal vertex
     /// 3. Net flow into the sink is at least the required flow
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         let m = self.graph.num_arcs();
         if config.len() != m {
-            return false;
+            return Ok(false);
         }
         let arcs = self.graph.arcs();
 
         // (1) Capacity constraints
         for (flow, cap) in config.iter().zip(self.capacities.iter()) {
-            if (*flow as i64) > *cap {
-                return false;
+            let flow = i64::try_from(*flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting edge-cost flow configuration value".to_string(),
+                )
+            })?;
+            if flow > *cap {
+                return Ok(false);
             }
         }
 
@@ -213,51 +219,81 @@ impl MinimumEdgeCostFlow {
         let n = self.graph.num_vertices();
         let mut balance = vec![0_i64; n];
         for (a, &(u, v)) in arcs.iter().enumerate() {
-            let flow = config[a] as i64;
-            balance[u] -= flow;
-            balance[v] += flow;
+            let flow = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting edge-cost flow configuration value".to_string(),
+                )
+            })?;
+            balance[u] = balance[u].checked_sub(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing edge-cost flow balance".to_string(),
+                )
+            })?;
+            balance[v] = balance[v].checked_add(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing edge-cost flow balance".to_string(),
+                )
+            })?;
         }
 
         for (v, &bal) in balance.iter().enumerate() {
             if v != self.source && v != self.sink && bal != 0 {
-                return false;
+                return Ok(false);
             }
         }
 
         // (3) Flow requirement: net flow into sink >= R
         if balance[self.sink] < self.required_flow {
-            return false;
+            return Ok(false);
         }
 
-        true
+        Ok(true)
     }
 
     /// Compute the edge cost for a feasible flow: sum of prices of arcs with
     /// nonzero flow.
-    pub fn edge_cost(&self, config: &[usize]) -> i64 {
+    pub fn edge_cost(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
         config
             .iter()
             .enumerate()
-            .filter(|(_, &f)| f > 0)
-            .map(|(a, _)| self.prices[a])
-            .sum()
+            .filter(|(_, &flow)| flow > 0)
+            .try_fold(0_i64, |total, (arc, _)| {
+                total.checked_add(self.prices[arc]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing selected edge prices".to_string(),
+                    )
+                })
+            })
     }
 }
 
 impl Problem for MinimumEdgeCostFlow {
     const NAME: &'static str = "MinimumEdgeCostFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
-    }
+    crate::problem_parameters![
+        ("max_capacity", max_capacity),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Min<i64> {
-        if self.is_feasible(config) {
-            crate::types::Min(Some(self.edge_cost(config)))
-        } else {
-            crate::types::Min(None)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
         }
+        Ok({
+            if self.is_feasible(config)? {
+                crate::types::Min(Some(self.edge_cost(config)?))
+            } else {
+                crate::types::Min(None)
+            }
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -265,8 +301,18 @@ impl Problem for MinimumEdgeCostFlow {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumEdgeCostFlow {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
+    }
+}
+
 crate::declare_variants! {
     default MinimumEdgeCostFlow => "(max_capacity + 1)^num_edges",
+}
+
+crate::register_brute_force! {
+    MinimumEdgeCostFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -286,7 +332,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Optimal: route 1 unit via v2 and 2 units via v3 → cost = 1 + 2 = 3
         // config = [0, 1, 2, 0, 1, 2]
-        optimal_config: vec![0, 1, 2, 0, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 0, 1, 2]),
         optimal_value: serde_json::json!(3),
     }]
 }

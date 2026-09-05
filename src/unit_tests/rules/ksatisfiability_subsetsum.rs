@@ -15,7 +15,7 @@ fn test_ksatisfiability_to_subsetsum_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify structure: 2*3 + 2*2 = 10 elements
@@ -25,14 +25,14 @@ fn test_ksatisfiability_to_subsetsum_closed_loop() {
     assert_eq!(target.target(), &BigUint::from(11144u32));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(target);
+    let solutions = solver.find_all_witnesses(target).unwrap();
     assert!(!solutions.is_empty());
 
     // Every SubsetSum solution must map back to a satisfying 3-SAT assignment
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
-        assert!(ksat.evaluate(&extracted));
+        assert!(ksat.evaluate(&extracted).unwrap());
     }
 }
 
@@ -49,11 +49,11 @@ fn test_ksatisfiability_to_subsetsum_unsatisfiable() {
             CNFClause::new(vec![1, 1, 1]),
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(target);
+    let solution = solver.solve(target).unwrap();
     assert!(solution.is_none());
 }
 
@@ -61,20 +61,20 @@ fn test_ksatisfiability_to_subsetsum_unsatisfiable() {
 fn test_ksatisfiability_to_subsetsum_single_clause() {
     // Single clause: (x1 ∨ x2 ∨ x3) — 7 out of 8 assignments satisfy it
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 2*3 + 2*1 = 8 elements
     assert_eq!(target.num_elements(), 8);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(target);
+    let solutions = solver.find_all_witnesses(target).unwrap();
 
     // Each SubsetSum solution maps to a satisfying assignment
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
-        assert!(ksat.evaluate(&extracted));
+        let extracted = reduction.extract_solution(sol).unwrap();
+        assert!(ksat.evaluate(&extracted).unwrap());
         sat_assignments.insert(extracted);
     }
     // Should find exactly 7 distinct satisfying assignments
@@ -91,7 +91,7 @@ fn test_ksatisfiability_to_subsetsum_structure() {
             CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
     let sizes = target.sizes();
 
@@ -114,16 +114,16 @@ fn test_ksatisfiability_to_subsetsum_structure() {
 fn test_ksatisfiability_to_subsetsum_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(target);
+    let solutions = solver.find_all_witnesses(target).unwrap();
 
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
-        assert!(ksat.evaluate(&extracted));
+        let extracted = reduction.extract_solution(sol).unwrap();
+        assert!(ksat.evaluate(&extracted).unwrap());
         sat_assignments.insert(extracted);
     }
     assert_eq!(sat_assignments.len(), 7);
@@ -140,7 +140,7 @@ fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Construct the known subset for x1=T, x2=T, x3=T:
@@ -148,15 +148,15 @@ fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
     // Need clause digits = 44, so slack: C1 needs +1 (g1=10), C2 needs +3 (g2=1, h2=2)
     // Total: 10010 + 01010 + 00111 + 00010 + 00001 + 00002 = 11144
     let specific_config = vec![
-        1, 0, // y1 selected, z1 not
-        1, 0, // y2 selected, z2 not
-        1, 0, // y3 selected, z3 not
-        1, 0, // g1 selected, h1 not
-        1, 1, // g2 selected, h2 selected
+        true, false, // y1 selected, z1 not
+        true, false, // y2 selected, z2 not
+        true, false, // y3 selected, z3 not
+        true, false, // g1 selected, h1 not
+        true, true, // g2 selected, h2 selected
     ];
-    assert!(target.evaluate(&specific_config));
+    assert!(target.evaluate(&specific_config).unwrap());
 
-    let extracted = reduction.extract_solution(&specific_config);
-    assert_eq!(extracted, vec![1, 1, 1]); // x1=T, x2=T, x3=T
-    assert!(ksat.evaluate(&extracted));
+    let extracted = reduction.extract_solution(&specific_config).unwrap();
+    assert_eq!(extracted, vec![true, true, true]); // x1=T, x2=T, x3=T
+    assert!(ksat.evaluate(&extracted).unwrap());
 }

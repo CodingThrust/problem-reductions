@@ -15,7 +15,8 @@ fn test_satisfiability_to_naesatisfiability_closed_loop() {
         ],
     );
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
@@ -35,7 +36,8 @@ fn test_reduction_structure() {
         ],
     );
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
     let naesat = reduction.target_problem();
 
     // Should have n+1 variables (3 original + 1 sentinel)
@@ -61,11 +63,42 @@ fn test_solution_extraction_sentinel_false() {
     // When sentinel is false, return original variables as-is
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2])]);
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
 
     // target_solution: [1, 0, 1, 0] means x1=true, x2=false, x3=true, sentinel=false
-    let extracted = reduction.extract_solution(&[1, 0, 1, 0]);
-    assert_eq!(extracted, vec![1, 0, 1]);
+    let extracted = reduction
+        .extract_solution(&vec![true, false, true, false])
+        .unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
+}
+
+#[test]
+fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input() {
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![-1, -2])]);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
+
+    assert_eq!(
+        reduction
+            .extract_solution(&vec![false, false, false])
+            .unwrap(),
+        vec![false, false]
+    );
+
+    let error = reduction.extract_solution(&vec![false, false]).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "target evaluation failed during extraction: invalid configuration: assignment length does not match the formula variables"
+    );
+    assert!(reduction
+        .extract_solution(&vec![false, false, false, false])
+        .is_err());
+    assert!(crate::rules::DynReductionResult::target_solution_from_json(
+        &reduction,
+        serde_json::json!([false, 2, false])
+    )
+    .is_err());
 }
 
 #[test]
@@ -73,12 +106,15 @@ fn test_solution_extraction_sentinel_true() {
     // When sentinel is true, return complement of original variables
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2])]);
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
 
     // target_solution: [0, 1, 0, 1] means x1=false, x2=true, x3=false, sentinel=true
     // Complement: x1=true, x2=false, x3=true
-    let extracted = reduction.extract_solution(&[0, 1, 0, 1]);
-    assert_eq!(extracted, vec![1, 0, 1]);
+    let extracted = reduction
+        .extract_solution(&vec![false, true, false, true])
+        .unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
 }
 
 #[test]
@@ -86,12 +122,13 @@ fn test_unsatisfiable_formula() {
     // (x1) ∧ (¬x1) is unsatisfiable
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
     let naesat = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sat_solutions = solver.find_all_witnesses(&sat);
-    let naesat_solutions = solver.find_all_witnesses(naesat);
+    let sat_solutions = solver.find_all_witnesses(&sat).unwrap();
+    let naesat_solutions = solver.find_all_witnesses(naesat).unwrap();
 
     // Both should be unsatisfiable
     assert!(sat_solutions.is_empty());
@@ -102,7 +139,8 @@ fn test_unsatisfiable_formula() {
 fn test_single_clause() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
@@ -116,7 +154,8 @@ fn test_empty_formula() {
     // Empty formula is trivially satisfiable
     let sat = Satisfiability::new(2, vec![]);
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
     let naesat = reduction.target_problem();
 
     assert_eq!(naesat.num_vars(), 3);
@@ -124,8 +163,8 @@ fn test_empty_formula() {
 
     // Both should be satisfiable (any assignment works)
     let solver = BruteForce::new();
-    assert!(!solver.find_all_witnesses(&sat).is_empty());
-    assert!(!solver.find_all_witnesses(naesat).is_empty());
+    assert!(!solver.find_all_witnesses(&sat).unwrap().is_empty());
+    assert!(!solver.find_all_witnesses(naesat).unwrap().is_empty());
 }
 
 #[test]
@@ -142,7 +181,8 @@ fn test_larger_instance() {
         ],
     );
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
     let naesat = reduction.target_problem();
 
     assert_eq!(naesat.num_vars(), 6);
@@ -163,17 +203,18 @@ fn test_all_satisfying_assignments_map_back() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
 
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
     let naesat = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let nae_solutions = solver.find_all_witnesses(naesat);
+    let nae_solutions = solver.find_all_witnesses(naesat).unwrap();
 
     for nae_sol in &nae_solutions {
-        let sat_sol = reduction.extract_solution(nae_sol);
+        let sat_sol = reduction.extract_solution(nae_sol).unwrap();
         assert_eq!(sat_sol.len(), 2);
         assert!(
-            sat.evaluate(&sat_sol).0,
+            sat.evaluate(&sat_sol).unwrap().0,
             "Extracted solution {:?} from NAE solution {:?} does not satisfy SAT",
             sat_sol,
             nae_sol
@@ -184,7 +225,8 @@ fn test_all_satisfying_assignments_map_back() {
 #[test]
 fn test_empty_clause_maps_to_unsatisfiable_nae_clause() {
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![])]);
-    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
     let naesat = reduction.target_problem();
 
     assert_eq!(naesat.num_vars(), 2);
@@ -193,6 +235,6 @@ fn test_empty_clause_maps_to_unsatisfiable_nae_clause() {
     assert_eq!(naesat.clauses()[0].literals, vec![2, 2]);
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&sat).is_none());
-    assert!(solver.find_witness(naesat).is_none());
+    assert!(solver.solve(&sat).unwrap().is_none());
+    assert!(solver.solve(naesat).unwrap().is_none());
 }

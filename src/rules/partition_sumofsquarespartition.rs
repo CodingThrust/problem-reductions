@@ -42,28 +42,38 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
         &self.target
     }
 
-    /// Solution extraction: identity mapping in the normal case.
-    /// In the sentinel case (source has fewer than two elements) the target's
-    /// witness has a different length, so we return an all-zero source-sized
-    /// vector; `Partition::evaluate` then yields `Or(false)`, which is the
-    /// correct answer because a single positive element cannot be balanced.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_n {
-            target_solution.to_vec()
-        } else {
-            vec![0; self.source_n]
+    /// Solution extraction preserves the source elements. The sentinel target
+    /// appends elements, so only the prefix corresponding to actual source
+    /// elements is mapped back.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if target_solution.len() != self.target.num_elements() {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} target group assignments, got {}",
+                self.target.num_elements(),
+                target_solution.len()
+            )));
         }
+
+        Ok(target_solution[..self.source_n]
+            .iter()
+            .map(|&group| group == 1)
+            .collect())
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_elements",
-    num_groups = "2",
-})]
+#[reduction(
+    transform = exact {
+        num_elements = "num_elements",
+        num_groups = "2",
+    })]
 impl ReduceTo<SumOfSquaresPartition> for Partition {
     type Result = ReductionPartitionToSumOfSquaresPartition;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_n = self.num_elements();
 
         if source_n < 2 {
@@ -71,24 +81,16 @@ impl ReduceTo<SumOfSquaresPartition> for Partition {
             // so we cannot build a K=2 instance from a singleton. The singleton
             // Partition is always NO (a single positive element cannot be
             // partitioned into two equal-sum subsets).
-            return ReductionPartitionToSumOfSquaresPartition {
+            return Ok(ReductionPartitionToSumOfSquaresPartition {
                 target: SumOfSquaresPartition::new(vec![1, 1], 2),
                 source_n,
-            };
+            });
         }
 
-        // Sizes in Partition are `u64` (always positive). Canonical inputs in
-        // this repo fit comfortably in `i64`; we cast directly.
-        let sizes_i64: Vec<i64> = self
-            .sizes()
-            .iter()
-            .map(|&s| i64::try_from(s).expect("Partition size exceeds i64::MAX"))
-            .collect();
-
-        ReductionPartitionToSumOfSquaresPartition {
-            target: SumOfSquaresPartition::new(sizes_i64, 2),
+        Ok(ReductionPartitionToSumOfSquaresPartition {
+            target: SumOfSquaresPartition::new(self.sizes().to_vec(), 2),
             source_n,
-        }
+        })
     }
 }
 
@@ -102,10 +104,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // sizes [3, 1, 1, 2, 2, 1], S = 10, balanced split sums to 5/5.
             // Witness: {3, 2} (group 0) and {1, 1, 2, 1} (group 1) -> 5^2 + 5^2 = 50 = S^2 / 2.
             crate::example_db::specs::rule_example_with_witness::<_, SumOfSquaresPartition>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0, 1, 1],
-                    target_config: vec![0, 1, 1, 0, 1, 1],
+                    source_config: serde_json::json!(vec![false, true, true, false, true, true]),
+                    target_config: serde_json::json!(vec![0, 1, 1, 0, 1, 1]),
                 },
             )
         },

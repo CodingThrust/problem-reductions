@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -46,8 +47,8 @@ fn test_qbf_evaluate_true() {
     );
 
     // dims() is empty; evaluate([]) runs the game-tree search
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(problem.evaluate(&()).unwrap());
     assert!(problem.is_true());
 }
 
@@ -61,7 +62,7 @@ fn test_qbf_evaluate_false() {
         vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
     );
 
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&()).unwrap());
     assert!(!problem.is_true());
 }
 
@@ -73,7 +74,9 @@ fn test_qbf_evaluate_nonempty_config_returns_false() {
         vec![Quantifier::Exists, Quantifier::ForAll],
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![1, -2])],
     );
-    assert!(!problem.evaluate(&[1, 0]));
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([1, 0])).is_err()
+    );
 }
 
 #[test]
@@ -118,7 +121,7 @@ fn test_qbf_empty_formula() {
     // Empty CNF is trivially true
     let problem =
         QuantifiedBooleanFormulas::new(2, vec![Quantifier::Exists, Quantifier::ForAll], vec![]);
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&()).unwrap());
     assert!(problem.is_true());
 }
 
@@ -126,16 +129,16 @@ fn test_qbf_empty_formula() {
 fn test_qbf_zero_vars() {
     // Zero variables, empty clauses
     let problem = QuantifiedBooleanFormulas::new(0, vec![], vec![]);
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&()).unwrap());
     assert!(problem.is_true());
-    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
 }
 
 #[test]
 fn test_qbf_zero_vars_unsat() {
-    // Zero variables, but a clause that refers to var 1 (unsatisfiable)
-    let problem = QuantifiedBooleanFormulas::new(0, vec![], vec![CNFClause::new(vec![1])]);
-    assert!(!problem.evaluate(&[]));
+    // An empty clause is false without referring to a nonexistent variable.
+    let problem = QuantifiedBooleanFormulas::new(0, vec![], vec![CNFClause::new(vec![])]);
+    assert!(!problem.evaluate(&()).unwrap());
     assert!(!problem.is_true());
 }
 
@@ -150,11 +153,11 @@ fn test_qbf_solver() {
 
     let solver = BruteForce::new();
     // With dims()=[], there is exactly one config: []. evaluate([]) = is_true() = true
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    let sol = solution.unwrap();
-    assert_eq!(sol, Vec::<usize>::new());
-    assert!(problem.evaluate(&sol));
+    solution.unwrap();
+    assert_eq!((), ());
+    assert!(problem.evaluate(&()).unwrap());
 }
 
 #[test]
@@ -167,7 +170,7 @@ fn test_qbf_solver_false() {
     );
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -181,10 +184,10 @@ fn test_qbf_solver_all_satisfying() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Only one config exists (the empty config []), and it satisfies
     assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], Vec::<usize>::new());
+    assert_eq!(solutions[0], ());
 }
 
 #[test]
@@ -201,7 +204,7 @@ fn test_qbf_serialization() {
     assert_eq!(deserialized.num_vars(), problem.num_vars());
     assert_eq!(deserialized.num_clauses(), problem.num_clauses());
     assert_eq!(deserialized.quantifiers(), problem.quantifiers());
-    assert_eq!(deserialized.dims(), problem.dims());
+    assert_eq!(deserialized.dimensions(), problem.dimensions());
 }
 
 #[test]
@@ -235,7 +238,7 @@ fn test_qbf_dims() {
         vec![CNFClause::new(vec![1, 2, 3, 4])],
     );
     // dims() is always empty — QBF has no external config variables
-    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
 }
 
 #[test]

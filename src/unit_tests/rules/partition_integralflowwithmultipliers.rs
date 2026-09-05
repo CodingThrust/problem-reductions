@@ -6,8 +6,9 @@ use crate::solvers::BruteForce;
 
 #[test]
 fn test_partition_to_integralflowwithmultipliers_closed_loop() {
-    let source = Partition::new(vec![1, 2, 3]);
-    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source);
+    let source = Partition::new(vec![1, 2, 3]).unwrap();
+    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -18,8 +19,9 @@ fn test_partition_to_integralflowwithmultipliers_closed_loop() {
 
 #[test]
 fn test_partition_to_integralflowwithmultipliers_structure_even_total() {
-    let source = Partition::new(vec![2, 3, 4, 5, 6, 4]);
-    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source);
+    let source = Partition::new(vec![2, 3, 4, 5, 6, 4]).unwrap();
+    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 9);
@@ -51,18 +53,20 @@ fn test_partition_to_integralflowwithmultipliers_structure_even_total() {
 
 #[test]
 fn test_partition_to_integralflowwithmultipliers_even_no_instance_uses_bottleneck() {
-    let source = Partition::new(vec![3, 5]);
-    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source);
+    let source = Partition::new(vec![3, 5]).unwrap();
+    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.capacities(), &[1, 1, 3, 5, 4]);
-    assert!(BruteForce::new().find_witness(target).is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }
 
 #[test]
 fn test_partition_to_integralflowwithmultipliers_odd_total_is_fixed_no_instance() {
-    let source = Partition::new(vec![1, 2]);
-    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source);
+    let source = Partition::new(vec![1, 2]).unwrap();
+    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 3);
@@ -70,18 +74,24 @@ fn test_partition_to_integralflowwithmultipliers_odd_total_is_fixed_no_instance(
     assert_eq!(target.multipliers(), &[1, 2, 1]);
     assert_eq!(target.capacities(), &[1, 1]);
     assert_eq!(target.requirement(), 1);
-    assert!(BruteForce::new().find_witness(target).is_none());
-    assert_eq!(reduction.extract_solution(&[]), vec![0, 0]);
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
+    assert_eq!(
+        reduction.extract_solution(&vec![]).unwrap_err().to_string(),
+        "the fixed infeasible target instance has no extractable witness"
+    );
 }
 
 #[test]
 fn test_partition_to_integralflowwithmultipliers_extract_solution() {
-    let source = Partition::new(vec![2, 3, 4, 5, 6, 4]);
-    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source);
+    let source = Partition::new(vec![2, 3, 4, 5, 6, 4]).unwrap();
+    let reduction = ReduceTo::<IntegralFlowWithMultipliers>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12]),
-        vec![1, 0, 1, 0, 1, 0]
+        reduction
+            .extract_solution(&vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12])
+            .unwrap(),
+        vec![true, false, true, false, true, false]
     );
 }
 
@@ -96,9 +106,12 @@ fn test_partition_to_integralflowwithmultipliers_canonical_example_spec() {
 
     assert_eq!(example.solutions.len(), 1);
     let solution = &example.solutions[0];
-    assert_eq!(solution.source_config, vec![1, 0, 1, 0, 1, 0]);
+    assert_eq!(
+        solution.source_config,
+        serde_json::json!([true, false, true, false, true, false])
+    );
     assert_eq!(
         solution.target_config,
-        vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12]
+        serde_json::json!([1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12])
     );
 }

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -31,7 +32,7 @@ fn test_minimum_cost_circulation_creation() {
     assert_eq!(problem.num_arcs(), 4);
     assert_eq!(problem.capacities(), &[2, 2, 1, 1]);
     assert_eq!(problem.costs(), &[2, -3, 1, -4]);
-    assert_eq!(problem.dims(), vec![3, 3, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 2, 2]);
     assert_eq!(
         <MinimumCostCirculation as Problem>::NAME,
         "MinimumCostCirculation"
@@ -41,18 +42,18 @@ fn test_minimum_cost_circulation_creation() {
 #[test]
 fn test_minimum_cost_circulation_evaluate_optimal() {
     let problem = canonical_instance();
-    let config = vec![2_usize, 2, 1, 1];
-    assert!(problem.is_feasible(&config));
-    assert_eq!(problem.total_cost(&config), -5);
-    assert_eq!(problem.evaluate(&config), Min(Some(-5)));
+    let config = vec![2, 2, 1, 1];
+    assert!(problem.is_feasible(&config).unwrap());
+    assert_eq!(problem.total_cost(&config).unwrap(), -5);
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(-5)));
 }
 
 #[test]
 fn test_minimum_cost_circulation_evaluate_zero_circulation() {
     let problem = canonical_instance();
-    let config = vec![0_usize, 0, 0, 0];
-    assert!(problem.is_feasible(&config));
-    assert_eq!(problem.evaluate(&config), Min(Some(0)));
+    let config = vec![0, 0, 0, 0];
+    assert!(problem.is_feasible(&config).unwrap());
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -60,9 +61,9 @@ fn test_minimum_cost_circulation_evaluate_cycle_a_only() {
     let problem = canonical_instance();
     // Push cycle A to capacity, leave cycle B empty: [2, 2, 0, 0]
     // cost = 2*2 + 2*(-3) + 0 + 0 = -2
-    let config = vec![2_usize, 2, 0, 0];
-    assert!(problem.is_feasible(&config));
-    assert_eq!(problem.evaluate(&config), Min(Some(-2)));
+    let config = vec![2, 2, 0, 0];
+    assert!(problem.is_feasible(&config).unwrap());
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(-2)));
 }
 
 #[test]
@@ -70,17 +71,17 @@ fn test_minimum_cost_circulation_evaluate_cycle_b_only() {
     let problem = canonical_instance();
     // Push cycle B to capacity, leave cycle A empty: [0, 0, 1, 1]
     // cost = 0 + 0 + 1 + (-4) = -3
-    let config = vec![0_usize, 0, 1, 1];
-    assert!(problem.is_feasible(&config));
-    assert_eq!(problem.evaluate(&config), Min(Some(-3)));
+    let config = vec![0, 0, 1, 1];
+    assert!(problem.is_feasible(&config).unwrap());
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(-3)));
 }
 
 #[test]
 fn test_minimum_cost_circulation_evaluate_infeasible_capacity() {
     let problem = canonical_instance();
     // Arc 0 has capacity 2, but g(0) = 3 violates it.
-    let config = vec![3_usize, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    let config = vec![3, 0, 0, 0];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -88,16 +89,25 @@ fn test_minimum_cost_circulation_evaluate_infeasible_conservation() {
     let problem = canonical_instance();
     // [2, 1, 0, 0]: at vertex 1, inflow = 2 (from arc 0), outflow = 1
     // (via arc 1); balance != 0, so infeasible.
-    let config = vec![2_usize, 1, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    let config = vec![2, 1, 0, 0];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_cost_circulation_evaluate_wrong_config_length() {
     let problem = canonical_instance();
-    assert_eq!(problem.evaluate(&[0; 3]), Min(None));
-    assert_eq!(problem.evaluate(&[0; 5]), Min(None));
-    assert_eq!(problem.evaluate(&[]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -105,9 +115,10 @@ fn test_minimum_cost_circulation_solver_canonical() {
     let problem = canonical_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("canonical instance must be feasible");
-    assert_eq!(problem.total_cost(&witness), -5);
+    assert_eq!(problem.total_cost(&witness).unwrap(), -5);
     // The unique optimum pushes both cycles to capacity.
     assert_eq!(witness, vec![2, 2, 1, 1]);
 }
@@ -124,12 +135,13 @@ fn test_minimum_cost_circulation_negative_cycle_beats_zero() {
     );
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("instance must be feasible");
-    assert_eq!(problem.total_cost(&witness), -2);
+    assert_eq!(problem.total_cost(&witness).unwrap(), -2);
     assert_eq!(witness, vec![1, 1]);
     // And zero is feasible but strictly worse.
-    assert_eq!(problem.evaluate(&[0, 0]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![0, 0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -146,11 +158,12 @@ fn test_minimum_cost_circulation_issue_example_1030() {
     );
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("instance must be feasible");
     assert_eq!(witness, vec![1, 1]);
-    assert_eq!(problem.total_cost(&witness), -2);
-    assert_eq!(problem.evaluate(&[0, 0]), Min(Some(0)));
+    assert_eq!(problem.total_cost(&witness).unwrap(), -2);
+    assert_eq!(problem.evaluate(&vec![0, 0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -164,7 +177,7 @@ fn test_minimum_cost_circulation_serialization() {
     assert_eq!(deserialized.costs(), &[2, -3, 1, -4]);
     // Optimal config evaluates identically after roundtrip.
     assert_eq!(
-        deserialized.evaluate(&[2, 2, 1, 1]),
-        problem.evaluate(&[2, 2, 1, 1])
+        deserialized.evaluate(&vec![2, 2, 1, 1]).unwrap(),
+        problem.evaluate(&vec![2, 2, 1, 1]).unwrap()
     );
 }

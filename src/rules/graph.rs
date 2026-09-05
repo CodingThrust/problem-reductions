@@ -1,31 +1,30 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
 //!
 //! The graph uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
-//! Nodes are built in two phases:
-//! 1. From `VariantEntry` inventory (with complexity metadata)
-//! 2. From `ReductionEntry` inventory (fallback for backwards compatibility)
+//! Nodes come from `VariantEntry` inventory, and `ReductionEntry` inventory supplies edges.
 //!
 //! Edges come exclusively from `#[reduction]` registrations via `inventory::iter::<ReductionEntry>`.
 //!
 //! This module implements:
 //! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
-//! - Dijkstra's algorithm with custom cost functions for optimal paths
+//! - Symbolic path composition and concrete path execution
 //! - JSON export for documentation and visualization
 
-use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionOverhead,
+    AggregateReduceFn, EdgeCapabilities, ParameterContractError, ReduceFn, ReductionEntry,
+    ReductionParameterContract,
 };
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
-use crate::types::ProblemSize;
-use ordered_float::OrderedFloat;
+use crate::types::ProblemParameters;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
-use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::rc::Rc;
+
+type NodePathOrderKey<'a> = (usize, Vec<(&'static str, &'a BTreeMap<String, String>)>);
 
 /// A source/target pair from the reduction graph, returned by
 /// [`ReductionGraph::outgoing_reductions`] and [`ReductionGraph::incoming_reductions`].
@@ -35,17 +34,23 @@ pub struct ReductionEdgeInfo {
     pub source_variant: BTreeMap<String, String>,
     pub target_name: &'static str,
     pub target_variant: BTreeMap<String, String>,
-    pub overhead: ReductionOverhead,
+    pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
     pub capabilities: EdgeCapabilities,
 }
 
-/// Internal edge data combining overhead and executable reduce function.
+/// Internal edge data combining explicit parameter contracts and executable reduction functions.
 #[derive(Clone)]
 pub(crate) struct ReductionEdgeData {
-    pub overhead: ReductionOverhead,
+    pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
     pub reduce_fn: Option<ReduceFn>,
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
-    pub capabilities: EdgeCapabilities,
+    pub turing: bool,
+}
+
+impl ReductionEdgeData {
+    fn capabilities(&self) -> EdgeCapabilities {
+        EdgeCapabilities::from_executors(self.reduce_fn, self.reduce_aggregate_fn, self.turing)
+    }
 }
 
 /// JSON-serializable representation of the reduction graph.
@@ -78,8 +83,8 @@ pub(crate) struct NodeJson {
     pub(crate) name: String,
     /// Variant attributes as key-value pairs.
     pub(crate) variant: BTreeMap<String, String>,
-    /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
-    pub(crate) category: String,
+    /// Structural category declared by the problem schema.
+    pub(crate) category: crate::registry::ProblemCategory,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub(crate) doc_path: String,
     /// Worst-case time complexity expression (empty if not declared).
@@ -93,13 +98,13 @@ struct VariantRef {
     variant: BTreeMap<String, String>,
 }
 
-/// A single output field in the reduction overhead.
+/// One explicitly classified target parameter field in graph export.
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct OverheadFieldJson {
-    /// Output field name (e.g., "num_vars").
+pub(crate) struct ParameterFieldJson {
     pub(crate) field: String,
-    /// Formula as a human-readable string (e.g., "num_vertices").
-    pub(crate) formula: String,
+    pub(crate) contract: &'static str,
+    pub(crate) formula: Option<String>,
+    pub(crate) reason: Option<String>,
 }
 
 /// An edge in the reduction graph JSON.
@@ -109,8 +114,9 @@ pub(crate) struct EdgeJson {
     pub(crate) source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub(crate) target: usize,
-    /// Reduction overhead: output size as expressions of input size.
-    pub(crate) overhead: Vec<OverheadFieldJson>,
+    /// Symbolic or unavailable target-parameter fields.
+    pub(crate) parameters: Vec<ParameterFieldJson>,
+    pub(crate) parameter_contract_error: Option<String>,
     /// Relative rustdoc path for the reduction module.
     pub(crate) doc_path: String,
     /// Whether the edge supports witness/config workflows.
@@ -126,6 +132,90 @@ pub(crate) struct EdgeJson {
 pub struct ReductionPath {
     /// Variant-level steps in the path.
     pub steps: Vec<ReductionStep>,
+}
+
+/// A selected concrete path batch could not be executed.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum ExecutePathsError {
+    #[error("concrete path {path_index} is empty")]
+    EmptyPath { path_index: usize },
+    #[error("concrete path {path_index} contains no reduction edge")]
+    NoEdges { path_index: usize },
+    #[error("concrete path {path_index} starts at a different source node")]
+    DifferentSource { path_index: usize },
+    #[error("concrete path {path_index} references unknown node {problem} {variant:?}")]
+    UnknownNode {
+        path_index: usize,
+        problem: String,
+        variant: BTreeMap<String, String>,
+    },
+    #[error("concrete path {path_index} has no registered edge from {source_problem} to {target_problem}")]
+    MissingEdge {
+        path_index: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable")]
+    NotWitnessExecutable {
+        path_index: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("concrete path {path_index} failed during reduction: {cause}")]
+    Reduction {
+        path_index: usize,
+        #[source]
+        cause: crate::rules::ReductionError,
+    },
+}
+
+/// Why symbolic parameter propagation could not be completed for a path.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum PathParameterError {
+    #[error("cannot compose an empty reduction path")]
+    EmptyPath,
+    #[error("reduction path references unknown node {problem} {variant:?}")]
+    UnknownNode {
+        problem: String,
+        variant: BTreeMap<String, String>,
+    },
+    #[error(
+        "reduction path contains no registered edge from {source_problem} to {target_problem}"
+    )]
+    MissingEdge {
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model")]
+    TuringEdge {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}")]
+    InvalidContract {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+        #[source]
+        error: Box<ParameterContractError>,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform")]
+    Unavailable {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error(
+        "cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}"
+    )]
+    Step {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+        #[source]
+        error: Box<crate::parameters::ParameterTransformError>,
+    },
 }
 
 impl ReductionPath {
@@ -183,11 +273,11 @@ impl std::fmt::Display for ReductionPath {
 }
 
 /// A node in a variant-level reduction path.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize)]
 pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: String,
-    /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i32"}).
+    /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i64"}).
     pub variant: BTreeMap<String, String>,
 }
 
@@ -204,20 +294,6 @@ impl std::fmt::Display for ReductionStep {
         }
         Ok(())
     }
-}
-
-/// Classify a problem's category from its module path.
-/// Expected format: "problemreductions::models::<category>::<module_name>"
-pub(crate) fn classify_problem_category(module_path: &str) -> &str {
-    let parts: Vec<&str> = module_path.split("::").collect();
-    if parts.len() >= 3 {
-        if let Some(pos) = parts.iter().position(|&p| p == "models") {
-            if pos + 1 < parts.len() {
-                return parts[pos + 1];
-            }
-        }
-    }
-    "other"
 }
 
 /// Internal node data for the variant-level graph.
@@ -278,7 +354,6 @@ pub struct NeighborTree {
 ///
 /// The graph supports:
 /// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
-/// - Dijkstra with custom cost functions
 /// - Path finding by problem type or by name
 pub struct ReductionGraph {
     /// Graph with node indices as node data, edge weights as ReductionEdgeData.
@@ -294,6 +369,15 @@ pub struct ReductionGraph {
 impl ReductionGraph {
     /// Create a new reduction graph with all registered reductions from inventory.
     pub fn new() -> Self {
+        crate::registry::validate_variant_parameter_schemas().unwrap_or_else(|errors| {
+            panic!("invalid problem parameters schemas:\n{}", errors.join("\n"))
+        });
+        crate::rules::registry::validate_reduction_parameter_schemas().unwrap_or_else(|errors| {
+            panic!(
+                "invalid reduction parameter schemas:\n{}",
+                errors.join("\n")
+            )
+        });
         let mut graph = DiGraph::new();
         let mut nodes: Vec<VariantNode> = Vec::new();
         let mut node_index: HashMap<VariantRef, NodeIndex> = HashMap::new();
@@ -353,37 +437,25 @@ impl ReductionGraph {
             let source_variant = Self::variant_to_map(&entry.source_variant());
             let target_variant = Self::variant_to_map(&entry.target_variant());
 
-            // Nodes should already exist from Phase 1.
-            // Fall back to creating them with empty complexity for backwards compatibility.
-            let src_idx = ensure_node(
-                entry.source_name,
-                source_variant,
-                "",
-                &mut nodes,
-                &mut graph,
-                &mut node_index,
-                &mut name_to_nodes,
-            );
-            let dst_idx = ensure_node(
-                entry.target_name,
-                target_variant,
-                "",
-                &mut nodes,
-                &mut graph,
-                &mut node_index,
-                &mut name_to_nodes,
-            );
+            let src_idx = node_index[&VariantRef {
+                name: entry.source_name.to_string(),
+                variant: source_variant,
+            }];
+            let dst_idx = node_index[&VariantRef {
+                name: entry.target_name.to_string(),
+                variant: target_variant,
+            }];
 
-            let overhead = entry.overhead();
+            let parameter_contract = entry.parameter_contract();
             if graph.find_edge(src_idx, dst_idx).is_none() {
                 graph.add_edge(
                     src_idx,
                     dst_idx,
                     ReductionEdgeData {
-                        overhead,
+                        parameter_contract,
                         reduce_fn: entry.reduce_fn,
                         reduce_aggregate_fn: entry.reduce_aggregate_fn,
-                        capabilities: entry.capabilities,
+                        turing: entry.turing,
                     },
                 );
             }
@@ -424,10 +496,29 @@ impl ReductionGraph {
 
     fn edge_supports_mode(edge: &ReductionEdgeData, mode: ReductionMode) -> bool {
         match mode {
-            ReductionMode::Witness => edge.capabilities.witness,
-            ReductionMode::Aggregate => edge.capabilities.aggregate,
-            ReductionMode::Turing => edge.capabilities.turing,
+            ReductionMode::Witness => edge.reduce_fn.is_some(),
+            ReductionMode::Aggregate => edge.reduce_aggregate_fn.is_some(),
+            ReductionMode::Turing => edge.turing,
         }
+    }
+
+    fn ordered_outgoing_edges(
+        &self,
+        node: NodeIndex,
+        mode: ReductionMode,
+    ) -> Vec<(NodeIndex, EdgeIndex)> {
+        let mut edges: Vec<_> = self
+            .graph
+            .edges(node)
+            .filter(|edge| Self::edge_supports_mode(edge.weight(), mode))
+            .map(|edge| (edge.target(), edge.id()))
+            .collect();
+        edges.sort_by(|a, b| {
+            let a = &self.nodes[self.graph[a.0]];
+            let b = &self.nodes[self.graph[b.0]];
+            (a.name, &a.variant).cmp(&(b.name, &b.variant))
+        });
+        edges
     }
 
     fn node_path_supports_mode(&self, node_path: &[NodeIndex], mode: ReductionMode) -> bool {
@@ -436,112 +527,6 @@ impl ReductionGraph {
                 .find_edge(pair[0], pair[1])
                 .is_some_and(|edge_idx| Self::edge_supports_mode(&self.graph[edge_idx], mode))
         })
-    }
-
-    /// Find the cheapest path between two specific problem variants.
-    ///
-    /// Uses Dijkstra's algorithm on the variant-level graph from the exact
-    /// source variant node to the exact target variant node.
-    pub fn find_cheapest_path<C: PathCostFn>(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        input_size: &ProblemSize,
-        cost_fn: &C,
-    ) -> Option<ReductionPath> {
-        self.find_cheapest_path_mode(
-            source,
-            source_variant,
-            target,
-            target_variant,
-            ReductionMode::Witness,
-            input_size,
-            cost_fn,
-        )
-    }
-
-    /// Find the cheapest path between two specific problem variants while
-    /// requiring a specific edge capability.
-    #[allow(clippy::too_many_arguments)]
-    pub fn find_cheapest_path_mode<C: PathCostFn>(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        mode: ReductionMode,
-        input_size: &ProblemSize,
-        cost_fn: &C,
-    ) -> Option<ReductionPath> {
-        let src = self.lookup_node(source, source_variant)?;
-        let dst = self.lookup_node(target, target_variant)?;
-        let node_path = self.dijkstra(src, dst, mode, input_size, cost_fn)?;
-        Some(self.node_path_to_reduction_path(&node_path))
-    }
-
-    /// Core Dijkstra search on node indices.
-    fn dijkstra<C: PathCostFn>(
-        &self,
-        src: NodeIndex,
-        dst: NodeIndex,
-        mode: ReductionMode,
-        input_size: &ProblemSize,
-        cost_fn: &C,
-    ) -> Option<Vec<NodeIndex>> {
-        let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
-        let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
-        let mut prev: HashMap<NodeIndex, NodeIndex> = HashMap::new();
-        let mut heap = BinaryHeap::new();
-
-        costs.insert(src, 0.0);
-        sizes.insert(src, input_size.clone());
-        heap.push(Reverse((OrderedFloat(0.0), src)));
-
-        while let Some(Reverse((cost, node))) = heap.pop() {
-            if node == dst {
-                let mut path = vec![dst];
-                let mut current = dst;
-                while current != src {
-                    let &prev_node = prev.get(&current)?;
-                    path.push(prev_node);
-                    current = prev_node;
-                }
-                path.reverse();
-                return Some(path);
-            }
-
-            if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
-                continue;
-            }
-
-            let current_size = match sizes.get(&node) {
-                Some(s) => s.clone(),
-                None => continue,
-            };
-
-            for edge_ref in self.graph.edges(node) {
-                if !Self::edge_supports_mode(edge_ref.weight(), mode) {
-                    continue;
-                }
-                let overhead = &edge_ref.weight().overhead;
-                let next = edge_ref.target();
-
-                let edge_cost = cost_fn.edge_cost(overhead, &current_size);
-                let new_cost = cost.0 + edge_cost;
-                let new_size = overhead.evaluate_output_size(&current_size);
-
-                if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
-                    costs.insert(next, new_cost);
-                    sizes.insert(next, new_size);
-                    prev.insert(next, node);
-                    heap.push(Reverse((OrderedFloat(new_cost), next)));
-                }
-            }
-        }
-
-        None
     }
 
     /// Convert a node index path to a `ReductionPath`.
@@ -557,6 +542,141 @@ impl ReductionGraph {
             })
             .collect();
         ReductionPath { steps }
+    }
+
+    fn node_path_order_key(&self, node_path: &[NodeIndex]) -> NodePathOrderKey<'_> {
+        (
+            node_path.len().saturating_sub(1),
+            node_path
+                .iter()
+                .map(|&idx| {
+                    let node = &self.nodes[self.graph[idx]];
+                    (node.name, &node.variant)
+                })
+                .collect(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn shortest_node_path(
+        &self,
+        source: NodeIndex,
+        target: NodeIndex,
+        adjacency: &[Vec<NodeIndex>],
+        excluded_nodes: &HashSet<NodeIndex>,
+        excluded_edges: &HashSet<(NodeIndex, NodeIndex)>,
+        max_nodes: usize,
+    ) -> Option<Vec<NodeIndex>> {
+        if excluded_nodes.contains(&source) || max_nodes == 0 {
+            return None;
+        }
+        if source == target {
+            return Some(vec![source]);
+        }
+
+        let mut queue = VecDeque::from([(source, 1usize)]);
+        let mut parents = HashMap::new();
+        let mut visited = HashSet::from([source]);
+
+        while let Some((current, path_nodes)) = queue.pop_front() {
+            if path_nodes == max_nodes {
+                continue;
+            }
+            for &next in &adjacency[current.index()] {
+                if excluded_nodes.contains(&next)
+                    || excluded_edges.contains(&(current, next))
+                    || !visited.insert(next)
+                {
+                    continue;
+                }
+                parents.insert(next, current);
+                if next == target {
+                    let mut path = vec![target];
+                    let mut node = target;
+                    while node != source {
+                        node = parents[&node];
+                        path.push(node);
+                    }
+                    path.reverse();
+                    return Some(path);
+                }
+                queue.push_back((next, path_nodes + 1));
+            }
+        }
+        None
+    }
+
+    fn find_k_shortest_node_paths(
+        &self,
+        source: NodeIndex,
+        target: NodeIndex,
+        mode: ReductionMode,
+        limit: usize,
+        max_nodes: usize,
+    ) -> Vec<Vec<NodeIndex>> {
+        if source == target || limit == 0 {
+            return Vec::new();
+        }
+
+        let mut adjacency = vec![Vec::new(); self.graph.node_count()];
+        for node in self.graph.node_indices() {
+            adjacency[node.index()] = self
+                .ordered_outgoing_edges(node, mode)
+                .into_iter()
+                .map(|(target, _)| target)
+                .collect();
+        }
+
+        let Some(first) = self.shortest_node_path(
+            source,
+            target,
+            &adjacency,
+            &HashSet::new(),
+            &HashSet::new(),
+            max_nodes,
+        ) else {
+            return Vec::new();
+        };
+
+        let mut accepted = vec![first];
+        let mut candidates = BTreeSet::new();
+
+        while accepted.len() < limit {
+            let previous = accepted.last().expect("accepted path exists");
+            for spur_index in 0..previous.len().saturating_sub(1) {
+                let root = &previous[..=spur_index];
+                let excluded_edges = accepted
+                    .iter()
+                    .filter(|path| path.len() > spur_index + 1 && path[..=spur_index] == *root)
+                    .map(|path| (path[spur_index], path[spur_index + 1]))
+                    .collect::<HashSet<_>>();
+                let excluded_nodes = root[..spur_index].iter().copied().collect();
+                let max_spur_nodes = max_nodes.saturating_sub(spur_index);
+                let Some(spur) = self.shortest_node_path(
+                    previous[spur_index],
+                    target,
+                    &adjacency,
+                    &excluded_nodes,
+                    &excluded_edges,
+                    max_spur_nodes,
+                ) else {
+                    continue;
+                };
+                let mut candidate = root[..spur_index].to_vec();
+                candidate.extend(spur);
+                if !accepted.contains(&candidate) {
+                    let key = self.node_path_order_key(&candidate);
+                    candidates.insert((key, candidate));
+                }
+            }
+
+            let Some((_, next)) = candidates.pop_first() else {
+                break;
+            };
+            accepted.push(next);
+        }
+
+        accepted
     }
 
     /// Find all simple paths between two specific problem variants.
@@ -614,8 +734,9 @@ impl ReductionGraph {
 
     /// Find up to `limit` simple paths between two specific problem variants.
     ///
-    /// Like [`find_all_paths`](Self::find_all_paths) but stops enumeration after
-    /// collecting `limit` paths. This avoids combinatorial explosion on dense graphs.
+    /// Returns witness-capable paths in deterministic order: fewest edges first,
+    /// then canonical problem name and variant order. Enumeration stops after
+    /// collecting `limit` paths.
     pub fn find_paths_up_to(
         &self,
         source: &str,
@@ -635,8 +756,8 @@ impl ReductionGraph {
         )
     }
 
-    /// Like [`find_all_paths_mode`](Self::find_all_paths_mode) but stops
-    /// enumeration after collecting `limit` paths.
+    /// Returns paths whose edges support `mode`, ordered by fewest edges first
+    /// and canonical problem name and variant order, stopping after `limit` paths.
     pub fn find_paths_up_to_mode(
         &self,
         source: &str,
@@ -657,8 +778,8 @@ impl ReductionGraph {
         )
     }
 
-    /// Like [`find_paths_up_to_mode`](Self::find_paths_up_to_mode) but also
-    /// bounds the number of intermediate nodes in each enumerated path.
+    /// Like [`find_paths_up_to_mode`](Self::find_paths_up_to_mode), with at most
+    /// `max_intermediate_nodes` nodes strictly between the source and target.
     #[allow(clippy::too_many_arguments)]
     pub fn find_paths_up_to_mode_bounded(
         &self,
@@ -679,18 +800,16 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
-            Vec<NodeIndex>,
-            _,
-            std::hash::RandomState,
-        >(&self.graph, src, dst, 0, max_intermediate_nodes)
-        .take(limit)
-        .collect();
+        if limit == 0 {
+            return Vec::new();
+        }
 
-        paths
+        let max_intermediate =
+            max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
+        let max_nodes = max_intermediate.saturating_add(2);
+        self.find_k_shortest_node_paths(src, dst, mode, limit, max_nodes)
             .iter()
-            .filter(|p| self.node_path_supports_mode(p, mode))
-            .map(|p| self.node_path_to_reduction_path(p))
+            .map(|path| self.node_path_to_reduction_path(path))
             .collect()
     }
 
@@ -784,56 +903,107 @@ impl ReductionGraph {
         self.nodes.len()
     }
 
-    /// Get the per-edge overhead expressions along a reduction path.
-    ///
-    /// Returns one `ReductionOverhead` per edge (i.e., `path.steps.len() - 1` items).
-    ///
-    /// Panics if any step in the path does not correspond to an edge in the graph.
-    pub fn path_overheads(&self, path: &ReductionPath) -> Vec<ReductionOverhead> {
+    /// Return the symbolic parameter transform for every edge of a path.
+    pub fn path_parameter_transforms(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<Vec<crate::parameters::ParameterTransform>, PathParameterError> {
         if path.steps.len() <= 1 {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let node_indices: Vec<NodeIndex> = path
             .steps
             .iter()
             .map(|step| {
-                self.lookup_node(&step.name, &step.variant)
-                    .unwrap_or_else(|| panic!("Node not found: {} {:?}", step.name, step.variant))
+                self.lookup_node(&step.name, &step.variant).ok_or_else(|| {
+                    PathParameterError::UnknownNode {
+                        problem: step.name.clone(),
+                        variant: step.variant.clone(),
+                    }
+                })
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
         node_indices
             .windows(2)
-            .map(|pair| {
-                let edge_idx = self.graph.find_edge(pair[0], pair[1]).unwrap_or_else(|| {
-                    let src = &self.nodes[self.graph[pair[0]]];
-                    let dst = &self.nodes[self.graph[pair[1]]];
-                    panic!(
-                        "No edge from {} {:?} to {} {:?}",
-                        src.name, src.variant, dst.name, dst.variant
-                    )
-                });
-                self.graph[edge_idx].overhead.clone()
+            .enumerate()
+            .map(|(index, pair)| {
+                let edge_idx = self.graph.find_edge(pair[0], pair[1]).ok_or_else(|| {
+                    PathParameterError::MissingEdge {
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    }
+                })?;
+                if self.graph[edge_idx].turing {
+                    return Err(PathParameterError::TuringEdge {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    });
+                }
+                let contract =
+                    self.graph[edge_idx]
+                        .parameter_contract
+                        .as_ref()
+                        .map_err(|error| PathParameterError::InvalidContract {
+                            step: index + 1,
+                            source_problem: path.steps[index].name.clone(),
+                            target_problem: path.steps[index + 1].name.clone(),
+                            error: Box::new(error.clone()),
+                        })?;
+                contract
+                    .transform()
+                    .cloned()
+                    .ok_or_else(|| PathParameterError::Unavailable {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    })
             })
             .collect()
     }
 
-    /// Compose overheads along a path symbolically.
-    ///
-    /// Returns a single `ReductionOverhead` whose expressions map from the
-    /// source problem's size variables directly to the final target's size variables.
-    pub fn compose_path_overhead(&self, path: &ReductionPath) -> ReductionOverhead {
-        self.path_overheads(path)
-            .into_iter()
-            .reduce(|acc, oh| acc.compose(&oh))
-            .unwrap_or_default()
+    /// Compose symbolic parameter transforms along a path.
+    pub fn compose_path_parameter_transform(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<Option<crate::parameters::ParameterTransform>, PathParameterError> {
+        if path.steps.is_empty() {
+            return Err(PathParameterError::EmptyPath);
+        }
+        if path.steps.len() == 1 {
+            return Ok(None);
+        }
+
+        let mut transforms = self.path_parameter_transforms(path)?.into_iter();
+        let Some(mut composed) = transforms.next() else {
+            return Ok(None);
+        };
+        for (offset, transform) in transforms.enumerate() {
+            let edge_index = offset + 1;
+            composed = composed
+                .compose(
+                    &transform,
+                    format!(
+                        "{} -> {}",
+                        path.steps[0].name,
+                        path.steps[edge_index + 1].name
+                    ),
+                )
+                .map_err(|error| PathParameterError::Step {
+                    step: edge_index + 1,
+                    source_problem: path.steps[edge_index].name.clone(),
+                    target_problem: path.steps[edge_index + 1].name.clone(),
+                    error: Box::new(error),
+                })?;
+        }
+        Ok(Some(composed))
     }
 
     /// Get all variant maps registered for a problem name.
     ///
-    /// Returns variants sorted deterministically: the "default" variant
-    /// (SimpleGraph, i32, etc.) comes first, then remaining variants
+    /// Returns the declared default first, followed by the remaining variants
     /// in lexicographic order.
     pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
         let mut variants: Vec<BTreeMap<String, String>> = self
@@ -846,16 +1016,13 @@ impl ReductionGraph {
                     .collect()
             })
             .unwrap_or_default();
-        // Sort deterministically: default variant values (SimpleGraph, One, KN)
-        // sort first so callers can rely on variants[0] being the "base" variant.
-        variants.sort_by(|a, b| {
-            fn default_rank(v: &BTreeMap<String, String>) -> usize {
-                v.values()
-                    .filter(|val| !["SimpleGraph", "One", "KN"].contains(&val.as_str()))
-                    .count()
+        variants.sort();
+        if let Some(default) = self.default_variants.get(name) {
+            if let Some(index) = variants.iter().position(|variant| variant == default) {
+                let default = variants.remove(index);
+                variants.insert(0, default);
             }
-            default_rank(a).cmp(&default_rank(b)).then_with(|| a.cmp(b))
-        });
+        }
         variants
     }
 
@@ -901,86 +1068,69 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    overhead: self.graph[e.id()].overhead.clone(),
-                    capabilities: self.graph[e.id()].capabilities,
+                    parameter_contract: self.graph[e.id()].parameter_contract.clone(),
+                    capabilities: self.graph[e.id()].capabilities(),
                 }
             })
             .collect()
     }
 
-    /// Get the problem size field names for a problem type.
+    /// Get executable outgoing reductions from one exact problem variant.
     ///
-    /// Derives size fields from the overhead expressions of reduction entries
-    /// where this problem appears as source or target. When the problem is a
-    /// source, its size fields are the input variables referenced in the overhead
-    /// expressions. When it's a target, its size fields are the output field names.
-    pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
-        let mut fields: std::collections::HashSet<&'static str> =
-            crate::registry::declared_size_fields(name)
-                .into_iter()
-                .collect();
-        for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name == name {
-                // Source's size fields are the input variables of the overhead.
-                fields.extend(entry.overhead().input_variable_names());
-            }
-            if entry.target_name == name {
-                // Target's size fields are the output field names.
-                let overhead = entry.overhead();
-                fields.extend(overhead.output_size.iter().map(|(name, _)| *name));
-            }
-        }
-        let mut result: Vec<&'static str> = fields.into_iter().collect();
-        result.sort_unstable();
-        result
-    }
-
-    /// Evaluate the cumulative output size along a reduction path.
+    /// # Panics
     ///
-    /// Walks the path from start to end, applying each edge's overhead
-    /// expressions to transform the problem size at each step.
-    /// Returns `None` if any edge in the path cannot be found.
-    pub fn evaluate_path_overhead(
+    /// Panics if `name` and `variant` do not identify an exactly registered problem variant.
+    pub fn outgoing_reductions_from(
         &self,
-        path: &ReductionPath,
-        input_size: &ProblemSize,
-    ) -> Option<ProblemSize> {
-        let mut current_size = input_size.clone();
-        for pair in path.steps.windows(2) {
-            let src = self.lookup_node(&pair[0].name, &pair[0].variant)?;
-            let dst = self.lookup_node(&pair[1].name, &pair[1].variant)?;
-            let edge_idx = self.graph.find_edge(src, dst)?;
-            let edge = &self.graph[edge_idx];
-            current_size = edge.overhead.evaluate_output_size(&current_size);
-        }
-        Some(current_size)
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
+    ) -> Vec<ReductionEdgeInfo> {
+        let source = self
+            .lookup_node(name, variant)
+            .unwrap_or_else(|| panic!("registered problem variant not found: {name} {variant:?}"));
+
+        self.ordered_outgoing_edges(source, mode)
+            .into_iter()
+            .map(|(target, edge)| {
+                let src = &self.nodes[self.graph[source]];
+                let dst = &self.nodes[self.graph[target]];
+                ReductionEdgeInfo {
+                    source_name: src.name,
+                    source_variant: src.variant.clone(),
+                    target_name: dst.name,
+                    target_variant: dst.variant.clone(),
+                    parameter_contract: self.graph[edge].parameter_contract.clone(),
+                    capabilities: self.graph[edge].capabilities(),
+                }
+            })
+            .collect()
     }
 
-    /// Compute the source problem's size from a type-erased instance.
-    ///
-    /// Iterates over all registered reduction entries with a matching source name
-    /// and merges their `source_size_fn` results to capture all size fields.
-    /// Different entries may reference different getter methods (e.g., one uses
-    /// `num_vertices` while another also uses `num_edges`).
-    pub fn compute_source_size(name: &str, instance: &dyn Any) -> ProblemSize {
-        let mut merged: Vec<(String, usize)> = Vec::new();
-        let mut seen: HashSet<String> = HashSet::new();
+    /// Get a problem type's canonical parameter names in declaration order.
+    pub fn parameter_names(&self, name: &str) -> Vec<String> {
+        inventory::iter::<crate::registry::VariantEntry>
+            .into_iter()
+            .find(|entry| entry.name == name)
+            .map(|entry| {
+                entry
+                    .parameter_names()
+                    .iter()
+                    .map(|name| (*name).to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 
-        for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name == name {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    (entry.source_size_fn)(instance)
-                }));
-                if let Ok(size) = result {
-                    for (k, v) in size.components {
-                        if seen.insert(k.clone()) {
-                            merged.push((k, v));
-                        }
-                    }
-                }
-            }
-        }
-        ProblemSize { components: merged }
+    /// Measure the complete problem-owned parameters at this exact variant.
+    pub fn compute_problem_parameters(
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        instance: &dyn Any,
+    ) -> ProblemParameters {
+        let entry = crate::registry::find_variant_entry(name, variant)
+            .unwrap_or_else(|| panic!("unregistered exact problem variant `{name}` {variant:?}"));
+        (entry.parameter_measure_fn)(instance)
     }
 
     /// Get all incoming reductions to a problem (across all its variants).
@@ -1000,8 +1150,8 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    overhead: self.graph[e.id()].overhead.clone(),
-                    capabilities: self.graph[e.id()].capabilities,
+                    parameter_contract: self.graph[e.id()].parameter_contract.clone(),
+                    capabilities: self.graph[e.id()].capabilities(),
                 }
             })
             .collect()
@@ -1165,11 +1315,12 @@ impl ReductionGraph {
     pub(crate) fn to_json(&self) -> ReductionGraphJson {
         use crate::registry::ProblemSchemaEntry;
 
-        // Build name -> module_path lookup from ProblemSchemaEntry inventory
-        let schema_modules: HashMap<&str, &str> = inventory::iter::<ProblemSchemaEntry>
-            .into_iter()
-            .map(|entry| (entry.name, entry.module_path))
-            .collect();
+        // Build the model-owned metadata lookup from ProblemSchemaEntry inventory.
+        let schema_metadata: HashMap<&str, (&str, crate::registry::ProblemCategory)> =
+            inventory::iter::<ProblemSchemaEntry>
+                .into_iter()
+                .map(|entry| (entry.name, (entry.module_path, entry.category)))
+                .collect();
 
         // Build sorted node list from the internal nodes
         let mut json_nodes: Vec<(usize, NodeJson)> = self
@@ -1177,21 +1328,20 @@ impl ReductionGraph {
             .iter()
             .enumerate()
             .map(|(i, node)| {
-                let (category, doc_path) = if let Some(&mod_path) = schema_modules.get(node.name) {
-                    (
-                        Self::category_from_module_path(mod_path),
-                        Self::doc_path_from_module_path(mod_path, node.name),
-                    )
-                } else {
-                    ("other".to_string(), String::new())
-                };
+                let &(module_path, category) =
+                    schema_metadata.get(node.name).unwrap_or_else(|| {
+                        panic!(
+                            "missing problem schema for registered variant `{}`",
+                            node.name
+                        )
+                    });
                 (
                     i,
                     NodeJson {
                         name: node.name.to_string(),
                         variant: node.variant.clone(),
                         category,
-                        doc_path,
+                        doc_path: Self::doc_path_from_module_path(module_path, node.name),
                         complexity: node.complexity.to_string(),
                     },
                 )
@@ -1212,17 +1362,35 @@ impl ReductionGraph {
         for edge_ref in self.graph.edge_references() {
             let src_node_id = self.graph[edge_ref.source()];
             let dst_node_id = self.graph[edge_ref.target()];
-            let overhead = &edge_ref.weight().overhead;
-            let capabilities = edge_ref.weight().capabilities;
+            let contract = &edge_ref.weight().parameter_contract;
+            let capabilities = edge_ref.weight().capabilities();
 
-            let overhead_fields = overhead
-                .output_size
-                .iter()
-                .map(|(field, poly)| OverheadFieldJson {
-                    field: field.to_string(),
-                    formula: poly.to_string(),
-                })
-                .collect();
+            let mut parameters = Vec::new();
+            if let Ok(contract) = contract {
+                if let Some(transform) = contract.transform() {
+                    let relation = match transform.relation() {
+                        crate::parameters::ParameterRelation::Exact => "exact",
+                        crate::parameters::ParameterRelation::UpperBound => "upper_bound",
+                    };
+                    parameters.extend(transform.expressions().map(|(field, expression)| {
+                        ParameterFieldJson {
+                            field: field.to_string(),
+                            contract: relation,
+                            formula: Some(expression.to_string()),
+                            reason: None,
+                        }
+                    }));
+                }
+                parameters.extend(contract.unavailable().iter().map(|unavailable| {
+                    ParameterFieldJson {
+                        field: unavailable.field.to_string(),
+                        contract: "unavailable",
+                        formula: None,
+                        reason: Some(unavailable.reason.to_string()),
+                    }
+                }));
+            }
+            let parameter_contract_error = contract.as_ref().err().map(ToString::to_string);
 
             // Find the doc_path from the matching ReductionEntry
             let src_name = self.nodes[src_node_id].name;
@@ -1235,7 +1403,8 @@ impl ReductionGraph {
             edges.push(EdgeJson {
                 source: old_to_new[&src_node_id],
                 target: old_to_new[&dst_node_id],
-                overhead: overhead_fields,
+                parameters,
+                parameter_contract_error,
                 doc_path,
                 witness: capabilities.witness,
                 aggregate: capabilities.aggregate,
@@ -1288,6 +1457,11 @@ impl ReductionGraph {
         serde_json::to_string_pretty(&json)
     }
 
+    /// Export the reduction graph as a JSON value.
+    pub fn to_json_value(&self) -> Result<serde_json::Value, serde_json::Error> {
+        serde_json::to_value(self.to_json())
+    }
+
     /// Export the reduction graph to a JSON file.
     pub fn to_json_file(&self, path: &std::path::Path) -> std::io::Result<()> {
         let json_string = self
@@ -1306,13 +1480,6 @@ impl ReductionGraph {
         format!("{}/index.html", stripped.replace("::", "/"))
     }
 
-    /// Extract the category from a module path.
-    ///
-    /// E.g., `"problemreductions::models::graph::maximum_independent_set"` -> `"graph"`.
-    fn category_from_module_path(module_path: &str) -> String {
-        classify_problem_category(module_path).to_string()
-    }
-
     /// Build the rustdoc path from a module path and problem name.
     ///
     /// E.g., `"problemreductions::models::graph::maximum_independent_set"`, `"MaximumIndependentSet"`
@@ -1328,49 +1495,37 @@ impl ReductionGraph {
         }
     }
 
-    /// Find the matching `ReductionEntry` for a (source_name, target_name) pair
-    /// given exact source and target variants.
+    /// Find the graph edge for exact source and target variants.
     ///
-    /// Returns `Some(MatchedEntry)` only when both the source and target variants
-    /// match exactly. No fallback is attempted — callers that need fuzzy matching
-    /// should resolve variants before calling this method.
-    pub fn find_best_entry(
+    /// No fallback is attempted — callers that need fuzzy matching should resolve
+    /// variants before calling this method.
+    pub fn find_entry(
         &self,
         source_name: &str,
         source_variant: &BTreeMap<String, String>,
         target_name: &str,
         target_variant: &BTreeMap<String, String>,
     ) -> Option<MatchedEntry> {
-        for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name != source_name || entry.target_name != target_name {
-                continue;
-            }
+        let source = self.lookup_node(source_name, source_variant)?;
+        let target = self.lookup_node(target_name, target_variant)?;
+        let edge = self.graph.find_edge(source, target)?;
 
-            let entry_source = Self::variant_to_map(&entry.source_variant());
-            let entry_target = Self::variant_to_map(&entry.target_variant());
-
-            // Exact match on both source and target variant
-            if source_variant == &entry_source && target_variant == &entry_target {
-                return Some(MatchedEntry {
-                    source_variant: entry_source,
-                    target_variant: entry_target,
-                    overhead: entry.overhead(),
-                });
-            }
-        }
-
-        None
+        Some(MatchedEntry {
+            source_variant: source_variant.clone(),
+            target_variant: target_variant.clone(),
+            parameter_contract: self.graph[edge].parameter_contract.clone(),
+        })
     }
 }
 
-/// A matched reduction entry returned by [`ReductionGraph::find_best_entry`].
+/// A matched reduction entry returned by [`ReductionGraph::find_entry`].
 pub struct MatchedEntry {
     /// The entry's source variant.
     pub source_variant: BTreeMap<String, String>,
     /// The entry's target variant.
     pub target_variant: BTreeMap<String, String>,
-    /// The overhead of the reduction.
-    pub overhead: ReductionOverhead,
+    /// The reduction's explicit parameter contract.
+    pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
 }
 
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
@@ -1401,13 +1556,33 @@ impl ReductionChain {
     }
 
     /// Extract a solution from target space back to source space.
-    pub fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.steps
-            .iter()
-            .rev()
-            .fold(target_solution.to_vec(), |sol, step| {
-                step.extract_solution_dyn(&sol)
-            })
+    pub fn extract_solution<S: 'static, T: 'static>(
+        &self,
+        target_solution: &T,
+    ) -> crate::rules::ExtractionResult<S> {
+        let mut steps = self.steps.iter().rev();
+        let first = steps.next().expect("ReductionChain has no steps");
+        let mut solution = first.extract_solution_dyn(target_solution)?;
+        for step in steps {
+            solution = step.extract_solution_dyn(solution.as_ref())?;
+        }
+        solution
+            .downcast::<S>()
+            .map(|solution| *solution)
+            .map_err(|_| crate::rules::ExtractionError::invalid("source solution type mismatch"))
+    }
+
+    /// Extract a JSON target witness into a JSON source witness.
+    pub fn extract_solution_json(
+        &self,
+        target_solution: serde_json::Value,
+    ) -> crate::rules::ExtractionResult<serde_json::Value> {
+        let last = self.steps.last().expect("ReductionChain has no steps");
+        let mut solution = last.target_solution_from_json(target_solution)?;
+        for step in self.steps.iter().rev() {
+            solution = step.extract_solution_dyn(solution.as_ref())?;
+        }
+        self.steps[0].source_solution_json(solution.as_ref())
     }
 }
 
@@ -1444,43 +1619,21 @@ impl AggregateReductionChain {
     }
 }
 
-struct WitnessBackedIdentityAggregateStep {
-    inner: Box<dyn DynReductionResult>,
-}
-
-impl DynAggregateReductionResult for WitnessBackedIdentityAggregateStep {
-    fn target_problem_any(&self) -> &dyn Any {
-        self.inner.target_problem_any()
-    }
-
-    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
-        target_value
-    }
-}
-
 impl ReductionGraph {
     fn execute_aggregate_edge(
         &self,
         edge_idx: EdgeIndex,
         input: &dyn Any,
-    ) -> Option<Box<dyn DynAggregateReductionResult>> {
+    ) -> Result<Option<Box<dyn DynAggregateReductionResult>>, crate::rules::ReductionError> {
         let edge = &self.graph[edge_idx];
         if !Self::edge_supports_mode(edge, ReductionMode::Aggregate) {
-            return None;
+            return Ok(None);
         }
 
-        if let Some(edge_fn) = edge.reduce_aggregate_fn {
-            return Some(edge_fn(input));
-        }
-
-        if edge.capabilities.witness && edge.capabilities.aggregate {
-            let edge_fn = edge.reduce_fn?;
-            return Some(Box::new(WitnessBackedIdentityAggregateStep {
-                inner: edge_fn(input),
-            }));
-        }
-
-        None
+        let Some(reduce) = edge.reduce_aggregate_fn else {
+            return Ok(None);
+        };
+        reduce(input).map(Some)
     }
 
     /// Execute a reduction path on a source problem instance.
@@ -1492,7 +1645,9 @@ impl ReductionGraph {
     /// # Example
     ///
     /// ```text
-    /// let chain = graph.reduce_along_path(&path, &source_problem)?;
+    /// let Some(chain) = graph.reduce_along_path(&path, &source_problem)? else {
+    ///     return Err("path is not witness-executable".into());
+    /// };
     /// let target: &QUBO<f64> = chain.target_problem();
     /// let source_solution = chain.extract_solution(&target_solution);
     /// ```
@@ -1500,33 +1655,42 @@ impl ReductionGraph {
         &self,
         path: &ReductionPath,
         source: &dyn Any,
-    ) -> Option<ReductionChain> {
+    ) -> Result<Option<ReductionChain>, crate::rules::ReductionError> {
         if path.steps.len() < 2 {
-            return None;
+            return Ok(None);
         }
         // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
         for window in path.steps.windows(2) {
-            let src = self.lookup_node(&window[0].name, &window[0].variant)?;
-            let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
-            let edge_idx = self.graph.find_edge(src, dst)?;
+            let Some(src) = self.lookup_node(&window[0].name, &window[0].variant) else {
+                return Ok(None);
+            };
+            let Some(dst) = self.lookup_node(&window[1].name, &window[1].variant) else {
+                return Ok(None);
+            };
+            let Some(edge_idx) = self.graph.find_edge(src, dst) else {
+                return Ok(None);
+            };
             if !Self::edge_supports_mode(&self.graph[edge_idx], ReductionMode::Witness) {
-                return None;
+                return Ok(None);
             }
-            edge_fns.push(self.graph[edge_idx].reduce_fn?);
+            let Some(reduce) = self.graph[edge_idx].reduce_fn else {
+                return Ok(None);
+            };
+            edge_fns.push(reduce);
         }
         // Execute the chain
         let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        let step = (edge_fns[0])(source);
+        let step = (edge_fns[0])(source)?;
         steps.push(step);
         for edge_fn in &edge_fns[1..] {
             let step = {
                 let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)
+                edge_fn(prev_target)?
             };
             steps.push(step);
         }
-        Some(ReductionChain { steps })
+        Ok(Some(ReductionChain { steps }))
     }
 
     /// Execute an aggregate-value reduction path on a source problem instance.
@@ -1534,30 +1698,233 @@ impl ReductionGraph {
         &self,
         path: &ReductionPath,
         source: &dyn Any,
-    ) -> Option<AggregateReductionChain> {
+    ) -> Result<Option<AggregateReductionChain>, crate::rules::ReductionError> {
         if path.steps.len() < 2 {
-            return None;
+            return Ok(None);
         }
 
         let mut edge_indices = Vec::new();
         for window in path.steps.windows(2) {
-            let src = self.lookup_node(&window[0].name, &window[0].variant)?;
-            let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
-            let edge_idx = self.graph.find_edge(src, dst)?;
+            let Some(src) = self.lookup_node(&window[0].name, &window[0].variant) else {
+                return Ok(None);
+            };
+            let Some(dst) = self.lookup_node(&window[1].name, &window[1].variant) else {
+                return Ok(None);
+            };
+            let Some(edge_idx) = self.graph.find_edge(src, dst) else {
+                return Ok(None);
+            };
             edge_indices.push(edge_idx);
         }
 
         let mut steps: Vec<Box<dyn DynAggregateReductionResult>> = Vec::new();
-        let step = self.execute_aggregate_edge(edge_indices[0], source)?;
+        let Some(step) = self.execute_aggregate_edge(edge_indices[0], source)? else {
+            return Ok(None);
+        };
         steps.push(step);
         for &edge_idx in &edge_indices[1..] {
             let step = {
                 let prev_target = steps.last().unwrap().target_problem_any();
-                self.execute_aggregate_edge(edge_idx, prev_target)?
+                let Some(step) = self.execute_aggregate_edge(edge_idx, prev_target)? else {
+                    return Ok(None);
+                };
+                step
             };
             steps.push(step);
         }
-        Some(AggregateReductionChain { steps })
+        Ok(Some(AggregateReductionChain { steps }))
+    }
+}
+
+/// A concrete reduction path whose reductions have already been executed.
+///
+/// The constructed chain is retained so callers can inspect target parameterss and
+/// extract solutions without re-executing any reduction.
+pub struct ExecutedPath {
+    /// The variant-level path.
+    pub path: ReductionPath,
+    /// The executed reduction steps (one per hop), shared via `Rc`.
+    steps: Vec<Rc<dyn DynReductionResult>>,
+}
+
+impl ExecutedPath {
+    /// Get the final target problem as a type-erased reference.
+    pub fn target_problem_any(&self) -> &dyn Any {
+        self.steps
+            .last()
+            .expect("ExecutedPath has no steps")
+            .target_problem_any()
+    }
+
+    /// Return the parameters of every concrete intermediate target in this path.
+    pub fn target_parameters(&self) -> Vec<ProblemParameters> {
+        self.steps
+            .iter()
+            .zip(self.path.steps.iter().skip(1))
+            .map(|(result, target)| {
+                ReductionGraph::compute_problem_parameters(
+                    &target.name,
+                    &target.variant,
+                    result.target_problem_any(),
+                )
+            })
+            .collect()
+    }
+
+    /// Extract a solution from target space back to source space.
+    pub fn extract_solution<S: 'static, T: 'static>(
+        &self,
+        target_solution: &T,
+    ) -> crate::rules::ExtractionResult<S> {
+        let mut steps = self.steps.iter().rev();
+        let first = steps.next().expect("ExecutedPath has no steps");
+        let mut solution = first.extract_solution_dyn(target_solution)?;
+        for step in steps {
+            solution = step.extract_solution_dyn(solution.as_ref())?;
+        }
+        solution
+            .downcast::<S>()
+            .map(|solution| *solution)
+            .map_err(|_| crate::rules::ExtractionError::invalid("source solution type mismatch"))
+    }
+}
+
+impl ReductionGraph {
+    /// Execute a selected batch of witness paths while sharing every common prefix.
+    pub fn execute_paths(
+        &self,
+        paths: &[ReductionPath],
+        source_instance: &dyn Any,
+    ) -> Result<Vec<ExecutedPath>, ExecutePathsError> {
+        let mut prefixes: HashMap<Vec<ReductionStep>, Vec<Rc<dyn DynReductionResult>>> =
+            HashMap::new();
+        let mut executed = Vec::with_capacity(paths.len());
+        let mut batch_source: Option<&ReductionStep> = None;
+        for (path_index, path) in paths.iter().enumerate() {
+            let source = path
+                .steps
+                .first()
+                .ok_or(ExecutePathsError::EmptyPath { path_index })?;
+            if path.steps.len() < 2 {
+                return Err(ExecutePathsError::NoEdges { path_index });
+            }
+            if let Some(expected) = batch_source {
+                if source != expected {
+                    return Err(ExecutePathsError::DifferentSource { path_index });
+                }
+            } else {
+                batch_source = Some(source);
+            }
+            let source_prefix = vec![source.clone()];
+            let mut chain = prefixes.get(&source_prefix).cloned().unwrap_or_default();
+            prefixes.entry(source_prefix.clone()).or_default();
+            let mut prefix = source_prefix;
+            for pair in path.steps.windows(2) {
+                prefix.push(pair[1].clone());
+                if let Some(cached) = prefixes.get(&prefix) {
+                    chain = cached.clone();
+                    continue;
+                }
+                let source_node = self
+                    .lookup_node(&pair[0].name, &pair[0].variant)
+                    .ok_or_else(|| ExecutePathsError::UnknownNode {
+                        path_index,
+                        problem: pair[0].name.clone(),
+                        variant: pair[0].variant.clone(),
+                    })?;
+                let target_node_index = self
+                    .lookup_node(&pair[1].name, &pair[1].variant)
+                    .ok_or_else(|| ExecutePathsError::UnknownNode {
+                        path_index,
+                        problem: pair[1].name.clone(),
+                        variant: pair[1].variant.clone(),
+                    })?;
+                let edge_index = self
+                    .graph
+                    .find_edge(source_node, target_node_index)
+                    .ok_or_else(|| ExecutePathsError::MissingEdge {
+                        path_index,
+                        source_problem: pair[0].name.clone(),
+                        target_problem: pair[1].name.clone(),
+                    })?;
+                let edge_data = &self.graph[edge_index];
+                let Some(reduce_fn) = edge_data.reduce_fn else {
+                    return Err(ExecutePathsError::NotWitnessExecutable {
+                        path_index,
+                        source_problem: pair[0].name.clone(),
+                        target_problem: pair[1].name.clone(),
+                    });
+                };
+                let current = chain
+                    .last()
+                    .map(|step| step.target_problem_any())
+                    .unwrap_or(source_instance);
+                let result = reduce_fn(current)
+                    .map_err(|cause| ExecutePathsError::Reduction { path_index, cause })?;
+                chain.push(Rc::from(result));
+                prefixes.insert(prefix.clone(), chain.clone());
+            }
+            executed.push(ExecutedPath {
+                path: path.clone(),
+                steps: chain,
+            });
+        }
+        Ok(executed)
+    }
+}
+
+#[cfg(test)]
+impl ReductionGraph {
+    /// Build a bare reduction graph from an explicit node/edge list (test-only).
+    ///
+    /// Nodes carry the empty variant and empty complexity; each edge carries a
+    /// [`ReductionEdgeData`] without depending on registered inventory.
+    pub(crate) fn from_test_edges(
+        node_names: &[&'static str],
+        edges: &[(&'static str, &'static str, ReductionEdgeData)],
+    ) -> Self {
+        Self::from_test_variant_edges(
+            &node_names
+                .iter()
+                .map(|&name| (name, BTreeMap::new()))
+                .collect::<Vec<_>>(),
+            edges,
+        )
+    }
+
+    pub(crate) fn from_test_variant_edges(
+        test_nodes: &[(&'static str, BTreeMap<String, String>)],
+        edges: &[(&'static str, &'static str, ReductionEdgeData)],
+    ) -> Self {
+        let mut graph: DiGraph<usize, ReductionEdgeData> = DiGraph::new();
+        let mut nodes: Vec<VariantNode> = Vec::new();
+        let mut name_to_nodes: HashMap<&'static str, Vec<NodeIndex>> = HashMap::new();
+        let mut index_of: HashMap<&'static str, NodeIndex> = HashMap::new();
+
+        for (name, variant) in test_nodes {
+            let node_id = nodes.len();
+            nodes.push(VariantNode {
+                name,
+                variant: variant.clone(),
+                complexity: "",
+            });
+            let idx = graph.add_node(node_id);
+            index_of.insert(name, idx);
+            name_to_nodes.entry(name).or_default().push(idx);
+        }
+
+        for (src, dst, data) in edges {
+            let s = index_of[src];
+            let d = index_of[dst];
+            graph.add_edge(s, d, data.clone());
+        }
+
+        Self {
+            graph,
+            nodes,
+            name_to_nodes,
+            default_variants: HashMap::new(),
+        }
     }
 }
 
@@ -1569,11 +1936,11 @@ mod tests;
 #[path = "../unit_tests/rules/reduction_path_parity.rs"]
 mod reduction_path_parity_tests;
 
-#[cfg(all(test, feature = "ilp-solver"))]
+#[cfg(test)]
 #[path = "../unit_tests/rules/maximumindependentset_ilp.rs"]
 mod maximumindependentset_ilp_path_tests;
 
-#[cfg(all(test, feature = "ilp-solver"))]
+#[cfg(test)]
 #[path = "../unit_tests/rules/minimumvertexcover_ilp.rs"]
 mod minimumvertexcover_ilp_path_tests;
 

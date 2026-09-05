@@ -4,11 +4,13 @@
 //! the source vertices into an edge-clique cover. The target graph contains
 //! left/right copies of the source vertices, one directed gadget per source
 //! edge, and two side-clique anchors.
+//! The source is satisfiable iff the target optimum is at most K + 2|E| + 2.
 
 use crate::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::{Min, OptimizationValue, Or};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -88,8 +90,20 @@ fn add_clique_edges(vertices: &[usize], edges: &mut Vec<(usize, usize)>) {
     }
 }
 
-fn invalid_source_solution(num_source_vertices: usize, num_source_cliques: usize) -> Vec<usize> {
-    vec![num_source_cliques; num_source_vertices]
+fn target_clique_bound(
+    num_cliques: i64,
+    num_edges: i64,
+) -> Result<i64, crate::rules::ReductionError> {
+    num_edges
+        .checked_mul(2)
+        .and_then(|offset| offset.checked_add(2))
+        .and_then(|offset| num_cliques.checked_add(offset))
+        .ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                PartitionIntoCliques<SimpleGraph>,
+                MinimumCoveringByCliques<SimpleGraph>,
+            >("computing target clique bound")
+        })
 }
 
 /// Result of reducing PartitionIntoCliques to MinimumCoveringByCliques.
@@ -98,6 +112,7 @@ pub struct ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
     target: MinimumCoveringByCliques<SimpleGraph>,
     source_graph: SimpleGraph,
     source_num_cliques: usize,
+    target_bound: i64,
 }
 
 impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
@@ -108,63 +123,88 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.source_graph.num_vertices();
-        let target_edges = self.target.graph().edges();
-        if target_solution.len() != target_edges.len() {
-            return invalid_source_solution(n, self.source_num_cliques);
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let mut matching_labels = vec![None; n];
-        for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
-            let matching_index = if *u < n && *v == n + *u {
-                Some(*u)
-            } else if *v < n && *u == n + *v {
-                Some(*v)
-            } else {
-                None
-            };
+        Ok({
+            let n = self.source_graph.num_vertices();
+            let target_edges = self.target.graph().edges();
+            let mut matching_labels = vec![None; n];
+            for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
+                let matching_index = if *u < n && *v == n + *u {
+                    Some(*u)
+                } else if *v < n && *u == n + *v {
+                    Some(*v)
+                } else {
+                    None
+                };
 
-            if let Some(i) = matching_index {
-                matching_labels[i] = Some(label);
+                if let Some(i) = matching_index {
+                    matching_labels[i] = Some(label);
+                }
             }
-        }
 
-        if matching_labels.iter().any(Option::is_none) {
-            return invalid_source_solution(n, self.source_num_cliques);
-        }
+            let mut label_map = BTreeMap::new();
+            let extracted = matching_labels
+                .into_iter()
+                .map(|label| {
+                    let label = label.ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target cover does not label every matching gadget edge",
+                        )
+                    })?;
+                    let next = label_map.len();
+                    Ok(*label_map.entry(label).or_insert(next))
+                })
+                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
 
-        let mut label_map = BTreeMap::new();
-        let extracted = matching_labels
-            .into_iter()
-            .map(|label| {
-                let label = label.expect("checked above");
-                let next = label_map.len();
-                *label_map.entry(label).or_insert(next)
-            })
-            .collect::<Vec<_>>();
+            if label_map.len() > self.source_num_cliques {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "target cover uses {} cliques, exceeding source bound {}",
+                    label_map.len(),
+                    self.source_num_cliques
+                )));
+            }
 
-        if label_map.len() > self.source_num_cliques {
-            return invalid_source_solution(n, self.source_num_cliques);
-        }
+            let source_problem =
+                PartitionIntoCliques::new(self.source_graph.clone(), self.source_num_cliques);
+            if <PartitionIntoCliques<SimpleGraph> as crate::traits::Problem>::evaluate(
+                &source_problem,
+                &extracted,
+            )?
+            .0
+            {
+                extracted
+            } else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target cover maps to an invalid source clique partition",
+                ));
+            }
+        })
+    }
+}
 
-        let source_problem =
-            PartitionIntoCliques::new(self.source_graph.clone(), self.source_num_cliques);
-        if <PartitionIntoCliques<SimpleGraph> as crate::traits::Problem>::evaluate(
-            &source_problem,
-            &extracted,
-        )
-        .0
-        {
-            extracted
-        } else {
-            invalid_source_solution(n, self.source_num_cliques)
-        }
+impl crate::rules::AggregateReductionResult
+    for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
+{
+    type Source = PartitionIntoCliques<SimpleGraph>;
+    type Target = MinimumCoveringByCliques<SimpleGraph>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Min<i64>) -> Or {
+        Or(Min::meets_bound(&target_value, &self.target_bound))
     }
 }
 
 #[reduction(
-    overhead = {
+    aggregate = custom,
+    transform = exact {
         num_vertices = "2 * num_vertices + 4 * num_edges + 2",
         num_edges = "(num_vertices + 2 * num_edges)^2 + 2 * num_vertices + 10 * num_edges",
     }
@@ -172,7 +212,16 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
 impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<SimpleGraph> {
     type Result = ReductionPartitionIntoCliquesToMinimumCoveringByCliques;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let source_bound = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            self.num_cliques(),
+            "converting clique bound",
+        )?;
+        let source_edges = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            self.num_edges(),
+            "converting edge count",
+        )?;
+        let target_bound = target_clique_bound(source_bound, source_edges)?;
         let layout = OrlinLayout::new(self.graph());
         let left_vertices = layout.left_vertices();
         let right_vertices = layout.right_vertices();
@@ -206,11 +255,12 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
         let target_graph = SimpleGraph::new(layout.total_vertices(), edges);
         let target = MinimumCoveringByCliques::new(target_graph);
 
-        ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
+        Ok(ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
             target,
             source_graph: self.graph().clone(),
             source_num_cliques: self.num_cliques(),
-        }
+            target_bound,
+        })
     }
 }
 
@@ -246,7 +296,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partitionintocliques_to_minimumcoveringbycliques",
         build: || {
             let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-            let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+            let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+                .expect("reduction should succeed");
             let layout = OrlinLayout::new(source.graph());
 
             let target_config = edge_labels_from_clique_cover(
@@ -275,8 +326,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config,
+                    source_config: serde_json::json!(vec![0, 0, 1]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

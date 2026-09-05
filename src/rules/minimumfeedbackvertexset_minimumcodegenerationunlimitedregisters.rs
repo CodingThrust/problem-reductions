@@ -25,7 +25,7 @@ pub struct ReductionFVSToCodeGen {
 }
 
 impl ReductionResult for ReductionFVSToCodeGen {
-    type Source = MinimumFeedbackVertexSet<i32>;
+    type Source = MinimumFeedbackVertexSet<i64>;
     type Target = MinimumCodeGenerationUnlimitedRegisters;
 
     fn target_problem(&self) -> &Self::Target {
@@ -37,45 +37,52 @@ impl ReductionResult for ReductionFVSToCodeGen {
     /// A leaf register R_x is destroyed when x¹ executes (left operand).
     /// If any right-child user of x⁰ is evaluated after x¹, a LOAD was needed,
     /// meaning x is in the feedback vertex set.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_source_vertices;
-        let mut source_config = vec![0usize; n];
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // target_solution[i] = evaluation position for the i-th internal node
-        // Internal nodes are indices n, n+1, ..., n+m-1 (sorted), so
-        // target_solution[j] = position for internal node (n + j).
+        Ok({
+            let n = self.num_source_vertices;
+            let mut source_config = vec![false; n];
 
-        // eval_pos[j] = evaluation position for internal node (n + j)
-        let eval_pos = target_solution;
+            // target_solution[i] = evaluation position for the i-th internal node
+            // Internal nodes are indices n, n+1, ..., n+m-1 (sorted), so
+            // target_solution[j] = position for internal node (n + j).
 
-        for (x, cfg) in source_config.iter_mut().enumerate() {
-            if let Some(chain_start_idx) = self.chain_start[x] {
-                let start_j = chain_start_idx - n;
-                let start_pos = eval_pos[start_j];
+            // eval_pos[j] = evaluation position for internal node (n + j)
+            let eval_pos = target_solution;
 
-                for &user_idx in &self.right_child_users[x] {
-                    let user_j = user_idx - n;
-                    if eval_pos[user_j] > start_pos {
-                        *cfg = 1;
-                        break;
+            for (x, cfg) in source_config.iter_mut().enumerate() {
+                if let Some(chain_start_idx) = self.chain_start[x] {
+                    let start_j = chain_start_idx - n;
+                    let start_pos = eval_pos[start_j];
+
+                    for &user_idx in &self.right_child_users[x] {
+                        let user_j = user_idx - n;
+                        if eval_pos[user_j] > start_pos {
+                            *cfg = true;
+                            break;
+                        }
                     }
                 }
             }
-        }
 
-        source_config
+            source_config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices + num_arcs",
     }
 )]
-impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertexSet<i32> {
+impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertexSet<i64> {
     type Result = ReductionFVSToCodeGen;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let m = self.graph().num_arcs();
 
@@ -124,22 +131,22 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
 
         let target = MinimumCodeGenerationUnlimitedRegisters::new(n + m, left_arcs, right_arcs);
 
-        ReductionFVSToCodeGen {
+        Ok(ReductionFVSToCodeGen {
             target,
             num_source_vertices: n,
             chain_start,
             right_child_users,
-        }
+        })
     }
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn issue_example_source() -> MinimumFeedbackVertexSet<i32> {
+fn issue_example_source() -> MinimumFeedbackVertexSet<i64> {
     use crate::topology::DirectedGraph;
     // 3-cycle: a→b→c→a (vertices 0,1,2)
     MinimumFeedbackVertexSet::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     )
 }
 
@@ -152,17 +159,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters",
         build: || {
             let source = issue_example_source();
-            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source);
+            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source)
+                .expect("reduction should succeed");
 
             // Find a target witness whose extracted source solution matches an optimal FVS
             let solver = BruteForce::new();
-            let source_witnesses = solver.find_all_witnesses(&source);
-            let target_witnesses = solver.find_all_witnesses(reduction.target_problem());
+            let source_witnesses = solver
+                .find_all_witnesses(&source)
+                .expect("canonical source evaluation must succeed");
+            let target_witnesses = solver
+                .find_all_witnesses(reduction.target_problem())
+                .expect("canonical target evaluation must succeed");
 
             let (source_config, target_config) = target_witnesses
                 .iter()
                 .find_map(|tw| {
-                    let extracted = reduction.extract_solution(tw);
+                    let extracted = reduction.extract_solution(tw).unwrap();
                     if source_witnesses.contains(&extracted) {
                         Some((extracted, tw.clone()))
                     } else {
@@ -175,8 +187,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

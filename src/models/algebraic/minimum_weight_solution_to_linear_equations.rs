@@ -3,7 +3,7 @@
 //! Given an n×m integer matrix A and integer vector b, find a rational vector y
 //! with Ay = b that minimizes the number of non-zero entries (Hamming weight).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Minimum Weight Solution to Linear Equations",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find a rational solution to Ay=b minimizing the number of non-zero entries",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<i64>>", description: "n×m integer matrix A" },
-            FieldInfo { name: "rhs", type_name: "Vec<i64>", description: "right-hand side vector b of length n" },
-        ],
+        fields: MinimumWeightSolutionCreateSpec::FIELDS,
     }
 }
 
@@ -40,7 +38,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::MinimumWeightSolutionToLinearEquations;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![1, 2, 3, 1],
@@ -49,7 +47,7 @@ inventory::submit! {
 /// let rhs = vec![5, 4];
 /// let problem = MinimumWeightSolutionToLinearEquations::new(matrix, rhs);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +56,39 @@ pub struct MinimumWeightSolutionToLinearEquations {
     matrix: Vec<Vec<i64>>,
     /// The right-hand side vector b of length n.
     rhs: Vec<i64>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumWeightSolutionCreateSpec {
+    /// Integer matrix as JSON.
+    #[create(codec = "json")]
+    matrix: Vec<Vec<i64>>,
+    /// Right-hand side vector.
+    #[create(codec = "comma-separated")]
+    rhs: Vec<i64>,
+}
+
+impl TryFrom<MinimumWeightSolutionCreateSpec> for MinimumWeightSolutionToLinearEquations {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumWeightSolutionCreateSpec) -> Result<Self, Self::Error> {
+        let first = spec
+            .matrix
+            .first()
+            .ok_or("matrix must have at least one row")?;
+        if first.is_empty() {
+            return Err("matrix must have at least one column".into());
+        }
+        if spec.matrix.iter().any(|row| row.len() != first.len()) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if spec.rhs.len() != spec.matrix.len() {
+            return Err("rhs length must equal number of rows".into());
+        }
+        Ok(Self {
+            matrix: spec.matrix,
+            rhs: spec.rhs,
+        })
+    }
 }
 
 impl MinimumWeightSolutionToLinearEquations {
@@ -104,20 +135,20 @@ impl MinimumWeightSolutionToLinearEquations {
 
     /// Check whether the system restricted to the given column indices is
     /// consistent over the rationals. Uses integer Gaussian elimination on
-    /// the augmented matrix [A'|b] with i128 arithmetic.
-    fn is_consistent(&self, columns: &[usize]) -> bool {
+    /// the augmented matrix [A'|b] with checked integer arithmetic.
+    fn is_consistent(&self, columns: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         let n = self.num_equations();
         let k = columns.len();
 
-        // Build augmented matrix [A'|b] as i128 to avoid overflow.
+        // Build augmented matrix [A'|b].
         // Each row has k coefficient columns + 1 rhs column.
-        let mut aug: Vec<Vec<i128>> = (0..n)
+        let mut aug: Vec<Vec<i64>> = (0..n)
             .map(|i| {
                 let mut row = Vec::with_capacity(k + 1);
                 for &j in columns {
-                    row.push(self.matrix[i][j] as i128);
+                    row.push(self.matrix[i][j]);
                 }
-                row.push(self.rhs[i] as i128);
+                row.push(self.rhs[i]);
                 row
             })
             .collect();
@@ -143,7 +174,21 @@ impl MinimumWeightSolutionToLinearEquations {
                 }
                 // row[r] = pivot_val * row[r] - factor * row[pivot_row]
                 for (cell, &pv) in row.iter_mut().zip(pivot_row_snapshot.iter()) {
-                    *cell = pivot_val * *cell - factor * pv;
+                    let left = pivot_val.checked_mul(*cell).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "multiplying a consistency-elimination row".into(),
+                        )
+                    })?;
+                    let right = factor.checked_mul(pv).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "multiplying a consistency-elimination pivot row".into(),
+                        )
+                    })?;
+                    *cell = left.checked_sub(right).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "subtracting consistency-elimination rows".into(),
+                        )
+                    })?;
                 }
             }
             pivot_row += 1;
@@ -153,59 +198,78 @@ impl MinimumWeightSolutionToLinearEquations {
         // non-zero rhs means the system is inconsistent.
         for row in &aug[pivot_row..n] {
             if row[k] != 0 {
-                return false;
+                return Ok(false);
             }
         }
-        true
+        Ok(true)
     }
 }
 
 impl Problem for MinimumWeightSolutionToLinearEquations {
     const NAME: &'static str = "MinimumWeightSolutionToLinearEquations";
-    type Value = Min<usize>;
+    type Solution = Vec<bool>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("num_equations", num_equations),
+        ("num_variables", num_variables),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_variables()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_variables() {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        let columns: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(j, _)| j)
-            .collect();
-
-        if columns.is_empty() {
-            // No columns selected — consistent iff b = 0.
-            if self.rhs.iter().all(|&v| v == 0) {
-                return Min(Some(0));
-            } else {
-                return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_variables() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment length does not match the equation variables".into(),
+                ));
             }
-        }
+            let columns: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v)
+                .map(|(j, _)| j)
+                .collect();
 
-        if self.is_consistent(&columns) {
-            Min(Some(columns.len()))
-        } else {
-            Min(None)
-        }
+            if columns.is_empty() {
+                // No columns selected — consistent iff b = 0.
+                if self.rhs.iter().all(|&v| v == 0) {
+                    return Ok(Min(Some(0)));
+                } else {
+                    return Ok(Min(None));
+                }
+            }
+
+            if self.is_consistent(&columns)? {
+                Min(Some(i64::try_from(columns.len()).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting solution weight to i64".into(),
+                    )
+                })?))
+            } else {
+                Min(None)
+            }
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumWeightSolutionToLinearEquations {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_variables()]
     }
 }
 
 crate::declare_variants! {
-    default MinimumWeightSolutionToLinearEquations => "2^num_variables",
+    default MinimumWeightSolutionToLinearEquations => "2^num_variables" create MinimumWeightSolutionCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumWeightSolutionToLinearEquations decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -218,7 +282,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_solution_to_linear_equations",
         instance: Box::new(MinimumWeightSolutionToLinearEquations::new(matrix, rhs)),
-        optimal_config: vec![1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, false, false]),
         optimal_value: serde_json::json!(2),
     }]
 }

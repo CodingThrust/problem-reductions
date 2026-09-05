@@ -11,7 +11,8 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_closed_loo
     // 6-vertex graph with two P3 paths: 0-1-2 and 3-4-5
     let source =
         PartitionIntoPathsOfLength2::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]));
-    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
 
     // Check target structure
@@ -38,9 +39,10 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_no_solutio
         6,
         vec![(0, 1), (1, 2), (0, 2)], // triangle on {0,1,2}, no edges on {3,4,5}
     ));
-    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(result.target_problem());
+    let solutions = solver.find_all_witnesses(result.target_problem()).unwrap();
     assert!(
         solutions.is_empty(),
         "No P3-partition exists, so BCSF should have no solution"
@@ -66,7 +68,8 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_triangle_p
             (0, 5),
         ],
     ));
-    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
 
     assert_eq!(target.num_vertices(), 9);
@@ -85,12 +88,13 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_extract_so
     // Verify extract_solution is identity
     let source =
         PartitionIntoPathsOfLength2::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]));
-    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     let target_config = vec![0, 0, 0, 1, 1, 1];
-    let extracted = result.extract_solution(&target_config);
+    let extracted = result.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
 
     // Verify the extracted solution is valid in the source
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }

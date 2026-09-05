@@ -1,4 +1,16 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+#[test]
+fn create_spec_rejects_reused_terminal() {
+    assert!(
+        DisjointConnectingPaths::try_from(DisjointConnectingPathsCreateSpec {
+            graph: vec![(0, 1), (1, 2)],
+            num_vertices: None,
+            terminal_pairs: vec![(0, 1), (1, 2)]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -13,8 +25,8 @@ fn issue_yes_problem() -> DisjointConnectingPaths<SimpleGraph> {
     )
 }
 
-fn issue_yes_config() -> Vec<usize> {
-    vec![1, 0, 1, 0, 1, 0, 1]
+fn issue_yes_config() -> Vec<bool> {
+    vec![true, false, true, false, true, false, true]
 }
 
 fn issue_no_problem() -> DisjointConnectingPaths<SimpleGraph> {
@@ -31,7 +43,7 @@ fn test_disjoint_connecting_paths_creation() {
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.num_pairs(), 2);
     assert_eq!(problem.terminal_pairs(), &[(0, 3), (2, 5)]);
-    assert_eq!(problem.dims(), vec![2; 7]);
+    assert_eq!(problem.dimensions(), vec![2; 7]);
     assert_eq!(
         problem.ordered_edges(),
         vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 4), (3, 5), (4, 5)]
@@ -56,34 +68,41 @@ fn test_disjoint_connecting_paths_rejects_overlapping_terminals() {
 #[test]
 fn test_disjoint_connecting_paths_yes_instance() {
     let problem = issue_yes_problem();
-    assert!(problem.evaluate(&issue_yes_config()));
+    assert!(problem.evaluate(&issue_yes_config()).unwrap());
 }
 
 #[test]
 fn test_disjoint_connecting_paths_no_instance() {
     let problem = issue_no_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_disjoint_connecting_paths_rejects_wrong_length_config() {
     let problem = issue_yes_problem();
-    assert!(!problem.evaluate(&[1, 0, 1]));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_disjoint_connecting_paths_rejects_non_binary_entries() {
     let problem = issue_yes_problem();
-    let mut config = issue_yes_config();
-    config[3] = 2;
-    assert!(!problem.evaluate(&config));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([1, 0, 1, 2, 1, 0, 1]),
+    )
+    .is_err());
 }
 
 #[test]
 fn test_disjoint_connecting_paths_rejects_branching_subgraph() {
     let problem = issue_yes_problem();
-    assert!(!problem.evaluate(&[1, 0, 1, 1, 1, 0, 1]));
+    assert!(!problem
+        .evaluate(&vec![true, false, true, true, true, false, true])
+        .unwrap());
 }
 
 #[test]
@@ -100,10 +119,10 @@ fn test_disjoint_connecting_paths_serialization() {
 fn test_disjoint_connecting_paths_paper_example() {
     let problem = issue_yes_problem();
     let config = issue_yes_config();
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }

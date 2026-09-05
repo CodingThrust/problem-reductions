@@ -37,31 +37,34 @@ impl ReductionResult for ReductionPITToILP {
     }
 
     /// Extract solution: for each vertex v, find the unique group g where x_{v,g} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_groups = self.num_groups;
-        (0..self.num_vertices)
-            .map(|v| {
-                (0..num_groups)
-                    .find(|&g| {
-                        let idx = v * num_groups + g;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_groups,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices^2",
         num_constraints = "num_vertices^2 * num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
     type Result = ReductionPITToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let q = num_vertices / 3; // number of groups
         let num_vars = num_vertices * q;
@@ -70,14 +73,14 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
 
         // Assignment constraints: for each vertex v, Σ_g x_{v,g} = 1
         for v in 0..num_vertices {
-            let terms: Vec<(usize, f64)> = (0..q).map(|g| (v * q + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|g| (v * q + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Group size constraints: for each group g, Σ_v x_{v,g} = 3
         for g in 0..q {
-            let terms: Vec<(usize, f64)> = (0..num_vertices).map(|v| (v * q + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 3.0));
+            let terms: Vec<(usize, i64)> = (0..num_vertices).map(|v| (v * q + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 3));
         }
 
         // Triangle constraints: for each group g and each non-edge (u,v),
@@ -88,21 +91,22 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
                 for v in (u + 1)..num_vertices {
                     if !graph.has_edge(u, v) {
                         constraints.push(LinearConstraint::le(
-                            vec![(u * q + g, 1.0), (v * q + g, 1.0)],
-                            1.0,
+                            vec![(u * q + g, 1), (v * q + g, 1)],
+                            1,
                         ));
                     }
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionPITToILP {
+        Ok(ReductionPITToILP {
             target,
             num_vertices,
             num_groups: q,
-        }
+        })
     }
 }
 

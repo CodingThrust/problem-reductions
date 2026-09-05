@@ -19,6 +19,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a vertex ordering on a line minimizing total edge length",
         fields: &[
@@ -50,14 +51,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::OptimalLinearArrangement;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph: 0-1-2-3
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 /// let problem = OptimalLinearArrangement::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,17 +116,29 @@ impl<G: Graph> OptimalLinearArrangement<G> {
     /// Compute the total edge length for a given arrangement.
     ///
     /// Returns `None` if the configuration is not a valid permutation.
-    pub fn total_edge_length(&self, config: &[usize]) -> Option<usize> {
+    pub fn total_edge_length(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if !self.is_valid_permutation(config) {
-            return None;
+            return Ok(None);
         }
-        let mut total = 0usize;
+        let mut total = 0_i64;
         for (u, v) in self.graph.edges() {
             let fu = config[u];
             let fv = config[v];
-            total += fu.abs_diff(fv);
+            let length = i64::try_from(fu.abs_diff(fv)).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting linear-arrangement edge length to i64".to_string(),
+                )
+            })?;
+            total = total.checked_add(length).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing linear-arrangement edge lengths".to_string(),
+                )
+            })?;
         }
-        Some(total)
+        Ok(Some(total))
     }
 }
 
@@ -134,27 +147,61 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "OptimalLinearArrangement";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         let n = self.graph.num_vertices();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        match self.total_edge_length(config) {
-            Some(cost) => Min(Some(cost)),
-            None => Min(None),
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex arrangement length does not match the graph".into(),
+            ));
         }
+        if config.iter().any(|&position| position >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex arrangement contains an out-of-range position".into(),
+            ));
+        }
+        Ok({
+            match self.total_edge_length(config)? {
+                Some(cost) => Min(Some(cost)),
+                None => Min(None),
+            }
+        })
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for OptimalLinearArrangement<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.graph.num_vertices();
+        vec![n; n]
+    }
+}
+
+crate::impl_random_generate!(
+    OptimalLinearArrangement<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(OptimalLinearArrangement::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    OptimalLinearArrangement<SimpleGraph>,
 }
 
 impl<G> crate::models::decision::DecisionProblemMeta for OptimalLinearArrangement<G>
@@ -177,7 +224,7 @@ impl Decision<OptimalLinearArrangement<SimpleGraph>> {
 
     /// Decision bound (maximum allowed total edge length) as a nonnegative integer.
     pub fn k(&self) -> usize {
-        *self.bound()
+        usize::try_from(*self.bound()).expect("nonnegative decision bound must fit usize")
     }
 }
 
@@ -187,14 +234,15 @@ crate::register_decision_variant!(
     "2^num_vertices",
     &["DOLA"],
     "Decision version: does a linear arrangement of total edge length <= bound exist?",
+    category: crate::registry::ProblemCategory::Graph,
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
     ],
     fields: [
         FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
-        FieldInfo { name: "bound", type_name: "usize", description: "Decision bound (maximum allowed total edge length)" },
+        FieldInfo { name: "bound", type_name: "i64", description: "Decision bound (maximum allowed total edge length)" },
     ],
-    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)]
+    decode: |_, indices: Vec<usize>| indices
 );
 
 #[cfg(feature = "example-db")]
@@ -208,7 +256,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
             vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
         ))),
-        optimal_config: vec![0, 1, 2, 3, 4, 5],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3, 4, 5]),
         optimal_value: serde_json::json!(11),
     }]
 }
@@ -224,7 +272,7 @@ pub(crate) fn decision_canonical_model_example_specs(
             OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
             3,
         )),
-        optimal_config: vec![0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }
@@ -245,15 +293,17 @@ pub(crate) fn decision_canonical_rule_example_specs(
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
                 3,
             );
-            let result = source.reduce_to_aggregate();
+            let result = source
+                .reduce_to_aggregate()
+                .expect("reduction should succeed");
             let target = result.target_problem();
             let config = vec![0, 1, 2, 3];
             assemble_rule_example(
                 &source,
                 target,
                 vec![SolutionPair {
-                    source_config: config.clone(),
-                    target_config: config,
+                    source_config: serde_json::json!(config.clone()),
+                    target_config: serde_json::json!(config),
                 }],
             )
         },

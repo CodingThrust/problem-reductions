@@ -7,7 +7,7 @@ description: Use when writing or improving a reduction-rule entry in the Typst p
 
 Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reductions.typ`. Covers Typst mechanics, writing quality, and verification.
 
-> **Note:** This content is also inlined in `add-rule` Step 5 (condensed form). This standalone version has more detail and is useful for improving existing entries.
+> **Note:** This content is also inlined in `add-rule` Step 6 (condensed form). This standalone version has more detail and is useful for improving existing entries.
 
 ## Reference Example
 
@@ -17,14 +17,14 @@ Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reducti
 
 Before using this skill, ensure:
 - The reduction is implemented and tested (`src/rules/<source>_<target>.rs`)
-- A canonical example exists in `src/example_db/rule_builders.rs`
-- If the canonical example changed, fixtures are regenerated (`make regenerate-fixtures`)
+- A rule-local `canonical_rule_example_specs()` exists and is included by `src/rules/mod.rs`
+- If the canonical example changed, regenerate the paper data with `cargo run --features "example-db" --example export_examples`
 - The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Source Material
 
 For mathematical content (theorems, proofs, examples), consult these sources in priority order:
-1. **GitHub issue** for the rule (`gh issue view <number>`): contains the verified reduction algorithm, correctness proof, size overhead, and worked examples written during issue creation
+1. **GitHub issue** for the rule (`gh issue view <number>`): contains the verified reduction algorithm, correctness proof, parameter transform, and worked examples written during issue creation
 2. **Derivation documents** (if available): e.g., `~/Downloads/reduction_derivations_*.typ` — these contain batch-verified proofs with explicit theorem/proof blocks
 3. **The implementation** (`src/rules/<source>_<target>.rs`): the code is the ground truth for the construction
 
@@ -38,7 +38,7 @@ Do NOT invent proofs — always cross-check against the issue and derivation sou
 ```
 
 Where:
-- `load-example(source, target, ...)` looks up the canonical rule entry from `src/example_db/fixtures/examples.json`
+- `load-example(source, target, ...)` looks up the canonical rule entry from `docs/paper/data/examples.json`
 - The returned record contains `source`, `target`, and `solutions`
 - Access fields: `src_tgt.source.instance`, `src_tgt.target.instance`, `src_tgt_sol.source_config`, `src_tgt_sol.target_config`
 

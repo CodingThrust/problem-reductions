@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -9,27 +9,23 @@ use crate::types::Min;
 fn test_maximumlikelihoodranking_to_ilp_closed_loop() {
     let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "MaximumLikelihoodRanking->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
 fn test_maximumlikelihoodranking_to_ilp_structure() {
     let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 3 items -> C(3,2) = 3 variables
     assert_eq!(ilp.num_vars(), 3);
     // C(3,3) = 1 triple -> 2 constraints
     assert_eq!(ilp.num_constraints(), 2);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -41,16 +37,16 @@ fn test_maximumlikelihoodranking_to_ilp_bf_vs_ilp() {
         vec![0, 2, 1, 0],
     ];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let bf_solutions = BruteForce::new().find_all_witnesses(&problem);
-    let bf_value = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
+    let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
     assert!(ilp_value.is_valid());
@@ -61,12 +57,12 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
     // 3 items: simple instance
     let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify the extracted config is a valid permutation
     let n = problem.num_items();
@@ -76,7 +72,7 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
     assert_eq!(sorted, (0..n).collect::<Vec<_>>());
 
     // Verify evaluation is valid
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
 }
 
@@ -84,7 +80,7 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
 fn test_maximumlikelihoodranking_to_ilp_two_items() {
     let matrix = vec![vec![0, 5], vec![3, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2 items -> 1 variable, 0 transitivity constraints
@@ -92,8 +88,8 @@ fn test_maximumlikelihoodranking_to_ilp_two_items() {
     assert_eq!(ilp.num_constraints(), 0);
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
 
     // Optimal: item 0 before item 1 costs matrix[1][0]=3
@@ -105,7 +101,7 @@ fn test_maximumlikelihoodranking_to_ilp_two_items() {
 #[test]
 fn test_maximumlikelihoodranking_to_ilp_single_item() {
     let problem = MaximumLikelihoodRanking::new(vec![vec![0]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 0);
@@ -114,7 +110,7 @@ fn test_maximumlikelihoodranking_to_ilp_single_item() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("single-item ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0]);
 }
 
@@ -128,7 +124,7 @@ fn test_maximumlikelihoodranking_to_ilp_larger_instance() {
         vec![0, 2, 1, 0],
     ];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 4 items -> C(4,2) = 6 variables
@@ -136,11 +132,7 @@ fn test_maximumlikelihoodranking_to_ilp_larger_instance() {
     // C(4,3) = 4 triples -> 8 constraints
     assert_eq!(ilp.num_constraints(), 8);
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "4-item MaximumLikelihoodRanking->ILP",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[cfg(feature = "example-db")]
@@ -154,6 +146,12 @@ fn test_maximumlikelihoodranking_to_ilp_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "MaximumLikelihoodRanking");
     assert_eq!(example.target.problem, "ILP");
-    assert_eq!(example.target.instance["num_vars"], 3);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
     assert!(!example.solutions.is_empty());
 }

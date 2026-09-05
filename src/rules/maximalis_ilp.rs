@@ -15,28 +15,36 @@ pub struct ReductionMxISToILP {
 }
 
 impl ReductionResult for ReductionMxISToILP {
-    type Source = MaximalIS<SimpleGraph, i32>;
+    type Source = MaximalIS<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices",
         num_constraints = "num_edges + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {
     type Result = ReductionMxISToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let mut constraints = Vec::new();
 
@@ -44,30 +52,31 @@ impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i32> {
         for u in 0..n {
             for v in (u + 1)..n {
                 if self.graph().has_edge(u, v) {
-                    constraints.push(LinearConstraint::le(vec![(u, 1.0), (v, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(u, 1), (v, 1)], 1));
                 }
             }
         }
 
         // Maximality: ∀ v: x_v + Σ_{u∈N(v)} x_u ≥ 1
         for v in 0..n {
-            let mut terms = vec![(v, 1.0)];
+            let mut terms = vec![(v, 1)];
             for u in self.graph().neighbors(v) {
-                terms.push((u, 1.0));
+                terms.push((u, 1));
             }
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Objective: Maximize Σ w_v·x_v
         let weights = self.weights();
-        let objective: Vec<(usize, f64)> = weights
+        let objective: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(i, w)| (i, *w as f64))
+            .map(|(i, &weight)| (i, weight))
             .collect();
 
-        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize);
-        ReductionMxISToILP { target }
+        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionMxISToILP { target })
     }
 }
 

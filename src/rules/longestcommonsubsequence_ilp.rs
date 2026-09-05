@@ -31,29 +31,37 @@ impl ReductionResult for ReductionLCSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_symbols = self.alphabet_size + 1;
-        let mut witness = Vec::with_capacity(self.max_length);
-        for position in 0..self.max_length {
-            let selected = (0..num_symbols)
-                .find(|&symbol| target_solution.get(position * num_symbols + symbol) == Some(&1))
-                .unwrap_or(self.alphabet_size);
-            witness.push(selected);
-        }
-        witness
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.max_length,
+            self.alphabet_size + 1,
+            0,
+        )?
+        .into_iter()
+        .map(|symbol| (symbol < self.alphabet_size).then_some(symbol))
+        .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "max_length * (alphabet_size + 1) + max_length * total_length",
         num_constraints = "max_length + num_transitions + max_length * num_strings + max_length * total_length + num_transitions * sum_triangular_lengths",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     type Result = ReductionLCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let alphabet_size = self.alphabet_size();
         let max_length = self.max_length();
         let strings = self.strings();
@@ -78,9 +86,9 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         // (1) Exactly one symbol (including padding) per witness position.
         for position in 0..max_length {
             let terms = (0..num_symbols)
-                .map(|symbol| (position * num_symbols + symbol, 1.0))
+                .map(|symbol| (position * num_symbols + symbol, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // (2) Contiguity: once padding starts, it stays padding.
@@ -88,10 +96,10 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         for position in 0..max_length.saturating_sub(1) {
             constraints.push(LinearConstraint::ge(
                 vec![
-                    (position * num_symbols + padding, -1.0),
-                    ((position + 1) * num_symbols + padding, 1.0),
+                    (position * num_symbols + padding, -1),
+                    ((position + 1) * num_symbols + padding, 1),
                 ],
-                0.0,
+                0,
             ));
         }
 
@@ -100,11 +108,11 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         //   sum_j y_(r,p,j) + x_(p, padding) = 1
         for (string_index, string) in strings.iter().enumerate() {
             for position in 0..max_length {
-                let mut terms: Vec<(usize, f64)> = (0..string.len())
-                    .map(|char_index| (match_var(string_index, position, char_index), 1.0))
+                let mut terms: Vec<(usize, i64)> = (0..string.len())
+                    .map(|char_index| (match_var(string_index, position, char_index), 1))
                     .collect();
-                terms.push((position * num_symbols + padding, 1.0));
-                constraints.push(LinearConstraint::eq(terms, 1.0));
+                terms.push((position * num_symbols + padding, 1));
+                constraints.push(LinearConstraint::eq(terms, 1));
             }
         }
 
@@ -115,10 +123,10 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
                 for (char_index, &symbol) in string.iter().enumerate() {
                     constraints.push(LinearConstraint::le(
                         vec![
-                            (match_var(string_index, position, char_index), 1.0),
-                            (position * num_symbols + symbol, -1.0),
+                            (match_var(string_index, position, char_index), 1),
+                            (position * num_symbols + symbol, -1),
                         ],
-                        0.0,
+                        0,
                     ));
                 }
             }
@@ -132,10 +140,10 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
                     for next in 0..=previous {
                         constraints.push(LinearConstraint::le(
                             vec![
-                                (match_var(string_index, position, previous), 1.0),
-                                (match_var(string_index, position + 1, next), 1.0),
+                                (match_var(string_index, position, previous), 1),
+                                (match_var(string_index, position + 1, next), 1),
                             ],
-                            1.0,
+                            1,
                         ));
                     }
                 }
@@ -146,17 +154,18 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
 
         // Objective: maximize number of non-padding positions.
         // maximize sum_p sum_{a != padding} x_(p,a)
-        let objective: Vec<(usize, f64)> = (0..max_length)
-            .flat_map(|p| (0..alphabet_size).map(move |a| (p * num_symbols + a, 1.0)))
+        let objective: Vec<(usize, i64)> = (0..max_length)
+            .flat_map(|p| (0..alphabet_size).map(move |a| (p * num_symbols + a, 1)))
             .collect();
 
-        let target = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionLCSToILP {
+        Ok(ReductionLCSToILP {
             target,
             alphabet_size,
             max_length,
-        }
+        })
     }
 }
 

@@ -61,13 +61,13 @@ pub struct Reduction3SATToDirectedTwoCommodityIntegralFlow {
     clause_sink_arcs: Vec<usize>,
 }
 
-fn literal_var_index(literal: i32) -> usize {
+fn literal_var_index(literal: i64) -> usize {
     literal.unsigned_abs() as usize - 1
 }
 
 #[cfg_attr(not(any(test, feature = "example-db")), allow(dead_code))]
-fn literal_satisfied(requires_true: bool, assignment: &[usize], variable: usize) -> bool {
-    assignment.get(variable).copied().unwrap_or(0) == usize::from(requires_true)
+fn literal_satisfied(requires_true: bool, assignment: &[bool], variable: usize) -> bool {
+    assignment.get(variable).copied().unwrap_or(false) == requires_true
 }
 
 fn build_branch<FV, FA>(
@@ -122,7 +122,7 @@ where
 
 impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
     #[cfg(any(test, feature = "example-db"))]
-    pub(crate) fn encode_assignment(&self, assignment: &[usize]) -> Vec<usize> {
+    pub(crate) fn encode_assignment(&self, assignment: &[bool]) -> Vec<usize> {
         assert_eq!(
             assignment.len(),
             self.variable_paths.len(),
@@ -137,7 +137,7 @@ impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
         }
 
         for (value, paths) in assignment.iter().zip(&self.variable_paths) {
-            let chosen_path = if *value == 1 {
+            let chosen_path = if *value {
                 &paths.lower_path
             } else {
                 &paths.upper_path
@@ -171,30 +171,34 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.variable_paths
-            .iter()
-            .map(|paths| {
-                usize::from(
-                    target_solution
-                        .get(paths.lower_entry_arc)
-                        .copied()
-                        .unwrap_or(0)
-                        > 0,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.variable_paths
+                .iter()
+                .map(|paths| target_solution[paths.lower_entry_arc] > 0)
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
-    num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
-})]
+#[reduction(
+    transform = exact {
+        num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
+        num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
+    },
+    unavailable = {
+        max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
     type Result = Reduction3SATToDirectedTwoCommodityIntegralFlow;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_1 = 0usize;
         let sink_1 = 1usize;
         let source_2 = 2usize;
@@ -288,7 +292,13 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             .map(|&clause_vertex| add_arc(clause_vertex, sink_2))
             .collect();
 
-        let capacities = vec![1u64; arcs.len()];
+        let capacities = vec![1i64; arcs.len()];
+        let clause_requirement = i64::try_from(self.num_clauses()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                DirectedTwoCommodityIntegralFlow,
+            >("converting the clause count to an i64 flow requirement")
+        })?;
         let target = DirectedTwoCommodityIntegralFlow::new(
             DirectedGraph::new(next_vertex, arcs),
             capacities,
@@ -297,16 +307,16 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             source_2,
             sink_2,
             1,
-            self.num_clauses() as u64,
+            clause_requirement,
         );
 
-        Reduction3SATToDirectedTwoCommodityIntegralFlow {
+        Ok(Reduction3SATToDirectedTwoCommodityIntegralFlow {
             target,
             commodity_1_chain_arcs,
             variable_paths,
             clause_routes,
             clause_sink_arcs,
-        }
+        })
     }
 }
 
@@ -325,16 +335,19 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
             );
             let reduction =
-                crate::rules::ReduceTo::<DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
-            let source_config = vec![1, 1, 0];
+                crate::rules::ReduceTo::<DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+                    .expect("reduction should succeed");
+            let source_config = vec![true, true, false];
             let target_config = reduction.encode_assignment(&source_config);
 
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

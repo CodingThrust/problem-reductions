@@ -32,7 +32,8 @@ fn no_source() -> KSatisfiability<K3> {
 #[test]
 fn test_ksatisfiability_to_quadraticcongruences_yes_vector_matches_reference() {
     let source = yes_source();
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticCongruences>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(
@@ -51,20 +52,22 @@ fn test_ksatisfiability_to_quadraticcongruences_yes_vector_matches_reference() {
     let witness = parse_biguint(
         "1751451122102119958305507786775835374858648979796949071929887579732578264063983923970828608254544727567945005331103265320267846420581308180536461678218456421163010842022583797942541569366464959069523226763069748653830351684499364645098951736761394790343553460544021210289436100818494593367113721596780252083857888675004881955664228675079663569835052161564690932502575257394108174870151908279593037426404556490332761276593006398441245490978500647642893471046425509487910796951416870024826654351366508266859321005453091128123256128675758429165869380881549388896022325625404673271432251145796159394173120179999131480837018022329857587128653018300402"
     );
-    let target_config = target
-        .encode_witness(&witness)
-        .expect("reference witness must fit target encoding");
-    assert_eq!(target.evaluate(&target_config), crate::types::Or(true));
+    let target_config = witness;
+    assert_eq!(
+        target.evaluate(&target_config).unwrap(),
+        crate::types::Or(true)
+    );
 
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0, 0]);
-    assert_eq!(source.evaluate(&extracted), crate::types::Or(true));
+    let extracted = reduction.extract_solution(&target_config).unwrap();
+    assert_eq!(extracted, vec![true, false, false]);
+    assert_eq!(source.evaluate(&extracted).unwrap(), crate::types::Or(true));
 }
 
 #[test]
 fn test_ksatisfiability_to_quadraticcongruences_no_vector_matches_reference() {
     let source = no_source();
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticCongruences>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(
@@ -89,30 +92,42 @@ fn test_ksatisfiability_to_quadraticcongruences_no_vector_matches_reference() {
 #[test]
 fn test_ksatisfiability_to_quadraticcongruences_extracts_assignment_from_constructed_witness() {
     let source = KSatisfiability::<K3>::new(4, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
-    let target_config = witness_config_for_assignment(&source, &[1, 0, 0, 0])
+    let reduction =
+        ReduceTo::<QuadraticCongruences>::reduce_to(&source).expect("reduction should succeed");
+    let target_config = witness_config_for_assignment(&source, &[true, false, false, false])
         .expect("assignment should lift to a target witness");
 
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0, 0, 0]);
-    assert_eq!(source.evaluate(&extracted), crate::types::Or(true));
+    let extracted = reduction.extract_solution(&target_config).unwrap();
+    assert_eq!(extracted, vec![true, false, false, false]);
+    assert_eq!(source.evaluate(&extracted).unwrap(), crate::types::Or(true));
     assert_eq!(
-        reduction.target_problem().evaluate(&target_config),
+        reduction.target_problem().evaluate(&target_config).unwrap(),
         crate::types::Or(true)
     );
+}
+
+#[test]
+fn test_ksatisfiability_to_quadraticcongruences_rejects_missing_variable_signs() {
+    let source = yes_source();
+    let reduction =
+        ReduceTo::<QuadraticCongruences>::reduce_to(&source).expect("reduction should succeed");
+    let target_config = BigUint::default();
+
+    assert!(reduction.extract_solution(&target_config).is_err());
 }
 
 #[test]
 fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, -3])]);
 
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticCongruences>::reduce_to(&source).expect("reduction should succeed");
 
     // Construct a target config from a known-satisfying source assignment.
     // Assignment: x1=true, x2=false, x3=false => clause (1,2,-3) satisfied by x1=true.
-    let assignment = [1, 0, 0];
+    let assignment = [true, false, false];
     assert_eq!(
-        source.evaluate(assignment.as_ref()),
+        source.evaluate(&assignment.to_vec()).unwrap(),
         crate::types::Or(true),
         "assignment must satisfy the source"
     );
@@ -122,16 +137,16 @@ fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
 
     // Verify the target config is a valid witness.
     assert_eq!(
-        reduction.target_problem().evaluate(&target_config),
+        reduction.target_problem().evaluate(&target_config).unwrap(),
         crate::types::Or(true),
         "constructed target config must satisfy the target"
     );
 
     // Verify round-trip: extracting the source solution recovers the original assignment.
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0, 0]);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
+    assert_eq!(extracted, vec![true, false, false]);
     assert_eq!(
-        source.evaluate(&extracted),
+        source.evaluate(&extracted).unwrap(),
         crate::types::Or(true),
         "extracted source config must satisfy the source"
     );

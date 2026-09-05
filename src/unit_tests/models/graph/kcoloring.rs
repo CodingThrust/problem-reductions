@@ -1,4 +1,37 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_specs_separate_runtime_and_fixed_color_counts() {
+    let runtime = KColoring::<KN, SimpleGraph>::try_from(RuntimeKColoringCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        k: 4,
+    })
+    .unwrap();
+    assert_eq!(runtime.num_vertices(), 3);
+    assert_eq!(runtime.num_colors(), 4);
+
+    let fixed = KColoring::<K3, SimpleGraph>::try_from(FixedKColoringCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+    })
+    .unwrap();
+    assert_eq!(fixed.num_colors(), 3);
+}
+
+#[test]
+fn fixed_and_runtime_variants_report_num_colors_parameter() {
+    let fixed = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let runtime = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 5);
+
+    assert_eq!(Problem::parameters(&fixed).get("num_colors"), Some(3));
+    assert_eq!(Problem::parameters(&runtime).get("num_colors"), Some(5));
+    assert_eq!(
+        <KColoring<K3, SimpleGraph> as Problem>::parameter_names(),
+        <KColoring<KN, SimpleGraph> as Problem>::parameter_names()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::variant::{K1, K2, K3, K4};
@@ -6,13 +39,11 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_kcoloring_creation() {
-    use crate::traits::Problem;
-
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
-    assert_eq!(problem.dims(), vec![3, 3, 3, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3]);
 }
 
 #[test]
@@ -22,8 +53,8 @@ fn test_evaluate_valid() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
 
     // Valid: different colors on adjacent vertices
-    assert!(problem.evaluate(&[0, 1, 0]));
-    assert!(problem.evaluate(&[0, 1, 2]));
+    assert!(problem.evaluate(&vec![0, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -33,8 +64,8 @@ fn test_evaluate_invalid() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
 
     // Invalid: adjacent vertices have same color
-    assert!(!problem.evaluate(&[0, 0, 1]));
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&vec![0, 0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -45,10 +76,10 @@ fn test_brute_force_path() {
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // All solutions should be valid
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -60,9 +91,9 @@ fn test_brute_force_triangle() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
         // All three vertices have different colors
         assert_ne!(sol[0], sol[1]);
         assert_ne!(sol[1], sol[2]);
@@ -76,7 +107,7 @@ fn test_triangle_2_colors() {
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // No valid solutions
     assert!(solutions.is_empty());
 }
@@ -106,11 +137,11 @@ fn test_empty_graph() {
     let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Any coloring is valid when there are no edges
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -125,9 +156,9 @@ fn test_complete_graph_k4() {
     ));
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -145,11 +176,11 @@ fn test_kcoloring_problem() {
 
     // Triangle graph with 3 colors
     let p = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    assert_eq!(p.dims(), vec![3, 3, 3]);
+    assert_eq!(p.dimensions(), vec![3, 3, 3]);
     // Valid: each vertex different color
-    assert!(p.evaluate(&[0, 1, 2]));
+    assert!(p.evaluate(&vec![0, 1, 2]).unwrap());
     // Invalid: vertices 0 and 1 same color
-    assert!(!p.evaluate(&[0, 0, 1]));
+    assert!(!p.evaluate(&vec![0, 0, 1]).unwrap());
 }
 
 #[test]
@@ -163,7 +194,7 @@ fn test_jl_parity_evaluation() {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(nv, edges));
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config).0;
+            let result = problem.evaluate(&config).unwrap().0;
             let jl_size = eval["size"].as_i64().unwrap() as usize;
             assert_eq!(
                 result,
@@ -172,7 +203,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let all_sat = BruteForce::new().find_all_witnesses(&problem);
+        let all_sat = BruteForce::new().find_all_witnesses(&problem).unwrap();
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_sat: HashSet<Vec<usize>> = all_sat.into_iter().collect();
         assert_eq!(rust_sat, jl_best, "KColoring satisfying solutions mismatch");
@@ -190,7 +221,7 @@ fn test_is_valid_solution() {
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
@@ -203,11 +234,11 @@ fn test_kcoloring_paper_example() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem = KColoring::<K3, _>::new(graph);
     let config = vec![0, 1, 1, 0, 2];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     // Verify not 2-colorable (triangle v_2,v_3,v_4)
     let graph2 = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem2 = KColoring::<K2, _>::new(graph2);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem2).is_none());
+    assert!(solver.solve(&problem2).unwrap().is_none());
 }

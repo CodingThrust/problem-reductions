@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Conjunctive Query Foldability",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine if one conjunctive query can be folded into another by substituting undistinguished variables",
         fields: &[
@@ -65,7 +66,7 @@ pub enum Term {
 ///
 /// ```
 /// use problemreductions::models::misc::{ConjunctiveQueryFoldability, Term};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Q1: R(x, u) ∧ R(u, u)    Q2: R(x, x)  (single atom; duplicates are irrelevant)
 /// // σ: u → x (index = domain_size + 0 = 0) folds Q1 to Q2
@@ -81,7 +82,7 @@ pub enum Term {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -262,62 +263,80 @@ impl ConjunctiveQueryFoldability {
 
 impl Problem for ConjunctiveQueryFoldability {
     const NAME: &'static str = "ConjunctiveQueryFoldability";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("domain_size", domain_size),
+        ("num_distinguished", num_distinguished),
+        ("num_undistinguished", num_undistinguished),
+        ("num_conjuncts_q1", num_conjuncts_q1),
+        ("num_conjuncts_q2", num_conjuncts_q2),
+        ("num_relations", num_relations),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
-    }
-
-    /// Returns the configuration space dimensions.
-    ///
-    /// Each of the `num_undistinguished` variables can map to any element of
-    /// `D ∪ X ∪ Y`, giving `domain_size + num_distinguished + num_undistinguished`
-    /// choices per variable.  When `num_undistinguished == 0` the vector is empty
-    /// (Q1 contains no variables to substitute; the problem is trivially decided
-    /// by checking set equality of Q1 and Q2 at evaluation time).
-    fn dims(&self) -> Vec<usize> {
-        let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
-        vec![range; self.num_undistinguished]
     }
 
     /// Evaluate whether configuration `config` represents a folding of Q1 into Q2.
     ///
     /// Returns `true` iff applying the substitution encoded by `config` to every
     /// atom of Q1 produces exactly the set of atoms in Q2.
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_undistinguished {
-                return crate::types::Or(false);
-            }
-            let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
-            if config.iter().any(|&v| v >= range) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_undistinguished {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "folding-map length does not match the query variables".into(),
+                    ));
+                }
+                let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
+                if config.iter().any(|&value| value >= range) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "folding map contains an out-of-range value".into(),
+                    ));
+                }
+                // Apply σ to every atom of Q1.
+                let substituted: HashSet<(usize, Vec<Term>)> = self
+                    .query1_conjuncts
+                    .iter()
+                    .map(|(rel_idx, args)| {
+                        let new_args = args
+                            .iter()
+                            .map(|term| self.apply_substitution(term, config))
+                            .collect();
+                        (*rel_idx, new_args)
+                    })
+                    .collect();
 
-            // Apply σ to every atom of Q1.
-            let substituted: HashSet<(usize, Vec<Term>)> = self
-                .query1_conjuncts
-                .iter()
-                .map(|(rel_idx, args)| {
-                    let new_args = args
-                        .iter()
-                        .map(|term| self.apply_substitution(term, config))
-                        .collect();
-                    (*rel_idx, new_args)
-                })
-                .collect();
+                // Collect Q2 as a set.
+                let q2_set: HashSet<(usize, Vec<Term>)> =
+                    self.query2_conjuncts.iter().cloned().collect();
 
-            // Collect Q2 as a set.
-            let q2_set: HashSet<(usize, Vec<Term>)> =
-                self.query2_conjuncts.iter().cloned().collect();
-
-            substituted == q2_set
+                substituted == q2_set
+            })
         })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for ConjunctiveQueryFoldability {
+    /// Each undistinguished variable can map to any element of `D ∪ X ∪ Y`.
+    fn dimensions(&self) -> Vec<usize> {
+        let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
+        vec![range; self.num_undistinguished]
     }
 }
 
 crate::declare_variants! {
     default ConjunctiveQueryFoldability => "(num_distinguished + num_undistinguished + domain_size)^num_undistinguished * num_conjuncts_q1",
+}
+
+crate::register_brute_force! {
+    ConjunctiveQueryFoldability,
 }
 
 #[cfg(feature = "example-db")]
@@ -348,7 +367,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (0, vec![Term::Undistinguished(2), Term::Distinguished(0)]), // R(a, x)
             ],
         )),
-        optimal_config: vec![3, 3, 3],
+        optimal_config: serde_json::json!(vec![3, 3, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -19,6 +19,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum resolving set of a graph",
         fields: &[
@@ -63,15 +64,15 @@ pub fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
 /// ```
 /// use problemreductions::models::graph::MinimumMetricDimension;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // House graph: vertices 0–4
 /// let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
 /// let problem = MinimumMetricDimension::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&solution);
+/// let solution = solver.solve(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&solution).unwrap();
 /// assert!(value.is_valid());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -124,9 +125,9 @@ impl<G: Graph> MinimumMetricDimension<G> {
     ///
     /// A set S ⊆ V is resolving if for every pair of distinct vertices u, v ∈ V,
     /// there exists some w ∈ S such that d(u, w) ≠ d(v, w).
-    pub fn is_resolving(&self, config: &[usize]) -> bool {
+    pub fn is_resolving(&self, config: &[bool]) -> bool {
         let n = self.graph.num_vertices();
-        let selected: Vec<usize> = (0..n).filter(|&i| config[i] == 1).collect();
+        let selected: Vec<usize> = (0..n).filter(|&i| config[i]).collect();
         if selected.is_empty() {
             return false;
         }
@@ -153,27 +154,53 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumMetricDimension";
-    type Value = Min<usize>;
+    type Solution = Vec<bool>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if !self.is_resolving(config) {
-            return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
         }
-        let count = config.iter().filter(|&&x| x == 1).count();
-        Min(Some(count))
+        Ok({
+            if !self.is_resolving(config) {
+                return Ok(Min(None));
+            }
+            let count = config.iter().filter(|&&x| x).count();
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting metric-basis size to i64".into(),
+                )
+            })?))
+        })
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for MinimumMetricDimension<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
 crate::declare_variants! {
     default MinimumMetricDimension<SimpleGraph> => "2^num_vertices",
+}
+
+crate::register_brute_force! {
+    MinimumMetricDimension<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -184,7 +211,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
-        optimal_config: vec![1, 1, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, false, false, false]),
         optimal_value: serde_json::json!(2),
     }]
 }

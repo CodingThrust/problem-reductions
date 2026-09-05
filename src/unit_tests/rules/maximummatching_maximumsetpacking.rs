@@ -10,8 +10,9 @@ include!("../jl_helpers.rs");
 fn test_maximummatching_to_maximumsetpacking_closed_loop() {
     // Path graph 0-1-2
     let matching =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     // Should have 2 sets (one for each edge)
@@ -30,44 +31,50 @@ fn test_matching_to_setpacking_weighted() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3)]),
         vec![100, 1, 1],
     );
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     // Weights should be preserved
     assert_eq!(sp.weights_ref(), &vec![100, 1, 1]);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_witnesses(sp);
+    let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // Edge 0-1 (weight 100) alone beats edges 0-2 + 1-3 (weight 2)
-    assert!(sp_solutions.contains(&vec![1, 0, 0]));
+    assert!(sp_solutions.contains(&vec![true, false, false]));
 
     // Verify through direct MaximumMatching solution
-    let direct_solutions = solver.find_all_witnesses(&matching);
-    assert_eq!(matching.evaluate(&sp_solutions[0]), Max(Some(100)));
-    assert_eq!(matching.evaluate(&direct_solutions[0]), Max(Some(100)));
+    let direct_solutions = solver.find_all_witnesses(&matching).unwrap();
+    assert_eq!(matching.evaluate(&sp_solutions[0]).unwrap(), Max(Some(100)));
+    assert_eq!(
+        matching.evaluate(&direct_solutions[0]).unwrap(),
+        Max(Some(100))
+    );
 }
 
 #[test]
 fn test_matching_to_setpacking_solution_extraction() {
     let matching =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
 
     // Test solution extraction is 1:1
-    let sp_solution = vec![1, 0, 1];
-    let matching_solution = reduction.extract_solution(&sp_solution);
-    assert_eq!(matching_solution, vec![1, 0, 1]);
+    let sp_solution = vec![true, false, true];
+    let matching_solution = reduction.extract_solution(&sp_solution).unwrap();
+    assert_eq!(matching_solution, vec![true, false, true]);
 
     // Verify the extracted solution is valid for original MaximumMatching
-    assert!(matching.evaluate(&matching_solution).is_valid());
+    assert!(matching.evaluate(&matching_solution).unwrap().is_valid());
 }
 
 #[test]
 fn test_matching_to_setpacking_empty() {
     // Graph with no edges
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+    let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     assert_eq!(sp.num_sets(), 0);
@@ -75,40 +82,43 @@ fn test_matching_to_setpacking_empty() {
 
 #[test]
 fn test_matching_to_setpacking_single_edge() {
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+    let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     assert_eq!(sp.num_sets(), 1);
     assert_eq!(sp.sets()[0], vec![0, 1]);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_witnesses(sp);
+    let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // Should select the only set
-    assert_eq!(sp_solutions, vec![vec![1]]);
+    assert_eq!(sp_solutions, vec![vec![true]]);
 }
 
 #[test]
 fn test_matching_to_setpacking_disjoint_edges() {
     // Two disjoint edges: 0-1 and 2-3
     let matching =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_witnesses(sp);
+    let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // Both edges can be selected (they don't share vertices)
-    assert_eq!(sp_solutions, vec![vec![1, 1]]);
+    assert_eq!(sp_solutions, vec![vec![true, true]]);
 }
 
 #[test]
 fn test_reduction_structure() {
     let matching =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     // SP should have same number of sets as edges in matching
@@ -119,16 +129,17 @@ fn test_reduction_structure() {
 fn test_matching_to_setpacking_star() {
     // Star graph: center vertex 0 connected to 1, 2, 3
     let matching =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
+    let reduction =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_witnesses(sp);
+    let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // All edges share vertex 0, so max matching = 1
     for sol in &sp_solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
+        assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
     }
     // Should have 3 optimal solutions
     assert_eq!(sp_solutions.len(), 3);
@@ -157,15 +168,19 @@ fn test_jl_parity_matching_to_setpacking() {
         let inst = &jl_find_instance_by_label(&match_data, label)["instance"];
         let weighted_edges = jl_parse_weighted_edges(inst);
         let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
-        let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+        let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
         let source = MaximumMatching::new(
             SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges),
             weights,
         );
-        let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
+        let result = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
         let solver = BruteForce::new();
-        let best_source: HashSet<Vec<usize>> =
-            solver.find_all_witnesses(&source).into_iter().collect();
+        let best_source: HashSet<Vec<bool>> = solver
+            .find_all_witnesses(&source)
+            .unwrap()
+            .into_iter()
+            .collect();
         assert_optimization_round_trip_from_optimization_target(
             &source,
             &result,
@@ -174,7 +189,7 @@ fn test_jl_parity_matching_to_setpacking() {
         for case in data["cases"].as_array().unwrap() {
             assert_eq!(
                 best_source,
-                jl_parse_configs_set(&case["best_source"]),
+                jl_parse_bool_configs_set(&case["best_source"]),
                 "Matching->SP [{label}]: best source mismatch"
             );
         }

@@ -9,13 +9,13 @@ pub enum CellState {
     #[default]
     Empty,
     Occupied {
-        weight: i32,
+        weight: i64,
     },
     Doubled {
-        weight: i32,
+        weight: i64,
     },
     Connected {
-        weight: i32,
+        weight: i64,
     },
 }
 
@@ -28,7 +28,7 @@ impl CellState {
         !self.is_empty()
     }
 
-    pub fn weight(&self) -> i32 {
+    pub fn weight(&self) -> i64 {
         match self {
             CellState::Empty => 0,
             CellState::Occupied { weight } => *weight,
@@ -117,7 +117,7 @@ impl MappingGrid {
     /// For unweighted mode, all weights are 1 so this doesn't matter.
     ///
     /// Silently ignores out-of-bounds access.
-    pub fn add_node(&mut self, row: usize, col: usize, weight: i32) {
+    pub fn add_node(&mut self, row: usize, col: usize, weight: i64) {
         if row < self.rows && col < self.cols {
             match self.content[row][col] {
                 CellState::Empty => {

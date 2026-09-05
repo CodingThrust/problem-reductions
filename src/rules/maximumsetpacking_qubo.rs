@@ -25,18 +25,25 @@ impl ReductionResult for ReductionSPToQUBO {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = { num_vars = "num_sets" }
+    transform = exact {
+        num_vars = "num_sets",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     type Result = ReductionSPToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_sets();
         let weights = self.weights_ref();
         let total_weight: f64 = weights.iter().sum();
@@ -55,9 +62,13 @@ impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
             matrix[a][b] += penalty;
         }
 
-        ReductionSPToQUBO {
-            target: QUBO::from_matrix(matrix),
-        }
+        Ok(ReductionSPToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<MaximumSetPacking<f64>, QUBO<f64>>(
+                    message,
+                )
+            })?,
+        })
     }
 }
 
@@ -80,8 +91,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 0],
-                    target_config: vec![0, 0, 0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, false, false, true, true, false]),
+                    target_config: serde_json::json!(vec![false, false, false, true, true, false]),
                 },
             )
         },

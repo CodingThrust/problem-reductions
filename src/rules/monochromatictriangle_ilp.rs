@@ -24,37 +24,45 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_edges",
         num_constraints = "2 * num_triangles",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut constraints = Vec::with_capacity(2 * self.num_triangles());
         for triangle in self.triangles() {
-            let terms: Vec<(usize, f64)> =
-                triangle.iter().map(|&edge_idx| (edge_idx, 1.0)).collect();
-            constraints.push(LinearConstraint::ge(terms.clone(), 1.0));
-            constraints.push(LinearConstraint::le(terms, 2.0));
+            let terms: Vec<(usize, i64)> = triangle.iter().map(|&edge_idx| (edge_idx, 1)).collect();
+            constraints.push(LinearConstraint::ge(terms.clone(), 1));
+            constraints.push(LinearConstraint::le(terms, 2));
         }
 
-        ReductionMonochromaticTriangleToILP {
+        Ok(ReductionMonochromaticTriangleToILP {
             target: ILP::new(
                 self.num_edges(),
                 constraints,
                 vec![],
                 ObjectiveSense::Minimize,
-            ),
-        }
+            )
+            .map_err(Self::target_construction)?,
+        })
     }
 }
 

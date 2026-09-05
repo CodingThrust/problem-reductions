@@ -1,76 +1,113 @@
-//! CustomizedSolver: structure-exploiting exact witness solver.
-//!
-//! Uses direct downcast dispatch to call dedicated backends for
-//! supported problem types, returning `None` for unsupported problems.
+//! Exact customized solvers and their exact-variant registrations.
 
 use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
     is_minimal_key, is_superkey, BranchDecision,
 };
-use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation};
+use crate::models::graph::{
+    MinimumCostCirculation, MinimumIntersectionGraphBasis, PartialFeedbackEdgeSet,
+    RootedTreeArrangement,
+};
+use crate::models::misc::{
+    AdditionalKey, BoyceCoddNormalFormViolation, GroupingBySwapping, MinimumDecisionTree,
+    ShortestCommonSuperstring, TimetableDesign,
+};
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
+use crate::solvers::registry::CustomizedSolverRegistration;
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 use std::collections::HashSet;
 
-/// A solver that uses problem-specific backends for exact witness recovery.
-///
-/// Unlike `BruteForce`, which enumerates all configurations, `CustomizedSolver`
-/// exploits problem structure (functional-dependency closure, cycle hitting,
-/// tree arrangement) to prune search and find witnesses more efficiently.
-///
-/// Returns `None` for unsupported problem types.
-#[derive(Default)]
-pub struct CustomizedSolver;
-
-impl CustomizedSolver {
-    /// Create a new `CustomizedSolver`.
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Check whether a type-erased problem is supported by the customized solver.
-    pub fn supports_problem(any: &dyn std::any::Any) -> bool {
-        any.is::<MinimumCardinalityKey>()
-            || any.is::<AdditionalKey>()
-            || any.is::<PrimeAttributeName>()
-            || any.is::<BoyceCoddNormalFormViolation>()
-            || any.is::<PartialFeedbackEdgeSet<SimpleGraph>>()
-            || any.is::<RootedTreeArrangement<SimpleGraph>>()
-    }
-
-    /// Attempt to solve a type-erased problem using a dedicated backend.
-    ///
-    /// Returns `Some(config)` if a satisfying witness is found, `None` if
-    /// the problem type is unsupported or no witness exists.
-    pub fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
-        if let Some(p) = any.downcast_ref::<MinimumCardinalityKey>() {
-            return solve_minimum_cardinality_key(p);
+macro_rules! register_customized_solver {
+    ($problem:ty, $implementation:literal, $solve:expr) => {
+        inventory::submit! {
+            CustomizedSolverRegistration {
+                source_name: <$problem as Problem>::NAME,
+                source_variant_fn: <$problem as Problem>::variant,
+                implementation: $implementation,
+                solve_fn: |any| {
+                    let problem = any.downcast_ref::<$problem>().expect(
+                        "customized solver registration received the wrong concrete type",
+                    );
+                    $solve(problem).map(|solution| {
+                        solution.map(|solution: <$problem as Problem>::Solution| {
+                            serde_json::to_value(solution)
+                                .expect("customized solution serialization must succeed")
+                        })
+                    })
+                },
+            }
         }
-        if let Some(p) = any.downcast_ref::<AdditionalKey>() {
-            return solve_additional_key(p);
-        }
-        if let Some(p) = any.downcast_ref::<PrimeAttributeName>() {
-            return solve_prime_attribute_name(p);
-        }
-        if let Some(p) = any.downcast_ref::<BoyceCoddNormalFormViolation>() {
-            return solve_bcnf_violation(p);
-        }
-        if let Some(p) = any.downcast_ref::<PartialFeedbackEdgeSet<SimpleGraph>>() {
-            return super::partial_feedback_edge_set::find_witness(p);
-        }
-        if let Some(p) = any.downcast_ref::<RootedTreeArrangement<SimpleGraph>>() {
-            return super::rooted_tree_arrangement::find_witness(p);
-        }
-        None
-    }
+    };
 }
+
+register_customized_solver!(
+    MinimumCardinalityKey,
+    "fd-minimum-cardinality-key",
+    |problem| Ok(solve_minimum_cardinality_key(problem))
+);
+register_customized_solver!(AdditionalKey, "fd-additional-key", |problem| Ok(
+    solve_additional_key(problem)
+));
+register_customized_solver!(PrimeAttributeName, "fd-prime-attribute-name", |problem| Ok(
+    solve_prime_attribute_name(problem)
+));
+register_customized_solver!(
+    BoyceCoddNormalFormViolation,
+    "fd-bcnf-violation",
+    |problem| Ok(solve_bcnf_violation(problem))
+);
+register_customized_solver!(
+    PartialFeedbackEdgeSet<SimpleGraph>,
+    "partial-feedback-edge-set",
+    |problem| Ok(super::partial_feedback_edge_set::solve(problem))
+);
+register_customized_solver!(
+    RootedTreeArrangement<SimpleGraph>,
+    "rooted-tree-arrangement",
+    |problem| Ok(super::rooted_tree_arrangement::solve(problem))
+);
+register_customized_solver!(GroupingBySwapping, "symbol-block-order", |problem| Ok(
+    super::grouping_by_swapping::solve(problem)
+));
+register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| Ok(
+    super::shortest_common_superstring::solve(problem)
+));
+register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| Ok(
+    super::minimum_decision_tree::solve(problem)
+));
+register_customized_solver!(
+    MinimumCostCirculation,
+    "negative-cycle-canceling",
+    |problem| Ok(super::minimum_cost_circulation::solve(problem))
+);
+register_customized_solver!(
+    MinimumIntersectionGraphBasis<SimpleGraph>,
+    "maximal-clique-edge-cover",
+    |problem| Ok(super::minimum_intersection_graph_basis::solve(problem))
+);
+register_customized_solver!(
+    TimetableDesign,
+    "timetable-required-assignments",
+    |problem| Ok(TimetableDesign::solve_via_required_assignments(problem))
+);
+
+register_customized_solver!(
+    crate::models::algebraic::ClosestVectorProblem<i64>,
+    "cvp-sphere-enumeration",
+    |problem| super::closest_vector_problem::solve(problem).map(Some)
+);
+register_customized_solver!(
+    crate::models::algebraic::ClosestVectorProblem<f64>,
+    "cvp-sphere-enumeration",
+    |problem| super::closest_vector_problem::solve(problem).map(Some)
+);
 
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 ///
 /// Uses iterative deepening by cardinality to guarantee the first solution
 /// found has the minimum number of attributes.
-fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<usize>> {
+pub(crate) fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<bool>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
 
@@ -102,9 +139,9 @@ fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<
         );
 
         if let Some(indices) = result {
-            let mut config = vec![0; n];
+            let mut config = vec![false; n];
             for i in indices {
-                config[i] = 1;
+                config[i] = true;
             }
             return Some(config);
         }
@@ -113,7 +150,7 @@ fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<
 }
 
 /// Solve AdditionalKey: find a candidate key not in the known set.
-fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
+pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<bool>> {
     let n_attrs = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
     let relation_attrs = problem.relation_attrs();
@@ -170,13 +207,13 @@ fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
         let index_set: HashSet<usize> = indices.into_iter().collect();
         relation_attrs
             .iter()
-            .map(|&attr| if index_set.contains(&attr) { 1 } else { 0 })
+            .map(|&attr| index_set.contains(&attr))
             .collect()
     })
 }
 
 /// Solve PrimeAttributeName: find a candidate key containing the query attribute.
-fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>> {
+pub(crate) fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<bool>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
     let query = problem.query_attribute();
@@ -210,9 +247,9 @@ fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>
     );
 
     result.map(|indices| {
-        let mut config = vec![0; n];
+        let mut config = vec![false; n];
         for i in indices {
-            config[i] = 1;
+            config[i] = true;
         }
         config
     })
@@ -220,7 +257,7 @@ fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>
 
 /// Solve BoyceCoddNormalFormViolation: find a subset X of target_subset such that
 /// the closure of X contains some but not all of target_subset \ X.
-fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<usize>> {
+pub(crate) fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<bool>> {
     let n_attrs = problem.num_attributes();
     let deps = problem.functional_deps().to_vec();
     let target = problem.target_subset();
@@ -257,7 +294,7 @@ fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<us
         let index_set: HashSet<usize> = indices.into_iter().collect();
         target
             .iter()
-            .map(|&attr| if index_set.contains(&attr) { 1 } else { 0 })
+            .map(|&attr| index_set.contains(&attr))
             .collect()
     })
 }

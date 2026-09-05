@@ -13,7 +13,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StrongConnectivityAugmentation<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -25,7 +26,8 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StrongConnectivityAugmentation<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Arc-less digraph on 4 vertices
@@ -56,13 +58,14 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_structure() {
 fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_nonhamiltonian() {
     // Star graph on 4 vertices (center=0, leaves=1,2,3) has no Hamiltonian circuit.
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction = ReduceTo::<StrongConnectivityAugmentation<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // With budget n=4, the only way to get strong connectivity at cost 4
     // is to use 4 weight-1 arcs. But star graph has 3 edges => 6 weight-1 arcs,
     // and no Hamiltonian circuit exists, so no feasible solution should exist.
-    let witness = BruteForce::new().find_witness(target);
+    let witness = BruteForce::new().solve(target).unwrap();
     assert!(
         witness.is_none(),
         "non-Hamiltonian source should yield infeasible SCA"
@@ -72,24 +75,25 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_nonhamiltonian() {
 #[test]
 fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StrongConnectivityAugmentation<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Manually build the target config for directed cycle 0->1->2->3->0.
     let n = 4;
-    let mut target_config = vec![0usize; n * (n - 1)];
+    let mut target_config = vec![false; n * (n - 1)];
     let cycle_arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];
     for (u, v) in cycle_arcs {
         let idx = u * (n - 1) + if v > u { v - 1 } else { v };
-        target_config[idx] = 1;
+        target_config[idx] = true;
     }
 
-    assert!(target.is_valid_solution(&target_config));
+    assert!(target.is_valid_solution(&target_config).unwrap());
 
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted.len(), 4);
     assert!(
-        source.evaluate(&extracted).is_valid(),
+        source.evaluate(&extracted).unwrap().is_valid(),
         "extracted solution must be a valid Hamiltonian circuit"
     );
 }

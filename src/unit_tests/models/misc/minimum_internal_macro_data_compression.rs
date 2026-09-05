@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -19,7 +20,7 @@ fn test_minimum_internal_macro_data_compression_creation() {
         vec![]
     );
     // dims: 9 slots, domain = 3 + 9 + 1 = 13
-    let dims = problem.dims();
+    let dims = problem.dimensions();
     assert_eq!(dims.len(), 9);
     assert!(dims.iter().all(|&d| d == 13));
 }
@@ -31,7 +32,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_uncompressed() {
     // Uncompressed: C = [a, b] = [0, 1]
     // active_len = 2, pointers = 0
     // cost = 2 + 0 = 2
-    assert_eq!(problem.evaluate(&[0, 1]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -43,7 +44,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_with_pointer() {
     // decoded = "abab" = s
     // active_len = 3, pointers = 1
     // cost = 3 + (2-1)*1 = 4
-    assert_eq!(problem.evaluate(&[0, 1, 3, 2]), Min(Some(4)));
+    assert_eq!(problem.evaluate(&vec![0, 1, 3, 2]).unwrap(), Min(Some(4)));
 }
 
 #[test]
@@ -51,14 +52,20 @@ fn test_minimum_internal_macro_data_compression_evaluate_invalid_decode() {
     // alphabet {a, b}, s = "ab", h = 2
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
     // C = [b, a] decodes to "ba" != "ab"
-    assert_eq!(problem.evaluate(&[1, 0]), Min(None));
+    assert_eq!(problem.evaluate(&vec![1, 0]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_wrong_length() {
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
-    assert_eq!(problem.evaluate(&[0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 0]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -66,7 +73,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_interleaved_eos() {
     // EOS then non-EOS is invalid
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
     // config = [EOS, a] = [2, 0]
-    assert_eq!(problem.evaluate(&[2, 0]), Min(None));
+    assert_eq!(problem.evaluate(&vec![2, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -75,14 +82,14 @@ fn test_minimum_internal_macro_data_compression_evaluate_pointer_forward_ref() {
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
     // C = [ptr(0)] -> pointer at first position references decoded[0], but nothing decoded yet
     // ptr(C[0]) encoded as 3 (alphabet_size + 1 + 0 = 2+1+0 = 3)
-    assert_eq!(problem.evaluate(&[3, 2]), Min(None));
+    assert_eq!(problem.evaluate(&vec![3, 2]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_internal_macro_data_compression_empty_string() {
     let problem = MinimumInternalMacroDataCompression::new(2, vec![], 2);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -92,9 +99,10 @@ fn test_minimum_internal_macro_data_compression_brute_force_simple() {
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let val = problem.evaluate(&witness);
+    let val = problem.evaluate(&witness).unwrap();
     assert_eq!(val, Min(Some(2)));
 }
 
@@ -105,9 +113,10 @@ fn test_minimum_internal_macro_data_compression_brute_force_repeated() {
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let val = problem.evaluate(&witness);
+    let val = problem.evaluate(&witness).unwrap();
     assert!(val.0.is_some());
     // Optimal: C = [a, b, ptr(0), EOS] -> cost = 3 + 1 = 4
     // Or uncompressed: cost = 4 + 0 = 4 (same)
@@ -116,10 +125,10 @@ fn test_minimum_internal_macro_data_compression_brute_force_repeated() {
 
 #[test]
 fn test_minimum_internal_macro_data_compression_solve_aggregate() {
-    use crate::solvers::Solver;
     let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
     let solver = BruteForce::new();
-    let val = solver.solve(&problem);
+    let val_solution = solver.solve(&problem).unwrap().unwrap();
+    let val = problem.evaluate(&val_solution).unwrap();
     assert_eq!(val, Min(Some(2)));
 }
 
@@ -141,7 +150,7 @@ fn test_minimum_internal_macro_data_compression_paper_example() {
     let problem = MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2, 0, 1, 2], 2);
     let config = vec![0, 1, 2, 4, 4, 3, 3, 3, 3];
     // ptr(C[0]) = alphabet_size + 1 + 0 = 3 + 1 + 0 = 4
-    let val = problem.evaluate(&config);
+    let val = problem.evaluate(&config).unwrap();
     assert_eq!(val, Min(Some(7)));
 }
 
@@ -151,7 +160,7 @@ fn test_minimum_internal_macro_data_compression_find_all_witnesses() {
     // domain = 1+1+1 = 3, 3^1 = 3 configs
     let problem = MinimumInternalMacroDataCompression::new(1, vec![0], 2);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Only valid: [0] (literal 'a'), cost = 1
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0]);
@@ -169,6 +178,6 @@ fn test_minimum_internal_macro_data_compression_pointer_doubling() {
     // active_len = 3, pointers = 2, cost = 3 + 0*2 = 3
     let problem = MinimumInternalMacroDataCompression::new(1, vec![0, 0, 0, 0], 1);
     let config = vec![0, 2, 2, 1]; // a, ptr(0), ptr(0), EOS
-    let val = problem.evaluate(&config);
+    let val = problem.evaluate(&config).unwrap();
     assert_eq!(val, Min(Some(3)));
 }

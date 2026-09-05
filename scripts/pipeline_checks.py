@@ -292,10 +292,14 @@ def rule_completeness(
             if test_file.exists()
             else check_entry(status="fail", detail="missing rule unit tests")
         ),
-        "overhead_form": (
+        "parameter_transform_form": (
             check_entry(status="pass", path=str(rule_file.relative_to(repo_root)))
-            if rule_file.exists() and "#[reduction(overhead = {" in rule_text
-            else check_entry(status="fail", detail="missing #[reduction(overhead = {...})] form")
+            if rule_file.exists()
+            and any(key in rule_text for key in ("transform = exact", "transform = upper_bound", "transform = unavailable"))
+            else check_entry(
+                status="fail",
+                detail="missing explicit exact, upper-bound, or unavailable parameter transform",
+            )
         ),
         "canonical_example": (
             check_entry(status="pass", path=str(rule_file.relative_to(repo_root)))

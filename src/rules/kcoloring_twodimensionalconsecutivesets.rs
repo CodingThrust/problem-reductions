@@ -39,32 +39,39 @@ impl ReductionResult for ReductionKColoringToTDCS {
     /// The first `num_vertices` symbols correspond to graph vertices,
     /// so their group assignments directly give a valid 3-coloring
     /// (after remapping to colors 0, 1, 2).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // The target solution is config[symbol] = group_index.
-        // Vertex symbols are indices 0..num_vertices.
-        // We need to remap the group indices to colors 0, 1, 2.
-        // The target may use any labels, so we compress the distinct
-        // group indices used by vertex symbols to 0..2.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let vertex_groups = &target_solution[..self.num_vertices];
+        Ok({
+            // The target solution is config[symbol] = group_index.
+            // Vertex symbols are indices 0..num_vertices.
+            // We need to remap the group indices to colors 0, 1, 2.
+            // The target may use any labels, so we compress the distinct
+            // group indices used by vertex symbols to 0..2.
 
-        // Collect distinct group indices used by vertices and map to 0..k-1
-        let mut used: Vec<usize> = vertex_groups.to_vec();
-        used.sort();
-        used.dedup();
+            let vertex_groups = &target_solution[..self.num_vertices];
 
-        let group_to_color: std::collections::HashMap<usize, usize> = used
-            .into_iter()
-            .enumerate()
-            .map(|(color, group)| (group, color % 3))
-            .collect();
+            // Collect distinct group indices used by vertices and map to 0..k-1
+            let mut used: Vec<usize> = vertex_groups.to_vec();
+            used.sort();
+            used.dedup();
 
-        vertex_groups.iter().map(|&g| group_to_color[&g]).collect()
+            let group_to_color: std::collections::HashMap<usize, usize> = used
+                .into_iter()
+                .enumerate()
+                .map(|(color, group)| (group, color % 3))
+                .collect();
+
+            vertex_groups.iter().map(|&g| group_to_color[&g]).collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         alphabet_size = "num_vertices + num_edges",
         num_subsets = "num_edges",
     }
@@ -72,7 +79,7 @@ impl ReductionResult for ReductionKColoringToTDCS {
 impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
     type Result = ReductionKColoringToTDCS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges: Vec<(usize, usize)> = self.graph().edges();
         let m = edges.len();
@@ -87,10 +94,10 @@ impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
 
         let target = TwoDimensionalConsecutiveSets::new(alphabet_size, subsets);
 
-        ReductionKColoringToTDCS {
+        Ok(ReductionKColoringToTDCS {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -109,7 +116,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]));
             let reduction = <KColoring<K3, SimpleGraph> as ReduceTo<
                 TwoDimensionalConsecutiveSets,
-            >>::reduce_to(&source);
+            >>::reduce_to(&source)
+            .expect("reduction should succeed");
             let target = reduction.target_problem();
 
             // Source coloring: 0->0, 1->1, 2->2, 3->0
@@ -124,7 +132,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
             // Verify the target config is valid
             assert!(
-                target.evaluate(&target_config).0,
+                target
+                    .evaluate(&target_config)
+                    .expect("canonical target evaluation must succeed")
+                    .0,
                 "canonical example target config must be valid"
             );
 
@@ -132,8 +143,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 target,
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

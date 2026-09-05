@@ -12,11 +12,12 @@ fn small_qap() -> QuadraticAssignment {
 #[test]
 fn test_reduction_creates_valid_ilp() {
     let problem = small_qap();
-    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionQAPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=3, m=3: num_x=9, z pairs: 3*2*3*3=54, total=63
-    assert_eq!(ilp.num_vars, 63);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 63);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -24,17 +25,18 @@ fn test_quadraticassignment_to_ilp_closed_loop() {
     let problem = small_qap();
     // BruteForce on source to get optimal value
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("brute-force optimum");
-    let bf_value = problem.evaluate(&bf_solution);
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
+    let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve via ILP
-    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionQAPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(
         ilp_value.is_valid(),
@@ -52,17 +54,18 @@ fn test_quadraticassignment_to_ilp_2x2() {
         QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 2], vec![2, 0]]);
     // BruteForce on source
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("brute-force optimum");
-    let bf_value = problem.evaluate(&bf_solution);
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
+    let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve via ILP
-    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionQAPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(ilp_value.is_valid());
     assert_eq!(ilp_value, bf_value);
@@ -71,13 +74,14 @@ fn test_quadraticassignment_to_ilp_2x2() {
 #[test]
 fn test_solution_extraction() {
     let problem = small_qap();
-    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionQAPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let metric = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid());
 }
 
@@ -90,17 +94,18 @@ fn test_quadraticassignment_to_ilp_rectangular() {
     );
     // BruteForce on source
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("brute-force optimum");
-    let bf_value = problem.evaluate(&bf_solution);
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
+    let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve via ILP
-    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionQAPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(ilp_value.is_valid());
     assert_eq!(ilp_value, bf_value);
@@ -109,6 +114,7 @@ fn test_quadraticassignment_to_ilp_rectangular() {
 #[test]
 fn test_quadraticassignment_to_ilp_bf_vs_ilp() {
     let problem = small_qap();
-    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionQAPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

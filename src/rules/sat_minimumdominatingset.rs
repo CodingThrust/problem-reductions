@@ -30,7 +30,7 @@ use crate::topology::SimpleGraph;
 #[derive(Debug, Clone)]
 pub struct ReductionSATToDS {
     /// The target MinimumDominatingSet problem.
-    target: MinimumDominatingSet<SimpleGraph, i32>,
+    target: MinimumDominatingSet<SimpleGraph, i64>,
     /// The number of variables in the source SAT problem.
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
@@ -39,7 +39,7 @@ pub struct ReductionSATToDS {
 
 impl ReductionResult for ReductionSATToDS {
     type Source = Satisfiability;
-    type Target = MinimumDominatingSet<SimpleGraph, i32>;
+    type Target = MinimumDominatingSet<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -53,49 +53,38 @@ impl ReductionResult for ReductionSATToDS {
     ///   - 3*i+1: negative literal NOT x_i (selecting means x_i = false)
     ///   - 3*i+2: dummy vertex (selecting means x_i can be either)
     ///
-    /// If more than num_literals vertices are selected, the solution is invalid
-    /// and we return a default assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let selected_count: usize = target_solution.iter().sum();
+    /// If more than num_literals vertices are selected, the target witness is invalid.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // If more vertices selected than variables, not a minimal dominating set
-        // corresponding to a satisfying assignment
-        if selected_count > self.num_literals {
-            // Return default assignment (all false)
-            return vec![0; self.num_literals];
+        let assignment = target_solution[..3 * self.num_literals]
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .enumerate()
+            .map(|(variable, gadget)| match gadget {
+                [true, false, false] => Ok(true),
+                [false, true, false] | [false, false, true] => Ok(false),
+                _ => Err(crate::rules::ExtractionError::invalid(format!(
+                    "variable {variable} gadget must select exactly one vertex, got {}",
+                    gadget.iter().filter(|&&selected| selected).count()
+                ))),
+            })
+            .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
+
+        if let Some(clause) = target_solution[3 * self.num_literals..]
+            .iter()
+            .position(|&selected| selected)
+        {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "clause vertex {clause} is selected"
+            )));
         }
 
-        let mut assignment = vec![0usize; self.num_literals];
-
-        for (i, &value) in target_solution.iter().enumerate() {
-            if value == 1 {
-                // Only consider variable gadget vertices (first 3*num_literals vertices)
-                if i >= 3 * self.num_literals {
-                    continue; // Skip clause vertices
-                }
-
-                let var_index = i / 3;
-                let vertex_type = i % 3;
-
-                match vertex_type {
-                    0 => {
-                        // Positive literal selected: x_i = true
-                        assignment[var_index] = 1;
-                    }
-                    1 => {
-                        // Negative literal selected: x_i = false
-                        assignment[var_index] = 0;
-                    }
-                    2 => {
-                        // Dummy vertex selected: variable is unconstrained
-                        // Default to false (already 0), but could be anything
-                    }
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        assignment
+        Ok(assignment)
     }
 }
 
@@ -112,15 +101,15 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
     }
 )]
-impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
+impl ReduceTo<MinimumDominatingSet<SimpleGraph, i64>> for Satisfiability {
     type Result = ReductionSATToDS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_variables = self.num_vars();
         let num_clauses = self.num_clauses();
 
@@ -164,14 +153,14 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
 
         let target = MinimumDominatingSet::new(
             SimpleGraph::new(num_vertices, edges),
-            vec![1i32; num_vertices],
+            vec![1i64; num_vertices],
         );
 
-        ReductionSATToDS {
+        Ok(ReductionSATToDS {
             target,
             num_literals: num_variables,
             num_clauses,
-        }
+        })
     }
 }
 
@@ -197,14 +186,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumDominatingSet<SimpleGraph, i32>,
+                MinimumDominatingSet<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 1, 1],
-                    target_config: vec![
-                        1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    ],
+                    source_config: serde_json::json!(vec![true, false, true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, false, true, false, true, false, false, true, false,
+                        false, true, false, false, false, false, false, false, false, false, false
+                    ]),
                 },
             )
         },

@@ -1,8 +1,41 @@
-use crate::config::DimsIterator;
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::solvers::CustomizedSolver;
+use crate::solvers::brute_force::CartesianIndices;
+use crate::solvers::registry::solver_capability_registry;
+use crate::solvers::BruteForceProblem as _;
+use crate::solvers::ExactProblemKey;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
+
+struct CustomizedTestSolver;
+
+impl CustomizedTestSolver {
+    fn new() -> Self {
+        Self
+    }
+
+    fn solve_dyn<P>(&self, problem: &P) -> Option<P::Solution>
+    where
+        P: Problem + 'static,
+        P::Solution: serde::de::DeserializeOwned,
+    {
+        let key = ExactProblemKey::new(
+            P::NAME,
+            P::variant()
+                .into_iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
+        );
+        let registration = solver_capability_registry()
+            .unwrap()
+            .lookup(&key)
+            .customized?;
+        let solution = (registration.solve_fn)(problem).unwrap()?;
+        Some(
+            serde_json::from_value(solution)
+                .expect("customized solver returned the wrong witness representation"),
+        )
+    }
+}
 
 fn all_simple_graphs(num_vertices: usize) -> impl Iterator<Item = SimpleGraph> {
     let candidate_edges: Vec<(usize, usize)> = (0..num_vertices)
@@ -26,20 +59,26 @@ fn exact_partial_feedback_edge_set_feasible(
     max_cycle_length: usize,
 ) -> bool {
     let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
-    DimsIterator::new(problem.dims()).any(|config| problem.evaluate(&config).0)
+    CartesianIndices::new(problem.dimensions())
+        .unwrap()
+        .any(|config| {
+            let solution = crate::config::config_to_bits(&config);
+            problem.evaluate(&solution).unwrap().0
+        })
 }
 
-fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<usize> {
-    let problem = RootedTreeArrangement::new(graph.clone(), usize::MAX);
-    DimsIterator::new(problem.dims())
-        .filter_map(|config| problem.total_edge_stretch(&config))
+fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64> {
+    let problem = RootedTreeArrangement::new(graph.clone(), i64::MAX);
+    CartesianIndices::new(problem.dimensions())
+        .unwrap()
+        .filter_map(|config| problem.total_edge_stretch(&config).unwrap())
         .min()
 }
 
 #[test]
 fn test_customized_solver_returns_none_for_unsupported_problem() {
     let problem = crate::models::misc::GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2);
-    let solver = CustomizedSolver::new();
+    let solver = CustomizedTestSolver::new();
     assert!(solver.solve_dyn(&problem).is_none());
 }
 
@@ -51,12 +90,12 @@ fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
         4,
         vec![(vec![0], vec![1]), (vec![1, 2], vec![3])],
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let (Some(bw), Some(cw)) = (&brute, &custom) {
-        let brute_val = problem.evaluate(bw);
-        let custom_val = problem.evaluate(cw);
+        let brute_val = problem.evaluate(bw).unwrap();
+        let custom_val = problem.evaluate(cw).unwrap();
         assert!(custom_val.0.is_some(), "witness must satisfy the problem");
         assert_eq!(
             custom_val, brute_val,
@@ -73,11 +112,14 @@ fn test_customized_solver_matches_bruteforce_for_additional_key() {
         vec![0, 1, 2],
         vec![],
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+        assert!(
+            problem.evaluate(w).unwrap().0,
+            "witness must satisfy the problem"
+        );
     }
 }
 
@@ -88,11 +130,14 @@ fn test_customized_solver_matches_bruteforce_for_prime_attribute_name() {
         vec![(vec![0, 1], vec![2, 3]), (vec![2], vec![0])],
         0,
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+        assert!(
+            problem.evaluate(w).unwrap().0,
+            "witness must satisfy the problem"
+        );
     }
 }
 
@@ -103,11 +148,14 @@ fn test_customized_solver_matches_bruteforce_for_bcnf_violation() {
         vec![(vec![0], vec![1]), (vec![2], vec![3])],
         vec![0, 1, 2, 3],
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+        assert!(
+            problem.evaluate(w).unwrap().0,
+            "witness must satisfy the problem"
+        );
     }
 }
 
@@ -124,10 +172,10 @@ fn test_customized_solver_finds_minimum_cardinality_key_witness() {
             (vec![2, 4], vec![5]),
         ],
     );
-    let witness = CustomizedSolver::new()
+    let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0.is_some());
+    assert!(problem.evaluate(&witness).unwrap().0.is_some());
 }
 
 #[test]
@@ -144,10 +192,10 @@ fn test_customized_solver_finds_additional_key_witness() {
         vec![0, 1, 2, 3, 4, 5],
         vec![vec![0, 1], vec![2, 3], vec![4, 5]],
     );
-    let witness = CustomizedSolver::new()
+    let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0);
+    assert!(problem.evaluate(&witness).unwrap().0);
 }
 
 #[test]
@@ -161,10 +209,10 @@ fn test_customized_solver_finds_prime_attribute_name_witness() {
         ],
         3,
     );
-    let witness = CustomizedSolver::new()
+    let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0);
+    assert!(problem.evaluate(&witness).unwrap().0);
 }
 
 #[test]
@@ -178,10 +226,10 @@ fn test_customized_solver_finds_bcnf_violation_witness() {
         ],
         vec![0, 1, 2, 3, 4, 5],
     );
-    let witness = CustomizedSolver::new()
+    let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0);
+    assert!(problem.evaluate(&witness).unwrap().0);
 }
 
 #[test]
@@ -197,7 +245,7 @@ fn test_customized_solver_no_witness_when_no_solution_exists() {
         vec![0, 1, 2],
         vec![vec![0], vec![1], vec![2]],
     );
-    assert!(CustomizedSolver::new().solve_dyn(&problem).is_none());
+    assert!(CustomizedTestSolver::new().solve_dyn(&problem).is_none());
 }
 
 #[test]
@@ -205,13 +253,13 @@ fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
     // All 3 attributes needed as a key (no single-attribute key exists)
     let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])]);
     // Both solvers should find a solution (the minimum cardinality key)
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
     // Verify optimality: customized solver returns same value as brute force
-    let brute_val = problem.evaluate(brute.as_ref().unwrap());
-    let custom_val = problem.evaluate(custom.as_ref().unwrap());
+    let brute_val = problem.evaluate(brute.as_ref().unwrap()).unwrap();
+    let custom_val = problem.evaluate(custom.as_ref().unwrap()).unwrap();
     assert_eq!(
         custom_val, brute_val,
         "customized solver must find optimal key"
@@ -231,12 +279,12 @@ fn test_customized_solver_minimum_cardinality_key_optimality() {
             (vec![2, 4], vec![5]),
         ],
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
-    let brute_val = problem.evaluate(brute.as_ref().unwrap());
-    let custom_val = problem.evaluate(custom.as_ref().unwrap());
+    let brute_val = problem.evaluate(brute.as_ref().unwrap()).unwrap();
+    let custom_val = problem.evaluate(custom.as_ref().unwrap()).unwrap();
     assert_eq!(
         custom_val, brute_val,
         "customized solver must return minimum-cardinality key, not just any minimal key"
@@ -284,7 +332,7 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
         4,
     );
 
-    let solver = CustomizedSolver::new();
+    let solver = CustomizedTestSolver::new();
     let yes_result = solver.solve_dyn(&yes);
     assert!(yes_result.is_some(), "expected a solution for yes instance");
     assert!(
@@ -306,11 +354,14 @@ fn test_customized_solver_matches_bruteforce_for_partial_feedback_edge_set() {
         1,
         3,
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+        assert!(
+            problem.evaluate(w).unwrap().0,
+            "witness must satisfy the problem"
+        );
     }
 }
 
@@ -322,10 +373,10 @@ fn test_customized_solver_partial_feedback_edge_set_no_cycles() {
         0,
         3,
     );
-    let result = CustomizedSolver::new().solve_dyn(&problem);
+    let result = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(result.is_some());
     // All zeros: no edges removed
-    assert_eq!(result.unwrap(), vec![0, 0, 0]);
+    assert_eq!(result.unwrap(), vec![false, false, false]);
 }
 
 #[test]
@@ -337,7 +388,7 @@ fn test_customized_solver_matches_exhaustive_search_for_small_partial_feedback_e
                 let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
                 let exact_feasible =
                     exact_partial_feedback_edge_set_feasible(&graph, budget, max_cycle_length);
-                let custom = CustomizedSolver::new().solve_dyn(&problem);
+                let custom = CustomizedTestSolver::new().solve_dyn(&problem);
 
                 assert_eq!(
                     custom.is_some(),
@@ -347,7 +398,7 @@ fn test_customized_solver_matches_exhaustive_search_for_small_partial_feedback_e
                 );
                 if let Some(witness) = custom {
                     assert!(
-                        problem.evaluate(&witness).0,
+                        problem.evaluate(&witness).unwrap().0,
                         "customized witness must satisfy graph={:?}, budget={budget}, max_cycle_length={max_cycle_length}",
                         graph.edges()
                     );
@@ -365,10 +416,13 @@ fn test_customized_solver_finds_rooted_tree_arrangement_witness() {
         crate::topology::SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]),
         7,
     );
-    let witness = CustomizedSolver::new()
+    let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected arrangement witness");
-    assert!(problem.evaluate(&witness).0, "witness must be valid");
+    assert!(
+        problem.evaluate(&witness).unwrap().0,
+        "witness must be valid"
+    );
 }
 
 #[test]
@@ -378,11 +432,11 @@ fn test_customized_solver_matches_bruteforce_for_rooted_tree_arrangement() {
         crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         3,
     );
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must be valid");
+        assert!(problem.evaluate(w).unwrap().0, "witness must be valid");
     }
 }
 
@@ -394,8 +448,8 @@ fn test_customized_solver_rooted_tree_arrangement_tight_bound() {
         1,
     );
     // With bound=1, we need total stretch=1, but path 0-1-2 needs at minimum 2
-    let custom = CustomizedSolver::new().solve_dyn(&problem);
-    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedTestSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     assert_eq!(custom.is_some(), brute.is_some());
 }
 
@@ -406,10 +460,13 @@ fn test_customized_solver_rooted_tree_arrangement_canonical_example() {
         crate::topology::SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]),
         5,
     );
-    let witness = CustomizedSolver::new()
+    let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0, "witness must be valid");
+    assert!(
+        problem.evaluate(&witness).unwrap().0,
+        "witness must be valid"
+    );
 }
 
 #[test]
@@ -421,8 +478,9 @@ fn test_customized_solver_matches_exhaustive_search_for_small_rooted_tree_arrang
             .saturating_mul(graph.num_vertices().saturating_sub(1));
 
         for bound in 0..=max_bound {
+            let bound = i64::try_from(bound).unwrap();
             let problem = RootedTreeArrangement::new(graph.clone(), bound);
-            let custom = CustomizedSolver::new().solve_dyn(&problem);
+            let custom = CustomizedTestSolver::new().solve_dyn(&problem);
             let exact_feasible = exact_min_stretch.is_some_and(|stretch| stretch <= bound);
 
             assert_eq!(
@@ -433,7 +491,7 @@ fn test_customized_solver_matches_exhaustive_search_for_small_rooted_tree_arrang
             );
             if let Some(witness) = custom {
                 assert!(
-                    problem.evaluate(&witness).0,
+                    problem.evaluate(&witness).unwrap().0,
                     "customized witness must satisfy graph={:?}, bound={bound}",
                     graph.edges()
                 );

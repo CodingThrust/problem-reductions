@@ -36,13 +36,18 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 
     /// Map a BMF config (B row-major, C row-major) to a BicliqueCover
     /// config (vertex-major) via the inverse transpose.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        config_bmf_to_bc(target_solution, self.m, self.n, self.k)
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(config_bmf_to_bc(target_solution, self.m, self.n, self.k))
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         rows = "left_size",
         cols = "right_size",
         rank = "rank",
@@ -51,7 +56,7 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 impl ReduceTo<BMF> for BicliqueCover {
     type Result = ReductionBicliqueCoverToBMF;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.left_size();
         let n = self.right_size();
         let k = self.k();
@@ -60,7 +65,7 @@ impl ReduceTo<BMF> for BicliqueCover {
             matrix[i][j] = true;
         }
         let target = BMF::new(matrix, k);
-        ReductionBicliqueCoverToBMF { target, m, n, k }
+        Ok(ReductionBicliqueCoverToBMF { target, m, n, k })
     }
 }
 
@@ -80,10 +85,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, BMF>(
                 source,
                 SolutionPair {
-                    // BicliqueCover (vertex-major, k=1): all 4 vertices in biclique 0
-                    source_config: vec![1, 1, 1, 1],
-                    // BMF (B row-major then C row-major): B=[[1],[1]], C=[[1,1]]
-                    target_config: vec![1, 1, 1, 1],
+                    source_config: serde_json::json!(vec![vec![true, true, true, true]]),
+                    target_config: serde_json::json!((
+                        vec![vec![true], vec![true]],
+                        vec![vec![true, true]]
+                    )),
                 },
             )
         },

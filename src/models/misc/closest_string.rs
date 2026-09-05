@@ -5,7 +5,7 @@
 //! same alphabet that minimizes the maximum Hamming distance from `c` to any
 //! input string.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Closest String",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a center string of fixed length that minimizes the maximum Hamming distance to a list of equal-length input strings",
         fields: &[
@@ -30,13 +31,6 @@ inventory::submit! {
                 description: "Input strings s_1, ..., s_n over the alphabet, all of equal length m",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "ClosestString",
-        fields: &["alphabet_size", "num_strings", "string_length", "total_length"],
     }
 }
 
@@ -122,37 +116,70 @@ impl ClosestString {
 
 impl Problem for ClosestString {
     const NAME: &'static str = "ClosestString";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("alphabet_size", alphabet_size),
+        ("num_strings", num_strings),
+        ("string_length", string_length),
+        ("total_length", total_length),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.string_length()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let m = self.string_length();
+            if config.len() != m {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "candidate string length does not match the instance strings".into(),
+                ));
+            }
+            if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "candidate string contains an out-of-range symbol".into(),
+                ));
+            }
+            // Maximum Hamming distance from the center to any input string.
+            let mut max_distance = 0_i64;
+            for string in &self.strings {
+                let distance = i64::try_from(
+                    config
+                        .iter()
+                        .zip(string.iter())
+                        .filter(|(center, target)| center != target)
+                        .count(),
+                )
+                .map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting Hamming distance to i64".into(),
+                    )
+                })?;
+                max_distance = max_distance.max(distance);
+            }
+            Min(Some(max_distance))
+        })
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let m = self.string_length();
-        if config.len() != m {
-            return Min(None);
-        }
-        if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
-            return Min(None);
-        }
-        // Maximum Hamming distance from the center to any input string.
-        let max_distance = self
-            .strings
-            .iter()
-            .map(|s| config.iter().zip(s.iter()).filter(|(c, t)| c != t).count() as i64)
-            .max()
-            .unwrap_or(0);
-        Min(Some(max_distance))
+impl crate::solvers::BruteForceProblem for ClosestString {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.alphabet_size; self.string_length()]
     }
 }
 
 crate::declare_variants! {
     default ClosestString => "alphabet_size ^ string_length",
+}
+
+crate::register_brute_force! {
+    ClosestString,
 }
 
 #[cfg(feature = "example-db")]
@@ -163,7 +190,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
             vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
         )),
-        optimal_config: vec![0, 0, 0],
+        optimal_config: serde_json::json!(vec![0, 0, 0]),
         optimal_value: serde_json::json!(2),
     }]
 }

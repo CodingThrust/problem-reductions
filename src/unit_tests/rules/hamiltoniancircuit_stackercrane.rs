@@ -15,7 +15,7 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -27,7 +27,7 @@ fn test_hamiltoniancircuit_to_stackercrane_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 4 vertices -> 8 target vertices (2 per original vertex)
@@ -51,13 +51,14 @@ fn test_hamiltoniancircuit_to_stackercrane_structure() {
 fn test_hamiltoniancircuit_to_stackercrane_optimal_cost() {
     // A 4-cycle has a Hamiltonian circuit; optimal StackerCrane cost = 2n = 8.
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("target should have a solution");
-    let cost = target.evaluate(&witness);
+    let cost = target.evaluate(&witness).unwrap();
     assert_eq!(cost, Min(Some(8)));
 }
 
@@ -66,13 +67,13 @@ fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
     // Star graph on 4 vertices: no Hamiltonian circuit.
     // The optimal StackerCrane cost should exceed 2n = 8.
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let witness = BruteForce::new().find_witness(target);
+    let witness = BruteForce::new().solve(target).unwrap();
     match witness {
         Some(w) => {
-            let cost = target.evaluate(&w);
+            let cost = target.evaluate(&w).unwrap();
             assert!(
                 cost.0.unwrap() > 8,
                 "non-Hamiltonian graph should have cost > 2n"
@@ -87,15 +88,15 @@ fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
 
     // The identity permutation [0, 1, 2, 3] traverses arcs in order,
     // corresponding to vertex order 0, 1, 2, 3 in the original graph.
     let target_config = vec![0, 1, 2, 3];
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![0, 1, 2, 3]);
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution should be a valid HC"
     );
 }
@@ -117,7 +118,7 @@ fn test_hamiltoniancircuit_to_stackercrane_prism_graph() {
         (2, 5),
     ];
     let source = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,

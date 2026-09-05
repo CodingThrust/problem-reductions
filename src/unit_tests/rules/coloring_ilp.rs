@@ -1,19 +1,20 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::variant::{K1, K2, K3, K4};
+use crate::variant::{K1, K2, K3, K4, KN};
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph with 3 colors
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Check ILP structure
     // num_vars = 3 vertices * 3 colors = 9
     assert_eq!(
-        ilp.num_vars, 9,
+        ilp.num_vars(),
+        9,
         "Should have 9 variables (3 vertices * 3 colors)"
     );
 
@@ -21,40 +22,53 @@ fn test_reduction_creates_valid_ilp() {
     //                 + 3 edges * 3 colors = 9 (edge constraints)
     //                 = 12 total
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         12,
         "Should have 12 constraints (3 vertex + 9 edge)"
     );
 
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize, "Should minimize");
 }
 
 #[test]
 fn test_reduction_path_graph() {
     // Path graph 0-1-2 with 2 colors (2-colorable)
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // num_vars = 3 * 2 = 6
-    assert_eq!(ilp.num_vars, 6);
+    assert_eq!(ilp.num_vars(), 6);
 
     // constraints = 3 (vertex) + 2 edges * 2 colors = 7
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.constraints().len(), 7);
+}
+
+#[test]
+fn runtime_color_count_controls_exact_ilp_parameters() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    for colors in [2, 3, 5] {
+        let problem = KColoring::<KN, _>::with_k(graph.clone(), colors);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+        let target = reduction.target_problem();
+
+        assert_eq!(target.num_vars(), 3 * colors);
+        assert_eq!(target.num_constraints(), 3 + 2 * colors);
+    }
 }
 
 #[test]
 fn test_coloring_to_ilp_closed_loop() {
     // Triangle needs 3 colors
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem - use find_all_witnesses for satisfaction problems
-    let bf_solutions = bf.find_all_witnesses(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     assert!(
         !bf_solutions.is_empty(),
         "Brute force should find solutions"
@@ -62,11 +76,11 @@ fn test_coloring_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify the extracted solution is valid for the original problem
     assert!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         "Extracted solution should be valid"
     );
 
@@ -80,18 +94,18 @@ fn test_coloring_to_ilp_closed_loop() {
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3 with 2 colors
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify validity
     assert!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         "Extracted solution should be valid"
     );
 
@@ -105,7 +119,7 @@ fn test_ilp_solution_equals_brute_force_path() {
 fn test_ilp_infeasible_triangle_2_colors() {
     // Triangle cannot be 2-colored
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -113,7 +127,7 @@ fn test_ilp_infeasible_triangle_2_colors() {
     // ILP should be infeasible
     let result = ilp_solver.solve(ilp);
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Triangle with 2 colors should be infeasible"
     );
 }
@@ -121,7 +135,7 @@ fn test_ilp_infeasible_triangle_2_colors() {
 #[test]
 fn test_solution_extraction() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // ILP solution where:
     // vertex 0 has color 1 (x_{0,1} = 1)
@@ -129,42 +143,42 @@ fn test_solution_extraction() {
     // vertex 2 has color 0 (x_{2,0} = 1)
     // Variables are indexed as: v0c0, v0c1, v0c2, v1c0, v1c1, v1c2, v2c0, v2c1, v2c2
     let ilp_solution = vec![0, 1, 0, 0, 0, 1, 1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 2, 0]);
 
     // Verify this is a valid coloring (vertex 0 and 1 have different colors)
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_ilp_structure() {
     let problem =
         KColoring::<K3, _>::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 5 vertices * 3 colors = 15 variables
-    assert_eq!(ilp.num_vars, 15);
+    assert_eq!(ilp.num_vars(), 15);
     // constraints = 5 (vertex) + 4 * 3 (edge) = 17
-    assert_eq!(ilp.constraints.len(), 17);
+    assert_eq!(ilp.constraints().len(), 17);
 }
 
 #[test]
 fn test_empty_graph() {
     // Graph with no edges: any coloring is valid
     let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Should only have vertex constraints (each vertex = one color)
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 }
 
 #[test]
@@ -174,14 +188,14 @@ fn test_complete_graph_k4() {
         4,
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 
     // All vertices should have different colors
     let mut colors: Vec<usize> = extracted.clone();
@@ -197,12 +211,12 @@ fn test_complete_graph_k4_with_3_colors_infeasible() {
         4,
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
-    assert!(result.is_none(), "K4 with 3 colors should be infeasible");
+    assert!(result.is_err(), "K4 with 3 colors should be infeasible");
 }
 
 #[test]
@@ -211,14 +225,14 @@ fn test_bipartite_graph() {
     // This is 2-colorable
     let problem =
         KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 
     // Vertices 0,1 should have same color, vertices 2,3 should have same color
     // And different from 0,1
@@ -228,31 +242,30 @@ fn test_bipartite_graph() {
 }
 
 #[test]
-fn test_solve_reduced() {
-    // Test the ILPSolver::solve_reduced method
+fn test_reduction_closed_loop() {
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    let target_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("target ILP should be solvable");
+    let solution = reduction.extract_solution(&target_solution).unwrap();
 
-    let ilp_solver = ILPSolver::new();
-    let solution = ilp_solver
-        .solve_reduced(&problem)
-        .expect("solve_reduced should work");
-
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_single_vertex() {
     // Single vertex graph: always 1-colorable
     let problem = KColoring::<K1, _>::new(SimpleGraph::new(1, vec![]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 1);
-    assert_eq!(ilp.constraints.len(), 1); // Just the "exactly one color" constraint
+    assert_eq!(ilp.num_vars(), 1);
+    assert_eq!(ilp.constraints().len(), 1); // Just the "exactly one color" constraint
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![0]);
 }
@@ -261,20 +274,20 @@ fn test_single_vertex() {
 fn test_single_edge() {
     // Single edge: needs 2 colors
     let problem = KColoring::<K2, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
     assert_ne!(extracted[0], extracted[1]);
 }
 
 #[test]
 fn test_coloring_to_ilp_bf_vs_ilp() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

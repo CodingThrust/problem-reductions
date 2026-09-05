@@ -13,5 +13,5 @@ fn test_consecutive_ones_matrix_augmentation_yes_instance() {
         2,
     );
 
-    assert!(problem.evaluate(&[0, 1, 4, 2, 3]));
+    assert!(problem.evaluate(&vec![0, 1, 4, 2, 3]).unwrap());
 }

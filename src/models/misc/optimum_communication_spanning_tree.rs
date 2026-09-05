@@ -5,7 +5,7 @@
 //! minimizes the total communication cost: sum_{u<v} r(u,v) * W_T(u,v),
 //! where W_T(u,v) is the sum of edge weights on the unique path from u to v in T.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -17,13 +17,10 @@ inventory::submit! {
         display_name: "Optimum Communication Spanning Tree",
         aliases: &["OCST"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find spanning tree minimizing total weighted communication cost",
-        fields: &[
-            FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices n" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<Vec<i32>>", description: "Symmetric weight matrix w(i,j)" },
-            FieldInfo { name: "requirements", type_name: "Vec<Vec<i32>>", description: "Symmetric requirement matrix r(i,j)" },
-        ],
+        fields: OptimumCommunicationSpanningTreeCreateSpec::FIELDS,
     }
 }
 
@@ -47,7 +44,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::OptimumCommunicationSpanningTree;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = OptimumCommunicationSpanningTree::new(
 ///     vec![
@@ -62,14 +59,57 @@ inventory::submit! {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimumCommunicationSpanningTree {
     num_vertices: usize,
-    edge_weights: Vec<Vec<i32>>,
-    requirements: Vec<Vec<i32>>,
+    edge_weights: Vec<Vec<i64>>,
+    requirements: Vec<Vec<i64>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct OptimumCommunicationSpanningTreeCreateSpec {
+    /// Number of vertices.
+    num_vertices: usize,
+    /// Symmetric weight matrix; defaults to unit off-diagonal weights.
+    edge_weights: Option<Vec<Vec<i64>>>,
+    /// Symmetric communication requirement matrix.
+    requirements: Vec<Vec<i64>>,
+}
+impl TryFrom<OptimumCommunicationSpanningTreeCreateSpec> for OptimumCommunicationSpanningTree {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: OptimumCommunicationSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
+        let n = spec.num_vertices;
+        if n < 2 {
+            return Err("must have at least two vertices".to_string().into());
+        }
+        let edge_weights = spec.edge_weights.unwrap_or_else(|| {
+            (0..n)
+                .map(|i| (0..n).map(|j| i64::from(i != j)).collect())
+                .collect()
+        });
+        for (name, matrix) in [
+            ("edge_weights", &edge_weights),
+            ("requirements", &spec.requirements),
+        ] {
+            if matrix.len() != n || matrix.iter().any(|row| row.len() != n) {
+                return Err(format!("{name} must be a {n} x {n} matrix").into());
+            }
+            for (i, row) in matrix.iter().enumerate() {
+                if row[i] != 0 {
+                    return Err(format!("{name} diagonal must be zero").into());
+                }
+                for (j, &value) in row.iter().enumerate().skip(i + 1) {
+                    if value != matrix[j][i] || value < 0 {
+                        return Err(format!("{name} must be symmetric and nonnegative").into());
+                    }
+                }
+            }
+        }
+        Ok(Self::new(edge_weights, spec.requirements))
+    }
 }
 
 impl OptimumCommunicationSpanningTree {
@@ -84,7 +124,7 @@ impl OptimumCommunicationSpanningTree {
     ///
     /// Panics if the matrices are not square, not the same size, have nonzero
     /// diagonals, are not symmetric, or contain negative entries.
-    pub fn new(edge_weights: Vec<Vec<i32>>, requirements: Vec<Vec<i32>>) -> Self {
+    pub fn new(edge_weights: Vec<Vec<i64>>, requirements: Vec<Vec<i64>>) -> Self {
         let n = edge_weights.len();
         assert!(n >= 2, "must have at least 2 vertices");
         assert_eq!(
@@ -165,12 +205,12 @@ impl OptimumCommunicationSpanningTree {
     }
 
     /// Returns the edge weight matrix.
-    pub fn edge_weights(&self) -> &Vec<Vec<i32>> {
+    pub fn edge_weights(&self) -> &Vec<Vec<i64>> {
         &self.edge_weights
     }
 
     /// Returns the requirements matrix.
-    pub fn requirements(&self) -> &Vec<Vec<i32>> {
+    pub fn requirements(&self) -> &Vec<Vec<i64>> {
         &self.requirements
     }
 
@@ -194,18 +234,13 @@ impl OptimumCommunicationSpanningTree {
 }
 
 /// Check if a configuration forms a valid spanning tree of K_n.
-fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[usize]) -> bool {
+fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[bool]) -> bool {
     if config.len() != edges.len() {
         return false;
     }
 
-    // Check all values are 0 or 1
-    if config.iter().any(|&v| v > 1) {
-        return false;
-    }
-
     // Count selected edges: must be exactly n-1
-    let selected_count: usize = config.iter().sum();
+    let selected_count = config.iter().filter(|&&selected| selected).count();
     if selected_count != n - 1 {
         return false;
     }
@@ -213,7 +248,7 @@ fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[usize]) 
     // Build adjacency and check connectivity via BFS
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push(v);
             adj[v].push(u);
@@ -243,14 +278,14 @@ fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[usize]) 
 fn communication_cost(
     n: usize,
     edges: &[(usize, usize)],
-    config: &[usize],
-    edge_weights: &[Vec<i32>],
-    requirements: &[Vec<i32>],
-) -> i64 {
+    config: &[bool],
+    edge_weights: &[Vec<i64>],
+    requirements: &[Vec<i64>],
+) -> Result<i64, crate::traits::EvaluationError> {
     // Build weighted adjacency list for the tree
-    let mut adj: Vec<Vec<(usize, i32)>> = vec![vec![]; n];
+    let mut adj: Vec<Vec<(usize, i64)>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             let w = edge_weights[u][v];
             adj[u].push((v, w));
@@ -269,7 +304,11 @@ fn communication_cost(
         while let Some(u) = queue.pop_front() {
             for &(v, w) in &adj[u] {
                 if dist[v] < 0 {
-                    dist[v] = dist[u] + w as i64;
+                    dist[v] = dist[u].checked_add(w).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing communication-tree path weights".to_string(),
+                        )
+                    })?;
                     queue.push_back(v);
                 }
             }
@@ -277,42 +316,70 @@ fn communication_cost(
 
         // Accumulate r(src, dst) * W_T(src, dst) for dst > src
         for (dst, &d) in dist.iter().enumerate().skip(src + 1) {
-            total_cost += requirements[src][dst] as i64 * d;
+            let term = requirements[src][dst].checked_mul(d).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying communication requirement by path weight".to_string(),
+                )
+            })?;
+            total_cost = total_cost.checked_add(term).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing communication-tree costs".to_string(),
+                )
+            })?;
         }
     }
 
-    total_cost
+    Ok(total_cost)
 }
 
 impl Problem for OptimumCommunicationSpanningTree {
     const NAME: &'static str = "OptimumCommunicationSpanningTree";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let edges = self.edges();
-        if !is_valid_spanning_tree(self.num_vertices, &edges, config) {
-            return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.edges().len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the complete graph".into(),
+            ));
         }
-        Min(Some(communication_cost(
-            self.num_vertices,
-            &edges,
-            config,
-            &self.edge_weights,
-            &self.requirements,
-        )))
+        Ok({
+            let edges = self.edges();
+            if !is_valid_spanning_tree(self.num_vertices, &edges, config) {
+                return Ok(Min(None));
+            }
+            Min(Some(communication_cost(
+                self.num_vertices,
+                &edges,
+                config,
+                &self.edge_weights,
+                &self.requirements,
+            )?))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for OptimumCommunicationSpanningTree {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_edges()]
     }
 }
 
 crate::declare_variants! {
-    default OptimumCommunicationSpanningTree => "2^num_edges",
+    default OptimumCommunicationSpanningTree => "2^num_edges" create OptimumCommunicationSpanningTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    OptimumCommunicationSpanningTree decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -344,7 +411,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             edge_weights,
             requirements,
         )),
-        optimal_config: vec![1, 0, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, false, true]),
         optimal_value: serde_json::json!(20),
     }]
 }

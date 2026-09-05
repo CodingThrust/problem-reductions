@@ -1,4 +1,20 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_defaults_capacities_and_validates_paths() {
+    let problem = PathConstrainedNetworkFlow::try_from(PathConstrainedNetworkFlowCreateSpec {
+        arcs: vec![(0, 1), (1, 2)],
+        num_vertices: None,
+        capacities: None,
+        source: 0,
+        sink: 2,
+        paths: vec![vec![0, 1]],
+        requirement: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.capacities(), &[1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -60,22 +76,25 @@ fn test_path_constrained_network_flow_creation() {
 #[test]
 fn test_path_constrained_network_flow_dims_use_path_bottlenecks() {
     let problem = yes_instance();
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
 }
 
 #[test]
 fn test_path_constrained_network_flow_evaluation_satisfying() {
     let problem = yes_instance();
-    assert!(problem.evaluate(&[1, 1, 0, 0, 1]));
-    assert!(problem.evaluate(&[1, 0, 1, 1, 0]));
+    assert!(problem.evaluate(&vec![1, 1, 0, 0, 1]).unwrap());
+    assert!(problem.evaluate(&vec![1, 0, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_path_constrained_network_flow_evaluation_unsatisfying() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 0, 0]));
+    assert!(!problem.evaluate(&vec![1, 1, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 1, 1, 0, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -84,11 +103,13 @@ fn test_path_constrained_network_flow_solver_yes_and_no() {
     let no = no_instance();
     let solver = BruteForce::new();
 
-    let satisfying = solver.find_all_witnesses(&yes);
+    let satisfying = solver.find_all_witnesses(&yes).unwrap();
     assert_eq!(satisfying.len(), 2);
-    assert!(satisfying.iter().all(|config| yes.evaluate(config).0));
+    assert!(satisfying
+        .iter()
+        .all(|config| yes.evaluate(config).unwrap().0));
 
-    assert!(solver.find_witness(&no).is_none());
+    assert!(solver.solve(&no).unwrap().is_none());
 }
 
 #[test]
@@ -146,9 +167,9 @@ fn test_path_constrained_network_flow_paper_example() {
     let solver = BruteForce::new();
     let config = vec![1, 1, 0, 0, 1];
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 2);
     assert!(all.contains(&config));
 }

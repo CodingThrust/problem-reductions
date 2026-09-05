@@ -22,6 +22,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Factoring;
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::cmp::min;
 
@@ -33,7 +34,7 @@ use std::cmp::min;
 /// - Constraints enforce the multiplication equals the target
 #[derive(Debug, Clone)]
 pub struct ReductionFactoringToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     m: usize, // bits for first factor
     n: usize, // bits for second factor
 }
@@ -64,9 +65,9 @@ impl ReductionFactoringToILP {
 
 impl ReductionResult for ReductionFactoringToILP {
     type Source = Factoring;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -74,43 +75,54 @@ impl ReductionResult for ReductionFactoringToILP {
     ///
     /// The first m variables are p_i (first factor bits).
     /// The next n variables are q_j (second factor bits).
-    /// Returns concatenated bit vector [p_0, ..., p_{m-1}, q_0, ..., q_{n-1}].
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Extract p bits (first factor)
-        let p_bits: Vec<usize> = (0..self.m)
-            .map(|i| target_solution.get(self.p_var(i)).copied().unwrap_or(0))
-            .collect();
+    /// Returns the decoded factors in ascending order.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Extract q bits (second factor)
-        let q_bits: Vec<usize> = (0..self.n)
-            .map(|j| target_solution.get(self.q_var(j)).copied().unwrap_or(0))
-            .collect();
+        Ok({
+            // Extract p bits (first factor)
+            let p = (0..self.m)
+                .filter(|&i| target_solution[self.p_var(i)] == 1)
+                .fold(num_bigint::BigUint::from(0u8), |value, index| {
+                    value + (num_bigint::BigUint::from(1u8) << index)
+                });
 
-        // Concatenate p and q bits
-        let mut result = p_bits;
-        result.extend(q_bits);
-        result
+            // Extract q bits (second factor)
+            let q = (0..self.n)
+                .filter(|&j| target_solution[self.q_var(j)] == 1)
+                .fold(num_bigint::BigUint::from(0u8), |value, index| {
+                    value + (num_bigint::BigUint::from(1u8) << index)
+                });
+            if p <= q {
+                (p, q)
+            } else {
+                (q, p)
+            }
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_bits_first * num_bits_second",
-    num_constraints = "num_bits_first * num_bits_second",
-})]
-impl ReduceTo<ILP<i32>> for Factoring {
+#[reduction(transform = upper_bound {
+    num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
+    num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
+},
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
+impl ReduceTo<ILP<i64>> for Factoring {
     type Result = ReductionFactoringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.m();
         let n = self.n();
         let target = self.target();
 
         // Calculate the number of bits needed for the target
-        let target_bits = if target == 0 {
-            1
-        } else {
-            (64 - target.leading_zeros()) as usize
-        };
+        let target_bits = self.target_bits();
 
         // Number of bit positions to check: max(m+n, target_bits)
         // For feasible instances, target_bits <= m+n (product of m-bit × n-bit has at most m+n bits).
@@ -144,17 +156,7 @@ impl ReduceTo<ILP<i32>> for Factoring {
                 let p = p_var(i);
                 let q = q_var(j);
 
-                // z_ij - p_i ≤ 0
-                constraints.push(LinearConstraint::le(vec![(z, 1.0), (p, -1.0)], 0.0));
-
-                // z_ij - q_j ≤ 0
-                constraints.push(LinearConstraint::le(vec![(z, 1.0), (q, -1.0)], 0.0));
-
-                // z_ij - p_i - q_j ≥ -1
-                constraints.push(LinearConstraint::ge(
-                    vec![(z, 1.0), (p, -1.0), (q, -1.0)],
-                    -1.0,
-                ));
+                constraints.extend(mccormick_product(z, p, q));
             }
         }
 
@@ -163,61 +165,59 @@ impl ReduceTo<ILP<i32>> for Factoring {
         //   Σ_{i+j=k} z_ij + c_{k-1} = N_k + 2·c_k
         // Rearranged: Σ_{i+j=k} z_ij + c_{k-1} - 2·c_k = N_k
         for k in 0..num_bit_positions {
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
 
             // Collect all z_ij where i + j = k
             for i in 0..m {
                 if k >= i && k - i < n {
                     let j = k - i;
-                    terms.push((z_var(i, j), 1.0));
+                    terms.push((z_var(i, j), 1));
                 }
             }
 
             // Add carry_in (from position k-1)
             if k > 0 {
-                terms.push((carry_var(k - 1), 1.0));
+                terms.push((carry_var(k - 1), 1));
             }
 
             // Subtract 2 × carry_out
-            terms.push((carry_var(k), -2.0));
+            terms.push((carry_var(k), -2));
 
-            // RHS is N_k (k-th bit of target). For k >= 64, the bit is 0 for u64.
-            let n_k = if k < 64 {
-                ((target >> k) & 1) as f64
-            } else {
-                0.0
-            };
+            // RHS is N_k (k-th bit of target).
+            let n_k = i64::from(target.bit(u64::try_from(k).expect("bit index fits u64")));
             constraints.push(LinearConstraint::eq(terms, n_k));
         }
 
         // Constraint 3: Final carry must be zero (no overflow)
         constraints.push(LinearConstraint::eq(
-            vec![(carry_var(num_bit_positions - 1), 1.0)],
-            0.0,
+            vec![(carry_var(num_bit_positions - 1), 1)],
+            0,
         ));
 
         // Constraint 4: Binary bounds for p_i and q_j (enforce 0/1 in integer domain)
         for i in 0..m {
-            constraints.push(LinearConstraint::le(vec![(p_var(i), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(p_var(i), 1)], 1));
         }
         for j in 0..n {
-            constraints.push(LinearConstraint::le(vec![(q_var(j), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(q_var(j), 1)], 1));
         }
 
         // Constraint 5: Carry bounds (0 ≤ c_k ≤ min(m, n))
-        let carry_upper = min(m, n) as f64;
+        let carry_upper =
+            <Self as ReduceTo<ILP<i64>>>::exact_i64(min(m, n), "encoding a carry bound")?;
         for k in 0..num_carries {
             let cv = carry_var(k);
-            constraints.push(LinearConstraint::ge(vec![(cv, 1.0)], 0.0));
-            constraints.push(LinearConstraint::le(vec![(cv, 1.0)], carry_upper));
+            constraints.push(LinearConstraint::ge(vec![(cv, 1)], 0));
+            constraints.push(LinearConstraint::le(vec![(cv, 1)], carry_upper));
         }
 
         // Objective: feasibility problem (minimize 0)
-        let objective: Vec<(usize, f64)> = vec![];
+        let objective: Vec<(usize, i64)> = vec![];
 
-        let ilp = ILP::<i32>::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let ilp = ILP::<i64>::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
 
-        ReductionFactoringToILP { target: ilp, m, n }
+        Ok(ReductionFactoringToILP { target: ilp, m, n })
     }
 }
 
@@ -226,8 +226,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "factoring_to_ilp",
         build: || {
-            let source = Factoring::new(3, 3, 35);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            let source = Factoring::with_factor_bits(35, 3, 3);
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

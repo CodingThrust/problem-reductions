@@ -3,7 +3,7 @@
 //! The Feedback Arc Set problem asks for a minimum-weight subset of arcs
 //! whose removal makes a directed graph acyclic (a DAG).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -16,14 +16,12 @@ inventory::submit! {
         display_name: "Minimum Feedback Arc Set",
         aliases: &["FAS"],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight feedback arc set in a directed graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Arc weights w: A -> R" },
-        ],
+        fields: MinimumFeedbackArcSetCreateSpec::FIELDS,
     }
 }
 
@@ -44,18 +42,18 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumFeedbackArcSet;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Directed cycle: 0->1->2->0
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
+/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap().unwrap();
 ///
 /// // Minimum FAS has size 1 (remove any single arc to break the cycle)
-/// assert_eq!(solution.iter().sum::<usize>(), 1);
+/// assert_eq!(solution.iter().filter(|&&selected| selected).count(), 1);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumFeedbackArcSet<W> {
@@ -63,6 +61,25 @@ pub struct MinimumFeedbackArcSet<W> {
     graph: DirectedGraph,
     /// Weights for each arc.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumFeedbackArcSetCreateSpec {
+    /// The directed graph.
+    graph: DirectedGraph,
+    /// Arc weights; defaults to one per arc.
+    weights: Option<Vec<i64>>,
+}
+impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i64> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumFeedbackArcSetCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_arcs();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
+        }
+        Ok(Self::new(spec.graph, weights))
+    }
 }
 
 impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
@@ -99,7 +116,7 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     /// Check if a configuration is a valid feedback arc set.
     ///
     /// A configuration is valid if removing the selected arcs makes the graph acyclic.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_fas(&self.graph, config)
     }
 }
@@ -126,27 +143,49 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumFeedbackArcSet";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_arcs()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !is_valid_fas(&self.graph, config) {
-            return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected != 0 {
-                total += self.weights[i].to_sum();
+        Ok({
+            if !is_valid_fas(&self.graph, config) {
+                return Ok(Min(None));
             }
-        }
-        Min(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected feedback-arc weights",
+                    )?;
+                }
+            }
+            Min(Some(total))
+        })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for MinimumFeedbackArcSet<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_arcs()]
     }
 }
 
@@ -154,18 +193,22 @@ where
 ///
 /// config[i] = 1 means arc i is selected for removal.
 /// The remaining arcs must form a DAG.
-fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
+fn is_valid_fas(graph: &DirectedGraph, config: &[bool]) -> bool {
     let num_arcs = graph.num_arcs();
     if config.len() != num_arcs {
         return false;
     }
     // kept_arcs[i] = true means arc i is NOT removed (kept in the graph)
-    let kept_arcs: Vec<bool> = config.iter().map(|&x| x == 0).collect();
+    let kept_arcs: Vec<bool> = config.iter().map(|&removed| !removed).collect();
     graph.is_acyclic_subgraph(&kept_arcs)
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackArcSet<i32> => "2^num_vertices",
+    default MinimumFeedbackArcSet<i64> => "2^num_vertices" create MinimumFeedbackArcSetCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumFeedbackArcSet<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -176,9 +219,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "minimum_feedback_arc_set",
         instance: Box::new(MinimumFeedbackArcSet::new(
             DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i32, 1, 1],
+            vec![1i64, 1, 1],
         )),
-        optimal_config: vec![0, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(1),
     }]
 }

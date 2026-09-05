@@ -27,21 +27,32 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vars]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vars + num_clauses",
         num_constraints = "num_clauses",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let m = self.num_clauses();
         let num_ilp_vars = n + m;
@@ -58,42 +69,43 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
             .iter()
             .enumerate()
             .map(|(j, clause)| {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
-                let mut neg_count = 0i32;
+                let mut terms: Vec<(usize, i64)> = Vec::new();
+                let mut neg_count = 0;
 
                 // z_{n+j} has coefficient +1
-                terms.push((n + j, 1.0));
+                terms.push((n + j, 1));
 
                 for &lit in &clause.literals {
                     let var_idx = lit.unsigned_abs() as usize - 1;
                     if lit > 0 {
                         // positive literal: subtract y_i
-                        terms.push((var_idx, -1.0));
+                        terms.push((var_idx, -1));
                     } else {
                         // negative literal: add y_i
-                        terms.push((var_idx, 1.0));
+                        terms.push((var_idx, 1));
                         neg_count += 1;
                     }
                 }
 
-                LinearConstraint::le(terms, neg_count as f64)
+                LinearConstraint::le(terms, neg_count)
             })
             .collect();
 
         // Objective: maximize sum of z_j indicators
-        let objective: Vec<(usize, f64)> = (0..m).map(|j| (n + j, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|j| (n + j, 1)).collect();
 
         let target = ILP::new(
             num_ilp_vars,
             constraints,
             objective,
             ObjectiveSense::Maximize,
-        );
+        )
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionMaximum2SatisfiabilityToILP {
+        Ok(ReductionMaximum2SatisfiabilityToILP {
             target,
             num_vars: n,
-        }
+        })
     }
 }
 
@@ -130,8 +142,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 1],
-                    target_config: vec![1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1],
+                    source_config: serde_json::json!(vec![true, true, false, true]),
+                    target_config: serde_json::json!(vec![1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]),
                 },
             )
         },

@@ -2,16 +2,193 @@
 //!
 //! This crate provides the `#[reduction]` attribute macro that automatically
 //! generates `ReductionEntry` registrations from `ReduceTo` impl blocks,
-//! and the `declare_variants!` proc macro for compile-time validated variant
-//! registration.
+//! the `declare_variants!` proc macro for compile-time validated variant
+//! registration, and `register_brute_force!` for finite reference solvers.
 
-pub(crate) mod parser;
+mod expr_codegen;
 
+use expr_codegen::{complexity_estimate_tokens, expr_tokens};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
-use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Type};
+use syn::{parse_macro_input, DeriveInput, GenericArgument, ItemImpl, Path, PathArguments, Type};
+
+/// Generate static construction-input metadata from a typed create spec.
+#[proc_macro_derive(CreateSpec, attributes(create))]
+pub fn derive_create_spec(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match generate_create_spec(&input) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.to_compile_error().into(),
+    }
+}
+
+fn generate_create_spec(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    let name = &input.ident;
+    let syn::Data::Struct(data) = &input.data else {
+        return Err(syn::Error::new_spanned(
+            input,
+            "CreateSpec can only be derived for structs",
+        ));
+    };
+    let syn::Fields::Named(fields) = &data.fields else {
+        return Err(syn::Error::new_spanned(
+            &data.fields,
+            "CreateSpec requires named fields",
+        ));
+    };
+
+    let mut field_entries = Vec::new();
+    let mut input_entries = Vec::new();
+    let mut input_renames = Vec::new();
+    for field in &fields.named {
+        let ident = field.ident.as_ref().expect("named field");
+        let rust_name = ident.to_string();
+        let mut input_name = rust_name.clone();
+        let mut codec = quote!(crate::registry::CreateInputCodec::Auto);
+        for attribute in &field.attrs {
+            if attribute.path().is_ident("create") {
+                attribute.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("name") {
+                        input_name = meta.value()?.parse::<syn::LitStr>()?.value();
+                        return Ok(());
+                    }
+                    if meta.path.is_ident("codec") {
+                        let value = meta.value()?.parse::<syn::LitStr>()?;
+                        codec = create_codec_tokens(&value)?;
+                        return Ok(());
+                    }
+                    Err(meta.error("expected `name` or `codec`"))
+                })?;
+            }
+        }
+        if input_name.is_empty()
+            || !input_name
+                .bytes()
+                .all(|byte| byte == b'_' || byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        {
+            return Err(syn::Error::new(
+                ident.span(),
+                "construction input names must use non-empty snake_case",
+            ));
+        }
+
+        let (value_type, required) = option_inner_type(&field.ty)
+            .map(|inner| (inner, false))
+            .unwrap_or((&field.ty, true));
+        let type_name = quote!(#value_type).to_string().replace(' ', "");
+        let description = field
+            .attrs
+            .iter()
+            .filter(|attribute| attribute.path().is_ident("doc"))
+            .filter_map(|attribute| match &attribute.meta {
+                syn::Meta::NameValue(value) => match &value.value {
+                    syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(text),
+                        ..
+                    }) => Some(text.value().trim().to_string()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        if input_name != rust_name {
+            let external_name = syn::LitStr::new(&input_name, ident.span());
+            let rust_name = syn::LitStr::new(&rust_name, ident.span());
+            input_renames.push(quote! {
+                if let Some(value) = object.remove(#external_name) {
+                    object.insert(#rust_name.to_string(), value);
+                }
+            });
+        }
+        let input_name = syn::LitStr::new(&input_name, ident.span());
+        let type_name = syn::LitStr::new(&type_name, ident.span());
+        let description = syn::LitStr::new(&description, ident.span());
+        field_entries.push(quote! {
+            crate::registry::FieldInfo {
+                name: #input_name,
+                type_name: #type_name,
+                description: #description,
+            }
+        });
+        input_entries.push(quote! {
+            crate::registry::CreateInputInfo {
+                name: #input_name,
+                type_name: #type_name,
+                description: #description,
+                required: #required,
+                codec: #codec,
+            }
+        });
+    }
+
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    Ok(quote! {
+        impl #impl_generics crate::registry::CreateSpec for #name #type_generics #where_clause {
+            const FIELDS: &'static [crate::registry::FieldInfo] = &[
+                #(#field_entries),*
+            ];
+            const INPUTS: &'static [crate::registry::CreateInputInfo] = &[
+                #(#input_entries),*
+            ];
+
+            fn deserialize_inputs(
+                mut data: serde_json::Value,
+            ) -> Result<Self, serde_json::Error>
+            where
+                Self: serde::de::DeserializeOwned,
+            {
+                let object = data
+                    .as_object_mut()
+                    .expect("construction inputs were validated as an object");
+                #(#input_renames)*
+                serde_json::from_value(data)
+            }
+        }
+    })
+}
+
+fn create_codec_tokens(value: &syn::LitStr) -> syn::Result<TokenStream2> {
+    let variant = match value.value().as_str() {
+        "auto" => quote!(Auto),
+        "scalar" => quote!(Scalar),
+        "json" => quote!(Json),
+        "comma-separated" => quote!(CommaSeparated),
+        "semicolon-separated" => quote!(SemicolonSeparated),
+        "edge-list" => quote!(EdgeList),
+        "arc-list" => quote!(ArcList),
+        "bipartite-edge-list" => quote!(BipartiteEdgeList),
+        "equality-pair-list" => quote!(EqualityPairList),
+        "functional-dependency-list" => quote!(FunctionalDependencyList),
+        "character-rows" => quote!(CharacterRows),
+        _ => {
+            return Err(syn::Error::new(
+                value.span(),
+                "unknown construction codec; expected one of: auto, scalar, json, comma-separated, semicolon-separated, edge-list, arc-list, bipartite-edge-list, equality-pair-list, functional-dependency-list, character-rows",
+            ))
+        }
+    };
+    Ok(quote!(crate::registry::CreateInputCodec::#variant))
+}
+
+fn option_inner_type(ty: &Type) -> Option<&Type> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let segment = path.path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return None;
+    };
+    arguments.args.iter().find_map(|argument| match argument {
+        GenericArgument::Type(inner) => Some(inner),
+        _ => None,
+    })
+}
 
 /// Attribute macro for automatic reduction registration.
 ///
@@ -24,20 +201,21 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Attributes
 ///
-/// - `overhead = { expr }` — overhead specification
+/// - `transform = exact { field = expression, ... }` — exact target-parameter equalities
+/// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
+/// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
+/// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
+/// - `aggregate = identity` or `aggregate = custom` — register the reduction result's
+///   `AggregateReductionResult` implementation alongside its witness extractor
 ///
-/// ## New syntax (preferred):
+/// ## Syntax
 /// ```ignore
-/// #[reduction(overhead = {
+/// #[reduction(transform = exact {
 ///     num_vars = "num_vertices^2",
-///     num_constraints = "num_edges",
+///     num_constraints = num_edges,
 /// })]
 /// ```
 ///
-/// ## Legacy syntax (still supported):
-/// ```ignore
-/// #[reduction(overhead = { ReductionOverhead::new(vec![...]) })]
-/// ```
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = parse_macro_input!(attr as ReductionAttrs);
@@ -49,32 +227,93 @@ pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-/// Overhead specification: either new parsed syntax or legacy raw tokens.
-enum OverheadSpec {
-    /// Legacy syntax: raw token stream (e.g., `ReductionOverhead::new(...)`)
-    Legacy(TokenStream2),
-    /// New syntax: list of (field_name, expression_string) pairs
-    Parsed(Vec<(String, String)>),
+#[derive(Clone)]
+struct ParsedExpressionField {
+    name: String,
+    expression: problemreductions_expr::Expr,
 }
 
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
-    overhead: Option<OverheadSpec>,
+    transform_declared: bool,
+    relation: Option<ParameterRelationAttr>,
+    fields: Option<Vec<(String, String)>>,
+    unavailable: Option<Vec<(String, String)>>,
+    aggregate: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ParameterRelationAttr {
+    Exact,
+    UpperBound,
 }
 
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut attrs = ReductionAttrs { overhead: None };
+        let mut attrs = ReductionAttrs {
+            transform_declared: false,
+            relation: None,
+            fields: None,
+            unavailable: None,
+            aggregate: false,
+        };
 
         while !input.is_empty() {
             let ident: syn::Ident = input.parse()?;
             input.parse::<syn::Token![=]>()?;
 
             match ident.to_string().as_str() {
-                "overhead" => {
+                "transform" => {
+                    if attrs.transform_declared {
+                        return Err(syn::Error::new(
+                            ident.span(),
+                            "duplicate `transform` declaration",
+                        ));
+                    }
+                    attrs.transform_declared = true;
+                    let relation: syn::Ident = input.parse()?;
                     let content;
                     syn::braced!(content in input);
-                    attrs.overhead = Some(parse_overhead_content(&content)?);
+                    match relation.to_string().as_str() {
+                        "exact" => {
+                            attrs.relation = Some(ParameterRelationAttr::Exact);
+                            attrs.fields = Some(parse_expression_fields(&content)?);
+                        }
+                        "upper_bound" => {
+                            attrs.relation = Some(ParameterRelationAttr::UpperBound);
+                            attrs.fields = Some(parse_expression_fields(&content)?);
+                        }
+                        "unavailable" => {
+                            attrs.unavailable = Some(parse_unavailable_fields(&content)?);
+                        }
+                        _ => {
+                            return Err(syn::Error::new(
+                                relation.span(),
+                                "expected `exact`, `upper_bound`, or `unavailable`",
+                            ));
+                        }
+                    }
+                }
+                "unavailable" => {
+                    if attrs.unavailable.is_some() {
+                        return Err(syn::Error::new(
+                            ident.span(),
+                            "duplicate `unavailable` declaration",
+                        ));
+                    }
+                    let content;
+                    syn::braced!(content in input);
+                    attrs.unavailable = Some(parse_unavailable_fields(&content)?);
+                }
+                "aggregate" => {
+                    let value: syn::Ident = input.parse()?;
+                    if value != "identity" && value != "custom" {
+                        return Err(syn::Error::new(
+                            value.span(),
+                            "expected `identity` or `custom`",
+                        ));
+                    }
+                    attrs.aggregate = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -89,45 +328,59 @@ impl syn::parse::Parse for ReductionAttrs {
             }
         }
 
+        if !attrs.transform_declared {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "missing `transform` declaration",
+            ));
+        }
+
         Ok(attrs)
     }
 }
 
-/// Detect and parse the overhead content as either new or legacy syntax.
-///
-/// New syntax detection: the first tokens are `ident = "string_literal"`.
-/// Legacy syntax: everything else (starts with a path like `ReductionOverhead::...`).
-fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<OverheadSpec> {
-    // Fork to peek ahead without consuming
-    let fork = content.fork();
+fn parse_expression_fields(content: syn::parse::ParseStream) -> syn::Result<Vec<(String, String)>> {
+    let mut fields = Vec::new();
+    while !content.is_empty() {
+        let field_name: syn::Ident = content.parse()?;
+        content.parse::<syn::Token![=]>()?;
+        let expression = if content.peek(syn::LitStr) {
+            content.parse::<syn::LitStr>()?.value()
+        } else {
+            content.parse::<syn::Ident>()?.to_string()
+        };
+        fields.push((field_name.to_string(), expression));
 
-    // Try to detect new syntax: ident = "string"
-    let is_new_syntax = fork.parse::<syn::Ident>().is_ok()
-        && fork.parse::<syn::Token![=]>().is_ok()
-        && fork.parse::<syn::LitStr>().is_ok();
-
-    if is_new_syntax {
-        // Parse new syntax: field_name = "expression", ...
-        let mut fields = Vec::new();
-        while !content.is_empty() {
-            let field_name: syn::Ident = content.parse()?;
-            content.parse::<syn::Token![=]>()?;
-            let expr_str: syn::LitStr = content.parse()?;
-            fields.push((field_name.to_string(), expr_str.value()));
-
-            if content.peek(syn::Token![,]) {
-                content.parse::<syn::Token![,]>()?;
-            }
+        if content.peek(syn::Token![,]) {
+            content.parse::<syn::Token![,]>()?;
         }
-        Ok(OverheadSpec::Parsed(fields))
-    } else {
-        // Legacy syntax: parse as raw token stream
-        let tokens: TokenStream2 = content.parse()?;
-        Ok(OverheadSpec::Legacy(tokens))
     }
+    Ok(fields)
 }
 
-/// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i32>").
+fn parse_unavailable_fields(
+    content: syn::parse::ParseStream,
+) -> syn::Result<Vec<(String, String)>> {
+    let mut fields = Vec::new();
+    while !content.is_empty() {
+        let field_name: syn::Ident = content.parse()?;
+        content.parse::<syn::Token![=]>()?;
+        let reason = content.parse::<syn::LitStr>()?.value();
+        if reason.trim().is_empty() {
+            return Err(syn::Error::new(
+                field_name.span(),
+                "unavailable parameter field requires a non-empty reason",
+            ));
+        }
+        fields.push((field_name.to_string(), reason));
+        if content.peek(syn::Token![,]) {
+            content.parse::<syn::Token![,]>()?;
+        }
+    }
+    Ok(fields)
+}
+
+/// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i64>").
 /// Special-cases `Decision<T>` to produce `DecisionT`.
 fn extract_type_name(ty: &Type) -> Option<String> {
     match ty {
@@ -210,101 +463,35 @@ fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Resu
     Ok(quote! { <#ty as crate::traits::Problem>::variant() })
 }
 
-/// Generate overhead code from the new parsed syntax.
-///
-/// Produces a `ReductionOverhead` constructor that uses `Expr` AST values.
-fn generate_parsed_overhead(fields: &[(String, String)]) -> syn::Result<TokenStream2> {
-    let mut field_tokens = Vec::new();
-
-    for (field_name, expr_str) in fields {
-        let parsed = parser::parse_expr(expr_str).map_err(|e| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("error parsing overhead expression \"{expr_str}\": {e}"),
-            )
-        })?;
-
-        let expr_ast = parsed.to_expr_tokens();
-        let name_lit = field_name.as_str();
-        field_tokens.push(quote! { (#name_lit, #expr_ast) });
-    }
-
-    Ok(quote! {
-        crate::rules::registry::ReductionOverhead::new(vec![#(#field_tokens),*])
-    })
-}
-
-/// Generate a compiled overhead evaluation function from parsed overhead fields.
-///
-/// Produces a closure that downcasts `&dyn Any` to `&SourceType`, calls getter methods
-/// for each variable in the expressions, and returns a `ProblemSize`.
-fn generate_overhead_eval_fn(
+/// Parse one explicit exact or bound field declaration into the canonical expression DAG.
+fn parse_expression_fields_to_expr(
     fields: &[(String, String)],
-    source_type: &Type,
-) -> syn::Result<TokenStream2> {
-    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-
-    let mut field_eval_tokens = Vec::new();
-    for (field_name, expr_str) in fields {
-        let parsed = parser::parse_expr(expr_str).map_err(|e| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("error parsing overhead expression \"{expr_str}\": {e}"),
-            )
-        })?;
-
-        let eval_tokens = parsed.to_eval_tokens(&src_ident);
-        let name_lit = field_name.as_str();
-        field_eval_tokens.push(quote! { (#name_lit, (#eval_tokens).round() as usize) });
-    }
-
-    Ok(quote! {
-        |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
-            let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
-            crate::types::ProblemSize::new(vec![#(#field_eval_tokens),*])
-        }
-    })
-}
-
-/// Generate a function that extracts the source problem's size fields from `&dyn Any`.
-///
-/// Collects all variable names referenced in the overhead expressions, generates
-/// getter calls for each, and returns a `ProblemSize`.
-fn generate_source_size_fn(
-    fields: &[(String, String)],
-    source_type: &Type,
-) -> syn::Result<TokenStream2> {
-    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-
-    // Collect all unique variable names from overhead expressions
-    let mut var_names = std::collections::BTreeSet::new();
-    for (_, expr_str) in fields {
-        let parsed = parser::parse_expr(expr_str).map_err(|e| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("error parsing overhead expression \"{expr_str}\": {e}"),
-            )
-        })?;
-        for v in parsed.variables() {
-            var_names.insert(v.to_string());
-        }
-    }
-
-    let getter_tokens: Vec<_> = var_names
+) -> syn::Result<Vec<ParsedExpressionField>> {
+    fields
         .iter()
-        .map(|var| {
-            let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
-            let name_lit = var.as_str();
-            quote! { (#name_lit, #src_ident.#getter() as usize) }
+        .map(|(name, source)| {
+            let expression = problemreductions_expr::Expr::try_parse(source).map_err(|error| {
+                syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    format!("error parsing parameter expression \"{source}\": {error}"),
+                )
+            })?;
+            Ok(ParsedExpressionField {
+                name: name.clone(),
+                expression,
+            })
         })
-        .collect();
+        .collect()
+}
 
-    Ok(quote! {
-        |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
-            let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
-            crate::types::ProblemSize::new(vec![#(#getter_tokens),*])
-        }
-    })
+fn generate_expression_fields(fields: &[ParsedExpressionField]) -> TokenStream2 {
+    let field_tokens = fields.iter().map(|field| {
+        let expression = expr_tokens(&field.expression);
+        let name = field.name.as_str();
+        quote! { (#name, #expression) }
+    });
+
+    quote! { vec![#(#field_tokens),*] }
 }
 
 /// Generate the reduction entry code
@@ -330,10 +517,18 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    let capabilities = if source_name == target_name {
-        quote! { crate::rules::EdgeCapabilities::both() }
+    let reduce_aggregate_fn = if attrs.aggregate {
+        quote! {
+            Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError> {
+                let src = src.downcast_ref::<#source_type>().ok_or_else(
+                    crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
+                )?;
+                let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
+                Ok(Box::new(result))
+            })
+        }
     } else {
-        quote! { crate::rules::EdgeCapabilities::witness_only() }
+        quote! { None }
     };
 
     // Collect generic parameter info from the impl block
@@ -343,35 +538,23 @@ fn generate_reduction_entry(
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
-    // Generate overhead, eval fn, and source size fn
-    let (overhead, overhead_eval_fn, source_size_fn) = match &attrs.overhead {
-        Some(OverheadSpec::Legacy(tokens)) => {
-            let eval_fn = quote! {
-                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
-                    panic!("overhead_eval_fn not available for legacy overhead syntax; \
-                            migrate to parsed syntax: field = \"expression\"")
-                }
-            };
-            let size_fn = quote! {
-                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
-                    crate::types::ProblemSize::new(vec![])
-                }
-            };
-            (tokens.clone(), eval_fn, size_fn)
+    let fields = parse_expression_fields_to_expr(attrs.fields.as_deref().unwrap_or_default())?;
+    let field_tokens = generate_expression_fields(&fields);
+    let relation_tokens = match attrs.relation {
+        Some(ParameterRelationAttr::Exact) => {
+            quote! { Some(crate::parameters::ParameterRelation::Exact) }
         }
-        Some(OverheadSpec::Parsed(fields)) => {
-            let overhead_tokens = generate_parsed_overhead(fields)?;
-            let eval_fn = generate_overhead_eval_fn(fields, source_type)?;
-            let size_fn = generate_source_size_fn(fields, source_type)?;
-            (overhead_tokens, eval_fn, size_fn)
+        Some(ParameterRelationAttr::UpperBound) => {
+            quote! { Some(crate::parameters::ParameterRelation::UpperBound) }
         }
-        None => {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "Missing overhead specification. Use #[reduction(overhead = { ... })] and specify overhead expressions for all target problem size fields.",
-            ));
-        }
+        None => quote! { None },
     };
+    let unavailable_tokens = attrs
+        .unavailable
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .map(|(field, reason)| quote! { crate::rules::registry::UnavailableParameterField { field: #field, reason: #reason } });
 
     // Generate the combined output
     let output = quote! {
@@ -383,22 +566,21 @@ fn generate_reduction_entry(
                 target_name: #target_name,
                 source_variant_fn: || { #source_variant_body },
                 target_variant_fn: || { #target_variant_body },
-                overhead_fn: || { #overhead },
+                parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
+                    relation: #relation_tokens,
+                    fields: #field_tokens,
+                    unavailable: vec![#(#unavailable_tokens),*],
+                },
                 module_path: module_path!(),
-                reduce_fn: Some(|src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
-                    let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
-                        panic!(
-                            "DynReductionResult: source type mismatch: expected `{}`, got `{}`",
-                            std::any::type_name::<#source_type>(),
-                            std::any::type_name_of_val(src),
-                        )
-                    });
-                    Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
+                reduce_fn: Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+                    let src = src.downcast_ref::<#source_type>().ok_or_else(
+                        crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
+                    )?;
+                    let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
+                    Ok(Box::new(result))
                 }),
-                reduce_aggregate_fn: None,
-                capabilities: #capabilities,
-                overhead_eval_fn: #overhead_eval_fn,
-                source_size_fn: #source_size_fn,
+                reduce_aggregate_fn: #reduce_aggregate_fn,
+                turing: false,
             }
         }
 
@@ -450,6 +632,8 @@ struct DeclareVariantEntry {
     ty: Type,
     complexity: syn::LitStr,
     aliases: Vec<syn::LitStr>,
+    create_spec: Option<Type>,
+    random: bool,
 }
 
 impl syn::parse::Parse for DeclareVariantsInput {
@@ -466,15 +650,14 @@ impl syn::parse::Parse for DeclareVariantsInput {
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
 
-            // Optional: `aliases ["X", "Y", ...]`
-            let aliases = if input.peek(syn::Ident) {
-                let fork = input.fork();
-                let ident: syn::Ident = fork.parse()?;
+            let mut aliases = Vec::new();
+            let mut create_spec = None;
+            let mut random = false;
+            while input.peek(syn::Ident) {
+                let ident: syn::Ident = input.parse()?;
                 if ident == "aliases" {
-                    input.parse::<syn::Ident>()?;
                     let content;
                     syn::bracketed!(content in input);
-                    let mut out = Vec::new();
                     while !content.is_empty() {
                         let lit: syn::LitStr = content.parse()?;
                         if lit.value().trim().is_empty() {
@@ -483,29 +666,36 @@ impl syn::parse::Parse for DeclareVariantsInput {
                                 "variant alias must not be empty or whitespace-only",
                             ));
                         }
-                        out.push(lit);
+                        aliases.push(lit);
                         if content.peek(syn::Token![,]) {
                             content.parse::<syn::Token![,]>()?;
                         }
                     }
-                    out
-                } else if fork.peek(syn::token::Bracket) {
+                } else if ident == "create" {
+                    if create_spec.is_some() {
+                        return Err(syn::Error::new(ident.span(), "duplicate `create` clause"));
+                    }
+                    create_spec = Some(input.parse()?);
+                } else if ident == "random" {
+                    if random {
+                        return Err(syn::Error::new(ident.span(), "duplicate `random` clause"));
+                    }
+                    random = true;
+                } else {
                     return Err(syn::Error::new(
                         ident.span(),
-                        format!("expected 'aliases', found '{ident}'"),
+                        format!("expected `aliases`, `create`, or `random`, found `{ident}`"),
                     ));
-                } else {
-                    Vec::new()
                 }
-            } else {
-                Vec::new()
-            };
+            }
 
             entries.push(DeclareVariantEntry {
                 is_default,
                 ty,
                 complexity,
                 aliases,
+                create_spec,
+                random,
             });
 
             if input.peek(syn::Token![,]) {
@@ -532,8 +722,8 @@ impl syn::parse::Parse for DeclareVariantsInput {
 ///
 /// ```text
 /// declare_variants! {
-///     MaximumIndependentSet<SimpleGraph, i32>   => "1.1996^num_vertices",
-///     MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)",
+///     MaximumIndependentSet<SimpleGraph, i64>   => "1.1996^num_vertices",
+///     MaximumIndependentSet<KingsSubgraph, i64> => "2^sqrt(num_vertices)",
 /// }
 /// ```
 #[proc_macro]
@@ -543,6 +733,99 @@ pub fn declare_variants(input: TokenStream) -> TokenStream {
         Ok(tokens) => tokens.into(),
         Err(e) => e.to_compile_error().into(),
     }
+}
+
+struct BruteForceRegistrationInput {
+    entries: Vec<BruteForceRegistrationEntry>,
+}
+
+struct BruteForceRegistrationEntry {
+    ty: Type,
+    decoder: Option<syn::ExprClosure>,
+}
+
+impl syn::parse::Parse for BruteForceRegistrationInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut entries = Vec::new();
+        while !input.is_empty() {
+            let ty = input.parse()?;
+            let decoder = if input.peek(syn::Ident) {
+                let ident: syn::Ident = input.parse()?;
+                if ident != "decode" {
+                    return Err(syn::Error::new(ident.span(), "expected `decode`"));
+                }
+                Some(input.parse()?)
+            } else {
+                None
+            };
+            entries.push(BruteForceRegistrationEntry { ty, decoder });
+            if input.peek(syn::Token![,]) {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+        Ok(Self { entries })
+    }
+}
+
+/// Register finite Cartesian reference solvers for concrete problem variants.
+#[proc_macro]
+pub fn register_brute_force(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as BruteForceRegistrationInput);
+    let entries = input.entries.iter().map(|entry| {
+        let ty = &entry.ty;
+        let decode = if let Some(decoder) = &entry.decoder {
+            quote! { |indices| (#decoder)(problem, indices) }
+        } else {
+            quote! { |indices| indices }
+        };
+        quote! {
+            crate::inventory::submit! {
+                crate::solvers::BruteForceRegistration {
+                    source_name: <#ty as crate::traits::Problem>::NAME,
+                    source_variant_fn: || <#ty as crate::traits::Problem>::variant(),
+                    dimensions_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        <#ty as crate::solvers::BruteForceProblem>::dimensions(problem)
+                    },
+                    solve_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        let solver = crate::solvers::BruteForce::new();
+                        let Some((solution, value)) = solver.find_cartesian(problem, #decode)? else {
+                            return Ok(None);
+                        };
+                        let evaluation = crate::registry::format_metric(&value);
+                        Ok(Some((
+                            serde_json::to_value(solution).expect("serialize solution failed"),
+                            evaluation,
+                        )))
+                    },
+                    solve_typed_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        let solver = crate::solvers::BruteForce::new();
+                        Ok(solver
+                            .find_cartesian(problem, #decode)?
+                            .map(|(solution, _)| Box::new(solution) as Box<dyn std::any::Any>))
+                    },
+                    solve_typed_with_witnesses_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        let solver = crate::solvers::BruteForce::new();
+                        Ok(Box::new(
+                            solver.solve_with_witnesses_cartesian(problem, #decode)?,
+                        ))
+                    },
+                }
+            }
+        }
+    });
+    quote! { #(#entries)* }.into()
 }
 
 /// Generate code for all `declare_variants!` entries.
@@ -588,56 +871,67 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
     for entry in &input.entries {
         let ty = &entry.ty;
+        let create_spec = &entry.create_spec;
+        let random = entry.random;
         let complexity_str = entry.complexity.value();
         let is_default = entry.is_default;
         let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
 
         // Parse the complexity expression to validate syntax
-        let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
+        let parsed = problemreductions_expr::Expr::try_parse(&complexity_str).map_err(|e| {
             syn::Error::new(
                 entry.complexity.span(),
                 format!("invalid complexity expression \"{complexity_str}\": {e}"),
             )
         })?;
 
-        // Generate getter validation for all variables
-        let vars = parsed.variables();
-        let validation = if vars.is_empty() {
-            quote! {}
-        } else {
-            let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-            let getter_checks: Vec<_> = vars
-                .iter()
-                .map(|var| {
-                    let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
-                    quote! { let _ = #src_ident.#getter(); }
-                })
-                .collect();
+        // Generate a compiled complexity evaluator over the problem-owned parameters.
+        let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
+        let construction_fields = if let Some(create_spec) = create_spec {
             quote! {
-                const _: () = {
-                    #[allow(unused)]
-                    fn _validate_complexity(#src_ident: &#ty) {
-                        #(#getter_checks)*
-                    }
-                };
+                create_inputs: Some(<#create_spec as crate::registry::CreateSpec>::INPUTS),
+                construct_fn: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                    crate::registry::validate_create_inputs(
+                        <#create_spec as crate::registry::CreateSpec>::INPUTS,
+                        &data,
+                    )?;
+                    let spec: #create_spec = <#create_spec as crate::registry::CreateSpec>::deserialize_inputs(data)
+                        .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))?;
+                    let problem: #ty = <#ty as std::convert::TryFrom<#create_spec>>::try_from(spec)
+                        .map_err(Into::<crate::registry::ConstructionError>::into)?;
+                    Ok(Box::new(problem))
+                },
+            }
+        } else {
+            quote! {
+                create_inputs: None,
+                construct_fn: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                    let problem_type = <#ty as crate::traits::Problem>::problem_type();
+                    crate::registry::validate_direct_create_inputs(problem_type.fields, &data)?;
+                    let problem: #ty = serde_json::from_value(data)
+                        .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))?;
+                    Ok(Box::new(problem))
+                },
             }
         };
 
-        // Generate compiled complexity eval fn
-        let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
-
-        // Generate dispatch fields based on aggregate value solving plus optional witnesses.
-        let solve_value_body = quote! {
-            let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p);
-            crate::registry::format_metric(&total)
-        };
-
-        let solve_witness_body = quote! {
-            let config = crate::solvers::BruteForce::find_witness(&solver, p)?;
+        let random_registration = if random {
+            quote! {
+                Some(crate::registry::RandomRegistration {
+                    inputs: <#ty as crate::registry::RandomGenerate>::INPUTS,
+                    generate: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                        Ok(Box::new(<#ty as crate::registry::RandomGenerate>::generate(data)?))
+                    },
+                })
+            }
+        } else {
+            quote! { None }
         };
 
         let dispatch_fields = quote! {
+            #construction_fields
+            random: #random_registration,
             factory: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
                 let p: #ty = serde_json::from_value(data)?;
                 Ok(Box::new(p))
@@ -645,20 +939,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             serialize_fn: |any: &dyn std::any::Any| -> Option<serde_json::Value> {
                 let p = any.downcast_ref::<#ty>()?;
                 Some(serde_json::to_value(p).expect("serialize failed"))
-            },
-            solve_value_fn: |any: &dyn std::any::Any| -> String {
-                let p = any
-                    .downcast_ref::<#ty>()
-                    .expect("type-erased solve_value downcast failed");
-                let solver = crate::solvers::BruteForce::new();
-                #solve_value_body
-            },
-            solve_witness_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
-                let p = any.downcast_ref::<#ty>()?;
-                let solver = crate::solvers::BruteForce::new();
-                #solve_witness_body
-                let evaluation = crate::registry::format_metric(&crate::traits::Problem::evaluate(p, &config));
-                Some((config, evaluation))
             },
         };
 
@@ -671,13 +951,18 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     variant_fn: || <#ty as crate::traits::Problem>::variant(),
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
+                    parameter_names_fn: || <#ty as crate::traits::Problem>::parameter_names(),
+                    parameter_measure_fn: |any: &dyn std::any::Any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("type-erased parameter measurement downcast failed");
+                        <#ty as crate::traits::Problem>::parameters(problem)
+                    },
                     is_default: #is_default,
                     aliases: &[#(#alias_lits),*],
                     #dispatch_fields
                 }
             }
-
-            #validation
         });
     }
 
@@ -686,18 +971,19 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
 /// Generate a compiled complexity evaluation function.
 ///
-/// Produces a closure that downcasts `&dyn Any` to the problem type, calls getter
-/// methods for all variables, and returns the worst-case time complexity as f64.
+/// Produces a closure that downcasts `&dyn Any` to the problem type, reads its
+/// canonical parameters, and returns the worst-case time complexity as `f64`.
 fn generate_complexity_eval_fn(
-    parsed: &parser::ParsedExpr,
+    parsed: &problemreductions_expr::Expr,
     ty: &Type,
 ) -> syn::Result<TokenStream2> {
-    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-    let eval_tokens = parsed.to_eval_tokens(&src_ident);
+    let parameters_ident = syn::Ident::new("__parameters", proc_macro2::Span::call_site());
+    let eval_tokens = complexity_estimate_tokens(parsed, &parameters_ident)?;
 
     Ok(quote! {
         |__any_src: &dyn std::any::Any| -> f64 {
-            let #src_ident = __any_src.downcast_ref::<#ty>().unwrap();
+            let __problem = __any_src.downcast_ref::<#ty>().unwrap();
+            let #parameters_ident = <#ty as crate::traits::Problem>::parameters(__problem);
             #eval_tokens
         }
     })
@@ -709,8 +995,17 @@ mod tests {
     use syn::{parse_str, Type};
 
     #[test]
+    fn parameters_report_expression_domain_errors() {
+        let fields = vec![("num_vertices".to_string(), "0 / 0".to_string())];
+        let Err(error) = parse_expression_fields_to_expr(&fields) else {
+            panic!("invalid parameter expression was accepted");
+        };
+        assert!(error.to_string().contains("division by zero"));
+    }
+
+    #[test]
     fn extract_type_name_strips_non_decision_generics() {
-        let ty: Type = parse_str("MinimumVertexCover<SimpleGraph, i32>").unwrap();
+        let ty: Type = parse_str("MinimumVertexCover<SimpleGraph, i64>").unwrap();
         assert_eq!(
             extract_type_name(&ty).as_deref(),
             Some("MinimumVertexCover")
@@ -719,7 +1014,7 @@ mod tests {
 
     #[test]
     fn extract_type_name_unwraps_decision_inner_type() {
-        let ty: Type = parse_str("Decision<MinimumVertexCover<SimpleGraph, i32>>").unwrap();
+        let ty: Type = parse_str("Decision<MinimumVertexCover<SimpleGraph, i64>>").unwrap();
         assert_eq!(
             extract_type_name(&ty).as_deref(),
             Some("DecisionMinimumVertexCover")
@@ -842,11 +1137,99 @@ mod tests {
             Ok(_) => panic!("unknown aliases keyword should be rejected"),
             Err(err) => err,
         };
-        assert_eq!(err.to_string(), "expected 'aliases', found 'nicknames'");
+        assert_eq!(
+            err.to_string(),
+            "expected `aliases`, `create`, or `random`, found `nicknames`"
+        );
     }
 
     #[test]
-    fn declare_variants_generates_aggregate_value_and_witness_dispatch() {
+    fn create_spec_derive_generates_required_optional_and_codec_metadata() {
+        let input: DeriveInput = syn::parse_quote! {
+            struct ExampleCreateSpec {
+                /// Required edge data.
+                #[create(name = "edges", codec = "edge-list")]
+                graph_edges: Vec<(usize, usize)>,
+                /// Optional limit.
+                limit: Option<usize>,
+            }
+        };
+        let tokens = generate_create_spec(&input).unwrap().to_string();
+        assert!(tokens.contains("CreateSpec for ExampleCreateSpec"));
+        assert!(tokens.contains("const FIELDS"));
+        assert!(tokens.contains("crate :: registry :: FieldInfo"));
+        assert!(tokens.contains("name : \"edges\""));
+        assert!(tokens.contains("type_name : \"Vec<(usize,usize)>\""));
+        assert!(tokens.contains("required : true"));
+        assert!(tokens.contains("required : false"));
+        assert!(tokens.contains("CreateInputCodec :: EdgeList"));
+        assert!(tokens.contains("Required edge data."));
+    }
+
+    #[test]
+    fn create_spec_derive_rejects_unknown_codec() {
+        let input: DeriveInput = syn::parse_quote! {
+            struct ExampleCreateSpec {
+                #[create(codec = "model-specific")]
+                value: usize,
+            }
+        };
+        let error = generate_create_spec(&input).unwrap_err();
+        assert!(error.to_string().contains("unknown construction codec"));
+    }
+
+    #[test]
+    fn create_spec_derive_supports_generics() {
+        let input: DeriveInput = syn::parse_quote! {
+            struct ExampleCreateSpec<T>
+            where
+                T: Clone,
+            {
+                /// Generic value.
+                value: T,
+            }
+        };
+        let tokens = generate_create_spec(&input).unwrap().to_string();
+        assert!(tokens.contains("impl < T > crate :: registry :: CreateSpec"));
+        assert!(tokens.contains("for ExampleCreateSpec < T >"));
+        assert!(tokens.contains("where T : Clone"));
+    }
+
+    #[test]
+    fn declare_variants_generates_custom_constructor() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default Foo => "1" create FooCreateSpec aliases ["F"],
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("create_inputs : Some"));
+        assert!(tokens.contains("FooCreateSpec as crate :: registry :: CreateSpec"));
+        assert!(tokens.contains("TryFrom < FooCreateSpec >"));
+        assert!(tokens.contains("validate_create_inputs"));
+    }
+
+    #[test]
+    fn declare_variants_generates_direct_constructor_by_default() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default Foo => "1",
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("create_inputs : None"));
+        assert!(tokens.contains("validate_direct_create_inputs"));
+        assert!(tokens.contains("construct_fn :"));
+    }
+
+    #[test]
+    fn declare_variants_rejects_duplicate_create_clause() {
+        let error = syn::parse_str::<DeclareVariantsInput>(
+            "default Foo => \"1\" create First create Second",
+        )
+        .err()
+        .expect("duplicate create clause must fail");
+        assert_eq!(error.to_string(), "duplicate `create` clause");
+    }
+
+    #[test]
+    fn declare_variants_generates_model_dispatch_without_solver_dispatch() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default Foo => "1",
         };
@@ -856,14 +1239,8 @@ mod tests {
             tokens.contains("serialize_fn :"),
             "expected serialize_fn field"
         );
-        assert!(
-            tokens.contains("solve_value_fn :"),
-            "expected solve_value_fn field"
-        );
-        assert!(
-            tokens.contains("solve_witness_fn :"),
-            "expected solve_witness_fn field"
-        );
+        assert!(!tokens.contains("solve_typed_fn :"));
+        assert!(!tokens.contains("solve_fn :"));
         assert!(
             !tokens.contains("factory : None"),
             "factory should not be None"
@@ -872,22 +1249,7 @@ mod tests {
             !tokens.contains("serialize_fn : None"),
             "serialize_fn should not be None"
         );
-        assert!(
-            !tokens.contains("solve_value_fn : None"),
-            "solve_value_fn should not be None"
-        );
-        assert!(
-            !tokens.contains("solve_witness_fn : None"),
-            "solve_witness_fn should not be None"
-        );
-        assert!(
-            tokens.contains("let total ="),
-            "expected aggregate value solve"
-        );
-        assert!(
-            tokens.contains("find_witness"),
-            "expected find_witness in tokens"
-        );
+        assert!(!tokens.contains("find_cartesian"));
         assert!(
             !tokens.contains("find_best"),
             "did not expect legacy find_best in tokens"
@@ -902,7 +1264,7 @@ mod tests {
     fn reduction_rejects_unexpected_attribute() {
         let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
         let parse_result = syn::parse2::<ReductionAttrs>(quote! {
-            #extra_attr = "unexpected", overhead = { num_vertices = "num_vertices" }
+            #extra_attr = "unexpected", transform = exact { num_vertices = "num_vertices" }
         });
         let err = match parse_result {
             Ok(_) => panic!("unexpected reduction attribute should be rejected"),
@@ -912,26 +1274,96 @@ mod tests {
     }
 
     #[test]
-    fn reduction_accepts_overhead_attribute() {
-        let attrs: ReductionAttrs = syn::parse_quote! {
-            overhead = { n = "n" }
+    fn reduction_registers_explicit_aggregate_mapping() {
+        let implementation: syn::ItemImpl = syn::parse_quote! {
+            impl ReduceTo<Target> for Source {}
         };
-        assert!(attrs.overhead.is_some());
+        for (declaration, enabled) in [
+            (quote! {}, false),
+            (quote! { aggregate = identity, }, true),
+            (quote! { aggregate = custom, }, true),
+        ] {
+            let attrs: ReductionAttrs = syn::parse2(quote! {
+                #declaration transform = exact { num_vertices = "num_vertices" }
+            })
+            .unwrap();
+            let tokens = generate_reduction_entry(&attrs, &implementation)
+                .unwrap()
+                .to_string();
+            assert_eq!(tokens.contains("reduce_aggregate_fn : Some"), enabled);
+        }
+        assert!(syn::parse2::<ReductionAttrs>(quote! {
+            aggregate = unknown, transform = exact { num_vertices = "num_vertices" }
+        })
+        .is_err());
     }
 
     #[test]
-    fn declare_variants_codegen_uses_required_dispatch_fields() {
+    fn reduction_accepts_explicit_transform_attributes() {
+        let attrs: ReductionAttrs = syn::parse_quote! {
+            transform = upper_bound { n = n, squared = "n^2" },
+            unavailable = { encoding_bits = "coefficient magnitudes are not tracked" }
+        };
+        assert_eq!(
+            attrs.fields,
+            Some(vec![
+                ("n".to_string(), "n".to_string()),
+                ("squared".to_string(), "n^2".to_string()),
+            ])
+        );
+        assert_eq!(attrs.relation, Some(ParameterRelationAttr::UpperBound));
+        assert_eq!(
+            attrs.unavailable,
+            Some(vec![(
+                "encoding_bits".into(),
+                "coefficient magnitudes are not tracked".into()
+            )])
+        );
+    }
+
+    #[test]
+    fn reduction_rejects_legacy_overhead_attribute() {
+        let result = syn::parse2::<ReductionAttrs>(quote! {
+            overhead = { ReductionOverhead::default() }
+        });
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn reduction_rejects_legacy_exact_and_bound_attributes() {
+        assert!(syn::parse2::<ReductionAttrs>(quote! {
+            exact = { n = "n" }
+        })
+        .is_err());
+        assert!(syn::parse2::<ReductionAttrs>(quote! {
+            bound = { n = "n" }
+        })
+        .is_err());
+    }
+
+    #[test]
+    fn reduction_requires_unavailable_to_be_the_primary_transform_declaration() {
+        assert!(syn::parse2::<ReductionAttrs>(quote! {
+            unavailable = { n = "not represented" }
+        })
+        .is_err());
+        assert!(syn::parse2::<ReductionAttrs>(quote! {
+            transform = unavailable { n = "not represented" }
+        })
+        .is_ok());
+    }
+
+    #[test]
+    fn declare_variants_codegen_uses_required_model_dispatch_fields() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"));
         assert!(tokens.contains("serialize_fn :"));
-        assert!(tokens.contains("solve_value_fn :"));
-        assert!(tokens.contains("solve_witness_fn :"));
+        assert!(!tokens.contains("solve_fn :"));
+        assert!(!tokens.contains("solve_typed_fn :"));
         assert!(!tokens.contains("factory : None"));
         assert!(!tokens.contains("serialize_fn : None"));
-        assert!(!tokens.contains("solve_value_fn : None"));
-        assert!(!tokens.contains("solve_witness_fn : None"));
     }
 }

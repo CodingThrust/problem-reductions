@@ -42,16 +42,23 @@ impl ReductionResult for ReductionMMMToAchromatic {
     /// size 2, i.e., a source edge. A source edge `(u, v)` belongs to the
     /// extracted matching iff `u` and `v` share a color, which we detect in a
     /// single pass over `source_edges`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_edges
-            .iter()
-            .map(|&(u, v)| usize::from(target_solution[u] == target_solution[v]))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.source_edges
+                .iter()
+                .map(|&(u, v)| target_solution[u] == target_solution[v])
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
@@ -59,7 +66,7 @@ impl ReductionResult for ReductionMMMToAchromatic {
 impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<BipartiteGraph> {
     type Result = ReductionMMMToAchromatic;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let source_edges = self.graph().edges();
 
@@ -81,10 +88,10 @@ impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<B
 
         let target = MaximumAchromaticNumber::new(SimpleGraph::new(n, complement_edges));
 
-        ReductionMMMToAchromatic {
+        Ok(ReductionMMMToAchromatic {
             target,
             source_edges,
-        }
+        })
     }
 }
 
@@ -150,8 +157,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 0, 0],
-                    target_config: vec![1, 0, 3, 0, 2],
+                    source_config: serde_json::json!(vec![false, true, false, false]),
+                    target_config: serde_json::json!(vec![1, 0, 3, 0, 2]),
                 },
             )
         },

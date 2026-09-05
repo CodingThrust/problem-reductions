@@ -33,58 +33,66 @@ impl ReductionResult for ReductionMSToILP {
     }
 
     /// Extract solution: for each task j, find the unique processor p where x_{j,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_processors = self.num_processors;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..num_processors)
-                    .find(|&p| target_solution[j * num_processors + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.num_processors,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_tasks * num_processors",
         num_constraints = "num_tasks + num_processors",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
     type Result = ReductionMSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_tasks = self.num_tasks();
         let num_processors = self.num_processors();
         let num_vars = num_tasks * num_processors;
+        let lengths = self.lengths();
+        let deadline = self.deadline();
 
         let mut constraints = Vec::with_capacity(num_tasks + num_processors);
 
         // Assignment constraints: for each task j, Σ_p x_{j,p} = 1
         for j in 0..num_tasks {
-            let terms: Vec<(usize, f64)> = (0..num_processors)
-                .map(|p| (j * num_processors + p, 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_processors)
+                .map(|p| (j * num_processors + p, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Load constraints: for each processor p, Σ_j len_j * x_{j,p} ≤ deadline
-        let deadline = self.deadline() as f64;
         for p in 0..num_processors {
-            let terms: Vec<(usize, f64)> = (0..num_tasks)
-                .map(|j| (j * num_processors + p, self.lengths()[j] as f64))
+            let terms: Vec<(usize, i64)> = (0..num_tasks)
+                .map(|j| (j * num_processors + p, lengths[j]))
                 .collect();
             constraints.push(LinearConstraint::le(terms, deadline));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMSToILP {
+        Ok(ReductionMSToILP {
             target,
             num_tasks,
             num_processors,
-        }
+        })
     }
 }
 

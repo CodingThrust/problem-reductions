@@ -45,36 +45,48 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match &self.construction {
-            // No edges: any arrangement has total length 0 <= k, so emit the
-            // identity arrangement f(v) = v over all source vertices.
-            ConstructionKind::EdgelessYes { num_vertices } => (0..*num_vertices).collect(),
-            // Genuine NO: there is no valid arrangement; return a sentinel
-            // (identity) so the source decision evaluates correctly (NO).
-            ConstructionKind::FixedNo { num_vertices } => (0..*num_vertices).collect(),
-            ConstructionKind::Incidence { num_vertices } => {
-                // The C1MA witness is a column permutation: `config[position] = col`.
-                // Columns correspond to vertices, so this places vertex `col` at
-                // `position`. The OLA arrangement is `f(vertex) = position`, i.e.
-                // the inverse permutation.
-                let n = *num_vertices;
-                if target_solution.len() != n {
-                    return (0..n).collect();
-                }
-                let mut arrangement = vec![0usize; n];
-                let mut seen = vec![false; n];
-                for (position, &vertex) in target_solution.iter().enumerate() {
-                    if vertex >= n || seen[vertex] {
-                        // Not a valid permutation; fall back to identity.
-                        return (0..n).collect();
-                    }
-                    seen[vertex] = true;
-                    arrangement[vertex] = position;
-                }
-                arrangement
-            }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let expected = self.target.num_cols();
+        if target_solution.len() != expected {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {expected} target values, got {}",
+                target_solution.len()
+            )));
         }
+
+        Ok({
+            match &self.construction {
+                // No edges: any arrangement has total length 0 <= k, so emit the
+                // identity arrangement f(v) = v over all source vertices.
+                ConstructionKind::EdgelessYes { num_vertices } => (0..*num_vertices).collect(),
+                // Genuine NO: the identity arrangement is the mathematically defined
+                // source-side representative and evaluates to NO.
+                ConstructionKind::FixedNo { num_vertices } => (0..*num_vertices).collect(),
+                ConstructionKind::Incidence { num_vertices } => {
+                    // The C1MA witness is a column permutation: `config[position] = col`.
+                    // Columns correspond to vertices, so this places vertex `col` at
+                    // `position`. The OLA arrangement is `f(vertex) = position`, i.e.
+                    // the inverse permutation.
+                    let n = *num_vertices;
+                    let mut arrangement = vec![0usize; n];
+                    let mut seen = vec![false; n];
+                    for (position, &vertex) in target_solution.iter().enumerate() {
+                        if vertex >= n || seen[vertex] {
+                            return Err(crate::rules::ExtractionError::invalid(
+                                "target column order is not a permutation",
+                            ));
+                        }
+                        seen[vertex] = true;
+                        arrangement[vertex] = position;
+                    }
+                    arrangement
+                }
+            }
+        })
     }
 }
 
@@ -93,10 +105,9 @@ fn no_sentinel() -> ConsecutiveOnesMatrixAugmentation {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_rows = "num_edges",
         num_cols = "num_vertices",
-        bound = "k - num_edges",
     }
 )]
 impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
@@ -104,29 +115,39 @@ impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
 {
     type Result = ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
-        let k = self.k();
+        let k = *self.bound();
 
         // Edgeless graph: total edge length is 0 for every arrangement, so the
         // source decision is YES for any bound. Emit a 1x1 all-zero matrix
         // (already C1P at cost 0 <= bound) to keep num_cols >= 1.
         if m == 0 {
-            return ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-                target: ConsecutiveOnesMatrixAugmentation::new(vec![vec![false]], k as i64),
-                construction: ConstructionKind::EdgelessYes { num_vertices: n },
-            };
+            return Ok(
+                ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                    target: ConsecutiveOnesMatrixAugmentation::new(vec![vec![false]], k),
+                    construction: ConstructionKind::EdgelessYes { num_vertices: n },
+                },
+            );
         }
 
         // Negative target bound (k < m): every arrangement costs at least m
         // (each edge contributes >= 1), so the source decision is NO. Route to
         // the fixed genuine-NO sentinel.
-        if k < m {
-            return ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-                target: no_sentinel(),
-                construction: ConstructionKind::FixedNo { num_vertices: n },
-            };
+        let m_i64 = i64::try_from(m).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<OptimalLinearArrangement<SimpleGraph>>,
+                ConsecutiveOnesMatrixAugmentation,
+            >("converting the number of edges to i64")
+        })?;
+        if k < m_i64 {
+            return Ok(
+                ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                    target: no_sentinel(),
+                    construction: ConstructionKind::FixedNo { num_vertices: n },
+                },
+            );
         }
 
         // Generic case: edge-vertex incidence matrix, rows = edges, cols = vertices.
@@ -135,12 +156,19 @@ impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
             matrix[edge_idx][u] = true;
             matrix[edge_idx][v] = true;
         }
-        let bound = (k - m) as i64;
+        let bound = k.checked_sub(m_i64).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<OptimalLinearArrangement<SimpleGraph>>,
+                ConsecutiveOnesMatrixAugmentation,
+            >("subtracting the edge count from the arrangement bound")
+        })?;
 
-        ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-            target: ConsecutiveOnesMatrixAugmentation::new(matrix, bound),
-            construction: ConstructionKind::Incidence { num_vertices: n },
-        }
+        Ok(
+            ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                target: ConsecutiveOnesMatrixAugmentation::new(matrix, bound),
+                construction: ConstructionKind::Incidence { num_vertices: n },
+            },
+        )
     }
 }
 
@@ -163,7 +191,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 )),
                 11,
             );
-            let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source);
+            let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
+                .expect("reduction should succeed");
             // Source arrangement f(v) = v <=> target column permutation = identity.
             let source_config = vec![0, 1, 2, 3, 4, 5];
             let target_config = vec![0, 1, 2, 3, 4, 5];
@@ -171,8 +200,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -26,18 +27,18 @@ fn test_partition_into_paths_basic() {
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.num_groups(), 3);
-    assert_eq!(problem.dims(), vec![3; 9]);
+    assert_eq!(problem.dimensions(), vec![3; 9]);
 
     // Valid partition: {0,1,2}, {3,4,5}, {6,7,8}
     // Config: vertex i -> group i/3
     let valid_config = vec![0, 0, 0, 1, 1, 1, 2, 2, 2];
-    assert!(problem.evaluate(&valid_config));
+    assert!(problem.evaluate(&valid_config).unwrap());
 
     // Alternative valid partition: {0,1,3}, {2,4,5}, {6,7,8}
     // Group {0,1,3}: edges (0,1) and (0,3) — 2 edges, valid
     // Group {2,4,5}: edges (4,5) and (2,5) — 2 edges, valid
     let another_config = vec![0, 0, 1, 0, 1, 1, 2, 2, 2];
-    assert!(problem.evaluate(&another_config));
+    assert!(problem.evaluate(&another_config).unwrap());
 }
 
 #[test]
@@ -51,7 +52,7 @@ fn test_partition_into_paths_no_solution() {
     assert_eq!(problem.num_groups(), 2);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none(), "Expected no solution for this graph");
 }
 
@@ -62,11 +63,11 @@ fn test_partition_into_paths_solver() {
     let problem = PartitionIntoPathsOfLength2::new(graph);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty(), "Expected at least one solution");
 
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -78,7 +79,7 @@ fn test_partition_into_paths_invalid_group_size() {
 
     // Config where group 0 has 4 vertices and group 1 has 2 vertices
     let bad_config = vec![0, 0, 0, 0, 1, 1];
-    assert!(!problem.evaluate(&bad_config));
+    assert!(!problem.evaluate(&bad_config).unwrap());
 }
 
 #[test]
@@ -90,7 +91,7 @@ fn test_partition_into_paths_insufficient_edges() {
     // Even a well-sized partition fails because groups lack edges
     let config = vec![0, 0, 0, 1, 1, 1];
     // Group {0,1,2}: only edge (0,1) — 1 edge < 2, invalid
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -101,7 +102,7 @@ fn test_partition_into_paths_triangle() {
 
     // Single group with all 3 vertices forming a triangle
     let config = vec![0, 0, 0];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -119,7 +120,10 @@ fn test_partition_into_paths_serialization() {
 
     // Verify evaluation is consistent
     let config = vec![0, 0, 0, 1, 1, 1];
-    assert_eq!(problem.evaluate(&config), deserialized.evaluate(&config));
+    assert_eq!(
+        problem.evaluate(&config).unwrap(),
+        deserialized.evaluate(&config).unwrap()
+    );
 }
 
 #[test]
@@ -130,7 +134,7 @@ fn test_partition_into_paths_invalid_vertex_count() {
 }
 
 #[test]
-fn test_partition_into_paths_size_getters() {
+fn test_partition_into_paths_parameter_getters() {
     let graph = SimpleGraph::new(9, vec![(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8)]);
     let problem = PartitionIntoPathsOfLength2::new(graph);
     assert_eq!(problem.num_vertices(), 9);
@@ -145,7 +149,10 @@ fn test_partition_into_paths_out_of_range_group() {
 
     // Group index out of range (q=2, so valid groups are 0 and 1)
     let config = vec![0, 0, 0, 2, 2, 2];
-    assert!(!problem.evaluate(&config));
+    assert!(matches!(
+        problem.evaluate(&config),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]

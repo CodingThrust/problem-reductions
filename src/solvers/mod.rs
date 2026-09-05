@@ -1,25 +1,54 @@
 //! Solvers for computational problems.
 
 mod brute_force;
-pub mod customized;
+pub(crate) mod customized;
 pub mod decision_search;
+mod pipelines;
+mod registry;
+mod resolver;
 
-#[cfg(feature = "ilp-solver")]
 pub mod ilp;
 
-pub use brute_force::BruteForce;
-pub use customized::CustomizedSolver;
+#[doc(hidden)]
+pub use brute_force::BruteForceRegistration;
+pub use brute_force::{BruteForce, BruteForceProblem};
+pub use registry::{
+    brute_force_dimensions, solver_capabilities, CustomizedSolverCapability, ExactProblemKey,
+    IlpSolverCapability, RegistryBuildError, SolverCapabilities,
+};
+pub use resolver::{solve, SolveOutcome, SolveResult, SolverExecution, SolverRequest};
 
-#[cfg(feature = "ilp-solver")]
-pub use ilp::ILPSolver;
+pub use ilp::{ILPSolveError, ILPSolver};
 
-use crate::traits::Problem;
-
-/// Trait for problem solvers.
-pub trait Solver {
-    /// Solve a problem to its aggregate value.
-    fn solve<P>(&self, problem: &P) -> P::Value
-    where
-        P: Problem,
-        P::Value: crate::types::Aggregate;
+/// Failure while solving a valid problem instance.
+#[derive(Debug, thiserror::Error)]
+pub enum SolveError {
+    #[error("configuration evaluation failed: {0}")]
+    Evaluation(#[from] crate::traits::EvaluationError),
+    #[error("aggregate combination failed: {0}")]
+    Aggregation(#[from] crate::types::AggregationError),
+    #[error("no reference-solver registration for {0}")]
+    MissingRegistration(String),
+    #[error("invalid reference-solver registration: {0}")]
+    RegistrationTypeMismatch(String),
+    #[error("brute-force search space cardinality exceeds usize for dimensions {0:?}")]
+    SearchSpaceOverflow(Vec<usize>),
+    #[error("integer overflow while {0}")]
+    IntegerOverflow(String),
+    #[error("inexact integer-to-float conversion: {0}")]
+    InexactFloatConversion(#[from] crate::types::ExactI64ToF64Error),
+    #[error("non-finite floating-point result while {0}")]
+    NonFiniteResult(String),
+    #[error("solver capability registry is invalid: {0}")]
+    InvalidRegistry(&'static RegistryBuildError),
+    #[error("No ILP pipeline is registered for {0}")]
+    MissingIlpCapability(String),
+    #[error("No customized solver is registered for {0}")]
+    MissingCustomizedCapability(String),
+    #[error("ILP solver failed for {problem}: {source}")]
+    IlpSolve {
+        problem: String,
+        #[source]
+        source: ILPSolveError,
+    },
 }

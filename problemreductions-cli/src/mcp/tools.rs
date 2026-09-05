@@ -1,30 +1,15 @@
-use crate::util;
-use problemreductions::models::algebraic::QUBO;
-use problemreductions::models::formula::{CNFClause, NonTautology, Satisfiability};
-use problemreductions::models::graph::{
-    KClique, LongestCircuit, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
-    MinimumDominatingSet, MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
-};
-use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{
-    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow,
-};
-use problemreductions::topology::{
-    Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
-};
-use problemreductions::types::ProblemSize;
-use rmcp::handler::server::router::tool::ToolRouter;
+use problemreductions::rules::{ReductionGraph, TraversalFlow};
+use problemreductions::solvers::SolverRequest;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool;
-use serde::Serialize;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
-    load_problem, serialize_any_problem, BundleReplay, PathStep, ProblemJson, ProblemJsonOutput,
-    ReductionBundle,
+    load_problem, solve_result_json, solver_capabilities_view, solver_request, BundleReplay,
+    ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
-use crate::problem_name::{aliases_for, resolve_problem_ref, unknown_problem_error};
+use crate::problem_name::{aliases_for, resolve_catalog_problem_ref, resolve_problem_ref};
 
 // ---------------------------------------------------------------------------
 // Parameter structs — graph query tools
@@ -47,17 +32,34 @@ pub struct NeighborsParams {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum PathLimitParam {
+    Number(usize),
+    Name(String),
+}
+
+impl PathLimitParam {
+    pub(crate) fn resolve(&self) -> Result<usize, String> {
+        match self {
+            Self::Number(limit) => crate::commands::graph::validate_path_limit(*limit),
+            Self::Name(limit) if limit == "all" => crate::commands::graph::parse_path_limit(limit),
+            Self::Name(_) => Err(crate::commands::graph::PATH_LIMIT_ERROR.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct FindPathParams {
     #[schemars(description = "Source problem name or alias")]
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Cost function: minimize-steps (default), or minimize:<field>")]
-    pub cost: Option<String>,
-    #[schemars(description = "Return all paths instead of just the cheapest")]
-    pub all: Option<bool>,
-    #[schemars(description = "Maximum paths to return in all mode (default: 20)")]
-    pub max_paths: Option<usize>,
+    #[schemars(description = "Number of paths to inspect: 1-999, or 'all' for 999 (default: 20)")]
+    pub limit: Option<PathLimitParam>,
+    #[schemars(
+        description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed parameters."
+    )]
+    pub problem_json: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +73,7 @@ pub struct CreateProblemParams {
     )]
     pub problem_type: String,
     #[schemars(
-        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. NonTautology: {\"num_vars\": 2, \"disjuncts\": \"1,2;-1,-2\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. KClique: {\"edges\": \"0-1,0-2,1-3,2-3,2-4,3-4\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
+        description = "Named JSON construction inputs declared by the selected problem variant. Values must use their JSON types; unknown and missing required inputs are errors. Random graph generation remains available with {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}."
     )]
     pub params: serde_json::Value,
 }
@@ -86,28 +88,28 @@ pub struct InspectParams {
 pub struct EvaluateParams {
     #[schemars(description = "Problem JSON string (from create_problem)")]
     pub problem_json: String,
-    #[schemars(
-        description = "Configuration to evaluate as array of integers (e.g., [1, 0, 1, 0])"
-    )]
-    pub config: Vec<usize>,
+    #[schemars(description = "Solution JSON matching the selected problem model's Solution type")]
+    pub config: serde_json::Value,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct ReduceParams {
     #[schemars(description = "Problem JSON string (from create_problem)")]
     pub problem_json: String,
-    #[schemars(description = "Target problem type (e.g., QUBO, ILP, SpinGlass)")]
-    pub target: String,
+    #[schemars(description = "One explicit path entry selected from find_path output")]
+    pub path_json: String,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct SolveParams {
     #[schemars(description = "Problem JSON string (from create_problem or reduce)")]
     pub problem_json: String,
-    #[schemars(description = "Solver: 'ilp' (default), 'brute-force', or 'customized'")]
+    #[schemars(
+        description = "Solver override: 'customized', 'ilp', or 'brute-force'; omit for default dispatch"
+    )]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
-    pub timeout: Option<u64>,
+    pub timeout: Option<i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -115,9 +117,7 @@ pub struct SolveParams {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
-pub struct McpServer {
-    tool_router: ToolRouter<Self>,
-}
+pub struct McpServer;
 
 // Tool implementations on the server struct.  Each `*_inner` method returns
 // `anyhow::Result<String>` (a JSON string) so unit tests can call them directly
@@ -125,9 +125,7 @@ pub struct McpServer {
 
 impl McpServer {
     pub fn new() -> Self {
-        Self {
-            tool_router: Self::tool_router(),
-        }
+        Self
     }
 
     // -- inner helpers (return JSON strings) ---------------------------------
@@ -183,22 +181,14 @@ impl McpServer {
             .into_iter()
             .filter(|e| &e.target_variant == variant)
             .collect();
-        let size_fields = graph.size_field_names(name);
+        let parameters = graph.parameter_names(name);
         let complexity = graph.variant_complexity(name, variant).unwrap_or("");
 
         let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
-            let overhead: Vec<serde_json::Value> = e
-                .overhead
-                .output_size
-                .iter()
-                .map(|(field, poly)| {
-                    serde_json::json!({"field": field, "formula": poly.to_string()})
-                })
-                .collect();
             serde_json::json!({
                 "source": {"name": e.source_name, "variant": e.source_variant},
                 "target": {"name": e.target_name, "variant": e.target_variant},
-                "overhead": overhead,
+                "parameter_contract": crate::commands::graph::parameter_contract_to_json(&e.parameter_contract),
             })
         };
 
@@ -207,7 +197,7 @@ impl McpServer {
             "variant": variant,
             "default": is_default,
             "complexity": complexity,
-            "size_fields": &size_fields,
+            "parameters": &parameters,
             "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
             "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
         });
@@ -252,105 +242,51 @@ impl McpServer {
         &self,
         source: &str,
         target: &str,
-        cost: &str,
-        all: bool,
-        max_paths: usize,
+        limit: usize,
+        problem_json: Option<&str>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
-
-        if all {
-            // Fetch one extra to detect truncation
-            let mut all_paths = graph.find_paths_up_to(
-                &src_ref.name,
-                &src_ref.variant,
-                &dst_ref.name,
-                &dst_ref.variant,
-                max_paths + 1,
-            );
-            if all_paths.is_empty() {
+        let loaded = problem_json
+            .map(|content| {
+                let problem: ProblemJson = serde_json::from_str(content)?;
+                load_problem(&problem.problem_type, &problem.variant, problem.data)
+            })
+            .transpose()?;
+        if let Some(loaded) = &loaded {
+            if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
                 anyhow::bail!(
-                    "No reduction path from {} to {}",
+                    "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
                     src_ref.name,
-                    dst_ref.name
+                    src_ref.variant,
+                    loaded.problem_name(),
+                    loaded.variant_map(),
                 );
             }
-            all_paths.sort_by_key(|p| p.len());
-
-            let truncated = all_paths.len() > max_paths;
-            if truncated {
-                all_paths.truncate(max_paths);
-            }
-            let returned = all_paths.len();
-
-            let paths_json: Vec<serde_json::Value> = all_paths
-                .iter()
-                .map(|p| format_path_json(&graph, p))
-                .collect();
-
-            let json = serde_json::json!({
-                "paths": paths_json,
-                "truncated": truncated,
-                "returned": returned,
-                "max_paths": max_paths,
-            });
-            return Ok(serde_json::to_string_pretty(&json)?);
         }
 
-        // Single best path
-        let input_size = ProblemSize::new(vec![]);
-
-        let cost_field: Option<String> = if cost == "minimize-steps" {
-            None
-        } else if let Some(field) = cost.strip_prefix("minimize:") {
-            Some(field.to_string())
-        } else {
+        let batch = crate::commands::graph::find_path_batch(
+            &graph,
+            &src_ref.name,
+            &src_ref.variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            limit,
+        )?;
+        if batch.paths.is_empty() && !batch.truncated {
             anyhow::bail!(
-                "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
-                cost
+                "No reduction path from {} to {}",
+                src_ref.name,
+                dst_ref.name
             );
-        };
-
-        let best_path = match cost_field {
-            None => graph.find_cheapest_path(
-                &src_ref.name,
-                &src_ref.variant,
-                &dst_ref.name,
-                &dst_ref.variant,
-                &input_size,
-                &MinimizeSteps,
-            ),
-            Some(ref f) => {
-                let cost_fn = CustomCost(
-                    |overhead: &problemreductions::rules::ReductionOverhead, size: &ProblemSize| {
-                        overhead.evaluate_output_size(size).get(f).unwrap_or(0) as f64
-                    },
-                );
-                graph.find_cheapest_path(
-                    &src_ref.name,
-                    &src_ref.variant,
-                    &dst_ref.name,
-                    &dst_ref.variant,
-                    &input_size,
-                    &cost_fn,
-                )
-            }
-        };
-
-        match best_path {
-            Some(ref reduction_path) => {
-                let json = format_path_json(&graph, reduction_path);
-                Ok(serde_json::to_string_pretty(&json)?)
-            }
-            None => {
-                anyhow::bail!(
-                    "No reduction path from {} to {}",
-                    src_ref.name,
-                    dst_ref.name
-                );
-            }
         }
+        let executed = loaded
+            .as_ref()
+            .map(|source| graph.execute_paths(&batch.paths, source.as_any()))
+            .transpose()?;
+        let json = crate::commands::graph::path_batch_json(&graph, &batch, executed.as_deref())?;
+        Ok(serde_json::to_string_pretty(&json)?)
     }
 
     pub fn export_graph_inner(&self) -> anyhow::Result<String> {
@@ -368,14 +304,15 @@ impl McpServer {
         problem_type: &str,
         params: &serde_json::Value,
     ) -> anyhow::Result<String> {
-        let rgraph = ReductionGraph::new();
-        let resolved = resolve_problem_ref(problem_type, &rgraph)?;
-        let canonical = resolved.name.clone();
-        let resolved_variant = resolved.variant;
-        let graph_type = resolved_variant
-            .get("graph")
-            .map(|s| s.as_str())
-            .unwrap_or("SimpleGraph");
+        let resolved = resolve_catalog_problem_ref(problem_type)?;
+        let canonical = resolved.name().to_string();
+        let resolved_variant = resolved.variant().clone();
+        let entry = problemreductions::registry::find_variant_entry(&canonical, &resolved_variant)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No concrete variant is registered for {canonical} with {resolved_variant:?}"
+                )
+            })?;
 
         // Check for random generation
         let is_random = params
@@ -384,338 +321,41 @@ impl McpServer {
             .unwrap_or(false);
 
         if is_random {
-            return self.create_random_inner(&canonical, &resolved_variant, params);
+            return self.generate_registered_random_inner(entry, params);
         }
 
-        let (data, variant) = match canonical.as_str() {
-            "MaximumIndependentSet"
-            | "MinimumVertexCover"
-            | "MaximumClique"
-            | "MinimumDominatingSet" => {
-                create_vertex_weight_from_params(&canonical, graph_type, &resolved_variant, params)?
-            }
-
-            "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
-                let (graph, _) = parse_graph_from_params(params)?;
-                let edge_weights = parse_edge_weights_from_params(params, graph.num_edges())?;
-                ser_edge_weight_problem(&canonical, graph, edge_weights)?
-            }
-
-            "LongestCircuit" => {
-                let (graph, _) = parse_graph_from_params(params)?;
-                let edge_lengths = parse_edge_lengths_from_params(params, graph.num_edges())?;
-                if edge_lengths.iter().any(|&length| length <= 0) {
-                    anyhow::bail!("LongestCircuit edge lengths must be positive (> 0)");
-                }
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
-            }
-
-            "KColoring" => {
-                let (graph, _) = parse_graph_from_params(params)?;
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let (k, _variant) =
-                    util::validate_k_param(&resolved_variant, k_flag, None, "KColoring")?;
-                util::ser_kcoloring(graph, k)?
-            }
-
-            "KClique" => {
-                let (graph, _) = parse_graph_from_params(params)?;
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let k = parse_kclique_threshold(k_flag, graph.num_vertices())?;
-                (
-                    ser(KClique::new(graph, k))?,
-                    variant_map(&[("graph", "SimpleGraph")]),
-                )
-            }
-
-            // SAT
-            "Satisfiability" => {
-                let num_vars = params
-                    .get("num_vars")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| anyhow::anyhow!("Satisfiability requires 'num_vars'"))?;
-                let clauses = parse_clauses_from_params(params)?;
-                let variant = BTreeMap::new();
-                (ser(Satisfiability::new(num_vars, clauses))?, variant)
-            }
-            "NonTautology" => {
-                let num_vars = params
-                    .get("num_vars")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| anyhow::anyhow!("NonTautology requires 'num_vars'"))?;
-                let disjuncts = parse_disjuncts_from_params(params)?;
-                let variant = BTreeMap::new();
-                (ser(NonTautology::new(num_vars, disjuncts))?, variant)
-            }
-            "KSatisfiability" => {
-                let num_vars = params
-                    .get("num_vars")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| anyhow::anyhow!("KSatisfiability requires 'num_vars'"))?;
-                let clauses = parse_clauses_from_params(params)?;
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let (k, _variant) =
-                    util::validate_k_param(&resolved_variant, k_flag, Some(3), "KSatisfiability")?;
-                util::ser_ksat(num_vars, clauses, k)?
-            }
-
-            // QUBO
-            "QUBO" => {
-                let matrix = parse_matrix_from_params(params)?;
-                let variant = BTreeMap::new();
-                (ser(QUBO::from_matrix(matrix))?, variant)
-            }
-
-            // SpinGlass
-            "SpinGlass" => {
-                let (graph, n) = parse_graph_from_params(params)?;
-                let edge_weights = parse_edge_weights_from_params(params, graph.num_edges())?;
-                let fields = vec![0i32; n];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(SpinGlass::from_graph(graph, edge_weights, fields))?,
-                    variant,
-                )
-            }
-
-            // Factoring
-            "Factoring" => {
-                let target = params
-                    .get("target")
-                    .and_then(|v| v.as_u64())
-                    .ok_or_else(|| anyhow::anyhow!("Factoring requires 'target'"))?;
-                let bits_m = params
-                    .get("bits_m")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| anyhow::anyhow!("Factoring requires 'bits_m'"))?;
-                let bits_n = params
-                    .get("bits_n")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| anyhow::anyhow!("Factoring requires 'bits_n'"))?;
-                let variant = BTreeMap::new();
-                (ser(Factoring::new(bits_m, bits_n, target))?, variant)
-            }
-
-            // MinimumSumMulticenter (p-median)
-            "MinimumSumMulticenter" => {
-                let (graph, n) = parse_graph_from_params(params)?;
-                let vertex_weights = parse_vertex_weights_from_params(params, n)?;
-                let edge_lengths = parse_edge_lengths_from_params(params, graph.num_edges())?;
-                let k = params
-                    .get("k")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("MinimumSumMulticenter requires 'k' (number of centers)")
-                    })?;
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(MinimumSumMulticenter::new(
-                        graph,
-                        vertex_weights,
-                        edge_lengths,
-                        k,
-                    ))?,
-                    variant,
-                )
-            }
-
-            _ => anyhow::bail!("{}", unknown_problem_error(&canonical)),
-        };
+        let normalized = normalize_mcp_create_inputs(params)?;
+        let problem = (entry.construct_fn)(normalized)?;
 
         let output = ProblemJsonOutput {
-            problem_type: canonical,
-            variant,
-            data,
+            problem_type: problem.problem_name().to_string(),
+            variant: problem.variant_map(),
+            data: problem.serialize_json(),
         };
         Ok(serde_json::to_string_pretty(&output)?)
     }
 
-    fn create_random_inner(
+    fn generate_registered_random_inner(
         &self,
-        canonical: &str,
-        resolved_variant: &BTreeMap<String, String>,
+        entry: &problemreductions::registry::VariantEntry,
         params: &serde_json::Value,
     ) -> anyhow::Result<String> {
-        let num_vertices = params
-            .get("num_vertices")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as usize)
-            .ok_or_else(|| {
-                anyhow::anyhow!("Random generation requires 'num_vertices' parameter")
-            })?;
-        let seed = params.get("seed").and_then(|v| v.as_u64());
-        let graph_type = resolved_variant
-            .get("graph")
-            .map(|s| s.as_str())
-            .unwrap_or("SimpleGraph");
-
-        let (data, variant) = match canonical {
-            "MaximumIndependentSet"
-            | "MinimumVertexCover"
-            | "MaximumClique"
-            | "MinimumDominatingSet" => {
-                let weights = vec![1i32; num_vertices];
-                match graph_type {
-                    "KingsSubgraph" => {
-                        let positions = util::create_random_int_positions(num_vertices, seed);
-                        let graph = KingsSubgraph::new(positions);
-                        (
-                            ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                            resolved_variant.clone(),
-                        )
-                    }
-                    "TriangularSubgraph" => {
-                        let positions = util::create_random_int_positions(num_vertices, seed);
-                        let graph = TriangularSubgraph::new(positions);
-                        (
-                            ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                            resolved_variant.clone(),
-                        )
-                    }
-                    "UnitDiskGraph" => {
-                        let radius = params.get("radius").and_then(|v| v.as_f64()).unwrap_or(1.0);
-                        let positions = util::create_random_float_positions(num_vertices, seed);
-                        let graph = UnitDiskGraph::new(positions, radius);
-                        (
-                            ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                            resolved_variant.clone(),
-                        )
-                    }
-                    _ => {
-                        let edge_prob = params
-                            .get("edge_prob")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.5);
-                        if !(0.0..=1.0).contains(&edge_prob) {
-                            anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                        }
-                        let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                        ser_vertex_weight_problem(canonical, graph, weights)?
-                    }
-                }
-            }
-            "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let num_edges = graph.num_edges();
-                let edge_weights = vec![1i32; num_edges];
-                ser_edge_weight_problem(canonical, graph, edge_weights)?
-            }
-            "LongestCircuit" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let edge_lengths = vec![1i32; graph.num_edges()];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
-            }
-            "SpinGlass" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let num_edges = graph.num_edges();
-                let couplings = vec![1i32; num_edges];
-                let fields = vec![0i32; num_vertices];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(SpinGlass::from_graph(graph, couplings, fields))?,
-                    variant,
-                )
-            }
-            "KColoring" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let (k, _variant) =
-                    util::validate_k_param(resolved_variant, k_flag, Some(3), "KColoring")?;
-                util::ser_kcoloring(graph, k)?
-            }
-            "KClique" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let k = parse_kclique_threshold(k_flag, graph.num_vertices())?;
-                (
-                    ser(KClique::new(graph, k))?,
-                    variant_map(&[("graph", "SimpleGraph")]),
-                )
-            }
-            "MinimumSumMulticenter" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let num_edges = graph.num_edges();
-                let vertex_weights = vec![1i32; num_vertices];
-                let edge_lengths = vec![1i32; num_edges];
-                let k = params
-                    .get("k")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .unwrap_or(1.max(num_vertices / 3));
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(MinimumSumMulticenter::new(
-                        graph,
-                        vertex_weights,
-                        edge_lengths,
-                        k,
-                    ))?,
-                    variant,
-                )
-            }
-            _ => anyhow::bail!(
-                "Random generation is not supported for {}. \
-                 Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-                 MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, \
-                 TravelingSalesman, LongestCircuit, MinimumSumMulticenter)",
-                canonical
-            ),
-        };
-
+        let mut inputs = params
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("random inputs must be a JSON object"))?
+            .clone();
+        inputs.remove("random");
+        let random = entry.random.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Random generation is not registered for {}",
+                problemreductions::registry::variant::variant_label(entry)
+            )
+        })?;
+        let problem = (random.generate)(serde_json::Value::Object(inputs))?;
         let output = ProblemJsonOutput {
-            problem_type: canonical.to_string(),
-            variant,
-            data,
+            problem_type: problem.problem_name().to_string(),
+            variant: problem.variant_map(),
+            data: problem.serialize_json(),
         };
         Ok(serde_json::to_string_pretty(&output)?)
     }
@@ -746,40 +386,35 @@ impl McpServer {
         let variant = problem.variant_map();
         let graph = ReductionGraph::new();
 
-        let size_fields = graph.size_field_names(name);
+        let parameters = graph.parameter_names(name);
 
-        let outgoing = graph.outgoing_reductions(name);
-        let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
-        targets.sort();
-        targets.dedup();
-        let solvers = problem.available_solvers();
+        let targets =
+            crate::commands::inspect::executable_reduction_targets(&graph, name, &variant);
+        let solver_view = solver_capabilities_view(&problem)?;
 
         let result = serde_json::json!({
             "kind": "problem",
             "type": name,
             "variant": variant,
-            "size_fields": size_fields,
-            "num_variables": problem.num_variables_dyn(),
-            "solvers": solvers,
+            "parameters": parameters,
+            "brute_force_num_variables": problem.brute_force_num_variables()?,
+            "solvers": solver_view.solvers,
+            "default_solver": solver_view.default_solver,
+            "solver_capabilities": solver_view.capabilities,
             "reduces_to": targets,
         });
         Ok(serde_json::to_string_pretty(&result)?)
     }
 
-    pub fn evaluate_inner(&self, problem_json: &str, config: &[usize]) -> anyhow::Result<String> {
+    pub fn evaluate_inner(
+        &self,
+        problem_json: &str,
+        config: &serde_json::Value,
+    ) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let problem = load_problem(&pj.problem_type, &pj.variant, pj.data)?;
 
-        let dims = problem.dims_dyn();
-        if config.len() != dims.len() {
-            anyhow::bail!(
-                "Config has {} values but problem has {} variables",
-                config.len(),
-                dims.len()
-            );
-        }
-
-        let result = problem.evaluate_dyn(config);
+        let result = problem.evaluate_dyn(config)?;
         let json = serde_json::json!({
             "problem": problem.problem_name(),
             "config": config,
@@ -788,75 +423,10 @@ impl McpServer {
         Ok(serde_json::to_string_pretty(&json)?)
     }
 
-    pub fn reduce_inner(&self, problem_json: &str, target: &str) -> anyhow::Result<String> {
+    pub fn reduce_inner(&self, problem_json: &str, path_json: &str) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
-        let source = load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?;
-
-        let source_name = source.problem_name();
-        let source_variant = source.variant_map();
-        let graph = ReductionGraph::new();
-
-        let dst_ref = resolve_problem_ref(target, &graph)?;
-
-        // Auto-discover cheapest path
-        let input_size = ProblemSize::new(vec![]);
-        let best_path = graph.find_cheapest_path_mode(
-            source_name,
-            &source_variant,
-            &dst_ref.name,
-            &dst_ref.variant,
-            ReductionMode::Witness,
-            &input_size,
-            &MinimizeSteps,
-        );
-
-        let reduction_path = best_path.ok_or_else(|| {
-            anyhow::anyhow!(
-                "No witness-capable reduction path from {} to {}",
-                source_name,
-                dst_ref.name
-            )
-        })?;
-
-        // Execute reduction chain
-        let chain = graph
-            .reduce_along_path(&reduction_path, source.as_any())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
-                )
-            })?;
-
-        // Serialize target
-        let target_step = reduction_path.steps.last().unwrap();
-        let target_data = serialize_any_problem(
-            &target_step.name,
-            &target_step.variant,
-            chain.target_problem_any(),
-        )?;
-
-        // Build reduction bundle
-        let bundle = ReductionBundle {
-            source: ProblemJsonOutput {
-                problem_type: source_name.to_string(),
-                variant: source_variant,
-                data: pj.data,
-            },
-            target: ProblemJsonOutput {
-                problem_type: target_step.name.clone(),
-                variant: target_step.variant.clone(),
-                data: target_data,
-            },
-            path: reduction_path
-                .steps
-                .iter()
-                .map(|s| PathStep {
-                    name: s.name.clone(),
-                    variant: s.variant.clone(),
-                })
-                .collect(),
-        };
-
+        let reduction_path = crate::commands::reduce::parse_path_json(path_json)?;
+        let bundle = crate::commands::reduce::execute_route(pj, reduction_path)?;
         Ok(serde_json::to_string_pretty(&bundle)?)
     }
 
@@ -864,18 +434,13 @@ impl McpServer {
         &self,
         problem_json: &str,
         solver: Option<&str>,
-        timeout: Option<u64>,
+        timeout: Option<i64>,
     ) -> anyhow::Result<String> {
-        let solver_name = solver.unwrap_or("ilp");
-        if solver_name != "brute-force" && solver_name != "ilp" && solver_name != "customized" {
-            anyhow::bail!(
-                "Unknown solver: {}. Available solvers: brute-force, ilp, customized",
-                solver_name
-            );
-        }
+        let request = solver_request(solver)?;
 
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
-        let timeout_secs = timeout.unwrap_or(0);
+        let timeout_secs = u64::try_from(timeout.unwrap_or(0))
+            .map_err(|_| anyhow::anyhow!("timeout must be a nonnegative i64"))?;
 
         // Detect if it's a bundle or a problem
         let is_bundle = json.get("source").is_some()
@@ -884,22 +449,18 @@ impl McpServer {
 
         if timeout_secs > 0 {
             let json_clone = json.clone();
-            let solver_name = solver_name.to_string();
             let (tx, rx) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
                 let result = if is_bundle {
                     match serde_json::from_value::<ReductionBundle>(json_clone) {
-                        Ok(b) => solve_bundle_inner(b, &solver_name),
+                        Ok(b) => solve_bundle_inner(b, request),
                         Err(e) => Err(anyhow::Error::from(e)),
                     }
                 } else {
                     match serde_json::from_value::<ProblemJson>(json_clone) {
-                        Ok(pj) => solve_problem_inner(
-                            &pj.problem_type,
-                            &pj.variant,
-                            pj.data,
-                            &solver_name,
-                        ),
+                        Ok(pj) => {
+                            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
+                        }
                         Err(e) => Err(anyhow::Error::from(e)),
                     }
                 };
@@ -911,10 +472,10 @@ impl McpServer {
             }
         } else if is_bundle {
             let bundle: ReductionBundle = serde_json::from_value(json)?;
-            solve_bundle_inner(bundle, solver_name)
+            solve_bundle_inner(bundle, request)
         } else {
             let pj: ProblemJson = serde_json::from_value(json)?;
-            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, solver_name)
+            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
         }
     }
 }
@@ -934,7 +495,7 @@ impl McpServer {
         self.list_problems_inner().map_err(|e| e.to_string())
     }
 
-    /// Show details for a problem type: variants, fields, size fields, and reductions
+    /// Show details for a problem type: variants, fields, parameter fields, and reductions
     #[tool(
         name = "show_problem",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -965,11 +526,17 @@ impl McpServer {
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
-        let cost = params.cost.as_deref().unwrap_or("minimize-steps");
-        let all = params.all.unwrap_or(false);
-        let max_paths = params.max_paths.unwrap_or(20);
-        self.find_path_inner(&params.source, &params.target, cost, all, max_paths)
-            .map_err(|e| e.to_string())
+        let limit = params
+            .limit
+            .as_ref()
+            .map_or(Ok(20), PathLimitParam::resolve)?;
+        self.find_path_inner(
+            &params.source,
+            &params.target,
+            limit,
+            params.problem_json.as_deref(),
+        )
+        .map_err(|e| e.to_string())
     }
 
     /// Export the full reduction graph as JSON
@@ -994,7 +561,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Inspect a problem JSON string or reduction bundle, returning type, size, and available operations
+    /// Inspect a problem JSON string or reduction bundle, returning type, parameters, and available operations
     #[tool(
         name = "inspect_problem",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -1017,17 +584,17 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Reduce a problem instance to a target problem type, returning a reduction bundle
+    /// Reduce a problem instance along an explicit enumerated route
     #[tool(
         name = "reduce",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn reduce(&self, Parameters(params): Parameters<ReduceParams>) -> Result<String, String> {
-        self.reduce_inner(&params.problem_json, &params.target)
+        self.reduce_inner(&params.problem_json, &params.path_json)
             .map_err(|e| e.to_string())
     }
 
-    /// Solve a problem instance using brute-force, ILP, or customized solver
+    /// Solve a problem using deterministic default dispatch or an explicit override
     #[tool(
         name = "solve",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -1101,372 +668,15 @@ fn parse_direction(s: &str) -> anyhow::Result<TraversalFlow> {
     }
 }
 
-fn format_path_json(
-    graph: &ReductionGraph,
-    reduction_path: &problemreductions::rules::ReductionPath,
-) -> serde_json::Value {
-    let overheads = graph.path_overheads(reduction_path);
-    let steps_json: Vec<serde_json::Value> = reduction_path
-        .steps
-        .windows(2)
-        .zip(overheads.iter())
-        .enumerate()
-        .map(|(i, (pair, oh))| {
-            serde_json::json!({
-                "from": {"name": pair[0].name, "variant": pair[0].variant},
-                "to": {"name": pair[1].name, "variant": pair[1].variant},
-                "step": i + 1,
-                "overhead": oh.output_size.iter().map(|(field, poly)| {
-                    serde_json::json!({"field": field, "formula": poly.to_string()})
-                }).collect::<Vec<_>>(),
-            })
-        })
-        .collect();
-
-    let composed = graph.compose_path_overhead(reduction_path);
-    let overall: Vec<serde_json::Value> = composed
-        .output_size
-        .iter()
-        .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
-        .collect();
-
-    serde_json::json!({
-        "steps": reduction_path.len(),
-        "path": steps_json,
-        "overall_overhead": overall,
-    })
-}
-
 // ---------------------------------------------------------------------------
 // Instance tool helpers
 // ---------------------------------------------------------------------------
 
-fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
-    util::ser(problem)
-}
-
-fn solve_result_json(
-    problem: &str,
-    solver: &str,
-    result: &crate::dispatch::SolveResult,
-) -> serde_json::Value {
-    let mut json = serde_json::json!({
-        "problem": problem,
-        "solver": solver,
-        "evaluation": result.evaluation,
-    });
-    if let Some(config) = &result.config {
-        json["solution"] = serde_json::json!(config);
-    }
-    json
-}
-
-fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
-    util::variant_map(pairs)
-}
-
-/// Serialize a vertex-weight graph problem (MIS, MVC, MaxClique, MinDomSet).
-fn ser_vertex_weight_problem(
-    canonical: &str,
-    graph: SimpleGraph,
-    weights: Vec<i32>,
-) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
-    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-    let data = match canonical {
-        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-        "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-        _ => unreachable!(),
-    };
-    Ok((data, variant))
-}
-
-/// Serialize an edge-weight graph problem (MaxCut, MaximumMatching, TravelingSalesman).
-fn ser_edge_weight_problem(
-    canonical: &str,
-    graph: SimpleGraph,
-    edge_weights: Vec<i32>,
-) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
-    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-    let data = match canonical {
-        "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
-        "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
-        "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
-        _ => unreachable!(),
-    };
-    Ok((data, variant))
-}
-
-/// Serialize a vertex-weight problem with a generic graph type.
-fn ser_vertex_weight_problem_generic<G: Graph + Serialize>(
-    canonical: &str,
-    graph: G,
-    weights: Vec<i32>,
-) -> anyhow::Result<serde_json::Value> {
-    match canonical {
-        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights)),
-        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights)),
-        "MaximumClique" => ser(MaximumClique::new(graph, weights)),
-        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights)),
-        _ => unreachable!(),
-    }
-}
-
-/// Create a vertex-weight problem from MCP params, dispatching on graph type.
-fn create_vertex_weight_from_params(
-    canonical: &str,
-    graph_type: &str,
-    resolved_variant: &BTreeMap<String, String>,
-    params: &serde_json::Value,
-) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
-    match graph_type {
-        "KingsSubgraph" => {
-            let positions = parse_int_positions_from_params(params)?;
-            let n = positions.len();
-            let graph = KingsSubgraph::new(positions);
-            let weights = parse_vertex_weights_from_params(params, n)?;
-            Ok((
-                ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                resolved_variant.clone(),
-            ))
-        }
-        "TriangularSubgraph" => {
-            let positions = parse_int_positions_from_params(params)?;
-            let n = positions.len();
-            let graph = TriangularSubgraph::new(positions);
-            let weights = parse_vertex_weights_from_params(params, n)?;
-            Ok((
-                ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                resolved_variant.clone(),
-            ))
-        }
-        "UnitDiskGraph" => {
-            let positions = parse_float_positions_from_params(params)?;
-            let n = positions.len();
-            let radius = params.get("radius").and_then(|v| v.as_f64()).unwrap_or(1.0);
-            let graph = UnitDiskGraph::new(positions, radius);
-            let weights = parse_vertex_weights_from_params(params, n)?;
-            Ok((
-                ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                resolved_variant.clone(),
-            ))
-        }
-        _ => {
-            let (graph, n) = parse_graph_from_params(params)?;
-            let weights = parse_vertex_weights_from_params(params, n)?;
-            ser_vertex_weight_problem(canonical, graph, weights)
-        }
-    }
-}
-
-/// Extract and parse 'positions' param as integer grid positions.
-fn parse_int_positions_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<(i32, i32)>> {
-    let pos_str = params
-        .get("positions")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!("This variant requires 'positions' parameter (e.g., \"0,0;1,0;1,1\")")
-        })?;
-    util::parse_positions(pos_str, "0,0;1,0;1,1")
-}
-
-/// Extract and parse 'positions' param as float positions.
-fn parse_float_positions_from_params(
-    params: &serde_json::Value,
-) -> anyhow::Result<Vec<(f64, f64)>> {
-    let pos_str = params
-        .get("positions")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "This variant requires 'positions' parameter (e.g., \"0.0,0.0;1.0,0.0\")"
-            )
-        })?;
-    util::parse_positions(pos_str, "0.0,0.0;1.0,0.0")
-}
-
-/// Parse `edges` field from JSON params into a SimpleGraph.
-fn parse_graph_from_params(params: &serde_json::Value) -> anyhow::Result<(SimpleGraph, usize)> {
-    let edges_str = params
-        .get("edges")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!("This problem requires 'edges' parameter (e.g., \"0-1,1-2,2-3\")")
-        })?;
-
-    let edges: Vec<(usize, usize)> = edges_str
-        .split(',')
-        .map(|pair| {
-            let parts: Vec<&str> = pair.trim().split('-').collect();
-            if parts.len() != 2 {
-                anyhow::bail!("Invalid edge '{}': expected format u-v", pair.trim());
-            }
-            let u: usize = parts[0].parse()?;
-            let v: usize = parts[1].parse()?;
-            Ok((u, v))
-        })
-        .collect::<anyhow::Result<Vec<_>>>()?;
-
-    let num_vertices = edges
-        .iter()
-        .flat_map(|(u, v)| [*u, *v])
-        .max()
-        .map(|m| m + 1)
-        .unwrap_or(0);
-
-    Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
-}
-
-fn parse_kclique_threshold(k_flag: Option<usize>, num_vertices: usize) -> anyhow::Result<usize> {
-    let k = k_flag.ok_or_else(|| anyhow::anyhow!("KClique requires 'k'"))?;
-    if k == 0 {
-        anyhow::bail!("KClique: 'k' must be positive");
-    }
-    if k > num_vertices {
-        anyhow::bail!("KClique: k must be <= graph num_vertices");
-    }
-    Ok(k)
-}
-
-/// Parse `weights` field from JSON params as vertex weights (i32), defaulting to all 1s.
-fn parse_vertex_weights_from_params(
-    params: &serde_json::Value,
-    num_vertices: usize,
-) -> anyhow::Result<Vec<i32>> {
-    match params.get("weights").and_then(|v| v.as_str()) {
-        Some(w) => {
-            let weights: Vec<i32> = w
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()?;
-            if weights.len() != num_vertices {
-                anyhow::bail!(
-                    "Expected {} weights but got {}",
-                    num_vertices,
-                    weights.len()
-                );
-            }
-            Ok(weights)
-        }
-        None => Ok(vec![1i32; num_vertices]),
-    }
-}
-
-/// Parse `weights` field from JSON params as edge weights (i32), defaulting to all 1s.
-fn parse_edge_weights_from_params(
-    params: &serde_json::Value,
-    num_edges: usize,
-) -> anyhow::Result<Vec<i32>> {
-    match params.get("weights").and_then(|v| v.as_str()) {
-        Some(w) => {
-            let weights: Vec<i32> = w
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()?;
-            if weights.len() != num_edges {
-                anyhow::bail!(
-                    "Expected {} edge weights but got {}",
-                    num_edges,
-                    weights.len()
-                );
-            }
-            Ok(weights)
-        }
-        None => Ok(vec![1i32; num_edges]),
-    }
-}
-
-/// Parse `edge_lengths` field from JSON params as edge lengths (i32), defaulting to all 1s.
-fn parse_edge_lengths_from_params(
-    params: &serde_json::Value,
-    num_edges: usize,
-) -> anyhow::Result<Vec<i32>> {
-    match params.get("edge_lengths").and_then(|v| v.as_str()) {
-        Some(w) => {
-            let lengths: Vec<i32> = w
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()?;
-            if lengths.len() != num_edges {
-                anyhow::bail!(
-                    "Expected {} edge lengths but got {}",
-                    num_edges,
-                    lengths.len()
-                );
-            }
-            Ok(lengths)
-        }
-        None => Ok(vec![1i32; num_edges]),
-    }
-}
-
-/// Parse `clauses` field from JSON params as semicolon-separated clauses.
-fn parse_clauses_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<CNFClause>> {
-    let clauses_str = params
-        .get("clauses")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!("SAT problems require 'clauses' parameter (e.g., \"1,2;-1,3\")")
-        })?;
-
-    clauses_str
-        .split(';')
-        .map(|clause| {
-            let literals: Vec<i32> = clause
-                .trim()
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()?;
-            Ok(CNFClause::new(literals))
-        })
-        .collect()
-}
-
-/// Parse `disjuncts` field from JSON params as semicolon-separated conjunctions.
-fn parse_disjuncts_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Vec<i32>>> {
-    let disjuncts_str = params
-        .get("disjuncts")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!("NonTautology requires 'disjuncts' parameter (e.g., \"1,2;-1,3\")")
-        })?;
-
-    disjuncts_str
-        .split(';')
-        .map(|disjunct| {
-            disjunct
-                .trim()
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(anyhow::Error::from)
-        })
-        .collect()
-}
-
-/// Parse `matrix` field from JSON params as semicolon-separated rows.
-fn parse_matrix_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Vec<f64>>> {
-    let matrix_str = params
-        .get("matrix")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow::anyhow!("QUBO requires 'matrix' parameter (e.g., \"1,0.5;0.5,2\")")
-        })?;
-
-    matrix_str
-        .split(';')
-        .map(|row| {
-            row.trim()
-                .split(',')
-                .map(|s| {
-                    s.trim()
-                        .parse::<f64>()
-                        .map_err(|e| anyhow::anyhow!("Invalid matrix value: {}", e))
-                })
-                .collect()
-        })
-        .collect()
+fn normalize_mcp_create_inputs(params: &serde_json::Value) -> anyhow::Result<serde_json::Value> {
+    let inputs = params
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("construction inputs must be a JSON object"))?;
+    Ok(serde_json::Value::Object(inputs.clone()))
 }
 
 /// Solve a plain problem and return JSON string.
@@ -1474,73 +684,21 @@ fn solve_problem_inner(
     problem_type: &str,
     variant: &BTreeMap<String, String>,
     data: serde_json::Value,
-    solver_name: &str,
+    request: SolverRequest,
 ) -> anyhow::Result<String> {
     let problem = load_problem(problem_type, variant, data)?;
     let name = problem.problem_name();
-
-    match solver_name {
-        "brute-force" => {
-            let result = problem.solve_brute_force();
-            let json = solve_result_json(name, "brute-force", &result);
-            Ok(serde_json::to_string_pretty(&json)?)
-        }
-        "ilp" => {
-            let result = problem.solve_with_ilp()?;
-            let result = crate::dispatch::SolveResult {
-                config: Some(result.config),
-                evaluation: result.evaluation,
-            };
-            let mut json = solve_result_json(name, "ilp", &result);
-            if name != "ILP" {
-                json["reduced_to"] = serde_json::json!("ILP");
-            }
-            Ok(serde_json::to_string_pretty(&json)?)
-        }
-        "customized" => {
-            let result = problem.solve_with_customized()?;
-            let result = crate::dispatch::SolveResult {
-                config: Some(result.config),
-                evaluation: result.evaluation,
-            };
-            let json = solve_result_json(name, "customized", &result);
-            Ok(serde_json::to_string_pretty(&json)?)
-        }
-        _ => unreachable!(),
-    }
+    let result = problem.solve(request)?;
+    let json = solve_result_json(name, &result);
+    Ok(serde_json::to_string_pretty(&json)?)
 }
 
 /// Solve a reduction bundle: solve the target, then map the solution back.
-fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Result<String> {
+fn solve_bundle_inner(bundle: ReductionBundle, request: SolverRequest) -> anyhow::Result<String> {
     let replay = BundleReplay::prepare(&bundle)?;
-
-    let target_result = match solver_name {
-        "brute-force" => replay.target.solve_brute_force_witness().ok_or_else(|| {
-            anyhow::anyhow!(
-                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
-                replay.target_name
-            )
-        })?,
-        "ilp" => replay.target.solve_with_ilp()?,
-        "customized" => replay.target.solve_with_customized()?,
-        _ => unreachable!(),
-    };
-
-    let (source_config, source_eval) = replay.extract(&target_result.config);
-
-    let json = serde_json::json!({
-        "problem": replay.source_name,
-        "solver": solver_name,
-        "reduced_to": replay.target_name,
-        "solution": source_config,
-        "evaluation": source_eval,
-        "intermediate": {
-            "problem": replay.target_name,
-            "solution": target_result.config,
-            "evaluation": target_result.evaluation,
-        },
-    });
-    Ok(serde_json::to_string_pretty(&json)?)
+    Ok(serde_json::to_string_pretty(
+        &replay.solve(request)?.to_json(),
+    )?)
 }
 
 #[cfg(test)]
@@ -1550,14 +708,14 @@ mod tests {
     use problemreductions::models::formula::NonTautology;
 
     #[test]
-    fn test_create_problem_inner_nontautology_uses_disjuncts() {
+    fn construction_contract_create_problem_uses_typed_json_inputs() {
         let server = McpServer::new();
         let output = server
             .create_problem_inner(
                 "NonTautology",
                 &serde_json::json!({
                     "num_vars": 3,
-                    "disjuncts": "1,2,3;-1,-2,-3",
+                    "disjuncts": [[1, 2, 3], [-1, -2, -3]],
                 }),
             )
             .unwrap();
@@ -1566,5 +724,137 @@ mod tests {
         assert_eq!(created.problem_type, "NonTautology");
         let problem: NonTautology = serde_json::from_value(created.data).unwrap();
         assert_eq!(problem.disjuncts(), &[vec![1, 2, 3], vec![-1, -2, -3]]);
+    }
+
+    #[test]
+    fn construction_contract_discovers_model_without_mcp_dispatch() {
+        let server = McpServer::new();
+        let output = server
+            .create_problem_inner(
+                crate::test_support::AGGREGATE_SOURCE_NAME,
+                &serde_json::json!({"values": [2, 5, 7]}),
+            )
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(
+            created.problem_type,
+            crate::test_support::AGGREGATE_SOURCE_NAME
+        );
+        assert!(created.variant.is_empty());
+        assert_eq!(created.data, serde_json::json!({"values": [2, 5, 7]}));
+    }
+
+    #[test]
+    fn construction_contract_mcp_computes_model_owned_derived_fields() {
+        let output = McpServer::new()
+            .create_problem_inner("SCS", &serde_json::json!({"strings": [[0, 1], [1, 2]]}))
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(created.problem_type, "ShortestCommonSupersequence");
+        assert_eq!(created.data["alphabet_size"], serde_json::json!(3));
+        assert_eq!(created.data["max_length"], serde_json::json!(4));
+        assert_eq!(created.data["strings"], serde_json::json!([[0, 1], [1, 2]]));
+    }
+
+    #[test]
+    fn construction_contract_mcp_builds_composite_model_input() {
+        let output = McpServer::new()
+            .create_problem_inner(
+                "BicliqueCover",
+                &serde_json::json!({
+                    "left": 2,
+                    "right": 3,
+                    "biedges": [[0, 0], [0, 1], [1, 2]],
+                    "k": 2,
+                }),
+            )
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(created.problem_type, "BicliqueCover");
+        assert_eq!(created.data["graph"]["left_size"], serde_json::json!(2));
+        assert_eq!(created.data["graph"]["right_size"], serde_json::json!(3));
+        assert_eq!(created.data["k"], serde_json::json!(2));
+    }
+
+    #[test]
+    fn construction_contract_rejects_unknown_mcp_input() {
+        let error = McpServer::new()
+            .create_problem_inner(
+                "NonTautology",
+                &serde_json::json!({
+                    "num_vars": 3,
+                    "disjuncts": [[1, 2, 3]],
+                    "removed": true,
+                }),
+            )
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("unknown construction input(s): removed"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn construction_contract_rejects_missing_mcp_input() {
+        let error = McpServer::new()
+            .create_problem_inner("NonTautology", &serde_json::json!({"num_vars": 3}))
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("missing required construction input(s): disjuncts"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn construction_contract_rejects_non_object_mcp_input() {
+        let error = McpServer::new()
+            .create_problem_inner("NonTautology", &serde_json::json!([]))
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "construction inputs must be a JSON object"
+        );
+    }
+
+    #[test]
+    fn random_contract_mcp_uses_the_selected_variant_generator() {
+        let output = McpServer::new()
+            .create_problem_inner(
+                "MaximumIndependentSet",
+                &serde_json::json!({"random": true, "num_vertices": 4, "seed": 7}),
+            )
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(created.variant["graph"], "SimpleGraph");
+        assert_eq!(created.variant["weight"], "One");
+        assert_eq!(created.data["graph"]["num_vertices"], 4);
+    }
+
+    #[test]
+    fn random_contract_mcp_rejects_inputs_outside_model_contract() {
+        let error = McpServer::new()
+            .create_problem_inner(
+                "MaximumIndependentSet",
+                &serde_json::json!({
+                    "random": true,
+                    "num_vertices": 4,
+                    "bound": 2,
+                }),
+            )
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("unknown construction input(s): bound"),
+            "unexpected error: {error}"
+        );
     }
 }

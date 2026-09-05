@@ -16,7 +16,8 @@ fn test_ksatisfiability_to_kclique_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
         ],
     );
-    let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat);
+    let reduction =
+        ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify structure: 3*2 = 6 vertices, k = 2
@@ -24,14 +25,14 @@ fn test_ksatisfiability_to_kclique_closed_loop() {
     assert_eq!(target.k(), 2);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(target);
+    let solutions = solver.find_all_witnesses(target).unwrap();
     assert!(!solutions.is_empty());
 
     // Every KClique solution must map back to a satisfying 3-SAT assignment
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
-        assert!(ksat.evaluate(&extracted));
+        assert!(ksat.evaluate(&extracted).unwrap());
     }
 }
 
@@ -46,7 +47,8 @@ fn test_ksatisfiability_to_kclique_unsatisfiable() {
             CNFClause::new(vec![-1, -1, -1]),
         ],
     );
-    let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat);
+    let reduction =
+        ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 6 vertices, k=2
@@ -57,7 +59,7 @@ fn test_ksatisfiability_to_kclique_unsatisfiable() {
     assert_eq!(target.num_edges(), 0);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(target);
+    let solution = solver.solve(target).unwrap();
     assert!(solution.is_none());
 }
 
@@ -66,7 +68,8 @@ fn test_ksatisfiability_to_kclique_single_clause() {
     // Single clause: (x1 ∨ x2 ∨ x3) — always satisfiable (7/8 assignments)
     // With m=1, k=1, any single vertex is a 1-clique.
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat);
+    let reduction =
+        ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 3 vertices, k=1, no edges needed for 1-clique
@@ -74,13 +77,13 @@ fn test_ksatisfiability_to_kclique_single_clause() {
     assert_eq!(target.k(), 1);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(target);
+    let solutions = solver.find_all_witnesses(target).unwrap();
 
     // Each solution maps to a satisfying assignment
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
-        assert!(ksat.evaluate(&extracted));
+        let extracted = reduction.extract_solution(sol).unwrap();
+        assert!(ksat.evaluate(&extracted).unwrap());
         sat_assignments.insert(extracted);
     }
     // 3 clique witnesses but they may map to different or same assignments
@@ -110,7 +113,8 @@ fn test_ksatisfiability_to_kclique_structure() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat);
+    let reduction =
+        ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 6);
@@ -129,7 +133,8 @@ fn test_ksatisfiability_to_kclique_three_clauses() {
             CNFClause::new(vec![1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat);
+    let reduction =
+        ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 9 vertices, k=3
@@ -137,14 +142,14 @@ fn test_ksatisfiability_to_kclique_three_clauses() {
     assert_eq!(target.k(), 3);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(target);
+    let solutions = solver.find_all_witnesses(target).unwrap();
     assert!(!solutions.is_empty());
 
     // Verify all solutions map back correctly
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
-        assert!(ksat.evaluate(&extracted));
+        assert!(ksat.evaluate(&extracted).unwrap());
     }
 }
 
@@ -163,17 +168,18 @@ fn test_ksatisfiability_to_kclique_extract_solution_example() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat);
+    let reduction =
+        ReduceTo::<KClique<SimpleGraph>>::reduce_to(&ksat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Vertices 2 and 3 selected
-    let specific_config = vec![0, 0, 1, 1, 0, 0];
-    assert!(target.evaluate(&specific_config));
+    let specific_config = vec![false, false, true, true, false, false];
+    assert!(target.evaluate(&specific_config).unwrap());
 
-    let extracted = reduction.extract_solution(&specific_config);
+    let extracted = reduction.extract_solution(&specific_config).unwrap();
     // Vertex 2 = clause 0, pos 2 → literal 3 (x3) → x3=T → assignment[2]=1
     // Vertex 3 = clause 1, pos 0 → literal -1 (¬x1) → x1=F → assignment[0]=0
     // Unset variables default to 0.
-    assert_eq!(extracted, vec![0, 0, 1]);
-    assert!(ksat.evaluate(&extracted));
+    assert_eq!(extracted, vec![false, false, true]);
+    assert!(ksat.evaluate(&extracted).unwrap());
 }

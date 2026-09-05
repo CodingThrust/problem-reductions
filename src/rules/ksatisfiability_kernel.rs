@@ -25,14 +25,21 @@ impl ReductionResult for Reduction3SatToKernel {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|i| usize::from(target_solution.get(2 * i).copied().unwrap_or(0) == 1))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.source_num_vars)
+                .map(|i| target_solution[2 * i])
+                .collect()
+        })
     }
 }
 
-fn literal_vertex(literal: i32) -> usize {
+fn literal_vertex(literal: i64) -> usize {
     let variable = literal.unsigned_abs() as usize - 1;
     if literal > 0 {
         2 * variable
@@ -42,7 +49,7 @@ fn literal_vertex(literal: i32) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_arcs = "2 * num_vars + 6 * num_clauses",
     }
@@ -50,7 +57,7 @@ fn literal_vertex(literal: i32) -> usize {
 impl ReduceTo<Kernel> for KSatisfiability<K3> {
     type Result = Reduction3SatToKernel;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let mut arcs = Vec::with_capacity(2 * num_vars + 6 * num_clauses);
@@ -73,10 +80,10 @@ impl ReduceTo<Kernel> for KSatisfiability<K3> {
             }
         }
 
-        Reduction3SatToKernel {
+        Ok(Reduction3SatToKernel {
             target: Kernel::new(DirectedGraph::new(2 * num_vars + 3 * num_clauses, arcs)),
             source_num_vars: num_vars,
-        }
+        })
     }
 }
 
@@ -97,8 +104,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     ],
                 ),
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, false, true, false, true, false, false, false, false, false, true,
+                        false
+                    ]),
                 },
             )
         },

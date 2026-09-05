@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "2-Dimensional Consecutive Sets",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if alphabet can be partitioned into ordered groups with intersection and consecutiveness constraints",
         fields: &[
@@ -40,7 +41,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::TwoDimensionalConsecutiveSets;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet: {0,1,2,3,4,5}
 /// // Subsets: {0,1,2}, {3,4,5}, {1,3}, {2,4}, {0,5}
@@ -51,7 +52,7 @@ inventory::submit! {
 ///
 /// // Partition: X0={0}, X1={1,5}, X2={2,3}, X3={4}
 /// // config[i] = group index of symbol i
-/// assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]));
+/// assert!(problem.evaluate(&vec![0, 1, 2, 2, 3, 1]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct TwoDimensionalConsecutiveSets {
@@ -67,9 +68,12 @@ struct TwoDimensionalConsecutiveSetsUnchecked {
     subsets: Vec<Vec<usize>>,
 }
 
-fn validate(alphabet_size: usize, subsets: &[Vec<usize>]) -> Result<(), String> {
+fn validate(
+    alphabet_size: usize,
+    subsets: &[Vec<usize>],
+) -> Result<(), crate::registry::ConstructionError> {
     if alphabet_size == 0 {
-        return Err("Alphabet size must be positive".to_string());
+        return Err("Alphabet size must be positive".to_string().into());
     }
 
     for (i, subset) in subsets.iter().enumerate() {
@@ -79,10 +83,11 @@ fn validate(alphabet_size: usize, subsets: &[Vec<usize>]) -> Result<(), String> 
                 return Err(format!(
                     "Subset {} contains element {} which is outside alphabet of size {}",
                     i, elem, alphabet_size
-                ));
+                )
+                .into());
             }
             if !seen.insert(elem) {
-                return Err(format!("Subset {} contains duplicate element {}", i, elem));
+                return Err(format!("Subset {} contains duplicate element {}", i, elem).into());
             }
         }
     }
@@ -102,7 +107,10 @@ impl<'de> Deserialize<'de> for TwoDimensionalConsecutiveSets {
 
 impl TwoDimensionalConsecutiveSets {
     /// Create a new 2-Dimensional Consecutive Sets instance, returning validation errors.
-    pub fn try_new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
+    pub fn try_new(
+        alphabet_size: usize,
+        subsets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate(alphabet_size, &subsets)?;
         let subsets = subsets
             .into_iter()
@@ -145,56 +153,68 @@ impl TwoDimensionalConsecutiveSets {
 
 impl Problem for TwoDimensionalConsecutiveSets {
     const NAME: &'static str = "TwoDimensionalConsecutiveSets";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.alphabet_size]
-    }
+    crate::problem_parameters![
+        ("alphabet_size", alphabet_size),
+        ("num_subsets", num_subsets),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.alphabet_size {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= self.alphabet_size) {
-                return crate::types::Or(false);
-            }
-
-            // Empty labels do not create gaps in the partition order, so compress used labels first.
-            let mut used = vec![false; self.alphabet_size];
-            for &group in config {
-                used[group] = true;
-            }
-            let mut dense_labels = vec![0; self.alphabet_size];
-            let mut next_label = 0;
-            for (label, is_used) in used.into_iter().enumerate() {
-                if is_used {
-                    dense_labels[label] = next_label;
-                    next_label += 1;
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.alphabet_size {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "group assignment length does not match the alphabet".into(),
+                    ));
                 }
-            }
-
-            for subset in &self.subsets {
-                if subset.is_empty() {
-                    continue;
-                }
-                let groups: Vec<usize> = subset.iter().map(|&s| dense_labels[config[s]]).collect();
-
-                // Intersection constraint: all group indices must be distinct
-                let unique: HashSet<usize> = groups.iter().copied().collect();
-                if unique.len() != subset.len() {
-                    return crate::types::Or(false);
+                if config.iter().any(|&v| v >= self.alphabet_size) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "group assignment contains an out-of-range group".into(),
+                    ));
                 }
 
-                // Consecutiveness: group indices must form a contiguous range
-                let min_g = *unique.iter().min().unwrap();
-                let max_g = *unique.iter().max().unwrap();
-                if max_g - min_g + 1 != subset.len() {
-                    return crate::types::Or(false);
+                // Empty labels do not create gaps in the partition order, so compress used labels first.
+                let mut used = vec![false; self.alphabet_size];
+                for &group in config {
+                    used[group] = true;
                 }
-            }
+                let mut dense_labels = vec![0; self.alphabet_size];
+                let mut next_label = 0;
+                for (label, is_used) in used.into_iter().enumerate() {
+                    if is_used {
+                        dense_labels[label] = next_label;
+                        next_label += 1;
+                    }
+                }
 
-            true
+                for subset in &self.subsets {
+                    if subset.is_empty() {
+                        continue;
+                    }
+                    let groups: Vec<usize> =
+                        subset.iter().map(|&s| dense_labels[config[s]]).collect();
+
+                    // Intersection constraint: all group indices must be distinct
+                    let unique: HashSet<usize> = groups.iter().copied().collect();
+                    if unique.len() != subset.len() {
+                        return Ok(crate::types::Or(false));
+                    }
+
+                    // Consecutiveness: group indices must form a contiguous range
+                    let min_g = *unique.iter().min().unwrap();
+                    let max_g = *unique.iter().max().unwrap();
+                    if max_g - min_g + 1 != subset.len() {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 
@@ -203,8 +223,18 @@ impl Problem for TwoDimensionalConsecutiveSets {
     }
 }
 
+impl crate::solvers::BruteForceProblem for TwoDimensionalConsecutiveSets {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.alphabet_size; self.alphabet_size]
+    }
+}
+
 crate::declare_variants! {
     default TwoDimensionalConsecutiveSets => "alphabet_size^alphabet_size",
+}
+
+crate::register_brute_force! {
+    TwoDimensionalConsecutiveSets,
 }
 
 #[cfg(feature = "example-db")]
@@ -221,7 +251,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![0, 5],
             ],
         )),
-        optimal_config: vec![0, 1, 2, 2, 3, 1],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 2, 3, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

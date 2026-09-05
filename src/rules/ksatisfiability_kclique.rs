@@ -24,7 +24,7 @@ use crate::variant::K3;
 pub struct Reduction3SATToKClique {
     target: KClique<SimpleGraph>,
     /// Clauses from the source problem, needed for solution extraction.
-    source_clauses: Vec<Vec<i32>>,
+    source_clauses: Vec<Vec<i64>>,
     source_num_vars: usize,
 }
 
@@ -36,52 +36,59 @@ impl ReductionResult for Reduction3SATToKClique {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.source_num_vars;
-        // Start with all variables unset (false = 0).
-        let mut assignment = vec![0usize; n];
-        // Track which variables have been explicitly set by a clique vertex.
-        let mut set = vec![false; n];
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        for (v, &val) in target_solution.iter().enumerate() {
-            if val != 1 {
-                continue;
+        Ok({
+            let n = self.source_num_vars;
+            // Start with all variables unset (false = 0).
+            let mut assignment = vec![false; n];
+            // Track which variables have been explicitly set by a clique vertex.
+            let mut set = vec![false; n];
+
+            for (v, &val) in target_solution.iter().enumerate() {
+                if !val {
+                    continue;
+                }
+                // Vertex v corresponds to clause j, position p.
+                let j = v / 3;
+                let p = v % 3;
+                let lit = self.source_clauses[j][p];
+                let var_idx = (lit.unsigned_abs() as usize) - 1; // 0-indexed
+                if !set[var_idx] {
+                    assignment[var_idx] = lit > 0;
+                    set[var_idx] = true;
+                }
             }
-            // Vertex v corresponds to clause j, position p.
-            let j = v / 3;
-            let p = v % 3;
-            let lit = self.source_clauses[j][p];
-            let var_idx = (lit.unsigned_abs() as usize) - 1; // 0-indexed
-            if !set[var_idx] {
-                assignment[var_idx] = if lit > 0 { 1 } else { 0 };
-                set[var_idx] = true;
-            }
-        }
-        assignment
+            assignment
+        })
     }
 }
 
 /// Check whether two literals are contradictory (one is the negation of the other).
-fn literals_contradict(lit1: i32, lit2: i32) -> bool {
+fn literals_contradict(lit1: i64, lit2: i64) -> bool {
     lit1 == -lit2
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vertices = "3 * num_clauses",
-        num_edges = "9 * num_clauses * (num_clauses - 1) / 2",
         k = "num_clauses",
+        num_edges = "9 * num_clauses^2",
     }
 )]
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToKClique;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_clauses();
         let num_verts = 3 * m;
 
         // Collect literals for each clause for easy access.
-        let clause_lits: Vec<Vec<i32>> =
+        let clause_lits: Vec<Vec<i64>> =
             self.clauses().iter().map(|c| c.literals.clone()).collect();
 
         // Build edges: connect (j1,p1) and (j2,p2) if j1 != j2 and literals
@@ -106,11 +113,11 @@ impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
         let graph = SimpleGraph::new(num_verts, edges);
         let target = KClique::new(graph, m);
 
-        Reduction3SATToKClique {
+        Ok(Reduction3SATToKClique {
             target,
             source_clauses: clause_lits,
             source_num_vars: self.num_vars(),
-        }
+        })
     }
 }
 
@@ -137,8 +144,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, KClique<SimpleGraph>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![false, false, true]),
+                    target_config: serde_json::json!(vec![false, false, true, true, false, false]),
                 },
             )
         },

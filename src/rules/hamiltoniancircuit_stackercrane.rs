@@ -32,16 +32,23 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // The target config is a permutation of arc indices.
-        // Arc i corresponds to original vertex i (arc from 2i to 2i+1).
-        // The permutation order directly gives the Hamiltonian circuit vertex order.
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // The target config is a permutation of arc indices.
+            // Arc i corresponds to original vertex i (arc from 2i to 2i+1).
+            // The permutation order directly gives the Hamiltonian circuit vertex order.
+            target_solution.to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "2 * num_vertices",
         num_arcs = "num_vertices",
         num_edges = "2 * num_edges",
@@ -50,7 +57,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
 impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToStackerCrane;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
 
         // Each vertex i becomes two vertices: 2i (in) and 2i+1 (out).
@@ -58,7 +65,7 @@ impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
 
         // One mandatory arc per original vertex: (2i, 2i+1) with length 1.
         let arcs: Vec<(usize, usize)> = (0..n).map(|i| (2 * i, 2 * i + 1)).collect();
-        let arc_lengths: Vec<i32> = vec![1; n];
+        let arc_lengths: Vec<i64> = vec![1; n];
 
         // For each original edge {u, v}, add two undirected connector edges:
         //   {u^out, v^in} = {2u+1, 2v}  with length 1
@@ -76,7 +83,7 @@ impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
 
         let target = StackerCrane::new(target_num_vertices, arcs, edges, arc_lengths, edge_lengths);
 
-        ReductionHamiltonianCircuitToStackerCrane { target }
+        Ok(ReductionHamiltonianCircuitToStackerCrane { target })
     }
 }
 
@@ -91,8 +98,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, StackerCrane>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
-                    target_config: vec![0, 1, 2, 3],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
+                    target_config: serde_json::json!(vec![0, 1, 2, 3]),
                 },
             )
         },

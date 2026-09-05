@@ -28,54 +28,69 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing ClosestString to ILP.
 ///
-/// Variable layout (`ILP<i32>`, all non-negative):
+/// Variable layout (`ILP<i64>`, all non-negative):
 /// - `x_{j, a}` at index `j * alphabet_size + a` for `j in [0, m)` and
 ///   `a in [0, q)`, bounded to `{0, 1}`.
 /// - `R` (radius) at index `m * q`, an integer in `[0, m]`.
 #[derive(Debug, Clone)]
 pub struct ReductionClosestStringToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     alphabet_size: usize,
     string_length: usize,
 }
 
 impl ReductionResult for ReductionClosestStringToILP {
     type Source = ClosestString;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
     /// Decode the integer ILP assignment into the source center config.
     ///
     /// For every position `j`, choose the unique alphabet symbol `a` with
-    /// `x_{j, a} = 1`. If the target assignment is missing or none of the
-    /// per-position `x_{j, *}` variables are set to 1, we fall back to symbol
-    /// `0` so the returned vector still has the expected length; partial /
-    /// infeasible ILP solutions are the caller's responsibility.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    /// `x_{j, a} = 1`.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let q = self.alphabet_size;
-        (0..self.string_length)
-            .map(|j| {
-                (0..q)
-                    .find(|&a| target_solution.get(j * q + a).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+        let mut center = Vec::with_capacity(self.string_length);
+        for position in 0..self.string_length {
+            let block = &target_solution[position * q..(position + 1) * q];
+            let mut selected = block.iter().enumerate().filter(|(_, value)| **value == 1);
+            let symbol = selected.next().map(|(symbol, _)| symbol).ok_or_else(|| {
+                crate::rules::ExtractionError::invalid(format!(
+                    "center position {position} has no selected symbol"
+                ))
+            })?;
+            if selected.next().is_some() || block.iter().any(|&value| value > 1) {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "center position {position} is not one-hot"
+                )));
+            }
+            center.push(symbol);
+        }
+        Ok(center)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "alphabet_size * string_length + 1",
         num_constraints = "string_length + num_strings",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for ClosestString {
+impl ReduceTo<ILP<i64>> for ClosestString {
     type Result = ReductionClosestStringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let q = self.alphabet_size();
         let m = self.string_length();
         let strings = self.strings();
@@ -88,34 +103,38 @@ impl ReduceTo<ILP<i32>> for ClosestString {
         let mut constraints: Vec<LinearConstraint> = Vec::with_capacity(m + n);
 
         // Assignment constraints: exactly one symbol per center position.
-        // Together with the non-negativity built into ILP<i32>, this also
+        // Together with the non-negativity built into `ILP<i64>`, this also
         // forces every x_{j, a} to lie in {0, 1}.
         for j in 0..m {
-            let terms: Vec<(usize, f64)> = (0..q).map(|a| (x_idx(j, a), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|a| (x_idx(j, a), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Radius constraints: R + sum_j x_{j, s_i[j]} >= m.
         // Equivalently, R >= m - sum_j x_{j, s_i[j]} = d_H(c, s_i).
         for s in strings.iter() {
-            let mut terms: Vec<(usize, f64)> = Vec::with_capacity(m + 1);
-            terms.push((r_idx, 1.0));
+            let mut terms: Vec<(usize, i64)> = Vec::with_capacity(m + 1);
+            terms.push((r_idx, 1));
             for (j, &symbol) in s.iter().enumerate() {
-                terms.push((x_idx(j, symbol), 1.0));
+                terms.push((x_idx(j, symbol), 1));
             }
-            constraints.push(LinearConstraint::ge(terms, m as f64));
+            constraints.push(LinearConstraint::ge(
+                terms,
+                Self::exact_i64(m, "encoding the string length")?,
+            ));
         }
 
         // Objective: minimize R.
-        let objective = vec![(r_idx, 1.0)];
+        let objective = vec![(r_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionClosestStringToILP {
+        Ok(ReductionClosestStringToILP {
             target,
             alphabet_size: q,
             string_length: m,
-        }
+        })
     }
 }
 
@@ -131,7 +150,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

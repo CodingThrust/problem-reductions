@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -18,7 +19,7 @@ fn test_sequencing_with_deadlines_and_set_up_times_creation() {
     assert_eq!(problem.deadlines(), &[4, 11, 3, 16, 7]);
     assert_eq!(problem.compilers(), &[0, 1, 0, 1, 0]);
     assert_eq!(problem.setup_times(), &[1, 2]);
-    assert_eq!(problem.dims(), vec![5, 5, 5, 5, 5]);
+    assert_eq!(problem.dimensions(), vec![5, 5, 5, 5, 5]);
     assert_eq!(
         <SequencingWithDeadlinesAndSetUpTimes as Problem>::NAME,
         "SequencingWithDeadlinesAndSetUpTimes"
@@ -44,7 +45,7 @@ fn test_sequencing_with_deadlines_and_set_up_times_evaluate_feasible() {
     // Position 2: task 4 (compiler 0), same     → elapsed = 3+2 = 5  ≤ 7 ✓
     // Position 3: task 1 (compiler 1), switch s[1]=2 → elapsed = 5+2+3 = 10 ≤ 11 ✓
     // Position 4: task 3 (compiler 1), same     → elapsed = 10+2 = 12 ≤ 16 ✓
-    assert_eq!(problem.evaluate(&[2, 0, 4, 1, 3]), Or(true));
+    assert_eq!(problem.evaluate(&vec![2, 0, 4, 1, 3]).unwrap(), Or(true));
 }
 
 #[test]
@@ -60,7 +61,7 @@ fn test_sequencing_with_deadlines_and_set_up_times_evaluate_infeasible() {
     // Position 0: task 0 (compiler 0), no prev  → elapsed = 0+2 = 2  ≤ 4 ✓
     // Position 1: task 1 (compiler 1), switch s[1]=2 → elapsed = 2+2+3 = 7 ≤ 11 ✓
     // Position 2: task 2 (compiler 0), switch s[0]=1 → elapsed = 7+1+1 = 9 > 3 ✗
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 4]), Or(false));
+    assert_eq!(problem.evaluate(&vec![0, 1, 2, 3, 4]).unwrap(), Or(false));
 }
 
 #[test]
@@ -73,12 +74,21 @@ fn test_sequencing_with_deadlines_and_set_up_times_evaluate_invalid_permutation(
     );
 
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 0]), Or(false));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Duplicate
-    assert_eq!(problem.evaluate(&[0, 0, 1]), Or(false));
+    assert_eq!(problem.evaluate(&vec![0, 0, 1]).unwrap(), Or(false));
     // Out of range
-    assert_eq!(problem.evaluate(&[0, 1, 3]), Or(false));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -92,9 +102,10 @@ fn test_sequencing_with_deadlines_and_set_up_times_brute_force_small() {
     );
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a feasible schedule");
-    assert_eq!(problem.evaluate(&solution), Or(true));
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }
 
 #[test]
@@ -108,7 +119,7 @@ fn test_sequencing_with_deadlines_and_set_up_times_brute_force_infeasible() {
     );
     let solver = BruteForce::new();
     assert!(
-        solver.find_witness(&problem).is_none(),
+        solver.solve(&problem).unwrap().is_none(),
         "infeasible instance should return None"
     );
 }
@@ -122,13 +133,14 @@ fn test_sequencing_with_deadlines_and_set_up_times_paper_example() {
         vec![1, 2],
     );
     let expected_config = vec![2, 0, 4, 1, 3];
-    assert_eq!(problem.evaluate(&expected_config), Or(true));
+    assert_eq!(problem.evaluate(&expected_config).unwrap(), Or(true));
 
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("paper example should be feasible");
-    assert_eq!(problem.evaluate(&solution), Or(true));
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }
 
 #[test]
@@ -180,11 +192,11 @@ fn test_sequencing_with_deadlines_and_set_up_times_setup_time_charged_on_switch(
     // Schedule [0,1]: elapsed after t0 = 1 ≤ 1 ✓; switch s[1]=2; elapsed = 1+2+1 = 4 ≤ 4 ✓
     let problem =
         SequencingWithDeadlinesAndSetUpTimes::new(vec![1, 1], vec![1, 4], vec![0, 1], vec![0, 2]);
-    assert_eq!(problem.evaluate(&[0, 1]), Or(true));
+    assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Or(true));
     // Tight deadline: if setup charged, 1+2+1=4 > 3 ✗
     let tight =
         SequencingWithDeadlinesAndSetUpTimes::new(vec![1, 1], vec![1, 3], vec![0, 1], vec![0, 2]);
-    assert_eq!(tight.evaluate(&[0, 1]), Or(false));
+    assert_eq!(tight.evaluate(&vec![0, 1]).unwrap(), Or(false));
 }
 
 #[test]

@@ -26,12 +26,12 @@ fn test_build_example_db_contains_models_and_rules() {
 }
 
 #[test]
-fn test_find_model_example_mis_simplegraph_i32() {
+fn test_find_model_example_mis_simplegraph_i64() {
     let problem = ProblemRef {
         name: "MaximumIndependentSet".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
 
@@ -40,7 +40,7 @@ fn test_find_model_example_mis_simplegraph_i32() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include optima"
     );
 }
@@ -57,7 +57,7 @@ fn test_find_model_example_exact_cover_by_3_sets() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -75,7 +75,7 @@ fn test_find_model_example_staff_scheduling() {
     assert_eq!(example.instance["num_workers"], 4);
     assert!(example.instance["schedules"].is_array());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -90,7 +90,7 @@ fn test_find_model_example_stacker_crane() {
     let example = find_model_example(&problem).expect("StackerCrane example should exist");
     assert_eq!(example.problem, "StackerCrane");
     assert_eq!(example.variant, problem.variant);
-    assert_eq!(example.optimal_config, vec![0, 2, 1, 4, 3]);
+    assert_eq!(example.optimal_config, serde_json::json!([0, 2, 1, 4, 3]));
     assert_eq!(example.instance["num_vertices"], 6);
     assert_eq!(example.instance["arcs"].as_array().unwrap().len(), 5);
 }
@@ -107,7 +107,7 @@ fn test_find_model_example_multiprocessor_scheduling() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -126,7 +126,7 @@ fn test_find_model_example_job_shop_scheduling() {
     assert!(example.instance["jobs"].is_array());
     assert_eq!(
         example.optimal_config,
-        vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]
+        serde_json::json!([0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0])
     );
 }
 
@@ -142,14 +142,17 @@ fn test_find_model_example_integral_flow_bundles() {
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.instance["graph"]["num_vertices"], 4);
     assert_eq!(example.instance["requirement"], 1);
-    assert_eq!(example.optimal_config, vec![1, 0, 1, 0, 0, 0]);
+    assert_eq!(
+        example.optimal_config,
+        serde_json::json!([1, 0, 1, 0, 0, 0])
+    );
 }
 
 #[test]
 fn test_find_model_example_strong_connectivity_augmentation() {
     let problem = ProblemRef {
         name: "StrongConnectivityAugmentation".to_string(),
-        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+        variant: BTreeMap::from([("weight".to_string(), "i64".to_string())]),
     };
 
     let example = find_model_example(&problem).expect("SCA example should exist");
@@ -157,7 +160,7 @@ fn test_find_model_example_strong_connectivity_augmentation() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -177,7 +180,10 @@ fn test_find_model_example_integral_flow_homologous_arcs() {
         example.instance["homologous_pairs"],
         serde_json::json!([[2, 5], [4, 3]])
     );
-    assert_eq!(example.optimal_config, vec![1, 1, 1, 0, 0, 1, 1, 1]);
+    assert_eq!(
+        example.optimal_config,
+        serde_json::json!([1, 1, 1, 0, 0, 1, 1, 1])
+    );
 }
 
 #[test]
@@ -193,7 +199,7 @@ fn test_find_model_example_minimum_dummy_activities_pert() {
     assert!(example.instance.is_object());
     assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include an optimal merge selection"
     );
 }
@@ -204,7 +210,7 @@ fn test_find_model_example_decision_minimum_vertex_cover() {
         name: "DecisionMinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
 
@@ -214,7 +220,10 @@ fn test_find_model_example_decision_minimum_vertex_cover() {
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.instance["bound"], 2);
     assert_eq!(example.instance["inner"]["graph"]["num_vertices"], 4);
-    assert_eq!(example.optimal_config, vec![1, 0, 1, 0]);
+    assert_eq!(
+        example.optimal_config,
+        serde_json::json!([true, false, true, false])
+    );
     assert_eq!(example.optimal_value, serde_json::json!(true));
 }
 
@@ -224,14 +233,14 @@ fn test_find_rule_example_mvc_to_mis_contains_full_problem_json() {
         name: "MinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let target = ProblemRef {
         name: "MaximumIndependentSet".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
 
@@ -265,7 +274,6 @@ fn test_find_rule_example_sat_to_kcoloring_contains_full_instances() {
     );
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances() {
     let source = ProblemRef {
@@ -274,18 +282,28 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     };
     let target = ProblemRef {
         name: "ILP".to_string(),
-        variant: BTreeMap::from([("variable".to_string(), "i32".to_string())]),
+        variant: BTreeMap::from([
+            ("variable".to_string(), "i64".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     };
 
     let example = find_rule_example(&source, &target).expect("IntegralFlowBundles -> ILP exists");
     assert_eq!(example.source.problem, "IntegralFlowBundles");
     assert_eq!(example.target.problem, "ILP");
     assert!(example.source.instance.get("graph").is_some());
-    assert!(!example.solutions[0].source_config.is_empty());
-    assert!(!example.solutions[0].target_config.is_empty());
+    assert!(!example.solutions[0]
+        .source_config
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(!example.solutions[0]
+        .target_config
+        .as_array()
+        .unwrap()
+        .is_empty());
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instances() {
     let source = ProblemRef {
@@ -294,7 +312,10 @@ fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instance
     };
     let target = ProblemRef {
         name: "ILP".to_string(),
-        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        variant: BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     };
 
     let example =
@@ -302,8 +323,14 @@ fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instance
     assert_eq!(example.source.problem, "ThreeDimensionalMatching");
     assert_eq!(example.target.problem, "ILP");
     assert!(example.source.instance.get("triples").is_some());
-    assert_eq!(example.solutions[0].source_config, vec![1, 1, 1, 0, 0]);
-    assert_eq!(example.solutions[0].target_config, vec![1, 1, 1, 0, 0]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, true, true, false, false])
+    );
+    assert_eq!(
+        example.solutions[0].target_config,
+        serde_json::json!([1, 1, 1, 0, 0])
+    );
 }
 
 #[test]
@@ -329,12 +356,15 @@ fn test_find_rule_example_rejects_composed_path_pairs() {
         name: "MaximumIndependentSet".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let target = ProblemRef {
         name: "ILP".to_string(),
-        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        variant: BTreeMap::from([
+            ("variable".to_string(), "bool".to_string()),
+            ("coefficient".to_string(), "i64".to_string()),
+        ]),
     };
 
     let result = find_rule_example(&source, &target);
@@ -421,7 +451,7 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
         .into_iter()
         .filter(|entry| entry.source_name != entry.target_name)
         // Turing (multi-query) edges have no single-shot reduction to demonstrate
-        .filter(|entry| !entry.capabilities.turing)
+        .filter(|entry| !entry.turing)
         .map(|entry| {
             (
                 ProblemRef {
@@ -437,8 +467,11 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
         .collect();
 
     assert_eq!(
-        example_keys, direct_reduction_keys,
-        "rule example coverage should match authored direct reductions exactly"
+        example_keys,
+        direct_reduction_keys,
+        "rule example coverage should match authored direct reductions exactly; missing examples: {:?}; unexpected examples: {:?}",
+        direct_reduction_keys.difference(&example_keys).collect::<Vec<_>>(),
+        example_keys.difference(&direct_reduction_keys).collect::<Vec<_>>()
     );
 }
 
@@ -490,7 +523,15 @@ fn model_specs_are_self_consistent() {
         .chain(crate::models::misc::canonical_model_example_specs());
 
     for spec in specs {
-        let actual = spec.instance.evaluate_json(&spec.optimal_config);
+        let actual = spec
+            .instance
+            .evaluate_json(&spec.optimal_config)
+            .unwrap_or_else(|error| {
+                panic!(
+                    "Model spec '{}': canonical configuration evaluation failed: {error}",
+                    spec.id
+                )
+            });
         assert_eq!(
             actual, spec.optimal_value,
             "Model spec '{}': evaluate(optimal_config) = {} but stored optimal_value = {}",
@@ -499,13 +540,10 @@ fn model_specs_are_self_consistent() {
     }
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn model_specs_are_optimal() {
-    use crate::registry::find_variant_entry;
-    use crate::solvers::ILPSolver;
-
-    let ilp_solver = ILPSolver::new();
+    use crate::registry::load_dyn;
+    use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
@@ -517,20 +555,35 @@ fn model_specs_are_optimal() {
     for spec in specs {
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-        // Try brute force first for small instances (fast, avoids expensive ILP chains)
-        let dims = spec.instance.dims_dyn();
-        let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
-        let best_config = if log_space <= 20.0 {
-            find_variant_entry(name, &variant)
-                .and_then(|entry| (entry.solve_witness_fn)(spec.instance.as_any()))
-                .map(|(config, _)| config)
-                .or_else(|| ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any()))
+        let solve_registered = |request| {
+            let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
+            match solve(&loaded, request).ok()?.outcome {
+                SolveOutcome::Optimal { solution, .. } => Some(solution),
+                SolveOutcome::Infeasible => None,
+            }
+        };
+        let loaded = load_dyn(name, &variant, spec.instance.serialize_json())
+            .expect("canonical example variant must load");
+        let small_brute_force = brute_force_dimensions(&loaded)
+            .expect("solver capability registry must be valid")
+            .is_some_and(|dimensions| {
+                dimensions
+                    .iter()
+                    .map(|&dimension| (dimension as f64).log2())
+                    .sum::<f64>()
+                    <= 20.0
+            });
+        let best_config = if small_brute_force {
+            solve_registered(SolverRequest::BruteForce)
         } else {
-            ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any())
+            solve_registered(SolverRequest::Ilp)
         };
 
         if let Some(best_config) = best_config {
-            let best_value = spec.instance.evaluate_json(&best_config);
+            let best_value = spec
+                .instance
+                .evaluate_json(&best_config)
+                .expect("solver configuration evaluation should succeed");
             assert_eq!(
                 best_value, spec.optimal_value,
                 "Model spec '{}': solver optimal = {} but stored optimal_value = {} \
@@ -538,9 +591,11 @@ fn model_specs_are_optimal() {
                 spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
             );
         } else {
-            // Aggregate-only models (e.g., Sum) don't support witnesses.
-            // Verify the stored config evaluates to the stored value.
-            let stored_value = spec.instance.evaluate_json(&spec.optimal_config);
+            // This example has no registered solver suitable for the test budget.
+            let stored_value = spec
+                .instance
+                .evaluate_json(&spec.optimal_config)
+                .expect("canonical configuration evaluation should succeed");
             assert_eq!(
                 stored_value, spec.optimal_value,
                 "Model spec '{}': stored config evaluates to {} but optimal_value = {} \
@@ -583,31 +638,35 @@ fn rule_specs_solution_pairs_are_consistent() {
         )
         .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
 
-        // Try witness path first; fall back to aggregate for aggregate-only edges.
-        // Some authored direct reductions are proof-only and intentionally have
-        // no runtime capability in any mode.
-        let witness_path = graph.find_cheapest_path(
-            &example.source.problem,
-            &example.source.variant,
-            &example.target.problem,
-            &example.target.variant,
-            &crate::types::ProblemSize::new(vec![]),
-            &crate::rules::MinimizeSteps,
-        );
-        if witness_path.is_none() {
-            let aggregate_path = graph.find_cheapest_path_mode(
+        // Inspect the authored direct reduction. Indirect paths between the same
+        // problem variants do not implement this rule's stored solution pairs.
+        let witness_path = graph
+            .find_all_paths(
                 &example.source.problem,
                 &example.source.variant,
                 &example.target.problem,
                 &example.target.variant,
-                crate::rules::ReductionMode::Aggregate,
-                &crate::types::ProblemSize::new(vec![]),
-                &crate::rules::MinimizeSteps,
-            );
-            if aggregate_path.is_none() {
+            )
+            .into_iter()
+            .find(|path| path.len() == 1);
+        if witness_path.is_none() {
+            let has_aggregate_path = graph
+                .find_all_paths_mode(
+                    &example.source.problem,
+                    &example.source.variant,
+                    &example.target.problem,
+                    &example.target.variant,
+                    crate::rules::ReductionMode::Aggregate,
+                )
+                .iter()
+                .any(|path| path.len() == 1);
+            if !has_aggregate_path {
                 assert!(
-                    graph.has_direct_reduction_by_name(&example.source.problem, &example.target.problem),
-                    "No reduction path (witness or aggregate) or direct proof-only edge for {label}"
+                    graph.has_direct_reduction_by_name(
+                        &example.source.problem,
+                        &example.target.problem
+                    ),
+                    "No direct witness, aggregate, or proof-only reduction for {label}"
                 );
                 assert!(
                     !graph.has_direct_reduction_by_name_mode(
@@ -629,28 +688,30 @@ fn rule_specs_solution_pairs_are_consistent() {
         }
 
         // Only do witness round-trip when a witness path exists
-        let chain = witness_path.and_then(|path| graph.reduce_along_path(&path, source.as_any()));
+        let chain = witness_path.as_ref().map_or(Ok(None), |path| {
+            graph.reduce_along_path(path, source.as_any())
+        });
+        let chain = chain.unwrap_or_else(|error| {
+            panic!("Rule {label}: witness reduction execution failed: {error}")
+        });
 
         for pair in &example.solutions {
-            // Verify config lengths match problem dimensions
-            assert_eq!(
-                pair.source_config.len(),
-                source.dims_dyn().len(),
-                "Rule {label}: source_config length {} != dims length {}",
-                pair.source_config.len(),
-                source.dims_dyn().len()
-            );
-            assert_eq!(
-                pair.target_config.len(),
-                target.dims_dyn().len(),
-                "Rule {label}: target_config length {} != dims length {}",
-                pair.target_config.len(),
-                target.dims_dyn().len()
-            );
             // Verify configs produce feasible evaluations.
-            let source_eval = source.evaluate_dyn(&pair.source_config);
-            let target_eval = target.evaluate_dyn(&pair.target_config);
-            let source_val = source.evaluate_json(&pair.source_config);
+            let source_eval = source
+                .evaluate_dyn(&pair.source_config)
+                .unwrap_or_else(|error| {
+                    panic!("Rule {label}: source configuration evaluation failed: {error}")
+                });
+            let target_eval = target
+                .evaluate_dyn(&pair.target_config)
+                .unwrap_or_else(|error| {
+                    panic!("Rule {label}: target configuration evaluation failed: {error}")
+                });
+            let source_val = source
+                .evaluate_json(&pair.source_config)
+                .unwrap_or_else(|error| {
+                    panic!("Rule {label}: source configuration evaluation failed: {error}")
+                });
             assert_ne!(
                 source_eval, "Max(None)",
                 "Rule {label}: source_config evaluates to Max(None)"
@@ -678,14 +739,24 @@ fn rule_specs_solution_pairs_are_consistent() {
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
-                let extracted = chain.extract_solution(&pair.target_config);
-                let extracted_val = source.evaluate_json(&extracted);
+                let extracted = chain
+                    .extract_solution_json(pair.target_config.clone())
+                    .unwrap();
+                let extracted_val = source
+                    .evaluate_json(&extracted)
+                    .expect("extracted configuration evaluation should succeed");
                 assert_eq!(
                     extracted_val, source_val,
                     "Rule {label}: round-trip value mismatch: \
                      evaluate(extract_solution(target_config)) = {} but evaluate(source_config) = {} \
                      (extracted: {:?}, stored: {:?})",
                     extracted_val, source_val, extracted, pair.source_config
+                );
+
+                let malformed = serde_json::json!({"invalid_solution": true});
+                assert!(
+                    chain.extract_solution_json(malformed).is_err(),
+                    "Rule {label}: extraction accepted malformed target-solution JSON"
                 );
             }
         }
@@ -828,7 +899,7 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
         name: "MinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
@@ -842,12 +913,12 @@ fn test_find_rule_example_minimumvertexcover_to_minimumfeedbackarcset() {
         name: "MinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let target = ProblemRef {
         name: "MinimumFeedbackArcSet".to_string(),
-        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+        variant: BTreeMap::from([("weight".to_string(), "i64".to_string())]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "MinimumVertexCover");
@@ -879,7 +950,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_biconnectivityaugmentation() {
         name: "BiconnectivityAugmentation".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
@@ -895,7 +966,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_strongconnectivityaugmentation()
     };
     let target = ProblemRef {
         name: "StrongConnectivityAugmentation".to_string(),
-        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+        variant: BTreeMap::from([("weight".to_string(), "i64".to_string())]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
@@ -927,7 +998,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
         name: "RuralPostman".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
@@ -941,7 +1012,7 @@ fn test_find_rule_example_maximumindependentset_to_integralflowbundles() {
         name: "MaximumIndependentSet".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let target = ProblemRef {
@@ -1016,7 +1087,7 @@ fn test_find_rule_example_pp2_to_boundedcomponentspanningforest() {
         name: "BoundedComponentSpanningForest".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
@@ -1034,7 +1105,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
         name: "LongestCircuit".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
@@ -1149,7 +1220,7 @@ fn test_find_rule_example_paintshop_to_qubo() {
     };
     let target = ProblemRef {
         name: "QUBO".to_string(),
-        variant: BTreeMap::from([("weight".to_string(), "f64".to_string())]),
+        variant: BTreeMap::from([("weight".to_string(), "i64".to_string())]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "PaintShop");
@@ -1166,7 +1237,7 @@ fn test_find_rule_example_partition_to_binpacking() {
     };
     let target = ProblemRef {
         name: "BinPacking".to_string(),
-        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+        variant: BTreeMap::from([("weight".to_string(), "i64".to_string())]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "Partition");
@@ -1198,7 +1269,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
         name: "MaxCut".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
@@ -1245,14 +1316,14 @@ fn test_find_rule_example_maxcut_to_minimumcutintoboundedsets() {
         name: "MaxCut".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let target = ProblemRef {
         name: "MinimumCutIntoBoundedSets".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();

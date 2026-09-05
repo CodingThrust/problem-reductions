@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum number of disjoint dominating sets partitioning V",
         fields: &[
@@ -40,15 +41,15 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaximumDomaticNumber;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph P3: 0-1-2
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
 /// let problem = MaximumDomaticNumber::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&witness);
+/// let witness = solver.solve(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&witness).unwrap();
 /// // Domatic number of P3 is 2
 /// assert_eq!(value, problemreductions::types::Max(Some(2)));
 /// ```
@@ -135,27 +136,65 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumDomaticNumber";
-    type Value = Max<usize>;
+    type Solution = Vec<usize>;
+    type Value = Max<i64>;
+
+    crate::problem_parameters![("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
         let n = self.graph.num_vertices();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        match self.evaluate_partition(config) {
-            Some(k) => Max(Some(k)),
-            None => Max(None),
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the graph vertices".into(),
+            ));
         }
+        if config.iter().any(|&part| part >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment contains an out-of-range part".into(),
+            ));
+        }
+        Ok({
+            match self.evaluate_partition(config) {
+                Some(k) => Max(Some(i64::try_from(k).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting domatic number to i64".into(),
+                    )
+                })?)),
+                None => Max(None),
+            }
+        })
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for MaximumDomaticNumber<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.graph.num_vertices();
+        vec![n; n]
+    }
+}
+
+crate::impl_random_generate!(
+    MaximumDomaticNumber<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MaximumDomaticNumber::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MaximumDomaticNumber<SimpleGraph> => "2.695^num_vertices",
+    default MaximumDomaticNumber<SimpleGraph> => "2.695^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    MaximumDomaticNumber<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -175,7 +214,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (4, 5),
             ],
         ))),
-        optimal_config: vec![0, 1, 2, 0, 2, 1],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 0, 2, 1]),
         optimal_value: serde_json::json!(3),
     }]
 }

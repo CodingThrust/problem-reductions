@@ -3,7 +3,7 @@
 //! The Longest Circuit problem asks for a simple circuit in a graph
 //! that maximizes the total edge length.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, WeightElement};
@@ -18,14 +18,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a simple circuit in a graph that maximizes total edge length",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Positive edge lengths l: E -> Z_(> 0)" },
-        ],
+        fields: LongestCircuitCreateSpec::FIELDS,
     }
 }
 
@@ -46,6 +44,69 @@ inventory::submit! {
 pub struct LongestCircuit<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct LongestCircuitCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i64>>,
+}
+
+impl TryFrom<LongestCircuitCreateSpec> for LongestCircuit<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: LongestCircuitCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let edge_lengths = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if edge_lengths.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                edge_lengths.len(),
+                graph.num_edges()
+            )
+            .into());
+        }
+        if edge_lengths.iter().any(|&length| length <= 0) {
+            return Err("edge_weights must be positive".to_string().into());
+        }
+        Ok(Self::new(graph, edge_lengths))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        )
+        .into());
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
@@ -127,7 +188,7 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
     }
 
     /// Check whether a configuration is a valid simple circuit.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_simple_circuit(&self.graph, config)
     }
 }
@@ -138,33 +199,56 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "LongestCircuit";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_simple_circuit(&self.graph, config) {
-            return Max(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.edge_lengths[idx].to_sum();
+        Ok({
+            if !is_simple_circuit(&self.graph, config) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.edge_lengths[idx].to_sum(),
+                        "summing circuit edge lengths",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for LongestCircuit<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
 /// Check whether a binary edge-selection encodes exactly one simple circuit.
-pub(crate) fn is_simple_circuit<G: Graph>(graph: &G, config: &[usize]) -> bool {
-    if config.len() != graph.num_edges() || config.iter().any(|&value| value > 1) {
+pub(crate) fn is_simple_circuit<G: Graph>(graph: &G, config: &[bool]) -> bool {
+    if config.len() != graph.num_edges() {
         return false;
     }
 
@@ -176,7 +260,7 @@ pub(crate) fn is_simple_circuit<G: Graph>(graph: &G, config: &[usize]) -> bool {
     let mut start = None;
 
     for (idx, &selected) in config.iter().enumerate() {
-        if selected == 0 {
+        if !selected {
             continue;
         }
         let (u, v) = edges[idx];
@@ -231,7 +315,7 @@ pub(crate) fn is_simple_circuit<G: Graph>(graph: &G, config: &[usize]) -> bool {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "longest_circuit_simplegraph_i32",
+        id: "longest_circuit_simplegraph",
         instance: Box::new(LongestCircuit::new(
             SimpleGraph::new(
                 6,
@@ -250,13 +334,25 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
         )),
-        optimal_config: vec![1, 0, 1, 0, 1, 0, 1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![
+            true, false, true, false, true, false, true, true, true, false
+        ]),
         optimal_value: serde_json::json!(18),
     }]
 }
 
+crate::impl_random_generate!(LongestCircuit<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let lengths = vec![1; graph.num_edges()];
+    Ok(LongestCircuit::new(graph, lengths))
+});
+
 crate::declare_variants! {
-    default LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
+    default LongestCircuit<SimpleGraph, i64> => "2^num_vertices * num_vertices^2" create LongestCircuitCreateSpec random,
+}
+
+crate::register_brute_force! {
+    LongestCircuit<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

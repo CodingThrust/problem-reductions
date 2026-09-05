@@ -9,12 +9,13 @@ fn test_reduction_creates_valid_ilp() {
     // Triangle graph, k=3
     let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
     let problem = KClique::new(graph, 3);
-    let reduction: ReductionKCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionKCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
     // 1 cardinality + 0 non-edges (complete graph)
-    assert_eq!(ilp.constraints.len(), 1);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), 1);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -22,33 +23,35 @@ fn test_kclique_to_ilp_bf_vs_ilp() {
     // K4 graph, k=3 → has 3-clique
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = KClique::new(graph, 3);
-    let reduction: ReductionKCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionKCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).expect("should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_solution_extraction() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = KClique::new(graph, 3);
-    let reduction: ReductionKCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionKCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
     // Should select at least k=3 vertices (ILP may return a larger valid clique)
-    assert!(extracted.iter().sum::<usize>() >= 3);
+    assert!(extracted.iter().filter(|&&selected| selected).count() >= 3);
 }
 
 #[test]
@@ -56,7 +59,8 @@ fn test_kclique_to_ilp_trivial() {
     // Empty graph (no edges), k=1 → trivially feasible (any single vertex is a 1-clique)
     let graph = SimpleGraph::new(3, vec![]);
     let problem = KClique::new(graph, 1);
-    let reduction: ReductionKCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionKCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
 }

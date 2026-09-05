@@ -4,7 +4,7 @@
 //! determine whether they can be scheduled on `m` identical processors so that
 //! every task finishes by its own deadline.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -15,14 +15,10 @@ inventory::submit! {
         display_name: "Scheduling With Individual Deadlines",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether unit-length tasks can be scheduled on m processors while meeting individual deadlines",
-        fields: &[
-            FieldInfo { name: "num_tasks", type_name: "usize", description: "Number of tasks |T|" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-            FieldInfo { name: "deadlines", type_name: "Vec<usize>", description: "Deadline d(t) for each task" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (predecessor, successor)" },
-        ],
+        fields: SchedulingWithIndividualDeadlinesCreateSpec::FIELDS,
     }
 }
 
@@ -36,21 +32,85 @@ inventory::submit! {
 pub struct SchedulingWithIndividualDeadlines {
     num_tasks: usize,
     num_processors: usize,
-    deadlines: Vec<usize>,
+    deadlines: Vec<i64>,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SchedulingWithIndividualDeadlinesCreateSpec {
+    /// Number of tasks.
+    num_tasks: usize,
+    /// Number of identical processors.
+    num_processors: usize,
+    /// Deadline for each task.
+    deadlines: Vec<i64>,
+    /// Precedence pairs.
+    precedences: Option<Vec<(usize, usize)>>,
+}
+impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndividualDeadlines {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: SchedulingWithIndividualDeadlinesCreateSpec) -> Result<Self, Self::Error> {
+        if spec.deadlines.len() != spec.num_tasks {
+            return Err(format!(
+                "deadlines has {} entries, expected {}",
+                spec.deadlines.len(),
+                spec.num_tasks
+            )
+            .into());
+        }
+        if spec.deadlines.iter().any(|&deadline| deadline < 0) {
+            return Err("deadlines must be nonnegative".to_string().into());
+        }
+        if spec
+            .deadlines
+            .iter()
+            .any(|&deadline| usize::try_from(deadline).is_err())
+        {
+            return Err("deadlines must fit usize to define schedule slots"
+                .to_string()
+                .into());
+        }
+        let precedences = spec.precedences.unwrap_or_default();
+        if let Some(&(pred, succ)) = precedences
+            .iter()
+            .find(|&&(p, s)| p >= spec.num_tasks || s >= spec.num_tasks)
+        {
+            return Err(format!(
+                "precedence ({pred}, {succ}) is out of range for {} tasks",
+                spec.num_tasks
+            )
+            .into());
+        }
+        Ok(Self::new(
+            spec.num_tasks,
+            spec.num_processors,
+            spec.deadlines,
+            precedences,
+        ))
+    }
 }
 
 impl SchedulingWithIndividualDeadlines {
     pub fn new(
         num_tasks: usize,
         num_processors: usize,
-        deadlines: Vec<usize>,
+        deadlines: Vec<i64>,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
         assert_eq!(
             deadlines.len(),
             num_tasks,
             "deadlines length must equal num_tasks"
+        );
+        assert!(
+            deadlines.iter().all(|&deadline| deadline >= 0),
+            "deadlines must be nonnegative"
+        );
+        assert!(
+            deadlines
+                .iter()
+                .all(|&deadline| usize::try_from(deadline).is_ok()),
+            "deadlines must fit usize to define schedule slots"
         );
         for &(pred, succ) in &precedences {
             assert!(
@@ -83,7 +143,7 @@ impl SchedulingWithIndividualDeadlines {
         self.num_processors
     }
 
-    pub fn deadlines(&self) -> &[usize] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
@@ -95,57 +155,88 @@ impl SchedulingWithIndividualDeadlines {
         self.precedences.len()
     }
 
-    pub fn max_deadline(&self) -> usize {
+    pub fn max_deadline(&self) -> i64 {
         self.deadlines.iter().copied().max().unwrap_or(0)
     }
 }
 
 impl Problem for SchedulingWithIndividualDeadlines {
     const NAME: &'static str = "SchedulingWithIndividualDeadlines";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("max_deadline", max_deadline),
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        self.deadlines.clone()
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_tasks {
-                return crate::types::Or(false);
-            }
-
-            for (&start, &deadline) in config.iter().zip(&self.deadlines) {
-                if start >= deadline {
-                    return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_tasks {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule length does not match the tasks".into(),
+                    ));
                 }
-            }
 
-            for &(pred, succ) in &self.precedences {
-                if config[pred] + 1 > config[succ] {
-                    return crate::types::Or(false);
+                if config.iter().any(|&position| position >= self.num_tasks) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule contains an out-of-range task position".into(),
+                    ));
                 }
-            }
 
-            let mut slot_loads = BTreeMap::new();
-            for &start in config {
-                let load = slot_loads.entry(start).or_insert(0usize);
-                *load += 1;
-                if *load > self.num_processors {
-                    return crate::types::Or(false);
+                for (&start, &deadline) in config.iter().zip(&self.deadlines) {
+                    let deadline =
+                        usize::try_from(deadline).expect("validated deadline must fit usize");
+                    if start >= deadline {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-            }
 
-            true
+                for &(pred, succ) in &self.precedences {
+                    if config[pred] + 1 > config[succ] {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                let mut slot_loads = BTreeMap::new();
+                for &start in config {
+                    let load = slot_loads.entry(start).or_insert(0usize);
+                    *load += 1;
+                    if *load > self.num_processors {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 }
 
+impl crate::solvers::BruteForceProblem for SchedulingWithIndividualDeadlines {
+    fn dimensions(&self) -> Vec<usize> {
+        self.deadlines
+            .iter()
+            .map(|&deadline| usize::try_from(deadline).expect("validated deadline must fit usize"))
+            .collect()
+    }
+}
+
 crate::declare_variants! {
-    default SchedulingWithIndividualDeadlines => "max_deadline^num_tasks",
+    default SchedulingWithIndividualDeadlines => "max_deadline^num_tasks" create SchedulingWithIndividualDeadlinesCreateSpec,
+}
+
+crate::register_brute_force! {
+    SchedulingWithIndividualDeadlines,
 }
 
 #[cfg(feature = "example-db")]
@@ -158,7 +249,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 1, 2, 2, 3, 3, 2],
             vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
         )),
-        optimal_config: vec![0, 0, 0, 1, 2, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 2, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

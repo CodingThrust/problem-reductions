@@ -18,6 +18,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Partition vertices into K groups each inducing a clique",
         fields: &[
@@ -42,14 +43,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::PartitionIntoCliques;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Two triangles: 0-1-2-0 and 3-4-5-3
 /// let graph = SimpleGraph::new(6, vec![(0,1),(0,2),(1,2),(3,4),(3,5),(4,5)]);
 /// let problem = PartitionIntoCliques::new(graph, 3);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,22 +102,45 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoCliques";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_cliques; self.graph.num_vertices()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&part| part >= self.num_cliques) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment contains an out-of-range clique".into(),
+            ));
+        }
+        Ok({
+            crate::types::Or(is_valid_clique_partition(
+                &self.graph,
+                self.num_cliques,
+                config,
+            ))
+        })
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_clique_partition(
-            &self.graph,
-            self.num_cliques,
-            config,
-        ))
+impl<G> crate::solvers::BruteForceProblem for PartitionIntoCliques<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_cliques; self.graph.num_vertices()]
     }
 }
 
@@ -151,6 +175,10 @@ crate::declare_variants! {
     default PartitionIntoCliques<SimpleGraph> => "2^num_vertices",
 }
 
+crate::register_brute_force! {
+    PartitionIntoCliques<SimpleGraph>,
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -172,7 +200,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             3,
         )),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -8,13 +8,9 @@ use crate::traits::Problem;
 fn test_sequencingtominimizetardytaskweight_to_ilp_closed_loop() {
     let problem =
         SequencingToMinimizeTardyTaskWeight::new(vec![3, 2, 1], vec![4, 2, 3], vec![4, 3, 6]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "SequencingToMinimizeTardyTaskWeight->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -26,15 +22,15 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_bf_vs_ilp() {
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).expect("should find a solution");
-    let bf_value = problem.evaluate(&bf_witness);
+    let bf_witness = bf.solve(&problem).unwrap().expect("should find a solution");
+    let bf_value = problem.evaluate(&bf_witness).unwrap();
 
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
     assert_eq!(ilp_value.0, Some(3));
@@ -44,13 +40,13 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_bf_vs_ilp() {
 fn test_sequencingtominimizetardytaskweight_to_ilp_all_on_time() {
     let problem =
         SequencingToMinimizeTardyTaskWeight::new(vec![1, 1, 1], vec![2, 3, 4], vec![10, 10, 10]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
     assert_eq!(value.0, Some(0));
 }
@@ -68,17 +64,17 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_optimal_ordering() {
     // Minimum is 3 (schedule [0,1,2])
     let problem =
         SequencingToMinimizeTardyTaskWeight::new(vec![4, 1, 2], vec![5, 1, 3], vec![4, 5, 3]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).expect("should have solution");
-    let bf_value = problem.evaluate(&bf_witness);
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have solution");
+    let bf_value = problem.evaluate(&bf_witness).unwrap();
 
     assert_eq!(ilp_value, bf_value);
 }

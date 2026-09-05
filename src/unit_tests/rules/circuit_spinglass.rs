@@ -7,7 +7,7 @@ use num_traits::Num;
 include!("../jl_helpers.rs");
 
 /// Verify a gadget has the correct ground states.
-fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
+fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<bool>, Vec<bool>)])
 where
     W: WeightElement
         + crate::variant::VariantParam
@@ -15,14 +15,14 @@ where
         + Num
         + Zero
         + AddAssign
-        + From<i32>
+        + From<i64>
         + std::ops::Mul<Output = W>
         + std::fmt::Debug
         + NumericSize,
     <W as WeightElement>::Sum: std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
 {
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&gadget.problem);
+    let solutions = solver.find_all_witnesses(&gadget.problem).unwrap();
 
     // For each expected input/output pair, verify there's a matching ground state
     for (inputs, outputs) in expected {
@@ -31,12 +31,12 @@ where
                 .inputs
                 .iter()
                 .zip(inputs)
-                .all(|(&idx, &expected)| sol[idx] == expected);
+                .all(|(&idx, &expected)| (sol[idx] == 1) == expected);
             let output_match = gadget
                 .outputs
                 .iter()
                 .zip(outputs)
-                .all(|(&idx, &expected)| sol[idx] == expected);
+                .all(|(&idx, &expected)| (sol[idx] == 1) == expected);
             input_match && output_match
         });
         assert!(
@@ -49,96 +49,93 @@ where
 
 #[test]
 fn test_circuit_to_spinglass_closed_loop() {
-    let gadget: LogicGadget<i32> = and_gadget();
+    let gadget: LogicGadget<i64> = and_gadget();
     assert_eq!(gadget.num_spins(), 3);
     assert_eq!(gadget.inputs, vec![0, 1]);
     assert_eq!(gadget.outputs, vec![2]);
 
     // AND truth table: (a, b) -> a AND b
     let truth_table = vec![
-        (vec![0, 0], vec![0]), // 0 AND 0 = 0
-        (vec![0, 1], vec![0]), // 0 AND 1 = 0
-        (vec![1, 0], vec![0]), // 1 AND 0 = 0
-        (vec![1, 1], vec![1]), // 1 AND 1 = 1
+        (vec![false, false], vec![false]),
+        (vec![false, true], vec![false]),
+        (vec![true, false], vec![false]),
+        (vec![true, true], vec![true]),
     ];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
 
 #[test]
 fn test_or_gadget() {
-    let gadget: LogicGadget<i32> = or_gadget();
+    let gadget: LogicGadget<i64> = or_gadget();
     assert_eq!(gadget.num_spins(), 3);
     assert_eq!(gadget.inputs, vec![0, 1]);
     assert_eq!(gadget.outputs, vec![2]);
 
     // OR truth table: (a, b) -> a OR b
     let truth_table = vec![
-        (vec![0, 0], vec![0]), // 0 OR 0 = 0
-        (vec![0, 1], vec![1]), // 0 OR 1 = 1
-        (vec![1, 0], vec![1]), // 1 OR 0 = 1
-        (vec![1, 1], vec![1]), // 1 OR 1 = 1
+        (vec![false, false], vec![false]),
+        (vec![false, true], vec![true]),
+        (vec![true, false], vec![true]),
+        (vec![true, true], vec![true]),
     ];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
 
 #[test]
 fn test_not_gadget() {
-    let gadget: LogicGadget<i32> = not_gadget();
+    let gadget: LogicGadget<i64> = not_gadget();
     assert_eq!(gadget.num_spins(), 2);
     assert_eq!(gadget.inputs, vec![0]);
     assert_eq!(gadget.outputs, vec![1]);
 
     // NOT truth table: a -> NOT a
-    let truth_table = vec![
-        (vec![0], vec![1]), // NOT 0 = 1
-        (vec![1], vec![0]), // NOT 1 = 0
-    ];
+    let truth_table = vec![(vec![false], vec![true]), (vec![true], vec![false])];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
 
 #[test]
 fn test_xor_gadget() {
-    let gadget: LogicGadget<i32> = xor_gadget();
+    let gadget: LogicGadget<i64> = xor_gadget();
     assert_eq!(gadget.num_spins(), 4);
     assert_eq!(gadget.inputs, vec![0, 1]);
     assert_eq!(gadget.outputs, vec![2]);
 
     // XOR truth table: (a, b) -> a XOR b
     let truth_table = vec![
-        (vec![0, 0], vec![0]), // 0 XOR 0 = 0
-        (vec![0, 1], vec![1]), // 0 XOR 1 = 1
-        (vec![1, 0], vec![1]), // 1 XOR 0 = 1
-        (vec![1, 1], vec![0]), // 1 XOR 1 = 0
+        (vec![false, false], vec![false]),
+        (vec![false, true], vec![true]),
+        (vec![true, false], vec![true]),
+        (vec![true, true], vec![false]),
     ];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
 
 #[test]
 fn test_set0_gadget() {
-    let gadget: LogicGadget<i32> = set0_gadget();
+    let gadget: LogicGadget<i64> = set0_gadget();
     assert_eq!(gadget.num_spins(), 1);
     assert_eq!(gadget.inputs, Vec::<usize>::new());
     assert_eq!(gadget.outputs, vec![0]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&gadget.problem);
+    let solutions = solver.find_all_witnesses(&gadget.problem).unwrap();
     // Ground state should be spin down (0)
-    assert!(solutions.contains(&vec![0]));
+    assert!(solutions.contains(&vec![-1]));
     assert!(!solutions.contains(&vec![1]));
 }
 
 #[test]
 fn test_set1_gadget() {
-    let gadget: LogicGadget<i32> = set1_gadget();
+    let gadget: LogicGadget<i64> = set1_gadget();
     assert_eq!(gadget.num_spins(), 1);
     assert_eq!(gadget.inputs, Vec::<usize>::new());
     assert_eq!(gadget.outputs, vec![0]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&gadget.problem);
+    let solutions = solver.find_all_witnesses(&gadget.problem).unwrap();
     // Ground state should be spin up (1)
     assert!(solutions.contains(&vec![1]));
-    assert!(!solutions.contains(&vec![0]));
+    assert!(!solutions.contains(&vec![-1]));
 }
 
 #[test]
@@ -149,20 +146,21 @@ fn test_constant_true() {
         BooleanExpr::constant(true),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&problem)
+        .expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(sg);
+    let solutions = solver.find_all_witnesses(sg).unwrap();
 
-    let extracted: Vec<Vec<usize>> = solutions
+    let extracted: Vec<Vec<bool>> = solutions
         .iter()
-        .map(|s| reduction.extract_solution(s))
+        .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // c should be 1
     assert!(
-        extracted.contains(&vec![1]),
+        extracted.contains(&vec![true]),
         "Expected c=1 in {:?}",
         extracted
     );
@@ -176,20 +174,21 @@ fn test_constant_false() {
         BooleanExpr::constant(false),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&problem)
+        .expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(sg);
+    let solutions = solver.find_all_witnesses(sg).unwrap();
 
-    let extracted: Vec<Vec<usize>> = solutions
+    let extracted: Vec<Vec<bool>> = solutions
         .iter()
-        .map(|s| reduction.extract_solution(s))
+        .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // c should be 0
     assert!(
-        extracted.contains(&vec![0]),
+        extracted.contains(&vec![false]),
         "Expected c=0 in {:?}",
         extracted
     );
@@ -207,27 +206,28 @@ fn test_multi_input_and() {
         ]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&problem)
+        .expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(sg);
+    let solutions = solver.find_all_witnesses(sg).unwrap();
 
-    let extracted: Vec<Vec<usize>> = solutions
+    let extracted: Vec<Vec<bool>> = solutions
         .iter()
-        .map(|s| reduction.extract_solution(s))
+        .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // Variables sorted: c, x, y, z
     // Only c=1 when all inputs are 1
     assert!(
-        extracted.contains(&vec![1, 1, 1, 1]),
+        extracted.contains(&vec![true, true, true, true]),
         "Expected (1,1,1,1) in {:?}",
         extracted
     );
     // c=0 for all other combinations
     assert!(
-        extracted.contains(&vec![0, 0, 0, 0]),
+        extracted.contains(&vec![false, false, false, false]),
         "Expected (0,0,0,0) in {:?}",
         extracted
     );
@@ -240,7 +240,8 @@ fn test_reduction_result_methods() {
         BooleanExpr::var("x"),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&problem)
+        .expect("reduction should succeed");
 
     // Test target_problem and extract_solution work
     let sg = reduction.target_problem();
@@ -251,7 +252,8 @@ fn test_reduction_result_methods() {
 fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&problem)
+        .expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     // Empty circuit should result in empty SpinGlass
@@ -265,7 +267,8 @@ fn test_solution_extraction() {
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&problem)
+        .expect("reduction should succeed");
 
     // The source variables are c, x, y (sorted)
     assert_eq!(reduction.source_variables, vec!["c", "x", "y"]);
@@ -295,7 +298,8 @@ fn test_jl_parity_circuitsat_to_spinglass() {
         Assignment::new(vec!["z".to_string()], z_expr),
     ]);
     let source = CircuitSAT::new(circuit);
-    let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
         &result,

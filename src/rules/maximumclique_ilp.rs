@@ -24,7 +24,7 @@ pub struct ReductionCliqueToILP {
 }
 
 impl ReductionResult for ReductionCliqueToILP {
-    type Source = MaximumClique<SimpleGraph, i32>;
+    type Source = MaximumClique<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -35,21 +35,29 @@ impl ReductionResult for ReductionCliqueToILP {
     ///
     /// Since the mapping is 1:1 (each vertex maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices",
         num_constraints = "num_vertices^2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
     type Result = ReductionCliqueToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_vertices();
 
         // Constraints: x_u + x_v <= 1 for each NON-EDGE (u, v)
@@ -59,22 +67,23 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
         for u in 0..num_vars {
             for v in (u + 1)..num_vars {
                 if !self.graph().has_edge(u, v) {
-                    constraints.push(LinearConstraint::le(vec![(u, 1.0), (v, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(u, 1), (v, 1)], 1));
                 }
             }
         }
 
         // Objective: maximize sum of w_i * x_i (weighted sum of selected vertices)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
+            .map(|(i, &weight)| (i, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionCliqueToILP { target }
+        Ok(ReductionCliqueToILP { target })
     }
 }
 
@@ -84,7 +93,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "maximumclique_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::octahedral();
-            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i32; 6]);
+            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i64; 6]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

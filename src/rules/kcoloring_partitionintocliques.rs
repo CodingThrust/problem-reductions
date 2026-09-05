@@ -25,13 +25,18 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
     }
 
     /// Solution extraction is the identity: color classes become clique classes.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
@@ -39,12 +44,12 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
 impl ReduceTo<PartitionIntoCliques<SimpleGraph>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToPartitionIntoCliques;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = PartitionIntoCliques::new(
             SimpleGraph::new(self.graph().num_vertices(), complement_edges(self.graph())),
             self.num_colors(),
         );
-        ReductionKColoringToPartitionIntoCliques { target }
+        Ok(ReductionKColoringToPartitionIntoCliques { target })
     }
 }
 
@@ -65,8 +70,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0, 2],
-                    target_config: vec![0, 1, 1, 0, 2],
+                    source_config: serde_json::json!(vec![0, 1, 1, 0, 2]),
+                    target_config: serde_json::json!(vec![0, 1, 1, 0, 2]),
                 },
             )
         },

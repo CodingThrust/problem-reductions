@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -35,8 +36,8 @@ fn test_directed_two_commodity_integral_flow_creation() {
     let problem = yes_instance();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 8);
-    assert_eq!(problem.dims().len(), 16); // 2 * 8
-    assert!(problem.dims().iter().all(|&d| d == 2)); // capacity 1 -> domain {0,1}
+    assert_eq!(problem.dimensions().len(), 16); // 2 * 8
+    assert!(problem.dimensions().iter().all(|&d| d == 2)); // capacity 1 -> domain {0,1}
     assert_eq!(problem.source_1(), 0);
     assert_eq!(problem.sink_1(), 4);
     assert_eq!(problem.source_2(), 1);
@@ -53,7 +54,7 @@ fn test_directed_two_commodity_integral_flow_evaluation_satisfying() {
     // Commodity 2: path 1->3->5 (arcs 3,7)
     // config = [f1(a0..a7), f2(a0..a7)]
     let config = vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -61,7 +62,7 @@ fn test_directed_two_commodity_integral_flow_evaluation_unsatisfying() {
     let problem = no_instance();
     // All zeros: no flow at all
     let config = vec![0, 0, 0, 0, 0, 0];
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -72,7 +73,7 @@ fn test_directed_two_commodity_integral_flow_capacity_violation() {
     let mut config = vec![0; 16];
     config[0] = 1; // f1 on arc 0
     config[8] = 1; // f2 on arc 0
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -82,7 +83,7 @@ fn test_directed_two_commodity_integral_flow_conservation_violation() {
     let mut config = vec![0; 16];
     config[0] = 1; // f1 on arc 0 (0->2): flow into vertex 2
                    // No outgoing flow from vertex 2 for commodity 1
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -92,7 +93,7 @@ fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeas
 
     // Commodity 1 sends flow out of its sink with no incoming flow.
     let config = vec![1, 0];
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -103,24 +104,24 @@ fn test_directed_two_commodity_integral_flow_disallows_using_other_commodity_sou
     // Commodity 1 reaches t1 from s2, which is illegal in the classical definition:
     // conservation must hold for commodity 1 at s2.
     let config = vec![1, 1, 0, 0];
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_directed_two_commodity_integral_flow_solver_yes() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
+    assert!(problem.evaluate(&sol).unwrap());
 }
 
 #[test]
 fn test_directed_two_commodity_integral_flow_solver_no() {
     let problem = no_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -162,15 +163,15 @@ fn test_directed_two_commodity_integral_flow_paper_example() {
 
     // Verify the known solution evaluates to true
     let config = vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     // Find all satisfying solutions and verify count
-    let all_solutions = solver.find_all_witnesses(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all_solutions.is_empty());
 
     // Each solution must evaluate to true
     for sol in &all_solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -178,9 +179,18 @@ fn test_directed_two_commodity_integral_flow_paper_example() {
 fn test_directed_two_commodity_integral_flow_wrong_config_length() {
     let problem = yes_instance();
     // Config with wrong length should return false (infeasible)
-    assert!(!problem.evaluate(&[0; 15])); // too short
-    assert!(!problem.evaluate(&[0; 17])); // too long
-    assert!(!problem.evaluate(&[])); // empty
+    assert!(matches!(
+        problem.evaluate(&vec![0; 15]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 17]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -197,12 +207,12 @@ fn test_directed_two_commodity_integral_flow_higher_capacity() {
         1,
         1,
     );
-    assert_eq!(problem.dims(), vec![3, 3, 3, 3]); // each variable in {0,1,2}
+    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3]); // each variable in {0,1,2}
 
     // Both commodities can share: f1=1, f2=1 on both arcs
     let config = vec![1, 1, 1, 1];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_some());
+    assert!(solver.solve(&problem).unwrap().is_some());
 }

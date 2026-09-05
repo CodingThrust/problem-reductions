@@ -33,16 +33,18 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
     ///
     /// StaffScheduling config[j] = number of workers assigned to schedule j.
     /// XC3S config[j] = 1 if subset j is selected, 0 otherwise.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
-            .iter()
-            .map(|&count| if count > 0 { 1 } else { 0 })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&count| count > 0).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_periods = "universe_size",
         num_schedules = "num_subsets",
         num_workers = "universe_size / 3",
@@ -51,7 +53,7 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
 impl ReduceTo<StaffScheduling> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToStaffScheduling;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let q = universe_size / 3;
 
@@ -69,16 +71,21 @@ impl ReduceTo<StaffScheduling> for ExactCoverBy3Sets {
             .collect();
 
         // Each period requires exactly 1 worker
-        let requirements = vec![1u64; universe_size];
+        let requirements = vec![1i64; universe_size];
+        let num_workers = i64::try_from(q).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<ExactCoverBy3Sets, StaffScheduling>(
+                "converting the exact-cover set count to an i64 worker count",
+            )
+        })?;
 
         let target = StaffScheduling::new(
             3, // shifts_per_schedule
             schedules,
             requirements,
-            q as u64, // num_workers = q
+            num_workers,
         );
 
-        ReductionXC3SToStaffScheduling { target }
+        Ok(ReductionXC3SToStaffScheduling { target })
     }
 }
 
@@ -97,8 +104,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, StaffScheduling>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 0],
-                    target_config: vec![1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, false, false]),
+                    target_config: serde_json::json!(vec![1, 1, 0, 0]),
                 },
             )
         },

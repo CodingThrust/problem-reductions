@@ -15,11 +15,12 @@ inventory::submit! {
         display_name: "Integer Expression Membership",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Decide whether a target integer belongs to the set represented by an expression tree over union and Minkowski sum",
         fields: &[
             FieldInfo { name: "expression", type_name: "IntExpr", description: "Recursive expression tree" },
-            FieldInfo { name: "target", type_name: "u64", description: "Target integer K" },
+            FieldInfo { name: "target", type_name: "i64", description: "Target integer K" },
         ],
     }
 }
@@ -33,7 +34,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum IntExpr {
     /// Singleton set {n} for a positive integer n.
-    Atom(u64),
+    Atom(i64),
     /// Set union: F ∪ G.
     Union(Box<IntExpr>, Box<IntExpr>),
     /// Minkowski sum: {m + n : m ∈ F, n ∈ G}.
@@ -88,7 +89,7 @@ impl IntExpr {
     ///
     /// `counter` tracks which union node we are at (DFS order).
     /// Returns `Some(value)` if the config is valid, `None` otherwise.
-    fn evaluate_with_config(&self, config: &[usize], counter: &mut usize) -> Option<u64> {
+    fn evaluate_with_config(&self, config: &[bool], counter: &mut usize) -> Option<i64> {
         match self {
             IntExpr::Atom(n) => Some(*n),
             IntExpr::Union(left, right) => {
@@ -97,10 +98,10 @@ impl IntExpr {
                 if idx >= config.len() {
                     return None;
                 }
-                match config[idx] {
-                    0 => left.evaluate_with_config(config, counter),
-                    1 => right.evaluate_with_config(config, counter),
-                    _ => None,
+                if config[idx] {
+                    right.evaluate_with_config(config, counter)
+                } else {
+                    left.evaluate_with_config(config, counter)
                 }
             }
             IntExpr::Sum(left, right) => {
@@ -129,7 +130,7 @@ impl IntExpr {
 ///
 /// ```
 /// use problemreductions::models::misc::{IntegerExpressionMembership, IntExpr};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // e = (1 ∪ 4) + (3 ∪ 6) + (2 ∪ 5), target K = 12
 /// let expr = IntExpr::Sum(
@@ -150,7 +151,7 @@ impl IntExpr {
 /// );
 /// let problem = IntegerExpressionMembership::new(expr, 12);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,7 +159,7 @@ pub struct IntegerExpressionMembership {
     /// The recursive expression tree.
     expression: IntExpr,
     /// The target integer K.
-    target: u64,
+    target: i64,
 }
 
 impl IntegerExpressionMembership {
@@ -167,7 +168,7 @@ impl IntegerExpressionMembership {
     /// # Arguments
     /// * `expression` - The integer expression tree
     /// * `target` - The target integer K
-    pub fn new(expression: IntExpr, target: u64) -> Self {
+    pub fn new(expression: IntExpr, target: i64) -> Self {
         assert!(target > 0, "target must be a positive integer (got 0)");
         assert!(
             expression.all_atoms_positive(),
@@ -182,7 +183,7 @@ impl IntegerExpressionMembership {
     }
 
     /// Returns the target integer K.
-    pub fn target(&self) -> u64 {
+    pub fn target(&self) -> i64 {
         self.target
     }
 
@@ -209,7 +210,7 @@ impl IntegerExpressionMembership {
     /// Evaluate the expression for a given config and return the resulting integer.
     ///
     /// Returns `Some(value)` if the config is valid, `None` otherwise.
-    pub fn evaluate_config(&self, config: &[usize]) -> Option<u64> {
+    pub fn evaluate_config(&self, config: &[bool]) -> Option<i64> {
         let mut counter = 0;
         self.expression.evaluate_with_config(config, &mut counter)
     }
@@ -217,24 +218,24 @@ impl IntegerExpressionMembership {
 
 impl Problem for IntegerExpressionMembership {
     const NAME: &'static str = "IntegerExpressionMembership";
+    type Solution = Vec<bool>;
     type Value = Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_union_nodes()]
-    }
+    crate::problem_parameters![("num_union_nodes", num_union_nodes),];
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            if config.len() != self.num_union_nodes() {
-                return Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return Or(false);
-            }
-            match self.evaluate_config(config) {
-                Some(value) => value == self.target,
-                None => false,
-            }
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                if config.len() != self.num_union_nodes() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "union-choice length does not match the expression".into(),
+                    ));
+                }
+                match self.evaluate_config(config) {
+                    Some(value) => value == self.target,
+                    None => false,
+                }
+            })
         })
     }
 
@@ -243,8 +244,18 @@ impl Problem for IntegerExpressionMembership {
     }
 }
 
+impl crate::solvers::BruteForceProblem for IntegerExpressionMembership {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_union_nodes()]
+    }
+}
+
 crate::declare_variants! {
     default IntegerExpressionMembership => "2^num_union_nodes",
+}
+
+crate::register_brute_force! {
+    IntegerExpressionMembership decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -271,7 +282,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integer_expression_membership",
         instance: Box::new(IntegerExpressionMembership::new(expr, 12)),
-        optimal_config: vec![1, 1, 0],
+        optimal_config: serde_json::json!(vec![true, true, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

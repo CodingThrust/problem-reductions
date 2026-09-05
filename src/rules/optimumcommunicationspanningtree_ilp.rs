@@ -2,7 +2,7 @@
 //!
 //! Uses a multi-commodity flow formulation:
 //! - Binary edge variables x_e for each edge of K_n
-//! - For each pair (u,v) with r(u,v) > 0, directed flow variables route 1 unit
+//! - For every vertex pair (u,v), directed flow variables route 1 unit, proving connectivity
 //!   from u to v through the tree
 //! - Tree constraints: sum x_e = n-1, and connectivity via flow conservation
 //! - Objective: minimize sum_{(u,v): r>0} r(u,v) * w(e) * (flow_uv(e->dir) + flow_uv(e<-dir))
@@ -33,34 +33,43 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_edges]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_edges + 2 * num_edges * num_vertices * (num_vertices - 1) / 2",
         num_constraints = "1 + num_vertices * num_vertices * (num_vertices - 1) / 2 + 2 * num_edges * num_vertices * (num_vertices - 1) / 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
     type Result = ReductionOptimumCommunicationSpanningTreeToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let edges = self.edges();
         let w = self.edge_weights();
         let r = self.requirements();
 
-        // Enumerate commodities: all pairs (s, t) with s < t and r(s,t) > 0
+        // Enumerate every pair: zero-requirement commodities still enforce spanning connectivity.
         let mut commodities: Vec<(usize, usize)> = Vec::new();
-        for (s, row) in r.iter().enumerate() {
-            for (t, &req) in row.iter().enumerate().skip(s + 1) {
-                if req > 0 {
-                    commodities.push((s, t));
-                }
+        for s in 0..n {
+            for t in (s + 1)..n {
+                commodities.push((s, t));
             }
         }
         let num_commodities = commodities.len();
@@ -77,8 +86,11 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
 
         // Constraint 1: Tree has exactly n-1 edges
         // sum x_e = n-1
-        let tree_terms: Vec<(usize, f64)> = (0..m).map(|e| (edge_var(e), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(tree_terms, (n - 1) as f64));
+        let tree_terms: Vec<(usize, i64)> = (0..m).map(|e| (edge_var(e), 1)).collect();
+        constraints.push(LinearConstraint::eq(
+            tree_terms,
+            Self::exact_i64(n, "encoding the spanning-tree order")? - 1,
+        ));
 
         // Constraint 2: Flow conservation for each commodity
         for (k, &(src, dst)) in commodities.iter().enumerate() {
@@ -88,22 +100,22 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
                     // Flow into vertex minus flow out of vertex
                     if j == vertex {
                         // Edge (i, j): direction 0 = i->j (inflow), direction 1 = j->i (outflow)
-                        terms.push((flow_var(k, edge_idx, 0), 1.0));
-                        terms.push((flow_var(k, edge_idx, 1), -1.0));
+                        terms.push((flow_var(k, edge_idx, 0), 1));
+                        terms.push((flow_var(k, edge_idx, 1), -1));
                     }
                     if i == vertex {
                         // Edge (i, j): direction 1 = j->i (inflow), direction 0 = i->j (outflow)
-                        terms.push((flow_var(k, edge_idx, 1), 1.0));
-                        terms.push((flow_var(k, edge_idx, 0), -1.0));
+                        terms.push((flow_var(k, edge_idx, 1), 1));
+                        terms.push((flow_var(k, edge_idx, 0), -1));
                     }
                 }
 
                 let rhs = if vertex == src {
-                    -1.0 // source: net outflow of 1
+                    -1 // source: net outflow of 1
                 } else if vertex == dst {
-                    1.0 // sink: net inflow of 1
+                    1 // sink: net inflow of 1
                 } else {
-                    0.0 // transit: balanced
+                    0 // transit: balanced
                 };
                 constraints.push(LinearConstraint::eq(terms, rhs));
             }
@@ -115,38 +127,45 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
                 let sel = edge_var(edge_idx);
                 // f^k_(i->j) <= x_e
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, edge_idx, 0), 1.0), (sel, -1.0)],
-                    0.0,
+                    vec![(flow_var(k, edge_idx, 0), 1), (sel, -1)],
+                    0,
                 ));
                 // f^k_(j->i) <= x_e
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, edge_idx, 1), 1.0), (sel, -1.0)],
-                    0.0,
+                    vec![(flow_var(k, edge_idx, 1), 1), (sel, -1)],
+                    0,
                 ));
             }
         }
 
         // Objective: minimize sum over commodities k of r(s,t) * sum_e w(e) * (f^k_e_fwd + f^k_e_bwd)
         // This equals sum_{s<t} r(s,t) * W_T(s,t) because flow routes exactly along the tree path.
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (k, &(s, t)) in commodities.iter().enumerate() {
-            let req = r[s][t] as f64;
             for (edge_idx, &(i, j)) in edges.iter().enumerate() {
-                let weight = w[i][j] as f64;
-                let coeff = req * weight;
-                if coeff != 0.0 {
+                let communication_cost = r[s][t].checked_mul(w[i][j]).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        OptimumCommunicationSpanningTree,
+                        ILP<bool>,
+                    >(
+                        "multiplying a communication requirement by an edge weight"
+                    )
+                })?;
+                let coeff = communication_cost;
+                if coeff != 0 {
                     objective.push((flow_var(k, edge_idx, 0), coeff));
                     objective.push((flow_var(k, edge_idx, 1), coeff));
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionOptimumCommunicationSpanningTreeToILP {
+        Ok(ReductionOptimumCommunicationSpanningTreeToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 

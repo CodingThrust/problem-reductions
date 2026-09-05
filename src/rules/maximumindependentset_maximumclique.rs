@@ -28,8 +28,13 @@ where
 
     /// Solution extraction: identity mapping.
     /// A vertex selected in the clique (target) is also selected in the independent set (source).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -45,21 +50,21 @@ fn reduce_is_to_clique<W: WeightElement>(
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
 )]
-impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleGraph, i32> {
-    type Result = ReductionISToClique<i32>;
+impl ReduceTo<MaximumClique<SimpleGraph, i64>> for MaximumIndependentSet<SimpleGraph, i64> {
+    type Result = ReductionISToClique<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
-        reduce_is_to_clique(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_is_to_clique(self))
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
@@ -67,8 +72,8 @@ impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleG
 impl ReduceTo<MaximumClique<SimpleGraph, One>> for MaximumIndependentSet<SimpleGraph, One> {
     type Result = ReductionISToClique<One>;
 
-    fn reduce_to(&self) -> Self::Result {
-        reduce_is_to_clique(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_is_to_clique(self))
     }
 }
 
@@ -78,26 +83,26 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumindependentset_to_maximumclique",
+            id: "weighted_maximumindependentset_to_maximumclique",
             build: || {
                 let source = MaximumIndependentSet::new(
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-                    vec![1i32; 5],
+                    vec![1i64; 5],
                 );
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
-                    MaximumClique<SimpleGraph, i32>,
+                    MaximumClique<SimpleGraph, i64>,
                 >(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 1, 0, 1],
-                        target_config: vec![1, 0, 1, 0, 1],
+                        source_config: serde_json::json!(vec![true, false, true, false, true]),
+                        target_config: serde_json::json!(vec![true, false, true, false, true]),
                     },
                 )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumindependentset_to_maximumclique_one",
+            id: "cardinality_maximumindependentset_to_maximumclique",
             build: || {
                 let source = MaximumIndependentSet::new(
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
@@ -109,8 +114,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 1, 0, 1],
-                        target_config: vec![1, 0, 1, 0, 1],
+                        source_config: serde_json::json!(vec![true, false, true, false, true]),
+                        target_config: serde_json::json!(vec![true, false, true, false, true]),
                     },
                 )
             },

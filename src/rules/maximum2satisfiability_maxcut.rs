@@ -21,32 +21,39 @@ use std::collections::BTreeMap;
 /// Result of reducing Maximum2Satisfiability to MaxCut.
 #[derive(Debug, Clone)]
 pub struct ReductionMaximum2SatisfiabilityToMaxCut {
-    target: MaxCut<SimpleGraph, i32>,
+    target: MaxCut<SimpleGraph, i64>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for ReductionMaximum2SatisfiabilityToMaxCut {
     type Source = Maximum2Satisfiability;
-    type Target = MaxCut<SimpleGraph, i32>;
+    type Target = MaxCut<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let reference_side = target_solution[0];
-        (0..self.source_num_vars)
-            .map(|i| usize::from(target_solution[i + 1] == reference_side))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let reference_side = target_solution[0];
+            (0..self.source_num_vars)
+                .map(|i| target_solution[i + 1] == reference_side)
+                .collect()
+        })
     }
 }
 
-fn add_edge_weight(weights: &mut BTreeMap<(usize, usize), i32>, u: usize, v: usize, delta: i32) {
+fn add_edge_weight(weights: &mut BTreeMap<(usize, usize), i64>, u: usize, v: usize, delta: i64) {
     let edge = if u < v { (u, v) } else { (v, u) };
     *weights.entry(edge).or_insert(0) += delta;
 }
 
-fn literal_polarity(lit: i32) -> i32 {
+fn literal_polarity(lit: i64) -> i64 {
     if lit > 0 {
         1
     } else {
@@ -55,15 +62,15 @@ fn literal_polarity(lit: i32) -> i32 {
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vertices = "num_vars + 1",
-        num_edges = "num_vars + num_clauses",
+        num_edges = "(num_vars + 1)^2",
     }
 )]
-impl ReduceTo<MaxCut<SimpleGraph, i32>> for Maximum2Satisfiability {
+impl ReduceTo<MaxCut<SimpleGraph, i64>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToMaxCut;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut accumulated = BTreeMap::new();
 
         for clause in self.clauses() {
@@ -88,10 +95,10 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for Maximum2Satisfiability {
 
         let target = MaxCut::new(SimpleGraph::new(self.num_vars() + 1, edges), weights);
 
-        ReductionMaximum2SatisfiabilityToMaxCut {
+        Ok(ReductionMaximum2SatisfiabilityToMaxCut {
             target,
             source_num_vars: self.num_vars(),
-        }
+        })
     }
 }
 
@@ -113,14 +120,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![1, 3]),
                 ],
             );
-            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
                 source,
                 SolutionPair {
                     // x1=F, x2=T, x3=T satisfies all five clauses.
-                    source_config: vec![0, 1, 1],
+                    source_config: serde_json::json!(vec![false, true, true]),
                     // Vertex 0 is the reference vertex s. Variables are true
                     // exactly when they share s's side of the cut.
-                    target_config: vec![0, 1, 0, 0],
+                    target_config: serde_json::json!(vec![false, true, false, false]),
                 },
             )
         },

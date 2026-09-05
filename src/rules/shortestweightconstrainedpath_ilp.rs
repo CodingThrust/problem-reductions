@@ -15,14 +15,14 @@ use crate::types::WeightElement;
 
 /// Result of reducing ShortestWeightConstrainedPath to ILP.
 ///
-/// Variable layout (within `ILP<i32>`):
+/// Variable layout (within `ILP<i64>`):
 /// - Arc variables: `a_{e,0}` and `a_{e,1}` for each undirected edge `e`
 ///   (indices `0..2m`), bounded to {0, 1}
 /// - Order variables: `o_v` for each vertex `v` (indices `2m..2m+n`),
 ///   bounded to `[0, n-1]`
 #[derive(Debug, Clone)]
 pub struct ReductionSWCPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
@@ -33,84 +33,87 @@ impl ReductionSWCPToILP {
 }
 
 impl ReductionResult for ReductionSWCPToILP {
-    type Source = ShortestWeightConstrainedPath<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = ShortestWeightConstrainedPath<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_edges)
-            .map(|edge_idx| {
-                usize::from(
-                    target_solution
-                        .get(Self::arc_var(edge_idx, 0))
-                        .copied()
-                        .unwrap_or(0)
-                        > 0
-                        || target_solution
-                            .get(Self::arc_var(edge_idx, 1))
-                            .copied()
-                            .unwrap_or(0)
-                            > 0,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_edges)
+                .map(|edge_idx| {
+                    target_solution[Self::arc_var(edge_idx, 0)] > 0
+                        || target_solution[Self::arc_var(edge_idx, 1)] > 0
+                })
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "2 * num_edges + num_vertices",
-    num_constraints = "5 * num_edges + 4 * num_vertices + 2",
-})]
-impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
+#[reduction(
+    transform = exact {
+        num_vars = "2 * num_edges + num_vertices",
+        num_constraints = "5 * num_edges + 4 * num_vertices + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
+impl ReduceTo<ILP<i64>> for ShortestWeightConstrainedPath<SimpleGraph, i64> {
     type Result = ReductionSWCPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_vertices = self.num_vertices();
         let num_edges = self.num_edges();
         let num_vars = 2 * num_edges + num_vertices;
         let source = self.source_vertex();
         let target = self.target_vertex();
-        let big_m = num_vertices as f64;
+        let big_m = Self::exact_i64(num_vertices, "encoding the vertex order")?;
 
         let order_var = |vertex: usize| 2 * num_edges + vertex;
 
         // Build adjacency: outgoing[v] and incoming[v] collect arc variable
         // references for arcs leaving / entering vertex v.
-        let mut outgoing: Vec<Vec<(usize, f64)>> = vec![Vec::new(); num_vertices];
-        let mut incoming: Vec<Vec<(usize, f64)>> = vec![Vec::new(); num_vertices];
+        let mut outgoing: Vec<Vec<(usize, i64)>> = vec![Vec::new(); num_vertices];
+        let mut incoming: Vec<Vec<(usize, i64)>> = vec![Vec::new(); num_vertices];
 
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
             let forward = ReductionSWCPToILP::arc_var(edge_idx, 0); // u -> v
             let reverse = ReductionSWCPToILP::arc_var(edge_idx, 1); // v -> u
-            outgoing[u].push((forward, 1.0));
-            incoming[v].push((forward, 1.0));
-            outgoing[v].push((reverse, 1.0));
-            incoming[u].push((reverse, 1.0));
+            outgoing[u].push((forward, 1));
+            incoming[v].push((forward, 1));
+            outgoing[v].push((reverse, 1));
+            incoming[u].push((reverse, 1));
         }
 
         let mut constraints = Vec::new();
 
-        // --- Arc variables are binary within ILP<i32>: 0 <= a_{e,d} <= 1 ---
+        // --- Arc variables are binary within `ILP<i64>`: 0 <= a_{e,d} <= 1 ---
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
-                vec![(ReductionSWCPToILP::arc_var(edge_idx, 0), 1.0)],
-                1.0,
+                vec![(ReductionSWCPToILP::arc_var(edge_idx, 0), 1)],
+                1,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(ReductionSWCPToILP::arc_var(edge_idx, 1), 1.0)],
-                1.0,
+                vec![(ReductionSWCPToILP::arc_var(edge_idx, 1), 1)],
+                1,
             ));
         }
 
         // --- Order variables stay within [0, |V|-1] ---
+        let max_order = if num_vertices == 0 { 0 } else { big_m - 1 };
         for vertex in 0..num_vertices {
             constraints.push(LinearConstraint::le(
-                vec![(order_var(vertex), 1.0)],
-                num_vertices.saturating_sub(1) as f64,
+                vec![(order_var(vertex), 1)],
+                max_order,
             ));
         }
 
@@ -124,28 +127,28 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
 
             let rhs = if source != target {
                 if vertex == source {
-                    1.0
+                    1
                 } else if vertex == target {
-                    -1.0
+                    -1
                 } else {
-                    0.0
+                    0
                 }
             } else {
-                0.0
+                0
             };
             constraints.push(LinearConstraint::eq(balance_terms, rhs));
-            constraints.push(LinearConstraint::le(outgoing[vertex].clone(), 1.0));
-            constraints.push(LinearConstraint::le(incoming[vertex].clone(), 1.0));
+            constraints.push(LinearConstraint::le(outgoing[vertex].clone(), 1));
+            constraints.push(LinearConstraint::le(incoming[vertex].clone(), 1));
         }
 
         // --- At most one direction per undirected edge ---
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
                 vec![
-                    (ReductionSWCPToILP::arc_var(edge_idx, 0), 1.0),
-                    (ReductionSWCPToILP::arc_var(edge_idx, 1), 1.0),
+                    (ReductionSWCPToILP::arc_var(edge_idx, 0), 1),
+                    (ReductionSWCPToILP::arc_var(edge_idx, 1), 1),
                 ],
-                1.0,
+                1,
             ));
         }
 
@@ -154,61 +157,69 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
             // o_v - o_u - M * a_{e,0} >= 1 - M
             constraints.push(LinearConstraint::ge(
                 vec![
-                    (order_var(v), 1.0),
-                    (order_var(u), -1.0),
+                    (order_var(v), 1),
+                    (order_var(u), -1),
                     (ReductionSWCPToILP::arc_var(edge_idx, 0), -big_m),
                 ],
-                1.0 - big_m,
+                1 - big_m,
             ));
             // o_u - o_v - M * a_{e,1} >= 1 - M
             constraints.push(LinearConstraint::ge(
                 vec![
-                    (order_var(u), 1.0),
-                    (order_var(v), -1.0),
+                    (order_var(u), 1),
+                    (order_var(v), -1),
                     (ReductionSWCPToILP::arc_var(edge_idx, 1), -big_m),
                 ],
-                1.0 - big_m,
+                1 - big_m,
             ));
         }
 
         // --- Fix source order to 0 ---
-        constraints.push(LinearConstraint::eq(vec![(order_var(source), 1.0)], 0.0));
+        constraints.push(LinearConstraint::eq(vec![(order_var(source), 1)], 0));
 
         // --- Weight bound: Σ wt_e * (a_{e,0} + a_{e,1}) <= weight_bound ---
-        let weight_terms: Vec<(usize, f64)> = edges
+        let edge_weights: Vec<i64> = self
+            .edge_weights()
+            .iter()
+            .map(WeightElement::to_sum)
+            .collect();
+        let weight_terms: Vec<(usize, i64)> = edges
             .iter()
             .enumerate()
             .flat_map(|(edge_idx, _)| {
-                let coeff = self.edge_weights()[edge_idx].to_sum() as f64;
+                let coeff = edge_weights[edge_idx];
                 [
                     (ReductionSWCPToILP::arc_var(edge_idx, 0), coeff),
                     (ReductionSWCPToILP::arc_var(edge_idx, 1), coeff),
                 ]
             })
             .collect();
-        constraints.push(LinearConstraint::le(
-            weight_terms,
-            *self.weight_bound() as f64,
-        ));
+        constraints.push(LinearConstraint::le(weight_terms, *self.weight_bound()));
 
         // --- Objective: minimize total path length ---
-        let objective: Vec<(usize, f64)> = edges
+        let edge_lengths: Vec<i64> = self
+            .edge_lengths()
+            .iter()
+            .map(WeightElement::to_sum)
+            .collect();
+        let objective: Vec<(usize, i64)> = edges
             .iter()
             .enumerate()
             .flat_map(|(edge_idx, _)| {
-                let coeff = self.edge_lengths()[edge_idx].to_sum() as f64;
+                let coeff = edge_lengths[edge_idx];
                 [
                     (ReductionSWCPToILP::arc_var(edge_idx, 0), coeff),
                     (ReductionSWCPToILP::arc_var(edge_idx, 1), coeff),
                 ]
             })
             .collect();
-        let target_ilp = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target_ilp = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionSWCPToILP {
+        Ok(ReductionSWCPToILP {
             target: target_ilp,
             num_edges,
-        }
+        })
     }
 }
 
@@ -229,7 +240,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 4,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

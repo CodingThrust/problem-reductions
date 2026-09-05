@@ -21,28 +21,36 @@ impl ReductionResult for ReductionSATToNonTautology {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_vars",
-    num_disjuncts = "num_clauses",
-})]
+#[reduction(
+    transform = exact {
+        num_vars = "num_vars",
+        num_disjuncts = "num_clauses",
+    })]
 impl ReduceTo<NonTautology> for Satisfiability {
     type Result = ReductionSATToNonTautology;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let disjuncts = self
             .clauses()
             .iter()
             .map(|clause| clause.literals.iter().map(|&lit| -lit).collect())
             .collect();
 
-        ReductionSATToNonTautology {
-            target: NonTautology::new(self.num_vars(), disjuncts),
-        }
+        Ok(ReductionSATToNonTautology {
+            target: NonTautology::new(self.num_vars(), disjuncts).map_err(|error| {
+                crate::rules::ReductionError::construction::<Satisfiability, NonTautology>(error)
+            })?,
+        })
     }
 }
 
@@ -64,8 +72,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     ],
                 ),
                 SolutionPair {
-                    source_config: vec![1, 0, 1],
-                    target_config: vec![1, 0, 1],
+                    source_config: serde_json::json!(vec![true, false, true]),
+                    target_config: serde_json::json!(vec![true, false, true]),
                 },
             )
         },

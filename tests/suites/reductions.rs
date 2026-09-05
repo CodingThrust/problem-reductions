@@ -6,8 +6,8 @@
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use problemreductions::prelude::*;
-use problemreductions::rules::{Minimize, ReductionGraph};
-#[cfg(feature = "ilp-solver")]
+use problemreductions::rules::ReductionGraph;
+use problemreductions::solvers::BruteForceProblem as _;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::{Min, Or};
@@ -22,11 +22,12 @@ mod is_vc_reductions {
         // Triangle graph
         let is_problem = MaximumIndependentSet::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-            vec![1i32; 3],
+            vec![1i64; 3],
         );
 
         // Reduce IS to VC
-        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)
+            .expect("reduction should succeed");
         let vc_problem = result.target_problem();
 
         // Same graph structure
@@ -35,13 +36,13 @@ mod is_vc_reductions {
 
         // Solve the target VC problem
         let solver = BruteForce::new();
-        let vc_solutions = solver.find_all_witnesses(vc_problem);
+        let vc_solutions = solver.find_all_witnesses(vc_problem).unwrap();
 
         // Extract back to IS solution
-        let is_solution = result.extract_solution(&vc_solutions[0]);
+        let is_solution = result.extract_solution(&vc_solutions[0]).unwrap();
 
         // Solution should be valid for original problem
-        assert!(is_problem.evaluate(&is_solution).is_valid());
+        assert!(is_problem.evaluate(&is_solution).unwrap().is_valid());
     }
 
     #[test]
@@ -49,11 +50,12 @@ mod is_vc_reductions {
         // Path graph
         let vc_problem = MinimumVertexCover::new(
             SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-            vec![1i32; 4],
+            vec![1i64; 4],
         );
 
         // Reduce VC to IS
-        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
+        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&vc_problem)
+            .expect("reduction should succeed");
         let is_problem = result.target_problem();
 
         // Same graph structure
@@ -62,28 +64,30 @@ mod is_vc_reductions {
 
         // Solve the target IS problem
         let solver = BruteForce::new();
-        let is_solutions = solver.find_all_witnesses(is_problem);
+        let is_solutions = solver.find_all_witnesses(is_problem).unwrap();
 
         // Extract back to VC solution
-        let vc_solution = result.extract_solution(&is_solutions[0]);
+        let vc_solution = result.extract_solution(&is_solutions[0]).unwrap();
 
         // Solution should be valid for original problem
-        assert!(vc_problem.evaluate(&vc_solution).is_valid());
+        assert!(vc_problem.evaluate(&vc_solution).unwrap().is_valid());
     }
 
     #[test]
     fn test_is_vc_roundtrip() {
         let original = MaximumIndependentSet::new(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-            vec![1i32; 5],
+            vec![1i64; 5],
         );
 
         // IS -> VC
-        let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&original);
+        let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&original)
+            .expect("reduction should succeed");
         let vc_problem = to_vc.target_problem();
 
         // VC -> IS
-        let back_to_is = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(vc_problem);
+        let back_to_is = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(vc_problem)
+            .expect("reduction should succeed");
         let final_is = back_to_is.target_problem();
 
         // Should have same structure
@@ -95,14 +99,14 @@ mod is_vc_reductions {
 
         // Solve the final problem
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(final_is);
+        let solutions = solver.find_all_witnesses(final_is).unwrap();
 
         // Extract through the chain
-        let intermediate_sol = back_to_is.extract_solution(&solutions[0]);
-        let original_sol = to_vc.extract_solution(&intermediate_sol);
+        let intermediate_sol = back_to_is.extract_solution(&solutions[0]).unwrap();
+        let original_sol = to_vc.extract_solution(&intermediate_sol).unwrap();
 
         // Should be valid
-        assert!(original.evaluate(&original_sol).is_valid());
+        assert!(original.evaluate(&original_sol).unwrap().is_valid());
     }
 
     #[test]
@@ -110,7 +114,8 @@ mod is_vc_reductions {
         let is_problem =
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![10, 1, 5]);
 
-        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)
+            .expect("reduction should succeed");
         let vc_problem = result.target_problem();
 
         // Weights should be preserved
@@ -124,17 +129,17 @@ mod is_vc_reductions {
         let n = 4;
 
         let is_problem =
-            MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
-        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
+            MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i64; n]);
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
 
         let solver = BruteForce::new();
 
         // Solve IS, reduce to VC solution
-        let is_solutions = solver.find_all_witnesses(&is_problem);
-        let max_is = is_solutions[0].iter().sum::<usize>();
+        let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
+        let max_is = is_solutions[0].iter().filter(|&&selected| selected).count();
 
-        let vc_solutions = solver.find_all_witnesses(&vc_problem);
-        let min_vc = vc_solutions[0].iter().sum::<usize>();
+        let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
+        let min_vc = vc_solutions[0].iter().filter(|&&selected| selected).count();
 
         assert_eq!(max_is + min_vc, n);
     }
@@ -149,10 +154,11 @@ mod is_sp_reductions {
         // Triangle graph - each vertex's incident edges become a set
         let is_problem = MaximumIndependentSet::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-            vec![1i32; 3],
+            vec![1i64; 3],
         );
 
-        let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
+            .expect("reduction should succeed");
         let sp_problem = result.target_problem();
 
         // 3 sets (one per vertex)
@@ -160,21 +166,22 @@ mod is_sp_reductions {
 
         // Solve
         let solver = BruteForce::new();
-        let sp_solutions = solver.find_all_witnesses(sp_problem);
+        let sp_solutions = solver.find_all_witnesses(sp_problem).unwrap();
 
         // Extract to IS solution
-        let is_solution = result.extract_solution(&sp_solutions[0]);
+        let is_solution = result.extract_solution(&sp_solutions[0]).unwrap();
 
-        assert!(is_problem.evaluate(&is_solution).is_valid());
+        assert!(is_problem.evaluate(&is_solution).unwrap().is_valid());
     }
 
     #[test]
     fn test_sp_to_is_basic() {
         // Disjoint sets pack perfectly
         let sets = vec![vec![0, 1], vec![2, 3], vec![4]];
-        let sp_problem = MaximumSetPacking::<i32>::new(sets);
+        let sp_problem = MaximumSetPacking::<i64>::new(sets);
 
-        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
+        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&sp_problem)
+            .expect("reduction should succeed");
         let is_problem = result.target_problem();
 
         // Should have an edge for each pair of overlapping sets (none here)
@@ -182,41 +189,45 @@ mod is_sp_reductions {
 
         // Solve
         let solver = BruteForce::new();
-        let is_solutions = solver.find_all_witnesses(is_problem);
+        let is_solutions = solver.find_all_witnesses(is_problem).unwrap();
 
         // Extract to SP solution
-        let sp_solution = result.extract_solution(&is_solutions[0]);
+        let sp_solution = result.extract_solution(&is_solutions[0]).unwrap();
 
         // All sets can be packed (disjoint)
-        assert_eq!(sp_solution.iter().sum::<usize>(), 3);
-        assert!(sp_problem.evaluate(&sp_solution).is_valid());
+        assert_eq!(sp_solution.iter().filter(|&&selected| selected).count(), 3);
+        assert!(sp_problem.evaluate(&sp_solution).unwrap().is_valid());
     }
 
     #[test]
     fn test_is_sp_roundtrip() {
         let original = MaximumIndependentSet::new(
             SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-            vec![1i32; 4],
+            vec![1i64; 4],
         );
 
         // IS -> SP
-        let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
+        let to_sp = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&original)
+            .expect("reduction should succeed");
         let sp_problem = to_sp.target_problem();
 
         // Solve SP
         let solver = BruteForce::new();
-        let sp_solutions = solver.find_all_witnesses(sp_problem);
+        let sp_solutions = solver.find_all_witnesses(sp_problem).unwrap();
 
         // Extract to IS solution
-        let is_solution = to_sp.extract_solution(&sp_solutions[0]);
+        let is_solution = to_sp.extract_solution(&sp_solutions[0]).unwrap();
 
         // Valid for original
-        assert!(original.evaluate(&is_solution).is_valid());
+        assert!(original.evaluate(&is_solution).unwrap().is_valid());
 
         // Should match directly solving IS
-        let direct_solutions = solver.find_all_witnesses(&original);
-        let direct_max = direct_solutions[0].iter().sum::<usize>();
-        let reduced_max = is_solution.iter().sum::<usize>();
+        let direct_solutions = solver.find_all_witnesses(&original).unwrap();
+        let direct_max = direct_solutions[0]
+            .iter()
+            .filter(|&&selected| selected)
+            .count();
+        let reduced_max = is_solution.iter().filter(|&&selected| selected).count();
 
         assert_eq!(direct_max, reduced_max);
     }
@@ -229,38 +240,40 @@ mod sg_qubo_reductions {
     #[test]
     fn test_sg_to_qubo_basic() {
         // Simple 2-spin system
-        let sg = SpinGlass::<SimpleGraph, _>::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]);
+        let sg =
+            SpinGlass::<SimpleGraph, _>::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]).unwrap();
 
-        let result = ReduceTo::<QUBO>::reduce_to(&sg);
+        let result = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
         let qubo = result.target_problem();
 
         assert_eq!(qubo.num_variables(), 2);
 
         // Solve QUBO
         let solver = BruteForce::new();
-        let qubo_solutions = solver.find_all_witnesses(qubo);
+        let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
         // Extract to SG solution
-        let sg_solution = result.extract_solution(&qubo_solutions[0]);
+        let sg_solution = result.extract_solution(&qubo_solutions[0]).unwrap();
         assert_eq!(sg_solution.len(), 2);
     }
 
     #[test]
     fn test_qubo_to_sg_basic() {
         // QUBO::new takes linear terms and quadratic terms separately
-        let qubo = QUBO::new(vec![1.0, -1.0], vec![((0, 1), 0.5)]);
+        let qubo = QUBO::new(vec![1.0, -1.0], vec![((0, 1), 0.5)]).unwrap();
 
-        let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
+        let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo)
+            .expect("reduction should succeed");
         let sg = result.target_problem();
 
         assert_eq!(sg.num_spins(), 2);
 
         // Solve SG
         let solver = BruteForce::new();
-        let sg_solutions = solver.find_all_witnesses(sg);
+        let sg_solutions = solver.find_all_witnesses(sg).unwrap();
 
         // Extract to QUBO solution
-        let qubo_solution = result.extract_solution(&sg_solutions[0]);
+        let qubo_solution = result.extract_solution(&sg_solutions[0]).unwrap();
         assert_eq!(qubo_solution.len(), 2);
     }
 
@@ -271,28 +284,24 @@ mod sg_qubo_reductions {
             3,
             vec![((0, 1), -1.0), ((1, 2), 1.0)],
             vec![0.0, 0.0, 0.0],
-        );
+        )
+        .unwrap();
 
-        let result = ReduceTo::<QUBO>::reduce_to(&sg);
+        let result = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
         let qubo = result.target_problem();
 
         // Check that ground states correspond
         let solver = BruteForce::new();
 
-        let sg_solutions = solver.find_all_witnesses(&sg);
-        let qubo_solutions = solver.find_all_witnesses(qubo);
+        let sg_solutions = solver.find_all_witnesses(&sg).unwrap();
+        let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
         // Extract QUBO solution back to SG
-        let extracted = result.extract_solution(&qubo_solutions[0]);
-
-        // Convert solutions to spins for energy computation
-        // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
-        let sg_spins = SpinGlass::<SimpleGraph, f64>::config_to_spins(&sg_solutions[0]);
-        let extracted_spins = SpinGlass::<SimpleGraph, f64>::config_to_spins(&extracted);
+        let extracted = result.extract_solution(&qubo_solutions[0]).unwrap();
 
         // Should be among optimal SG solutions (or equivalent)
-        let sg_energy = sg.compute_energy(&sg_spins);
-        let extracted_energy = sg.compute_energy(&extracted_spins);
+        let sg_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
+        let extracted_energy = sg.compute_energy(&extracted).unwrap();
 
         // Energies should match for optimal solutions
         assert!((sg_energy - extracted_energy).abs() < 1e-10);
@@ -300,7 +309,6 @@ mod sg_qubo_reductions {
 }
 
 /// Tests for MinimumCoveringByCliques -> ILP reductions.
-#[cfg(feature = "ilp-solver")]
 mod minimum_covering_by_cliques_ilp_reductions {
     use super::*;
 
@@ -310,15 +318,16 @@ mod minimum_covering_by_cliques_ilp_reductions {
             MinimumCoveringByCliques::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
 
         let reduction =
-            <MinimumCoveringByCliques<SimpleGraph> as ReduceTo<ILP<bool>>>::reduce_to(&source);
+            <MinimumCoveringByCliques<SimpleGraph> as ReduceTo<ILP<bool>>>::reduce_to(&source)
+                .expect("reduction should succeed");
         let ilp = reduction.target_problem();
 
         let ilp_solution = ILPSolver::new()
             .solve(ilp)
             .expect("MinimumCoveringByCliques -> ILP should be solvable");
-        let extracted = reduction.extract_solution(&ilp_solution);
+        let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-        assert_eq!(source.evaluate(&extracted), Min(Some(3)));
+        assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(3)));
     }
 }
 
@@ -330,21 +339,24 @@ mod partition_into_cliques_covering_by_cliques_reductions {
     fn test_partition_into_cliques_to_covering_by_cliques_closed_loop() {
         let source = PartitionIntoCliques::new(SimpleGraph::new(1, vec![]), 1);
 
-        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+            .expect("reduction should succeed");
         let target = reduction.target_problem();
 
         let target_solution = BruteForce::new()
-            .find_witness(target)
+            .solve(target)
+            .unwrap()
             .expect("target should be solvable");
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
 
-        assert_eq!(source.evaluate(&extracted), Or(true));
+        assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     }
 
     #[test]
     fn test_partition_into_cliques_to_covering_by_cliques_orlin_issue_counts() {
         let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+            .expect("reduction should succeed");
         let target = reduction.target_problem();
 
         assert_eq!(target.graph().num_vertices(), 12);
@@ -369,16 +381,17 @@ mod max2sat_maxcut_reductions {
             ],
         );
 
-        let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+        let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
         let target = reduction.target_problem();
 
         assert_eq!(target.graph().num_vertices(), 4);
 
         let solver = BruteForce::new();
-        let target_solutions = solver.find_all_witnesses(target);
-        let extracted = reduction.extract_solution(&target_solutions[0]);
+        let target_solutions = solver.find_all_witnesses(target).unwrap();
+        let extracted = reduction.extract_solution(&target_solutions[0]).unwrap();
 
-        assert_eq!(source.evaluate(&extracted), Max(Some(5)));
+        assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(5)));
     }
 }
 
@@ -393,9 +406,11 @@ mod sg_maxcut_reductions {
             3,
             vec![((0, 1), 1), ((1, 2), 1), ((0, 2), 1)],
             vec![0, 0, 0],
-        );
+        )
+        .unwrap();
 
-        let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+        let result =
+            ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
         let maxcut = result.target_problem();
 
         // Same number of vertices
@@ -403,10 +418,10 @@ mod sg_maxcut_reductions {
 
         // Solve MaxCut
         let solver = BruteForce::new();
-        let maxcut_solutions = solver.find_all_witnesses(maxcut);
+        let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
 
         // Extract to SG solution
-        let sg_solution = result.extract_solution(&maxcut_solutions[0]);
+        let sg_solution = result.extract_solution(&maxcut_solutions[0]).unwrap();
         assert_eq!(sg_solution.len(), 3);
     }
 
@@ -417,7 +432,8 @@ mod sg_maxcut_reductions {
             vec![2, 1, 3],
         );
 
-        let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&maxcut);
+        let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&maxcut)
+            .expect("reduction should succeed");
         let sg = result.target_problem();
 
         // Same number of spins
@@ -425,10 +441,10 @@ mod sg_maxcut_reductions {
 
         // Solve SG
         let solver = BruteForce::new();
-        let sg_solutions = solver.find_all_witnesses(sg);
+        let sg_solutions = solver.find_all_witnesses(sg).unwrap();
 
         // Extract to MaxCut solution
-        let maxcut_solution = result.extract_solution(&sg_solutions[0]);
+        let maxcut_solution = result.extract_solution(&sg_solutions[0]).unwrap();
         assert_eq!(maxcut_solution.len(), 3);
     }
 
@@ -439,28 +455,25 @@ mod sg_maxcut_reductions {
             4,
             vec![((0, 1), 1), ((1, 2), 1), ((2, 3), 1), ((0, 3), 1)],
             vec![0, 0, 0, 0],
-        );
+        )
+        .unwrap();
 
-        let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+        let result =
+            ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
         let maxcut = result.target_problem();
 
         let solver = BruteForce::new();
 
         // Solve both
-        let sg_solutions = solver.find_all_witnesses(&sg);
-        let maxcut_solutions = solver.find_all_witnesses(maxcut);
+        let sg_solutions = solver.find_all_witnesses(&sg).unwrap();
+        let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
 
         // Extract MaxCut solution back to SG
-        let extracted = result.extract_solution(&maxcut_solutions[0]);
-
-        // Convert solutions to spins for energy computation
-        // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
-        let direct_spins = SpinGlass::<SimpleGraph, i32>::config_to_spins(&sg_solutions[0]);
-        let extracted_spins = SpinGlass::<SimpleGraph, i32>::config_to_spins(&extracted);
+        let extracted = result.extract_solution(&maxcut_solutions[0]).unwrap();
 
         // Should have same energy as directly solved SG
-        let direct_energy = sg.compute_energy(&direct_spins);
-        let extracted_energy = sg.compute_energy(&extracted_spins);
+        let direct_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
+        let extracted_energy = sg.compute_energy(&extracted).unwrap();
 
         assert_eq!(direct_energy, extracted_energy);
     }
@@ -473,12 +486,12 @@ mod topology_tests {
 
     #[test]
     fn test_setpacking_from_hyperedge_style_input() {
-        let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
+        let sp = MaximumSetPacking::<i64>::new(vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(&sp);
+        let solutions = solver.find_all_witnesses(&sp).unwrap();
 
-        assert!(sp.evaluate(&solutions[0]).is_valid());
+        assert!(sp.evaluate(&solutions[0]).unwrap().is_valid());
     }
 
     #[test]
@@ -490,18 +503,18 @@ mod topology_tests {
             (2.0, 0.0), // Far from 0 and 1
             (2.5, 0.0), // Close to 2
         ];
-        let udg = UnitDiskGraph::new(positions, 1.0);
+        let udg = UnitDiskGraph::new(positions, 1.0).unwrap();
 
         // Extract edges
         let edges = udg.edges().to_vec();
-        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i64; 4]);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(&is_problem);
+        let solutions = solver.find_all_witnesses(&is_problem).unwrap();
 
         // Vertices 0-1 are connected, 2-3 are connected
         // Max IS: {0, 2} or {0, 3} or {1, 2} or {1, 3} = size 2
-        assert_eq!(solutions[0].iter().sum::<usize>(), 2);
+        assert_eq!(solutions[0].iter().filter(|&&selected| selected).count(), 2);
     }
 }
 
@@ -540,43 +553,39 @@ mod qubo_reductions {
         let data: ISToQuboData = serde_json::from_str(&json).unwrap();
 
         let n = data.source.num_vertices;
-        let is = MaximumIndependentSet::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
+        let is = MaximumIndependentSet::new(SimpleGraph::new(n, data.source.edges), vec![1i64; n]);
         let graph = ReductionGraph::new();
         let src =
-            ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+            ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
         let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
         let path = graph
-            .find_cheapest_path(
-                "MaximumIndependentSet",
-                &src,
-                "QUBO",
-                &dst,
-                &ProblemSize::new(vec![
-                    ("num_vertices", n),
-                    ("num_edges", is.graph().num_edges()),
-                ]),
-                &Minimize("num_vars"),
-            )
-            .expect("Should find path MaximumIndependentSet -> QUBO");
+            .find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst)
+            .into_iter()
+            .find(|path| {
+                path.type_names() == ["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
+            })
+            .expect("explicit set-packing route");
         let chain = graph
             .reduce_along_path(&path, &is as &dyn std::any::Any)
+            .expect("MaximumIndependentSet -> QUBO reduction should not fail")
             .expect("Should reduce MaximumIndependentSet to QUBO");
         let qubo: &QUBO<f64> = chain.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(qubo);
+        let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
-            let extracted = chain.extract_solution(sol);
-            assert!(is.evaluate(&extracted).is_valid());
+            let extracted = chain.extract_solution(sol).unwrap();
+            assert!(is.evaluate(&extracted).unwrap().is_valid());
         }
 
         // Optimal IS size should match ground truth
         let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_is_size: usize = chain.extract_solution(&solutions[0]).iter().sum();
+        let our_is_solution: Vec<bool> = chain.extract_solution(&solutions[0]).unwrap();
+        let our_is_size = our_is_solution.iter().filter(|&&selected| selected).count();
         assert_eq!(our_is_size, gt_is_size);
     }
 
@@ -605,17 +614,17 @@ mod qubo_reductions {
             data.source.num_vertices,
             data.source.edges,
         ));
-        let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
+        let reduction = ReduceTo::<QUBO>::reduce_to(&kc).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(qubo);
+        let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(kc.evaluate(&extracted));
+            let extracted = reduction.extract_solution(sol).unwrap();
+            assert!(kc.evaluate(&extracted).unwrap());
         }
 
         // Same number of optimal colorings as ground truth
@@ -641,23 +650,28 @@ mod qubo_reductions {
             std::fs::read_to_string("tests/data/qubo/maximumsetpacking_to_qubo.json").unwrap();
         let data: SPToQuboData = serde_json::from_str(&json).unwrap();
 
-        let sp = MaximumSetPacking::with_weights(data.source.sets, data.source.weights);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&sp);
+        let sp = MaximumSetPacking::with_weights(data.source.sets, data.source.weights).unwrap();
+        let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(qubo);
+        let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(sp.evaluate(&extracted).is_valid());
+            let extracted = reduction.extract_solution(sol).unwrap();
+            assert!(sp.evaluate(&extracted).unwrap().is_valid());
         }
 
         // Optimal packing should match ground truth
         let gt_selected: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_selected: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        let our_selected: usize = reduction
+            .extract_solution(&solutions[0])
+            .unwrap()
+            .iter()
+            .filter(|&&selected| selected)
+            .count();
         assert_eq!(our_selected, gt_selected);
     }
 
@@ -691,10 +705,10 @@ mod qubo_reductions {
             .clauses
             .iter()
             .map(|lits| {
-                let signed: Vec<i32> = lits
+                let signed: Vec<i64> = lits
                     .iter()
                     .map(|l| {
-                        let var = (l.variable + 1) as i32; // 0-indexed to 1-indexed
+                        let var = (l.variable + 1) as i64; // 0-indexed to 1-indexed
                         if l.negated {
                             -var
                         } else {
@@ -707,26 +721,31 @@ mod qubo_reductions {
             .collect();
 
         let ksat = KSatisfiability::<K2>::new(data.source.num_variables, clauses);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
+        let reduction = ReduceTo::<QUBO>::reduce_to(&ksat).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(qubo);
+        let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(ksat.evaluate(&extracted));
+            let extracted = reduction.extract_solution(sol).unwrap();
+            assert!(ksat.evaluate(&extracted).unwrap());
         }
 
         // Verify extracted solution matches ground truth assignment
         let gt_config = &data.qubo_optimal.configs[0];
-        let our_config = reduction.extract_solution(&solutions[0]);
-        assert_eq!(&our_config, gt_config);
+        let our_config = reduction.extract_solution(&solutions[0]).unwrap();
+        assert_eq!(
+            our_config,
+            gt_config
+                .iter()
+                .map(|&value| value != 0)
+                .collect::<Vec<_>>()
+        );
     }
 
-    #[cfg(feature = "ilp-solver")]
     #[derive(Deserialize)]
     struct ILPToQuboData {
         source: ILPSource,
@@ -734,17 +753,15 @@ mod qubo_reductions {
         qubo_optimal: QuboOptimal,
     }
 
-    #[cfg(feature = "ilp-solver")]
     #[derive(Deserialize)]
     struct ILPSource {
         num_variables: usize,
-        objective: Vec<f64>,
-        constraints_lhs: Vec<Vec<f64>>,
-        constraints_rhs: Vec<f64>,
-        constraint_signs: Vec<i32>,
+        objective: Vec<i64>,
+        constraints_lhs: Vec<Vec<i64>>,
+        constraints_rhs: Vec<i64>,
+        constraint_signs: Vec<i64>,
     }
 
-    #[cfg(feature = "ilp-solver")]
     #[test]
     fn test_ilp_to_qubo_ground_truth() {
         let json = std::fs::read_to_string("tests/data/qubo/ilp_to_qubo.json").unwrap();
@@ -758,10 +775,10 @@ mod qubo_reductions {
             .zip(data.source.constraints_rhs.iter())
             .zip(data.source.constraint_signs.iter())
             .map(|((row, &rhs), &sign)| {
-                let terms: Vec<(usize, f64)> = row
+                let terms: Vec<(usize, i64)> = row
                     .iter()
                     .enumerate()
-                    .filter(|(_, &c)| c.abs() > 1e-15)
+                    .filter(|(_, &c)| c != 0)
                     .map(|(i, &c)| (i, c))
                     .collect();
                 match sign {
@@ -774,12 +791,12 @@ mod qubo_reductions {
             .collect();
 
         // Build objective (dense to sparse)
-        let objective: Vec<(usize, f64)> = data
+        let objective: Vec<(usize, i64)> = data
             .source
             .objective
             .iter()
             .enumerate()
-            .filter(|(_, &c)| c.abs() > 1e-15)
+            .filter(|(_, &c)| c != 0)
             .map(|(i, &c)| (i, c))
             .collect();
 
@@ -789,25 +806,32 @@ mod qubo_reductions {
             constraints,
             objective,
             ObjectiveSense::Maximize,
-        );
-        let reduction = ReduceTo::<QUBO>::reduce_to(&ilp);
+        )
+        .unwrap();
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         // QUBO may have more variables (slack), but original count matches
         assert!(qubo.num_variables() >= data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(qubo);
+        let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(ilp.evaluate(&extracted).is_valid());
+            let extracted = reduction.extract_solution(sol).unwrap();
+            assert!(ilp.evaluate(&extracted).unwrap().is_valid());
         }
 
         // Optimal assignment should match ground truth
         let gt_config = &data.qubo_optimal.configs[0];
-        let our_config = reduction.extract_solution(&solutions[0]);
-        assert_eq!(&our_config, gt_config);
+        let our_config = reduction.extract_solution(&solutions[0]).unwrap();
+        assert_eq!(
+            &our_config,
+            &gt_config
+                .iter()
+                .map(|&value| i64::try_from(value).unwrap())
+                .collect::<Vec<_>>()
+        );
     }
 
     #[derive(Deserialize)]
@@ -829,26 +853,26 @@ mod qubo_reductions {
         let data: VCToQuboData = serde_json::from_str(&json).unwrap();
 
         let n = data.source.num_vertices;
-        let vc = MinimumVertexCover::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
+        let vc = MinimumVertexCover::new(SimpleGraph::new(n, data.source.edges), vec![1i64; n]);
 
         // Find path MVC → ... → QUBO through the reduction graph
         let graph = ReductionGraph::new();
         let src =
-            ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+            ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
         let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
         let path = graph
-            .find_cheapest_path(
-                "MinimumVertexCover",
-                &src,
-                "QUBO",
-                &dst,
-                &ProblemSize::new(vec![
-                    ("num_vertices", n),
-                    ("num_edges", vc.graph().num_edges()),
-                ]),
-                &Minimize("num_vars"),
-            )
-            .expect("Should find path MVC -> QUBO");
+            .find_all_paths("MinimumVertexCover", &src, "QUBO", &dst)
+            .into_iter()
+            .find(|path| {
+                path.type_names()
+                    == [
+                        "MinimumVertexCover",
+                        "MaximumIndependentSet",
+                        "MaximumSetPacking",
+                        "QUBO",
+                    ]
+            })
+            .expect("explicit MIS route");
         assert_eq!(
             path.type_names(),
             vec![
@@ -861,22 +885,23 @@ mod qubo_reductions {
 
         let chain = graph
             .reduce_along_path(&path, &vc as &dyn std::any::Any)
+            .expect("MinimumVertexCover -> QUBO reduction should not fail")
             .expect("Should reduce MVC to QUBO");
         let qubo: &QUBO<f64> = chain.target_problem();
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_witnesses(qubo);
+        let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         // Extract back through the full chain to get VC solution
         for sol in &solutions {
-            let vc_sol = chain.extract_solution(sol);
-            assert!(vc.evaluate(&vc_sol).is_valid());
+            let vc_sol = chain.extract_solution(sol).unwrap();
+            assert!(vc.evaluate(&vc_sol).unwrap().is_valid());
         }
 
         // Optimal VC size should match ground truth
-        let vc_sol = chain.extract_solution(&solutions[0]);
+        let vc_sol: Vec<bool> = chain.extract_solution(&solutions[0]).unwrap();
         let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_vc_size: usize = vc_sol.iter().sum();
+        let our_vc_size = vc_sol.iter().filter(|&&selected| selected).count();
         assert_eq!(our_vc_size, gt_vc_size);
     }
 }
@@ -890,14 +915,14 @@ mod io_tests {
     fn test_serialize_reduce_deserialize() {
         let original = MaximumIndependentSet::new(
             SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-            vec![1i32; 4],
+            vec![1i64; 4],
         );
 
         // Serialize
         let json = to_json(&original).unwrap();
 
         // Deserialize
-        let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
+        let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json).unwrap();
 
         // Should have same structure
         assert_eq!(
@@ -907,7 +932,8 @@ mod io_tests {
         assert_eq!(restored.graph().num_edges(), original.graph().num_edges());
 
         // Reduce the restored problem
-        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&restored);
+        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&restored)
+            .expect("reduction should succeed");
         let vc = result.target_problem();
 
         assert_eq!(vc.graph().num_vertices(), 4);
@@ -917,16 +943,17 @@ mod io_tests {
     #[test]
     fn test_serialize_qubo_sg_roundtrip() {
         // Use from_matrix for simpler construction
-        let qubo = QUBO::from_matrix(vec![vec![1.0, 0.5], vec![0.0, -1.0]]);
+        let qubo = QUBO::from_matrix(vec![vec![1.0, 0.5], vec![0.0, -1.0]]).unwrap();
 
         // Serialize
         let json = to_json(&qubo).unwrap();
 
         // Deserialize
-        let restored: QUBO = from_json(&json).unwrap();
+        let restored: QUBO<f64> = from_json(&json).unwrap();
 
         // Reduce to SG
-        let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&restored);
+        let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&restored)
+            .expect("reduction should succeed");
         let sg = result.target_problem();
 
         // Serialize the SG
@@ -948,27 +975,29 @@ mod end_to_end {
         // Start with an MaximumIndependentSet problem
         let is = MaximumIndependentSet::new(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]),
-            vec![1i32; 5],
+            vec![1i64; 5],
         );
 
         // Solve directly
         let solver = BruteForce::new();
-        let is_solutions = solver.find_all_witnesses(&is);
-        let direct_size = is_solutions[0].iter().sum::<usize>();
+        let is_solutions = solver.find_all_witnesses(&is).unwrap();
+        let direct_size = is_solutions[0].iter().filter(|&&selected| selected).count();
 
         // Reduce to VC and solve
-        let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is);
+        let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is)
+            .expect("reduction should succeed");
         let vc = to_vc.target_problem();
-        let vc_solutions = solver.find_all_witnesses(vc);
-        let vc_extracted = to_vc.extract_solution(&vc_solutions[0]);
-        let via_vc_size = vc_extracted.iter().sum::<usize>();
+        let vc_solutions = solver.find_all_witnesses(vc).unwrap();
+        let vc_extracted = to_vc.extract_solution(&vc_solutions[0]).unwrap();
+        let via_vc_size = vc_extracted.iter().filter(|&&selected| selected).count();
 
         // Reduce to MaximumSetPacking and solve
-        let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is);
+        let to_sp =
+            ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is).expect("reduction should succeed");
         let sp = to_sp.target_problem();
-        let sp_solutions = solver.find_all_witnesses(sp);
-        let sp_extracted = to_sp.extract_solution(&sp_solutions[0]);
-        let via_sp_size = sp_extracted.iter().sum::<usize>();
+        let sp_solutions = solver.find_all_witnesses(sp).unwrap();
+        let sp_extracted = to_sp.extract_solution(&sp_solutions[0]).unwrap();
+        let via_sp_size = sp_extracted.iter().filter(|&&selected| selected).count();
 
         // All should give same optimal size
         assert_eq!(direct_size, via_vc_size);
@@ -982,25 +1011,23 @@ mod end_to_end {
             4,
             vec![((0, 1), 1), ((1, 2), -1), ((2, 3), 1), ((0, 3), -1)],
             vec![0, 0, 0, 0],
-        );
+        )
+        .unwrap();
 
         // Solve directly
         let solver = BruteForce::new();
-        let sg_solutions = solver.find_all_witnesses(&sg);
+        let sg_solutions = solver.find_all_witnesses(&sg).unwrap();
 
-        // Convert usize solution to i32 spin values for compute_energy
-        let direct_spins: Vec<i32> = sg_solutions[0].iter().map(|&x| x as i32).collect();
-        let direct_energy = sg.compute_energy(&direct_spins);
+        let direct_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
 
         // Reduce to MaxCut and solve
-        let to_maxcut = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+        let to_maxcut =
+            ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
         let maxcut = to_maxcut.target_problem();
-        let maxcut_solutions = solver.find_all_witnesses(maxcut);
-        let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]);
+        let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
+        let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]).unwrap();
 
-        // Convert extracted solution to spins for energy computation
-        let extracted_spins: Vec<i32> = maxcut_extracted.iter().map(|&x| x as i32).collect();
-        let via_maxcut_energy = sg.compute_energy(&extracted_spins);
+        let via_maxcut_energy = sg.compute_energy(&maxcut_extracted).unwrap();
 
         // Should give same optimal energy
         assert_eq!(direct_energy, via_maxcut_energy);
@@ -1010,25 +1037,27 @@ mod end_to_end {
     fn test_chain_reduction_sp_is_vc() {
         // MaximumSetPacking -> MaximumIndependentSet -> MinimumVertexCover
         let sets = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3]];
-        let sp = MaximumSetPacking::<i32>::new(sets);
+        let sp = MaximumSetPacking::<i64>::new(sets);
 
         // SP -> IS
-        let sp_to_is = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
+        let sp_to_is = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&sp)
+            .expect("reduction should succeed");
         let is = sp_to_is.target_problem();
 
         // IS -> VC
-        let is_to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(is);
+        let is_to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(is)
+            .expect("reduction should succeed");
         let vc = is_to_vc.target_problem();
 
         // Solve VC
         let solver = BruteForce::new();
-        let vc_solutions = solver.find_all_witnesses(vc);
+        let vc_solutions = solver.find_all_witnesses(vc).unwrap();
 
         // Extract back through chain
-        let is_sol = is_to_vc.extract_solution(&vc_solutions[0]);
-        let sp_sol = sp_to_is.extract_solution(&is_sol);
+        let is_sol = is_to_vc.extract_solution(&vc_solutions[0]).unwrap();
+        let sp_sol = sp_to_is.extract_solution(&is_sol).unwrap();
 
         // Should be valid MaximumSetPacking
-        assert!(sp.evaluate(&sp_sol).is_valid());
+        assert!(sp.evaluate(&sp_sol).unwrap().is_valid());
     }
 }

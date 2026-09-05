@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -11,7 +12,7 @@ fn test_maximum_domatic_number_creation() {
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![4; 4]);
+    assert_eq!(problem.dimensions(), vec![4; 4]);
 }
 
 #[test]
@@ -34,7 +35,7 @@ fn test_maximum_domatic_number_evaluate_optimal() {
     );
     let problem = MaximumDomaticNumber::new(graph);
     let config = vec![0, 1, 2, 0, 2, 1];
-    let result = problem.evaluate(&config);
+    let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Max(Some(3)));
 }
 
@@ -46,7 +47,7 @@ fn test_maximum_domatic_number_evaluate_invalid() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaximumDomaticNumber::new(graph);
     let config = vec![0, 1, 2];
-    let result = problem.evaluate(&config);
+    let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Max(None));
 }
 
@@ -56,7 +57,7 @@ fn test_maximum_domatic_number_evaluate_trivial() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = MaximumDomaticNumber::new(graph);
     let config = vec![0, 0, 0, 0];
-    let result = problem.evaluate(&config);
+    let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Max(Some(1)));
 }
 
@@ -67,8 +68,8 @@ fn test_maximum_domatic_number_solver_p3() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaximumDomaticNumber::new(graph);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    let value = problem.evaluate(&witness);
+    let witness = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&witness).unwrap();
     assert_eq!(value, Max(Some(2)));
 }
 
@@ -78,8 +79,8 @@ fn test_maximum_domatic_number_solver_complete_graph() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = MaximumDomaticNumber::new(graph);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    let value = problem.evaluate(&witness);
+    let witness = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&witness).unwrap();
     assert_eq!(value, Max(Some(4)));
 }
 
@@ -94,7 +95,7 @@ fn test_maximum_domatic_number_serialization() {
 }
 
 #[test]
-fn test_maximum_domatic_number_size_getters() {
+fn test_maximum_domatic_number_parameter_getters() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = MaximumDomaticNumber::new(graph);
     assert_eq!(problem.num_vertices(), 5);
@@ -107,5 +108,5 @@ fn test_maximum_domatic_number_single_vertex() {
     let graph = SimpleGraph::new(1, vec![]);
     let problem = MaximumDomaticNumber::new(graph);
     let config = vec![0];
-    assert_eq!(problem.evaluate(&config), Max(Some(1)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(1)));
 }

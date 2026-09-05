@@ -1,197 +1,143 @@
-//! Shared ILP linearization helpers for Tier 3 reductions.
-//!
-//! These functions generate `LinearConstraint` sets for common ILP patterns:
-//! McCormick products, MTZ orderings, flow conservation, big-M activation,
-//! absolute-value differentials, minimax bounds, and one-hot decoding.
+//! Shared exact-integer helpers for ILP reductions.
 
-#![allow(dead_code)]
 use crate::models::algebraic::LinearConstraint;
 
-/// McCormick linearization: `y = x_a * x_b` (both binary).
-///
-/// Returns 3 constraints: `y ≤ x_a`, `y ≤ x_b`, `y ≥ x_a + x_b - 1`.
-pub fn mccormick_product(y_idx: usize, x_a: usize, x_b: usize) -> Vec<LinearConstraint> {
-    vec![
-        // y <= x_a
-        LinearConstraint::le(vec![(y_idx, 1.0), (x_a, -1.0)], 0.0),
-        // y <= x_b
-        LinearConstraint::le(vec![(y_idx, 1.0), (x_b, -1.0)], 0.0),
-        // y >= x_a + x_b - 1  =>  x_a + x_b - y <= 1
-        LinearConstraint::le(vec![(x_a, 1.0), (x_b, 1.0), (y_idx, -1.0)], 1.0),
-    ]
-}
-
-/// MTZ topological ordering for directed arcs.
-///
-/// For each arc `(u → v)`: `o_v - o_u ≥ 1 - M*(1 - x_u) - M*(1 - x_v)`
-/// when both endpoints are kept (x=0 means kept, x=1 means removed).
-/// Also emits bound constraints: `0 ≤ o_i ≤ n-1`.
-///
-/// `x_offset`: start index for removal indicator variables.
-/// `o_offset`: start index for ordering variables.
-pub fn mtz_ordering(
-    arcs: &[(usize, usize)],
-    n: usize,
-    x_offset: usize,
-    o_offset: usize,
-) -> Vec<LinearConstraint> {
-    let big_m = n as f64;
-    let mut constraints = Vec::new();
-
-    for &(u, v) in arcs {
-        // o_v - o_u + M*x_u + M*x_v >= 1
-        constraints.push(LinearConstraint::ge(
-            vec![
-                (o_offset + v, 1.0),
-                (o_offset + u, -1.0),
-                (x_offset + u, big_m),
-                (x_offset + v, big_m),
-            ],
-            1.0,
-        ));
-    }
-
-    // Bound constraints: 0 <= o_i <= n-1
-    for i in 0..n {
-        constraints.push(LinearConstraint::le(
-            vec![(o_offset + i, 1.0)],
-            (n - 1) as f64,
-        ));
-        constraints.push(LinearConstraint::ge(vec![(o_offset + i, 1.0)], 0.0));
-    }
-
-    constraints
-}
-
-/// Flow conservation at each node.
-///
-/// For each node `u`: `Σ_{(u,v)} f_{uv} - Σ_{(v,u)} f_{vu} = demand[u]`.
-///
-/// `flow_idx` maps an arc index to the ILP variable index for that arc's flow.
-pub fn flow_conservation(
-    arcs: &[(usize, usize)],
-    num_nodes: usize,
-    flow_idx: &dyn Fn(usize) -> usize,
-    demand: &[f64],
-) -> Vec<LinearConstraint> {
-    let mut constraints = Vec::with_capacity(num_nodes);
-    for (node, &rhs) in demand.iter().enumerate().take(num_nodes) {
-        let mut terms = Vec::new();
-        for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
-            if u == node {
-                terms.push((flow_idx(arc_idx), 1.0)); // outgoing
-            }
-            if v == node {
-                terms.push((flow_idx(arc_idx), -1.0)); // incoming
-            }
-        }
-        constraints.push(LinearConstraint::eq(terms, rhs));
-    }
-    constraints
-}
-
-/// Big-M activation: `f ≤ M * y`. Single constraint.
-pub fn big_m_activation(f_idx: usize, y_idx: usize, big_m: f64) -> LinearConstraint {
-    // f - M*y <= 0
-    LinearConstraint::le(vec![(f_idx, 1.0), (y_idx, -big_m)], 0.0)
-}
-
-/// Absolute value linearization: `|a - b| ≤ z`.
-///
-/// Returns 2 constraints: `a - b ≤ z`, `b - a ≤ z`.
-pub fn abs_diff_le(a_idx: usize, b_idx: usize, z_idx: usize) -> Vec<LinearConstraint> {
-    vec![
-        // a - b - z <= 0
-        LinearConstraint::le(vec![(a_idx, 1.0), (b_idx, -1.0), (z_idx, -1.0)], 0.0),
-        // b - a - z <= 0
-        LinearConstraint::le(vec![(b_idx, 1.0), (a_idx, -1.0), (z_idx, -1.0)], 0.0),
-    ]
-}
-
-/// Minimax: `z ≥ expr_i` for each expression.
-///
-/// Each `expr` is a list of `(var_idx, coeff)` terms representing a linear expression.
-pub fn minimax_constraints(
-    z_idx: usize,
-    expr_terms: &[Vec<(usize, f64)>],
-) -> Vec<LinearConstraint> {
-    expr_terms
+/// Convert exact ILP integer values into a source model's `usize` representation.
+pub fn decode_usize_values(values: &[i64]) -> crate::rules::ExtractionResult<Vec<usize>> {
+    values
         .iter()
-        .map(|terms| {
-            // z >= Σ coeff_j * x_j  =>  z - Σ coeff_j * x_j >= 0
-            let mut constraint_terms = vec![(z_idx, 1.0)];
-            for &(var, coeff) in terms {
-                constraint_terms.push((var, -coeff));
-            }
-            LinearConstraint::ge(constraint_terms, 0.0)
+        .enumerate()
+        .map(|(index, &value)| {
+            usize::try_from(value).map_err(|_| {
+                crate::rules::ExtractionError::invalid(format!(
+                    "ILP value {value} at index {index} cannot be represented as usize"
+                ))
+            })
         })
         .collect()
 }
 
-/// One-hot to index extraction.
-///
-/// Given `num_items * num_slots` binary assignment variables starting at `var_offset`,
-/// decode each slot `p` → value `v` where `x_{v*num_slots + p} = 1`.
-///
-/// Layout: variable at index `var_offset + v * num_slots + p` represents
-/// "item v is assigned to slot p".
+/// McCormick linearization: `y = x_a * x_b` for binary variables.
+pub fn mccormick_product<C: From<i8>>(
+    y_idx: usize,
+    x_a: usize,
+    x_b: usize,
+) -> [LinearConstraint<C>; 3] {
+    [
+        LinearConstraint::le(
+            vec![(y_idx, 1_i8.into()), (x_a, (-1_i8).into())],
+            0_i8.into(),
+        ),
+        LinearConstraint::le(
+            vec![(y_idx, 1_i8.into()), (x_b, (-1_i8).into())],
+            0_i8.into(),
+        ),
+        LinearConstraint::le(
+            vec![
+                (x_a, 1_i8.into()),
+                (x_b, 1_i8.into()),
+                (y_idx, (-1_i8).into()),
+            ],
+            1_i8.into(),
+        ),
+    ]
+}
+
+/// Decode one selected item from each slot of a column-major one-hot matrix.
 pub fn one_hot_decode(
-    solution: &[usize],
+    solution: &[i64],
     num_items: usize,
     num_slots: usize,
     var_offset: usize,
-) -> Vec<usize> {
-    (0..num_slots)
-        .map(|p| {
-            (0..num_items)
-                .find(|&v| solution[var_offset + v * num_slots + p] == 1)
-                .unwrap_or(0)
+) -> crate::rules::ExtractionResult<Vec<usize>> {
+    let assignment: Vec<usize> = (0..num_slots)
+        .map(|slot| {
+            let mut selected =
+                (0..num_items).filter(|&item| solution[var_offset + item * num_slots + slot] == 1);
+            let item = selected.next().ok_or_else(|| {
+                crate::rules::ExtractionError::invalid(format!(
+                    "assignment slot {slot} has no selected item"
+                ))
+            })?;
+            if selected.next().is_some() {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "assignment slot {slot} has multiple selected items"
+                )));
+            }
+            Ok(item)
+        })
+        .collect::<crate::rules::ExtractionResult<_>>()?;
+
+    let mut assigned = vec![false; num_items];
+    for &item in &assignment {
+        if std::mem::replace(&mut assigned[item], true) {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "item {item} is selected for multiple assignment slots"
+            )));
+        }
+    }
+    Ok(assignment)
+}
+
+/// Decode one selected column from each row of a row-major one-hot matrix.
+pub fn one_hot_decode_rows(
+    solution: &[i64],
+    num_rows: usize,
+    num_columns: usize,
+    var_offset: usize,
+) -> crate::rules::ExtractionResult<Vec<usize>> {
+    (0..num_rows)
+        .map(|row| {
+            let mut selected = (0..num_columns)
+                .filter(|&column| solution[var_offset + row * num_columns + column] == 1);
+            match (selected.next(), selected.next()) {
+                (Some(column), None) => Ok(column),
+                (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
+                    "assignment row {row} has no selected column"
+                ))),
+                (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                    "assignment row {row} has multiple selected columns"
+                ))),
+            }
         })
         .collect()
 }
 
 /// Convert a permutation to Lehmer code.
-///
-/// Given a permutation of `[0..n)`, returns the Lehmer code representation
-/// where each element counts the number of smaller elements to its right.
-pub fn permutation_to_lehmer(perm: &[usize]) -> Vec<usize> {
-    let n = perm.len();
-    let mut lehmer = Vec::with_capacity(n);
-    for i in 0..n {
-        let count = (i + 1..n).filter(|&j| perm[j] < perm[i]).count();
-        lehmer.push(count);
-    }
-    lehmer
+#[cfg(test)]
+pub fn permutation_to_lehmer(permutation: &[usize]) -> Vec<usize> {
+    (0..permutation.len())
+        .map(|index| {
+            (index + 1..permutation.len())
+                .filter(|&right| permutation[right] < permutation[index])
+                .count()
+        })
+        .collect()
 }
 
-/// One-hot assignment constraints: each item assigned to exactly one slot,
-/// each slot assigned at most one item.
-///
-/// Returns constraints for a `num_items × num_slots` assignment matrix
-/// starting at `var_offset`.
+/// Constrain each item to exactly one slot and each slot to at most one item.
 pub fn one_hot_assignment_constraints(
     num_items: usize,
     num_slots: usize,
     var_offset: usize,
 ) -> Vec<LinearConstraint> {
-    let mut constraints = Vec::new();
-
-    // Each item assigned to exactly one slot
-    for v in 0..num_items {
-        let terms: Vec<(usize, f64)> = (0..num_slots)
-            .map(|p| (var_offset + v * num_slots + p, 1.0))
-            .collect();
-        constraints.push(LinearConstraint::eq(terms, 1.0));
+    let mut constraints = Vec::with_capacity(num_items + num_slots);
+    for item in 0..num_items {
+        constraints.push(LinearConstraint::eq(
+            (0..num_slots)
+                .map(|slot| (var_offset + item * num_slots + slot, 1))
+                .collect(),
+            1,
+        ));
     }
-
-    // Each slot assigned at most one item
-    for p in 0..num_slots {
-        let terms: Vec<(usize, f64)> = (0..num_items)
-            .map(|v| (var_offset + v * num_slots + p, 1.0))
-            .collect();
-        constraints.push(LinearConstraint::le(terms, 1.0));
+    for slot in 0..num_slots {
+        constraints.push(LinearConstraint::le(
+            (0..num_items)
+                .map(|item| (var_offset + item * num_slots + slot, 1))
+                .collect(),
+            1,
+        ));
     }
-
     constraints
 }
 

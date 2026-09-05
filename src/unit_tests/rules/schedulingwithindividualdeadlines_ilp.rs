@@ -16,16 +16,17 @@ fn infeasible_instance() -> SchedulingWithIndividualDeadlines {
 #[test]
 fn test_schedulingwithindividualdeadlines_to_ilp_structure() {
     let problem = feasible_instance();
-    let reduction: ReductionSWIDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3, max_deadline=3 → 9 variables
-    assert_eq!(ilp.num_vars, 9);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 9);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 
     // 3 one-hot + 3 capacity + 1 precedence = 7 constraints
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.constraints().len(), 7);
 }
 
 #[test]
@@ -33,21 +34,23 @@ fn test_schedulingwithindividualdeadlines_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("feasible instance has a witness");
     assert!(
-        problem.evaluate(&bf_solution).0,
+        problem.evaluate(&bf_solution).unwrap().0,
         "brute force solution is valid"
     );
 
-    let reduction: ReductionSWIDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "ILP extracted solution should be a valid schedule"
     );
 }
@@ -55,9 +58,10 @@ fn test_schedulingwithindividualdeadlines_to_ilp_closed_loop() {
 #[test]
 fn test_schedulingwithindividualdeadlines_to_ilp_infeasible() {
     let problem = infeasible_instance();
-    let reduction: ReductionSWIDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should yield infeasible ILP"
     );
 }
@@ -65,16 +69,17 @@ fn test_schedulingwithindividualdeadlines_to_ilp_infeasible() {
 #[test]
 fn test_schedulingwithindividualdeadlines_to_ilp_extract_solution() {
     let problem = feasible_instance();
-    let reduction: ReductionSWIDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // task 0 at slot 0, task 1 at slot 0, task 2 at slot 1
     // max_deadline=3: x_{j,t} at j*3+t
     // x_{0,0}=1, x_{0,1}=0, x_{0,2}=0, x_{1,0}=1, x_{1,1}=0, x_{1,2}=0, x_{2,0}=0, x_{2,1}=1, x_{2,2}=0
     let ilp_solution = vec![1, 0, 0, 1, 0, 0, 0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]);
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "manually constructed solution is valid"
     );
 }
@@ -82,6 +87,7 @@ fn test_schedulingwithindividualdeadlines_to_ilp_extract_solution() {
 #[test]
 fn test_schedulingwithindividualdeadlines_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
-    let reduction: ReductionSWIDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

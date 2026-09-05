@@ -20,45 +20,55 @@ use crate::variant::{K2, K3};
 /// Result of reducing KSatisfiability to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKSatToQUBO {
-    target: QUBO<f64>,
+    target: QUBO<i64>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for ReductionKSatToQUBO {
     type Source = KSatisfiability<K2>;
-    type Target = QUBO<f64>;
+    type Target = QUBO<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
 
 /// Result of reducing `KSatisfiability<K3>` to QUBO.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToQUBO {
-    target: QUBO<f64>,
+    target: QUBO<i64>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for Reduction3SATToQUBO {
     type Source = KSatisfiability<K3>;
-    type Target = QUBO<f64>;
+    type Target = QUBO<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
 
 /// Convert a signed literal to (0-indexed variable, is_negated).
-fn lit_to_var(lit: i32) -> (usize, bool) {
+fn lit_to_var(lit: i64) -> (usize, bool) {
     let var = (lit.unsigned_abs() as usize) - 1;
     let neg = lit < 0;
     (var, neg)
@@ -68,7 +78,19 @@ fn lit_to_var(lit: i32) -> (usize, bool) {
 ///
 /// For clause (l_i ∨ l_j), the penalty for the clause being unsatisfied is
 /// the product of the complemented literals.
-fn add_2sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32]) {
+fn add_coefficient(
+    matrix: &mut [Vec<i64>],
+    row: usize,
+    column: usize,
+    coefficient: i64,
+) -> Result<(), &'static str> {
+    matrix[row][column] = matrix[row][column]
+        .checked_add(coefficient)
+        .ok_or("adding a SAT QUBO coefficient")?;
+    Ok(())
+}
+
+fn add_2sat_clause_penalty(matrix: &mut [Vec<i64>], lits: &[i64]) -> Result<(), &'static str> {
     assert_eq!(lits.len(), 2, "Expected 2-literal clause");
 
     let (var_i, neg_i) = lit_to_var(lits[0]);
@@ -84,25 +106,26 @@ fn add_2sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32]) {
     match (ni, nj) {
         (false, false) => {
             // (x_i ∨ x_j): penalty = (1-x_i)(1-x_j) = 1 - x_i - x_j + x_i·x_j
-            matrix[i][i] -= 1.0;
-            matrix[j][j] -= 1.0;
-            matrix[i][j] += 1.0;
+            add_coefficient(matrix, i, i, -1)?;
+            add_coefficient(matrix, j, j, -1)?;
+            add_coefficient(matrix, i, j, 1)?;
         }
         (true, false) => {
             // (¬x_i ∨ x_j): penalty = x_i(1-x_j) = x_i - x_i·x_j
-            matrix[i][i] += 1.0;
-            matrix[i][j] -= 1.0;
+            add_coefficient(matrix, i, i, 1)?;
+            add_coefficient(matrix, i, j, -1)?;
         }
         (false, true) => {
             // (x_i ∨ ¬x_j): penalty = (1-x_i)x_j = x_j - x_i·x_j
-            matrix[j][j] += 1.0;
-            matrix[i][j] -= 1.0;
+            add_coefficient(matrix, j, j, 1)?;
+            add_coefficient(matrix, i, j, -1)?;
         }
         (true, true) => {
             // (¬x_i ∨ ¬x_j): penalty = x_i·x_j
-            matrix[i][j] += 1.0;
+            add_coefficient(matrix, i, j, 1)?;
         }
     }
+    Ok(())
 }
 
 /// Add the QUBO terms for a 3-literal clause using Rosenberg quadratization.
@@ -119,9 +142,13 @@ fn add_2sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32]) {
 ///   H = a·y3 + M·(y1·y2 - 2·y1·a - 2·y2·a + 3·a)
 ///
 /// `aux_var` is the 0-indexed auxiliary variable.
-fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize) {
+fn add_3sat_clause_penalty(
+    matrix: &mut [Vec<i64>],
+    lits: &[i64],
+    aux_var: usize,
+) -> Result<(), &'static str> {
     assert_eq!(lits.len(), 3, "Expected 3-literal clause");
-    let penalty = 2.0; // Rosenberg penalty weight
+    let penalty = 2; // Rosenberg penalty weight
 
     let (v1, n1) = lit_to_var(lits[0]);
     let (v2, n2) = lit_to_var(lits[1]);
@@ -141,7 +168,13 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
 
     // Helper: add coefficient * yi * yj to the matrix
     // where yi depends on variable vi and negation ni
-    let add_yy = |matrix: &mut [Vec<f64>], vi: usize, ni: bool, vj: usize, nj: bool, coeff: f64| {
+    let add_yy = |matrix: &mut [Vec<i64>],
+                  vi: usize,
+                  ni: bool,
+                  vj: usize,
+                  nj: bool,
+                  coeff: i64|
+     -> Result<(), &'static str> {
         // yi = xi if ni (negated literal), yi = 1 - xi if !ni (positive literal)
         // yi * yj expansion:
         if vi == vj {
@@ -153,15 +186,15 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
                 // yi * yi = yi (binary)
                 if ni {
                     // yi = xi, add coeff * xi
-                    matrix[vi][vi] += coeff;
+                    add_coefficient(matrix, vi, vi, coeff)?;
                 } else {
                     // yi = 1 - xi, add coeff * (1 - xi) = coeff - coeff * xi
                     // constant term ignored in QUBO (offset), diagonal:
-                    matrix[vi][vi] -= coeff;
+                    add_coefficient(matrix, vi, vi, -coeff)?;
                 }
             }
             // else: xi * (1-xi) = 0, nothing to add
-            return;
+            return Ok(());
         }
         // Different variables: yi * yj
         let (lo, hi, lo_neg, hi_neg) = if vi < vj {
@@ -175,70 +208,66 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
         match (lo_neg, hi_neg) {
             (true, true) => {
                 // xi * xj
-                matrix[lo][hi] += coeff;
+                add_coefficient(matrix, lo, hi, coeff)?;
             }
             (true, false) => {
                 // xi * (1 - xj) = xi - xi*xj
-                matrix[lo][lo] += coeff;
-                matrix[lo][hi] -= coeff;
+                add_coefficient(matrix, lo, lo, coeff)?;
+                add_coefficient(matrix, lo, hi, -coeff)?;
             }
             (false, true) => {
                 // (1 - xi) * xj = xj - xi*xj
-                matrix[hi][hi] += coeff;
-                matrix[lo][hi] -= coeff;
+                add_coefficient(matrix, hi, hi, coeff)?;
+                add_coefficient(matrix, lo, hi, -coeff)?;
             }
             (false, false) => {
                 // (1-xi)(1-xj) = 1 - xi - xj + xi*xj
                 // constant 1 ignored (offset)
-                matrix[lo][lo] -= coeff;
-                matrix[hi][hi] -= coeff;
-                matrix[lo][hi] += coeff;
+                add_coefficient(matrix, lo, lo, -coeff)?;
+                add_coefficient(matrix, hi, hi, -coeff)?;
+                add_coefficient(matrix, lo, hi, coeff)?;
             }
         }
+        Ok(())
     };
 
     // Helper: add coefficient * yi * a to the matrix
     // where yi depends on variable vi and negation ni, a is aux variable
-    let add_ya = |matrix: &mut [Vec<f64>], vi: usize, ni: bool, a: usize, coeff: f64| {
+    let add_ya = |matrix: &mut [Vec<i64>],
+                  vi: usize,
+                  ni: bool,
+                  a: usize,
+                  coeff: i64|
+     -> Result<(), &'static str> {
         // yi = xi if ni (negated literal), yi = 1-xi if !ni (positive literal)
         // yi * a:
         let (lo, hi) = if vi < a { (vi, a) } else { (a, vi) };
         if ni {
             // yi = xi, so yi * a = xi * a
-            matrix[lo][hi] += coeff;
+            add_coefficient(matrix, lo, hi, coeff)?;
         } else {
             // yi = 1 - xi, so yi * a = a - xi * a
-            matrix[a][a] += coeff;
-            matrix[lo][hi] -= coeff;
+            add_coefficient(matrix, a, a, coeff)?;
+            add_coefficient(matrix, lo, hi, -coeff)?;
         }
+        Ok(())
     };
 
-    // Helper: add coefficient * yi to the matrix (linear term)
-    let add_y = |matrix: &mut [Vec<f64>], vi: usize, ni: bool, coeff: f64| {
-        if ni {
-            // yi = xi
-            matrix[vi][vi] += coeff;
-        } else {
-            // yi = 1 - xi, linear part: -coeff * xi (constant coeff ignored)
-            matrix[vi][vi] -= coeff;
-        }
-    };
-
-    // Term 1: a * y3 (coefficient = 1.0)
-    add_ya(matrix, v3, n3, a, 1.0);
+    // Term 1: a * y3 (coefficient = 1)
+    add_ya(matrix, v3, n3, a, 1)?;
 
     // Term 2: M * y1 * y2
-    add_yy(matrix, v1, n1, v2, n2, penalty);
+    add_yy(matrix, v1, n1, v2, n2, penalty)?;
 
     // Term 3: -2M * y1 * a
-    add_ya(matrix, v1, n1, a, -2.0 * penalty);
+    add_ya(matrix, v1, n1, a, -2 * penalty)?;
 
     // Term 4: -2M * y2 * a
-    add_ya(matrix, v2, n2, a, -2.0 * penalty);
+    add_ya(matrix, v2, n2, a, -2 * penalty)?;
 
     // Term 5: 3M * a (linear)
     // a is a binary variable, a^2 = a, so linear a → diagonal
-    matrix[a][a] += 3.0 * penalty;
+    add_coefficient(matrix, a, a, 3 * penalty)?;
 
     // We also need to add linear terms that come from constant offsets in products
     // Actually, let's verify: the full expansion of
@@ -254,7 +283,7 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
     // This is correct.
 
     // Note: We ignore constant terms (don't affect QUBO optimization).
-    let _ = add_y; // suppress unused warning - linear terms in y handled via products
+    Ok(())
 }
 
 /// Build a QUBO matrix from a KSatisfiability instance.
@@ -267,60 +296,82 @@ fn build_qubo_matrix(
     num_vars: usize,
     clauses: &[crate::models::formula::CNFClause],
     k: usize,
-) -> Vec<Vec<f64>> {
+) -> Result<Vec<Vec<i64>>, &'static str> {
     match k {
         2 => {
-            let mut matrix = vec![vec![0.0; num_vars]; num_vars];
+            let mut matrix = vec![vec![0; num_vars]; num_vars];
             for clause in clauses {
-                add_2sat_clause_penalty(&mut matrix, &clause.literals);
+                add_2sat_clause_penalty(&mut matrix, &clause.literals)?;
             }
-            matrix
+            Ok(matrix)
         }
         3 => {
             let num_aux = clauses.len(); // one auxiliary per clause
-            let total = num_vars + num_aux;
-            let mut matrix = vec![vec![0.0; total]; total];
+            let total = num_vars
+                .checked_add(num_aux)
+                .ok_or("computing the number of SAT QUBO variables")?;
+            let mut matrix = vec![vec![0; total]; total];
             for (idx, clause) in clauses.iter().enumerate() {
                 let aux_var = num_vars + idx;
-                add_3sat_clause_penalty(&mut matrix, &clause.literals, aux_var);
+                add_3sat_clause_penalty(&mut matrix, &clause.literals, aux_var)?;
             }
-            matrix
+            Ok(matrix)
         }
         _ => unimplemented!("KSatisfiability to QUBO only supports K=2 and K=3"),
     }
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars" }
+    transform = exact {
+        num_vars = "num_vars",
+    }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
+impl ReduceTo<QUBO<i64>> for KSatisfiability<K2> {
     type Result = ReductionKSatToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
-        let matrix = build_qubo_matrix(n, self.clauses(), 2);
+        let matrix = build_qubo_matrix(n, self.clauses(), 2).map_err(|operation| {
+            crate::rules::ReductionError::integer_overflow::<KSatisfiability<K2>, QUBO<i64>>(
+                operation,
+            )
+        })?;
 
-        ReductionKSatToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionKSatToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<KSatisfiability<K2>, QUBO<i64>>(
+                    message,
+                )
+            })?,
             source_num_vars: n,
-        }
+        })
     }
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars + num_clauses" }
+    transform = exact {
+        num_vars = "num_vars + num_clauses",
+    }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {
+impl ReduceTo<QUBO<i64>> for KSatisfiability<K3> {
     type Result = Reduction3SATToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
-        let matrix = build_qubo_matrix(n, self.clauses(), 3);
+        let matrix = build_qubo_matrix(n, self.clauses(), 3).map_err(|operation| {
+            crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, QUBO<i64>>(
+                operation,
+            )
+        })?;
 
-        Reduction3SATToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(Reduction3SATToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<KSatisfiability<K3>, QUBO<i64>>(
+                    message,
+                )
+            })?,
             source_num_vars: n,
-        }
+        })
     }
 }
 
@@ -343,11 +394,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         CNFClause::new(vec![-3, -4]),
                     ],
                 );
-                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![0, 1, 0, 1],
-                        target_config: vec![0, 1, 0, 1],
+                        source_config: serde_json::json!(vec![false, true, false, true]),
+                        target_config: serde_json::json!(vec![false, true, false, true]),
                     },
                 )
             },
@@ -367,11 +418,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         CNFClause::new(vec![3, -4, -5]),
                     ],
                 );
-                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![0, 0, 0, 0, 0],
-                        target_config: vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                        source_config: serde_json::json!(vec![false, false, false, false, false]),
+                        target_config: serde_json::json!(vec![
+                            false, false, false, false, false, true, false, false, false, false,
+                            false, false
+                        ]),
                     },
                 )
             },

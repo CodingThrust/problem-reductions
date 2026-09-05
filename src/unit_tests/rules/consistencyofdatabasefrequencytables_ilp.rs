@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
@@ -31,68 +31,70 @@ fn small_no_instance() -> ConsistencyOfDatabaseFrequencyTables {
 #[test]
 fn test_cdft_to_ilp_structure() {
     let problem = small_yes_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 16);
-    assert_eq!(ilp.constraints.len(), 33);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 16);
+    assert_eq!(ilp.constraints().len(), 33);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 }
 
 #[test]
 fn test_cdft_to_ilp_closed_loop() {
     let problem = small_yes_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "ConsistencyOfDatabaseFrequencyTables->ILP closed loop",
-    );
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
 fn test_cdft_to_ilp_solution_encoding_round_trip() {
     let problem = small_yes_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = reduction.encode_source_solution(&small_yes_witness());
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, small_yes_witness());
 }
 
 #[test]
 fn test_cdft_to_ilp_unsat_instance_is_infeasible() {
     let problem = small_no_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let solver = ILPSolver::new();
-    assert!(solver.solve(reduction.target_problem()).is_none());
+    assert!(solver.solve(reduction.target_problem()).is_err());
 }
 
 #[test]
-fn test_cdft_to_ilp_solve_reduced() {
+fn test_cdft_solve_via_ilp_pipeline() {
     let problem = small_yes_instance();
     let solver = ILPSolver::new();
     let solution = solver
-        .solve_reduced(&problem)
-        .expect("solve_reduced should find a satisfying assignment");
-    assert!(problem.evaluate(&solution));
+        .solve(&problem)
+        .expect("ILP pipeline should find a satisfying assignment");
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_consistency_to_ilp_bf_vs_ilp() {
     let problem = small_yes_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should be satisfiable");
-    assert!(problem.evaluate(&bf_witness));
+    assert!(problem.evaluate(&bf_witness).unwrap());
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert!(problem.evaluate(&extracted));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert!(problem.evaluate(&extracted).unwrap());
 }
 
 fn issue_instance() -> ConsistencyOfDatabaseFrequencyTables {
@@ -118,14 +120,15 @@ fn issue_witness() -> Vec<usize> {
 #[test]
 fn test_cdft_to_ilp_issue_instance_closed_loop() {
     let problem = issue_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let solver = ILPSolver::new();
     let target_solution = solver
         .solve(reduction.target_problem())
         .expect("ILP solver should find a feasible solution for the issue instance");
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = reduction.extract_solution(&target_solution).unwrap();
     assert!(
-        problem.evaluate(&source_solution),
+        problem.evaluate(&source_solution).unwrap(),
         "extracted source solution must satisfy the original CDFT instance"
     );
 }
@@ -133,8 +136,9 @@ fn test_cdft_to_ilp_issue_instance_closed_loop() {
 #[test]
 fn test_cdft_to_ilp_issue_instance_encoding_round_trip() {
     let problem = issue_instance();
-    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCDFTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = reduction.encode_source_solution(&issue_witness());
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, issue_witness());
 }

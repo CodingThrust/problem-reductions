@@ -1,9 +1,10 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
-fn example_instance() -> BoundedDiameterSpanningTree<SimpleGraph, i32> {
+fn example_instance() -> BoundedDiameterSpanningTree<SimpleGraph, i64> {
     // 5 vertices, 7 edges with weights
     // (0,1,1),(0,2,2),(0,3,1),(1,2,1),(1,4,2),(2,3,1),(3,4,1)
     // B=5, D=3
@@ -25,7 +26,7 @@ fn test_bounded_diameter_spanning_tree_creation() {
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.weight_bound(), &5);
     assert_eq!(problem.diameter_bound(), 3);
-    assert_eq!(problem.dims(), vec![2; 7]);
+    assert_eq!(problem.dimensions(), vec![2; 7]);
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.edge_list().len(), 7);
     assert_eq!(problem.edge_weights().len(), 7);
@@ -40,7 +41,9 @@ fn test_bounded_diameter_spanning_tree_evaluate_valid() {
     // Weight: 1+1+1+1 = 4 ≤ 5
     // Tree adjacency: 0-{1,3}, 1-{0}, 2-{3}, 3-{0,2,4}, 4-{3}
     // Diameter: longest path is e.g. 1-0-3-2 or 1-0-3-4 = 3 edges ≤ 3
-    assert!(problem.evaluate(&[1, 0, 1, 0, 0, 1, 1]));
+    assert!(problem
+        .evaluate(&vec![true, false, true, false, false, true, true])
+        .unwrap());
 }
 
 #[test]
@@ -48,7 +51,9 @@ fn test_bounded_diameter_spanning_tree_evaluate_exceeds_weight() {
     let problem = example_instance();
     // Select edges 1,2,4,6: (0,2),(0,3),(1,4),(3,4)
     // Weight: 2+1+2+1 = 6 > 5
-    assert!(!problem.evaluate(&[0, 1, 1, 0, 1, 0, 1]));
+    assert!(!problem
+        .evaluate(&vec![false, true, true, false, true, false, true])
+        .unwrap());
 }
 
 #[test]
@@ -61,32 +66,42 @@ fn test_bounded_diameter_spanning_tree_evaluate_exceeds_diameter() {
         1, // diameter ≤ 1 means all vertices must be distance 1 from each other
     );
     // The only spanning tree is the path 0-1-2-3 with diameter 3
-    assert!(!problem.evaluate(&[1, 1, 1]));
+    assert!(!problem.evaluate(&vec![true, true, true]).unwrap());
 }
 
 #[test]
 fn test_bounded_diameter_spanning_tree_evaluate_not_tree() {
     let problem = example_instance();
     // Too few edges
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, true, false, false, false, false, false])
+        .unwrap());
     // Too many edges
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, true, true, true, true, false, false])
+        .unwrap());
 }
 
 #[test]
 fn test_bounded_diameter_spanning_tree_evaluate_wrong_length() {
     let problem = example_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]));
-    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 0, 0, 1]));
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false, false, true, false, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_bounded_diameter_spanning_tree_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
@@ -100,14 +115,14 @@ fn test_bounded_diameter_spanning_tree_infeasible() {
         2,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_bounded_diameter_spanning_tree_serialization() {
     let problem = example_instance();
     let json = serde_json::to_string(&problem).unwrap();
-    let deserialized: BoundedDiameterSpanningTree<SimpleGraph, i32> =
+    let deserialized: BoundedDiameterSpanningTree<SimpleGraph, i64> =
         serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.num_vertices(), 5);
     assert_eq!(deserialized.num_edges(), 7);
@@ -131,4 +146,20 @@ fn test_bounded_diameter_spanning_tree_zero_diameter_panics() {
 fn test_bounded_diameter_spanning_tree_wrong_weights_length_panics() {
     let _ =
         BoundedDiameterSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1], 5, 2);
+}
+#[test]
+fn create_spec_uses_edge_weights_and_defaults_to_one() {
+    let problem = BoundedDiameterSpanningTree::try_from(BoundedDiameterSpanningTreeCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+        weight_bound: 1,
+        diameter_bound: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.edge_weights(), &[1]);
+    assert_eq!(
+        BoundedDiameterSpanningTreeCreateSpec::FIELDS[2].name,
+        "edge_weights"
+    );
 }

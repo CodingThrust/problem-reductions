@@ -6,7 +6,7 @@ use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
-fn small_instance() -> BoundedComponentSpanningForest<SimpleGraph, i32> {
+fn small_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
     // Path 0-1-2-3, weights [1,2,2,1], K=2, B=4
     BoundedComponentSpanningForest::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
@@ -19,21 +19,22 @@ fn small_instance() -> BoundedComponentSpanningForest<SimpleGraph, i32> {
 #[test]
 fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
     let source = small_instance();
-    let reduction: ReductionBCSFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionBCSFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Solve source with brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&source);
+    let bf_solutions = bf.find_all_witnesses(&source).unwrap();
     assert!(!bf_solutions.is_empty(), "source should be satisfiable");
 
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
 
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution must be valid"
     );
 }
@@ -41,13 +42,14 @@ fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
 #[test]
 fn test_extract_solution() {
     let source = small_instance();
-    let reduction: ReductionBCSFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionBCSFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert_eq!(extracted.len(), 4);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
@@ -59,14 +61,15 @@ fn test_single_component() {
         1,
         3,
     );
-    let reduction: ReductionBCSFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionBCSFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver
         .solve(ilp)
         .expect("single component should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
@@ -78,15 +81,17 @@ fn test_infeasible_instance() {
         2,
         5,
     );
-    let reduction: ReductionBCSFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionBCSFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
-    assert!(solver.solve(ilp).is_none());
+    assert!(solver.solve(ilp).is_err());
 }
 
 #[test]
 fn test_boundedcomponentspanningforest_to_ilp_bf_vs_ilp() {
     let source = small_instance();
-    let reduction: ReductionBCSFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionBCSFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

@@ -31,7 +31,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing HamiltonianCircuit to RuralPostman.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToRuralPostman {
-    target: RuralPostman<SimpleGraph, i32>,
+    target: RuralPostman<SimpleGraph, i64>,
     /// Number of vertices in the original graph.
     n: usize,
     /// Edges of the original graph (for solution extraction).
@@ -40,72 +40,80 @@ pub struct ReductionHamiltonianCircuitToRuralPostman {
 
 impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = RuralPostman<SimpleGraph, i32>;
+    type Target = RuralPostman<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // The target solution is edge multiplicities.
-        // Required edges are indices 0..n (the {v_i^a, v_i^b} edges).
-        // Connectivity edges start at index n.
-        // For each source edge (v_i, v_j) at source index k:
-        //   target edge n + 2*k is {v_i^b, v_j^a}
-        //   target edge n + 2*k + 1 is {v_j^b, v_i^a}
-        //
-        // A connectivity edge {v_i^b, v_j^a} used with multiplicity 1 means
-        // the tour goes from vertex i to vertex j (j follows i in the HC).
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let n = self.n;
+        Ok({
+            // The target solution is edge multiplicities.
+            // Required edges are indices 0..n (the {v_i^a, v_i^b} edges).
+            // Connectivity edges start at index n.
+            // For each source edge (v_i, v_j) at source index k:
+            //   target edge n + 2*k is {v_i^b, v_j^a}
+            //   target edge n + 2*k + 1 is {v_j^b, v_i^a}
+            //
+            // A connectivity edge {v_i^b, v_j^a} used with multiplicity 1 means
+            // the tour goes from vertex i to vertex j (j follows i in the HC).
 
-        // Build successor map from connectivity edges used exactly once
-        let mut successor = vec![usize::MAX; n];
-        for (k, &(vi, vj)) in self.source_edges.iter().enumerate() {
-            let fwd_idx = n + 2 * k; // {v_i^b, v_j^a}
-            let bwd_idx = n + 2 * k + 1; // {v_j^b, v_i^a}
+            let n = self.n;
 
-            let fwd_mult = target_solution.get(fwd_idx).copied().unwrap_or(0);
-            let bwd_mult = target_solution.get(bwd_idx).copied().unwrap_or(0);
+            // Build successor map from connectivity edges used exactly once
+            let mut successor = vec![usize::MAX; n];
+            for (k, &(vi, vj)) in self.source_edges.iter().enumerate() {
+                let fwd_idx = n + 2 * k; // {v_i^b, v_j^a}
+                let bwd_idx = n + 2 * k + 1; // {v_j^b, v_i^a}
 
-            // In an optimal HC solution, each connectivity edge is used 0 or 1 times.
-            // Each vertex should have exactly one outgoing connectivity edge.
-            if fwd_mult > 0 && successor[vi] == usize::MAX {
-                successor[vi] = vj;
+                let fwd_mult = target_solution[fwd_idx];
+                let bwd_mult = target_solution[bwd_idx];
+
+                // In an optimal HC solution, each connectivity edge is used 0 or 1 times.
+                // Each vertex should have exactly one outgoing connectivity edge.
+                if fwd_mult > 0 && successor[vi] == usize::MAX {
+                    successor[vi] = vj;
+                }
+                if bwd_mult > 0 && successor[vj] == usize::MAX {
+                    successor[vj] = vi;
+                }
             }
-            if bwd_mult > 0 && successor[vj] == usize::MAX {
-                successor[vj] = vi;
-            }
-        }
 
-        // Walk the successor chain starting from vertex 0
-        let mut cycle = Vec::with_capacity(n);
-        let mut current = 0;
-        for _ in 0..n {
-            cycle.push(current);
-            let next = successor[current];
-            if next == usize::MAX {
-                // No valid successor found; return fallback
-                return vec![0; n];
+            // Walk the successor chain starting from vertex 0
+            let mut cycle = Vec::with_capacity(n);
+            let mut current = 0;
+            for _ in 0..n {
+                cycle.push(current);
+                let next = successor[current];
+                if next == usize::MAX {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "target tour does not provide one successor for every source vertex",
+                    ));
+                }
+                current = next;
             }
-            current = next;
-        }
 
-        cycle
+            cycle
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "2 * num_vertices",
         num_edges = "num_vertices + 2 * num_edges",
         num_required_edges = "num_vertices",
     }
 )]
-impl ReduceTo<RuralPostman<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<RuralPostman<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToRuralPostman;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let source_edges: Vec<(usize, usize)> = self.graph().edges();
         let m = source_edges.len();
@@ -136,11 +144,11 @@ impl ReduceTo<RuralPostman<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph
         let target_graph = SimpleGraph::new(2 * n, target_edges);
         let target = RuralPostman::new(target_graph, edge_weights, required_edges);
 
-        ReductionHamiltonianCircuitToRuralPostman {
+        Ok(ReductionHamiltonianCircuitToRuralPostman {
             target,
             n,
             source_edges,
-        }
+        })
     }
 }
 
@@ -161,11 +169,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   2->0: bwd edge of source edge 2=(0,2), idx=8
             // Required edges all have multiplicity 1.
             // target_config = [1, 1, 1, 1, 0, 1, 0, 0, 1]
-            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2],
-                    target_config: vec![1, 1, 1, 1, 0, 1, 0, 0, 1],
+                    source_config: serde_json::json!(vec![0, 1, 2]),
+                    target_config: serde_json::json!(vec![1, 1, 1, 1, 0, 1, 0, 0, 1]),
                 },
             )
         },

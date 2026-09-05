@@ -9,7 +9,7 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    registry::{FieldInfo, ProblemSchemaEntry, VariantDimension},
+    registry::{CreateSpec, ProblemSchemaEntry, VariantDimension},
     topology::{Graph, SimpleGraph},
     traits::Problem,
     types::{Min, One, WeightElement},
@@ -22,15 +22,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["One", "i32"]),
+            VariantDimension::new("weight", "i64", &["One", "i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight tree connecting terminal vertices",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
-            FieldInfo { name: "terminals", type_name: "Vec<usize>", description: "Terminal vertices T that must be connected" },
-        ],
+        fields: SteinerTreeCreateSpec::<i64>::FIELDS,
     }
 }
 
@@ -53,8 +50,8 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `W` - The weight type for edges (e.g., `i32`, `f64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// * `W` - The weight type for edges (e.g., `i64`, `f64`)
+#[derive(Debug, Clone, Serialize)]
 pub struct SteinerTree<G, W> {
     /// The underlying graph.
     graph: G,
@@ -64,38 +61,109 @@ pub struct SteinerTree<G, W> {
     terminals: Vec<usize>,
 }
 
-impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
-    /// Create a SteinerTree problem from a graph, edge weights, and terminals.
-    pub fn new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        let n = graph.num_vertices();
-        let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
-        assert_eq!(
-            distinct_terminals.len(),
-            terminals.len(),
-            "terminals must be distinct"
-        );
-        for &t in &terminals {
-            assert!(t < n, "terminal {t} out of range (num_vertices = {n})");
+impl<'de, G, W> Deserialize<'de> for SteinerTree<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Fields<G, W> {
+            graph: G,
+            edge_weights: Vec<W>,
+            terminals: Vec<usize>,
         }
-        assert!(terminals.len() >= 2, "at least 2 terminals required");
-        Self {
+
+        let fields = Fields::deserialize(deserializer)?;
+        Self::try_new(fields.graph, fields.edge_weights, fields.terminals)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SteinerTreeCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Edge weights w: E -> R.
+    edge_weights: Vec<W>,
+    /// Terminal vertices T that must be connected.
+    terminals: Vec<usize>,
+}
+
+impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<SimpleGraph, W> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: SteinerTreeCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.edge_weights.len() != spec.graph.num_edges() {
+            return Err(format!(
+                "edge_weights has {} entries, expected {}",
+                spec.edge_weights.len(),
+                spec.graph.num_edges()
+            )
+            .into());
+        }
+        if spec.terminals.len() < 2 {
+            return Err("at least two terminals are required".to_string().into());
+        }
+        let mut distinct = spec.terminals.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != spec.terminals.len() {
+            return Err("terminals must be distinct".to_string().into());
+        }
+        if let Some(&terminal) = spec
+            .terminals
+            .iter()
+            .find(|&&t| t >= spec.graph.num_vertices())
+        {
+            return Err(format!(
+                "terminal {terminal} is outside graph with {} vertices",
+                spec.graph.num_vertices()
+            )
+            .into());
+        }
+        Self::try_new(spec.graph, spec.edge_weights, spec.terminals).map_err(Into::into)
+    }
+}
+
+impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
+    fn try_new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Result<Self, String> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".into());
+        }
+        if terminals.len() < 2 {
+            return Err("at least 2 terminals required".into());
+        }
+        let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
+        if distinct_terminals.len() != terminals.len() {
+            return Err("terminals must be distinct".into());
+        }
+        let n = graph.num_vertices();
+        if let Some(&terminal) = terminals.iter().find(|&&terminal| terminal >= n) {
+            return Err(format!(
+                "terminal {terminal} out of range (num_vertices = {n})"
+            ));
+        }
+        Ok(Self {
             graph,
             edge_weights,
             terminals,
-        }
+        })
+    }
+
+    /// Create a SteinerTree problem from a graph, edge weights, and terminals.
+    pub fn new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Self {
+        Self::try_new(graph, edge_weights, terminals).unwrap_or_else(|error| panic!("{error}"))
     }
 
     /// Create a SteinerTree problem with unit edge weights.
     pub fn unit_weights(graph: G, terminals: Vec<usize>) -> Self
     where
-        W: From<i32>,
+        W: WeightElement,
     {
-        let edge_weights = vec![W::from(1); graph.num_edges()];
+        let edge_weights = vec![W::unit(); graph.num_edges()];
         Self::new(graph, edge_weights, terminals)
     }
 
@@ -134,7 +202,7 @@ impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
     }
 
     /// Check if a configuration is a valid Steiner tree.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_steiner_tree(&self.graph, &self.terminals, config)
     }
 }
@@ -159,7 +227,7 @@ impl<G: Graph, W: WeightElement> SteinerTree<G, W> {
 /// Check if a configuration forms a valid Steiner tree:
 /// 1. Selected edges form a connected subgraph containing all terminals
 /// 2. Selected edges are acyclic (tree property)
-fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[usize]) -> bool {
+fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[bool]) -> bool {
     let n = graph.num_vertices();
     let edges = graph.edges();
     if config.len() != edges.len() {
@@ -171,7 +239,7 @@ fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[usi
     let mut selected_count = 0usize;
     let mut involved = vec![false; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push(v);
             adj[v].push(u);
@@ -221,41 +289,89 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "SteinerTree";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_parameters![
+        ("num_edges", num_edges),
+        ("num_terminals", num_terminals),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !is_valid_steiner_tree(&self.graph, &self.terminals, config) {
-            return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.to_sum();
+        Ok({
+            if !is_valid_steiner_tree(&self.graph, &self.terminals, config) {
+                return Ok(Min(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected {
+                    if let Some(w) = self.edge_weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing Steiner tree edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Min(Some(total))
+            Min(Some(total))
+        })
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for SteinerTree<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
+crate::impl_random_generate!(SteinerTree<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
+    if spec.num_vertices < 2 {
+        return Err("num_vertices must be at least 2".to_string().into());
+    }
+    let mut state = crate::random::lcg_init(crate::random::seed_to_u64(spec.seed)?);
+    let graph = spec.graph()?;
+    for _ in 0..spec.num_vertices * spec.num_vertices {
+        crate::random::lcg_step(&mut state);
+    }
+    let weights = (0..graph.num_edges()).map(|_| (crate::random::lcg_step(&mut state) * 9.0) as i64 + 1).collect();
+    let count = std::cmp::max(2, spec.num_vertices * 2 / 5);
+    let terminals = crate::random::lcg_choose(&mut state, spec.num_vertices, count)
+        .map_err(|error| error.to_string())?;
+    Ok(SteinerTree::new(graph, weights, terminals))
+});
+
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
-    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    default SteinerTree<SimpleGraph, i64> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
+    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<One>,
+}
+
+crate::register_brute_force! {
+    SteinerTree<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    SteinerTree<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "steiner_tree_simplegraph_i32",
+        id: "steiner_tree_simplegraph",
         instance: Box::new(SteinerTree::new(
             SimpleGraph::new(
                 5,
@@ -264,7 +380,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 5, 2, 1, 5, 6, 1],
             vec![0, 2, 4],
         )),
-        optimal_config: vec![1, 0, 1, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, true, false, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }

@@ -26,8 +26,7 @@ where
         + num_traits::Zero
         + num_traits::Bounded
         + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + From<i32>,
+        + std::ops::Mul<Output = W>,
 {
     type Source = MaxCut<SimpleGraph, W>;
     type Target = SpinGlass<SimpleGraph, W>;
@@ -36,21 +35,26 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&spin| spin == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_spins = "num_vertices",
         num_interactions = "num_edges",
     }
 )]
-impl ReduceTo<SpinGlass<SimpleGraph, i32>> for MaxCut<SimpleGraph, i32> {
-    type Result = ReductionMaxCutToSG<i32>;
+impl ReduceTo<SpinGlass<SimpleGraph, i64>> for MaxCut<SimpleGraph, i64> {
+    type Result = ReductionMaxCutToSG<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges_with_weights = self.edges();
 
@@ -71,17 +75,23 @@ impl ReduceTo<SpinGlass<SimpleGraph, i32>> for MaxCut<SimpleGraph, i32> {
         // MaxCut wants to maximize edges cut, SpinGlass minimizes energy.
         // When J > 0 (antiferromagnetic), opposite spins lower energy.
         // So maximizing cut = minimizing Ising energy with J = w.
-        let interactions: Vec<((usize, usize), i32)> = edges_with_weights
+        let interactions: Vec<((usize, usize), i64)> = edges_with_weights
             .into_iter()
             .map(|(u, v, w)| ((u, v), w))
             .collect();
 
         // No onsite terms for pure MaxCut
-        let onsite = vec![0i32; n];
+        let onsite = vec![0i64; n];
 
-        let target = SpinGlass::<SimpleGraph, i32>::new(n, interactions, onsite);
+        let target =
+            SpinGlass::<SimpleGraph, i64>::new(n, interactions, onsite).map_err(|cause| {
+                crate::rules::ReductionError::construction::<
+                    MaxCut<SimpleGraph, i64>,
+                    SpinGlass<SimpleGraph, i64>,
+                >(cause)
+            })?;
 
-        ReductionMaxCutToSG { target }
+        Ok(ReductionMaxCutToSG { target })
     }
 }
 
@@ -102,8 +112,7 @@ where
         + num_traits::Zero
         + num_traits::Bounded
         + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + From<i32>,
+        + std::ops::Mul<Output = W>,
 {
     type Source = SpinGlass<SimpleGraph, W>;
     type Target = MaxCut<SimpleGraph, W>;
@@ -112,34 +121,46 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match self.ancilla {
-            None => target_solution.to_vec(),
-            Some(anc) => {
-                // If ancilla is 1, flip all bits; then remove ancilla
-                let mut sol = target_solution.to_vec();
-                if sol[anc] == 1 {
-                    for x in sol.iter_mut() {
-                        *x = 1 - *x;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            match self.ancilla {
+                None => target_solution
+                    .iter()
+                    .map(|&side| if side { 1 } else { -1 })
+                    .collect(),
+                Some(anc) => {
+                    // If ancilla is 1, flip all bits; then remove ancilla
+                    let mut sol = target_solution.to_vec();
+                    if sol[anc] {
+                        for x in sol.iter_mut() {
+                            *x = !*x;
+                        }
                     }
+                    sol.remove(anc);
+                    sol.into_iter()
+                        .map(|side| if side { 1 } else { -1 })
+                        .collect()
                 }
-                sol.remove(anc);
-                sol
             }
-        }
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "num_spins",
+    transform = upper_bound {
+        num_vertices = "num_spins + 1",
         num_edges = "num_interactions + num_spins",
     }
 )]
-impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {
-    type Result = ReductionSGToMaxCut<i32>;
+impl ReduceTo<MaxCut<SimpleGraph, i64>> for SpinGlass<SimpleGraph, i64> {
+    type Result = ReductionSGToMaxCut<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_spins();
         let interactions = self.interactions();
         let fields = self.fields();
@@ -172,10 +193,10 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {
 
         let target = MaxCut::new(SimpleGraph::new(total_vertices, edges), weights);
 
-        ReductionSGToMaxCut {
+        Ok(ReductionSGToMaxCut {
             target,
             ancilla: ancilla_idx,
-        }
+        })
     }
 }
 
@@ -189,11 +210,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaxCut::unweighted(SimpleGraph::new(n, edges));
-                crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i32>>(
+                crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
-                        target_config: vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
+                        source_config: serde_json::json!(vec![
+                            false, true, false, true, false, true, false, false, false, true
+                        ]),
+                        target_config: serde_json::json!(vec![-1, 1, -1, 1, -1, 1, -1, -1, -1, 1]),
                     },
                 )
             },
@@ -202,17 +225,19 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "spinglass_to_maxcut",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
-                let couplings: Vec<((usize, usize), i32)> = edges
+                let couplings: Vec<((usize, usize), i64)> = edges
                     .iter()
                     .enumerate()
                     .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1 } else { -1 }))
                     .collect();
-                let source = SpinGlass::new(n, couplings, vec![0; n]);
-                crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
+                let source = SpinGlass::new(n, couplings, vec![0; n]).unwrap();
+                crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
-                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        source_config: serde_json::json!(vec![1, -1, 1, 1, 1, -1, 1, -1, -1, 1]),
+                        target_config: serde_json::json!(vec![
+                            true, false, true, true, true, false, true, false, false, true
+                        ]),
                     },
                 )
             },

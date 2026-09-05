@@ -19,7 +19,8 @@ fn issue_example() -> KSatisfiability<K3> {
 #[test]
 fn test_ksatisfiability_to_feasible_register_assignment_structure() {
     let source = issue_example();
-    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source);
+    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 30);
@@ -64,29 +65,35 @@ fn test_ksatisfiability_to_feasible_register_assignment_structure() {
 #[test]
 fn test_ksatisfiability_to_feasible_register_assignment_extract_solution() {
     let source = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, -2, 1])]);
-    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source);
+    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source)
+        .expect("reduction should succeed");
     let mut realization: Vec<usize> = (0..reduction.target_problem().num_vertices()).collect();
     realization.swap(s_pos_idx(1), s_neg_idx(2, 1));
 
-    let extracted = reduction.extract_solution(&realization);
+    let extracted = reduction.extract_solution(&realization).unwrap();
 
-    assert_eq!(extracted, vec![1, 0]);
+    assert_eq!(extracted, vec![true, false]);
 }
 
 #[test]
 fn test_ksatisfiability_to_feasible_register_assignment_closed_loop_via_ilp() {
     let source = issue_example();
-    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source);
-    let fra_to_ilp = ReduceTo::<ILP<i32>>::reduce_to(reduction.target_problem());
+    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let fra_to_ilp = ReduceTo::<ILP<i64>>::reduce_to(reduction.target_problem())
+        .expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(fra_to_ilp.target_problem())
         .expect("satisfiable FRA gadget should reduce to a feasible ILP");
-    let fra_solution = fra_to_ilp.extract_solution(&ilp_solution);
-    assert_eq!(reduction.target_problem().evaluate(&fra_solution), Or(true));
+    let fra_solution = fra_to_ilp.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(
+        reduction.target_problem().evaluate(&fra_solution).unwrap(),
+        Or(true)
+    );
 
-    let extracted = reduction.extract_solution(&fra_solution);
-    assert_eq!(source.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&fra_solution).unwrap();
+    assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -98,13 +105,13 @@ fn test_ksatisfiability_to_feasible_register_assignment_unsatisfiable_instance()
             CNFClause::new(vec![-1, -1, -1]),
         ],
     );
-    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source);
-    let fra_to_ilp = ReduceTo::<ILP<i32>>::reduce_to(reduction.target_problem());
+    let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let fra_to_ilp = ReduceTo::<ILP<i64>>::reduce_to(reduction.target_problem())
+        .expect("reduction should succeed");
 
     assert!(
-        ILPSolver::new()
-            .solve(fra_to_ilp.target_problem())
-            .is_none(),
+        ILPSolver::new().solve(fra_to_ilp.target_problem()).is_err(),
         "an unsatisfiable source formula should yield an infeasible FRA instance"
     );
 }

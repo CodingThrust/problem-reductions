@@ -8,7 +8,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
-use super::CNFClause;
+use super::{sat::validate_cnf_literals, CNFClause};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "One-in-Three Satisfiability",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "3-SAT variant where each clause has exactly one true literal",
         fields: &[
@@ -38,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::formula::{OneInThreeSatisfiability, CNFClause};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // (x1 OR x2 OR x3) AND (NOT x1 OR x3 OR x4) AND (x2 OR NOT x3 OR NOT x4)
 /// let problem = OneInThreeSatisfiability::new(
@@ -51,10 +52,11 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "OneInThreeSatisfiabilityDef")]
 pub struct OneInThreeSatisfiability {
     /// Number of variables.
     num_vars: usize,
@@ -69,26 +71,21 @@ impl OneInThreeSatisfiability {
     /// Panics if any clause does not have exactly 3 literals, or if any
     /// literal references a variable outside the range [1, num_vars].
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a new 1-in-3 SAT problem after validating its clauses.
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        validate_cnf_literals(num_vars, &clauses)?;
         for (i, clause) in clauses.iter().enumerate() {
-            assert!(
-                clause.len() == 3,
-                "Clause {} has {} literals, expected 3",
-                i,
-                clause.len()
-            );
-            for &lit in &clause.literals {
-                let var = lit.unsigned_abs() as usize;
-                assert!(
-                    var >= 1 && var <= num_vars,
-                    "Clause {} contains literal {} referencing variable {} outside range [1, {}]",
-                    i,
-                    lit,
-                    var,
-                    num_vars
-                );
+            if clause.len() != 3 {
+                return Err(format!("Clause {i} has {} literals, expected 3", clause.len()).into());
             }
         }
-        Self { num_vars, clauses }
+        Ok(Self { num_vars, clauses })
     }
 
     /// Get the number of variables.
@@ -134,17 +131,21 @@ impl OneInThreeSatisfiability {
 
 impl Problem for OneInThreeSatisfiability {
     const NAME: &'static str = "OneInThreeSatisfiability";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_parameters![("num_clauses", num_clauses), ("num_vars", num_vars),];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let assignment = super::config_to_assignment(config);
-            self.is_one_in_three_satisfying(&assignment)
-        })
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_one_in_three_satisfying(config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -152,8 +153,32 @@ impl Problem for OneInThreeSatisfiability {
     }
 }
 
+impl crate::solvers::BruteForceProblem for OneInThreeSatisfiability {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default OneInThreeSatisfiability => "1.307^num_variables",
+    default OneInThreeSatisfiability => "1.307^num_vars",
+}
+
+crate::register_brute_force! {
+    OneInThreeSatisfiability decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
+#[derive(Deserialize)]
+struct OneInThreeSatisfiabilityDef {
+    num_vars: usize,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<OneInThreeSatisfiabilityDef> for OneInThreeSatisfiability {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(value: OneInThreeSatisfiabilityDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.clauses)
+    }
 }
 
 #[cfg(feature = "example-db")]
@@ -168,7 +193,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![2, -3, -4]),
             ],
         )),
-        optimal_config: vec![1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

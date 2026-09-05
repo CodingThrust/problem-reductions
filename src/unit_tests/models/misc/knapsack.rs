@@ -1,4 +1,16 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_defaults_item_weights() {
+    let p = Knapsack::try_from(KnapsackCreateSpec {
+        weights: None,
+        values: vec![2, 3],
+        capacity: 1,
+    })
+    .unwrap();
+    assert_eq!(p.weights(), &[1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
@@ -9,7 +21,7 @@ fn test_knapsack_basic() {
     assert_eq!(problem.weights(), &[2, 3, 4, 5]);
     assert_eq!(problem.values(), &[3, 4, 5, 7]);
     assert_eq!(problem.capacity(), 7);
-    assert_eq!(problem.dims(), vec![2; 4]);
+    assert_eq!(problem.dimensions(), vec![2; 4]);
     assert_eq!(<Knapsack as Problem>::NAME, "Knapsack");
     assert_eq!(<Knapsack as Problem>::variant(), vec![]);
 }
@@ -17,52 +29,76 @@ fn test_knapsack_basic() {
 #[test]
 fn test_knapsack_evaluate_optimal() {
     let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1]), Max(Some(10)));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false, true]).unwrap(),
+        Max(Some(10))
+    );
 }
 
 #[test]
 fn test_knapsack_evaluate_feasible() {
     let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0]), Max(Some(7)));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, false, false]).unwrap(),
+        Max(Some(7))
+    );
 }
 
 #[test]
 fn test_knapsack_evaluate_overweight() {
     let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
-    assert_eq!(problem.evaluate(&[0, 0, 1, 1]), Max(None));
+    assert_eq!(
+        problem.evaluate(&vec![false, false, true, true]).unwrap(),
+        Max(None)
+    );
 }
 
 #[test]
 fn test_knapsack_evaluate_empty() {
     let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Max(Some(0)));
+    assert_eq!(
+        problem.evaluate(&vec![false, false, false, false]).unwrap(),
+        Max(Some(0))
+    );
 }
 
 #[test]
 fn test_knapsack_evaluate_all_selected() {
     let problem = Knapsack::new(vec![1, 1, 1], vec![10, 20, 30], 5);
-    assert_eq!(problem.evaluate(&[1, 1, 1]), Max(Some(60)));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true]).unwrap(),
+        Max(Some(60))
+    );
 }
 
 #[test]
 fn test_knapsack_evaluate_wrong_config_length() {
     let problem = Knapsack::new(vec![2, 3], vec![3, 4], 5);
-    assert_eq!(problem.evaluate(&[1]), Max(None));
-    assert_eq!(problem.evaluate(&[1, 0, 0]), Max(None));
+    assert!(matches!(
+        problem.evaluate(&vec![true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_knapsack_evaluate_invalid_variable_value() {
     let problem = Knapsack::new(vec![2, 3], vec![3, 4], 5);
-    assert_eq!(problem.evaluate(&[2, 0]), Max(None));
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
+            .is_err()
+    );
 }
 
 #[test]
 fn test_knapsack_empty_instance() {
     let problem = Knapsack::new(vec![], vec![], 10);
     assert_eq!(problem.num_items(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert_eq!(problem.evaluate(&[]), Max(Some(0)));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -70,9 +106,10 @@ fn test_knapsack_brute_force() {
     let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let metric = problem.evaluate(&solution);
+    let metric = problem.evaluate(&solution).unwrap();
     assert_eq!(metric, Max(Some(10)));
 }
 
@@ -90,22 +127,22 @@ fn test_knapsack_serialization() {
 fn test_knapsack_zero_capacity() {
     // Capacity 0: only empty set is feasible
     let problem = Knapsack::new(vec![1, 2], vec![10, 20], 0);
-    assert_eq!(problem.evaluate(&[0, 0]), Max(Some(0)));
-    assert_eq!(problem.evaluate(&[1, 0]), Max(None));
+    assert_eq!(problem.evaluate(&vec![false, false]).unwrap(), Max(Some(0)));
+    assert_eq!(problem.evaluate(&vec![true, false]).unwrap(), Max(None));
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Max(Some(0)));
+    let solution = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(0)));
 }
 
 #[test]
 fn test_knapsack_single_item() {
     // Single item that fits
     let problem = Knapsack::new(vec![3], vec![5], 3);
-    assert_eq!(problem.evaluate(&[1]), Max(Some(5)));
-    assert_eq!(problem.evaluate(&[0]), Max(Some(0)));
+    assert_eq!(problem.evaluate(&vec![true]).unwrap(), Max(Some(5)));
+    assert_eq!(problem.evaluate(&vec![false]).unwrap(), Max(Some(0)));
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Max(Some(5)));
+    let solution = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(5)));
 }
 
 #[test]
@@ -117,8 +154,8 @@ fn test_knapsack_greedy_not_optimal() {
     // Capacity=10. Greedy: {0} value=7. Optimal: {1,2} value=10.
     let problem = Knapsack::new(vec![6, 5, 5], vec![7, 5, 5], 10);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Max(Some(10)));
+    let solution = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(10)));
 }
 
 #[test]

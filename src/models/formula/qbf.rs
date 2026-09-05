@@ -8,7 +8,7 @@
 //! ∀ (ForAll) or ∃ (Exists) and E is a Boolean expression in CNF,
 //! determine whether F is true.
 
-use crate::models::formula::CNFClause;
+use crate::models::formula::{sat::validate_cnf_literals, CNFClause};
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Quantified Boolean Formulas",
         aliases: &["QBF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Determine if a quantified Boolean formula is true",
         fields: &[
@@ -63,6 +64,7 @@ pub enum Quantifier {
 /// assert!(problem.is_true());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "QuantifiedBooleanFormulasDef")]
 pub struct QuantifiedBooleanFormulas {
     /// Number of variables.
     num_vars: usize,
@@ -79,18 +81,28 @@ impl QuantifiedBooleanFormulas {
     ///
     /// Panics if `quantifiers.len() != num_vars`.
     pub fn new(num_vars: usize, quantifiers: Vec<Quantifier>, clauses: Vec<CNFClause>) -> Self {
-        assert_eq!(
-            quantifiers.len(),
-            num_vars,
-            "quantifiers length ({}) must equal num_vars ({})",
-            quantifiers.len(),
-            num_vars
-        );
-        Self {
+        Self::try_new(num_vars, quantifiers, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a QBF problem after validating its quantifiers and CNF literals.
+    pub fn try_new(
+        num_vars: usize,
+        quantifiers: Vec<Quantifier>,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if quantifiers.len() != num_vars {
+            return Err(format!(
+                "quantifiers length ({}) must equal num_vars ({num_vars})",
+                quantifiers.len()
+            )
+            .into());
+        }
+        validate_cnf_literals(num_vars, &clauses)?;
+        Ok(Self {
             num_vars,
             quantifiers,
             clauses,
-        }
+        })
     }
 
     /// Get the number of variables.
@@ -157,19 +169,16 @@ impl QuantifiedBooleanFormulas {
 
 impl Problem for QuantifiedBooleanFormulas {
     const NAME: &'static str = "QuantifiedBooleanFormulas";
+    type Solution = ();
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![]
-    }
+    crate::problem_parameters![("num_vars", num_vars), ("num_clauses", num_clauses),];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if !config.is_empty() {
-                return crate::types::Or(false);
-            }
-            self.is_true()
-        })
+    fn evaluate(
+        &self,
+        _solution: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_true()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -177,8 +186,33 @@ impl Problem for QuantifiedBooleanFormulas {
     }
 }
 
+impl crate::solvers::BruteForceProblem for QuantifiedBooleanFormulas {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![]
+    }
+}
+
 crate::declare_variants! {
     default QuantifiedBooleanFormulas => "2^num_vars",
+}
+
+crate::register_brute_force! {
+    QuantifiedBooleanFormulas decode |_, _| (),
+}
+
+#[derive(Deserialize)]
+struct QuantifiedBooleanFormulasDef {
+    num_vars: usize,
+    quantifiers: Vec<Quantifier>,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<QuantifiedBooleanFormulasDef> for QuantifiedBooleanFormulas {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(value: QuantifiedBooleanFormulasDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.quantifiers, value.clauses)
+    }
 }
 
 #[cfg(feature = "example-db")]
@@ -193,7 +227,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![1, -2]), // u_1 OR NOT u_2
             ],
         )),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -13,27 +13,29 @@ fn k4_btsp() -> BottleneckTravelingSalesman {
 #[test]
 fn test_reduction_creates_valid_ilp() {
     let problem = k4_btsp();
-    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionBTSPToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=4, m=6: num_x=16, num_z=2*6*4=48, b=1, total=65
-    assert_eq!(ilp.num_vars, 65);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 65);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
 fn test_bottlenecktravelingsalesman_to_ilp_closed_loop() {
     let problem = k4_btsp();
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("brute-force optimum");
-    let bf_value = problem.evaluate(&bf_solution);
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
+    let bf_value = problem.evaluate(&bf_solution).unwrap();
 
-    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionBTSPToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(
         ilp_value.is_valid(),
@@ -53,16 +55,17 @@ fn test_bottlenecktravelingsalesman_to_ilp_c4() {
         vec![1, 2, 3, 4],
     );
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("brute-force optimum");
-    let bf_value = problem.evaluate(&bf_solution);
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
+    let bf_value = problem.evaluate(&bf_solution).unwrap();
 
-    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionBTSPToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_value = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(ilp_value.is_valid());
     assert_eq!(ilp_value, bf_value);
@@ -71,13 +74,14 @@ fn test_bottlenecktravelingsalesman_to_ilp_c4() {
 #[test]
 fn test_solution_extraction() {
     let problem = k4_btsp();
-    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionBTSPToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let metric = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid());
 }
 
@@ -88,11 +92,12 @@ fn test_no_hamiltonian_cycle_infeasible() {
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1],
     );
-    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionBTSPToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Path graph should have no Hamiltonian cycle"
     );
 }
@@ -100,6 +105,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
 #[test]
 fn test_bottlenecktravelingsalesman_to_ilp_bf_vs_ilp() {
     let problem = k4_btsp();
-    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionBTSPToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

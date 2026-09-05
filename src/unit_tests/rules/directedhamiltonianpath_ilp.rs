@@ -11,11 +11,11 @@ fn test_reduction_creates_valid_ilp() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=3, num_vars = 3^2 = 9
-    assert_eq!(ilp.num_vars, 9);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 9);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -27,20 +27,21 @@ fn test_directedhamiltonianpath_to_ilp_closed_loop() {
     // BruteForce to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert_eq!(problem.evaluate(&bf_solution), Or(true));
+    assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
 
     // Solve via ILP
     let reduction: ReductionDirectedHamiltonianPathToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "ILP solution should satisfy the DirectedHamiltonianPath constraint"
     );
@@ -66,14 +67,14 @@ fn test_directedhamiltonianpath_to_ilp_issue_example() {
     );
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should find a path");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "ILP solution should be a valid directed Hamiltonian path"
     );
@@ -85,11 +86,11 @@ fn test_directedhamiltonianpath_to_ilp_no_path() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Graph with no Hamiltonian path should be infeasible"
     );
 }
@@ -99,6 +100,6 @@ fn test_directedhamiltonianpath_to_ilp_bf_vs_ilp() {
     let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

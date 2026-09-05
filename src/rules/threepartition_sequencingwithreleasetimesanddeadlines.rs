@@ -32,7 +32,7 @@ pub struct ReductionThreePartitionToSRTD {
     /// Number of element tasks (3m) — first 3m tasks in the target are element tasks.
     num_element_tasks: usize,
     /// The bound B from the source.
-    bound: u64,
+    bound: i64,
 }
 
 impl ReductionResult for ReductionThreePartitionToSRTD {
@@ -45,51 +45,83 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
 
     /// Extract a ThreePartition config from a target schedule config.
     ///
-    /// Decode the Lehmer code to a task permutation, simulate the schedule to
-    /// find each task's start time, then assign each element task to its slot
+    /// Simulate the task permutation to find each task's start time, then assign each element task to its slot
     /// based on start_time / (B + 1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.target.num_tasks();
-        // Decode Lehmer code to permutation
-        let schedule = crate::models::misc::decode_lehmer(target_solution, n)
-            .expect("target_solution must be a valid Lehmer code");
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Simulate the schedule to find start times
-        let mut current_time: u64 = 0;
-        let mut slot_assignment = vec![0usize; self.num_element_tasks];
-        let slot_width = self.bound + 1; // B + 1 (slot width including the filler gap)
+        Ok({
+            // Simulate the schedule to find start times
+            let mut current_time: i64 = 0;
+            let mut slot_assignment = vec![0usize; self.num_element_tasks];
+            let slot_width = self.bound.checked_add(1).ok_or_else(|| {
+                crate::rules::ExtractionError::invalid("slot width overflows i64")
+            })?; // B + 1 (slot width including the filler gap)
 
-        for &task in &schedule {
-            let start = current_time.max(self.target.release_times()[task]);
-            let finish = start + self.target.lengths()[task];
-            current_time = finish;
+            for &task in target_solution {
+                let start = current_time.max(self.target.release_times()[task]);
+                let finish = start
+                    .checked_add(self.target.lengths()[task])
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid("task finish time overflows i64")
+                    })?;
+                current_time = finish;
 
-            // Only element tasks (indices 0..3m) contribute to the partition
-            if task < self.num_element_tasks {
-                let slot = (start / slot_width) as usize;
-                slot_assignment[task] = slot;
+                // Only element tasks (indices 0..3m) contribute to the partition
+                if task < self.num_element_tasks {
+                    let slot = usize::try_from(start / slot_width).map_err(|_| {
+                        crate::rules::ExtractionError::invalid(
+                            "decoded task slot cannot be represented as usize",
+                        )
+                    })?;
+                    slot_assignment[task] = slot;
+                }
             }
-        }
 
-        slot_assignment
+            slot_assignment
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements + num_groups - 1",
-})]
+#[reduction(
+    transform = exact {
+        num_tasks = "num_elements + num_groups - 1",
+    },
+    unavailable = {
+        time_horizon = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {
     type Result = ReductionThreePartitionToSRTD;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n_elem = num_element_tasks(self);
         let n_fill = num_filler_tasks(self);
         let m = self.num_groups();
         let b = self.bound();
-        let total_tasks = n_elem + n_fill;
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<
+                Self,
+                SequencingWithReleaseTimesAndDeadlines,
+            >(operation)
+        };
+        let total_tasks = n_elem
+            .checked_add(n_fill)
+            .ok_or_else(|| overflow("computing the target task count"))?;
 
         // Time horizon: m*B + (m-1) = m*(B+1) - 1
-        let horizon = (m as u64) * (b + 1) - 1;
+        let group_count =
+            i64::try_from(m).map_err(|_| overflow("converting the group count to i64"))?;
+        let slot_width = b
+            .checked_add(1)
+            .ok_or_else(|| overflow("computing the slot width"))?;
+        let horizon = group_count
+            .checked_mul(slot_width)
+            .and_then(|value| value.checked_sub(1))
+            .ok_or_else(|| overflow("computing the scheduling horizon"))?;
 
         let mut lengths = Vec::with_capacity(total_tasks);
         let mut release_times = Vec::with_capacity(total_tasks);
@@ -106,17 +138,29 @@ impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {
         for j in 0..n_fill {
             // Filler j separates slot j from slot j+1
             // Release = (j+1)*B + j, Deadline = (j+1)*B + j + 1
-            let release = ((j + 1) as u64) * b + (j as u64);
+            let separator =
+                i64::try_from(j).map_err(|_| overflow("converting a filler-task index to i64"))?;
+            let next_separator = separator
+                .checked_add(1)
+                .ok_or_else(|| overflow("computing a filler-task index"))?;
+            let release = next_separator
+                .checked_mul(b)
+                .and_then(|value| value.checked_add(separator))
+                .ok_or_else(|| overflow("computing a filler-task release time"))?;
             lengths.push(1);
             release_times.push(release);
-            deadlines.push(release + 1);
+            deadlines.push(
+                release
+                    .checked_add(1)
+                    .ok_or_else(|| overflow("computing a filler-task deadline"))?,
+            );
         }
 
-        ReductionThreePartitionToSRTD {
+        Ok(ReductionThreePartitionToSRTD {
             target: SequencingWithReleaseTimesAndDeadlines::new(lengths, release_times, deadlines),
             num_element_tasks: n_elem,
             bound: b,
-        }
+        })
     }
 }
 
@@ -151,8 +195,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15),
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 3, 0, 0, 0],
+                    source_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
+                    target_config: serde_json::json!(vec![0, 1, 2, 6, 3, 4, 5]),
                 },
             )
         },

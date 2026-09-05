@@ -11,6 +11,8 @@ use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use num_bigint::BigUint;
+use num_traits::{One, Zero};
 /// Result of reducing Factoring to CircuitSAT.
 ///
 /// This struct contains:
@@ -40,36 +42,48 @@ impl ReductionResult for ReductionFactoringToCircuit {
 
     /// Extract a Factoring solution from a CircuitSAT solution.
     ///
-    /// Returns a configuration where the first m bits are the first factor p,
-    /// and the next n bits are the second factor q.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let var_names = self.target.variable_names();
+    /// Returns the decoded factors in ascending order.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build a map from variable name to its value
-        let var_map: std::collections::HashMap<&str, usize> = var_names
-            .iter()
-            .enumerate()
-            .map(|(i, name)| (name.as_str(), target_solution.get(i).copied().unwrap_or(0)))
-            .collect();
+        Ok({
+            let var_names = self.target.variable_names();
 
-        // Extract p bits
-        let p_bits: Vec<usize> = self
-            .p_vars
-            .iter()
-            .map(|name| *var_map.get(name.as_str()).unwrap_or(&0))
-            .collect();
+            // Build a map from variable name to its value
+            let var_map: std::collections::HashMap<&str, bool> = var_names
+                .iter()
+                .enumerate()
+                .map(|(i, name)| (name.as_str(), target_solution[i]))
+                .collect();
 
-        // Extract q bits
-        let q_bits: Vec<usize> = self
-            .q_vars
-            .iter()
-            .map(|name| *var_map.get(name.as_str()).unwrap_or(&0))
-            .collect();
-
-        // Concatenate p and q bits
-        let mut result = p_bits;
-        result.extend(q_bits);
-        result
+            let decode = |names: &[String]| {
+                names
+                    .iter()
+                    .enumerate()
+                    .try_fold(BigUint::zero(), |value, (index, name)| {
+                        let bit = var_map.get(name.as_str()).copied().ok_or_else(|| {
+                            crate::rules::ExtractionError::invalid(format!(
+                                "target circuit does not contain factor variable {name}"
+                            ))
+                        })?;
+                        Ok::<BigUint, crate::rules::ExtractionError>(if bit {
+                            value + (BigUint::one() << index)
+                        } else {
+                            value
+                        })
+                    })
+            };
+            let left = decode(&self.p_vars)?;
+            let right = decode(&self.q_vars)?;
+            if left <= right {
+                (left, right)
+            } else {
+                (right, left)
+            }
+        })
     }
 }
 
@@ -91,11 +105,11 @@ impl ReductionFactoringToCircuit {
 }
 
 /// Read the i-th bit (1-indexed) of a number (little-endian).
-fn read_bit(n: u64, i: usize) -> bool {
-    if i == 0 || i > 64 {
+fn read_bit(n: &BigUint, i: usize) -> bool {
+    if i == 0 {
         false
     } else {
-        ((n >> (i - 1)) & 1) == 1
+        n.bit(u64::try_from(i - 1).expect("bit index fits u64"))
     }
 }
 
@@ -175,14 +189,20 @@ fn build_multiplier_cell(
     (assignments, ancillas)
 }
 
-#[reduction(overhead = {
-    num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
-    num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
-})]
+#[reduction(
+    transform = upper_bound {
+        num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 1",
+        num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 2",
+    },
+    unavailable = {
+        num_assignment_outputs = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_expression_nodes = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n1 = self.m(); // bits for first factor
         let n2 = self.n(); // bits for second factor
         let target = self.target();
@@ -254,16 +274,27 @@ impl ReduceTo<CircuitSAT> for Factoring {
             ));
         }
 
+        // An m-bit by n-bit product cannot contain a set bit above position m+n-1.
+        // Encode an explicit contradiction instead of truncating an oversized target.
+        if target.bits() > u64::try_from(m_vars.len()).expect("product width fits u64") {
+            let overflow = "target_overflow".to_string();
+            assignments.push(Assignment::new(
+                vec![overflow.clone()],
+                BooleanExpr::constant(false),
+            ));
+            assignments.push(Assignment::new(vec![overflow], BooleanExpr::constant(true)));
+        }
+
         // Build the circuit
         let circuit = Circuit::new(assignments);
         let circuit_sat = CircuitSAT::new(circuit);
 
-        ReductionFactoringToCircuit {
+        Ok(ReductionFactoringToCircuit {
             target: circuit_sat,
             p_vars,
             q_vars,
             m_vars,
-        }
+        })
     }
 }
 
@@ -275,14 +306,18 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "factoring_to_circuitsat",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, CircuitSAT>(
-                Factoring::new(3, 3, 35),
+                Factoring::with_factor_bits(35, 3, 3),
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 1, 1, 1],
-                    target_config: vec![
-                        1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0,
-                        1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1,
-                        1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
-                    ],
+                    source_config: serde_json::to_value((BigUint::from(5u32), BigUint::from(7u32)))
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::json!(vec![
+                        true, true, true, false, false, false, true, true, true, false, false,
+                        false, false, false, false, true, false, false, true, true, true, true,
+                        true, false, false, true, true, false, false, false, false, false, false,
+                        false, true, true, false, false, false, false, false, false, true, true,
+                        true, true, false, true, true, true, true, true, true, true, true, true,
+                        false, false, false, false,
+                    ]),
                 },
             )
         },

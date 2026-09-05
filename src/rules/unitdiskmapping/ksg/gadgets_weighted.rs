@@ -7,6 +7,8 @@
 use super::super::grid::{CellState, MappingGrid};
 use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use super::gadgets::{KsgReflectedGadget, KsgRotatedGadget, Mirror};
+use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
+use crate::rules::ReductionError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -61,15 +63,15 @@ impl Pattern for WeightedKsgCross<true> {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 6]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 5]
     }
 
@@ -169,15 +171,15 @@ impl Pattern for WeightedKsgCross<false> {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 9]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 10]
     }
 
@@ -279,15 +281,15 @@ impl Pattern for WeightedKsgTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 5]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 3]
     }
 
@@ -345,15 +347,15 @@ impl Pattern for WeightedKsgWTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 5]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 3]
     }
 
@@ -420,17 +422,17 @@ impl Pattern for WeightedKsgBranch {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
     // Weighted version: node 3 (0-indexed) has weight 3, others have weight 2
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2, 2, 2, 3, 2, 2, 2, 2]
     }
 
     // Weighted version: node 1 (0-indexed) has weight 3, others have weight 2
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2, 3, 2, 2, 2, 2]
     }
 
@@ -512,15 +514,15 @@ impl Pattern for WeightedKsgBranchFix {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 6]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 4]
     }
 
@@ -582,17 +584,17 @@ impl Pattern for WeightedKsgTCon {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0 // 2x unweighted value (0 * 2)
     }
 
     // Weighted version: node 1 (0-indexed) has weight 1, others have weight 2
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2, 1, 2, 2]
     }
 
     // Weighted version: node 1 (0-indexed) has weight 1, others have weight 2
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2, 1, 2, 2]
     }
 
@@ -656,17 +658,17 @@ impl Pattern for WeightedKsgTrivialTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0 // 2x unweighted value (0 * 2)
     }
 
     // Weighted version: both nodes have weight 1
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![1, 1]
     }
 
     // Weighted version: both nodes have weight 1
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1, 1]
     }
 
@@ -712,17 +714,17 @@ impl Pattern for WeightedKsgEndTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
     // Weighted version: node 2 (0-indexed) has weight 1, others have weight 2
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2, 2, 1]
     }
 
     // Weighted version: node 0 (0-indexed) has weight 1
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1]
     }
 
@@ -766,17 +768,17 @@ impl Pattern for WeightedKsgBranchFixB {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
     // Weighted version: node 0 (0-indexed) has weight 1, others have weight 2
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![1, 2, 2, 2]
     }
 
     // Weighted version: node 0 (0-indexed) has weight 1, node 1 has weight 2
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1, 2]
     }
 
@@ -828,17 +830,17 @@ impl Pattern for WeightedKsgDanglingLeg {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2 // 2x unweighted value (-1 * 2)
     }
 
     // Weighted version: node 0 (0-indexed) has weight 1, others have weight 2
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![1, 2, 2]
     }
 
     // Weighted version: node 0 (0-indexed) has weight 1
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1]
     }
 
@@ -938,7 +940,12 @@ impl WeightedKsgPattern {
     }
 
     /// Apply map_config_back_pattern for this pattern.
-    pub fn map_config_back(&self, gi: usize, gj: usize, config: &mut [Vec<usize>]) {
+    pub(crate) fn map_config_back(
+        &self,
+        gi: usize,
+        gj: usize,
+        config: &mut [Vec<usize>],
+    ) -> Result<(), ReductionError> {
         match self {
             Self::CrossFalse(p) => map_config_back_pattern(p, gi, gj, config),
             Self::CrossTrue(p) => map_config_back_pattern(p, gi, gj, config),
@@ -977,8 +984,10 @@ pub struct WeightedKsgTapeEntry {
 }
 
 /// Calculate MIS overhead for a weighted tape entry.
-pub fn weighted_tape_entry_mis_overhead(entry: &WeightedKsgTapeEntry) -> i32 {
-    match entry.pattern_idx {
+pub fn weighted_tape_entry_mis_overhead(
+    entry: &WeightedKsgTapeEntry,
+) -> Result<i64, ReductionError> {
+    Ok(match entry.pattern_idx {
         0 => WeightedKsgCross::<false>.mis_overhead(),
         1 => WeightedKsgTurn.mis_overhead(),
         2 => WeightedKsgWTurn.mis_overhead(),
@@ -994,8 +1003,12 @@ pub fn weighted_tape_entry_mis_overhead(entry: &WeightedKsgTapeEntry) -> i32 {
         12 => KsgReflectedGadget::new(KsgRotatedGadget::new(WeightedKsgTCon, 1), Mirror::Y)
             .mis_overhead(),
         100..=105 => WeightedKsgDanglingLeg.mis_overhead(),
-        _ => 0,
-    }
+        _ => {
+            return Err(mapping_invalid(
+                "tape contains an unknown weighted KSG gadget index",
+            ))
+        }
+    })
 }
 
 /// Trait for boxed weighted pattern operations.
@@ -1006,8 +1019,8 @@ pub trait WeightedKsgPatternBoxed {
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>>;
     fn source_graph_boxed(&self) -> SourceGraph;
     fn mapped_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<usize>);
-    fn source_weights_boxed(&self) -> Vec<i32>;
-    fn mapped_weights_boxed(&self) -> Vec<i32>;
+    fn source_weights_boxed(&self) -> Vec<i64>;
+    fn mapped_weights_boxed(&self) -> Vec<i64>;
     fn pattern_matches_boxed(&self, grid: &MappingGrid, i: usize, j: usize) -> bool;
     fn apply_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize);
     fn apply_weighted_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize);
@@ -1032,10 +1045,10 @@ impl<P: Pattern> WeightedKsgPatternBoxed for P {
     fn mapped_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
         Pattern::mapped_graph(self)
     }
-    fn source_weights_boxed(&self) -> Vec<i32> {
+    fn source_weights_boxed(&self) -> Vec<i64> {
         Pattern::source_weights(self)
     }
-    fn mapped_weights_boxed(&self) -> Vec<i32> {
+    fn mapped_weights_boxed(&self) -> Vec<i64> {
         Pattern::mapped_weights(self)
     }
     fn pattern_matches_boxed(&self, grid: &MappingGrid, i: usize, j: usize) -> bool {
@@ -1067,9 +1080,9 @@ pub fn apply_weighted_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i:
     }
 
     // Build a map of (row, col) -> accumulated weight for doubled nodes
-    let mut weight_map: HashMap<(usize, usize), i32> = HashMap::new();
+    let mut weight_map: HashMap<(usize, usize), i64> = HashMap::new();
     for (idx, &(r, c)) in mapped_locs.iter().enumerate() {
-        let weight = mapped_weights.get(idx).copied().unwrap_or(2);
+        let weight = mapped_weights[idx];
         *weight_map.entry((r, c)).or_insert(0) += weight;
     }
 
@@ -1083,7 +1096,7 @@ pub fn apply_weighted_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i:
     for (&(r, c), &total_weight) in &weight_map {
         let grid_r = i + r - 1; // Convert 1-indexed to 0-indexed
         let grid_c = j + c - 1;
-        let count = count_map.get(&(r, c)).copied().unwrap_or(1);
+        let count = count_map[&(r, c)];
 
         let state = if count > 1 {
             CellState::Doubled {
@@ -1252,7 +1265,7 @@ fn pattern_matches_weighted(
         let grid_r = i + loc_r - 1;
         let grid_c = j + loc_c - 1;
         if let Some(cell) = grid.get(grid_r, grid_c) {
-            let expected_weight = source_weights.get(idx).copied().unwrap_or(2);
+            let expected_weight = source_weights[idx];
             if cell.weight() != expected_weight {
                 return false;
             }
@@ -1274,12 +1287,12 @@ fn rotated_and_reflected_weighted_danglingleg() -> Vec<Box<dyn WeightedKsgPatter
 }
 
 /// Map configuration back through a single gadget.
-pub fn map_config_back_pattern<P: Pattern>(
+pub(crate) fn map_config_back_pattern<P: Pattern>(
     pattern: &P,
     gi: usize,
     gj: usize,
     config: &mut [Vec<usize>],
-) {
+) -> Result<(), ReductionError> {
     let (m, n) = pattern.size();
     let (mapped_locs, mapped_pins) = pattern.mapped_graph();
     let (source_locs, _, _) = pattern.source_graph();
@@ -1294,15 +1307,20 @@ pub fn map_config_back_pattern<P: Pattern>(
                 .get(row)
                 .and_then(|row_vec| row_vec.get(col))
                 .copied()
-                .unwrap_or(0)
+                .ok_or(mapping_invalid(
+                    "weighted KSG gadget lies outside the configuration grid",
+                ))
         })
-        .collect();
+        .collect::<Result<_, _>>()?;
 
     // Step 2: Compute boundary config
     let bc = {
         let mut result = 0usize;
         for (i, &pin_idx) in mapped_pins.iter().enumerate() {
-            if pin_idx < mapped_config.len() && mapped_config[pin_idx] > 0 {
+            if *mapped_config.get(pin_idx).ok_or(mapping_invalid(
+                "weighted KSG gadget contains an invalid mapped pin index",
+            ))? > 0
+            {
                 result |= 1 << i;
             }
         }
@@ -1313,41 +1331,30 @@ pub fn map_config_back_pattern<P: Pattern>(
     let d1 = pattern.mapped_entry_to_compact();
     let d2 = pattern.source_entry_to_configs();
 
-    let compact = d1.get(&bc).copied();
-    debug_assert!(
-        compact.is_some(),
-        "Boundary config {} not found in mapped_entry_to_compact",
-        bc
-    );
-    let compact = compact.unwrap_or(0);
-
-    let source_configs = d2.get(&compact).cloned();
-    debug_assert!(
-        source_configs.is_some(),
-        "Compact {} not found in source_entry_to_configs",
-        compact
-    );
-    let source_configs = source_configs.unwrap_or_default();
-
-    debug_assert!(
-        !source_configs.is_empty(),
-        "Empty source configs for compact {}.",
-        compact
-    );
-    let new_config = if source_configs.is_empty() {
-        vec![false; source_locs.len()]
-    } else {
-        source_configs[0].clone()
-    };
+    let compact = d1.get(&bc).copied().ok_or(mapping_invalid(
+        "weighted KSG boundary configuration has no source equivalent",
+    ))?;
+    let new_config =
+        d2.get(&compact)
+            .and_then(|configs| configs.first())
+            .ok_or(mapping_invalid(
+                "weighted KSG compact state has no source configuration",
+            ))?;
+    if new_config.len() != source_locs.len() {
+        return Err(mapping_invalid(
+            "weighted KSG source configuration has the wrong length",
+        ));
+    }
 
     // Step 4: Clear gadget area
     for row in gi..gi + m {
         for col in gj..gj + n {
-            if let Some(row_vec) = config.get_mut(row) {
-                if let Some(cell) = row_vec.get_mut(col) {
-                    *cell = 0;
-                }
-            }
+            *config
+                .get_mut(row)
+                .and_then(|row_vec| row_vec.get_mut(col))
+                .ok_or(mapping_invalid(
+                    "weighted KSG gadget lies outside the configuration grid",
+                ))? = 0;
         }
     }
 
@@ -1355,16 +1362,20 @@ pub fn map_config_back_pattern<P: Pattern>(
     for (k, &(r, c)) in source_locs.iter().enumerate() {
         let row = gi + r - 1;
         let col = gj + c - 1;
-        if let Some(rv) = config.get_mut(row) {
-            if let Some(cv) = rv.get_mut(col) {
-                *cv += if new_config.get(k).copied().unwrap_or(false) {
-                    1
-                } else {
-                    0
-                };
-            }
-        }
+        let cell = config
+            .get_mut(row)
+            .and_then(|row_vec| row_vec.get_mut(col))
+            .ok_or(mapping_invalid(
+                "weighted KSG source position lies outside the configuration grid",
+            ))?;
+        *cell = cell
+            .checked_add(usize::from(new_config[k]))
+            .ok_or(mapping_integer_overflow(
+                "accumulating a weighted KSG source configuration",
+            ))?;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum cut balanced bisection of a graph",
         fields: &[
@@ -41,18 +42,18 @@ inventory::submit! {
 /// use problemreductions::models::graph::GraphPartitioning;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::types::Min;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Square graph: 0-1, 1-2, 2-3, 3-0
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
 /// let problem = GraphPartitioning::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Minimum bisection of a 4-cycle: cut = 2
 /// for sol in solutions {
-///     let size = problem.evaluate(&sol);
+///     let size = problem.evaluate(&sol).unwrap();
 ///     assert_eq!(size, Min(Some(2)));
 /// }
 /// ```
@@ -92,46 +93,62 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "GraphPartitioning";
-    type Value = Min<i32>;
+    type Solution = Vec<bool>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        let n = self.graph.num_vertices();
-        if config.len() != n {
-            return Min(None);
-        }
-        if config.iter().any(|&part| part >= 2) {
-            return Min(None);
-        }
-        // Balanced bisection requires even n
-        if !n.is_multiple_of(2) {
-            return Min(None);
-        }
-        // Check balanced: exactly n/2 vertices in partition 1
-        let count_ones = config.iter().filter(|&&x| x == 1).count();
-        if count_ones != n / 2 {
-            return Min(None);
-        }
-        // Count crossing edges
-        let mut cut = 0i32;
-        for (u, v) in self.graph.edges() {
-            if config[u] != config[v] {
-                cut += 1;
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.graph.num_vertices();
+            if config.len() != n {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "partition assignment length does not match the graph vertices".into(),
+                ));
             }
-        }
-        Min(Some(cut))
+            // Balanced bisection requires even n
+            if !n.is_multiple_of(2) {
+                return Ok(Min(None));
+            }
+            // Check balanced: exactly n/2 vertices in partition 1
+            let count_ones = config.iter().filter(|&&x| x).count();
+            if count_ones != n / 2 {
+                return Ok(Min(None));
+            }
+            // Count crossing edges
+            let mut cut = 0i64;
+            for (u, v) in self.graph.edges() {
+                if config[u] != config[v] {
+                    cut += 1;
+                }
+            }
+            Min(Some(cut))
+        })
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for GraphPartitioning<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
 crate::declare_variants! {
     default GraphPartitioning<SimpleGraph> => "2^num_vertices",
+}
+
+crate::register_brute_force! {
+    GraphPartitioning<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -154,7 +171,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (4, 5),
             ],
         ))),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, false, true, true, true]),
         optimal_value: serde_json::json!(3),
     }]
 }

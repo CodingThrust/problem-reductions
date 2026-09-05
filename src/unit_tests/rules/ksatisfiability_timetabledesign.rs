@@ -1,7 +1,7 @@
 use super::*;
+use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::TimetableDesign;
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -27,7 +27,8 @@ fn unsatisfiable_instance() -> KSatisfiability<K3> {
 #[test]
 fn test_ksatisfiability_to_timetabledesign_structure() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_periods(), 12);
@@ -46,57 +47,81 @@ fn test_ksatisfiability_to_timetabledesign_structure() {
 #[test]
 fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_timetable() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
-    let target_solution =
-        construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
-            .expect("a satisfying 3SAT assignment should lift to a timetable witness");
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
+    let target_solution = construct_timetable_from_assignment(
+        reduction.target_problem(),
+        &[true, true, false],
+        &source,
+    )
+    .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
 
-    let extracted = reduction.extract_solution(&target_solution);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
 
-    let target_solution =
-        construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
-            .expect("a satisfying 3SAT assignment should lift to a timetable witness");
+    let target_solution = construct_timetable_from_assignment(
+        reduction.target_problem(),
+        &[true, true, false],
+        &source,
+    )
+    .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
-    let extracted = reduction.extract_solution(&target_solution);
-    assert_eq!(extracted, vec![1, 1, 0]);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert_eq!(extracted, vec![true, true, false]);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
-
-    let target_solution = ILPSolver::new()
-        .solve_reduced(reduction.target_problem())
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
+    let target_reduction = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem())
+        .expect("timetable reduction should succeed");
+    let ilp_solution = ILPSolver::new()
+        .solve(target_reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible timetable");
+    let target_solution = target_reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
 
-    let extracted = reduction.extract_solution(&target_solution);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
     let source = unsatisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
+    let target_reduction = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem())
+        .expect("timetable reduction should succeed");
 
     assert!(
         ILPSolver::new()
-            .solve_reduced(reduction.target_problem())
-            .is_none(),
+            .solve(target_reduction.target_problem())
+            .is_err(),
         "unsatisfiable 3SAT instance should produce an infeasible timetable"
     );
 }

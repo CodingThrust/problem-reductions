@@ -4,7 +4,7 @@
 //! there exists an assignment of the variables making all polynomials evaluate
 //! to 0 (mod 2).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -16,19 +16,13 @@ inventory::submit! {
         display_name: "Algebraic Equations over GF(2)",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find assignment satisfying multilinear polynomial equations over GF(2)",
         fields: &[
             FieldInfo { name: "num_variables", type_name: "usize", description: "Number of Boolean variables" },
             FieldInfo { name: "equations", type_name: "Vec<Vec<Vec<usize>>>", description: "Equations: list of polynomials, each a list of monomials, each a sorted list of variable indices" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "AlgebraicEquationsOverGF2",
-        fields: &["num_variables", "num_equations"],
     }
 }
 
@@ -47,7 +41,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::AlgebraicEquationsOverGF2;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Two equations in 3 variables:
 /// //   x0*x1 + x2 = 0 (mod 2)
@@ -61,7 +55,7 @@ inventory::submit! {
 /// ).unwrap();
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -74,7 +68,10 @@ pub struct AlgebraicEquationsOverGF2 {
 }
 
 impl AlgebraicEquationsOverGF2 {
-    fn validate(num_variables: usize, equations: &[Vec<Vec<usize>>]) -> Result<(), String> {
+    fn validate(
+        num_variables: usize,
+        equations: &[Vec<Vec<usize>>],
+    ) -> Result<(), crate::registry::ConstructionError> {
         for (eq_idx, equation) in equations.iter().enumerate() {
             for (mono_idx, monomial) in equation.iter().enumerate() {
                 // Check variable indices are in range
@@ -83,7 +80,8 @@ impl AlgebraicEquationsOverGF2 {
                         return Err(format!(
                             "Variable index {var} in equation {eq_idx}, monomial {mono_idx} \
                              is out of range (num_variables = {num_variables})"
-                        ));
+                        )
+                        .into());
                     }
                 }
                 // Check monomial is sorted and has no duplicates
@@ -93,7 +91,8 @@ impl AlgebraicEquationsOverGF2 {
                             "Monomial {mono_idx} in equation {eq_idx} is not strictly sorted: \
                              found {} >= {}",
                             w[0], w[1]
-                        ));
+                        )
+                        .into());
                     }
                 }
             }
@@ -105,7 +104,10 @@ impl AlgebraicEquationsOverGF2 {
     ///
     /// Returns an error if any variable index is out of range or any monomial
     /// is not strictly sorted.
-    pub fn new(num_variables: usize, equations: Vec<Vec<Vec<usize>>>) -> Result<Self, String> {
+    pub fn new(
+        num_variables: usize,
+        equations: Vec<Vec<Vec<usize>>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate(num_variables, &equations)?;
         Ok(Self {
             num_variables,
@@ -132,12 +134,12 @@ impl AlgebraicEquationsOverGF2 {
     ///
     /// An empty monomial is the constant 1.
     /// A non-empty monomial is the product (AND) of the indicated variables.
-    fn evaluate_monomial(monomial: &[usize], assignment: &[usize]) -> usize {
+    fn evaluate_monomial(monomial: &[usize], assignment: &[bool]) -> usize {
         if monomial.is_empty() {
             return 1;
         }
         for &var in monomial {
-            if assignment[var] == 0 {
+            if !assignment[var] {
                 return 0;
             }
         }
@@ -147,7 +149,7 @@ impl AlgebraicEquationsOverGF2 {
     /// Evaluate a single equation (polynomial) given a binary assignment.
     ///
     /// Returns true if the polynomial evaluates to 0 (mod 2).
-    fn evaluate_equation(equation: &[Vec<usize>], assignment: &[usize]) -> bool {
+    fn evaluate_equation(equation: &[Vec<usize>], assignment: &[bool]) -> bool {
         let sum: usize = equation
             .iter()
             .map(|mono| Self::evaluate_monomial(mono, assignment))
@@ -174,26 +176,45 @@ impl<'de> Deserialize<'de> for AlgebraicEquationsOverGF2 {
 
 impl Problem for AlgebraicEquationsOverGF2 {
     const NAME: &'static str = "AlgebraicEquationsOverGF2";
+    type Solution = Vec<bool>;
     type Value = Or;
+
+    crate::problem_parameters![
+        ("num_equations", num_equations),
+        ("num_variables", num_variables),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_variables]
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_variables {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the equation variables".into(),
+            ));
+        }
+        Ok({
+            Or(self
+                .equations
+                .iter()
+                .all(|eq| Self::evaluate_equation(eq, config)))
+        })
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(self
-            .equations
-            .iter()
-            .all(|eq| Self::evaluate_equation(eq, config)))
+impl crate::solvers::BruteForceProblem for AlgebraicEquationsOverGF2 {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_variables]
     }
 }
 
 crate::declare_variants! {
     default AlgebraicEquationsOverGF2 => "2^(0.6943 * num_variables)",
+}
+
+crate::register_brute_force! {
+    AlgebraicEquationsOverGF2 decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -215,7 +236,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             .unwrap(),
         ),
         // config [1,0,0]: eq1: 0*0+0=0 ✓, eq2: 0*0+1+1=0 ✓, eq3: 1+0+0+1=0 ✓
-        optimal_config: vec![1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

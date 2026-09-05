@@ -4,7 +4,7 @@
 //! vector s of length n, find a binary vector x of length m minimizing the
 //! Hamming weight |x| subject to Hx ≡ s (mod 2).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -15,12 +15,10 @@ inventory::submit! {
         display_name: "Minimum Weight Decoding",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find minimum Hamming weight binary vector x such that Hx ≡ s (mod 2)",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "n×m binary parity-check matrix H" },
-            FieldInfo { name: "target", type_name: "Vec<bool>", description: "binary syndrome vector s of length n" },
-        ],
+        fields: MinimumWeightDecodingCreateSpec::FIELDS,
     }
 }
 
@@ -40,7 +38,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::MinimumWeightDecoding;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![true, false, true, true],
@@ -50,7 +48,7 @@ inventory::submit! {
 /// let target = vec![true, true, false];
 /// let problem = MinimumWeightDecoding::new(matrix, target);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +57,39 @@ pub struct MinimumWeightDecoding {
     matrix: Vec<Vec<bool>>,
     /// The binary syndrome vector s of length n.
     target: Vec<bool>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumWeightDecodingCreateSpec {
+    /// Binary parity-check matrix as JSON.
+    #[create(codec = "json")]
+    matrix: Vec<Vec<bool>>,
+    /// Binary syndrome vector.
+    #[create(name = "rhs", codec = "comma-separated")]
+    target: Vec<bool>,
+}
+
+impl TryFrom<MinimumWeightDecodingCreateSpec> for MinimumWeightDecoding {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumWeightDecodingCreateSpec) -> Result<Self, Self::Error> {
+        let first = spec
+            .matrix
+            .first()
+            .ok_or("matrix must have at least one row")?;
+        if first.is_empty() {
+            return Err("matrix must have at least one column".into());
+        }
+        if spec.matrix.iter().any(|row| row.len() != first.len()) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if spec.target.len() != spec.matrix.len() {
+            return Err("rhs length must equal number of rows".into());
+        }
+        Ok(Self {
+            matrix: spec.matrix,
+            target: spec.target,
+        })
+    }
 }
 
 impl MinimumWeightDecoding {
@@ -106,45 +137,61 @@ impl MinimumWeightDecoding {
 
 impl Problem for MinimumWeightDecoding {
     const NAME: &'static str = "MinimumWeightDecoding";
-    type Value = Min<usize>;
+    type Solution = Vec<bool>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_cols()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_cols() {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        // Check Hx ≡ s (mod 2) for each row
-        for (i, row) in self.matrix.iter().enumerate() {
-            let dot: usize = row
-                .iter()
-                .zip(config.iter())
-                .filter(|(&h, &x)| h && x == 1)
-                .count();
-            let syndrome_bit = dot % 2 == 1;
-            if syndrome_bit != self.target[i] {
-                return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_cols() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "decoded-word length does not match the matrix columns".into(),
+                ));
             }
-        }
+            // Check Hx ≡ s (mod 2) for each row
+            for (i, row) in self.matrix.iter().enumerate() {
+                let dot: usize = row
+                    .iter()
+                    .zip(config.iter())
+                    .filter(|(&h, &x)| h && x)
+                    .count();
+                let syndrome_bit = dot % 2 == 1;
+                if syndrome_bit != self.target[i] {
+                    return Ok(Min(None));
+                }
+            }
 
-        // Feasible: return Hamming weight
-        let weight: usize = config.iter().filter(|&&v| v == 1).count();
-        Min(Some(weight))
+            // Feasible: return Hamming weight
+            let weight: usize = config.iter().filter(|&&v| v).count();
+            Min(Some(i64::try_from(weight).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting Hamming weight to i64".into(),
+                )
+            })?))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_cols()]
     }
 }
 
 crate::declare_variants! {
-    default MinimumWeightDecoding => "2^(0.0494 * num_cols)",
+    default MinimumWeightDecoding => "2^(0.0494 * num_cols)" create MinimumWeightDecodingCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumWeightDecoding decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -160,7 +207,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_decoding",
         instance: Box::new(MinimumWeightDecoding::new(matrix, target)),
-        optimal_config: vec![0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![false, false, true, false]),
         optimal_value: serde_json::json!(1),
     }]
 }

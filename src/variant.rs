@@ -1,28 +1,17 @@
 //! Variant system for type-level problem parameterization.
 //!
-//! Types declare their variant category, value, and parent via `VariantParam`.
+//! Types declare their variant category and value via `VariantParam`.
 //! The `impl_variant_param!` macro registers types with the trait.
 //! The `variant_params!` macro composes `Problem::variant()` bodies from type parameter names.
 
 /// A type that participates in the variant system.
 ///
-/// Declares its category (e.g., `"graph"`), value (e.g., `"SimpleGraph"`),
-/// and optional parent in the subtype hierarchy.
+/// Declares its category (e.g., `"graph"`) and value (e.g., `"SimpleGraph"`).
 pub trait VariantParam: 'static {
     /// Category name (e.g., `"graph"`, `"weight"`, `"k"`).
     const CATEGORY: &'static str;
-    /// Type name within the category (e.g., `"SimpleGraph"`, `"i32"`).
+    /// Type name within the category (e.g., `"SimpleGraph"`, `"i64"`).
     const VALUE: &'static str;
-    /// Parent type name in the subtype hierarchy, or `None` for root types.
-    const PARENT_VALUE: Option<&'static str>;
-}
-
-/// Types that can convert themselves to their parent in the variant hierarchy.
-pub trait CastToParent: VariantParam {
-    /// The parent type.
-    type Parent: VariantParam;
-    /// Convert this value to its parent type.
-    fn cast_to_parent(&self) -> Self::Parent;
 }
 
 /// K-value marker trait for types that represent a const-generic K parameter.
@@ -35,59 +24,30 @@ pub trait KValue: VariantParam + Clone + 'static {
     const K: Option<usize>;
 }
 
-/// Implement `VariantParam` (and optionally `CastToParent` and/or `KValue`) for a type.
+/// Implement `VariantParam` and optionally `KValue` for a type.
 ///
 /// # Usage
 ///
 /// ```text
-/// // Root type (no parent):
+/// // Variant parameter:
 /// impl_variant_param!(SimpleGraph, "graph");
 ///
-/// // Type with parent -- cast closure required:
-/// impl_variant_param!(UnitDiskGraph, "graph", parent: SimpleGraph,
-///     cast: |g| SimpleGraph::new(g.num_vertices(), g.edges()));
-///
-/// // Root K type (no parent, with K value):
+/// // Generic K value:
 /// impl_variant_param!(KN, "k", k: None);
 ///
-/// // K type with parent + cast + K value:
-/// impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
+/// // Concrete K value:
+/// impl_variant_param!(K3, "k", k: Some(3));
 /// ```
 #[macro_export]
 macro_rules! impl_variant_param {
-    // Root type (no parent, no cast)
     ($ty:ty, $cat:expr) => {
         impl $crate::variant::VariantParam for $ty {
             const CATEGORY: &'static str = $cat;
             const VALUE: &'static str = stringify!($ty);
-            const PARENT_VALUE: Option<&'static str> = None;
         }
     };
-    // Type with parent + cast closure
-    ($ty:ty, $cat:expr, parent: $parent:ty, cast: $cast:expr) => {
-        impl $crate::variant::VariantParam for $ty {
-            const CATEGORY: &'static str = $cat;
-            const VALUE: &'static str = stringify!($ty);
-            const PARENT_VALUE: Option<&'static str> = Some(stringify!($parent));
-        }
-        impl $crate::variant::CastToParent for $ty {
-            type Parent = $parent;
-            fn cast_to_parent(&self) -> $parent {
-                let f: fn(&$ty) -> $parent = $cast;
-                f(self)
-            }
-        }
-    };
-    // KValue root type (no parent, with k value)
     ($ty:ty, $cat:expr, k: $k:expr) => {
         $crate::impl_variant_param!($ty, $cat);
-        impl $crate::variant::KValue for $ty {
-            const K: Option<usize> = $k;
-        }
-    };
-    // KValue type with parent + cast + k value
-    ($ty:ty, $cat:expr, parent: $parent:ty, cast: $cast:expr, k: $k:expr) => {
-        $crate::impl_variant_param!($ty, $cat, parent: $parent, cast: $cast);
         impl $crate::variant::KValue for $ty {
             const K: Option<usize> = $k;
         }
@@ -140,11 +100,11 @@ pub struct K5;
 pub struct KN;
 
 impl_variant_param!(KN, "k", k: None);
-impl_variant_param!(K5, "k", parent: KN, cast: |_| KN, k: Some(5));
-impl_variant_param!(K4, "k", parent: KN, cast: |_| KN, k: Some(4));
-impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
-impl_variant_param!(K2, "k", parent: KN, cast: |_| KN, k: Some(2));
-impl_variant_param!(K1, "k", parent: KN, cast: |_| KN, k: Some(1));
+impl_variant_param!(K5, "k", k: Some(5));
+impl_variant_param!(K4, "k", k: Some(4));
+impl_variant_param!(K3, "k", k: Some(3));
+impl_variant_param!(K2, "k", k: Some(2));
+impl_variant_param!(K1, "k", k: Some(1));
 
 // --- VariantSpec: canonical runtime representation of a problem variant ---
 
@@ -152,22 +112,20 @@ use std::collections::BTreeMap;
 
 /// Canonical runtime representation of a problem variant.
 ///
-/// Used for validated runtime lookups and normalization. Unlike raw
-/// `BTreeMap<String, String>`, a `VariantSpec` validates its dimensions
-/// at construction time and can normalize default values.
+/// Unlike raw `BTreeMap<String, String>`, construction from pairs rejects
+/// duplicate dimensions.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VariantSpec {
     dims: BTreeMap<String, String>,
 }
 
-/// Default dimension values used for normalization and default detection.
-const DEFAULT_VALUES: &[&str] = &["SimpleGraph", "One", "KN"];
-
 impl VariantSpec {
     /// Create a `VariantSpec` from key-value pairs, rejecting duplicate dimensions.
     ///
     /// Returns an error if the same dimension key appears more than once.
-    pub fn try_from_pairs<I, K, V>(pairs: I) -> std::result::Result<Self, String>
+    pub fn try_from_pairs<I, K, V>(
+        pairs: I,
+    ) -> std::result::Result<Self, crate::registry::ConstructionError>
     where
         I: IntoIterator<Item = (K, V)>,
         K: Into<String>,
@@ -178,14 +136,16 @@ impl VariantSpec {
             let key = k.into();
             let val = v.into();
             if dims.insert(key.clone(), val).is_some() {
-                return Err(format!("duplicate dimension: {}", key));
+                return Err(format!("duplicate dimension: {}", key).into());
             }
         }
         Ok(Self { dims })
     }
 
     /// Create a `VariantSpec` from an existing `BTreeMap`.
-    pub fn try_from_map(map: BTreeMap<String, String>) -> std::result::Result<Self, String> {
+    pub fn try_from_map(
+        map: BTreeMap<String, String>,
+    ) -> std::result::Result<Self, crate::registry::ConstructionError> {
         Ok(Self { dims: map })
     }
 
@@ -202,32 +162,6 @@ impl VariantSpec {
     /// Update or add a single dimension.
     pub fn update_dimension(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.dims.insert(key.into(), value.into());
-    }
-
-    /// Normalize the variant by filling in default values for empty dimensions.
-    ///
-    /// If a dimension has an empty string value, it is replaced with its
-    /// canonical default:
-    /// - `"graph"` → `"SimpleGraph"`
-    pub fn normalize(&self) -> Self {
-        let mut dims = self.dims.clone();
-        if let Some(v) = dims.get_mut("graph") {
-            if v.is_empty() {
-                *v = "SimpleGraph".to_string();
-            }
-        }
-        Self { dims }
-    }
-
-    /// Check whether this variant uses only default dimension values.
-    ///
-    /// Returns `true` if every dimension value is one of the recognized
-    /// defaults: `"SimpleGraph"`, `"One"`, `"KN"`. An empty variant
-    /// (no dimensions) is also considered default.
-    pub fn is_default(&self) -> bool {
-        self.dims
-            .values()
-            .all(|v| DEFAULT_VALUES.contains(&v.as_str()))
     }
 }
 

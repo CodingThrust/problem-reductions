@@ -24,28 +24,29 @@ impl ReductionResult for ReductionISTToILP {
     }
 
     /// For each tree vertex u, output the unique graph vertex v with x_{u,v} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        (0..n)
-            .map(|u| {
-                (0..n)
-                    .find(|&v| target_solution[u * n + v] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices * num_vertices",
         num_constraints = "2 * num_vertices + 2 * (num_vertices - 1) * num_vertices * num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
     type Result = ReductionISTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let num_vars = n * n;
 
@@ -54,15 +55,15 @@ impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
         // Each tree vertex u maps to exactly one graph vertex:
         // Σ_v x_{u,v} = 1  ∀ u
         for u in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|v| (u * n + v, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|v| (u * n + v, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Each graph vertex v is mapped to by exactly one tree vertex:
         // Σ_u x_{u,v} = 1  ∀ v
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|u| (u * n + v, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|u| (u * n + v, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // For each tree edge {u, w} and each pair (v, z) that is NOT a graph edge:
@@ -73,16 +74,17 @@ impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
                 for z in 0..n {
                     if v != z && !self.graph().has_edge(v, z) {
                         constraints.push(LinearConstraint::le(
-                            vec![(u * n + v, 1.0), (w * n + z, 1.0)],
-                            1.0,
+                            vec![(u * n + v, 1), (w * n + z, 1)],
+                            1,
                         ));
                     }
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionISTToILP { target, n }
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionISTToILP { target, n })
     }
 }
 
@@ -102,9 +104,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
                     // x_{0,0}=1, x_{1,1}=1, x_{2,2}=1, x_{3,3}=1
-                    target_config: vec![1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                    target_config: serde_json::json!(vec![
+                        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+                    ]),
                 },
             )
         },

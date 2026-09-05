@@ -5,9 +5,9 @@ use crate::traits::Problem;
 use crate::types::Or;
 use crate::variant::KN;
 
-/// Helper: extract a vertex-major `BicliqueCover` cell.
-fn cell(config: &[usize], vertex: usize, biclique: usize, k: usize) -> usize {
-    config[vertex * k + biclique]
+/// Helper: extract a `BicliqueCover` membership cell.
+fn cell(config: &[Vec<bool>], vertex: usize, biclique: usize) -> bool {
+    config[biclique][vertex]
 }
 
 /// Build a closed-loop test on the smallest source that is non-trivial yet
@@ -17,29 +17,32 @@ fn cell(config: &[usize], vertex: usize, biclique: usize, k: usize) -> usize {
 fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
     // Single isolated vertex with q = 1: trivially 1-colorable.
     let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), 1);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Solve the target via brute force and verify the extracted coloring
     // is a proper q-coloring of the source.
     let witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("trivial target must be feasible");
-    let coloring = reduction.extract_solution(&witness);
+    let coloring = reduction.extract_solution(&witness).unwrap();
     assert_eq!(coloring.len(), 1);
     assert!(source.is_valid_solution(&coloring));
     // The source brute force agrees.
-    assert_eq!(source.evaluate(&coloring), Or(true));
+    assert_eq!(source.evaluate(&coloring).unwrap(), Or(true));
 }
 
-/// Structural assertions against the exact target sizes derived in the
+/// Structural assertions against the exact target parameterss derived in the
 /// issue. Picks a small but non-trivial instance: P_3 (path on 3 vertices)
 /// with q = 2.
 #[test]
 fn test_kcoloring_to_bicliquecover_structure_path() {
     // n = 3, m = 2 (path 0-1-2), q = 2.
     let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let n = 3;
@@ -63,7 +66,8 @@ fn test_kcoloring_to_bicliquecover_structure_clique() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         3,
     );
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let n = 4;
@@ -76,7 +80,7 @@ fn test_kcoloring_to_bicliquecover_structure_clique() {
     assert_eq!(target.num_edges(), 12);
 
     // K_4 with q = 3 has no proper coloring.
-    assert!(BruteForce::new().find_witness(&source).is_none());
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
 }
 
 /// Build the explicit forward witness (guard bicliques + color bicliques)
@@ -90,14 +94,15 @@ fn test_kcoloring_to_bicliquecover_forward_witness_path_q2() {
     let coloring = vec![0usize, 1, 0];
     assert!(source.is_valid_solution(&coloring));
 
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let witness = forward_witness(&source, &coloring);
 
     // Witness covers all edges with rank <= n + q.
     assert!(target.is_valid_cover(&witness));
     // Extraction recovers a proper coloring.
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.is_valid_solution(&extracted));
 }
 
@@ -110,12 +115,13 @@ fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
     let coloring = vec![0usize, 1, 0, 1];
     assert!(source.is_valid_solution(&coloring));
 
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let witness = forward_witness(&source, &coloring);
 
     assert!(target.is_valid_cover(&witness));
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.is_valid_solution(&extracted));
 }
 
@@ -126,7 +132,8 @@ fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
 fn test_kcoloring_to_bicliquecover_rejects_adjacent_grouping() {
     // P_2 with q = 2; edge (0, 1) means vertices 0 and 1 are adjacent.
     let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // The "bad" witness re-uses the canonical forward witness but pretends
@@ -138,11 +145,11 @@ fn test_kcoloring_to_bicliquecover_rejects_adjacent_grouping() {
     let k = n + q;
     let left_size = 2 * n;
     let num_vertices = 4 * n;
-    let mut bad = vec![0usize; num_vertices * k];
+    let mut bad = vec![vec![false; num_vertices]; k];
 
     // Helper: set vertex `v` (unified index) as a member of biclique `r`.
-    let set = |bad: &mut Vec<usize>, vertex: usize, biclique: usize| {
-        bad[vertex * k + biclique] = 1;
+    let set = |bad: &mut Vec<Vec<bool>>, vertex: usize, biclique: usize| {
+        bad[biclique][vertex] = true;
     };
     // Guard bicliques (biclique indices 0 and 1) cover the guard-anchor
     // edges correctly.
@@ -175,12 +182,13 @@ fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
     let coloring = vec![0usize, 1, 2];
     assert!(source.is_valid_solution(&coloring));
 
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let witness = forward_witness(&source, &coloring);
     assert!(target.is_valid_cover(&witness));
 
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.is_valid_solution(&extracted));
     // K_3 forces 3 distinct colors.
     let mut seen = std::collections::BTreeSet::new();
@@ -197,7 +205,8 @@ fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
 fn test_kcoloring_to_bicliquecover_explicit_edges_p2() {
     // P_2: n = 2, m = 1, edge (0,1), q = 2.
     let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // n = 2, m = 1, q = 2 => num_edges = 2*2*1 - 4*1 + 6 = 6.
@@ -222,7 +231,8 @@ fn test_kcoloring_to_bicliquecover_explicit_edges_p2() {
 #[test]
 fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
     let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), 1);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // n = 1, q = 1, k = 2, num_vertices = 4.
@@ -233,11 +243,10 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
 
     // The diagonal edge (a_0, b_0) should be in the color biclique r = 1
     // (since the guard biclique r = 0 holds (a_0, h_0) and (g_0, h_0)).
-    let k = target.k();
     // a_0 is unified vertex 0, b_0 is unified vertex left_size = 2.
-    assert_eq!(cell(&witness, 0, 1, k), 1);
-    assert_eq!(cell(&witness, 2, 1, k), 1);
+    assert!(cell(&witness, 0, 1));
+    assert!(cell(&witness, 2, 1));
 
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted, vec![0]);
 }

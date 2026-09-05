@@ -10,72 +10,78 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BottleneckTravelingSalesman;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
+use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
 /// Result of reducing BottleneckTravelingSalesman to ILP.
 ///
-/// Variable layout (ILP<i32>, all non-negative):
+/// Variable layout (`ILP<i64>`, all non-negative):
 /// - `x_{v,p}` at index `v * n + p`, bounded to {0,1}
 /// - `z_{e,p,dir}` at index `n^2 + 2*(e*n + p) + dir`, bounded to {0,1}
 /// - `b` (bottleneck) at index `n^2 + 2*m*n`
 #[derive(Debug, Clone)]
 pub struct ReductionBTSPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_vertices: usize,
     source_edges: Vec<(usize, usize)>,
 }
 
 impl ReductionResult for ReductionBTSPToILP {
     type Source = BottleneckTravelingSalesman;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
     /// Extract: decode tour from x variables, then mark selected edges.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Decode tour: for each position p, find vertex v with x_{v,p} = 1
-        let mut tour = vec![0usize; n];
-        for p in 0..n {
-            for v in 0..n {
-                if target_solution[v * n + p] == 1 {
-                    tour[p] = v;
-                    break;
-                }
+        Ok({
+            let n = self.num_vertices;
+
+            let tour = one_hot_decode(target_solution, n, n, 0)?;
+
+            // Map tour to edge selection
+            let mut edge_selection = vec![false; self.source_edges.len()];
+            for p in 0..n {
+                let u = tour[p];
+                let v = tour[(p + 1) % n];
+                let edge = self
+                    .source_edges
+                    .iter()
+                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target tour uses absent source edge ({u}, {v})"
+                        ))
+                    })?;
+                edge_selection[edge] = true;
             }
-        }
 
-        // Map tour to edge selection
-        let mut edge_selection = vec![0usize; self.source_edges.len()];
-        for p in 0..n {
-            let u = tour[p];
-            let v = tour[(p + 1) % n];
-            for (idx, &(a, b)) in self.source_edges.iter().enumerate() {
-                if (a == u && b == v) || (a == v && b == u) {
-                    edge_selection[idx] = 1;
-                    break;
-                }
-            }
-        }
-
-        edge_selection
+            edge_selection
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + 1",
         num_constraints = "2 * num_vertices + num_vertices^2 + 2 * num_edges * num_vertices + 6 * num_edges * num_vertices + num_vertices + 2 * num_edges * num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
+impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
     type Result = ReductionBTSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = self.graph();
         let edges = graph.edges();
@@ -95,24 +101,24 @@ impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
 
         // Assignment: each vertex in exactly one position
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|p| (x_idx(v, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|p| (x_idx(v, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Assignment: each position has exactly one vertex
         for p in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|v| (x_idx(v, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
-        // Binary bounds for x variables (ILP<i32> is non-negative integer)
+        // Binary bounds for x variables (`ILP<i64>` is non-negative integer)
         for idx in 0..num_x {
-            constraints.push(LinearConstraint::le(vec![(idx, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(idx, 1)], 1));
         }
 
         // Binary bounds for z variables
         for idx in 0..num_z {
-            constraints.push(LinearConstraint::le(vec![(num_x + idx, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(num_x + idx, 1)], 1));
         }
 
         // McCormick linearization for z variables (cyclic: position (p+1) mod n)
@@ -138,37 +144,37 @@ impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
         for p in 0..n {
             let mut terms = Vec::new();
             for e in 0..m {
-                terms.push((z_fwd_idx(e, p), 1.0));
-                terms.push((z_rev_idx(e, p), 1.0));
+                terms.push((z_fwd_idx(e, p), 1));
+                terms.push((z_rev_idx(e, p), 1));
             }
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Bottleneck: b >= w_e * z_{e,p,dir} for all e, p, dir
         for (e, &w) in weights.iter().enumerate() {
-            let w_f64 = w as f64;
             for p in 0..n {
                 constraints.push(LinearConstraint::ge(
-                    vec![(b_idx, 1.0), (z_fwd_idx(e, p), -w_f64)],
-                    0.0,
+                    vec![(b_idx, 1), (z_fwd_idx(e, p), -w)],
+                    0,
                 ));
                 constraints.push(LinearConstraint::ge(
-                    vec![(b_idx, 1.0), (z_rev_idx(e, p), -w_f64)],
-                    0.0,
+                    vec![(b_idx, 1), (z_rev_idx(e, p), -w)],
+                    0,
                 ));
             }
         }
 
         // Objective: minimize b
-        let objective = vec![(b_idx, 1.0)];
+        let objective = vec![(b_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionBTSPToILP {
+        Ok(ReductionBTSPToILP {
             target,
             num_vertices: n,
             source_edges: edges,
-        }
+        })
     }
 }
 
@@ -182,7 +188,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
                 vec![1, 2, 3, 4],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

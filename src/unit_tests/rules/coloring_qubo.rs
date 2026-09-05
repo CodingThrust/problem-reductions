@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::variant::{K2, K3};
 
@@ -7,16 +8,16 @@ use crate::variant::{K2, K3};
 fn test_kcoloring_to_qubo_closed_loop() {
     // Triangle K3, 3 colors → exactly 6 valid colorings (3! permutations)
     let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     // All solutions should extract to valid colorings
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
-        assert!(kc.evaluate(&extracted));
+        let extracted = reduction.extract_solution(sol).unwrap();
+        assert!(kc.evaluate(&extracted).unwrap());
     }
 
     // Exactly 6 valid 3-colorings of K3
@@ -27,15 +28,15 @@ fn test_kcoloring_to_qubo_closed_loop() {
 fn test_kcoloring_to_qubo_path() {
     // Path graph: 0-1-2, 2 colors
     let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
-        assert!(kc.evaluate(&extracted));
+        let extracted = reduction.extract_solution(sol).unwrap();
+        assert!(kc.evaluate(&extracted).unwrap());
     }
 
     // 2-coloring of path: 0,1,0 or 1,0,1 → 2 solutions
@@ -47,15 +48,15 @@ fn test_kcoloring_to_qubo_reversed_edges() {
     // Edge (2, 0) triggers the idx_v < idx_u swap branch (line 104).
     // Path: 2-0-1 with reversed edge ordering
     let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(2, 0), (0, 1)]));
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
-        assert!(kc.evaluate(&extracted));
+        let extracted = reduction.extract_solution(sol).unwrap();
+        assert!(kc.evaluate(&extracted).unwrap());
     }
 
     // Same as path graph: 2 valid 2-colorings
@@ -65,7 +66,7 @@ fn test_kcoloring_to_qubo_reversed_edges() {
 #[test]
 fn test_kcoloring_to_qubo_sizes() {
     let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
 
     // QUBO should have n*K = 3*3 = 9 variables
     assert_eq!(reduction.target_problem().num_variables(), 9);

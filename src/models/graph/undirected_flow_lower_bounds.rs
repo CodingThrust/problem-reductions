@@ -13,7 +13,7 @@
 //! lower bounds, so the registered exact complexity matches brute-force
 //! enumeration over the `2^|E|` edge orientations.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -25,44 +25,96 @@ inventory::submit! {
         display_name: "Undirected Flow with Lower Bounds",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether an undirected lower-bounded flow of value at least R exists",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "Undirected graph G=(V,E)" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Upper capacities c(e) in graph edge order" },
-            FieldInfo { name: "lower_bounds", type_name: "Vec<u64>", description: "Lower bounds l(e) in graph edge order" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t" },
-            FieldInfo { name: "requirement", type_name: "u64", description: "Required net inflow R at sink t" },
-        ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "UndirectedFlowLowerBounds",
-        fields: &["num_vertices", "num_edges"],
+        fields: UndirectedFlowLowerBoundsCreateSpec::FIELDS,
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UndirectedFlowLowerBounds {
     graph: SimpleGraph,
-    capacities: Vec<u64>,
-    lower_bounds: Vec<u64>,
+    capacities: Vec<i64>,
+    lower_bounds: Vec<i64>,
     source: usize,
     sink: usize,
-    requirement: u64,
+    requirement: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct UndirectedFlowLowerBoundsCreateSpec {
+    /// Undirected graph.
+    graph: SimpleGraph,
+    /// Upper capacities in graph edge order.
+    capacities: Vec<i64>,
+    /// Lower bounds in graph edge order.
+    lower_bounds: Vec<i64>,
+    /// Source vertex.
+    source: usize,
+    /// Sink vertex.
+    sink: usize,
+    /// Required net inflow at the sink.
+    requirement: i64,
+}
+impl TryFrom<UndirectedFlowLowerBoundsCreateSpec> for UndirectedFlowLowerBounds {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: UndirectedFlowLowerBoundsCreateSpec) -> Result<Self, Self::Error> {
+        let edges = spec.graph.num_edges();
+        if spec.capacities.len() != edges {
+            return Err(format!(
+                "capacities has {} entries, expected {edges}",
+                spec.capacities.len()
+            )
+            .into());
+        }
+        if spec.lower_bounds.len() != edges {
+            return Err(format!(
+                "lower_bounds has {} entries, expected {edges}",
+                spec.lower_bounds.len()
+            )
+            .into());
+        }
+        let vertices = spec.graph.num_vertices();
+        if spec.source >= vertices || spec.sink >= vertices {
+            return Err("source and sink must be valid graph vertices"
+                .to_string()
+                .into());
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".to_string().into());
+        }
+        if spec.requirement == 0 {
+            return Err("requirement must be at least 1".to_string().into());
+        }
+        if let Some((index, _)) = spec
+            .lower_bounds
+            .iter()
+            .zip(&spec.capacities)
+            .enumerate()
+            .find(|(_, (&lower, &upper))| lower > upper)
+        {
+            return Err(format!("lower bound at edge {index} exceeds its capacity").into());
+        }
+        Ok(Self::new(
+            spec.graph,
+            spec.capacities,
+            spec.lower_bounds,
+            spec.source,
+            spec.sink,
+            spec.requirement,
+        ))
+    }
 }
 
 impl UndirectedFlowLowerBounds {
     pub fn new(
         graph: SimpleGraph,
-        capacities: Vec<u64>,
-        lower_bounds: Vec<u64>,
+        capacities: Vec<i64>,
+        lower_bounds: Vec<i64>,
         source: usize,
         sink: usize,
-        requirement: u64,
+        requirement: i64,
     ) -> Self {
         assert_eq!(
             capacities.len(),
@@ -108,11 +160,11 @@ impl UndirectedFlowLowerBounds {
         &self.graph
     }
 
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
-    pub fn lower_bounds(&self) -> &[u64] {
+    pub fn lower_bounds(&self) -> &[i64] {
         &self.lower_bounds
     }
 
@@ -124,7 +176,7 @@ impl UndirectedFlowLowerBounds {
         self.sink
     }
 
-    pub fn requirement(&self) -> u64 {
+    pub fn requirement(&self) -> i64 {
         self.requirement
     }
 
@@ -136,34 +188,47 @@ impl UndirectedFlowLowerBounds {
         self.graph.num_edges()
     }
 
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        if config.len() != self.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-orientation length does not match the graph".into(),
+            ));
+        }
+        self.has_feasible_orientation(config)
     }
 
-    fn total_capacity(&self) -> Option<u128> {
-        self.capacities.iter().try_fold(0_u128, |acc, &capacity| {
-            acc.checked_add(u128::from(capacity))
+    fn total_capacity(&self) -> Result<i64, crate::traits::EvaluationError> {
+        self.capacities.iter().try_fold(0_i64, |total, &capacity| {
+            total.checked_add(capacity).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing undirected flow capacities".into(),
+                )
+            })
         })
     }
 
-    fn has_feasible_orientation(&self, config: &[usize]) -> bool {
+    fn has_feasible_orientation(
+        &self,
+        config: &[bool],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         if config.len() != self.num_edges() {
-            return false;
+            return Ok(false);
         }
 
-        let Some(total_capacity) = self.total_capacity() else {
-            return false;
-        };
-        let requirement = u128::from(self.requirement);
+        let total_capacity = self.total_capacity()?;
+        let requirement = self.requirement;
         if requirement > total_capacity {
-            return false;
+            return Ok(false);
         }
 
         let node_count = self.num_vertices();
         let super_source = node_count;
         let super_sink = node_count + 1;
         let mut network = ResidualNetwork::new(node_count + 2);
-        let mut balances = vec![0_i128; node_count];
+        let mut balances = vec![0_i64; node_count];
 
         for (edge_index, ((u, v), &orientation)) in self
             .graph
@@ -172,15 +237,11 @@ impl UndirectedFlowLowerBounds {
             .zip(config.iter())
             .enumerate()
         {
-            let (from, to) = match orientation {
-                0 => (u, v),
-                1 => (v, u),
-                _ => return false,
-            };
-            let lower = u128::from(self.lower_bounds[edge_index]);
-            let upper = u128::from(self.capacities[edge_index]);
-            if !add_lower_bounded_edge(&mut network, &mut balances, from, to, lower, upper) {
-                return false;
+            let (from, to) = if orientation { (v, u) } else { (u, v) };
+            let lower = self.lower_bounds[edge_index];
+            let upper = self.capacities[edge_index];
+            if !add_lower_bounded_edge(&mut network, &mut balances, from, to, lower, upper)? {
+                return Ok(false);
             }
         }
 
@@ -191,48 +252,70 @@ impl UndirectedFlowLowerBounds {
             self.source,
             requirement,
             total_capacity,
-        ) {
-            return false;
+        )? {
+            return Ok(false);
         }
 
-        let mut demand = 0_u128;
+        let mut demand = 0_i64;
         for (vertex, balance) in balances.into_iter().enumerate() {
             if balance > 0 {
-                let needed = u128::try_from(balance).expect("positive i128 balance fits u128");
-                demand = match demand.checked_add(needed) {
+                demand = match demand.checked_add(balance) {
                     Some(value) => value,
-                    None => return false,
+                    None => {
+                        return Err(crate::traits::EvaluationError::IntegerOverflow(
+                            "summing lower-bound flow demand".into(),
+                        ));
+                    }
                 };
-                network.add_edge(super_source, vertex, needed);
+                network.add_edge(super_source, vertex, balance);
             } else if balance < 0 {
-                let needed = u128::try_from(-balance).expect("negative i128 balance fits u128");
-                network.add_edge(vertex, super_sink, needed);
+                network.add_edge(
+                    vertex,
+                    super_sink,
+                    balance.checked_neg().ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "negating lower-bound flow balance".into(),
+                        )
+                    })?,
+                );
             }
         }
 
-        network.max_flow(super_source, super_sink) == demand
+        Ok(network.max_flow(super_source, super_sink)? == demand)
     }
 }
 
 impl Problem for UndirectedFlowLowerBounds {
     const NAME: &'static str = "UndirectedFlowLowerBounds";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.has_feasible_orientation(config))
+impl crate::solvers::BruteForceProblem for UndirectedFlowLowerBounds {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_edges()]
     }
 }
 
 crate::declare_variants! {
-    default UndirectedFlowLowerBounds => "2^num_edges",
+    default UndirectedFlowLowerBounds => "2^num_edges" create UndirectedFlowLowerBoundsCreateSpec,
+}
+
+crate::register_brute_force! {
+    UndirectedFlowLowerBounds decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -250,7 +333,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             3,
         )),
-        optimal_config: vec![0, 0, 0, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![false, false, false, false, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }
@@ -259,7 +342,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 struct ResidualEdge {
     to: usize,
     rev: usize,
-    capacity: u128,
+    capacity: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -274,7 +357,7 @@ impl ResidualNetwork {
         }
     }
 
-    fn add_edge(&mut self, from: usize, to: usize, capacity: u128) {
+    fn add_edge(&mut self, from: usize, to: usize, capacity: i64) {
         let reverse_at_to = self.adjacency[to].len();
         let reverse_at_from = self.adjacency[from].len();
         self.adjacency[from].push(ResidualEdge {
@@ -289,8 +372,12 @@ impl ResidualNetwork {
         });
     }
 
-    fn max_flow(&mut self, source: usize, sink: usize) -> u128 {
-        let mut total_flow = 0_u128;
+    fn max_flow(
+        &mut self,
+        source: usize,
+        sink: usize,
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let mut total_flow = 0_i64;
 
         loop {
             let mut parent: Vec<Option<(usize, usize)>> = vec![None; self.adjacency.len()];
@@ -313,10 +400,10 @@ impl ResidualNetwork {
             }
 
             if parent[sink].is_none() {
-                return total_flow;
+                return Ok(total_flow);
             }
 
-            let mut path_flow = u128::MAX;
+            let mut path_flow = i64::MAX;
             let mut vertex = sink;
             while vertex != source {
                 let (prev, edge_index) = parent[vertex].expect("sink is reachable");
@@ -328,39 +415,65 @@ impl ResidualNetwork {
             while vertex != source {
                 let (prev, edge_index) = parent[vertex].expect("sink is reachable");
                 let reverse_edge = self.adjacency[prev][edge_index].rev;
-                self.adjacency[prev][edge_index].capacity -= path_flow;
-                self.adjacency[vertex][reverse_edge].capacity += path_flow;
+                self.adjacency[prev][edge_index].capacity = self.adjacency[prev][edge_index]
+                    .capacity
+                    .checked_sub(path_flow)
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "subtracting residual path flow".into(),
+                        )
+                    })?;
+                self.adjacency[vertex][reverse_edge].capacity = self.adjacency[vertex]
+                    [reverse_edge]
+                    .capacity
+                    .checked_add(path_flow)
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding reverse residual path flow".into(),
+                        )
+                    })?;
                 vertex = prev;
             }
 
-            total_flow += path_flow;
+            total_flow = total_flow.checked_add(path_flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow("summing maximum flow".into())
+            })?;
         }
     }
 }
 
 fn add_lower_bounded_edge(
     network: &mut ResidualNetwork,
-    balances: &mut [i128],
+    balances: &mut [i64],
     from: usize,
     to: usize,
-    lower: u128,
-    upper: u128,
-) -> bool {
+    lower: i64,
+    upper: i64,
+) -> Result<bool, crate::traits::EvaluationError> {
     if lower > upper {
-        return false;
+        return Ok(false);
     }
 
-    let residual = upper - lower;
+    let residual = upper.checked_sub(lower).ok_or_else(|| {
+        crate::traits::EvaluationError::IntegerOverflow(
+            "subtracting lower bound from flow capacity".into(),
+        )
+    })?;
     if residual > 0 {
         network.add_edge(from, to, residual);
     }
 
-    let Ok(lower_signed) = i128::try_from(lower) else {
-        return false;
-    };
-    balances[from] -= lower_signed;
-    balances[to] += lower_signed;
-    true
+    balances[from] = balances[from].checked_sub(lower).ok_or_else(|| {
+        crate::traits::EvaluationError::IntegerOverflow(
+            "subtracting lower bound from source balance".into(),
+        )
+    })?;
+    balances[to] = balances[to].checked_add(lower).ok_or_else(|| {
+        crate::traits::EvaluationError::IntegerOverflow(
+            "adding lower bound to target balance".into(),
+        )
+    })?;
+    Ok(true)
 }
 
 #[cfg(test)]

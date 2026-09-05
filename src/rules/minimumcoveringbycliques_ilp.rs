@@ -39,33 +39,41 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if self.num_edges == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         (0..self.num_edges)
-            .map(|edge_idx| {
+            .map(|edge| {
                 (0..self.num_edges)
-                    .find(|&slot| {
-                        target_solution[self.y_offset + edge_idx * self.num_edges + slot] == 1
+                    .find(|&clique| {
+                        target_solution[self.y_offset + edge * self.num_edges + clique] == 1
                     })
-                    .unwrap_or(0)
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "edge {edge} is not covered by any clique"
+                        ))
+                    })
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices * num_edges + num_edges + num_edges * num_edges",
         num_constraints = "num_vertices * num_edges + (num_vertices * (num_vertices - 1) / 2 - num_edges) * num_edges + 3 * num_edges * num_edges + num_edges",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
     type Result = ReductionMinimumCoveringByCliquesToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let num_vertices = graph.num_vertices();
         let edges = graph.edges();
@@ -84,8 +92,8 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
         for slot in 0..num_slots {
             for u in 0..num_vertices {
                 constraints.push(LinearConstraint::le(
-                    vec![(x_idx(u, slot), 1.0), (z_idx(slot), -1.0)],
-                    0.0,
+                    vec![(x_idx(u, slot), 1), (z_idx(slot), -1)],
+                    0,
                 ));
             }
         }
@@ -95,8 +103,8 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
                 for v in (u + 1)..num_vertices {
                     if !graph.has_edge(u, v) {
                         constraints.push(LinearConstraint::le(
-                            vec![(x_idx(u, slot), 1.0), (x_idx(v, slot), 1.0)],
-                            1.0,
+                            vec![(x_idx(u, slot), 1), (x_idx(v, slot), 1)],
+                            1,
                         ));
                     }
                 }
@@ -114,25 +122,26 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
         }
 
         for edge_idx in 0..num_edges {
-            let terms: Vec<(usize, f64)> = (0..num_slots)
-                .map(|slot| (y_idx(edge_idx, slot), 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_slots)
+                .map(|slot| (y_idx(edge_idx, slot), 1))
                 .collect();
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
-        let objective: Vec<(usize, f64)> = (0..num_slots).map(|slot| (z_idx(slot), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..num_slots).map(|slot| (z_idx(slot), 1)).collect();
         let target = ILP::new(
             y_offset + num_edges * num_slots,
             constraints,
             objective,
             ObjectiveSense::Minimize,
-        );
+        )
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionMinimumCoveringByCliquesToILP {
+        Ok(ReductionMinimumCoveringByCliquesToILP {
             target,
             num_edges,
             y_offset,
-        }
+        })
     }
 }
 

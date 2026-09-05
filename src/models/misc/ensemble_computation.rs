@@ -11,6 +11,7 @@ inventory::submit! {
         display_name: "Ensemble Computation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find the minimum-length sequence of disjoint unions that builds all required subsets",
         fields: &[
@@ -55,9 +56,9 @@ impl EnsembleComputation {
         universe_size: usize,
         subsets: Vec<Vec<usize>>,
         budget: usize,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if budget == 0 {
-            return Err("budget must be positive".to_string());
+            return Err("budget must be positive".to_string().into());
         }
         let subsets = subsets
             .into_iter()
@@ -164,47 +165,61 @@ impl EnsembleComputation {
 
 impl Problem for EnsembleComputation {
     const NAME: &'static str = "EnsembleComputation";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.universe_size + self.budget; 2 * self.budget]
-    }
+    crate::problem_parameters![
+        ("budget", budget),
+        ("num_subsets", num_subsets),
+        ("universe_size", universe_size),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != 2 * self.budget {
-            return Min(None);
-        }
-
-        let Some(required_subsets) = self.required_subsets() else {
-            return Min(None);
-        };
-        if required_subsets.is_empty() {
-            return Min(Some(0));
-        }
-
-        let mut computed = Vec::with_capacity(self.budget);
-        for step in 0..self.budget {
-            let left_operand = config[2 * step];
-            let right_operand = config[2 * step + 1];
-
-            let Some(left) = self.decode_operand(left_operand, &computed) else {
-                return Min(None);
-            };
-            let Some(right) = self.decode_operand(right_operand, &computed) else {
-                return Min(None);
-            };
-
-            if !Self::are_disjoint(&left, &right) {
-                return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != 2 * self.budget {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "ensemble program length does not match the operation budget".into(),
+                ));
             }
 
-            computed.push(Self::union_disjoint(&left, &right));
-            if Self::all_required_subsets_present(&required_subsets, &computed) {
-                return Min(Some(step + 1));
+            let Some(required_subsets) = self.required_subsets() else {
+                return Ok(Min(None));
+            };
+            if required_subsets.is_empty() {
+                return Ok(Min(Some(0)));
             }
-        }
 
-        Min(None)
+            let mut computed = Vec::with_capacity(self.budget);
+            for step in 0..self.budget {
+                let left_operand = config[2 * step];
+                let right_operand = config[2 * step + 1];
+
+                let Some(left) = self.decode_operand(left_operand, &computed) else {
+                    return Ok(Min(None));
+                };
+                let Some(right) = self.decode_operand(right_operand, &computed) else {
+                    return Ok(Min(None));
+                };
+
+                if !Self::are_disjoint(&left, &right) {
+                    return Ok(Min(None));
+                }
+
+                computed.push(Self::union_disjoint(&left, &right));
+                if Self::all_required_subsets_present(&required_subsets, &computed) {
+                    return Ok(Min(Some(i64::try_from(step + 1).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting union-operation count to i64".into(),
+                        )
+                    })?)));
+                }
+            }
+
+            Min(None)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -212,8 +227,18 @@ impl Problem for EnsembleComputation {
     }
 }
 
+impl crate::solvers::BruteForceProblem for EnsembleComputation {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.universe_size + self.budget; 2 * self.budget]
+    }
+}
+
 crate::declare_variants! {
     default EnsembleComputation => "(universe_size + budget)^(2 * budget)",
+}
+
+crate::register_brute_force! {
+    EnsembleComputation,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -224,7 +249,7 @@ struct EnsembleComputationDef {
 }
 
 impl TryFrom<EnsembleComputationDef> for EnsembleComputation {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: EnsembleComputationDef) -> Result<Self, Self::Error> {
         Self::try_new(value.universe_size, value.subsets, value.budget)
@@ -242,7 +267,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 1], vec![0, 1, 2]],
             2,
         )),
-        optimal_config: vec![0, 1, 3, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 3, 2]),
         optimal_value: serde_json::json!(2),
     }]
 }

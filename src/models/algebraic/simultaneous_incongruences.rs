@@ -3,7 +3,7 @@
 //! Given a list of pairs (aᵢ, bᵢ) with bᵢ > 0 and 1 ≤ aᵢ ≤ bᵢ, determine whether
 //! there exists a non-negative integer x such that x ≢ aᵢ (mod bᵢ) for all i.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -15,22 +15,16 @@ inventory::submit! {
         display_name: "Simultaneous Incongruences",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Decide whether there exists x with x ≢ aᵢ (mod bᵢ) for all i",
         fields: &[
             FieldInfo {
                 name: "pairs",
-                type_name: "Vec<(u64, u64)>",
+                type_name: "Vec<(i64, i64)>",
                 description: "Pairs (aᵢ, bᵢ) with bᵢ > 0 and 1 ≤ aᵢ ≤ bᵢ",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "SimultaneousIncongruences",
-        fields: &["num_pairs"],
     }
 }
 
@@ -46,34 +40,21 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::SimultaneousIncongruences;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // pairs: [(2,2),(1,3),(2,5),(3,7)] — lcm=210, x=5 is a solution
 /// let problem = SimultaneousIncongruences::new(vec![(2,2),(1,3),(2,5),(3,7)]).unwrap();
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct SimultaneousIncongruences {
     /// Incongruence pairs (aᵢ, bᵢ).
-    pairs: Vec<(u64, u64)>,
+    pairs: Vec<(i64, i64)>,
 }
 
-/// Maximum lcm value we will compute in full; if the lcm exceeds this cap we
-/// return this value to keep the brute-force search space manageable.
-pub(crate) const MAX_LCM: u128 = 1_000_000;
-
-fn lcm128(a: u128, b: u128) -> u128 {
-    if a == 0 || b == 0 {
-        return 0;
-    }
-    let g = gcd128(a, b);
-    // Use saturating arithmetic to avoid overflow; cap at MAX_LCM.
-    (a / g).saturating_mul(b).min(MAX_LCM)
-}
-
-fn gcd128(mut a: u128, mut b: u128) -> u128 {
+fn gcd(mut a: i64, mut b: i64) -> i64 {
     while b != 0 {
         let t = b;
         b = a % b;
@@ -83,28 +64,32 @@ fn gcd128(mut a: u128, mut b: u128) -> u128 {
 }
 
 impl SimultaneousIncongruences {
-    fn validate_inputs(pairs: &[(u64, u64)]) -> Result<(), String> {
+    fn validate_inputs(pairs: &[(i64, i64)]) -> Result<(), crate::registry::ConstructionError> {
         for (i, &(a, b)) in pairs.iter().enumerate() {
-            if b == 0 {
-                return Err(format!("Modulus b at index {i} must be positive (got b=0)"));
+            if b <= 0 {
+                return Err(format!("Modulus b at index {i} must be positive (got b={b})").into());
             }
-            if a == 0 {
-                return Err(format!(
-                    "Residue a at index {i} must be at least 1 (got a=0)"
-                ));
+            if a <= 0 {
+                return Err(format!("Residue a at index {i} must be at least 1 (got a=0)").into());
             }
             if a > b {
                 return Err(format!(
                     "Residue a ({a}) must not exceed modulus b ({b}) at index {i}"
-                ));
+                )
+                .into());
             }
         }
+        pairs.iter().try_fold(1i64, |lcm, &(_, modulus)| {
+            (lcm / gcd(lcm, modulus))
+                .checked_mul(modulus)
+                .ok_or_else(|| "Least common multiple of moduli exceeds i64 range".to_string())
+        })?;
         Ok(())
     }
 
     /// Create a new `SimultaneousIncongruences` instance, returning an error
     /// if any pair is invalid.
-    pub fn new(pairs: Vec<(u64, u64)>) -> Result<Self, String> {
+    pub fn new(pairs: Vec<(i64, i64)>) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&pairs)?;
         Ok(Self { pairs })
     }
@@ -115,26 +100,21 @@ impl SimultaneousIncongruences {
     }
 
     /// Get the incongruence pairs.
-    pub fn pairs(&self) -> &[(u64, u64)] {
+    pub fn pairs(&self) -> &[(i64, i64)] {
         &self.pairs
     }
 
-    /// Compute the LCM of all moduli (capped at `MAX_LCM`).
-    pub fn lcm_moduli(&self) -> u64 {
-        if self.pairs.is_empty() {
-            return 1;
-        }
-        let lcm = self
-            .pairs
-            .iter()
-            .fold(1u128, |acc, &(_, b)| lcm128(acc, b as u128));
-        lcm as u64
+    /// Compute the LCM of all moduli.
+    pub fn lcm_moduli(&self) -> i64 {
+        self.pairs.iter().fold(1i64, |lcm, &(_, modulus)| {
+            (lcm / gcd(lcm, modulus)) * modulus
+        })
     }
 }
 
 #[derive(Deserialize)]
 struct SimultaneousIncongruencesData {
-    pairs: Vec<(u64, u64)>,
+    pairs: Vec<(i64, i64)>,
 }
 
 impl<'de> Deserialize<'de> for SimultaneousIncongruences {
@@ -149,29 +129,36 @@ impl<'de> Deserialize<'de> for SimultaneousIncongruences {
 
 impl Problem for SimultaneousIncongruences {
     const NAME: &'static str = "SimultaneousIncongruences";
+    type Solution = i64;
     type Value = Or;
+
+    crate::problem_parameters![("num_pairs", num_pairs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let lcm = self.lcm_moduli() as usize;
-        vec![lcm]
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
+            Or(self.pairs.iter().all(|&(a, b)| solution % b != a % b))
+        })
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        if config.len() != 1 {
-            return Or(false);
-        }
-        let x = config[0] as u64;
-        // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
-        Or(self.pairs.iter().all(|&(a, b)| x % b != a % b))
+impl crate::solvers::BruteForceProblem for SimultaneousIncongruences {
+    fn dimensions(&self) -> Vec<usize> {
+        let lcm = usize::try_from(self.lcm_moduli()).expect("validated positive LCM fits usize");
+        vec![lcm]
     }
 }
 
 crate::declare_variants! {
     default SimultaneousIncongruences => "num_pairs",
+}
+
+crate::register_brute_force! {
+    SimultaneousIncongruences decode |_, indices: Vec<usize>| i64::try_from(indices[0]).expect("enumerated incongruence value fits i64"),
 }
 
 #[cfg(feature = "example-db")]
@@ -182,7 +169,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimultaneousIncongruences::new(vec![(2, 2), (1, 3), (2, 5), (3, 7)]).unwrap(),
         ),
         // x=5: 5%2=1≠0(=2%2), 5%3=2≠1, 5%5=0≠2, 5%7=5≠3 ✓
-        optimal_config: vec![5],
+        optimal_config: serde_json::json!(5),
         optimal_value: serde_json::json!(true),
     }]
 }

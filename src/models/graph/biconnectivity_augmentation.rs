@@ -4,7 +4,7 @@
 //! adding some subset of the potential edges can make the graph biconnected
 //! without exceeding the budget.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -19,15 +19,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Add weighted potential edges to make a graph biconnected within budget",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "potential_weights", type_name: "Vec<(usize, usize, W)>", description: "Potential edges with augmentation weights" },
-            FieldInfo { name: "budget", type_name: "W::Sum", description: "Maximum total augmentation weight B" },
-        ],
+        fields: BiconnectivityAugmentationCreateSpec::FIELDS,
     }
 }
 
@@ -52,6 +49,65 @@ where
     potential_weights: Vec<(usize, usize, W)>,
     /// Maximum total weight of selected potential edges.
     budget: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct BiconnectivityAugmentationCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    potential_weights: Vec<(usize, usize, i64)>,
+    budget: i64,
+}
+
+impl TryFrom<BiconnectivityAugmentationCreateSpec>
+    for BiconnectivityAugmentation<SimpleGraph, i64>
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: BiconnectivityAugmentationCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        let graph = SimpleGraph::new(count, spec.graph);
+        let mut seen = BTreeSet::new();
+        for &(u, v, _) in &spec.potential_weights {
+            if u >= count || v >= count {
+                return Err("potential edge endpoint is out of bounds".into());
+            }
+            if u == v {
+                return Err("potential edge is a self-loop".into());
+            }
+            let edge = normalize_edge(u, v);
+            if graph.has_edge(edge.0, edge.1) {
+                return Err("potential edge already exists in graph".into());
+            }
+            if !seen.insert(edge) {
+                return Err("duplicate potential edge".into());
+            }
+        }
+        Ok(Self {
+            graph,
+            potential_weights: spec.potential_weights,
+            budget: spec.budget,
+        })
+    }
 }
 
 impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
@@ -130,9 +186,12 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
         !W::IS_UNIT
     }
 
-    fn augmented_graph(&self, config: &[usize]) -> Option<SimpleGraph> {
-        if config.len() != self.num_potential_edges() || config.iter().any(|&value| value >= 2) {
-            return None;
+    fn augmented_graph(
+        &self,
+        config: &[bool],
+    ) -> Result<Option<SimpleGraph>, crate::traits::EvaluationError> {
+        if config.len() != self.num_potential_edges() {
+            return Ok(None);
         }
 
         let mut total = W::Sum::zero();
@@ -143,19 +202,23 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
         }
 
         for (selected, &(u, v, ref weight)) in config.iter().zip(&self.potential_weights) {
-            if *selected == 1 {
-                total += weight.to_sum();
+            if *selected {
+                total = W::checked_add_to_sum(
+                    total,
+                    weight.to_sum(),
+                    "summing biconnectivity augmentation weights",
+                )?;
                 if total > self.budget.clone() {
-                    return None;
+                    return Ok(None);
                 }
                 edges.insert(normalize_edge(u, v));
             }
         }
 
-        Some(SimpleGraph::new(
+        Ok(Some(SimpleGraph::new(
             self.num_vertices(),
             edges.into_iter().collect(),
-        ))
+        )))
     }
 }
 
@@ -165,21 +228,44 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "BiconnectivityAugmentation";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_edges", num_edges),
+        ("num_potential_edges", num_potential_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_potential_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            self.augmented_graph(config)
-                .is_some_and(|graph| is_biconnected(&graph))
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_potential_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the candidate edges".into(),
+            ));
+        }
+        Ok({
+            crate::types::Or({
+                self.augmented_graph(config)?
+                    .is_some_and(|graph| is_biconnected(&graph))
+            })
         })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for BiconnectivityAugmentation<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_potential_edges()]
     }
 }
 
@@ -255,7 +341,11 @@ fn is_biconnected<G: Graph>(graph: &G) -> bool {
 }
 
 crate::declare_variants! {
-    default BiconnectivityAugmentation<SimpleGraph, i32> => "2^num_potential_edges",
+    default BiconnectivityAugmentation<SimpleGraph, i64> => "2^num_potential_edges" create BiconnectivityAugmentationCreateSpec,
+}
+
+crate::register_brute_force! {
+    BiconnectivityAugmentation<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -277,13 +367,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             4,
         )),
-        optimal_config: vec![1, 0, 0, 1, 0, 0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![
+            true, false, false, true, false, false, true, false, true
+        ]),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 #[cfg(test)]
-pub(crate) fn example_instance() -> BiconnectivityAugmentation<SimpleGraph, i32> {
+pub(crate) fn example_instance() -> BiconnectivityAugmentation<SimpleGraph, i64> {
     BiconnectivityAugmentation::new(
         SimpleGraph::path(6),
         vec![

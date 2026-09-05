@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
-use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionMode};
-use problemreductions::solvers::{CustomizedSolver, ILPSolver};
-use problemreductions::types::ProblemSize;
+use problemreductions::rules::ReductionGraph;
+use problemreductions::solvers::{
+    brute_force_dimensions, solve, solver_capabilities, ExactProblemKey, SolveOutcome, SolveResult,
+    SolverRequest,
+};
 use serde_json::Value;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -37,80 +39,151 @@ impl std::ops::Deref for LoadedProblem {
 }
 
 impl LoadedProblem {
-    pub fn solve_brute_force_value(&self) -> String {
-        self.inner.solve_brute_force_value()
+    pub fn brute_force_num_variables(&self) -> Result<Option<usize>> {
+        brute_force_dimensions(&self.inner)
+            .map(|dimensions| dimensions.map(|dimensions| dimensions.len()))
+            .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))
     }
 
-    pub fn solve_brute_force_witness(&self) -> Option<WitnessSolveResult> {
-        let (config, evaluation) = self.inner.solve_brute_force_witness()?;
-        Some(WitnessSolveResult { config, evaluation })
+    pub fn solve(&self, request: SolverRequest) -> Result<SolveResult> {
+        solve(&self.inner, request).map_err(anyhow::Error::from)
     }
+}
 
-    pub fn solve_brute_force(&self) -> SolveResult {
-        let evaluation = self.solve_brute_force_value();
-        let config = self.solve_brute_force_witness().map(|result| result.config);
-        SolveResult { config, evaluation }
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct CustomizedSolverCapabilityView {
+    pub implementation: &'static str,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct IlpSolverCapabilityView {
+    pub reduction_path: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SolverCapabilityDetailsView {
+    pub customized: Option<CustomizedSolverCapabilityView>,
+    pub ilp: Option<IlpSolverCapabilityView>,
+    pub brute_force: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SolverCapabilitiesView {
+    pub solvers: Vec<&'static str>,
+    pub default_solver: &'static str,
+    pub capabilities: SolverCapabilityDetailsView,
+}
+
+pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabilitiesView> {
+    let key = ExactProblemKey::new(problem.problem_name(), problem.variant_map());
+    let registered = solver_capabilities(&key)
+        .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))?;
+    let customized = registered
+        .customized
+        .map(|entry| CustomizedSolverCapabilityView {
+            implementation: entry.implementation,
+        });
+    let ilp = registered.ilp.map(|pipeline| IlpSolverCapabilityView {
+        reduction_path: pipeline.path_labels(),
+    });
+    let default_solver = if customized.is_some() {
+        "customized"
+    } else if ilp.is_some() {
+        "ilp"
+    } else if registered.brute_force {
+        "brute-force"
+    } else {
+        anyhow::bail!("no solver is registered for {}", key.label());
+    };
+    let mut solvers = Vec::with_capacity(3);
+    if customized.is_some() {
+        solvers.push("customized");
     }
-
-    pub fn supports_ilp_solver(&self) -> bool {
-        let name = self.problem_name();
-        let variant = self.variant_map();
-        name == "ILP" || {
-            let graph = ReductionGraph::new();
-            let ilp_variants = graph.variants_for("ILP");
-            let input_size = ProblemSize::new(vec![]);
-            ilp_variants.iter().any(|dv| {
-                graph
-                    .find_cheapest_path_mode(
-                        name,
-                        &variant,
-                        "ILP",
-                        dv,
-                        ReductionMode::Witness,
-                        &input_size,
-                        &MinimizeSteps,
-                    )
-                    .is_some()
-            })
-        }
+    if ilp.is_some() {
+        solvers.push("ilp");
     }
-
-    pub fn supports_customized_solver(&self) -> bool {
-        CustomizedSolver::supports_problem(self.as_any())
-    }
-
-    pub fn solve_with_customized(&self) -> Result<WitnessSolveResult> {
-        let solver = CustomizedSolver::new();
-        let config = solver
-            .solve_dyn(self.as_any())
-            .ok_or_else(|| anyhow::anyhow!("Problem unsupported by customized solver"))?;
-        let evaluation = self.evaluate_dyn(&config);
-        Ok(WitnessSolveResult { config, evaluation })
-    }
-
-    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
-    pub fn available_solvers(&self) -> Vec<&'static str> {
-        let mut solvers = Vec::new();
-        if self.supports_ilp_solver() {
-            solvers.push("ilp");
-        }
+    if registered.brute_force {
         solvers.push("brute-force");
-        if self.supports_customized_solver() {
-            solvers.push("customized");
-        }
-        solvers
     }
 
-    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
-    pub fn solve_with_ilp(&self) -> Result<WitnessSolveResult> {
-        let name = self.problem_name();
-        let variant = self.variant_map();
-        let solver = ILPSolver::new();
-        let config = solver
-            .try_solve_via_reduction(name, &variant, self.as_any())
-            .map_err(|err| anyhow::anyhow!(err))?;
-        let evaluation = self.evaluate_dyn(&config);
-        Ok(WitnessSolveResult { config, evaluation })
+    Ok(SolverCapabilitiesView {
+        solvers,
+        default_solver,
+        capabilities: SolverCapabilityDetailsView {
+            customized,
+            ilp,
+            brute_force: registered.brute_force,
+        },
+    })
+}
+
+pub fn solver_request(solver_name: Option<&str>) -> Result<SolverRequest> {
+    match solver_name {
+        None => Ok(SolverRequest::Default),
+        Some("customized") => Ok(SolverRequest::Customized),
+        Some("ilp") => Ok(SolverRequest::Ilp),
+        Some("brute-force") => Ok(SolverRequest::BruteForce),
+        Some(other) => {
+            anyhow::bail!(
+                "Unknown solver: {other}. Available solver overrides: customized, ilp, brute-force"
+            )
+        }
+    }
+}
+
+pub fn solve_result_json(problem: &str, result: &SolveResult) -> serde_json::Value {
+    #[derive(serde::Serialize)]
+    struct SolveOutput<'a> {
+        problem: &'a str,
+        solver: &'a problemreductions::solvers::SolverExecution,
+        #[serde(flatten)]
+        outcome: &'a SolveOutcome,
+    }
+
+    serde_json::to_value(SolveOutput {
+        problem,
+        solver: &result.solver,
+        outcome: &result.outcome,
+    })
+    .expect("solve output is serializable")
+}
+
+pub(crate) struct BundleSolveResult {
+    pub(crate) source_name: String,
+    pub(crate) target_name: String,
+    pub(crate) solver: problemreductions::solvers::SolverExecution,
+    pub(crate) source_outcome: SolveOutcome,
+    pub(crate) target_outcome: SolveOutcome,
+}
+
+impl BundleSolveResult {
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        #[derive(serde::Serialize)]
+        struct Intermediate<'a> {
+            problem: &'a str,
+            #[serde(flatten)]
+            outcome: &'a SolveOutcome,
+        }
+
+        #[derive(serde::Serialize)]
+        struct BundleOutput<'a> {
+            problem: &'a str,
+            solver: &'a problemreductions::solvers::SolverExecution,
+            #[serde(flatten)]
+            outcome: &'a SolveOutcome,
+            intermediate: Intermediate<'a>,
+        }
+
+        serde_json::to_value(BundleOutput {
+            problem: &self.source_name,
+            solver: &self.solver,
+            outcome: &self.source_outcome,
+            intermediate: Intermediate {
+                problem: &self.target_name,
+                outcome: &self.target_outcome,
+            },
+        })
+        .expect("bundle solve output is serializable")
     }
 }
 
@@ -138,7 +211,7 @@ impl BundleReplay {
     ///   (tampered/stale bundles where `target.data` disagrees with what
     ///   `reduce_along_path` actually produced are rejected)
     ///
-    /// Returns an error (not a panic) for malformed bundles or aggregate-only paths.
+    /// Returns an error (not a panic) for malformed bundles or paths without witness extraction.
     pub fn prepare(bundle: &ReductionBundle) -> Result<Self> {
         if bundle.path.len() < 2 {
             anyhow::bail!(
@@ -191,6 +264,7 @@ impl BundleReplay {
         let graph = ReductionGraph::new();
         let chain = graph
             .reduce_along_path(&reduction_path, source.as_any())
+            .map_err(|error| anyhow::anyhow!("Bundle reduction replay failed: {error}"))?
             .ok_or_else(|| anyhow::anyhow!(
                 "Bundle requires a witness-capable reduction path; this bundle cannot map a target solution back to the source."
             ))?;
@@ -219,10 +293,47 @@ impl BundleReplay {
     }
 
     /// Map a target-space configuration back to the source space and evaluate it.
-    pub fn extract(&self, target_config: &[usize]) -> (Vec<usize>, String) {
-        let source_config = self.chain.extract_solution(target_config);
-        let source_eval = self.source.evaluate_dyn(&source_config);
-        (source_config, source_eval)
+    pub fn extract(
+        &self,
+        target_config: &serde_json::Value,
+    ) -> Result<(serde_json::Value, String)> {
+        let source_config = self.chain.extract_solution_json(target_config.clone())?;
+        let source_eval = self.source.evaluate_dyn(&source_config)?;
+        Ok((source_config, source_eval))
+    }
+
+    /// Solve the target and map the result back to the source problem.
+    ///
+    pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
+        let target_result = self.target.solve(request)?;
+        let solver = target_result.solver;
+        let (source_outcome, target_outcome) = match target_result.outcome {
+            SolveOutcome::Optimal {
+                solution: target_solution,
+                evaluation: target_evaluation,
+            } => {
+                let (source_solution, source_evaluation) = self.extract(&target_solution)?;
+                (
+                    SolveOutcome::Optimal {
+                        solution: source_solution,
+                        evaluation: source_evaluation,
+                    },
+                    SolveOutcome::Optimal {
+                        solution: target_solution,
+                        evaluation: target_evaluation,
+                    },
+                )
+            }
+            SolveOutcome::Infeasible => (SolveOutcome::Infeasible, SolveOutcome::Infeasible),
+        };
+
+        Ok(BundleSolveResult {
+            source_name: self.source_name.clone(),
+            target_name: self.target_name.clone(),
+            solver,
+            source_outcome,
+            target_outcome,
+        })
     }
 }
 
@@ -245,7 +356,11 @@ pub fn load_problem(
     data: Value,
 ) -> Result<LoadedProblem> {
     let canonical = resolve_alias(name);
-    let inner = problemreductions::registry::load_dyn(&canonical, variant, data)
+    let problem_type = problemreductions::registry::find_problem_type(&canonical)
+        .ok_or_else(|| anyhow::anyhow!("Unknown problem type: {canonical}"))?;
+    let normalized =
+        problemreductions::registry::ProblemRef::from_prefix_map(&problem_type, variant.clone())?;
+    let inner = problemreductions::registry::load_dyn(&canonical, normalized.variant(), data)
         .map_err(|e| anyhow::anyhow!(e))?;
     Ok(LoadedProblem { inner })
 }
@@ -298,24 +413,6 @@ pub struct PathStep {
     pub variant: BTreeMap<String, String>,
 }
 
-/// Result of solving a problem.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SolveResult {
-    /// The solution configuration when the problem supports witness extraction.
-    pub config: Option<Vec<usize>>,
-    /// Evaluation of the solution.
-    pub evaluation: String,
-}
-
-/// Result of solving a witness-capable problem.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WitnessSolveResult {
-    /// The solution configuration.
-    pub config: Vec<usize>,
-    /// Evaluation of the solution.
-    pub evaluation: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -327,10 +424,10 @@ mod tests {
 
     #[test]
     fn test_load_problem_alias_uses_registry_dispatch() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
         let variant = BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]);
         let loaded =
             load_problem("MIS", &variant, serde_json::to_value(&problem).unwrap()).unwrap();
@@ -339,7 +436,7 @@ mod tests {
 
     #[test]
     fn test_load_problem_rejects_unresolved_weight_variant() {
-        let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
+        let problem = BinPacking::new(vec![3i64, 3, 2, 2], 5i64).unwrap();
         let loaded = load_problem(
             "BinPacking",
             &BTreeMap::new(),
@@ -349,8 +446,28 @@ mod tests {
     }
 
     #[test]
+    fn test_load_problem_fills_trailing_ilp_coefficient_variant() {
+        let data = json!({
+            "variables": [{"lower_bound": 0, "upper_bound": 1}],
+            "constraints": [],
+            "objective": [[0, 1]],
+            "sense": "Minimize"
+        });
+        let variant = BTreeMap::from([("variable".to_string(), "bool".to_string())]);
+        let loaded = load_problem("ILP", &variant, data).unwrap();
+        assert_eq!(loaded.variant_map()["variable"], "bool");
+        assert_eq!(loaded.variant_map()["coefficient"], "i64");
+    }
+
+    #[test]
+    fn test_load_problem_rejects_non_prefix_ilp_variant() {
+        let variant = BTreeMap::from([("coefficient".to_string(), "i64".to_string())]);
+        assert!(load_problem("ILP", &variant, json!({})).is_err());
+    }
+
+    #[test]
     fn test_load_problem_rejects_invalid_strong_connectivity_augmentation_instance() {
-        let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+        let variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
         let data = json!({
             "graph": {
                 "num_vertices": 3,
@@ -369,8 +486,8 @@ mod tests {
 
     #[test]
     fn test_serialize_any_problem_round_trips_bin_packing() {
-        let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
-        let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+        let problem = BinPacking::new(vec![3i64, 3, 2, 2], 5i64).unwrap();
+        let variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
         let json = serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
         assert_eq!(json, serde_json::to_value(&problem).unwrap());
     }
@@ -398,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn test_solve_brute_force_value_only_problem_has_no_witness() {
+    fn test_solve_brute_force_problem_returns_solution() {
         let loaded = load_problem(
             AGGREGATE_SOURCE_NAME,
             &BTreeMap::new(),
@@ -406,13 +523,18 @@ mod tests {
         )
         .unwrap();
 
-        let result = loaded.solve_brute_force();
-        assert_eq!(result.config, None);
-        assert_eq!(result.evaluation, "Sum(56)");
+        let result = loaded.solve(SolverRequest::BruteForce).unwrap();
+        assert_eq!(
+            result.outcome,
+            SolveOutcome::Optimal {
+                solution: serde_json::json!([true, true, true]),
+                evaluation: "Max(14)".to_string(),
+            }
+        );
     }
 
     #[test]
-    fn test_available_solvers_excludes_customized_for_unsupported_problem() {
+    fn test_default_uses_brute_force_without_registered_backend() {
         let loaded = load_problem(
             AGGREGATE_SOURCE_NAME,
             &BTreeMap::new(),
@@ -420,11 +542,15 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!loaded.available_solvers().contains(&"customized"));
+        let result = loaded.solve(SolverRequest::Default).unwrap();
+        assert_eq!(
+            result.solver,
+            problemreductions::solvers::SolverExecution::BruteForce
+        );
     }
 
     #[test]
-    fn test_solve_with_customized_rejects_unsupported_problem() {
+    fn test_explicit_ilp_requires_registered_pipeline() {
         let loaded = load_problem(
             AGGREGATE_SOURCE_NAME,
             &BTreeMap::new(),
@@ -432,26 +558,73 @@ mod tests {
         )
         .unwrap();
 
-        let err = loaded.solve_with_customized().unwrap_err();
+        let err = loaded.solve(SolverRequest::Ilp).unwrap_err();
         assert!(
-            err.to_string().contains("unsupported by customized solver"),
+            err.to_string().contains("No ILP pipeline is registered"),
             "unexpected error: {err}"
         );
     }
 
     #[test]
-    fn test_solve_with_ilp_rejects_aggregate_only_problem() {
+    fn solver_request_accepts_only_documented_overrides() {
+        assert_eq!(solver_request(None).unwrap(), SolverRequest::Default);
+        assert_eq!(
+            solver_request(Some("customized")).unwrap(),
+            SolverRequest::Customized
+        );
+        assert_eq!(solver_request(Some("ilp")).unwrap(), SolverRequest::Ilp);
+        assert_eq!(
+            solver_request(Some("brute-force")).unwrap(),
+            SolverRequest::BruteForce
+        );
+        for rejected in ["auto", "implementation-id"] {
+            let error = solver_request(Some(rejected)).unwrap_err();
+            assert!(error.to_string().contains(rejected), "{error}");
+        }
+    }
+
+    #[test]
+    fn solve_result_json_preserves_structured_solver_contract() {
+        let result = SolveResult {
+            solver: problemreductions::solvers::SolverExecution::Ilp {
+                reduction_path: vec!["Source".to_string(), "ILP<i64, bool>".to_string()],
+            },
+            outcome: SolveOutcome::Optimal {
+                solution: serde_json::json!([true, false]),
+                evaluation: "Max(1)".to_string(),
+            },
+        };
+        let json = solve_result_json("Source", &result);
+
+        assert_eq!(json["problem"], "Source");
+        assert_eq!(json["solver"]["kind"], "ilp");
+        assert_eq!(json["status"], "optimal");
+        assert_eq!(
+            json["solver"]["reduction_path"],
+            serde_json::json!(["Source", "ILP<i64, bool>"])
+        );
+        assert_eq!(json["solution"], serde_json::json!([true, false]));
+        assert!(json.get("reduced_to").is_none());
+    }
+
+    #[test]
+    fn solver_capabilities_view_centralizes_default_and_available_order() {
+        use problemreductions::models::graph::RootedTreeArrangement;
+        use problemreductions::Problem;
+
+        let problem = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
         let loaded = load_problem(
-            AGGREGATE_SOURCE_NAME,
-            &BTreeMap::new(),
-            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+            RootedTreeArrangement::<SimpleGraph>::NAME,
+            &BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+            serde_json::to_value(problem).unwrap(),
         )
         .unwrap();
+        let view = solver_capabilities_view(&loaded).unwrap();
 
-        let err = loaded.solve_with_ilp().unwrap_err();
-        assert!(
-            err.to_string().contains("witness-capable"),
-            "unexpected error: {err}"
-        );
+        assert_eq!(view.default_solver, "customized");
+        assert_eq!(view.solvers, ["customized", "ilp", "brute-force"]);
+        assert!(view.capabilities.customized.is_some());
+        assert!(view.capabilities.ilp.is_some());
+        assert!(view.capabilities.brute_force);
     }
 }

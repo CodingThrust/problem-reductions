@@ -4,6 +4,7 @@ use crate::models::formula::{
     Assignment, BooleanExpr, BooleanOp, CNFClause, CircuitSAT, Satisfiability,
 };
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::collections::HashMap;
 
@@ -20,7 +21,7 @@ enum NormalizedExpr {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EncodedTerm {
     Const(bool),
-    Var(i32),
+    Var(i64),
 }
 
 #[derive(Debug, Clone)]
@@ -31,23 +32,28 @@ struct TseitinEncoding {
 
 #[derive(Debug)]
 struct TseitinEncoder {
-    source_var_ids: HashMap<String, i32>,
+    source_var_ids: HashMap<String, i64>,
     clauses: Vec<CNFClause>,
-    next_var: i32,
+    variables: SatVariableAllocator,
 }
 
 impl TseitinEncoder {
     fn new(source: &CircuitSAT) -> Self {
+        let mut variables = SatVariableAllocator::new("CircuitSAT -> Satisfiability", 0)
+            .unwrap_or_else(|message| panic!("{message}"));
+        let source_ids = variables
+            .allocate_many(source.num_variables())
+            .unwrap_or_else(|message| panic!("{message}"));
         let source_var_ids = source
             .variable_names()
             .iter()
-            .enumerate()
-            .map(|(index, name)| (name.clone(), index as i32 + 1))
+            .zip(source_ids)
+            .map(|(name, variable)| (name.clone(), variable))
             .collect();
         Self {
             source_var_ids,
             clauses: Vec::new(),
-            next_var: source.num_variables() as i32 + 1,
+            variables,
         }
     }
 
@@ -57,7 +63,7 @@ impl TseitinEncoder {
         }
 
         TseitinEncoding {
-            num_vars: (self.next_var - 1) as usize,
+            num_vars: self.variables.num_vars(),
             clauses: self.clauses,
         }
     }
@@ -135,7 +141,7 @@ impl TseitinEncoder {
         }
     }
 
-    fn expect_var(&self, term: EncodedTerm, context: &str) -> i32 {
+    fn expect_var(&self, term: EncodedTerm, context: &str) -> i64 {
         match term {
             EncodedTerm::Var(var) => var,
             EncodedTerm::Const(_) => {
@@ -144,25 +150,25 @@ impl TseitinEncoder {
         }
     }
 
-    fn source_var(&self, name: &str) -> i32 {
+    fn source_var(&self, name: &str) -> i64 {
         *self
             .source_var_ids
             .get(name)
             .unwrap_or_else(|| panic!("CircuitSAT variable {name:?} missing from source ordering"))
     }
 
-    fn allocate_auxiliary_var(&mut self) -> i32 {
-        let var = self.next_var;
-        self.next_var += 1;
-        var
+    fn allocate_auxiliary_var(&mut self) -> i64 {
+        self.variables
+            .allocate()
+            .unwrap_or_else(|message| panic!("{message}"))
     }
 
-    fn push_equivalence(&mut self, left: i32, right: i32) {
+    fn push_equivalence(&mut self, left: i64, right: i64) {
         self.push_clause(vec![-left, right]);
         self.push_clause(vec![left, -right]);
     }
 
-    fn push_clause(&mut self, literals: Vec<i32>) {
+    fn push_clause(&mut self, literals: Vec<i64>) {
         self.clauses.push(CNFClause::new(literals));
     }
 }
@@ -268,16 +274,6 @@ fn build_tseitin_encoding(source: &CircuitSAT) -> TseitinEncoding {
     TseitinEncoder::new(source).encode_problem(source)
 }
 
-impl CircuitSAT {
-    pub fn tseitin_num_vars(&self) -> usize {
-        build_tseitin_encoding(self).num_vars
-    }
-
-    pub fn tseitin_num_clauses(&self) -> usize {
-        build_tseitin_encoding(self).clauses.len()
-    }
-}
-
 /// Result of reducing CircuitSAT to SAT.
 #[derive(Debug, Clone)]
 pub struct ReductionCircuitSATToSAT {
@@ -293,30 +289,32 @@ impl ReductionResult for ReductionCircuitSATToSAT {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
-            .iter()
-            .take(self.source_var_count)
-            .copied()
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_var_count].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "tseitin_num_vars",
-        num_clauses = "tseitin_num_clauses",
-    }
+    transform = unavailable {
+        num_vars = "the exact Tseitin variable count is specific to this reduction and is not a CircuitSAT parameter",
+        num_clauses = "the exact Tseitin clause count is specific to this reduction and is not a CircuitSAT parameter",
+            num_literals = "the exact target parameter is not represented by this reduction's symbolic transform",
+}
 )]
 impl ReduceTo<Satisfiability> for CircuitSAT {
     type Result = ReductionCircuitSATToSAT;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let encoding = build_tseitin_encoding(self);
-        ReductionCircuitSATToSAT {
+        Ok(ReductionCircuitSATToSAT {
             target: Satisfiability::new(encoding.num_vars, encoding.clauses),
             source_var_count: self.num_variables(),
-        }
+        })
     }
 }
 
@@ -345,20 +343,24 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "circuitsat_to_satisfiability",
         build: || {
             let source = issue_example_source();
-            let source_config = vec![1, 1, 1, 0, 1];
-            let reduction = ReduceTo::<Satisfiability>::reduce_to(&source);
+            let source_config = vec![true, true, true, false, true];
+            let reduction =
+                ReduceTo::<Satisfiability>::reduce_to(&source).expect("reduction should succeed");
             let target_config = BruteForce::new()
                 .find_all_witnesses(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
                 .into_iter()
-                .find(|candidate| reduction.extract_solution(candidate) == source_config)
+                .find(|candidate| reduction.extract_solution(candidate).unwrap() == source_config)
                 .expect("canonical CircuitSAT -> Satisfiability example must be satisfiable");
 
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

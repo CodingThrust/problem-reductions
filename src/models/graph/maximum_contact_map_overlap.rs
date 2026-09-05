@@ -14,7 +14,7 @@
 //! Feasibility requires that the non-zero entries are pairwise distinct
 //! (injectivity) and strictly increasing in source order (order-preserving).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,7 @@ inventory::submit! {
         display_name: "Maximum Contact Map Overlap",
         aliases: &["CMO", "MaxCMO"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Maximize the number of preserved contacts under an order-preserving partial injective alignment from G_1 into G_2",
         fields: &[
@@ -50,13 +51,6 @@ inventory::submit! {
                 description: "Simple undirected contacts of G_2 as canonicalized (u,v) pairs with u < v",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MaximumContactMapOverlap",
-        fields: &["num_vertices_1", "num_vertices_2", "num_contacts_1", "num_contacts_2"],
     }
 }
 
@@ -196,9 +190,12 @@ impl MaximumContactMapOverlap {
 
     /// Count contacts of `G_1` preserved by the alignment `config`. Returns
     /// `None` if `config` is infeasible.
-    pub fn preserved_contact_count(&self, config: &[usize]) -> Option<usize> {
+    pub fn preserved_contact_count(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if !self.is_valid_solution(config) {
-            return None;
+            return Ok(None);
         }
         let contacts_2_set: HashSet<(usize, usize)> = self.contacts_2.iter().copied().collect();
         let mut count = 0usize;
@@ -216,32 +213,65 @@ impl MaximumContactMapOverlap {
                 count += 1;
             }
         }
-        Some(count)
+        Ok(Some(i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting preserved-contact count to i64".into(),
+            )
+        })?))
     }
 }
 
 impl Problem for MaximumContactMapOverlap {
     const NAME: &'static str = "MaximumContactMapOverlap";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
+
+    crate::problem_parameters![
+        ("num_contacts_1", num_contacts_1),
+        ("num_contacts_2", num_contacts_2),
+        ("num_vertices_1", num_vertices_1),
+        ("num_vertices_2", num_vertices_2),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_vertices_2 + 1; self.num_vertices_1]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        match self.preserved_contact_count(config) {
-            Some(count) => Max(Some(count as i64)),
-            None => Max(None),
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_vertices_1 {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "contact-map alignment length does not match the first map".into(),
+            ));
         }
+        if config.iter().any(|&vertex| vertex > self.num_vertices_2) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "contact-map alignment contains an out-of-range target vertex".into(),
+            ));
+        }
+        Ok({
+            match self.preserved_contact_count(config)? {
+                Some(count) => Max(Some(count)),
+                None => Max(None),
+            }
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MaximumContactMapOverlap {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_vertices_2 + 1; self.num_vertices_1]
     }
 }
 
 crate::declare_variants! {
     default MaximumContactMapOverlap => "(num_vertices_2 + 1)^num_vertices_1",
+}
+
+crate::register_brute_force! {
+    MaximumContactMapOverlap,
 }
 
 #[cfg(feature = "example-db")]
@@ -263,7 +293,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             vec![(0, 3), (1, 4), (0, 2)],
         )),
-        optimal_config: vec![1, 2, 4, 5],
+        optimal_config: serde_json::json!(vec![1, 2, 4, 5]),
         optimal_value: serde_json::json!(2),
     }]
 }

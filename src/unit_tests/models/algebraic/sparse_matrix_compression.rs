@@ -1,4 +1,15 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_rejects_zero_bound() {
+    assert_eq!(SparseMatrixCompressionCreateSpec::FIELDS[1].name, "bound_k");
+    let result = SparseMatrixCompression::try_from(SparseMatrixCompressionCreateSpec {
+        matrix: vec![vec![true]],
+        bound_k: 0,
+    });
+    assert!(result.is_err());
+}
 use crate::registry::VariantEntry;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
@@ -21,7 +32,7 @@ fn test_sparse_matrix_compression_basic() {
     assert_eq!(problem.num_cols(), 4);
     assert_eq!(problem.bound_k(), 2);
     assert_eq!(problem.storage_len(), 6);
-    assert_eq!(problem.dims(), vec![2; 4]);
+    assert_eq!(problem.dimensions(), vec![2; 4]);
     assert_eq!(
         <SparseMatrixCompression as Problem>::NAME,
         "SparseMatrixCompression"
@@ -33,7 +44,7 @@ fn test_sparse_matrix_compression_basic() {
 fn test_sparse_matrix_compression_issue_example_is_satisfying() {
     let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
 
-    assert!(problem.evaluate(&[1, 1, 1, 0]));
+    assert!(problem.evaluate(&vec![1, 1, 1, 0]).unwrap());
     assert_eq!(
         problem
             .storage_vector(&[1, 1, 1, 0])
@@ -46,18 +57,27 @@ fn test_sparse_matrix_compression_issue_example_is_satisfying() {
 fn test_sparse_matrix_compression_issue_unsatisfying_examples() {
     let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
 
-    assert!(!problem.evaluate(&[0, 0, 0, 0]));
-    assert!(!problem.evaluate(&[0, 1, 1, 1]));
-    assert!(!problem.evaluate(&[1, 1, 1, 1]));
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_sparse_matrix_compression_rejects_bad_configs() {
     let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
 
-    assert!(!problem.evaluate(&[1, 1, 1]));
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]));
-    assert!(!problem.evaluate(&[2, 1, 1, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1, 1, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 1, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert!(problem.storage_vector(&[2, 1, 1, 0]).is_none());
 }
 
@@ -67,11 +87,12 @@ fn test_sparse_matrix_compression_bruteforce_finds_unique_solution() {
     let solver = BruteForce::new();
 
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("issue example should be satisfiable");
     assert_eq!(solution, vec![1, 1, 1, 0]);
 
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all, vec![vec![1, 1, 1, 0]]);
 }
 

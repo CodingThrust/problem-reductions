@@ -2,11 +2,13 @@ use super::*;
 use crate::models::misc::{SequencingWithReleaseTimesAndDeadlines, ThreePartition};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
-fn reduce(sizes: Vec<u64>, bound: u64) -> (ThreePartition, ReductionThreePartitionToSRTD) {
+fn reduce(sizes: Vec<i64>, bound: i64) -> (ThreePartition, ReductionThreePartitionToSRTD) {
     let source = ThreePartition::new(sizes, bound);
-    let reduction = ReduceTo::<SequencingWithReleaseTimesAndDeadlines>::reduce_to(&source);
+    let reduction = ReduceTo::<SequencingWithReleaseTimesAndDeadlines>::reduce_to(&source)
+        .expect("reduction should succeed");
     (source, reduction)
 }
 
@@ -32,7 +34,7 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_structure() {
     assert_eq!(target.num_tasks(), 7);
     assert_eq!(source.num_elements() + source.num_groups() - 1, 7);
 
-    // Element tasks: lengths match source sizes
+    // Element tasks: lengths match source parameterss
     let lengths = target.lengths();
     assert_eq!(&lengths[..6], &[4, 5, 6, 4, 6, 5]);
     // Filler task has length 1
@@ -59,9 +61,9 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_satisfiability(
 
     let solver = BruteForce::new();
     // Source is satisfiable
-    assert!(solver.find_witness(&source).is_some());
+    assert!(solver.solve(&source).unwrap().is_some());
     // Target should also be satisfiable
-    assert!(solver.find_witness(target).is_some());
+    assert!(solver.solve(target).unwrap().is_some());
 }
 
 #[test]
@@ -70,12 +72,12 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_solution_extrac
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(target);
+    let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        let source_valid = source.evaluate(&extracted);
+        let source_valid = source.evaluate(&extracted).unwrap();
         assert!(
             source_valid.0,
             "Valid schedule should yield valid 3-partition"
@@ -89,6 +91,6 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_dims() {
     let target = reduction.target_problem();
 
     // 7 tasks -> Lehmer dims [7,6,5,4,3,2,1]
-    let dims = target.dims();
+    let dims = target.dimensions();
     assert_eq!(dims, vec![7, 6, 5, 4, 3, 2, 1]);
 }

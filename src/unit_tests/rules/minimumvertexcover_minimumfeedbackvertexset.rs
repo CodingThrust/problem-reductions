@@ -11,7 +11,7 @@ use crate::topology::{Graph, SimpleGraph};
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
 
-fn weighted_cycle_cover_source() -> MinimumVertexCover<SimpleGraph, i32> {
+fn weighted_cycle_cover_source() -> MinimumVertexCover<SimpleGraph, i64> {
     MinimumVertexCover::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4)]),
         vec![4, 1, 3, 2, 5],
@@ -21,8 +21,9 @@ fn weighted_cycle_cover_source() -> MinimumVertexCover<SimpleGraph, i32> {
 #[test]
 fn test_minimumvertexcover_to_minimumfeedbackvertexset_closed_loop() {
     let source = weighted_cycle_cover_source();
-    let reduction: ReductionVCToFVS<i32> =
-        ReduceTo::<MinimumFeedbackVertexSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFVS<i64> =
+        ReduceTo::<MinimumFeedbackVertexSet<i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -34,8 +35,9 @@ fn test_minimumvertexcover_to_minimumfeedbackvertexset_closed_loop() {
 #[test]
 fn test_reduction_structure() {
     let source = weighted_cycle_cover_source();
-    let reduction: ReductionVCToFVS<i32> =
-        ReduceTo::<MinimumFeedbackVertexSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFVS<i64> =
+        ReduceTo::<MinimumFeedbackVertexSet<i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph().num_vertices(), source.graph().num_vertices());
@@ -64,8 +66,9 @@ fn test_reduction_structure() {
 #[test]
 fn test_weight_preservation() {
     let source = weighted_cycle_cover_source();
-    let reduction: ReductionVCToFVS<i32> =
-        ReduceTo::<MinimumFeedbackVertexSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFVS<i64> =
+        ReduceTo::<MinimumFeedbackVertexSet<i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().weights(), source.weights());
 }
@@ -73,12 +76,15 @@ fn test_weight_preservation() {
 #[test]
 fn test_identity_solution_extraction() {
     let source = weighted_cycle_cover_source();
-    let reduction: ReductionVCToFVS<i32> =
-        ReduceTo::<MinimumFeedbackVertexSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFVS<i64> =
+        ReduceTo::<MinimumFeedbackVertexSet<i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1]),
-        vec![1, 0, 1, 0, 1]
+        reduction
+            .extract_solution(&vec![true, false, true, false, true])
+            .unwrap(),
+        vec![true, false, true, false, true]
     );
 }
 
@@ -99,16 +105,18 @@ fn test_canonical_rule_example_spec_builds() {
         example.solutions[0].target_config
     );
 
-    let source: MinimumVertexCover<SimpleGraph, i32> =
+    let source: MinimumVertexCover<SimpleGraph, i64> =
         serde_json::from_value(example.source.instance.clone())
             .expect("source example deserializes");
-    let target: MinimumFeedbackVertexSet<i32> =
+    let target: MinimumFeedbackVertexSet<i64> =
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
     let solution = &example.solutions[0];
+    let source_config: Vec<bool> = serde_json::from_value(solution.source_config.clone()).unwrap();
+    let target_config: Vec<bool> = serde_json::from_value(solution.target_config.clone()).unwrap();
 
-    let source_metric = source.evaluate(&solution.source_config);
-    let target_metric = target.evaluate(&solution.target_config);
+    let source_metric = source.evaluate(&source_config).unwrap();
+    let target_metric = target.evaluate(&target_config).unwrap();
     assert!(
         source_metric.is_valid(),
         "source witness should be feasible"
@@ -119,12 +127,14 @@ fn test_canonical_rule_example_spec_builds() {
     );
 
     let best_source = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
+        .unwrap()
         .expect("source example should have an optimum");
     let best_target = BruteForce::new()
-        .find_witness(&target)
+        .solve(&target)
+        .unwrap()
         .expect("target example should have an optimum");
 
-    assert_eq!(source_metric, source.evaluate(&best_source));
-    assert_eq!(target_metric, target.evaluate(&best_target));
+    assert_eq!(source_metric, source.evaluate(&best_source).unwrap());
+    assert_eq!(target_metric, target.evaluate(&best_target).unwrap());
 }

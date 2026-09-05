@@ -7,7 +7,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::StackerCrane;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_decode;
+use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing StackerCrane to ILP.
@@ -31,29 +31,40 @@ impl ReductionResult for ReductionSCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Decode the permutation: for each position p, find the arc a with x_{a,p} = 1
-        one_hot_decode(target_solution, self.num_arcs, self.num_arcs, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Decode the permutation: for each position p, find the arc a with x_{a,p} = 1
+            one_hot_decode(target_solution, self.num_arcs, self.num_arcs, 0)?
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
         num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for StackerCrane {
     type Result = ReductionSCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_arcs();
 
         if m == 0 {
-            return ReductionSCToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+            return Ok(ReductionSCToILP {
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 num_arcs: 0,
-            };
+            });
         }
 
         let num_vars = m * m + m * m * m;
@@ -74,14 +85,14 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 
         // Each arc assigned to exactly one position: sum_p x_{i,p} = 1 for all i
         for i in 0..m {
-            let terms: Vec<(usize, f64)> = (0..m).map(|p| (x_idx(i, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..m).map(|p| (x_idx(i, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Each position assigned exactly one arc: sum_i x_{i,p} = 1 for all p
         for p in 0..m {
-            let terms: Vec<(usize, f64)> = (0..m).map(|i| (x_idx(i, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..m).map(|i| (x_idx(i, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // McCormick linearization for z_{i,j,p} = x_{i,p} * x_{j,(p+1) mod m}
@@ -94,26 +105,12 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 
                     if distances[head_i][tail_j] == i64::MAX {
                         // Infeasible pair: z_{i,j,p} = 0
-                        constraints.push(LinearConstraint::eq(vec![(z_idx(i, j, p), 1.0)], 0.0));
+                        constraints.push(LinearConstraint::eq(vec![(z_idx(i, j, p), 1)], 0));
                     } else {
-                        // z <= x_{i,p}
-                        constraints.push(LinearConstraint::le(
-                            vec![(z_idx(i, j, p), 1.0), (x_idx(i, p), -1.0)],
-                            0.0,
-                        ));
-                        // z <= x_{j, next_p}
-                        constraints.push(LinearConstraint::le(
-                            vec![(z_idx(i, j, p), 1.0), (x_idx(j, next_p), -1.0)],
-                            0.0,
-                        ));
-                        // z >= x_{i,p} + x_{j, next_p} - 1
-                        constraints.push(LinearConstraint::le(
-                            vec![
-                                (x_idx(i, p), 1.0),
-                                (x_idx(j, next_p), 1.0),
-                                (z_idx(i, j, p), -1.0),
-                            ],
-                            1.0,
+                        constraints.extend(mccormick_product(
+                            z_idx(i, j, p),
+                            x_idx(i, p),
+                            x_idx(j, next_p),
                         ));
                     }
                 }
@@ -130,18 +127,19 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
                     let tail_j = self.arcs()[j].0;
                     let dist = distances[head_i][tail_j];
                     if dist < i64::MAX {
-                        objective.push((z_idx(i, j, p), dist as f64));
+                        objective.push((z_idx(i, j, p), dist));
                     }
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionSCToILP {
+        Ok(ReductionSCToILP {
             target,
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -149,9 +147,9 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 fn all_pairs_shortest_paths(
     n: usize,
     arcs: &[(usize, usize)],
-    arc_lengths: &[i32],
+    arc_lengths: &[i64],
     edges: &[(usize, usize)],
-    edge_lengths: &[i32],
+    edge_lengths: &[i64],
 ) -> Vec<Vec<i64>> {
     let mut dist = vec![vec![i64::MAX; n]; n];
     for (i, row) in dist.iter_mut().enumerate() {
@@ -160,7 +158,7 @@ fn all_pairs_shortest_paths(
 
     // Directed arcs
     for (&(u, v), &length) in arcs.iter().zip(arc_lengths) {
-        let cost = i64::from(length);
+        let cost = length;
         if cost < dist[u][v] {
             dist[u][v] = cost;
         }
@@ -168,7 +166,7 @@ fn all_pairs_shortest_paths(
 
     // Undirected edges (both directions)
     for (&(u, v), &length) in edges.iter().zip(edge_lengths) {
-        let cost = i64::from(length);
+        let cost = length;
         if cost < dist[u][v] {
             dist[u][v] = cost;
         }

@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Sum of Squares Partition",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition positive integers into K groups minimizing the sum of squared group sums",
         fields: &[
@@ -43,12 +44,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SumOfSquaresPartition;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6 elements with sizes [5, 3, 8, 2, 7, 1], K=3 groups
 /// let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -60,21 +61,29 @@ pub struct SumOfSquaresPartition {
 }
 
 impl SumOfSquaresPartition {
-    fn validate_inputs(sizes: &[i64], num_groups: usize) -> Result<(), String> {
+    fn validate_inputs(
+        sizes: &[i64],
+        num_groups: usize,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if sizes.iter().any(|&size| size <= 0) {
-            return Err("All sizes must be positive (> 0)".to_string());
+            return Err("All sizes must be positive (> 0)".to_string().into());
         }
         if num_groups == 0 {
-            return Err("Number of groups must be positive".to_string());
+            return Err("Number of groups must be positive".to_string().into());
         }
         if num_groups > sizes.len() {
-            return Err("Number of groups must not exceed number of elements".to_string());
+            return Err("Number of groups must not exceed number of elements"
+                .to_string()
+                .into());
         }
         Ok(())
     }
 
     /// Create a new SumOfSquaresPartition instance, returning validation errors.
-    pub fn try_new(sizes: Vec<i64>, num_groups: usize) -> Result<Self, String> {
+    pub fn try_new(
+        sizes: Vec<i64>,
+        num_groups: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&sizes, num_groups)?;
         Ok(Self { sizes, num_groups })
     }
@@ -108,24 +117,37 @@ impl SumOfSquaresPartition {
     ///
     /// Returns `None` if the configuration is invalid (wrong length or
     /// out-of-range group index), or if arithmetic overflows `i64`.
-    pub fn sum_of_squares(&self, config: &[usize]) -> Option<i64> {
+    pub fn sum_of_squares(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if config.len() != self.sizes.len() {
-            return None;
+            return Ok(None);
         }
-        let mut group_sums = vec![0i128; self.num_groups];
+        let mut group_sums = vec![0_i64; self.num_groups];
         for (i, &g) in config.iter().enumerate() {
             if g >= self.num_groups {
-                return None;
+                return Ok(None);
             }
-            group_sums[g] = group_sums[g].checked_add(i128::from(self.sizes[i]))?;
+            group_sums[g] = group_sums[g].checked_add(self.sizes[i]).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing a sum-of-squares partition group".into(),
+                )
+            })?;
         }
-        group_sums
-            .into_iter()
-            .try_fold(0i128, |total, group_sum| {
-                let square = group_sum.checked_mul(group_sum)?;
-                total.checked_add(square)
+        let total = group_sums.into_iter().try_fold(0_i64, |total, group_sum| {
+            let square = group_sum.checked_mul(group_sum).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "squaring a partition group sum".into(),
+                )
+            })?;
+            total.checked_add(square).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing squared partition group sums".into(),
+                )
             })
-            .and_then(|total| i64::try_from(total).ok())
+        })?;
+        Ok(Some(total))
     }
 }
 
@@ -147,23 +169,45 @@ impl<'de> Deserialize<'de> for SumOfSquaresPartition {
 
 impl Problem for SumOfSquaresPartition {
     const NAME: &'static str = "SumOfSquaresPartition";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_parameters![("num_elements", num_elements), ("num_groups", num_groups),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_groups; self.sizes.len()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.sizes.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "group assignment length does not match the elements".into(),
+            ));
+        }
+        if config.iter().any(|&group| group >= self.num_groups) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "group assignment contains an out-of-range group".into(),
+            ));
+        }
+        Ok(Min(self.sum_of_squares(config)?))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        Min(self.sum_of_squares(config))
+impl crate::solvers::BruteForceProblem for SumOfSquaresPartition {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_groups; self.sizes.len()]
     }
 }
 
 crate::declare_variants! {
     default SumOfSquaresPartition => "num_groups^num_elements",
+}
+
+crate::register_brute_force! {
+    SumOfSquaresPartition,
 }
 
 #[cfg(feature = "example-db")]
@@ -173,7 +217,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // sizes=[5,3,8,2,7,1], K=3
         // Optimal: groups {8},{2,7},{5,3,1} -> sums 8,9,9 -> 64+81+81=226
         instance: Box::new(SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3)),
-        optimal_config: vec![2, 2, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![2, 2, 0, 1, 1, 0]),
         optimal_value: serde_json::json!(226),
     }]
 }

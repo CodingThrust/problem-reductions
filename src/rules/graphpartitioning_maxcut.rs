@@ -8,22 +8,27 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing GraphPartitioning to MaxCut.
 #[derive(Debug, Clone)]
 pub struct ReductionGPToMaxCut {
-    target: MaxCut<SimpleGraph, i32>,
+    target: MaxCut<SimpleGraph, i64>,
 }
 
 #[cfg(any(test, feature = "example-db"))]
-const ISSUE_EXAMPLE_WITNESS: [usize; 6] = [0, 0, 0, 1, 1, 1];
+const ISSUE_EXAMPLE_WITNESS: [bool; 6] = [false, false, false, true, true, true];
 
 impl ReductionResult for ReductionGPToMaxCut {
     type Source = GraphPartitioning<SimpleGraph>;
-    type Target = MaxCut<SimpleGraph, i32>;
+    type Target = MaxCut<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -45,7 +50,7 @@ fn issue_example() -> GraphPartitioning<SimpleGraph> {
     ))
 }
 
-fn complete_graph_edges_and_weights(graph: &SimpleGraph) -> (Vec<(usize, usize)>, Vec<i32>) {
+fn complete_graph_edges_and_weights(graph: &SimpleGraph) -> (Vec<(usize, usize)>, Vec<i64>) {
     let num_vertices = graph.num_vertices();
     let p = penalty_weight(graph.num_edges());
     let mut edges = Vec::new();
@@ -61,27 +66,27 @@ fn complete_graph_edges_and_weights(graph: &SimpleGraph) -> (Vec<(usize, usize)>
     (edges, weights)
 }
 
-fn penalty_weight(num_edges: usize) -> i32 {
-    i32::try_from(num_edges)
+fn penalty_weight(num_edges: usize) -> i64 {
+    i64::try_from(num_edges)
         .ok()
         .and_then(|num_edges| num_edges.checked_add(1))
-        .expect("GraphPartitioning -> MaxCut penalty exceeds i32 range")
+        .expect("GraphPartitioning -> MaxCut penalty exceeds i64 range")
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2",
     }
 )]
-impl ReduceTo<MaxCut<SimpleGraph, i32>> for GraphPartitioning<SimpleGraph> {
+impl ReduceTo<MaxCut<SimpleGraph, i64>> for GraphPartitioning<SimpleGraph> {
     type Result = ReductionGPToMaxCut;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let (edges, weights) = complete_graph_edges_and_weights(self.graph());
         let target = MaxCut::new(SimpleGraph::new(self.num_vertices(), edges), weights);
 
-        ReductionGPToMaxCut { target }
+        Ok(ReductionGPToMaxCut { target })
     }
 }
 
@@ -92,11 +97,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "graphpartitioning_to_maxcut",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
                 issue_example(),
                 SolutionPair {
-                    source_config: ISSUE_EXAMPLE_WITNESS.to_vec(),
-                    target_config: ISSUE_EXAMPLE_WITNESS.to_vec(),
+                    source_config: serde_json::json!(ISSUE_EXAMPLE_WITNESS.to_vec()),
+                    target_config: serde_json::json!(ISSUE_EXAMPLE_WITNESS.to_vec()),
                 },
             )
         },

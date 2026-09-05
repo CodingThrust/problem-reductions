@@ -16,30 +16,37 @@ pub struct ReductionVCToAndOrGraph {
 }
 
 impl ReductionResult for ReductionVCToAndOrGraph {
-    type Source = MinimumVertexCover<SimpleGraph, i32>;
+    type Source = MinimumVertexCover<SimpleGraph, i64>;
     type Target = MinimumWeightAndOrGraph;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_source_vertices)
-            .map(|j| usize::from(target_solution.get(self.sink_arc_start + j) == Some(&1)))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_source_vertices)
+                .map(|j| target_solution[self.sink_arc_start + j])
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "1 + num_edges + 2 * num_vertices",
         num_arcs = "3 * num_edges + num_vertices",
     }
 )]
-impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i32> {
+impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> {
     type Result = ReductionVCToAndOrGraph;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges = self.graph().edges();
         let m = edges.len();
@@ -79,17 +86,17 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i32> 
         let target =
             MinimumWeightAndOrGraph::new(num_target_vertices, arcs, 0, gate_types, arc_weights);
 
-        ReductionVCToAndOrGraph {
+        Ok(ReductionVCToAndOrGraph {
             target,
             sink_arc_start,
             num_source_vertices: n,
-        }
+        })
     }
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn issue_example_source() -> MinimumVertexCover<SimpleGraph, i32> {
-    MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3])
+fn issue_example_source() -> MinimumVertexCover<SimpleGraph, i64> {
+    MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3])
 }
 
 #[cfg(feature = "example-db")]
@@ -102,8 +109,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumWeightAndOrGraph>(
                 issue_example_source(),
                 SolutionPair {
-                    source_config: vec![0, 1, 0],
-                    target_config: vec![1, 1, 0, 1, 1, 0, 0, 1, 0],
+                    source_config: serde_json::json!(vec![false, true, false]),
+                    target_config: serde_json::json!(vec![
+                        true, true, false, true, true, false, false, true, false
+                    ]),
                 },
             )
         },

@@ -32,26 +32,36 @@ impl ReductionResult for ReductionKCliqueToBCBS {
     /// Extract KClique solution from BalancedCompleteBipartiteSubgraph solution.
     ///
     /// The k-clique is S = {v in V : v not in A'}, i.e., the original vertices
-    /// NOT selected on the left side. For each original vertex v (0..n-1):
-    /// source_config[v] = 1 - target_config[v].
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_original_vertices)
-            .map(|v| 1 - target_solution[v])
-            .collect()
+    /// NOT selected on the left side. For each original vertex v (0..n-1),
+    /// the source selection is the negation of the target's left-side selection.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_original_vertices)
+                .map(|v| !target_solution[v])
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         left_size = "num_vertices + k * (k - 1) / 2",
         right_size = "num_edges + num_vertices - k",
         k = "num_vertices + k * (k - 1) / 2 - k",
+    },
+    unavailable = {
+        num_vertices = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToBCBS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
         let edges: Vec<(usize, usize)> = self.graph().edges();
@@ -92,10 +102,10 @@ impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
         let graph = BipartiteGraph::new(left_size, right_size, bip_edges);
         let target = BalancedCompleteBipartiteSubgraph::new(graph, target_k);
 
-        ReductionKCliqueToBCBS {
+        Ok(ReductionKCliqueToBCBS {
             target,
             num_original_vertices: n,
-        }
+        })
     }
 }
 
@@ -125,8 +135,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1, 0],
-                    target_config: vec![0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+                    source_config: serde_json::json!(vec![true, true, true, false]),
+                    target_config: serde_json::json!(vec![
+                        false, false, false, true, true, true, true, true, true, true, false, true
+                    ]),
                 },
             )
         },

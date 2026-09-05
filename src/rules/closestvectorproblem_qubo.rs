@@ -1,7 +1,8 @@
-//! Reduction from ClosestVectorProblem to QUBO.
+//! Reduction from integer-target CVP to QUBO.
 //!
-//! Encodes each bounded CVP coefficient with an exact in-range binary basis and
-//! expands the squared-distance objective into a QUBO over those bits.
+//! The reduction derives a finite coefficient box from the lattice basis and
+//! target, then expands the squared Euclidean distance over exact-range binary
+//! encodings.
 
 #[cfg(feature = "example-db")]
 use crate::export::SolutionPair;
@@ -9,170 +10,317 @@ use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
+type Source = ClosestVectorProblem<i64>;
+type Target = QUBO<i64>;
+
 #[derive(Debug, Clone)]
 struct EncodingSpan {
     start: usize,
-    weights: Vec<usize>,
+    weights: Vec<i64>,
+    lower: i64,
 }
 
-/// Result of reducing a bounded ClosestVectorProblem instance to QUBO.
+/// Result of reducing an integer-target CVP instance to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionCVPToQUBO {
-    target: QUBO<f64>,
+    target: Target,
     encodings: Vec<EncodingSpan>,
 }
 
 impl ReductionResult for ReductionCVPToQUBO {
-    type Source = ClosestVectorProblem<i32>;
-    type Target = QUBO<f64>;
+    type Source = Source;
+    type Target = Target;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    /// Reconstruct the source configuration offsets from the encoded QUBO bits.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         self.encodings
             .iter()
             .map(|encoding| {
-                encoding
-                    .weights
-                    .iter()
-                    .enumerate()
-                    .map(|(offset, weight)| {
-                        target_solution
-                            .get(encoding.start + offset)
-                            .copied()
-                            .unwrap_or(0)
-                            * weight
+                let offset = encoding.weights.iter().enumerate().try_fold(
+                    0_i64,
+                    |offset, (index, &weight)| {
+                        if target_solution[encoding.start + index] {
+                            offset.checked_add(weight)
+                        } else {
+                            Some(offset)
+                        }
+                    },
+                );
+                offset
+                    .and_then(|offset| encoding.lower.checked_add(offset))
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "decoded closest-vector coefficient overflows i64",
+                        )
                     })
-                    .sum()
             })
             .collect()
     }
 }
 
-#[cfg(feature = "example-db")]
-fn canonical_cvp_instance() -> ClosestVectorProblem<i32> {
-    ClosestVectorProblem::new(
-        vec![vec![2, 0], vec![1, 2]],
-        vec![2.8, 1.5],
-        vec![
-            crate::models::algebraic::VarBounds::bounded(-2, 4),
-            crate::models::algebraic::VarBounds::bounded(-2, 4),
-        ],
-    )
+fn overflow(operation: &str) -> crate::rules::ReductionError {
+    crate::rules::ReductionError::integer_overflow::<Source, Target>(operation)
 }
 
-fn encoding_spans(problem: &ClosestVectorProblem<i32>) -> Vec<EncodingSpan> {
-    let mut start = 0usize;
-    let mut spans = Vec::with_capacity(problem.num_basis_vectors());
-    for bounds in problem.bounds() {
-        let weights = bounds
-            .exact_encoding_weights()
-            .into_iter()
-            .map(|weight| usize::try_from(weight).expect("encoding weights must be nonnegative"))
-            .collect::<Vec<_>>();
-        spans.push(EncodingSpan { start, weights });
-        start += spans.last().expect("just pushed").weights.len();
-    }
-    spans
-}
-
-fn gram_matrix(problem: &ClosestVectorProblem<i32>) -> Vec<Vec<f64>> {
-    let basis = problem.basis();
-    let n = basis.len();
-    let mut gram = vec![vec![0.0; n]; n];
-    for i in 0..n {
-        for j in i..n {
-            let dot = basis[i]
-                .iter()
-                .zip(&basis[j])
-                .map(|(&lhs, &rhs)| lhs as f64 * rhs as f64)
-                .sum::<f64>();
-            gram[i][j] = dot;
-            gram[j][i] = dot;
+fn determinant(matrix: &[Vec<i64>]) -> Result<i64, crate::rules::ReductionError> {
+    match matrix.len() {
+        0 => Ok(1),
+        1 => Ok(matrix[0][0]),
+        size => {
+            let mut result = 0_i64;
+            for column in 0..size {
+                let minor = (1..size)
+                    .map(|row| {
+                        (0..size)
+                            .filter(|&next_column| next_column != column)
+                            .map(|next_column| matrix[row][next_column])
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                let term = matrix[0][column]
+                    .checked_mul(determinant(&minor)?)
+                    .ok_or_else(|| overflow("computing a closest-vector determinant"))?;
+                result = if column % 2 == 0 {
+                    result.checked_add(term)
+                } else {
+                    result.checked_sub(term)
+                }
+                .ok_or_else(|| overflow("computing a closest-vector determinant"))?;
+            }
+            Ok(result)
         }
     }
-    gram
 }
 
-fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
-    problem
-        .basis()
+fn coefficient_bounds(problem: &Source) -> Result<Vec<i64>, crate::rules::ReductionError> {
+    let rows = problem
+        .independent_rows()
+        .map_err(crate::rules::ReductionError::construction::<Source, Target>)?;
+    let size = problem.num_basis_vectors();
+    if size == 0 {
+        return Ok(Vec::new());
+    }
+
+    let matrix = rows
         .iter()
-        .map(|column| {
-            column
+        .map(|&row| {
+            problem
+                .basis()
                 .iter()
-                .zip(problem.target())
-                .map(|(&entry, &target)| entry as f64 * target)
-                .sum()
+                .map(|column| column[row])
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    if determinant(&matrix)? == 0 {
+        return Err(
+            crate::rules::ReductionError::invalid_target::<Source, Target>(
+                "selected closest-vector rows are not independent",
+            ),
+        );
+    }
+
+    let target_norm = problem.target().iter().try_fold(0_i64, |total, &value| {
+        total
+            .checked_add(
+                value
+                    .checked_abs()
+                    .ok_or_else(|| overflow("taking a closest-vector target absolute value"))?,
+            )
+            .ok_or_else(|| overflow("computing the closest-vector target one-norm"))
+    })?;
+    let row_bounds = rows
+        .iter()
+        .map(|&row| {
+            problem.target()[row]
+                .checked_abs()
+                .and_then(|value| value.checked_add(target_norm))
+                .ok_or_else(|| overflow("computing a closest-vector selected-row bound"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    (0..size)
+        .map(|coefficient| {
+            (0..size).try_fold(0_i64, |bound, selected_row| {
+                let minor = (0..size)
+                    .filter(|&row| row != selected_row)
+                    .map(|row| {
+                        (0..size)
+                            .filter(|&column| column != coefficient)
+                            .map(|column| matrix[row][column])
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                let adjugate_magnitude = determinant(&minor)?
+                    .checked_abs()
+                    .ok_or_else(|| overflow("taking a closest-vector cofactor absolute value"))?;
+                let term = adjugate_magnitude
+                    .checked_mul(row_bounds[selected_row])
+                    .ok_or_else(|| overflow("computing a closest-vector coefficient bound"))?;
+                bound
+                    .checked_add(term)
+                    .ok_or_else(|| overflow("computing a closest-vector coefficient bound"))
+            })
         })
         .collect()
 }
 
-#[reduction(overhead = { num_vars = "num_encoding_bits" })]
-impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
+fn exact_range_weights(maximum: i64) -> Result<Vec<i64>, crate::rules::ReductionError> {
+    let mut weights = Vec::new();
+    let mut remaining = maximum;
+    let mut power = 1_i64;
+    while remaining > 0 {
+        let weight = power.min(remaining);
+        weights.push(weight);
+        remaining -= weight;
+        if remaining > 0 {
+            power = power
+                .checked_mul(2)
+                .ok_or_else(|| overflow("computing closest-vector encoding weights"))?;
+        }
+    }
+    Ok(weights)
+}
+
+fn encoding_spans(bounds: &[i64]) -> Result<Vec<EncodingSpan>, crate::rules::ReductionError> {
+    let mut start = 0usize;
+    bounds
+        .iter()
+        .map(|&bound| {
+            let maximum = bound
+                .checked_mul(2)
+                .ok_or_else(|| overflow("computing a closest-vector encoding range"))?;
+            let weights = exact_range_weights(maximum)?;
+            let span = EncodingSpan {
+                start,
+                weights,
+                lower: -bound,
+            };
+            start = start
+                .checked_add(span.weights.len())
+                .ok_or_else(|| overflow("computing closest-vector encoding offsets"))?;
+            Ok(span)
+        })
+        .collect()
+}
+
+fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules::ReductionError> {
+    left.iter()
+        .zip(right)
+        .try_fold(0_i64, |total, (&left, &right)| {
+            let product = left.checked_mul(right).ok_or_else(|| overflow(operation))?;
+            total
+                .checked_add(product)
+                .ok_or_else(|| overflow(operation))
+        })
+}
+
+#[reduction(transform = unavailable {
+    num_vars = "the exact encoding size depends on the concrete basis and target values",
+})]
+impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
     type Result = ReductionCVPToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
-        let encodings = encoding_spans(self);
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let bounds = coefficient_bounds(self)?;
+        let encodings = encoding_spans(&bounds)?;
         let total_bits = encodings
             .last()
             .map(|encoding| encoding.start + encoding.weights.len())
             .unwrap_or(0);
-        let mut matrix = vec![vec![0.0; total_bits]; total_bits];
 
-        if total_bits == 0 {
-            return ReductionCVPToQUBO {
-                target: QUBO::from_matrix(matrix),
-                encodings,
-            };
+        let size = self.num_basis_vectors();
+        let mut gram = vec![vec![0_i64; size]; size];
+        for (i, row) in gram.iter_mut().enumerate() {
+            for (j, entry) in row.iter_mut().enumerate() {
+                *entry = dot(
+                    &self.basis()[i],
+                    &self.basis()[j],
+                    "computing a closest-vector Gram entry",
+                )?;
+            }
         }
-
-        let gram = gram_matrix(self);
-        let h = at_times_target(self);
-        let lowers = self
-            .bounds()
+        let h = self
+            .basis()
             .iter()
-            .map(|bounds| {
-                bounds
-                    .lower
-                    .expect("CVP QUBO reduction requires finite lower bounds")
+            .map(|column| {
+                dot(
+                    column,
+                    self.target(),
+                    "computing a closest-vector target projection",
+                )
             })
-            .map(|lower| lower as f64)
-            .collect::<Vec<_>>();
-        let g_lo_minus_h = (0..self.num_basis_vectors())
+            .collect::<Result<Vec<_>, _>>()?;
+        let linear = (0..size)
             .map(|i| {
-                (0..self.num_basis_vectors())
-                    .map(|j| gram[i][j] * lowers[j])
-                    .sum::<f64>()
-                    - h[i]
+                let product = (0..size).try_fold(0_i64, |total, j| {
+                    let term = gram[i][j]
+                        .checked_mul(encodings[j].lower)
+                        .ok_or_else(|| overflow("computing a closest-vector linear term"))?;
+                    total
+                        .checked_add(term)
+                        .ok_or_else(|| overflow("computing a closest-vector linear term"))
+                })?;
+                product
+                    .checked_sub(h[i])
+                    .ok_or_else(|| overflow("computing a closest-vector linear term"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let bit_terms = encodings
+            .iter()
+            .enumerate()
+            .flat_map(|(coefficient, encoding)| {
+                encoding
+                    .weights
+                    .iter()
+                    .map(move |&weight| (coefficient, weight))
             })
             .collect::<Vec<_>>();
-
-        let mut bit_terms = Vec::with_capacity(total_bits);
-        for (var_index, encoding) in encodings.iter().enumerate() {
-            for &weight in &encoding.weights {
-                bit_terms.push((var_index, weight as f64));
-            }
-        }
-
+        let mut integer_matrix = vec![vec![0_i64; total_bits]; total_bits];
         for u in 0..total_bits {
-            let (var_u, weight_u) = bit_terms[u];
-            matrix[u][u] =
-                gram[var_u][var_u] * weight_u * weight_u + 2.0 * weight_u * g_lo_minus_h[var_u];
+            let (coefficient_u, weight_u) = bit_terms[u];
+            let quadratic = gram[coefficient_u][coefficient_u]
+                .checked_mul(weight_u)
+                .and_then(|value| value.checked_mul(weight_u))
+                .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
+            let linear_term = linear[coefficient_u]
+                .checked_mul(weight_u)
+                .and_then(|value| value.checked_mul(2))
+                .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
+            integer_matrix[u][u] = quadratic
+                .checked_add(linear_term)
+                .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
 
-            for (v, &(var_v, weight_v)) in bit_terms.iter().enumerate().skip(u + 1) {
-                matrix[u][v] = 2.0 * gram[var_u][var_v] * weight_u * weight_v;
+            for v in (u + 1)..total_bits {
+                let (coefficient_v, weight_v) = bit_terms[v];
+                integer_matrix[u][v] = gram[coefficient_u][coefficient_v]
+                    .checked_mul(weight_u)
+                    .and_then(|value| value.checked_mul(weight_v))
+                    .and_then(|value| value.checked_mul(2))
+                    .ok_or_else(|| overflow("computing a closest-vector QUBO interaction"))?;
             }
         }
 
-        ReductionCVPToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionCVPToQUBO {
+            target: QUBO::from_matrix(integer_matrix)
+                .map_err(crate::rules::ReductionError::construction::<Source, Target>)?,
             encodings,
-        }
+        })
     }
+}
+
+#[cfg(feature = "example-db")]
+fn canonical_cvp_instance() -> Source {
+    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+        .expect("canonical closest-vector instance must be valid")
 }
 
 #[cfg(feature = "example-db")]
@@ -180,11 +328,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "closestvectorproblem_to_qubo",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 canonical_cvp_instance(),
                 SolutionPair {
-                    source_config: vec![3, 3],
-                    target_config: vec![0, 0, 1, 0, 0, 1],
+                    source_config: serde_json::json!(vec![1, 1]),
+                    target_config: serde_json::json!(vec![
+                        false, false, false, true, true, false, false, true, false, false, true,
+                    ]),
                 },
             )
         },

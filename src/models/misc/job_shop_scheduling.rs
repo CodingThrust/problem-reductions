@@ -5,7 +5,7 @@
 //! makespan (completion time of the last task) while respecting both within-job
 //! precedence and single-processor capacity constraints.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -17,29 +17,86 @@ inventory::submit! {
         display_name: "Job-Shop Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize the makespan of a job-shop schedule",
-        fields: &[
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of processors m" },
-            FieldInfo { name: "jobs", type_name: "Vec<Vec<(usize, u64)>>", description: "jobs[j][k] = (processor, length) for the k-th task of job j" },
-        ],
+        fields: JobShopSchedulingCreateSpec::FIELDS,
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobShopScheduling {
     num_processors: usize,
-    jobs: Vec<Vec<(usize, u64)>>,
+    jobs: Vec<Vec<(usize, i64)>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct JobShopSchedulingCreateSpec {
+    /// Jobs expressed as ordered processor-duration operations.
+    #[create(codec = "semicolon-separated")]
+    jobs: Vec<Vec<(usize, i64)>>,
+    /// Optional processor count; omitted values are inferred from the jobs.
+    num_processors: Option<usize>,
+}
+
+impl TryFrom<JobShopSchedulingCreateSpec> for JobShopScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: JobShopSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        let inferred_processors = spec
+            .jobs
+            .iter()
+            .flatten()
+            .map(|(processor, _)| *processor)
+            .max()
+            .map(|processor| {
+                processor
+                    .checked_add(1)
+                    .ok_or_else(|| "inferred processor count overflows usize".to_string())
+            })
+            .transpose()?;
+        let num_processors = spec.num_processors.or(inferred_processors).ok_or_else(|| {
+            "cannot infer processor count from an empty job list; provide num_processors"
+                .to_string()
+        })?;
+        if num_processors == 0 {
+            return Err("num_processors must be positive".to_string().into());
+        }
+
+        for (job_index, job) in spec.jobs.iter().enumerate() {
+            for (task_index, &(processor, _)) in job.iter().enumerate() {
+                if processor >= num_processors {
+                    return Err(format!(
+                        "job {job_index} task {task_index} uses processor {processor}, but num_processors is {num_processors}"
+                    ).into());
+                }
+            }
+            for (task_index, pair) in job.windows(2).enumerate() {
+                if pair[0].0 == pair[1].0 {
+                    return Err(format!(
+                        "job {job_index} tasks {task_index} and {} must use different processors",
+                        task_index + 1
+                    )
+                    .into());
+                }
+            }
+        }
+
+        Ok(Self {
+            num_processors,
+            jobs: spec.jobs,
+        })
+    }
 }
 
 struct FlattenedTasks {
     job_task_ids: Vec<Vec<usize>>,
     machine_task_ids: Vec<Vec<usize>>,
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
 }
 
 impl JobShopScheduling {
-    pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, u64)>>) -> Self {
+    pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, i64)>>) -> Self {
         let num_tasks: usize = jobs.iter().map(Vec::len).sum();
         if num_tasks > 0 {
             assert!(
@@ -47,6 +104,10 @@ impl JobShopScheduling {
                 "num_processors must be positive when tasks are present"
             );
         }
+        assert!(
+            jobs.iter().flatten().all(|&(_, length)| length >= 0),
+            "operation lengths must be nonnegative"
+        );
 
         for (job_index, job) in jobs.iter().enumerate() {
             for (task_index, &(processor, _length)) in job.iter().enumerate() {
@@ -76,7 +137,7 @@ impl JobShopScheduling {
         self.num_processors
     }
 
-    pub fn jobs(&self) -> &[Vec<(usize, u64)>] {
+    pub fn jobs(&self) -> &[Vec<(usize, i64)>] {
         &self.jobs
     }
 
@@ -136,7 +197,7 @@ impl JobShopScheduling {
 
     /// Compute start times from a Lehmer-code config. Returns `None` if the
     /// config is invalid or induces a cycle in the precedence DAG.
-    pub fn schedule_from_config(&self, config: &[usize]) -> Option<Vec<u64>> {
+    pub fn schedule_from_config(&self, config: &[usize]) -> Option<Vec<i64>> {
         self.schedule_from_config_inner(config, &self.flatten_tasks())
     }
 
@@ -144,7 +205,7 @@ impl JobShopScheduling {
         &self,
         config: &[usize],
         flattened: &FlattenedTasks,
-    ) -> Option<Vec<u64>> {
+    ) -> Option<Vec<i64>> {
         let machine_orders = self.decode_machine_orders(config, flattened)?;
         let num_tasks = flattened.lengths.len();
 
@@ -176,7 +237,7 @@ impl JobShopScheduling {
             }
         }
 
-        let mut start_times = vec![0u64; num_tasks];
+        let mut start_times = vec![0i64; num_tasks];
         let mut processed = 0usize;
 
         while let Some(task_id) = queue.pop_front() {
@@ -202,39 +263,75 @@ impl JobShopScheduling {
 
 impl Problem for JobShopScheduling {
     const NAME: &'static str = "JobShopScheduling";
-    type Value = Min<u64>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("num_processors", num_processors),
+        ("num_jobs", num_jobs),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let flattened = self.flatten_tasks();
+        if config.len() != flattened.lengths.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "machine-order encoding length does not match the tasks".into(),
+            ));
+        }
+        let dimensions = flattened
+            .machine_task_ids
+            .iter()
+            .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()));
+        if config
+            .iter()
+            .zip(dimensions)
+            .any(|(&digit, radix)| digit >= radix)
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "machine-order encoding contains an out-of-range digit".into(),
+            ));
+        }
+        Ok({
+            match self.schedule_from_config_inner(config, &flattened) {
+                Some(start_times) => {
+                    let makespan = start_times
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &s)| s + flattened.lengths[i])
+                        .max()
+                        .unwrap_or(0);
+                    Min(Some(makespan))
+                }
+                None => Min(None),
+            }
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for JobShopScheduling {
+    fn dimensions(&self) -> Vec<usize> {
         self.flatten_tasks()
             .machine_task_ids
             .into_iter()
             .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()))
             .collect()
     }
-
-    fn evaluate(&self, config: &[usize]) -> Min<u64> {
-        let flattened = self.flatten_tasks();
-        match self.schedule_from_config_inner(config, &flattened) {
-            Some(start_times) => {
-                let makespan = start_times
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &s)| s + flattened.lengths[i])
-                    .max()
-                    .unwrap_or(0);
-                Min(Some(makespan))
-            }
-            None => Min(None),
-        }
-    }
 }
 
 crate::declare_variants! {
-    default JobShopScheduling => "factorial(num_tasks)",
+    default JobShopScheduling => "factorial(num_tasks)" create JobShopSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    JobShopScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -253,7 +350,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Machine 0 order [0,3,5,8,9,11] => [0,0,0,0,0,0]
         // Machine 1 order [2,7,1,6,10,4] => [1,3,0,1,1,0]
-        optimal_config: vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]),
         optimal_value: serde_json::json!(19),
     }]
 }

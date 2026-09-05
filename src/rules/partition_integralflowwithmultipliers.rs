@@ -15,8 +15,7 @@ use crate::topology::DirectedGraph;
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToIntegralFlowWithMultipliers {
     target: IntegralFlowWithMultipliers,
-    source_n: usize,
-    item_arc_count: usize,
+    item_arc_count: Option<usize>,
 }
 
 impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
@@ -27,39 +26,49 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if self.item_arc_count == 0 {
-            return vec![0; self.source_n];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        Ok({
+            let item_arc_count = self.item_arc_count.ok_or_else(|| {
+                crate::rules::ExtractionError::invalid(
+                    "the fixed infeasible target instance has no extractable witness",
+                )
+            })?;
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        if target_solution.len() < self.item_arc_count {
-            return vec![0; self.source_n];
-        }
-
-        target_solution[..self.item_arc_count].to_vec()
+            target_solution[..item_arc_count]
+                .iter()
+                .map(|&flow| flow > 0)
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_elements + 3",
-    num_arcs = "2 * num_elements + 1",
-    max_capacity = "total_sum",
-    requirement = "total_sum",
-})]
+#[reduction(
+    transform = exact {
+        num_vertices = "num_elements + 3",
+        num_arcs = "2 * num_elements + 1",
+    },
+    unavailable = {
+        max_capacity = "the target capacity depends on source numeric values not represented by Partition parameters",
+        requirement = "the target requirement depends on source numeric values not represented by Partition parameters",
+    }
+)]
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
     type Result = ReductionPartitionToIntegralFlowWithMultipliers;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let total_sum = self.total_sum();
         let source_n = self.num_elements();
 
-        if !total_sum.is_multiple_of(2) {
+        if total_sum % 2 != 0 {
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
-            return ReductionPartitionToIntegralFlowWithMultipliers {
+            return Ok(ReductionPartitionToIntegralFlowWithMultipliers {
                 target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1),
-                source_n,
-                item_arc_count: 0,
-            };
+                item_arc_count: None,
+            });
         }
 
         let half_sum = total_sum / 2;
@@ -88,7 +97,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
         multipliers[relay] = 1;
 
         let graph = DirectedGraph::new(source_n + 3, arcs);
-        ReductionPartitionToIntegralFlowWithMultipliers {
+        Ok(ReductionPartitionToIntegralFlowWithMultipliers {
             target: IntegralFlowWithMultipliers::new(
                 graph,
                 0,
@@ -97,9 +106,8 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
                 capacities,
                 half_sum,
             ),
-            source_n,
-            item_arc_count: source_n,
-        }
+            item_arc_count: Some(source_n),
+        })
     }
 }
 
@@ -111,10 +119,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_integralflowwithmultipliers",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowWithMultipliers>(
-                Partition::new(vec![2, 3, 4, 5, 6, 4]),
+                Partition::new(vec![2, 3, 4, 5, 6, 4]).unwrap(),
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 0, 1, 0],
-                    target_config: vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12],
+                    source_config: serde_json::json!(vec![true, false, true, false, true, false]),
+                    target_config: serde_json::json!(vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12]),
                 },
             )
         },

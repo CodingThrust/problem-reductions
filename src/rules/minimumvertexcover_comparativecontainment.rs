@@ -14,7 +14,7 @@
 //! - One budget set `S_0 = V` with weight `n - K`. The containment inequality
 //!   becomes `K - |Y| ≥ (n + 1) · (# uncovered edges)`.
 //!
-//! Source: `Decision<MinimumVertexCover<SimpleGraph, i32>>` with unit weights.
+//! Source: `Decision<MinimumVertexCover<SimpleGraph, i64>>` with unit weights.
 //! See `decisionminimumvertexcover_hamiltoniancircuit.rs` for the analogous
 //! unit-weight assertion pattern.
 
@@ -25,58 +25,68 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Result of reducing `Decision<MinimumVertexCover<SimpleGraph, i32>>` to
-/// `ComparativeContainment<i32>`.
+/// Result of reducing `Decision<MinimumVertexCover<SimpleGraph, i64>>` to
+/// `ComparativeContainment<i64>`.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMVCToComparativeContainment {
-    target: ComparativeContainment<i32>,
+    target: ComparativeContainment<i64>,
     num_source_vertices: usize,
     /// If `Some`, the bound makes every vertex subset trivially feasible
     /// (`K ≥ n`); the reduction emits an empty target instance and any
     /// extracted source configuration is forced to be a YES instance.
-    trivial_yes: Option<Vec<usize>>,
+    trivial_yes: Option<Vec<bool>>,
 }
 
 impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, i32>>;
-    type Target = ComparativeContainment<i32>;
+    type Source = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    type Target = ComparativeContainment<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if let Some(witness) = &self.trivial_yes {
-            return witness.clone();
-        }
-        let mut cover = vec![0; self.num_source_vertices];
-        for (vertex, &selected) in target_solution
-            .iter()
-            .take(self.num_source_vertices)
-            .enumerate()
-        {
-            cover[vertex] = selected;
-        }
-        cover
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            if let Some(witness) = &self.trivial_yes {
+                return Ok(witness.clone());
+            }
+            let mut cover = vec![false; self.num_source_vertices];
+            for (vertex, &selected) in target_solution[..self.num_source_vertices]
+                .iter()
+                .enumerate()
+            {
+                cover[vertex] = selected;
+            }
+            cover
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         universe_size = "num_vertices",
         num_r_sets = "num_vertices",
         num_s_sets = "num_edges + 1",
     }
 )]
-impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<SimpleGraph, i32>> {
+impl ReduceTo<ComparativeContainment<i64>> for Decision<MinimumVertexCover<SimpleGraph, i64>> {
     type Result = ReductionDecisionMVCToComparativeContainment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let weights = self.inner().weights();
-        assert!(
-            weights.iter().all(|&weight| weight == 1),
-            "Plaisted 1976 reduction requires unit vertex weights"
-        );
+        if weights.iter().any(|&weight| weight != 1) {
+            return Err(crate::rules::ReductionError::invalid_target::<
+                Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                ComparativeContainment<i64>,
+            >(
+                "Plaisted reduction requires unit vertex weights"
+            ));
+        }
 
         let num_vertices = self.inner().graph().num_vertices();
         let raw_bound = *self.bound();
@@ -90,14 +100,20 @@ impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<Simpl
                 1,
                 Vec::new(),
                 vec![vec![0]],
-                Vec::<i32>::new(),
-                vec![1i32],
-            );
-            return ReductionDecisionMVCToComparativeContainment {
+                Vec::<i64>::new(),
+                vec![1i64],
+            )
+            .map_err(|error| {
+                crate::rules::ReductionError::construction::<
+                    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                    ComparativeContainment<i64>,
+                >(error)
+            })?;
+            return Ok(ReductionDecisionMVCToComparativeContainment {
                 target,
                 num_source_vertices: num_vertices,
                 trivial_yes: None,
-            };
+            });
         }
 
         // Trivial YES corner case: when K >= n, every vertex subset of size at
@@ -105,22 +121,34 @@ impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<Simpl
         // covers every edge), so the answer is YES regardless of the graph.
         // Emit an empty target instance (universe size 0, no R/S sets); its
         // unique configuration is trivially satisfying.
-        if raw_bound >= num_vertices as i32 {
+        let num_vertices_i64 = i64::try_from(num_vertices).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                ComparativeContainment<i64>,
+            >("converting the vertex count for bound comparison")
+        })?;
+        if raw_bound >= num_vertices_i64 {
             let target = ComparativeContainment::with_weights(
                 0,
                 Vec::new(),
                 Vec::new(),
-                Vec::<i32>::new(),
-                Vec::<i32>::new(),
-            );
+                Vec::<i64>::new(),
+                Vec::<i64>::new(),
+            )
+            .map_err(|error| {
+                crate::rules::ReductionError::construction::<
+                    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                    ComparativeContainment<i64>,
+                >(error)
+            })?;
             // The all-ones configuration is always a vertex cover with size
             // n <= K.
-            let witness = vec![1; num_vertices];
-            return ReductionDecisionMVCToComparativeContainment {
+            let witness = vec![true; num_vertices];
+            return Ok(ReductionDecisionMVCToComparativeContainment {
                 target,
                 num_source_vertices: num_vertices,
                 trivial_yes: Some(witness),
-            };
+            });
         }
 
         let k = self.k();
@@ -129,32 +157,52 @@ impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<Simpl
 
         // R sets: R_v = V \ {v} for each vertex v, weight 1.
         let r_sets: Vec<Vec<usize>> = (0..n).map(|v| complement_singleton(n, v)).collect();
-        let r_weights: Vec<i32> = vec![1; n];
+        let r_weights: Vec<i64> = vec![1; n];
 
         // S sets: one per edge plus a single budget set.
         let mut s_sets: Vec<Vec<usize>> = Vec::with_capacity(edges.len() + 1);
-        let mut s_weights: Vec<i32> = Vec::with_capacity(edges.len() + 1);
+        let mut s_weights: Vec<i64> = Vec::with_capacity(edges.len() + 1);
 
-        let edge_weight =
-            i32::try_from(n + 1).expect("Plaisted edge-penalty weight (n + 1) must fit in i32");
+        let edge_weight = n.checked_add(1).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                ComparativeContainment<i64>,
+            >("computing the edge-penalty weight")
+        })?;
+        let edge_weight = i64::try_from(edge_weight).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                ComparativeContainment<i64>,
+            >("converting the edge-penalty weight to i64")
+        })?;
         for &(u, v) in &edges {
             s_sets.push(complement_pair(n, u, v));
             s_weights.push(edge_weight);
         }
         // Budget set S_0 = V with weight n - K. Since 0 <= K < n here, this is
         // a positive integer.
-        let budget_weight =
-            i32::try_from(n - k).expect("Plaisted budget weight (n - K) must fit in i32");
+        let budget_weight = i64::try_from(n - k).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                ComparativeContainment<i64>,
+            >("converting the budget weight to i64")
+        })?;
         s_sets.push((0..n).collect());
         s_weights.push(budget_weight);
 
-        let target = ComparativeContainment::with_weights(n, r_sets, s_sets, r_weights, s_weights);
+        let target = ComparativeContainment::with_weights(n, r_sets, s_sets, r_weights, s_weights)
+            .map_err(|error| {
+                crate::rules::ReductionError::construction::<
+                    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                    ComparativeContainment<i64>,
+                >(error)
+            })?;
 
-        ReductionDecisionMVCToComparativeContainment {
+        Ok(ReductionDecisionMVCToComparativeContainment {
             target,
             num_source_vertices: n,
             trivial_yes: None,
-        }
+        })
     }
 }
 
@@ -176,14 +224,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Path P_4: 0-1-2-3, bound K=2. Minimum cover {1,2} has size 2.
             let inner = MinimumVertexCover::new(
                 SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-                vec![1i32; 4],
+                vec![1i64; 4],
             );
             let source = Decision::new(inner, 2);
-            crate::example_db::specs::rule_example_with_witness::<_, ComparativeContainment<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ComparativeContainment<i64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![false, true, true, false]),
                 },
             )
         },

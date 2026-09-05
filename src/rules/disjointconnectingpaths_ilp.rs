@@ -1,13 +1,14 @@
 //! Reduction from DisjointConnectingPaths to ILP.
 //!
 //! Binary flow variables `f^k_{e,dir}` per commodity per directed arc orientation.
-//! Flow conservation, anti-parallel constraints, and vertex disjointness.
+//! Flow conservation and unit vertex capacities enforce vertex-disjoint paths.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::DisjointConnectingPaths;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
+use std::collections::VecDeque;
 
 /// Result of reducing DisjointConnectingPaths to ILP.
 ///
@@ -22,7 +23,8 @@ pub struct ReductionDCPToILP {
     target: ILP<bool>,
     /// Canonical edge list used during construction.
     edges: Vec<(usize, usize)>,
-    num_commodities: usize,
+    num_vertices: usize,
+    terminal_pairs: Vec<(usize, usize)>,
     num_edge_vars_per_commodity: usize,
 }
 
@@ -34,42 +36,83 @@ impl ReductionResult for ReductionDCPToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Mark an edge selected iff some orientation carries flow for some commodity.
-        let m = self.edges.len();
-        let mut result = vec![0usize; m];
-        for k in 0..self.num_commodities {
-            for e in 0..m {
-                let fwd = target_solution[k * self.num_edge_vars_per_commodity + 2 * e];
-                let rev = target_solution[k * self.num_edge_vars_per_commodity + 2 * e + 1];
-                if fwd == 1 || rev == 1 {
-                    result[e] = 1;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        let mut result = vec![false; self.edges.len()];
+        for (k, &(source, sink)) in self.terminal_pairs.iter().enumerate() {
+            let offset = k * self.num_edge_vars_per_commodity;
+            let mut adjacency = vec![Vec::new(); self.num_vertices];
+            for (edge, &(u, v)) in self.edges.iter().enumerate() {
+                if target_solution[offset + 2 * edge] == 1 {
+                    adjacency[u].push((v, edge));
+                }
+                if target_solution[offset + 2 * edge + 1] == 1 {
+                    adjacency[v].push((u, edge));
                 }
             }
+            let mut visited = vec![false; self.num_vertices];
+            let mut predecessor = vec![None; self.num_vertices];
+            let mut queue = VecDeque::from([source]);
+            visited[source] = true;
+            while let Some(u) = queue.pop_front() {
+                if u == sink {
+                    break;
+                }
+                for &(v, edge) in &adjacency[u] {
+                    if !visited[v] {
+                        visited[v] = true;
+                        predecessor[v] = Some((u, edge));
+                        queue.push_back(v);
+                    }
+                }
+            }
+            let mut vertex = sink;
+            while vertex != source {
+                let (previous, edge) = predecessor[vertex].ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "commodity flow does not connect its terminal pair",
+                    )
+                })?;
+                result[edge] = true;
+                vertex = previous;
+            }
         }
-        result
+        Ok(result)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_pairs * 2 * num_edges",
-        num_constraints = "num_pairs * num_vertices + num_pairs * num_edges + num_edges + num_vertices",
+        num_constraints = "num_pairs * num_vertices + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
     type Result = ReductionDCPToILP;
 
     #[allow(clippy::needless_range_loop)]
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.ordered_edges();
         let m = edges.len();
         let n = self.num_vertices();
         let k_count = self.num_pairs();
 
-        // Variable layout: only flow variables, no MTZ ordering needed for binary flow
-        let num_flow_vars_per_k = 2 * m; // f^k_{e,dir}
-        let num_vars = k_count * num_flow_vars_per_k;
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(operation)
+        };
+        let num_flow_vars_per_k = m
+            .checked_mul(2)
+            .ok_or_else(|| overflow("computing the flow-variable stride"))?;
+        let num_vars = k_count
+            .checked_mul(num_flow_vars_per_k)
+            .ok_or_else(|| overflow("computing the flow-variable count"))?;
 
         let flow_var =
             |k: usize, e: usize, dir: usize| -> usize { k * num_flow_vars_per_k + 2 * e + dir };
@@ -83,11 +126,9 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
             vertex_edges[v].push(e);
         }
 
-        // Identify terminal vertices
-        let mut is_terminal = vec![false; n];
-        for &(s, t) in self.terminal_pairs() {
-            is_terminal[s] = true;
-            is_terminal[t] = true;
+        let mut is_source = vec![false; n];
+        for &(source, _) in self.terminal_pairs() {
+            is_source[source] = true;
         }
 
         for (k, &(s_k, t_k)) in self.terminal_pairs().iter().enumerate() {
@@ -98,73 +139,53 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
                     let (eu, _ev) = edges[e];
                     if vertex == eu {
                         // vertex is first endpoint: dir=0 is outgoing, dir=1 is incoming
-                        terms.push((flow_var(k, e, 0), 1.0));
-                        terms.push((flow_var(k, e, 1), -1.0));
+                        terms.push((flow_var(k, e, 0), 1));
+                        terms.push((flow_var(k, e, 1), -1));
                     } else {
                         // vertex is second endpoint: dir=1 is outgoing, dir=0 is incoming
-                        terms.push((flow_var(k, e, 1), 1.0));
-                        terms.push((flow_var(k, e, 0), -1.0));
+                        terms.push((flow_var(k, e, 1), 1));
+                        terms.push((flow_var(k, e, 0), -1));
                     }
                 }
 
                 let demand = if vertex == s_k {
-                    1.0
+                    1
                 } else if vertex == t_k {
-                    -1.0
+                    -1
                 } else {
-                    0.0
+                    0
                 };
                 constraints.push(LinearConstraint::eq(terms, demand));
             }
-
-            // Anti-parallel: f^k_{e,0} + f^k_{e,1} <= 1 for each edge
-            for e in 0..m {
-                constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, e, 0), 1.0), (flow_var(k, e, 1), 1.0)],
-                    1.0,
-                ));
-            }
         }
 
-        // Edge disjointness: each edge is used by at most one commodity
-        // sum_k (f^k_{e,0} + f^k_{e,1}) <= 1
-        for e in 0..m {
-            let mut terms = Vec::new();
-            for k in 0..k_count {
-                terms.push((flow_var(k, e, 0), 1.0));
-                terms.push((flow_var(k, e, 1), 1.0));
-            }
-            constraints.push(LinearConstraint::le(terms, 1.0));
-        }
-
-        // Vertex disjointness: for each non-terminal vertex v,
-        // sum over all commodities k of (outgoing flow from v) <= 1
+        // Incoming flow records vertex use. A source is occupied by its own
+        // commodity even though it has no incoming flow.
         for v in 0..n {
-            if is_terminal[v] {
-                continue;
-            }
             let mut terms = Vec::new();
             for k in 0..k_count {
                 for &e in &vertex_edges[v] {
                     let (eu, _ev) = edges[e];
                     if v == eu {
-                        terms.push((flow_var(k, e, 0), 1.0));
+                        terms.push((flow_var(k, e, 1), 1));
                     } else {
-                        terms.push((flow_var(k, e, 1), 1.0));
+                        terms.push((flow_var(k, e, 0), 1));
                     }
                 }
             }
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            constraints.push(LinearConstraint::le(terms, 1 - i64::from(is_source[v])));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionDCPToILP {
+        Ok(ReductionDCPToILP {
             target,
             edges,
-            num_commodities: k_count,
+            num_vertices: n,
+            terminal_pairs: self.terminal_pairs().to_vec(),
             num_edge_vars_per_commodity: num_flow_vars_per_k,
-        }
+        })
     }
 }
 

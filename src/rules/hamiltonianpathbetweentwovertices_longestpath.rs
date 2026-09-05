@@ -33,52 +33,60 @@ impl ReductionResult for ReductionHPBTVToLP {
     ///
     /// The target solution is a binary vector over edges. We walk the selected
     /// edges from the source vertex to reconstruct the vertex ordering.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build adjacency from selected edges
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for (idx, &selected) in target_solution.iter().enumerate() {
-            if selected == 1 {
-                let (u, v) = self.edges[idx];
-                adj[u].push(v);
-                adj[v].push(u);
-            }
-        }
+        Ok({
+            let n = self.num_vertices;
 
-        // Walk the path from source
-        let mut path = Vec::with_capacity(n);
-        let mut current = self.source_vertex;
-        let mut prev = usize::MAX; // sentinel for "no previous"
-        path.push(current);
-
-        while path.len() < n {
-            let next = adj[current]
-                .iter()
-                .find(|&&neighbor| neighbor != prev)
-                .copied();
-            match next {
-                Some(next_vertex) => {
-                    prev = current;
-                    current = next_vertex;
-                    path.push(current);
+            // Build adjacency from selected edges
+            let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+            for (idx, &selected) in target_solution.iter().enumerate() {
+                if selected {
+                    let (u, v) = self.edges[idx];
+                    adj[u].push(v);
+                    adj[v].push(u);
                 }
-                None => break,
             }
-        }
 
-        path
+            // Walk the path from source
+            let mut path = Vec::with_capacity(n);
+            let mut current = self.source_vertex;
+            let mut prev = usize::MAX; // sentinel for "no previous"
+            path.push(current);
+
+            while path.len() < n {
+                let next = adj[current]
+                    .iter()
+                    .find(|&&neighbor| neighbor != prev)
+                    .copied();
+                match next {
+                    Some(next_vertex) => {
+                        prev = current;
+                        current = next_vertex;
+                        path.push(current);
+                    }
+                    None => break,
+                }
+            }
+
+            path
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_vertices",
-    num_edges = "num_edges",
-})]
+#[reduction(
+    transform = exact {
+        num_vertices = "num_vertices",
+        num_edges = "num_edges",
+    })]
 impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertices<SimpleGraph> {
     type Result = ReductionHPBTVToLP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph().clone();
         let num_edges = graph.num_edges();
         let edges = graph.edges();
@@ -91,12 +99,12 @@ impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertic
             self.target_vertex(),
         );
 
-        ReductionHPBTVToLP {
+        Ok(ReductionHPBTVToLP {
             target,
             edges,
             source_vertex: self.source_vertex(),
             num_vertices: self.num_vertices(),
-        }
+        })
     }
 }
 
@@ -116,8 +124,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, LongestPath<SimpleGraph, One>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3, 4],
-                    target_config: vec![1, 1, 1, 1],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3, 4]),
+                    target_config: serde_json::json!(vec![true, true, true, true]),
                 },
             )
         },

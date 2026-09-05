@@ -2,6 +2,7 @@
 
 use crate::models::formula::{CNFClause, Maximum2Satisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing SAT to MAX-2-SAT.
@@ -19,24 +20,32 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
 
-fn add_normalized_clause(clause: &CNFClause, next_var: &mut i32, normalized: &mut Vec<CNFClause>) {
+fn add_normalized_clause(
+    clause: &CNFClause,
+    variables: &mut SatVariableAllocator,
+    normalized: &mut Vec<CNFClause>,
+) -> Result<(), crate::registry::ConstructionError> {
     match clause.len() {
         0 => {
-            let y = *next_var;
-            *next_var += 1;
+            let y = variables.allocate()?;
             normalized.push(CNFClause::new(vec![y, y, y]));
             normalized.push(CNFClause::new(vec![-y, -y, -y]));
         }
         1 => {
             let l1 = clause.literals[0];
-            let y = *next_var;
-            let z = *next_var + 1;
-            *next_var += 2;
+            let allocated = variables.allocate_many(2)?;
+            let y = allocated[0];
+            let z = allocated[1];
             normalized.push(CNFClause::new(vec![l1, y, z]));
             normalized.push(CNFClause::new(vec![l1, y, -z]));
             normalized.push(CNFClause::new(vec![l1, -y, z]));
@@ -45,16 +54,14 @@ fn add_normalized_clause(clause: &CNFClause, next_var: &mut i32, normalized: &mu
         2 => {
             let l1 = clause.literals[0];
             let l2 = clause.literals[1];
-            let y = *next_var;
-            *next_var += 1;
+            let y = variables.allocate()?;
             normalized.push(CNFClause::new(vec![l1, l2, y]));
             normalized.push(CNFClause::new(vec![l1, l2, -y]));
         }
         3 => normalized.push(clause.clone()),
         k => {
             let literals = &clause.literals;
-            let y_vars: Vec<i32> = (*next_var..*next_var + (k as i32 - 3)).collect();
-            *next_var += k as i32 - 3;
+            let y_vars = variables.allocate_many(k - 3)?;
 
             normalized.push(CNFClause::new(vec![literals[0], literals[1], y_vars[0]]));
             for i in 1..k - 3 {
@@ -71,9 +78,10 @@ fn add_normalized_clause(clause: &CNFClause, next_var: &mut i32, normalized: &mu
             ]));
         }
     }
+    Ok(())
 }
 
-fn add_gjs_gadget(clause: &CNFClause, w: i32, target_clauses: &mut Vec<CNFClause>) {
+fn add_gjs_gadget(clause: &CNFClause, w: i64, target_clauses: &mut Vec<CNFClause>) {
     let a = clause.literals[0];
     let b = clause.literals[1];
     let c = clause.literals[2];
@@ -91,7 +99,7 @@ fn add_gjs_gadget(clause: &CNFClause, w: i32, target_clauses: &mut Vec<CNFClause
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vars + 2 * num_literals + 4 * num_clauses",
         num_clauses = "10 * (num_literals + 3 * num_clauses)",
     }
@@ -99,27 +107,51 @@ fn add_gjs_gadget(clause: &CNFClause, w: i32, target_clauses: &mut Vec<CNFClause
 impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
     type Result = ReductionSatisfiabilityToMaximum2Satisfiability;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut normalized = Vec::new();
-        let mut next_var = self.num_vars() as i32 + 1;
+        let mut variables =
+            SatVariableAllocator::new("Satisfiability -> Maximum2Satisfiability", self.num_vars())
+                .map_err(
+                    crate::rules::ReductionError::construction::<
+                        Satisfiability,
+                        Maximum2Satisfiability,
+                    >,
+                )?;
 
         for clause in self.clauses() {
-            add_normalized_clause(clause, &mut next_var, &mut normalized);
+            add_normalized_clause(clause, &mut variables, &mut normalized).map_err(
+                crate::rules::ReductionError::construction::<
+                    Satisfiability,
+                    Maximum2Satisfiability,
+                >,
+            )?;
         }
 
-        let mut target_clauses = Vec::with_capacity(normalized.len() * 10);
+        let capacity =
+            normalized.len().checked_mul(10).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    Satisfiability,
+                    Maximum2Satisfiability,
+                >("computing the target clause count")
+            })?;
+        let mut target_clauses = Vec::with_capacity(capacity);
         for clause in &normalized {
-            let w = next_var;
-            next_var += 1;
+            let w =
+                variables.allocate().map_err(
+                    crate::rules::ReductionError::construction::<
+                        Satisfiability,
+                        Maximum2Satisfiability,
+                    >,
+                )?;
             add_gjs_gadget(clause, w, &mut target_clauses);
         }
 
-        let target = Maximum2Satisfiability::new((next_var - 1) as usize, target_clauses);
+        let target = Maximum2Satisfiability::new(variables.num_vars(), target_clauses);
 
-        ReductionSatisfiabilityToMaximum2Satisfiability {
+        Ok(ReductionSatisfiabilityToMaximum2Satisfiability {
             target,
             source_num_vars: self.num_vars(),
-        }
+        })
     }
 }
 
@@ -137,8 +169,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, Maximum2Satisfiability>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![1, 1, 1, 0, 1, 0, 1],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, true, true, false, true, false, true
+                    ]),
                 },
             )
         },

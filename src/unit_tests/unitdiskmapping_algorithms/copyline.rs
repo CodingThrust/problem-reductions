@@ -12,7 +12,7 @@ fn test_create_copylines_empty_graph() {
     // Test with no edges
     let edges: Vec<(usize, usize)> = vec![];
     let order = vec![0, 1, 2];
-    let copylines = create_copylines(3, &edges, &order);
+    let copylines = create_copylines(3, &edges, &order).unwrap();
 
     assert_eq!(copylines.len(), 3);
 }
@@ -21,7 +21,7 @@ fn test_create_copylines_empty_graph() {
 fn test_create_copylines_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
     let order = vec![0];
-    let copylines = create_copylines(1, &edges, &order);
+    let copylines = create_copylines(1, &edges, &order).unwrap();
 
     assert_eq!(copylines.len(), 1);
 }
@@ -46,8 +46,7 @@ fn test_mis_overhead_copyline_zero_hstop() {
 #[test]
 fn test_copylines_have_valid_vertex_ids() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     for line in &result.lines {
         assert!(line.vertex < 3, "Vertex ID should be in range");
     }
@@ -56,8 +55,7 @@ fn test_copylines_have_valid_vertex_ids() {
 #[test]
 fn test_copylines_have_positive_slots() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     for line in &result.lines {
         assert!(line.vslot > 0, "vslot should be positive");
         assert!(line.hslot > 0, "hslot should be positive");
@@ -67,8 +65,7 @@ fn test_copylines_have_positive_slots() {
 #[test]
 fn test_copylines_have_valid_ranges() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     for line in &result.lines {
         assert!(line.vstart <= line.vstop, "vstart should be <= vstop");
         assert!(line.vstart <= line.hslot, "vstart should be <= hslot");
@@ -145,8 +142,7 @@ fn test_copyline_copyline_locations_triangular() {
 #[test]
 fn test_mapping_result_has_copylines() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     assert_eq!(result.lines.len(), 3);
 
     // Each vertex should have exactly one copy line
@@ -160,16 +156,14 @@ fn test_mapping_result_has_copylines() {
 #[test]
 fn test_triangular_mapping_result_has_copylines() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
+    let result = triangular::map_weighted(3, &edges).unwrap();
     assert_eq!(result.lines.len(), 3);
 }
 
 #[test]
 fn test_copyline_vslot_hslot_ordering() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     // vslot is determined by vertex order, should be 1-indexed
     let mut vslots: Vec<usize> = result.lines.iter().map(|l| l.vslot).collect();
     vslots.sort();
@@ -183,8 +177,7 @@ fn test_copyline_vslot_hslot_ordering() {
 #[test]
 fn test_copyline_center_on_grid() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     // Each copyline's center should correspond to a grid node
     for line in &result.lines {
         let (row, col) = line.center_location(result.padding, result.spacing);
@@ -255,8 +248,7 @@ fn test_copyline_copyline_locations_structure() {
 #[test]
 fn test_copyline_triangular_spacing() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
+    let result = triangular::map_weighted(3, &edges).unwrap();
     // Triangular uses spacing=6
     assert_eq!(result.spacing, 6);
 
@@ -301,10 +293,10 @@ fn test_copyline_center_vs_locations() {
 /// is excluded because Julia's center weight is 0 while Rust's is min 1.
 #[test]
 fn test_copyline_weighted_mis_equals_overhead() {
-    // Test cases: (vstart, vstop, hstop) as i32 for arithmetic
+    // Test cases: (vstart, vstop, hstop) as i64 for arithmetic
     // Note: Excluding (5, 5, 5) which is degenerate - only center node with
     // Julia weight=0 vs Rust weight=1 (Rust uses nline.max(1) for center)
-    let test_cases: [(i32, i32, i32); 7] = [
+    let test_cases: [(i64, i64, i64); 7] = [
         (3, 7, 8),
         (3, 5, 8),
         (5, 9, 8),
@@ -315,7 +307,7 @@ fn test_copyline_weighted_mis_equals_overhead() {
     ];
 
     let padding: usize = 2;
-    let spacing: i32 = 4;
+    let spacing: i64 = 4;
 
     for (vstart, vstop, hstop) in test_cases {
         // Create copyline with vslot=5, hslot=5 (matching Julia's test)
@@ -358,7 +350,7 @@ fn test_copyline_weighted_mis_equals_overhead() {
             }
         }
 
-        let weights: Vec<i32> = locs.iter().map(|&(_, _, w)| w as i32).collect();
+        let weights: Vec<i64> = locs.iter().map(|&(_, _, w)| w as i64).collect();
 
         // Solve weighted MIS
         let weighted_mis = solve_weighted_mis(n, &edges, &weights);
@@ -366,8 +358,8 @@ fn test_copyline_weighted_mis_equals_overhead() {
         // Calculate expected value using Julia's weighted formula:
         // mis_overhead_copyline(Weighted(), line) =
         //   (hslot - vstart) * s + (vstop - hslot) * s + max((hstop - vslot) * s - 2, 0)
-        let hslot: i32 = 5;
-        let vslot: i32 = 5;
+        let hslot: i64 = 5;
+        let vslot: i64 = 5;
         let expected = (hslot - vstart) * spacing
             + (vstop - hslot) * spacing
             + std::cmp::max((hstop - vslot) * spacing - 2, 0);

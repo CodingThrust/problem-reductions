@@ -1,20 +1,20 @@
 use crate::registry::{
     find_problem_type, find_problem_type_by_alias, parse_catalog_problem_ref, problem_types,
-    ProblemRef, ProblemSchemaEntry,
+    ProblemCategory, ProblemRef, ProblemSchemaEntry,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 #[test]
 fn typed_problem_ref_fills_declared_defaults() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref = ProblemRef::from_values(&problem, ["i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["i64"]).unwrap();
     assert_eq!(
         problem_ref.variant().get("graph").map(|s| s.as_str()),
         Some("SimpleGraph")
     );
     assert_eq!(
         problem_ref.variant().get("weight").map(|s| s.as_str()),
-        Some("i32")
+        Some("i64")
     );
 }
 
@@ -23,7 +23,7 @@ fn catalog_rejects_unknown_dimension_values() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
     let err = ProblemRef::from_values(&problem, ["HyperGraph"]).unwrap_err();
     assert!(
-        err.contains("Known variants"),
+        err.to_string().contains("Known variants"),
         "error should mention known variants: {err}"
     );
 }
@@ -67,6 +67,43 @@ fn problem_types_returns_all_registered() {
 }
 
 #[test]
+fn problem_category_comes_from_explicit_schema_metadata() {
+    assert_eq!(
+        find_problem_type("QUBO").unwrap().category,
+        ProblemCategory::Algebraic
+    );
+    assert_eq!(
+        find_problem_type("KSatisfiability").unwrap().category,
+        ProblemCategory::Formula
+    );
+    assert_eq!(
+        find_problem_type("MaximumClique").unwrap().category,
+        ProblemCategory::Graph
+    );
+    assert_eq!(
+        find_problem_type("JobShopScheduling").unwrap().category,
+        ProblemCategory::Misc
+    );
+    assert_eq!(
+        find_problem_type("MinimumSetCovering").unwrap().category,
+        ProblemCategory::Set
+    );
+
+    static MISMATCHED_PATH_SCHEMA: ProblemSchemaEntry = ProblemSchemaEntry {
+        name: "ExplicitCategoryTest",
+        display_name: "Explicit category test",
+        aliases: &[],
+        dimensions: &[],
+        category: ProblemCategory::Set,
+        module_path: "problemreductions::models::graph::explicit_category_test",
+        description: "Test fixture",
+        fields: &[],
+    };
+    let problem = super::ProblemType::from_entry(&MISMATCHED_PATH_SCHEMA);
+    assert_eq!(problem.category, ProblemCategory::Set);
+}
+
+#[test]
 fn problem_ref_from_values_no_values_uses_all_defaults() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
     let problem_ref = ProblemRef::from_values(&problem, Vec::<&str>::new()).unwrap();
@@ -83,15 +120,35 @@ fn problem_ref_from_values_no_values_uses_all_defaults() {
 #[test]
 fn problem_ref_from_values_graph_override() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref = ProblemRef::from_values(&problem, ["UnitDiskGraph", "i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["UnitDiskGraph", "i64"]).unwrap();
     assert_eq!(
         problem_ref.variant().get("graph").map(|s| s.as_str()),
         Some("UnitDiskGraph")
     );
     assert_eq!(
         problem_ref.variant().get("weight").map(|s| s.as_str()),
-        Some("i32")
+        Some("i64")
     );
+}
+
+#[test]
+fn problem_ref_from_prefix_map_fills_only_trailing_defaults() {
+    let problem = find_problem_type("ILP").unwrap();
+    let problem_ref = ProblemRef::from_prefix_map(
+        &problem,
+        [("variable".to_string(), "bool".to_string())].into(),
+    )
+    .unwrap();
+    assert_eq!(problem_ref.variant()["variable"], "bool");
+    assert_eq!(problem_ref.variant()["coefficient"], "i64");
+}
+
+#[test]
+fn problem_ref_from_prefix_map_requires_leading_dimension() {
+    let problem = find_problem_type("ILP").unwrap();
+    let coefficient_only = [("coefficient".to_string(), "f64".to_string())].into();
+    assert!(ProblemRef::from_prefix_map(&problem, coefficient_only).is_err());
+    assert!(ProblemRef::from_prefix_map(&problem, Default::default()).is_err());
 }
 
 #[test]
@@ -118,18 +175,18 @@ fn parse_catalog_problem_ref_with_value() {
 #[test]
 fn parse_catalog_problem_ref_rejects_unknown() {
     let err = parse_catalog_problem_ref("NonExistent").unwrap_err();
-    assert!(err.contains("Unknown problem type"));
+    assert!(err.to_string().contains("Unknown problem type"));
 }
 
 #[test]
 fn problem_ref_to_export_ref() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref = ProblemRef::from_values(&problem, ["i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["i64"]).unwrap();
     let export_ref = problem_ref.to_export_ref();
     assert_eq!(export_ref.name, "MaximumIndependentSet");
     assert_eq!(
         export_ref.variant.get("weight").map(|s| s.as_str()),
-        Some("i32")
+        Some("i64")
     );
 }
 
@@ -164,10 +221,20 @@ fn every_public_problem_schema_has_dimension_defaults() {
 
 #[test]
 fn every_alias_is_globally_unique() {
+    let canonical_names = inventory::iter::<ProblemSchemaEntry>
+        .into_iter()
+        .map(|entry| (entry.name.to_lowercase(), entry.name))
+        .collect::<HashMap<_, _>>();
     let mut seen: HashMap<String, &str> = HashMap::new();
     for entry in inventory::iter::<ProblemSchemaEntry> {
         for alias in entry.aliases {
             let lower = alias.to_lowercase();
+            if let Some(canonical) = canonical_names.get(&lower) {
+                panic!(
+                    "Alias '{}' on {} conflicts with canonical problem name {}",
+                    alias, entry.name, canonical,
+                );
+            }
             if let Some(prev) = seen.get(&lower) {
                 panic!(
                     "Alias '{}' is used by both {} and {}",
@@ -184,10 +251,6 @@ fn catalog_dimensions_cover_all_declared_variants() {
     use crate::registry::variant::VariantEntry;
 
     for entry in inventory::iter::<ProblemSchemaEntry> {
-        if entry.dimensions.is_empty() {
-            continue;
-        }
-
         // Collect all variant entries for this problem
         let variants: Vec<_> = inventory::iter::<VariantEntry>
             .into_iter()
@@ -196,6 +259,20 @@ fn catalog_dimensions_cover_all_declared_variants() {
 
         for ve in &variants {
             let variant_pairs = ve.variant();
+            assert_eq!(
+                entry
+                    .dimensions
+                    .iter()
+                    .map(|dim| dim.key)
+                    .collect::<BTreeSet<_>>(),
+                variant_pairs
+                    .iter()
+                    .map(|(key, _)| *key)
+                    .collect::<BTreeSet<_>>(),
+                "Problem {} catalog dimensions must match its declared variant {:?}",
+                entry.name,
+                variant_pairs,
+            );
             for (key, value) in &variant_pairs {
                 if let Some(dim) = entry.dimensions.iter().find(|d| d.key == *key) {
                     assert!(
@@ -235,5 +312,40 @@ fn graph_defaults_are_catalog_defaults_for_registered_variants() {
                 }
             }
         }
+    }
+}
+
+#[test]
+fn concrete_rule_and_solver_variants_have_standard_registration() {
+    // Actual implementations determine the required set, not a Cartesian product
+    // of independently listed schema dimensions.
+    let mut required = BTreeSet::new();
+    for rule in crate::rules::registry::reduction_entries() {
+        required.insert((
+            rule.source_name,
+            crate::export::variant_to_map(rule.source_variant()),
+        ));
+        required.insert((
+            rule.target_name,
+            crate::export::variant_to_map(rule.target_variant()),
+        ));
+    }
+    for solver in inventory::iter::<crate::solvers::BruteForceRegistration> {
+        required.insert((
+            solver.source_name,
+            crate::export::variant_to_map((solver.source_variant_fn)()),
+        ));
+    }
+    for (name, variant) in required {
+        assert!(
+            crate::registry::find_variant_entry(name, &variant).is_some(),
+            "Concrete implementation missing standard registration: {name} {variant:?}"
+        );
+    }
+    // Building the capability registry also validates every concrete customized
+    // solver and each node in every fixed ILP pipeline against variant entries.
+    for entry in crate::registry::variant_entries() {
+        let key = crate::solvers::ExactProblemKey::new(entry.name, entry.variant_map());
+        crate::solvers::solver_capabilities(&key).expect("all concrete solvers must be registered");
     }
 }

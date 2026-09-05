@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -20,9 +21,9 @@ fn test_rootedtreearrangement_basic_yes_example() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 5);
     assert_eq!(problem.bound(), 7);
-    assert_eq!(problem.dims(), vec![5; 10]);
-    assert!(problem.evaluate(&config));
-    assert_eq!(problem.total_edge_stretch(&config), Some(6));
+    assert_eq!(problem.dimensions(), vec![5; 10]);
+    assert!(problem.evaluate(&config).unwrap());
+    assert_eq!(problem.total_edge_stretch(&config).unwrap(), Some(6));
 }
 
 #[test]
@@ -31,13 +32,13 @@ fn test_rootedtreearrangement_rejects_invalid_parent_arrays() {
 
     // Two roots: node 0 and node 1 are both self-parented.
     let multiple_roots = vec![0, 1, 1, 2, 3, 0, 1, 2, 3, 4];
-    assert!(!problem.evaluate(&multiple_roots));
-    assert_eq!(problem.total_edge_stretch(&multiple_roots), None);
+    assert!(!problem.evaluate(&multiple_roots).unwrap());
+    assert_eq!(problem.total_edge_stretch(&multiple_roots).unwrap(), None);
 
     // Directed cycle between nodes 1 and 2.
     let cycle = vec![0, 2, 1, 2, 3, 0, 1, 2, 3, 4];
-    assert!(!problem.evaluate(&cycle));
-    assert_eq!(problem.total_edge_stretch(&cycle), None);
+    assert!(!problem.evaluate(&cycle).unwrap());
+    assert_eq!(problem.total_edge_stretch(&cycle).unwrap(), None);
 }
 
 #[test]
@@ -45,16 +46,19 @@ fn test_rootedtreearrangement_rejects_invalid_bijections() {
     let problem = issue_example();
 
     let duplicate_image = vec![0, 0, 1, 2, 3, 0, 0, 2, 3, 4];
-    assert!(!problem.evaluate(&duplicate_image));
-    assert_eq!(problem.total_edge_stretch(&duplicate_image), None);
+    assert!(!problem.evaluate(&duplicate_image).unwrap());
+    assert_eq!(problem.total_edge_stretch(&duplicate_image).unwrap(), None);
 
     let out_of_range = vec![0, 0, 1, 2, 3, 0, 1, 2, 3, 5];
-    assert!(!problem.evaluate(&out_of_range));
-    assert_eq!(problem.total_edge_stretch(&out_of_range), None);
+    assert!(!problem.evaluate(&out_of_range).unwrap());
+    assert_eq!(problem.total_edge_stretch(&out_of_range).unwrap(), None);
 
     let wrong_length = vec![0, 0, 1, 2, 3, 0, 1, 2, 3];
-    assert!(!problem.evaluate(&wrong_length));
-    assert_eq!(problem.total_edge_stretch(&wrong_length), None);
+    assert!(matches!(
+        problem.evaluate(&wrong_length),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert_eq!(problem.total_edge_stretch(&wrong_length).unwrap(), None);
 }
 
 #[test]
@@ -65,8 +69,8 @@ fn test_rootedtreearrangement_rejects_noncomparable_edges() {
     // Tree: 0 is root, 1 and 2 are siblings, 3 and 4 descend from 2.
     // The graph edge {1,2} is invalid because mapped nodes 1 and 2 are not ancestor-comparable.
     let branching_tree = vec![0, 0, 0, 2, 3, 0, 1, 2, 3, 4];
-    assert!(!problem.evaluate(&branching_tree));
-    assert_eq!(problem.total_edge_stretch(&branching_tree), None);
+    assert!(!problem.evaluate(&branching_tree).unwrap());
+    assert_eq!(problem.total_edge_stretch(&branching_tree).unwrap(), None);
 }
 
 #[test]
@@ -75,8 +79,8 @@ fn test_rootedtreearrangement_enforces_bound() {
 
     // Same chain tree as the YES witness, but the mapping stretches edge {2,3} too far.
     let over_bound = vec![0, 0, 1, 2, 3, 2, 1, 0, 3, 4];
-    assert!(!problem.evaluate(&over_bound));
-    assert_eq!(problem.total_edge_stretch(&over_bound), Some(8));
+    assert!(!problem.evaluate(&over_bound).unwrap());
+    assert_eq!(problem.total_edge_stretch(&over_bound).unwrap(), Some(8));
 }
 
 #[test]
@@ -86,16 +90,20 @@ fn test_rootedtreearrangement_solver_and_serialization() {
 
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("expected satisfying solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 
     let json = serde_json::to_string(&problem).unwrap();
     let restored: RootedTreeArrangement<SimpleGraph> = serde_json::from_str(&json).unwrap();
     assert_eq!(restored.num_vertices(), 3);
     assert_eq!(restored.num_edges(), 2);
     assert_eq!(restored.bound(), 2);
-    assert_eq!(restored.evaluate(&solution), problem.evaluate(&solution));
+    assert_eq!(
+        restored.evaluate(&solution).unwrap(),
+        problem.evaluate(&solution).unwrap()
+    );
 }
 
 #[test]

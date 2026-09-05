@@ -19,13 +19,13 @@ use crate::topology::SimpleGraph;
 /// Result of reducing NAESatisfiability to MaxCut.
 #[derive(Debug, Clone)]
 pub struct ReductionNAESATToMaxCut {
-    target: MaxCut<SimpleGraph, i32>,
+    target: MaxCut<SimpleGraph, i64>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for ReductionNAESATToMaxCut {
     type Source = NAESatisfiability;
-    type Target = MaxCut<SimpleGraph, i32>;
+    type Target = MaxCut<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -36,10 +36,17 @@ impl ReductionResult for ReductionNAESATToMaxCut {
     /// Variable x_i is assigned based on vertex 2*i: if it is in set 0
     /// (config[2*i] == 0), set x_i = false (config value 0); if in set 1,
     /// set x_i = true (config value 1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|i| target_solution[2 * i])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.source_num_vars)
+                .map(|i| target_solution[2 * i])
+                .collect()
+        })
     }
 }
 
@@ -47,7 +54,7 @@ impl ReductionResult for ReductionNAESATToMaxCut {
 ///
 /// Positive literal l (l > 0): vertex 2*(l-1)
 /// Negative literal l (l < 0): vertex 2*((-l)-1) + 1
-fn literal_vertex(lit: i32) -> usize {
+fn literal_vertex(lit: i64) -> usize {
     let var_idx = lit.unsigned_abs() as usize - 1;
     if lit > 0 {
         2 * var_idx
@@ -57,22 +64,30 @@ fn literal_vertex(lit: i32) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "2 * num_vars",
         num_edges = "num_vars + num_literal_pairs",
     }
 )]
-impl ReduceTo<MaxCut<SimpleGraph, i32>> for NAESatisfiability {
+impl ReduceTo<MaxCut<SimpleGraph, i64>> for NAESatisfiability {
     type Result = ReductionNAESATToMaxCut;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let m = self.num_clauses();
         let total_vertices = 2 * n;
-        let big_m = (m + 1) as i32;
+        let big_m = i64::try_from(m)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    NAESatisfiability,
+                    MaxCut<SimpleGraph, i64>,
+                >("computing the clause penalty")
+            })?;
 
         let mut edges: Vec<(usize, usize)> = Vec::new();
-        let mut weights: Vec<i32> = Vec::new();
+        let mut weights: Vec<i64> = Vec::new();
 
         // Step 1: Variable edges — connect (2*i, 2*i+1) with weight M = m+1
         for i in 0..n {
@@ -95,10 +110,10 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for NAESatisfiability {
         let graph = SimpleGraph::new(total_vertices, edges);
         let target = MaxCut::new(graph, weights);
 
-        ReductionNAESATToMaxCut {
+        Ok(ReductionNAESATToMaxCut {
             target,
             source_num_vars: n,
-        }
+        })
     }
 }
 
@@ -121,17 +136,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, 3, 2]),
                 ],
             );
-            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
                 source,
                 SolutionPair {
                     // x1=T(1), x2=F(0), x3=T(1)
-                    source_config: vec![1, 0, 1],
+                    source_config: serde_json::json!(vec![true, false, true]),
                     // Vertices: x1(0)=1, ~x1(1)=0, x2(2)=0, ~x2(3)=1, x3(4)=1, ~x3(5)=0
                     // All variable edges cross (weight M=3 each) -> 3*3=9
                     // C1=(x1,x2,~x3): vertices 0,2,5 -> sides {1},{0,0} -> edges (0,2) crosses, (0,5) crosses, (2,5) doesn't -> +2
                     // C2=(~x1,x3,x2): vertices 1,4,2 -> sides {0},{1,0} -> edges (1,4) crosses, (1,2) doesn't, (4,2) crosses -> +2
                     // Total = 9 + 2 + 2 = 13
-                    target_config: vec![1, 0, 0, 1, 1, 0],
+                    target_config: serde_json::json!(vec![true, false, false, true, true, false]),
                 },
             )
         },

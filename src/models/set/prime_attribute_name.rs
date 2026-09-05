@@ -3,7 +3,7 @@
 //! Given a set of attributes A, a collection of functional dependencies F on A,
 //! and a query attribute x, determine if x belongs to any candidate key of <A, F>.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -13,13 +13,10 @@ inventory::submit! {
         display_name: "Prime Attribute Name",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if an attribute belongs to any candidate key under functional dependencies",
-        fields: &[
-            FieldInfo { name: "num_attributes", type_name: "usize", description: "Number of attributes" },
-            FieldInfo { name: "dependencies", type_name: "Vec<(Vec<usize>, Vec<usize>)>", description: "Functional dependencies (lhs, rhs) pairs" },
-            FieldInfo { name: "query_attribute", type_name: "usize", description: "The query attribute index" },
-        ],
+        fields: PrimeAttributeNameCreateSpec::FIELDS,
     }
 }
 
@@ -40,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::PrimeAttributeName;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6 attributes, FDs: {0,1}->rest, {2,3}->rest, {0,3}->rest
 /// let problem = PrimeAttributeName::new(
@@ -54,10 +51,12 @@ inventory::submit! {
 /// );
 ///
 /// // {2, 3} is a candidate key containing attribute 3
-/// assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]));
+/// assert!(problem
+///     .evaluate(&vec![false, false, true, true, false, false])
+///     .unwrap());
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,6 +67,52 @@ pub struct PrimeAttributeName {
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
     /// The query attribute index.
     query_attribute: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PrimeAttributeNameCreateSpec {
+    /// Number of attributes.
+    universe_size: usize,
+    /// Functional dependencies (lhs, rhs) pairs.
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    /// The query attribute index.
+    query_attribute: usize,
+}
+
+impl TryFrom<PrimeAttributeNameCreateSpec> for PrimeAttributeName {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: PrimeAttributeNameCreateSpec) -> Result<Self, Self::Error> {
+        if spec.query_attribute >= spec.universe_size {
+            return Err(format!(
+                "query_attribute {} is outside universe of size {}",
+                spec.query_attribute, spec.universe_size
+            )
+            .into());
+        }
+        for (dependency_index, (lhs, rhs)) in spec.dependencies.iter().enumerate() {
+            if lhs.is_empty() {
+                return Err(
+                    format!("dependencies[{dependency_index}] has an empty left side").into(),
+                );
+            }
+            if let Some(&attribute) = lhs
+                .iter()
+                .chain(rhs)
+                .find(|&&attribute| attribute >= spec.universe_size)
+            {
+                return Err(format!(
+                    "dependencies[{dependency_index}] contains attribute {attribute} outside universe of size {}",
+                    spec.universe_size
+                ).into());
+            }
+        }
+        Ok(Self::new(
+            spec.universe_size,
+            spec.dependencies,
+            spec.query_attribute,
+        ))
+    }
 }
 
 impl PrimeAttributeName {
@@ -155,47 +200,52 @@ impl PrimeAttributeName {
 
 impl Problem for PrimeAttributeName {
     const NAME: &'static str = "PrimeAttributeName";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_attributes]
-    }
+    crate::problem_parameters![
+        ("num_attributes", num_attributes),
+        ("num_dependencies", num_dependencies),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            // Check config length and binary values
-            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_attributes {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "attribute-selection length does not match the relation".into(),
+                    ));
+                }
 
-            // K = {i : config[i] = 1}
-            let k: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+                // query_attribute must be in K
+                if !config[self.query_attribute] {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // query_attribute must be in K
-            if !k[self.query_attribute] {
-                return crate::types::Or(false);
-            }
+                // Compute closure(K) -- must equal all attributes (K is a superkey)
+                let closure = self.compute_closure(config);
+                if closure.iter().any(|&v| !v) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Compute closure(K) -- must equal all attributes (K is a superkey)
-            let closure = self.compute_closure(&k);
-            if closure.iter().any(|&v| !v) {
-                return crate::types::Or(false);
-            }
-
-            // Check minimality: removing any attribute from K must break the superkey property
-            for i in 0..self.num_attributes {
-                if k[i] {
-                    let mut reduced = k.clone();
-                    reduced[i] = false;
-                    let reduced_closure = self.compute_closure(&reduced);
-                    if reduced_closure.iter().all(|&v| v) {
-                        // K \ {i} is still a superkey, so K is not minimal
-                        return crate::types::Or(false);
+                // Check minimality: removing any attribute from K must break the superkey property
+                for i in 0..self.num_attributes {
+                    if config[i] {
+                        let mut reduced = config.clone();
+                        reduced[i] = false;
+                        let reduced_closure = self.compute_closure(&reduced);
+                        if reduced_closure.iter().all(|&v| v) {
+                            // K \ {i} is still a superkey, so K is not minimal
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
     }
 
@@ -204,8 +254,18 @@ impl Problem for PrimeAttributeName {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PrimeAttributeName {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_attributes]
+    }
+}
+
 crate::declare_variants! {
-    default PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes",
+    default PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes" create PrimeAttributeNameCreateSpec,
+}
+
+crate::register_brute_force! {
+    PrimeAttributeName decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -223,7 +283,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
         )),
         // {2, 3} is a candidate key containing attribute 3
-        optimal_config: vec![0, 0, 1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![false, false, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

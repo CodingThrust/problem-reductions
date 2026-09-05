@@ -21,13 +21,18 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         extract_hamiltonian_order(self.target.graph(), target_solution)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }
@@ -35,32 +40,28 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
 impl ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHamiltonianPathToDegreeConstrainedSpanningTree;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = DegreeConstrainedSpanningTree::new(
             SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
             2,
         );
-        ReductionHamiltonianPathToDegreeConstrainedSpanningTree { target }
+        Ok(ReductionHamiltonianPathToDegreeConstrainedSpanningTree { target })
     }
 }
 
-fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> Vec<usize> {
+fn extract_hamiltonian_order(
+    graph: &SimpleGraph,
+    target_solution: &[bool],
+) -> crate::rules::ExtractionResult<Vec<usize>> {
     let num_vertices = graph.num_vertices();
-    if num_vertices == 0 {
-        return vec![];
-    }
-    if num_vertices == 1 {
-        return vec![0];
+    if num_vertices < 2 {
+        return Ok((0..num_vertices).collect());
     }
 
     let edges = graph.edges();
-    if target_solution.len() != edges.len() {
-        return vec![];
-    }
-
     let mut adjacency = vec![Vec::new(); num_vertices];
     for ((u, v), &selected) in edges.iter().copied().zip(target_solution.iter()) {
-        if selected != 1 {
+        if !selected {
             continue;
         }
         adjacency[u].push(v);
@@ -74,7 +75,9 @@ fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> 
         .collect();
     endpoints.sort_unstable();
     if endpoints.len() != 2 {
-        return vec![];
+        return Err(crate::rules::ExtractionError::invalid(
+            "selected edges do not form a Hamiltonian path",
+        ));
     }
 
     let mut order = Vec::with_capacity(num_vertices);
@@ -84,7 +87,9 @@ fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> 
 
     loop {
         if visited[current] {
-            return vec![];
+            return Err(crate::rules::ExtractionError::invalid(
+                "selected edges contain a cycle",
+            ));
         }
         visited[current] = true;
         order.push(current);
@@ -103,14 +108,16 @@ fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> 
     }
 
     if order.len() == num_vertices {
-        order
+        Ok(order)
     } else {
-        vec![]
+        Err(crate::rules::ExtractionError::invalid(
+            "selected edges do not span every source vertex",
+        ))
     }
 }
 
 #[cfg(feature = "example-db")]
-fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<usize> {
+fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<bool> {
     let selected_edges: Vec<(usize, usize)> = path
         .windows(2)
         .map(|window| (window[0], window[1]))
@@ -119,11 +126,9 @@ fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<usize> {
         .edges()
         .into_iter()
         .map(|(u, v)| {
-            usize::from(
-                selected_edges
-                    .iter()
-                    .any(|&(a, b)| (a == u && b == v) || (a == v && b == u)),
-            )
+            selected_edges
+                .iter()
+                .any(|&(a, b)| (a == u && b == v) || (a == v && b == u))
         })
         .collect()
 }
@@ -152,7 +157,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source_config = vec![0, 2, 4, 3, 1, 5];
             let source = source_example();
             let reduction =
-                ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source);
+                ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let target_config =
                 edge_config_for_path(reduction.target_problem().graph(), &source_config);
             crate::example_db::specs::rule_example_with_witness::<
@@ -161,8 +167,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 crate::export::SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

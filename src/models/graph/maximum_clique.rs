@@ -3,7 +3,7 @@
 //! The MaximumClique problem asks for a maximum weight subset of vertices
 //! such that all vertices in the subset are pairwise adjacent.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -17,14 +17,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "One", &["One", "i32"]),
+            VariantDimension::new("weight", "One", &["One", "i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum weight clique in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MaximumCliqueCreateSpec::<One>::FIELDS,
     }
 }
 
@@ -38,14 +36,14 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`, `UnitDiskGraph`)
-/// * `W` - The weight type (e.g., `i32`, `f64`, `One`)
+/// * `W` - The weight type (e.g., `i64`, `f64`, `One`)
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::graph::MaximumClique;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a triangle graph (3 vertices, 3 edges - complete graph)
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -53,10 +51,10 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximum clique in a triangle (K3) is size 3
-/// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 3));
+/// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 3));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaximumClique<G, W> {
@@ -64,6 +62,29 @@ pub struct MaximumClique<G, W> {
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumCliqueCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Vec<W>,
+}
+
+impl<W: Clone + Default> TryFrom<MaximumCliqueCreateSpec<W>> for MaximumClique<SimpleGraph, W> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MaximumCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                spec.weights.len(),
+                spec.graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self::new(spec.graph, spec.weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
@@ -96,7 +117,7 @@ impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
     }
 
     /// Check if a configuration is a valid clique.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_clique_config(&self.graph, config)
     }
 }
@@ -119,37 +140,60 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumClique";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_clique_config(&self.graph, config) {
-            return Max(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
+        Ok({
+            if !is_clique_config(&self.graph, config) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected clique weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for MaximumClique<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
 /// Check if a configuration forms a valid clique.
-fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
+fn is_clique_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
     // Collect all selected vertices
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v == 1)
+        .filter(|(_, &v)| v)
         .map(|(i, _)| i)
         .collect();
 
@@ -164,20 +208,32 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     true
 }
 
+crate::impl_random_generate!(MaximumClique<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumClique::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumClique<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumClique::new(spec.graph()?, vec![One; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
-    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices",
+    MaximumClique<SimpleGraph, i64> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i64> random,
+    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One> random,
+}
+
+crate::register_brute_force! {
+    MaximumClique<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumClique<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_clique_simplegraph_i32",
+        id: "maximum_clique_simplegraph",
         instance: Box::new(MaximumClique::new(
             SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
-            vec![1i32; 5],
+            vec![1i64; 5],
         )),
-        optimal_config: vec![0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, true, true, true]),
         optimal_value: serde_json::json!(3),
     }]
 }

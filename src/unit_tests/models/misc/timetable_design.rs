@@ -1,17 +1,28 @@
-use crate::models::misc::TimetableDesign;
+use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_rejects_matrix_shape_mismatch() {
+    assert_eq!(TimetableDesignCreateSpec::FIELDS[3].name, "craftsman_avail");
+    assert!(TimetableDesign::try_from(TimetableDesignCreateSpec {
+        num_periods: 1,
+        num_craftsmen: 1,
+        num_tasks: 1,
+        craftsman_avail: vec![],
+        task_avail: vec![vec![true]],
+        requirements: vec![vec![1]]
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-#[cfg(feature = "ilp-solver")]
-use std::collections::BTreeMap;
 
-fn timetable_design_flat_index(
-    num_tasks: usize,
-    num_periods: usize,
-    craftsman: usize,
-    task: usize,
-    period: usize,
-) -> usize {
-    ((craftsman * num_tasks) + task) * num_periods + period
+fn toy_config(assignments: &[(usize, usize, usize)]) -> Vec<Vec<Vec<bool>>> {
+    let mut config = vec![vec![vec![false; 2]; 2]; 2];
+    for &(craftsman, task, period) in assignments {
+        config[craftsman][task][period] = true;
+    }
+    config
 }
 
 fn timetable_design_toy_problem() -> TimetableDesign {
@@ -38,7 +49,7 @@ fn test_timetable_design_creation_and_dims() {
     );
     assert_eq!(problem.task_avail(), &[vec![true, true], vec![false, true]]);
     assert_eq!(problem.requirements(), &[vec![1, 0], vec![0, 1]]);
-    assert_eq!(problem.dims(), vec![2; 8]);
+    assert_eq!(problem.dimensions(), vec![2; 8]);
 }
 
 #[test]
@@ -76,74 +87,72 @@ fn test_timetable_design_new_panics_on_requirement_width_mismatch() {
 #[test]
 fn test_timetable_design_evaluate_valid_config() {
     let problem = timetable_design_toy_problem();
-    let config = vec![1, 0, 0, 0, 0, 0, 0, 1];
+    let config = toy_config(&[(0, 0, 0), (1, 1, 1)]);
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_rejects_wrong_config_length() {
     let problem = timetable_design_toy_problem();
 
-    assert!(!problem.evaluate(&[1, 0, 0]));
-    assert!(!problem.evaluate(&[0; 9]));
+    assert!(problem.evaluate(&vec![vec![vec![true]]]).is_err());
+    assert!(problem.evaluate(&vec![vec![vec![false; 2]; 2]; 3]).is_err());
 }
 
 #[test]
 fn test_timetable_design_rejects_assignment_outside_availability() {
     let problem = timetable_design_toy_problem();
-    let config = vec![0, 1, 0, 0, 0, 0, 0, 1];
+    let config = toy_config(&[(0, 0, 1), (1, 1, 1)]);
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_rejects_double_booked_craftsman() {
     let problem = timetable_design_toy_problem();
-    let config = vec![1, 0, 0, 0, 0, 1, 0, 1];
+    let config = toy_config(&[(0, 0, 0), (1, 0, 1), (1, 1, 1)]);
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_rejects_double_booked_task() {
     let problem = timetable_design_toy_problem();
-    let config = vec![1, 0, 0, 0, 1, 0, 0, 1];
+    let config = toy_config(&[(0, 0, 0), (1, 0, 0), (1, 1, 1)]);
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_rejects_requirement_mismatch() {
     let problem = timetable_design_toy_problem();
-    let config = vec![1, 0, 0, 0, 0, 0, 0, 0];
+    let config = toy_config(&[(0, 0, 0)]);
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_bruteforce_solver_finds_solution() {
     let problem = timetable_design_toy_problem();
-    let solution = BruteForce::new().find_witness(&problem);
+    let solution = BruteForce::new().solve(&problem).unwrap();
 
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
-fn test_timetable_design_issue_example_is_solved_via_ilp_solver_dispatch() {
+fn test_timetable_design_customized_solver_finds_feasible_solution() {
     let problem = super::issue_example_problem();
-    let solution = crate::solvers::ILPSolver::new()
-        .solve_via_reduction("TimetableDesign", &BTreeMap::new(), &problem)
-        .expect("expected ILP solver dispatch to find a satisfying timetable");
+    let solution = problem
+        .solve_via_required_assignments()
+        .expect("expected customized solver to find a satisfying timetable");
 
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
-fn test_timetable_design_unsat_instance_returns_none_via_ilp_solver_dispatch() {
+fn test_timetable_design_customized_solver_returns_none_for_infeasible_instance() {
     let problem = TimetableDesign::new(
         1,
         2,
@@ -153,9 +162,7 @@ fn test_timetable_design_unsat_instance_returns_none_via_ilp_solver_dispatch() {
         vec![vec![1], vec![1]],
     );
 
-    assert!(crate::solvers::ILPSolver::new()
-        .solve_via_reduction("TimetableDesign", &BTreeMap::new(), &problem)
-        .is_none());
+    assert!(problem.solve_via_required_assignments().is_none());
 }
 
 #[test]
@@ -178,28 +185,25 @@ fn test_timetable_design_issue_example_is_valid() {
     let problem = super::issue_example_problem();
     let config = super::issue_example_config();
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_issue_example_rejects_flipped_required_assignment() {
     let problem = super::issue_example_problem();
     let mut config = super::issue_example_config();
-    let forced = timetable_design_flat_index(problem.num_tasks(), problem.num_periods(), 1, 1, 1);
-    config[forced] = 0;
+    config[1][1][1] = false;
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_issue_example_rejects_conflicting_assignment() {
     let problem = super::issue_example_problem();
     let mut config = super::issue_example_config();
-    let conflicting =
-        timetable_design_flat_index(problem.num_tasks(), problem.num_periods(), 4, 0, 0);
-    config[conflicting] = 1;
+    config[4][0][0] = true;
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[cfg(feature = "example-db")]
@@ -210,13 +214,16 @@ fn test_timetable_design_paper_example_is_valid() {
 
     let spec = &specs[0];
     assert_eq!(spec.id, "timetable_design");
-    assert_eq!(spec.optimal_config, super::issue_example_config());
+    assert_eq!(
+        spec.optimal_config,
+        serde_json::to_value(super::issue_example_config()).unwrap()
+    );
     assert_eq!(
         spec.instance.serialize_json(),
         serde_json::to_value(super::issue_example_problem()).unwrap()
     );
     assert_eq!(
-        spec.instance.evaluate_json(&spec.optimal_config),
+        spec.instance.evaluate_json(&spec.optimal_config).unwrap(),
         serde_json::json!(true)
     );
     assert_eq!(spec.optimal_value, serde_json::json!(true));

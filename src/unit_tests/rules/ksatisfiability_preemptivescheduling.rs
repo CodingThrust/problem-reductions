@@ -2,7 +2,6 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::{PrecedenceConstrainedScheduling, PreemptiveScheduling};
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -22,24 +21,23 @@ fn no_single_variable_instance() -> KSatisfiability<K3> {
     )
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_threshold_schedule_via_ilp(
     target: &PreemptiveScheduling,
     deadline: usize,
-) -> Option<Vec<usize>> {
+) -> Option<Vec<Vec<bool>>> {
     let pcs = PrecedenceConstrainedScheduling::new(
         target.num_tasks(),
         target.num_processors(),
-        deadline,
+        i64::try_from(deadline).unwrap(),
         target.precedences().to_vec(),
     );
-    let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs);
-    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem())?;
-    let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution);
+    let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs).expect("reduction should succeed");
+    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem()).ok()?;
+    let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution).unwrap();
 
-    let mut config = vec![0usize; target.num_tasks() * target.d_max()];
+    let mut config = vec![vec![false; target.d_max()]; target.num_tasks()];
     for (task, &slot) in slot_assignment.iter().enumerate() {
-        config[task * target.d_max() + slot] = 1;
+        config[task][slot] = true;
     }
     Some(config)
 }
@@ -47,7 +45,8 @@ fn solve_threshold_schedule_via_ilp(
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_structure() {
     let source = yes_single_variable_instance();
-    let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(reduction.threshold(), 4);
@@ -61,16 +60,20 @@ fn test_ksatisfiability_to_preemptivescheduling_structure() {
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_extract_solution_from_constructed_schedule() {
     let source = yes_single_variable_instance();
-    let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
 
-    let schedule = construct_schedule_from_assignment(reduction.target_problem(), &[1], &source)
+    let schedule = construct_schedule_from_assignment(reduction.target_problem(), &[true], &source)
         .expect("satisfying assignment should yield a witness schedule");
 
-    assert_eq!(reduction.target_problem().evaluate(&schedule), Min(Some(4)));
+    assert_eq!(
+        reduction.target_problem().evaluate(&schedule).unwrap(),
+        Min(Some(4))
+    );
 
-    let extracted = reduction.extract_solution(&schedule);
-    assert_eq!(extracted, vec![1]);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&schedule).unwrap();
+    assert_eq!(extracted, vec![true]);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
@@ -82,41 +85,46 @@ fn test_ksatisfiability_to_preemptivescheduling_multi_variable_round_trip() {
             CNFClause::new(vec![-1, -2, -3]),
         ],
     );
-    let result = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+    let result =
+        ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
 
-    let schedule = construct_schedule_from_assignment(result.target_problem(), &[1, 1, 0], &source)
-        .expect("satisfying assignment should yield a witness schedule");
+    let schedule =
+        construct_schedule_from_assignment(result.target_problem(), &[true, true, false], &source)
+            .expect("satisfying assignment should yield a witness schedule");
 
-    let extracted = result.extract_solution(&schedule);
-    assert_eq!(extracted, vec![1, 1, 0]);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = result.extract_solution(&schedule).unwrap();
+    assert_eq!(extracted, vec![true, true, false]);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
     let source = yes_single_variable_instance();
-    let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
 
     let target_solution =
         solve_threshold_schedule_via_ilp(reduction.target_problem(), reduction.threshold())
             .expect("satisfying instance should meet the threshold");
 
     assert_eq!(
-        reduction.target_problem().evaluate(&target_solution),
-        Min(Some(reduction.threshold()))
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap(),
+        Min(Some(i64::try_from(reduction.threshold()).unwrap()))
     );
 
-    let extracted = reduction.extract_solution(&target_solution);
-    assert_eq!(extracted, vec![1]);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert_eq!(extracted, vec![true]);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_unsatisfiable_threshold_gap() {
     let source = no_single_variable_instance();
-    let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(
         solve_threshold_schedule_via_ilp(reduction.target_problem(), reduction.threshold())

@@ -1,22 +1,23 @@
 //! Reduction rules between NP-hard problems.
 
 pub mod analysis;
-pub mod cost;
 pub mod registry;
-pub use cost::{
-    CustomCost, Minimize, MinimizeOutputSize, MinimizeSteps, MinimizeStepsThenOverhead, PathCostFn,
+pub use registry::{
+    EdgeCapabilities, ParameterContractError, ReductionEntry, ReductionParameterContract,
+    ReductionParameterDeclarations, UnavailableParameterField,
 };
-pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
+mod closestvectorproblem_casts;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
 pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
+pub(crate) mod ensemblecomputation_ilp;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_boundeddiameterspanningtree;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
@@ -41,8 +42,8 @@ pub(crate) mod hamiltoniancircuit_travelingsalesman;
 pub(crate) mod hamiltonianpath_degreeconstrainedspanningtree;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
 pub(crate) mod hamiltonianpathbetweentwovertices_longestpath;
-pub(crate) mod ilp_i32_ilp_bool;
-#[cfg(feature = "ilp-solver")]
+pub(crate) mod ilp_casts;
+pub(crate) mod ilp_i64_ilp_bool;
 pub(crate) mod integerknapsack_ilp;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
@@ -90,7 +91,6 @@ pub(crate) mod maximumsetpacking_qubo;
 pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
-pub(crate) mod minimumfeedbackarcset_maximumlikelihoodranking;
 pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
 pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
 pub(crate) mod minimummaximalmatching_minimummatrixdomination;
@@ -125,9 +125,11 @@ pub(crate) mod partition_sumofsquarespartition;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
 pub(crate) mod prizecollectingsteinerforest_steinertree;
+mod qubo_casts;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
+pub(crate) mod sat_helpers;
 pub(crate) mod sat_ksat;
 pub(crate) mod sat_maximumindependentset;
 pub(crate) mod sat_minimumdominatingset;
@@ -146,7 +148,6 @@ pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 pub(crate) mod threedimensionalmatching_minimumweightdecoding;
-pub(crate) mod threedimensionalmatching_threematroidintersection;
 pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
 pub(crate) mod threepartition_sequencingwithreleasetimesanddeadlines;
@@ -155,259 +156,143 @@ pub(crate) mod travelingsalesman_qubo;
 
 pub mod unitdiskmapping;
 
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod acyclicpartition_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod balancedcompletebipartitesubgraph_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod biconnectivityaugmentation_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod binpacking_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod bmf_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod bottlenecktravelingsalesman_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod boundedcomponentspanningforest_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod capacityassignment_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod circuit_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod closeststring_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod closestsubstring_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod clustering_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod consecutiveblockminimization_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod consecutiveonesmatrixaugmentation_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod consecutiveonessubmatrix_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod consistencyofdatabasefrequencytables_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod directedhamiltonianpath_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod directedtwocommodityintegralflow_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod disjointconnectingpaths_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod eulerianpath_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod exactcoverby3sets_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod expectedretrievalcost_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod feasibleregisterassignment_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod flowshopscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod graphpartitioning_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod hamiltonianpath_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod highlyconnecteddeletion_ilp;
-#[cfg(feature = "ilp-solver")]
-mod ilp_bool_ilp_i32;
-#[cfg(feature = "ilp-solver")]
+mod ilp_bool_ilp_i64;
 pub(crate) mod ilp_helpers;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod integralflowbundles_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod integralflowhomologousarcs_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod integralflowwithmultipliers_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod isomorphicspanningtree_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod kclique_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod knapsack_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod lengthboundeddisjointpaths_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcircuit_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod longestpath_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximalis_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximum2satisfiability_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumcokplex_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumcommonedgesubgraph_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumcontactmapoverlap_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumdomaticnumber_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumedgeweightedkclique_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumleafspanningtree_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumlikelihoodranking_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximummatching_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumsetpacking_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumcapacitatedspanningtree_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumcoveringbycliques_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumcutintoboundedsets_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumedgecostflow_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumexternalmacrodatacompression_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfaultdetectiontestset_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackarcset_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackvertexset_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumgraphbandwidth_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumhittingset_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimuminternalmacrodatacompression_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummatrixcover_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummaximalmatching_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummetricdimension_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsummulticenter_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumtardinesssequencing_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumweightdecoding_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minmaxmulticenter_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod mixedchinesepostman_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod monochromatictriangle_ilp;
-#[cfg(feature = "ilp-solver")]
+pub(crate) mod multiplechoicebranching_ilp;
 pub(crate) mod multiplecopyfileallocation_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod multiprocessorscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod naesatisfiability_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod numericalmatchingwithtargetsums_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod openshopscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod optimallineararrangement_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod optimumcommunicationspanningtree_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod paintshop_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod partiallyorderedknapsack_ilp;
-#[cfg(feature = "ilp-solver")]
+pub(crate) mod partitionintocliques_ilp;
 pub(crate) mod partitionintopathsoflength2_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod partitionintotriangles_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod pathconstrainednetworkflow_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod precedenceconstrainedscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod preemptivescheduling_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod quadraticassignment_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod rectilinearpicturecompression_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod registersufficiency_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod resourceconstrainedscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod rootedtreestorageassignment_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod ruralpostman_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod schedulingtominimizeweightedcompletiontime_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod schedulingwithindividualdeadlines_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizemaximumcumulativecost_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizetardytaskweight_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedtardiness_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithdeadlinesandsetuptimes_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithinintervals_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithreleasetimesanddeadlines_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod setsplitting_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod shortestcommonsupersequence_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod shortestweightconstrainedpath_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sparsematrixcompression_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod stackercrane_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod steinertree_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod steinertreeingraphs_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod stringtostringcorrection_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod strongconnectivityaugmentation_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod subgraphisomorphism_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod sumofsquarespartition_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod threedimensionalmatching_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod timetabledesign_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod undirectedflowlowerbounds_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 
+#[cfg(test)]
+pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
-    AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
-    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
+    AggregateReductionChain, ExecutePathsError, ExecutedPath, NeighborInfo, NeighborTree,
+    PathParameterError, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
+    ReductionPath, ReductionStep, TraversalFlow,
 };
+pub(crate) use traits::{validate_target_solution, DynReductionResult};
 pub use traits::{
-    AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,
+    AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
+    ReductionError, ReductionResult, VariantReductionResult,
 };
 
 #[cfg(feature = "example-db")]
@@ -444,7 +329,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
     specs.extend(hamiltonianpathbetweentwovertices_longestpath::canonical_rule_example_specs());
     specs.extend(hamiltonianpath_isomorphicspanningtree::canonical_rule_example_specs());
-    #[cfg(feature = "ilp-solver")]
     specs.extend(integerknapsack_ilp::canonical_rule_example_specs());
     specs.extend(kclique_balancedcompletebipartitesubgraph::canonical_rule_example_specs());
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
@@ -506,12 +390,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
+    specs.extend(ensemblecomputation_ilp::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(maxcut_minimummatrixcover::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_minimumweightdecoding::canonical_rule_example_specs());
-    specs.extend(threedimensionalmatching_threematroidintersection::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());
     specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());
     specs.extend(
@@ -519,7 +403,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     );
     specs.extend(minimumvertexcover_comparativecontainment::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_ensemblecomputation::canonical_rule_example_specs());
-    specs.extend(minimumfeedbackarcset_maximumlikelihoodranking::canonical_rule_example_specs());
     specs.extend(
         minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters::canonical_rule_example_specs(),
     );
@@ -564,12 +447,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::models::graph::minimum_vertex_cover::decision_canonical_rule_example_specs(),
     );
     specs.extend(
+        crate::models::graph::maximum_independent_set::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
         crate::models::graph::minimum_dominating_set::decision_canonical_rule_example_specs(),
     );
     specs.extend(
         crate::models::graph::optimal_linear_arrangement::decision_canonical_rule_example_specs(),
     );
-    #[cfg(feature = "ilp-solver")]
     {
         specs.extend(acyclicpartition_ilp::canonical_rule_example_specs());
         specs.extend(balancedcompletebipartitesubgraph_ilp::canonical_rule_example_specs());
@@ -647,6 +532,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(mixedchinesepostman_ilp::canonical_rule_example_specs());
         specs.extend(monochromatictriangle_ilp::canonical_rule_example_specs());
         specs.extend(multiplecopyfileallocation_ilp::canonical_rule_example_specs());
+        specs.extend(multiplechoicebranching_ilp::canonical_rule_example_specs());
         specs.extend(multiprocessorscheduling_ilp::canonical_rule_example_specs());
         specs.extend(naesatisfiability_ilp::canonical_rule_example_specs());
         specs.extend(numericalmatchingwithtargetsums_ilp::canonical_rule_example_specs());
@@ -655,6 +541,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(optimallineararrangement_ilp::canonical_rule_example_specs());
         specs.extend(paintshop_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());
+        specs.extend(partitionintocliques_ilp::canonical_rule_example_specs());
         specs.extend(partitionintopathsoflength2_ilp::canonical_rule_example_specs());
         specs.extend(partitionintotriangles_ilp::canonical_rule_example_specs());
         specs.extend(pathconstrainednetworkflow_ilp::canonical_rule_example_specs());
@@ -698,10 +585,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs
 }
 
-/// Generates a variant-cast `ReduceTo` impl with `#[reduction]` registration.
+/// Generates an explicit same-model variant `ReduceTo` implementation.
 ///
-/// Variant casts convert a problem from one variant to another (e.g.,
-/// `MIS<KingsSubgraph, i32>` -> `MIS<UnitDiskGraph, i32>`). The solution
+/// Variant reductions convert a problem from one variant to another (e.g.,
+/// `MIS<KingsSubgraph, i64>` -> `MIS<UnitDiskGraph, i64>`). The solution
 /// mapping is identity -- vertex/element indices are preserved.
 ///
 /// The problem name is specified once, followed by `<SourceParams> => <TargetParams>`.
@@ -712,10 +599,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 /// ```text
 /// impl_variant_reduction!(
 ///     MaximumIndependentSet,
-///     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
+///     <KingsSubgraph, i64> => <UnitDiskGraph, i64>,
 ///     fields: [num_vertices, num_edges],
 ///     |src| MaximumIndependentSet::new(
-///         src.graph().cast_to_parent(), src.weights())
+///         SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
+///         src.weights())
 /// );
 /// ```
 #[macro_export]
@@ -723,24 +611,24 @@ macro_rules! impl_variant_reduction {
     ($problem:ident,
      < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
      fields: [$($field:ident),+],
+     $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
-            overhead = {
-                $crate::rules::registry::ReductionOverhead::identity(
-                    &[$(stringify!($field)),+]
-                )
+            transform = exact {
+                $($field = $field),+
             }
+            $(, aggregate = $aggregate)?
         )]
         impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
             for $problem<$($src_param),+>
         {
-            type Result = $crate::rules::ReductionAutoCast<
+            type Result = $crate::rules::VariantReductionResult<
                 $problem<$($src_param),+>,
                 $problem<$($dst_param),+>,
             >;
-            fn reduce_to(&self) -> Self::Result {
+            fn reduce_to(&self) -> Result<Self::Result, $crate::rules::ReductionError> {
                 let $src = self;
-                $crate::rules::ReductionAutoCast::new($body)
+                Ok($crate::rules::VariantReductionResult::new($body))
             }
         }
     };

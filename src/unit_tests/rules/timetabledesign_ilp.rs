@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -16,13 +16,9 @@ fn test_timetabledesign_to_ilp_closed_loop() {
         vec![vec![true, true], vec![true, true]],
         vec![vec![1, 0], vec![0, 1]],
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "TimetableDesign->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -35,27 +31,28 @@ fn test_timetabledesign_to_ilp_bf_vs_ilp() {
         vec![vec![true, true], vec![true, true]],
         vec![vec![1, 0], vec![0, 1]],
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_timetabledesign_to_ilp_infeasible() {
     // Craftsman 0 available only in period 0, but needs 2 periods of work with task 0
     let problem = TimetableDesign::new(1, 1, 1, vec![vec![true]], vec![vec![true]], vec![vec![2]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible TD should produce infeasible ILP"
     );
 }
@@ -70,14 +67,24 @@ fn test_timetabledesign_to_ilp_identity_extraction() {
         vec![vec![true, true], vec![true, true]],
         vec![vec![1, 0], vec![0, 1]],
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Identity extraction: ILP solution == source config
-    assert_eq!(extracted, ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(
+        extracted
+            .iter()
+            .flatten()
+            .flatten()
+            .copied()
+            .collect::<Vec<_>>(),
+        ilp_solution
+            .iter()
+            .map(|&value| value != 0)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

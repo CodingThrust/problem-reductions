@@ -53,7 +53,7 @@ Parse the output and produce:
 
 | # | Problem | Variants | Category |
 |---|---------|----------|----------|
-| 1 | ProblemName | 2 (f64, i32) | algebraic |
+| 1 | ProblemName | 2 (f64, i64) | algebraic |
 
 ### Existing Issues
 
@@ -144,7 +144,7 @@ This runs the analysis from `src/rules/analysis.rs` which:
 
 Always report rules with full variant-qualified endpoints, not just base names.
 Use the same display style as `ReductionStep`, e.g.
-`MaximumIndependentSet {graph: "SimpleGraph", weight: "One"} -> MaximumIndependentSet {graph: "KingsSubgraph", weight: "i32"}`.
+`MaximumIndependentSet {graph: "SimpleGraph", weight: "One"} -> MaximumIndependentSet {graph: "KingsSubgraph", weight: "i64"}`.
 Base-name-only summaries are ambiguous and can hide cast-only paths.
 
 Parse the test output and report:

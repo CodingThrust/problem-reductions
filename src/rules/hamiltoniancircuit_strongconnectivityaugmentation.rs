@@ -15,66 +15,76 @@ use crate::topology::{DirectedGraph, Graph, SimpleGraph};
 /// Result of reducing HamiltonianCircuit to StrongConnectivityAugmentation.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
-    target: StrongConnectivityAugmentation<i32>,
+    target: StrongConnectivityAugmentation<i64>,
     n: usize,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = StrongConnectivityAugmentation<i32>;
+    type Target = StrongConnectivityAugmentation<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        if n == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build directed adjacency from selected arcs.
-        let candidate_arcs = self.target.candidate_arcs();
-        let mut successors = vec![Vec::new(); n];
-        for (idx, &selected) in target_solution.iter().enumerate() {
-            if selected == 1 {
-                let (u, v, _) = candidate_arcs[idx];
-                successors[u].push(v);
+        Ok({
+            let n = self.n;
+            if n == 0 {
+                return Ok(vec![]);
             }
-        }
 
-        // Walk the directed cycle starting from vertex 0.
-        let mut order = Vec::with_capacity(n);
-        let mut current = 0;
-        let mut visited = vec![false; n];
-        for _ in 0..n {
-            if visited[current] {
-                // Not a valid Hamiltonian cycle; return fallback.
-                return vec![0; n];
+            // Build directed adjacency from selected arcs.
+            let candidate_arcs = self.target.candidate_arcs();
+            let mut successors = vec![Vec::new(); n];
+            for (idx, &selected) in target_solution.iter().enumerate() {
+                if selected {
+                    let (u, v, _) = candidate_arcs[idx];
+                    successors[u].push(v);
+                }
             }
-            visited[current] = true;
-            order.push(current);
-            if successors[current].len() != 1 {
-                return vec![0; n];
-            }
-            current = successors[current][0];
-        }
 
-        order
+            // Walk the directed cycle starting from vertex 0.
+            let mut order = Vec::with_capacity(n);
+            let mut current = 0;
+            let mut visited = vec![false; n];
+            for _ in 0..n {
+                if visited[current] {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected arcs revisit a source vertex",
+                    ));
+                }
+                visited[current] = true;
+                order.push(current);
+                if successors[current].len() != 1 {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected arcs do not provide one successor for every source vertex",
+                    ));
+                }
+                current = successors[current][0];
+            }
+
+            order
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_arcs = "0",
         num_potential_arcs = "num_vertices * (num_vertices - 1)",
     }
 )]
-impl ReduceTo<StrongConnectivityAugmentation<i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<StrongConnectivityAugmentation<i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToStrongConnectivityAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = DirectedGraph::empty(n);
 
@@ -89,10 +99,15 @@ impl ReduceTo<StrongConnectivityAugmentation<i32>> for HamiltonianCircuit<Simple
             }
         }
 
-        let bound = n as i32;
+        let bound = i64::try_from(n).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                HamiltonianCircuit<SimpleGraph>,
+                StrongConnectivityAugmentation<i64>,
+            >("converting the vertex count to the target bound")
+        })?;
         let target = StrongConnectivityAugmentation::new(graph, candidate_arcs, bound);
 
-        ReductionHamiltonianCircuitToStrongConnectivityAugmentation { target, n }
+        Ok(ReductionHamiltonianCircuitToStrongConnectivityAugmentation { target, n })
     }
 }
 
@@ -105,7 +120,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 4-cycle: 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            let reduction = ReduceTo::<StrongConnectivityAugmentation<i32>>::reduce_to(&source);
+            let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
+                .expect("reduction should succeed");
             let target = reduction.target_problem();
 
             // The HC permutation [0, 1, 2, 3] corresponds to the directed cycle
@@ -114,16 +130,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // for each v in 0..n where u!=v, so arc (u,v) is at index
             // u*(n-1) + (if v > u then v-1 else v).
             let n = 4;
-            let mut target_config = vec![0usize; n * (n - 1)];
+            let mut target_config = vec![false; n * (n - 1)];
             let cycle_arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];
             for (u, v) in cycle_arcs {
                 let idx = u * (n - 1) + if v > u { v - 1 } else { v };
-                target_config[idx] = 1;
+                target_config[idx] = true;
             }
 
             // Verify the target config is valid
             assert!(
-                target.is_valid_solution(&target_config),
+                target.is_valid_solution(&target_config).unwrap(),
                 "canonical target config must be a valid SCA solution"
             );
 
@@ -131,8 +147,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 target,
                 vec![SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
-                    target_config,
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

@@ -16,7 +16,7 @@
 //! - Hartuv, Shamir, "A clustering algorithm based on graph connectivity",
 //!   Information Processing Letters 76(4–6):175–181, 2000.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -32,18 +32,12 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Minimum number of edge deletions so every component is an isolated vertex or a highly connected graph on >=3 vertices",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "HighlyConnectedDeletion",
-        fields: &["num_vertices", "num_edges"],
     }
 }
 
@@ -66,7 +60,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::HighlyConnectedDeletion;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Problem};
 /// use problemreductions::types::Min;
 ///
 /// // Triangle on {0,1,2} with leaf vertex 3 attached to 2.
@@ -74,7 +68,8 @@ inventory::submit! {
 /// let problem = HighlyConnectedDeletion::new(graph);
 ///
 /// // Optimal: delete only the leaf edge (2,3) → K3 + isolated {3}.
-/// assert_eq!(BruteForce::new().solve(&problem), Min(Some(1)));
+/// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
@@ -106,7 +101,7 @@ impl<G: Graph> HighlyConnectedDeletion<G> {
 
     /// Check whether a deletion configuration leaves every component as either
     /// an isolated vertex or a highly connected graph on at least `3` vertices.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_feasible_deletion(&self.graph, config)
     }
 }
@@ -116,22 +111,45 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "HighlyConnectedDeletion";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        if !is_feasible_deletion(&self.graph, config) {
-            return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
         }
-        let deleted: i64 = config.iter().filter(|&&x| x == 1).count() as i64;
-        Min(Some(deleted))
+        Ok({
+            if !is_feasible_deletion(&self.graph, config) {
+                return Ok(Min(None));
+            }
+            let deleted = i64::try_from(config.iter().filter(|&&deleted| deleted).count())
+                .map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting deleted-edge count to i64".into(),
+                    )
+                })?;
+            Min(Some(deleted))
+        })
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for HighlyConnectedDeletion<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
@@ -140,7 +158,7 @@ where
 /// `config[e] = 1` means edge `e` (in `graph.edges()` order) is deleted.
 /// The remaining graph `G - F` must have every connected component be either
 /// a singleton or a highly connected graph on at least `3` vertices.
-fn is_feasible_deletion<G: Graph>(graph: &G, config: &[usize]) -> bool {
+fn is_feasible_deletion<G: Graph>(graph: &G, config: &[bool]) -> bool {
     let n = graph.num_vertices();
     let edges = graph.edges();
     if config.len() != edges.len() {
@@ -150,7 +168,7 @@ fn is_feasible_deletion<G: Graph>(graph: &G, config: &[usize]) -> bool {
     // Build adjacency from the surviving edges only.
     let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
     for (i, &(u, v)) in edges.iter().enumerate() {
-        if config.get(i).copied().unwrap_or(0) == 0 {
+        if !config.get(i).copied().unwrap_or(false) {
             adj[u].push(v);
             adj[v].push(u);
         }
@@ -222,7 +240,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
     // current residual capacity.
     let in_component: HashSet<usize> = vertices.iter().copied().collect();
     let mut head: Vec<usize> = Vec::new();
-    let mut cap: Vec<i32> = Vec::new();
+    let mut cap: Vec<u8> = Vec::new();
     let mut out: Vec<Vec<usize>> = vec![Vec::new(); size];
 
     let mut seen_edges: HashSet<(usize, usize)> = HashSet::new();
@@ -259,7 +277,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
         let mut flow = 0usize;
         loop {
             // BFS to find an augmenting path with positive residual capacity.
-            let mut parent_arc: Vec<i32> = vec![-1; size];
+            let mut parent_arc: Vec<Option<usize>> = vec![None; size];
             let mut visited = vec![false; size];
             visited[s] = true;
             let mut queue: VecDeque<usize> = VecDeque::new();
@@ -272,7 +290,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
                     let v = head[a];
                     if !visited[v] && cap[a] > 0 {
                         visited[v] = true;
-                        parent_arc[v] = a as i32;
+                        parent_arc[v] = Some(a);
                         queue.push_back(v);
                     }
                 }
@@ -283,7 +301,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
             // Augment by 1 (unit capacities).
             let mut cur = t;
             while cur != s {
-                let a = parent_arc[cur] as usize;
+                let a = parent_arc[cur].expect("visited vertex has a BFS parent arc");
                 cap[a] -= 1;
                 cap[a ^ 1] += 1;
                 // The originating endpoint is the head of the reverse arc.
@@ -309,6 +327,10 @@ crate::declare_variants! {
     default HighlyConnectedDeletion<SimpleGraph> => "2^num_edges",
 }
 
+crate::register_brute_force! {
+    HighlyConnectedDeletion<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -318,7 +340,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 1), (0, 2), (1, 2), (2, 3)],
         ))),
         // Edges in input order; deleting only edge index 3 = (2,3) leaves K3 + {3}.
-        optimal_config: vec![0, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, false, true]),
         optimal_value: serde_json::json!(1),
     }]
 }

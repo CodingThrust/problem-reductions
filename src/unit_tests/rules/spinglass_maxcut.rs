@@ -6,8 +6,10 @@ include!("../jl_helpers.rs");
 #[test]
 fn test_spinglass_to_maxcut_closed_loop() {
     // SpinGlass without onsite terms
-    let sg = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+    let sg = SpinGlass::<SimpleGraph, i64>::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0])
+        .unwrap();
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
     let mc = reduction.target_problem();
 
     assert_eq!(mc.graph().num_vertices(), 3); // No ancilla needed
@@ -17,8 +19,9 @@ fn test_spinglass_to_maxcut_closed_loop() {
 #[test]
 fn test_spinglass_to_maxcut_with_onsite() {
     // SpinGlass with onsite terms
-    let sg = SpinGlass::<SimpleGraph, i32>::new(2, vec![((0, 1), 1)], vec![1, 0]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+    let sg = SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), 1)], vec![1, 0]).unwrap();
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
     let mc = reduction.target_problem();
 
     assert_eq!(mc.graph().num_vertices(), 3); // Ancilla added
@@ -27,34 +30,37 @@ fn test_spinglass_to_maxcut_with_onsite() {
 
 #[test]
 fn test_solution_extraction_no_ancilla() {
-    let sg = SpinGlass::<SimpleGraph, i32>::new(2, vec![((0, 1), 1)], vec![0, 0]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+    let sg = SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), 1)], vec![0, 0]).unwrap();
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
 
-    let mc_sol = vec![0, 1];
-    let extracted = reduction.extract_solution(&mc_sol);
-    assert_eq!(extracted, vec![0, 1]);
+    let mc_sol = vec![false, true];
+    let extracted = reduction.extract_solution(&mc_sol).unwrap();
+    assert_eq!(extracted, vec![-1, 1]);
 }
 
 #[test]
 fn test_solution_extraction_with_ancilla() {
-    let sg = SpinGlass::<SimpleGraph, i32>::new(2, vec![((0, 1), 1)], vec![1, 0]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
+    let sg = SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), 1)], vec![1, 0]).unwrap();
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
 
     // If ancilla is 0, don't flip
-    let mc_sol = vec![0, 1, 0];
-    let extracted = reduction.extract_solution(&mc_sol);
-    assert_eq!(extracted, vec![0, 1]);
+    let mc_sol = vec![false, true, false];
+    let extracted = reduction.extract_solution(&mc_sol).unwrap();
+    assert_eq!(extracted, vec![-1, 1]);
 
     // If ancilla is 1, flip all
-    let mc_sol = vec![0, 1, 1];
-    let extracted = reduction.extract_solution(&mc_sol);
-    assert_eq!(extracted, vec![1, 0]); // flipped and ancilla removed
+    let mc_sol = vec![false, true, true];
+    let extracted = reduction.extract_solution(&mc_sol).unwrap();
+    assert_eq!(extracted, vec![1, -1]); // flipped and ancilla removed
 }
 
 #[test]
 fn test_weighted_maxcut() {
     let mc = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20]);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
+    let reduction =
+        ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&mc).expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     // Verify interactions have correct weights
@@ -65,16 +71,18 @@ fn test_weighted_maxcut() {
 #[test]
 fn test_reduction_structure() {
     // Test MaxCut to SpinGlass structure
-    let mc = MaxCut::<_, i32>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
+    let mc = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let reduction =
+        ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&mc).expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     // SpinGlass should have same number of spins as vertices
     assert_eq!(sg.num_spins(), 3);
 
     // Test SpinGlass to MaxCut structure
-    let sg2 = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1)], vec![0, 0, 0]);
-    let reduction2 = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg2);
+    let sg2 = SpinGlass::<SimpleGraph, i64>::new(3, vec![((0, 1), 1)], vec![0, 0, 0]).unwrap();
+    let reduction2 =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg2).expect("reduction should succeed");
     let mc2 = reduction2.target_problem();
 
     assert_eq!(mc2.graph().num_vertices(), 3);
@@ -91,20 +99,25 @@ fn test_jl_parity_spinglass_to_maxcut() {
     let inst = &sg_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let edges = jl_parse_edges(inst);
-    let j_values = jl_parse_i32_vec(&inst["J"]);
-    let h_values = jl_parse_i32_vec(&inst["h"]);
-    let interactions: Vec<((usize, usize), i32)> = edges.into_iter().zip(j_values).collect();
-    let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
-    let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let j_values = jl_parse_i64_vec(&inst["J"]);
+    let h_values = jl_parse_i64_vec(&inst["h"]);
+    let interactions: Vec<((usize, usize), i64)> = edges.into_iter().zip(j_values).collect();
+    let source = SpinGlass::<SimpleGraph, i64>::new(nv, interactions, h_values).unwrap();
+    let result =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<i8>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity SpinGlass->MaxCut",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_spin_configs_set(&case["best_source"]));
     }
 }
 
@@ -120,18 +133,23 @@ fn test_jl_parity_maxcut_to_spinglass() {
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let weighted_edges = jl_parse_weighted_edges(inst);
     let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
-    let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+    let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
     let source = MaxCut::new(SimpleGraph::new(nv, edges), weights);
-    let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity MaxCut->SpinGlass",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -146,21 +164,26 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
     let inst = &jl_find_instance_by_label(&mc_data, "rule_4vertex")["instance"];
     let weighted_edges = jl_parse_weighted_edges(inst);
     let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
-    let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+    let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
     let source = MaxCut::new(
         SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges),
         weights,
     );
-    let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
+    let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity rule MaxCut->SpinGlass",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -175,19 +198,24 @@ fn test_jl_parity_rule_spinglass_to_maxcut() {
     let inst = &jl_find_instance_by_label(&sg_data, "rule_4vertex")["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let edges = jl_parse_edges(inst);
-    let j_values = jl_parse_i32_vec(&inst["J"]);
-    let h_values = jl_parse_i32_vec(&inst["h"]);
-    let interactions: Vec<((usize, usize), i32)> = edges.into_iter().zip(j_values).collect();
-    let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
-    let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let j_values = jl_parse_i64_vec(&inst["J"]);
+    let h_values = jl_parse_i64_vec(&inst["h"]);
+    let interactions: Vec<((usize, usize), i64)> = edges.into_iter().zip(j_values).collect();
+    let source = SpinGlass::<SimpleGraph, i64>::new(nv, interactions, h_values).unwrap();
+    let result =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<i8>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity rule SpinGlass->MaxCut",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_spin_configs_set(&case["best_source"]));
     }
 }

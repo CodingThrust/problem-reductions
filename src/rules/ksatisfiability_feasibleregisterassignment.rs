@@ -69,27 +69,36 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_vars)
-            .map(|var| {
-                usize::from(
-                    target_solution[s_pos_idx(var)]
-                        < target_solution[s_neg_idx(self.num_vars, var)],
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_vars)
+                .map(|var| {
+                    target_solution[s_pos_idx(var)] < target_solution[s_neg_idx(self.num_vars, var)]
+                })
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "2 * num_vars + 12 * num_clauses",
-    num_arcs = "15 * num_clauses",
-    num_registers = "num_vars + 9 * num_clauses",
-})]
+#[reduction(
+    transform = exact {
+        num_vertices = "2 * num_vars + 12 * num_clauses",
+        num_arcs = "15 * num_clauses",
+        num_registers = "num_vars + 9 * num_clauses",
+    },
+    unavailable = {
+        num_same_register_pairs = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let num_vertices = 2 * num_vars + 12 * num_clauses;
@@ -148,10 +157,10 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
             }
         }
 
-        Reduction3SATToFeasibleRegisterAssignment {
+        Ok(Reduction3SATToFeasibleRegisterAssignment {
             target: FeasibleRegisterAssignment::new(num_vertices, arcs, num_registers, assignment),
             num_vars,
-        }
+        })
     }
 }
 
@@ -173,21 +182,25 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
             );
             let to_fra =
-                <KSatisfiability<K3> as ReduceTo<FeasibleRegisterAssignment>>::reduce_to(&source);
-            let to_ilp = <FeasibleRegisterAssignment as ReduceTo<ILP<i32>>>::reduce_to(
+                <KSatisfiability<K3> as ReduceTo<FeasibleRegisterAssignment>>::reduce_to(&source)
+                    .expect("reduction should succeed");
+            let to_ilp = <FeasibleRegisterAssignment as ReduceTo<ILP<i64>>>::reduce_to(
                 to_fra.target_problem(),
-            );
+            )
+            .expect("reduction should succeed");
             let ilp_solution = ILPSolver::new()
                 .solve(to_ilp.target_problem())
                 .expect("canonical FRA example must reduce to a feasible ILP");
-            let target_config = to_ilp.extract_solution(&ilp_solution);
-            let source_config = to_fra.extract_solution(&target_config);
+            let target_config = to_ilp.extract_solution(&ilp_solution).unwrap();
+            let source_config = to_fra.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 to_fra.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

@@ -2,12 +2,42 @@ use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::topology::Graph;
 use crate::traits::Problem;
-use crate::types::{Min, Or};
+use crate::types::Min;
+
+#[test]
+fn test_partitionintocliques_target_bound_rejects_overflow() {
+    assert_eq!(target_clique_bound(1, (i64::MAX - 3) / 2), Ok(i64::MAX));
+    for (cliques, edges) in [(2, (i64::MAX - 3) / 2), (1, i64::MAX / 2), (1, i64::MAX)] {
+        assert!(matches!(
+            target_clique_bound(cliques, edges),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_partitionintocliques_aggregate_applies_gadget_offset() {
+    let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source).unwrap();
+    // K + 2m + 2 = 6, including both directed-edge gadgets and the side cliques.
+    for (value, expected) in [
+        (Min(None), false),
+        (Min(Some(5)), true),
+        (Min(Some(6)), true),
+        (Min(Some(7)), false),
+    ] {
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+            crate::types::Or(expected),
+        );
+    }
+}
 
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(1, vec![]), 1);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -19,7 +49,8 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = OrlinLayout::new(source.graph());
 
@@ -67,14 +98,18 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
             },
         ],
     );
-    assert_eq!(target.evaluate(&target_solution), Min(Some(6)));
-    assert_eq!(reduction.extract_solution(&target_solution), vec![0, 0, 1]);
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(6)));
+    assert_eq!(
+        reduction.extract_solution(&target_solution).unwrap(),
+        vec![0, 0, 1]
+    );
 }
 
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_source() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(2, vec![]), 1);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = OrlinLayout::new(source.graph());
 
@@ -95,9 +130,13 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_
             vec![layout.x(1), layout.y(1)],
         ],
     );
-    assert_eq!(target.evaluate(&target_solution), Min(Some(4)));
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(4)));
 
-    let extracted = reduction.extract_solution(&target_solution);
-
-    assert_eq!(source.evaluate(&extracted), Or(false));
+    assert_eq!(
+        reduction
+            .extract_solution(&target_solution)
+            .unwrap_err()
+            .to_string(),
+        "target cover uses 2 cliques, exceeding source bound 1"
+    );
 }

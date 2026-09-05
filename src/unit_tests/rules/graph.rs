@@ -1,4 +1,5 @@
 use super::*;
+use crate::expr::Expr;
 use crate::models::algebraic::{ILP, QUBO};
 use crate::models::formula::{
     CircuitSAT, Maximum2Satisfiability, NAESatisfiability, Satisfiability,
@@ -7,17 +8,64 @@ use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
-use crate::rules::cost::{Minimize, MinimizeSteps};
-use crate::rules::graph::{classify_problem_category, ReductionMode, ReductionStep};
-use crate::rules::registry::{EdgeCapabilities, ReductionEntry};
+use crate::registry::ProblemCategory;
+use crate::rules::graph::{ReductionMode, ReductionStep};
+use crate::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{One, ProblemSize, Sum};
+use crate::types::{One, ProblemParameters, Sum};
 use petgraph::graph::DiGraph;
 use serde_json::json;
 use std::any::Any;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+fn empty_parameter_contract() -> Result<ReductionParameterContract, ParameterContractError> {
+    ReductionParameterContract::new(
+        "synthetic edge",
+        ReductionParameterDeclarations {
+            relation: None,
+            fields: vec![],
+            unavailable: vec![crate::rules::registry::UnavailableParameterField {
+                field: "size",
+                reason: "synthetic edge does not declare a symbolic parameter",
+            }],
+        },
+    )
+}
+
+fn symbolic_size_edge(fields: &[(&'static str, &str)], turing: bool) -> ReductionEdgeData {
+    ReductionEdgeData {
+        parameter_contract: ReductionParameterContract::new(
+            "synthetic edge",
+            ReductionParameterDeclarations {
+                relation: Some(crate::parameters::ParameterRelation::Exact),
+                fields: fields
+                    .iter()
+                    .map(|(field, expression)| (*field, Expr::try_parse(expression).unwrap()))
+                    .collect(),
+                unavailable: vec![],
+            },
+        ),
+        reduce_fn: Some(|_| panic!("size search must not execute reductions")),
+        reduce_aggregate_fn: None,
+        turing,
+    }
+}
+
+fn named_path(names: &[&str]) -> ReductionPath {
+    ReductionPath {
+        steps: names
+            .iter()
+            .map(|name| ReductionStep {
+                name: (*name).to_string(),
+                variant: BTreeMap::new(),
+            })
+            .collect(),
+    }
+}
 
 #[derive(Clone)]
 struct AggregateChainSource;
@@ -33,48 +81,66 @@ struct NaturalVariantProblem;
 
 impl Problem for AggregateChainSource {
     const NAME: &'static str = "AggregateChainSource";
+    type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![1]
-    }
+    crate::problem_parameters![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(config.iter().sum::<usize>() as u64)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for AggregateChainSource {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![1]
     }
 }
 
 impl Problem for AggregateChainMiddle {
     const NAME: &'static str = "AggregateChainMiddle";
+    type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![1]
-    }
+    crate::problem_parameters![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(config.iter().sum::<usize>() as u64)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for AggregateChainMiddle {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![1]
     }
 }
 
 impl Problem for AggregateChainTarget {
     const NAME: &'static str = "AggregateChainTarget";
+    type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![1]
-    }
+    crate::problem_parameters![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(config.iter().sum::<usize>() as u64)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -82,20 +148,34 @@ impl Problem for AggregateChainTarget {
     }
 }
 
-impl Problem for NaturalVariantProblem {
-    const NAME: &'static str = "NaturalVariantProblem";
-    type Value = Sum<u64>;
-
-    fn dims(&self) -> Vec<usize> {
+impl crate::solvers::BruteForceProblem for AggregateChainTarget {
+    fn dimensions(&self) -> Vec<usize> {
         vec![1]
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(config.iter().sum::<usize>() as u64)
+impl Problem for NaturalVariantProblem {
+    const NAME: &'static str = "NaturalVariantProblem";
+    type Solution = Vec<usize>;
+    type Value = Sum<u64>;
+
+    crate::problem_parameters![("num_variables", num_variables)];
+
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for NaturalVariantProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![1]
     }
 }
 
@@ -135,22 +215,34 @@ impl AggregateReductionResult for MiddleToTargetAggregateResult {
 
 fn reduce_source_to_middle_aggregate(
     any: &dyn Any,
-) -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
-    any.downcast_ref::<AggregateChainSource>()
-        .expect("expected AggregateChainSource");
-    Box::new(SourceToMiddleAggregateResult {
+) -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError>
+{
+    any.downcast_ref::<AggregateChainSource>().ok_or(
+        crate::rules::ReductionError::SourceTypeMismatch {
+            source_problem: AggregateChainSource::NAME,
+            target_problem: AggregateChainMiddle::NAME,
+            expected: std::any::type_name::<AggregateChainSource>(),
+        },
+    )?;
+    Ok(Box::new(SourceToMiddleAggregateResult {
         target: AggregateChainMiddle,
-    })
+    }))
 }
 
 fn reduce_middle_to_target_aggregate(
     any: &dyn Any,
-) -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
-    any.downcast_ref::<AggregateChainMiddle>()
-        .expect("expected AggregateChainMiddle");
-    Box::new(MiddleToTargetAggregateResult {
+) -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError>
+{
+    any.downcast_ref::<AggregateChainMiddle>().ok_or(
+        crate::rules::ReductionError::SourceTypeMismatch {
+            source_problem: AggregateChainMiddle::NAME,
+            target_problem: AggregateChainTarget::NAME,
+            expected: std::any::type_name::<AggregateChainMiddle>(),
+        },
+    )?;
+    Ok(Box::new(MiddleToTargetAggregateResult {
         target: AggregateChainTarget,
-    })
+    }))
 }
 
 struct SourceToMiddleWitnessResult {
@@ -165,31 +257,97 @@ impl ReductionResult for SourceToMiddleWitnessResult {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        Ok(target_solution.to_vec())
     }
 }
 
 fn reduce_source_to_middle_witness(
     any: &dyn Any,
-) -> Box<dyn crate::rules::traits::DynReductionResult> {
-    any.downcast_ref::<AggregateChainSource>()
-        .expect("expected AggregateChainSource");
-    Box::new(SourceToMiddleWitnessResult {
+) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+    any.downcast_ref::<AggregateChainSource>().ok_or(
+        crate::rules::ReductionError::SourceTypeMismatch {
+            source_problem: AggregateChainSource::NAME,
+            target_problem: AggregateChainMiddle::NAME,
+            expected: std::any::type_name::<AggregateChainSource>(),
+        },
+    )?;
+    Ok(Box::new(SourceToMiddleWitnessResult {
         target: AggregateChainMiddle,
+    }))
+}
+
+fn fail_source_to_middle_witness(
+    _any: &dyn Any,
+) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+    Err(crate::rules::ReductionError::InvalidTarget {
+        source_problem: AggregateChainSource::NAME,
+        target_problem: AggregateChainMiddle::NAME,
+        message: "synthetic target construction failure".to_string(),
     })
+}
+
+static SHARED_PREFIX_EXECUTIONS: AtomicUsize = AtomicUsize::new(0);
+
+fn reduce_counted_source_to_middle_witness(
+    any: &dyn Any,
+) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+    SHARED_PREFIX_EXECUTIONS.fetch_add(1, Ordering::SeqCst);
+    reduce_source_to_middle_witness(any)
+}
+
+struct MiddleToTargetWitnessResult {
+    target: AggregateChainTarget,
+}
+
+impl ReductionResult for MiddleToTargetWitnessResult {
+    type Source = AggregateChainMiddle;
+    type Target = AggregateChainTarget;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        Ok(target_solution.to_vec())
+    }
+}
+
+fn reduce_middle_to_target_witness(
+    any: &dyn Any,
+) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+    any.downcast_ref::<AggregateChainMiddle>().ok_or(
+        crate::rules::ReductionError::SourceTypeMismatch {
+            source_problem: AggregateChainMiddle::NAME,
+            target_problem: AggregateChainTarget::NAME,
+            expected: std::any::type_name::<AggregateChainMiddle>(),
+        },
+    )?;
+    Ok(Box::new(MiddleToTargetWitnessResult {
+        target: AggregateChainTarget,
+    }))
 }
 
 fn reduce_natural_variant_witness(
     any: &dyn Any,
-) -> Box<dyn crate::rules::traits::DynReductionResult> {
-    let source = any
-        .downcast_ref::<NaturalVariantProblem>()
-        .expect("expected NaturalVariantProblem");
-    Box::new(crate::rules::ReductionAutoCast::<
+) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+    let source = any.downcast_ref::<NaturalVariantProblem>().ok_or(
+        crate::rules::ReductionError::SourceTypeMismatch {
+            source_problem: NaturalVariantProblem::NAME,
+            target_problem: NaturalVariantProblem::NAME,
+            expected: std::any::type_name::<NaturalVariantProblem>(),
+        },
+    )?;
+    Ok(Box::new(crate::rules::VariantReductionResult::<
         NaturalVariantProblem,
         NaturalVariantProblem,
-    >::new(source.clone()))
+    >::new(source.clone())))
 }
 
 fn build_two_node_graph(
@@ -233,10 +391,217 @@ fn build_two_node_graph(
 }
 
 #[test]
+fn execute_paths_executes_a_shared_prefix_once() {
+    SHARED_PREFIX_EXECUTIONS.store(0, Ordering::SeqCst);
+    let witness_edge = |reduce_fn| ReductionEdgeData {
+        parameter_contract: empty_parameter_contract(),
+        reduce_fn: Some(reduce_fn),
+        reduce_aggregate_fn: None,
+        turing: false,
+    };
+    let graph = ReductionGraph::from_test_edges(
+        &[
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
+        ],
+        &[
+            (
+                AggregateChainSource::NAME,
+                AggregateChainMiddle::NAME,
+                witness_edge(reduce_counted_source_to_middle_witness),
+            ),
+            (
+                AggregateChainMiddle::NAME,
+                AggregateChainTarget::NAME,
+                witness_edge(reduce_middle_to_target_witness),
+            ),
+        ],
+    );
+    let paths = vec![
+        named_path(&[AggregateChainSource::NAME, AggregateChainMiddle::NAME]),
+        named_path(&[
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
+        ]),
+    ];
+
+    let executed = graph
+        .execute_paths(&paths, &AggregateChainSource)
+        .expect("both paths are executable");
+
+    assert_eq!(executed.len(), 2);
+    assert_eq!(SHARED_PREFIX_EXECUTIONS.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn path_parameter_contract_errors_are_typed_and_isolated() {
+    let single = named_path(&["A"]);
+    let empty = ReductionPath { steps: vec![] };
+    let graph = ReductionGraph::from_test_edges(&["A", "B"], &[]);
+    assert!(graph.path_parameter_transforms(&single).unwrap().is_empty());
+    assert!(graph
+        .compose_path_parameter_transform(&single)
+        .unwrap()
+        .is_none());
+    assert!(matches!(
+        graph.compose_path_parameter_transform(&empty),
+        Err(PathParameterError::EmptyPath)
+    ));
+
+    let unknown = named_path(&["A", "Unknown"]);
+    assert!(matches!(
+        graph.path_parameter_transforms(&unknown),
+        Err(PathParameterError::UnknownNode { .. })
+    ));
+
+    let disconnected = named_path(&["A", "B"]);
+    assert!(matches!(
+        graph.path_parameter_transforms(&disconnected),
+        Err(PathParameterError::MissingEdge { .. })
+    ));
+
+    let unavailable = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        ReductionEdgeData {
+            parameter_contract: empty_parameter_contract(),
+            reduce_fn: Some(|_| panic!("metadata inspection must not execute reductions")),
+            reduce_aggregate_fn: None,
+            turing: false,
+        },
+    );
+    assert!(matches!(
+        unavailable.path_parameter_transforms(&disconnected),
+        Err(PathParameterError::Unavailable { .. })
+    ));
+
+    let invalid_contract = Err(ParameterContractError::EmptyUnavailableReason {
+        edge: "A -> B".into(),
+        field: "x".into(),
+    });
+    let invalid = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        ReductionEdgeData {
+            parameter_contract: invalid_contract,
+            reduce_fn: Some(|_| panic!("metadata inspection must not execute reductions")),
+            reduce_aggregate_fn: None,
+            turing: false,
+        },
+    );
+    assert!(matches!(
+        invalid.path_parameter_transforms(&disconnected),
+        Err(PathParameterError::InvalidContract { .. })
+    ));
+
+    let turing = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        symbolic_size_edge(&[("x", "n")], true),
+    );
+    assert!(matches!(
+        turing.path_parameter_transforms(&disconnected),
+        Err(PathParameterError::TuringEdge { .. })
+    ));
+}
+
+#[test]
+fn path_size_composition_and_contract_evaluation_report_errors() {
+    let missing_input = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        symbolic_size_edge(&[("x", "n")], false),
+    );
+    let direct = named_path(&["A", "B"]);
+    let direct_transform = missing_input
+        .compose_path_parameter_transform(&direct)
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        direct_transform.evaluate(&ProblemParameters::default()),
+        Err(crate::parameters::ParameterTransformError::MissingInputField { .. })
+    ));
+
+    let invalid_composition = ReductionGraph::from_test_edges(
+        &["A", "B", "C"],
+        &[
+            ("A", "B", symbolic_size_edge(&[("x", "n")], false)),
+            ("B", "C", symbolic_size_edge(&[("z", "y")], false)),
+        ],
+    );
+    let chained = named_path(&["A", "B", "C"]);
+    assert!(matches!(
+        invalid_composition.compose_path_parameter_transform(&chained),
+        Err(PathParameterError::Step { .. })
+    ));
+
+    let valid = ReductionGraph::from_test_edges(
+        &["A", "B", "C"],
+        &[
+            ("A", "B", symbolic_size_edge(&[("x", "n + 1")], false)),
+            ("B", "C", symbolic_size_edge(&[("z", "2 * x")], false)),
+        ],
+    );
+    let transform = valid
+        .compose_path_parameter_transform(&chained)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        transform
+            .evaluate(&ProblemParameters::new(vec![("n", 3)]))
+            .unwrap()
+            .get("z"),
+        Some(8)
+    );
+}
+
+#[test]
+fn symbolic_path_enumeration_retains_every_path_without_ranking() {
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "B", "C", "T"],
+        &[
+            ("S", "A", symbolic_size_edge(&[("x", "2")], false)),
+            ("S", "B", symbolic_size_edge(&[("x", "1")], false)),
+            ("S", "C", symbolic_size_edge(&[("x", "3")], false)),
+            ("A", "T", symbolic_size_edge(&[("y", "x")], false)),
+            ("B", "T", symbolic_size_edge(&[("y", "x")], false)),
+            ("C", "T", symbolic_size_edge(&[("y", "x")], false)),
+        ],
+    );
+    let variant = BTreeMap::new();
+    let paths = graph.find_all_paths_mode("S", &variant, "T", &variant, ReductionMode::Witness);
+    assert_eq!(paths.len(), 3);
+    let values: BTreeSet<_> = paths
+        .iter()
+        .map(|path| {
+            graph
+                .compose_path_parameter_transform(path)
+                .unwrap()
+                .unwrap()
+                .evaluate(&ProblemParameters::default())
+                .unwrap()
+                .get("y")
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(values, BTreeSet::from([1, 2, 3]));
+}
+
+#[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
     let paths = graph.find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst);
     assert!(!paths.is_empty());
     // At least one path should be a direct reduction (1 edge = 2 steps)
@@ -278,20 +643,20 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         source_idx,
         middle_idx,
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
     graph.add_edge(
         middle_idx,
         target_idx,
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_middle_to_target_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
 
@@ -324,10 +689,11 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
 
     let chain = reduction_graph
         .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
+        .expect("aggregate reduction should not fail")
         .expect("expected aggregate reduction chain");
 
     assert_eq!(
-        chain.target_problem::<AggregateChainTarget>().dims(),
+        chain.target_problem::<AggregateChainTarget>().dimensions(),
         vec![1]
     );
     assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
@@ -343,35 +709,31 @@ fn witness_path_search_rejects_aggregate_only_edge() {
         AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
 
     assert!(graph
-        .find_cheapest_path_mode(
+        .find_all_paths_mode(
             AggregateChainSource::NAME,
             &source_variant,
             AggregateChainMiddle::NAME,
             &target_variant,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            ReductionMode::Witness
         )
-        .is_none());
-    assert!(graph
-        .find_cheapest_path_mode(
+        .is_empty());
+    assert!(!graph
+        .find_all_paths_mode(
             AggregateChainSource::NAME,
             &source_variant,
             AggregateChainMiddle::NAME,
             &target_variant,
-            ReductionMode::Aggregate,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            ReductionMode::Aggregate
         )
-        .is_some());
+        .is_empty());
 }
 
 #[test]
@@ -384,39 +746,35 @@ fn aggregate_path_search_rejects_witness_only_edge() {
         AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::witness_only(),
+            turing: false,
         },
     );
 
     assert!(graph
-        .find_cheapest_path_mode(
+        .find_all_paths_mode(
             AggregateChainSource::NAME,
             &source_variant,
             AggregateChainMiddle::NAME,
             &target_variant,
-            ReductionMode::Aggregate,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            ReductionMode::Aggregate
         )
-        .is_none());
-    assert!(graph
-        .find_cheapest_path_mode(
+        .is_empty());
+    assert!(!graph
+        .find_all_paths_mode(
             AggregateChainSource::NAME,
             &source_variant,
             AggregateChainMiddle::NAME,
             &target_variant,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            ReductionMode::Witness
         )
-        .is_some());
+        .is_empty());
 }
 
 #[test]
-fn natural_edge_supports_both_modes() {
+fn witness_executor_does_not_imply_aggregate_capability() {
     let source_variant = BTreeMap::from([("graph".to_string(), "Source".to_string())]);
     let target_variant = BTreeMap::from([("graph".to_string(), "Target".to_string())]);
     let graph = build_two_node_graph(
@@ -425,38 +783,31 @@ fn natural_edge_supports_both_modes() {
         NaturalVariantProblem::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(reduce_natural_variant_witness),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::both(),
+            turing: false,
         },
     );
 
-    let witness_path = graph.find_cheapest_path_mode(
-        NaturalVariantProblem::NAME,
-        &source_variant,
-        NaturalVariantProblem::NAME,
-        &target_variant,
-        ReductionMode::Witness,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    let aggregate_path = graph.find_cheapest_path_mode(
-        NaturalVariantProblem::NAME,
-        &source_variant,
-        NaturalVariantProblem::NAME,
-        &target_variant,
-        ReductionMode::Aggregate,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-
-    assert!(witness_path.is_some());
-    let aggregate_path = aggregate_path.expect("expected aggregate path");
-    let chain = graph
-        .reduce_aggregate_along_path(&aggregate_path, &NaturalVariantProblem as &dyn Any)
-        .expect("expected aggregate chain");
-    assert_eq!(chain.extract_value_dyn(json!(7)), json!(7));
+    assert!(!graph
+        .find_all_paths_mode(
+            NaturalVariantProblem::NAME,
+            &source_variant,
+            NaturalVariantProblem::NAME,
+            &target_variant,
+            ReductionMode::Witness
+        )
+        .is_empty());
+    assert!(graph
+        .find_all_paths_mode(
+            NaturalVariantProblem::NAME,
+            &source_variant,
+            NaturalVariantProblem::NAME,
+            &target_variant,
+            ReductionMode::Aggregate
+        )
+        .is_empty());
 }
 
 #[test]
@@ -468,10 +819,10 @@ fn reduce_aggregate_along_path_rejects_single_step_path() {
         AggregateChainMiddle::NAME,
         BTreeMap::new(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
     let single_step_path = ReductionPath {
@@ -482,6 +833,7 @@ fn reduce_aggregate_along_path_rejects_single_step_path() {
     };
     assert!(graph
         .reduce_aggregate_along_path(&single_step_path, &AggregateChainSource as &dyn Any)
+        .expect("single-step path lookup should not fail")
         .is_none());
 }
 
@@ -495,10 +847,10 @@ fn reduce_aggregate_returns_none_for_witness_only_edge() {
         AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::witness_only(),
+            turing: false,
         },
     );
     let path = ReductionPath {
@@ -515,33 +867,72 @@ fn reduce_aggregate_returns_none_for_witness_only_edge() {
     };
     assert!(graph
         .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
+        .expect("witness-only edge lookup should not fail")
         .is_none());
+}
+
+#[test]
+fn reduce_along_path_preserves_edge_failure() {
+    let source_variant = BTreeMap::new();
+    let target_variant = BTreeMap::new();
+    let graph = build_two_node_graph(
+        AggregateChainSource::NAME,
+        source_variant.clone(),
+        AggregateChainMiddle::NAME,
+        target_variant.clone(),
+        ReductionEdgeData {
+            parameter_contract: empty_parameter_contract(),
+            reduce_fn: Some(fail_source_to_middle_witness),
+            reduce_aggregate_fn: None,
+            turing: false,
+        },
+    );
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: AggregateChainSource::NAME.to_string(),
+                variant: source_variant,
+            },
+            ReductionStep {
+                name: AggregateChainMiddle::NAME.to_string(),
+                variant: target_variant,
+            },
+        ],
+    };
+
+    let error = match graph.reduce_along_path(&path, &AggregateChainSource as &dyn Any) {
+        Err(error) => error,
+        Ok(_) => panic!("registered edge failure must be returned"),
+    };
+    assert_eq!(
+        error,
+        crate::rules::ReductionError::InvalidTarget {
+            source_problem: AggregateChainSource::NAME,
+            target_problem: AggregateChainMiddle::NAME,
+            message: "synthetic target construction failure".to_string(),
+        }
+    );
 }
 
 #[test]
 fn test_find_indirect_path() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i64>::variant());
     let paths = graph.find_all_paths("MaximumIndependentSet", &src, "MaximumSetPacking", &dst);
     assert!(!paths.is_empty());
 }
 
 #[test]
-fn test_find_shortest_path() {
+fn test_find_direct_path_in_all_routes() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
-    let path = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src,
-        "MaximumSetPacking",
-        &dst,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    assert!(path.is_some());
-    let path = path.unwrap();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i64>::variant());
+    let path = graph
+        .find_all_paths("MaximumIndependentSet", &src, "MaximumSetPacking", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route");
     assert_eq!(path.len(), 1); // Direct path exists
 }
 
@@ -550,16 +941,11 @@ fn test_knapsack_to_ilp_path_exists() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&Knapsack::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
-    let path = graph.find_cheapest_path(
-        "Knapsack",
-        &src,
-        "ILP",
-        &dst,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-
-    let path = path.expect("Knapsack should reduce to ILP");
+    let path = graph
+        .find_all_paths("Knapsack", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("Knapsack should reduce directly to ILP");
     assert_eq!(
         path.type_names(),
         vec!["Knapsack", "ILP"],
@@ -571,25 +957,20 @@ fn test_knapsack_to_ilp_path_exists() {
 #[test]
 fn test_has_direct_reduction() {
     let graph = ReductionGraph::new();
-    assert!(graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>());
-    assert!(graph.has_direct_reduction::<MinimumVertexCover<SimpleGraph, i32>, MaximumIndependentSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i64>, MinimumVertexCover<SimpleGraph, i64>>());
+    assert!(graph.has_direct_reduction::<MinimumVertexCover<SimpleGraph, i64>, MaximumIndependentSet<SimpleGraph, i64>>());
 }
 
 #[test]
 fn test_is_to_qubo_path() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
-    let path = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src,
-        "QUBO",
-        &dst,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    assert!(path.is_some());
-    let path = path.unwrap();
+    let path = graph
+        .find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["MaximumIndependentSet", "MaximumSetPacking", "QUBO"])
+        .expect("explicit QUBO route");
     assert!(
         path.len() > 1,
         "MIS -> QUBO should now go through a composite path"
@@ -600,12 +981,12 @@ fn test_is_to_qubo_path() {
 fn test_variant_level_paths() {
     let graph = ReductionGraph::new();
 
-    // Variant-level path: MaxCut<SimpleGraph, i32> -> SpinGlass<SimpleGraph, i32>
+    // Variant-level path: MaxCut<SimpleGraph, i64> -> SpinGlass<SimpleGraph, i64>
     let src = ReductionGraph::variant_to_map(
-        &crate::models::graph::MaxCut::<SimpleGraph, i32>::variant(),
+        &crate::models::graph::MaxCut::<SimpleGraph, i64>::variant(),
     );
     let dst = ReductionGraph::variant_to_map(
-        &crate::models::graph::SpinGlass::<SimpleGraph, i32>::variant(),
+        &crate::models::graph::SpinGlass::<SimpleGraph, i64>::variant(),
     );
     let paths = graph.find_all_paths("MaxCut", &src, "SpinGlass", &dst);
     assert!(!paths.is_empty());
@@ -625,40 +1006,28 @@ fn test_variant_level_paths() {
 }
 
 #[test]
-fn test_find_shortest_path_variants() {
+fn test_find_direct_path_variants() {
     let graph = ReductionGraph::new();
 
     let src = ReductionGraph::variant_to_map(
-        &crate::models::graph::MaxCut::<SimpleGraph, i32>::variant(),
+        &crate::models::graph::MaxCut::<SimpleGraph, i64>::variant(),
     );
     let dst = ReductionGraph::variant_to_map(
-        &crate::models::graph::SpinGlass::<SimpleGraph, i32>::variant(),
+        &crate::models::graph::SpinGlass::<SimpleGraph, i64>::variant(),
     );
-    let shortest = graph.find_cheapest_path(
-        "MaxCut",
-        &src,
-        "SpinGlass",
-        &dst,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    assert!(shortest.is_some());
-    assert_eq!(shortest.unwrap().len(), 1); // Direct path
+    assert!(graph
+        .find_all_paths("MaxCut", &src, "SpinGlass", &dst)
+        .iter()
+        .any(|path| path.len() == 1));
 
     let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(
-        &crate::models::graph::SpinGlass::<SimpleGraph, i32>::variant(),
+        &crate::models::graph::SpinGlass::<SimpleGraph, i64>::variant(),
     );
-    let shortest = graph.find_cheapest_path(
-        "Factoring",
-        &src,
-        "SpinGlass",
-        &dst,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    assert!(shortest.is_some());
-    assert_eq!(shortest.unwrap().len(), 2); // Factoring -> CircuitSAT -> SpinGlass
+    assert!(graph
+        .find_all_paths("Factoring", &src, "SpinGlass", &dst)
+        .iter()
+        .any(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"]));
 }
 
 #[test]
@@ -682,18 +1051,13 @@ fn test_graph_statistics() {
 #[test]
 fn test_reduction_path_methods() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
     let path = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .unwrap();
+        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route");
 
     assert!(!path.is_empty());
     assert!(path.source().unwrap().contains("MaximumIndependentSet"));
@@ -708,8 +1072,14 @@ fn test_to_json() {
     // Check nodes
     assert!(json.nodes.len() >= 10);
     assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
-    assert!(json.nodes.iter().any(|n| n.category == "graph"));
-    assert!(json.nodes.iter().any(|n| n.category == "algebraic"));
+    assert!(json
+        .nodes
+        .iter()
+        .any(|n| n.category == ProblemCategory::Graph));
+    assert!(json
+        .nodes
+        .iter()
+        .any(|n| n.category == ProblemCategory::Algebraic));
 
     // Check edges
     assert!(json.edges.len() >= 10);
@@ -730,52 +1100,23 @@ fn test_to_json() {
 #[test]
 fn test_to_json_string() {
     let graph = ReductionGraph::new();
+    let json_value = graph.to_json_value().unwrap();
     let json_string = graph.to_json_string().unwrap();
 
     // Should be valid JSON
+    assert!(json_value["nodes"].is_array());
+    assert!(json_value["edges"].is_array());
     assert!(json_string.contains("\"nodes\""));
     assert!(json_string.contains("\"edges\""));
     assert!(json_string.contains("MaximumIndependentSet"));
     assert!(json_string.contains("\"category\""));
-    assert!(json_string.contains("\"overhead\""));
+    assert!(json_string.contains("\"parameters\""));
+    assert!(!json_string.contains("\"overhead\""));
 
     // The legacy "bidirectional" field must not be present
     assert!(
         !json_string.contains("\"bidirectional\""),
         "JSON should not contain the removed 'bidirectional' field"
-    );
-}
-
-#[test]
-fn test_category_from_module_path() {
-    assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::graph::maximum_independent_set"
-        ),
-        "graph"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::set::minimum_set_covering"
-        ),
-        "set"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::algebraic::qubo"),
-        "algebraic"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::formula::sat"),
-        "formula"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::misc::factoring"),
-        "misc"
-    );
-    // Fallback for unexpected format
-    assert_eq!(
-        ReductionGraph::category_from_module_path("foo::bar"),
-        "other"
     );
 }
 
@@ -813,7 +1154,7 @@ fn test_sat_based_reductions() {
     assert!(graph.has_direct_reduction::<Satisfiability, KColoring<K3, SimpleGraph>>());
 
     // SAT -> MinimumDominatingSet
-    assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i64>>());
 }
 
 #[test]
@@ -828,24 +1169,16 @@ fn test_circuit_reductions() {
     assert!(graph.has_direct_reduction::<Factoring, CircuitSAT>());
 
     // CircuitSAT -> SpinGlass
-    assert!(graph.has_direct_reduction::<CircuitSAT, SpinGlass<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<CircuitSAT, SpinGlass<SimpleGraph, i64>>());
 
-    // Find path from Factoring to SpinGlass<SimpleGraph, i32>
+    // Find path from Factoring to SpinGlass<SimpleGraph, i64>
     let src = ReductionGraph::variant_to_map(&Factoring::variant());
-    let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i64>::variant());
     let paths = graph.find_all_paths("Factoring", &src, "SpinGlass", &dst);
     assert!(!paths.is_empty());
-    let shortest = graph
-        .find_cheapest_path(
-            "Factoring",
-            &src,
-            "SpinGlass",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .unwrap();
-    assert_eq!(shortest.len(), 2); // Factoring -> CircuitSAT -> SpinGlass
+    assert!(paths
+        .iter()
+        .any(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"]));
 }
 
 #[test]
@@ -861,8 +1194,8 @@ fn test_optimization_reductions() {
     assert!(graph.has_direct_reduction::<QUBO<f64>, SpinGlass<SimpleGraph, f64>>());
 
     // MaxCut <-> SpinGlass (bidirectional)
-    assert!(graph.has_direct_reduction::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>());
-    assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, MaxCut<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<MaxCut<SimpleGraph, i64>, SpinGlass<SimpleGraph, f64>>());
+    assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, MaxCut<SimpleGraph, i64>>());
 }
 
 #[test]
@@ -881,14 +1214,14 @@ fn test_ksat_reductions() {
 fn test_nae_sat_to_maxcut_reduction_registered() {
     let graph = ReductionGraph::new();
 
-    assert!(graph.has_direct_reduction::<NAESatisfiability, MaxCut<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<NAESatisfiability, MaxCut<SimpleGraph, i64>>());
 }
 
 #[test]
 fn test_maximum2satisfiability_to_maxcut_reduction_registered() {
     let graph = ReductionGraph::new();
 
-    assert!(graph.has_direct_reduction::<Maximum2Satisfiability, MaxCut<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Maximum2Satisfiability, MaxCut<SimpleGraph, i64>>());
 }
 
 #[test]
@@ -980,7 +1313,7 @@ fn test_unknown_name_returns_empty() {
     let graph = ReductionGraph::new();
     let unknown = BTreeMap::new();
     let is_var =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
 
     // Unknown source
     assert!(!graph.has_direct_reduction_by_name("UnknownProblem", "MaximumIndependentSet"));
@@ -996,27 +1329,14 @@ fn test_unknown_name_returns_empty() {
     assert!(graph
         .find_all_paths("MaximumIndependentSet", &is_var, "UnknownProblem", &unknown)
         .is_empty());
-
-    // find_shortest_path with unknown name
-    assert!(graph
-        .find_cheapest_path(
-            "UnknownProblem",
-            &unknown,
-            "MaximumIndependentSet",
-            &is_var,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps
-        )
-        .is_none());
 }
 
 #[test]
-fn test_category_derived_from_schema() {
-    // CircuitSAT's category is derived from its ProblemSchemaEntry module_path
+fn test_category_comes_from_schema() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
     let circuit = json.nodes.iter().find(|n| n.name == "CircuitSAT").unwrap();
-    assert_eq!(circuit.category, "formula");
+    assert_eq!(circuit.category, ProblemCategory::Formula);
 }
 
 #[test]
@@ -1058,26 +1378,18 @@ fn test_circuitsat_to_satisfiability_direct_edge() {
 
     assert!(graph.has_direct_reduction_by_name("CircuitSAT", "Satisfiability"));
 
-    let path = graph.find_cheapest_path(
-        "CircuitSAT",
-        &src,
-        "Satisfiability",
-        &dst,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    assert!(
-        path.is_some(),
-        "CircuitSAT -> Satisfiability path should exist"
-    );
+    assert!(graph
+        .find_all_paths("CircuitSAT", &src, "Satisfiability", &dst)
+        .iter()
+        .any(|path| path.len() == 1));
 }
 
 #[test]
 fn test_variant_to_map() {
-    let variant: &[(&str, &str)] = &[("graph", "SimpleGraph"), ("weight", "i32")];
+    let variant: &[(&str, &str)] = &[("graph", "SimpleGraph"), ("weight", "i64")];
     let map = ReductionGraph::variant_to_map(variant);
     assert_eq!(map.get("graph"), Some(&"SimpleGraph".to_string()));
-    assert_eq!(map.get("weight"), Some(&"i32".to_string()));
+    assert_eq!(map.get("weight"), Some(&"i64".to_string()));
     assert_eq!(map.len(), 2);
 }
 
@@ -1097,8 +1409,6 @@ fn test_to_json_nodes_have_variants() {
     for node in &json.nodes {
         // Verify node has a name
         assert!(!node.name.is_empty());
-        // Verify node has a category
-        assert!(!node.category.is_empty());
     }
 }
 
@@ -1142,7 +1452,7 @@ fn test_reduction_variant_nodes_in_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // KingsSubgraph variants should appear as nodes (from explicit cast reductions)
+    // KingsSubgraph variants should appear as registered nodes.
     let mis_kingssubgraph = json.nodes.iter().any(|n| {
         n.name == "MaximumIndependentSet"
             && n.variant.get("graph") == Some(&"KingsSubgraph".to_string())
@@ -1157,11 +1467,11 @@ fn test_reduction_variant_nodes_in_json() {
 }
 
 #[test]
-fn test_variant_cast_edges_in_json() {
+fn test_variant_reduction_edges_in_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist as an explicit cast reduction
+    // MIS/KingsSubgraph -> MIS/UnitDiskGraph is an explicit variant reduction.
     let has_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
@@ -1170,7 +1480,7 @@ fn test_variant_cast_edges_in_json() {
     });
     assert!(
         has_edge,
-        "Variant cast edge MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist"
+        "Variant reduction edge MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist"
     );
 }
 
@@ -1207,160 +1517,23 @@ fn test_edges_have_doc_paths() {
 }
 
 #[test]
-fn test_find_cheapest_path_minimize_steps() {
-    let graph = ReductionGraph::new();
-    let cost_fn = MinimizeSteps;
-    let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-
-    let path = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src,
-        "MinimumVertexCover",
-        &dst,
-        &input_size,
-        &cost_fn,
-    );
-
-    assert!(path.is_some());
-    let path = path.unwrap();
-    assert_eq!(path.len(), 1); // Direct path
-}
-
-#[test]
-fn test_find_cheapest_path_multi_step() {
-    let graph = ReductionGraph::new();
-    let cost_fn = MinimizeSteps;
-    let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
-
-    let path = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src,
-        "MaximumSetPacking",
-        &dst,
-        &input_size,
-        &cost_fn,
-    );
-
-    assert!(path.is_some());
-    let path = path.unwrap();
-    assert_eq!(path.len(), 1); // Direct path: MaximumIndependentSet -> MaximumSetPacking
-}
-
-#[test]
-fn test_find_cheapest_path_is_to_qubo() {
-    let graph = ReductionGraph::new();
-    let cost_fn = Minimize("num_vars");
-    let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
-
-    let path = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src,
-        "QUBO",
-        &dst,
-        &input_size,
-        &cost_fn,
-    );
-
-    assert!(path.is_some());
-    let path = path.unwrap();
-    assert!(
-        path.len() > 1,
-        "MIS -> QUBO should now be discovered through a composite path"
-    );
-    assert_eq!(
-        path.type_names(),
-        vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
-    );
-}
-
-#[test]
-fn test_find_cheapest_path_unknown_source() {
-    let graph = ReductionGraph::new();
-    let cost_fn = MinimizeSteps;
-    let input_size = crate::types::ProblemSize::new(vec![]);
-    let unknown = BTreeMap::new();
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-
-    let path = graph.find_cheapest_path(
-        "UnknownProblem",
-        &unknown,
-        "MinimumVertexCover",
-        &dst,
-        &input_size,
-        &cost_fn,
-    );
-
-    assert!(path.is_none());
-}
-
-#[test]
-fn test_find_cheapest_path_unknown_target() {
-    let graph = ReductionGraph::new();
-    let cost_fn = MinimizeSteps;
-    let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let unknown = BTreeMap::new();
-
-    let path = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src,
-        "UnknownProblem",
-        &unknown,
-        &input_size,
-        &cost_fn,
-    );
-
-    assert!(path.is_none());
-}
-
-#[test]
-fn test_classify_problem_category() {
-    assert_eq!(
-        classify_problem_category("problemreductions::models::graph::maximum_independent_set"),
-        "graph"
-    );
-    assert_eq!(
-        classify_problem_category("problemreductions::models::formula::satisfiability"),
-        "formula"
-    );
-    assert_eq!(
-        classify_problem_category("problemreductions::models::set::maximum_set_packing"),
-        "set"
-    );
-    assert_eq!(
-        classify_problem_category("problemreductions::models::algebraic::qubo"),
-        "algebraic"
-    );
-    assert_eq!(classify_problem_category("unknown::path"), "other");
-}
-
-#[test]
 fn test_reduce_along_path_direct() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
     let rpath = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .unwrap();
+        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route");
     // Just verify the path can produce a chain with a dummy source
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
-    let chain = graph.reduce_along_path(&rpath, &source as &dyn std::any::Any);
+    let chain = graph
+        .reduce_along_path(&rpath, &source as &dyn std::any::Any)
+        .expect("direct reduction should not fail");
     assert!(chain.is_some());
 }
 
@@ -1370,32 +1543,28 @@ fn test_reduction_chain_direct() {
     use crate::traits::Problem;
 
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
     let rpath = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .unwrap();
+        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route");
 
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
     let chain = graph
         .reduce_along_path(&rpath, &problem as &dyn std::any::Any)
+        .unwrap()
         .unwrap();
-    let target: &MinimumVertexCover<SimpleGraph, i32> = chain.target_problem();
+    let target: &MinimumVertexCover<SimpleGraph, i64> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
-    let metric = problem.evaluate(&source_solution);
+    let target_solution = solver.solve(target).unwrap().unwrap();
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
+    let metric = problem.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
 }
 
@@ -1405,105 +1574,97 @@ fn test_reduction_chain_multi_step() {
     use crate::traits::Problem;
 
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i64>::variant());
     let rpath = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MaximumSetPacking",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .unwrap();
+        .find_all_paths("MaximumIndependentSet", &src, "MaximumSetPacking", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route");
 
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
     let chain = graph
         .reduce_along_path(&rpath, &problem as &dyn std::any::Any)
+        .unwrap()
         .unwrap();
-    let target: &MaximumSetPacking<i32> = chain.target_problem();
+    let target: &MaximumSetPacking<i64> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
-    let metric = problem.evaluate(&source_solution);
+    let target_solution = solver.solve(target).unwrap().unwrap();
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
+    let metric = problem.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
 }
 
 #[test]
-fn test_reduction_chain_with_variant_casts() {
+fn test_reduction_chain_with_variant_reductions() {
     use crate::models::formula::{CNFClause, KSatisfiability};
-    use crate::rules::MinimizeSteps;
     use crate::solvers::BruteForce;
     use crate::topology::UnitDiskGraph;
     use crate::traits::Problem;
-    use crate::types::ProblemSize;
 
     let graph = ReductionGraph::new();
 
-    // MIS<UnitDiskGraph, i32> -> MIS<SimpleGraph, i32> (variant cast) -> MVC<SimpleGraph, i32>
-    // Use find_cheapest_path for exact variant matching (not name-based)
+    // MIS<UnitDiskGraph, i64> -> MIS<SimpleGraph, i64> -> MVC<SimpleGraph, i64>
+    // Resolve a route with exact source and target variants.
     let src_var =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i32>::variant());
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i64>::variant());
     let dst_var =
-        ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-    let rpath = graph.find_cheapest_path(
-        "MaximumIndependentSet",
-        &src_var,
-        "MinimumVertexCover",
-        &dst_var,
-        &ProblemSize::new(vec![]),
-        &MinimizeSteps,
-    );
-    assert!(
-        rpath.is_some(),
-        "Should find path from MIS<UnitDiskGraph> to MVC<SimpleGraph> via variant cast"
-    );
-    let rpath = rpath.unwrap();
+        ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
+    let rpath = graph
+        .find_all_paths(
+            "MaximumIndependentSet",
+            &src_var,
+            "MinimumVertexCover",
+            &dst_var,
+        )
+        .into_iter()
+        .find(|path| path.len() >= 2)
+        .expect("variant-reduction route");
     assert!(
         rpath.len() >= 2,
-        "Path should cross variant cast boundary (at least 2 steps)"
+        "Path should include the variant reduction (at least 2 steps)"
     );
 
     // Create a small UnitDiskGraph MIS problem (triangle of close nodes)
-    let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0);
-    let mis = MaximumIndependentSet::new(udg, vec![1i32, 1, 1]);
+    let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0).unwrap();
+    let mis = MaximumIndependentSet::new(udg, vec![1i64, 1, 1]);
 
     let chain = graph
         .reduce_along_path(&rpath, &mis as &dyn std::any::Any)
+        .unwrap()
         .unwrap();
-    let target: &MinimumVertexCover<SimpleGraph, i32> = chain.target_problem();
+    let target: &MinimumVertexCover<SimpleGraph, i64> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
-    let metric = mis.evaluate(&source_solution);
+    let target_solution = solver.solve(target).unwrap().unwrap();
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
+    let metric = mis.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
 
     // Also test the KSat<K3> -> Sat -> MIS multi-step path
-    // Use find_cheapest_path for exact variant matching (not name-based
-    // and may pick a path through a different KSat variant)
+    // Resolve the explicit KSat -> SAT -> MIS route with exact variants.
     let ksat_src =
         ReductionGraph::variant_to_map(&KSatisfiability::<crate::variant::K3>::variant());
     let ksat_dst =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let ksat_rpath = graph.find_cheapest_path(
-        "KSatisfiability",
-        &ksat_src,
-        "MaximumIndependentSet",
-        &ksat_dst,
-        &crate::types::ProblemSize::new(vec![]),
-        &crate::rules::MinimizeSteps,
-    );
-    assert!(
-        ksat_rpath.is_some(),
-        "Should find path from KSat<K3> to MIS"
-    );
-    let ksat_rpath = ksat_rpath.unwrap();
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let ksat_rpath = graph
+        .find_all_paths(
+            "KSatisfiability",
+            &ksat_src,
+            "MaximumIndependentSet",
+            &ksat_dst,
+        )
+        .into_iter()
+        .find(|path| {
+            path.len() == 4
+                && path.type_names()
+                    == ["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
+        })
+        .expect("explicit SAT route");
 
     // Create a 3-SAT formula
     let ksat = KSatisfiability::<crate::variant::K3>::new(
@@ -1518,77 +1679,79 @@ fn test_reduction_chain_with_variant_casts() {
 
     let ksat_chain = graph
         .reduce_along_path(&ksat_rpath, &ksat as &dyn std::any::Any)
+        .unwrap()
         .unwrap();
-    let target: &MaximumIndependentSet<SimpleGraph, i32> = ksat_chain.target_problem();
+    let target: &MaximumIndependentSet<SimpleGraph, i64> = ksat_chain.target_problem();
 
-    let target_solution = solver.find_witness(target).unwrap();
-    let original_solution = ksat_chain.extract_solution(&target_solution);
+    let target_solution = solver.solve(target).unwrap().unwrap();
+    let original_solution = ksat_chain.extract_solution(&target_solution).unwrap();
 
     // Verify the extracted solution satisfies the original 3-SAT formula
-    assert!(ksat.evaluate(&original_solution));
+    assert!(ksat.evaluate(&original_solution).unwrap());
 }
 
 #[test]
-fn test_size_field_names_returns_own_fields() {
+fn test_parameter_names_returns_own_fields() {
     let graph = ReductionGraph::new();
 
     // MIS should report its own fields (num_vertices, num_edges),
     // not the target's fields from any reduction.
-    let mis_fields = graph.size_field_names("MaximumIndependentSet");
+    let mis_fields = graph.parameter_names("MaximumIndependentSet");
     assert!(
-        mis_fields.contains(&"num_vertices"),
+        mis_fields.iter().any(|field| field == "num_vertices"),
         "MIS should have num_vertices, got: {:?}",
         mis_fields
     );
     assert!(
-        mis_fields.contains(&"num_edges"),
+        mis_fields.iter().any(|field| field == "num_edges"),
         "MIS should have num_edges, got: {:?}",
         mis_fields
     );
     // Should NOT contain target fields like num_vars or num_constraints
     assert!(
-        !mis_fields.contains(&"num_constraints"),
+        !mis_fields.iter().any(|field| field == "num_constraints"),
         "MIS should not report ILP's num_constraints, got: {:?}",
         mis_fields
     );
 
     // QUBO should report num_vars
-    let qubo_fields = graph.size_field_names("QUBO");
+    let qubo_fields = graph.parameter_names("QUBO");
     assert!(
-        qubo_fields.contains(&"num_vars"),
+        qubo_fields.iter().any(|field| field == "num_vars"),
         "QUBO should have num_vars, got: {:?}",
         qubo_fields
     );
 
     // Unknown problem returns empty
-    let unknown_fields = graph.size_field_names("NonExistentProblem");
+    let unknown_fields = graph.parameter_names("NonExistentProblem");
     assert!(unknown_fields.is_empty());
 }
 
 #[test]
-fn test_overhead_variables_are_consistent() {
-    // For each reduction, the input variables of the overhead should be
-    // a subset of the source problem's size fields (as derived from all
-    // reductions where it appears).
+fn parameter_contract_variables_are_registered_source_fields() {
     let graph = ReductionGraph::new();
 
     for entry in inventory::iter::<ReductionEntry> {
-        let overhead = entry.overhead();
-        let input_vars = overhead.input_variable_names();
+        let declarations = (entry.parameter_declarations_fn)();
+        let input_vars: std::collections::HashSet<_> = declarations
+            .fields
+            .iter()
+            .flat_map(|(_, expression)| expression.variables())
+            .collect();
         if input_vars.is_empty() {
             continue;
         }
 
-        let source_fields: std::collections::HashSet<&str> = graph
-            .size_field_names(entry.source_name)
+        let source_fields: std::collections::HashSet<String> = graph
+            .parameter_names(entry.source_name)
             .into_iter()
             .collect();
 
         for var in &input_vars {
             assert!(
-                source_fields.contains(var),
-                "Reduction {} -> {}: overhead references variable '{}' \
-                 which is not a known size field of {}. Known fields: {:?}",
+                source_fields.contains(*var),
+                "Reduction {} -> {}: parameter contract references variable '{}' \
+                 which is not a known parameter field of {}. Known fields: {:?}",
                 entry.source_name,
                 entry.target_name,
                 var,
@@ -1627,7 +1790,7 @@ fn test_variant_entry_complexity_available() {
 #[test]
 fn test_variant_complexity() {
     let graph = ReductionGraph::new();
-    let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+    let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i64")]);
     let complexity = graph.variant_complexity("MaximumIndependentSet", &variant);
     assert_eq!(complexity, Some("1.1996^num_vertices"));
 
@@ -1640,93 +1803,97 @@ fn test_variant_complexity() {
 }
 
 #[test]
-fn test_compute_source_size() {
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(
+fn test_compute_problem_parameters_uses_exact_variant_executor() {
+    let problem = MaximumIndependentSet::<SimpleGraph, i64>::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1, 1],
     );
-    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &problem);
+    let variant =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let size =
+        ReductionGraph::compute_problem_parameters("MaximumIndependentSet", &variant, &problem);
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
 }
 
 #[test]
-fn test_compute_source_size_unknown_problem() {
-    let problem = 42u32;
-    let size = ReductionGraph::compute_source_size("NonExistentProblem", &problem);
-    assert!(size.components.is_empty());
+fn test_outgoing_reductions_from_uses_exact_variant_and_mode() {
+    let graph = ReductionGraph::new();
+    let unit =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
+    let weighted =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+
+    let unit_targets =
+        graph.outgoing_reductions_from("MaximumIndependentSet", &unit, ReductionMode::Witness);
+    assert!(unit_targets
+        .iter()
+        .all(|edge| edge.source_variant == unit && edge.capabilities.witness));
+    assert!(unit_targets.iter().any(|edge| {
+        edge.target_name == "MaximumSetPacking"
+            && edge.target_variant.get("weight").map(String::as_str) == Some("One")
+    }));
+    assert!(!unit_targets
+        .iter()
+        .any(|edge| edge.target_name == "IntegralFlowBundles"));
+
+    let weighted_targets =
+        graph.outgoing_reductions_from("MaximumIndependentSet", &weighted, ReductionMode::Witness);
+    assert!(weighted_targets
+        .iter()
+        .all(|edge| edge.source_variant == weighted && edge.capabilities.witness));
+    assert!(weighted_targets
+        .iter()
+        .any(|edge| edge.target_name == "IntegralFlowBundles"));
+    assert!(!weighted_targets.iter().any(|edge| {
+        edge.target_name == "MaximumIndependentSet"
+            && edge.target_variant.get("graph").map(String::as_str) == Some("KingsSubgraph")
+    }));
 }
 
 #[test]
-fn test_evaluate_path_overhead() {
-    use crate::rules::cost::MinimizeStepsThenOverhead;
-
+#[should_panic(expected = "registered problem variant not found")]
+fn test_outgoing_reductions_from_rejects_unknown_exact_variant() {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
+    graph.outgoing_reductions_from(
+        "MaximumIndependentSet",
+        &BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i128".to_string()),
+        ]),
+        ReductionMode::Witness,
+    );
+}
+
+#[test]
+#[should_panic(expected = "unregistered exact problem variant")]
+fn test_compute_problem_parameters_unknown_problem() {
+    let problem = 42u32;
+    ReductionGraph::compute_problem_parameters("NonExistentProblem", &BTreeMap::new(), &problem);
+}
+
+#[test]
+fn test_composed_path_parameters_transform_evaluation() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
+    let input_size = ProblemParameters::new(vec![("num_vertices", 10), ("num_edges", 20)]);
 
     let path = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &input_size,
-            &MinimizeStepsThenOverhead,
-        )
-        .expect("should find path");
+        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route");
 
-    let final_size = graph
-        .evaluate_path_overhead(&path, &input_size)
-        .expect("should evaluate overhead");
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    let final_size = transform
+        .evaluate(&input_size)
+        .expect("should evaluate composed parameter transform");
 
     // MIS → MVC preserves num_vertices and num_edges
     assert_eq!(final_size.get("num_vertices"), Some(10));
     assert_eq!(final_size.get("num_edges"), Some(20));
-}
-
-#[test]
-fn test_evaluate_path_overhead_multistep() {
-    use crate::rules::cost::MinimizeStepsThenOverhead;
-
-    // MIS → SetPacking<One> → SetPacking<i32> → ILP<bool> (3 steps with size transformations)
-    let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
-    let dst_variants = graph.variants_for("ILP");
-    let dst = dst_variants
-        .iter()
-        .find(|v| v.get("variable") == Some(&"bool".to_string()))
-        .expect("ILP<bool> variant should exist");
-    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
-
-    let path = graph
-        .find_cheapest_path_mode(
-            "MaximumIndependentSet",
-            &src,
-            "ILP",
-            dst,
-            ReductionMode::Witness,
-            &input_size,
-            &MinimizeStepsThenOverhead,
-        )
-        .expect("should find path");
-
-    assert!(
-        path.len() >= 2,
-        "path should have at least 2 steps, got {}",
-        path.len()
-    );
-
-    let final_size = graph
-        .evaluate_path_overhead(&path, &input_size)
-        .expect("should evaluate overhead");
-
-    // MIS(V=10,E=20) → SetPacking(sets=V=10, universe=E=20) → ... → ILP(vars=10, constraints=20)
-    // The final ILP dimensions should reflect the composed overhead, not the input.
-    assert_eq!(final_size.get("num_vars"), Some(10));
-    assert_eq!(final_size.get("num_constraints"), Some(20));
-    // Original MIS fields should NOT appear in the final output
-    assert_eq!(final_size.get("num_vertices"), None);
-    assert_eq!(final_size.get("num_edges"), None);
 }

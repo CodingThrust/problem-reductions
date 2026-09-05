@@ -13,30 +13,46 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing GraphPartitioning to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionGraphPartitioningToQUBO {
-    target: QUBO<f64>,
+    target: QUBO<i64>,
 }
 
 impl ReductionResult for ReductionGraphPartitioningToQUBO {
     type Source = GraphPartitioning<SimpleGraph>;
-    type Target = QUBO<f64>;
+    type Target = QUBO<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = { num_vars = "num_vertices" })]
-impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {
+#[reduction(transform = exact {
+    num_vars = "num_vertices",
+})]
+impl ReduceTo<QUBO<i64>> for GraphPartitioning<SimpleGraph> {
     type Result = ReductionGraphPartitioningToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let penalty = self.num_edges() as f64 + 1.0;
-        let mut matrix = vec![vec![0.0f64; n]; n];
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, QUBO<i64>>(operation)
+        };
+        let n_i64 = i64::try_from(n)
+            .map_err(|_| overflow("converting the vertex count to a QUBO coefficient"))?;
+        let edge_count = i64::try_from(self.num_edges())
+            .map_err(|_| overflow("converting the edge count to a QUBO coefficient"))?;
+        let penalty = edge_count
+            .checked_add(1)
+            .ok_or_else(|| overflow("computing the balance penalty"))?;
+        let mut matrix = vec![vec![0i64; n]; n];
         let mut degrees = vec![0usize; n];
         let edges = self.graph().edges();
 
@@ -46,20 +62,39 @@ impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {
         }
 
         for (i, row) in matrix.iter_mut().enumerate() {
-            row[i] = degrees[i] as f64 + penalty * (1.0 - n as f64);
+            let degree = i64::try_from(degrees[i])
+                .map_err(|_| overflow("converting a vertex degree to a QUBO coefficient"))?;
+            let balance_linear = penalty
+                .checked_mul(
+                    1i64.checked_sub(n_i64)
+                        .ok_or_else(|| overflow("computing a balance coefficient"))?,
+                )
+                .ok_or_else(|| overflow("computing a balance coefficient"))?;
+            row[i] = degree
+                .checked_add(balance_linear)
+                .ok_or_else(|| overflow("combining QUBO diagonal coefficients"))?;
             for value in row.iter_mut().skip(i + 1) {
-                *value = 2.0 * penalty;
+                *value = penalty
+                    .checked_mul(2)
+                    .ok_or_else(|| overflow("computing a balance interaction coefficient"))?;
             }
         }
 
         for (u, v) in edges {
             let (lo, hi) = if u < v { (u, v) } else { (v, u) };
-            matrix[lo][hi] -= 2.0;
+            matrix[lo][hi] = matrix[lo][hi]
+                .checked_sub(2)
+                .ok_or_else(|| overflow("adding a cut interaction coefficient"))?;
         }
 
-        ReductionGraphPartitioningToQUBO {
-            target: QUBO::from_matrix(matrix),
-        }
+        Ok(ReductionGraphPartitioningToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<
+                    GraphPartitioning<SimpleGraph>,
+                    QUBO<i64>,
+                >(message)
+            })?,
+        })
     }
 }
 
@@ -70,7 +105,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "graphpartitioning_to_qubo",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 GraphPartitioning::new(SimpleGraph::new(
                     6,
                     vec![
@@ -86,8 +121,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     ],
                 )),
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 1, 1, 1],
+                    source_config: serde_json::json!(vec![false, false, false, true, true, true]),
+                    target_config: serde_json::json!(vec![false, false, false, true, true, true]),
                 },
             )
         },

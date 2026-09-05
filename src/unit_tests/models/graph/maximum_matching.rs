@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -19,7 +20,7 @@ fn test_matching_creation() {
 #[test]
 fn test_matching_unit_weights() {
     let problem =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_edges(), 2);
 }
 
@@ -39,13 +40,13 @@ fn test_is_valid_matching() {
     );
 
     // Valid: select edge 0 only
-    assert!(problem.is_valid_matching(&[1, 0, 0]));
+    assert!(problem.is_valid_matching(&[true, false, false]));
 
     // Valid: select edges 0 and 2 (disjoint)
-    assert!(problem.is_valid_matching(&[1, 0, 1]));
+    assert!(problem.is_valid_matching(&[true, false, true]));
 
     // Invalid: edges 0 and 1 share vertex 1
-    assert!(!problem.is_valid_matching(&[1, 1, 0]));
+    assert!(!problem.is_valid_matching(&[true, true, false]));
 }
 
 #[test]
@@ -60,9 +61,9 @@ fn test_is_matching_function() {
 
 #[test]
 fn test_empty_graph() {
-    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]));
     // Empty matching is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), Max(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -74,9 +75,9 @@ fn test_edges() {
 
 #[test]
 fn test_empty_sets() {
-    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(2, vec![]));
     // Empty matching
-    assert_eq!(Problem::evaluate(&problem, &[]), Max(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -97,7 +98,7 @@ fn test_new() {
 #[test]
 fn test_unit_weights() {
     let problem =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.weights(), vec![1, 1]);
@@ -106,7 +107,7 @@ fn test_unit_weights() {
 #[test]
 fn test_graph_accessor() {
     let problem =
-        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
 }
@@ -119,11 +120,11 @@ fn test_jl_parity_evaluation() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let weighted_edges = jl_parse_weighted_edges(&instance["instance"]);
         let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
-        let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+        let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
         let problem = MaximumMatching::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config);
+            let config = jl_parse_bool_config(&eval["config"]);
+            let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
                 result.is_valid(),
@@ -132,7 +133,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,
@@ -141,9 +142,9 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_witnesses(&problem);
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "Matching best solutions mismatch");
     }
 }
@@ -153,19 +154,19 @@ fn test_is_valid_solution() {
     // Triangle: edges (0,1), (1,2), (0,2) — config is per edge
     let problem = MaximumMatching::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     );
     // Valid: select edge (0,1) only — no shared vertices
-    assert!(problem.is_valid_solution(&[1, 0, 0]));
+    assert!(problem.is_valid_solution(&[true, false, false]));
     // Invalid: select edges (0,1) and (1,2) — vertex 1 shared
-    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+    assert!(!problem.is_valid_solution(&[true, true, false]));
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = MaximumMatching::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     );
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
@@ -175,15 +176,26 @@ fn test_size_getters() {
 fn test_matching_paper_example() {
     // Paper: house graph, M = {(v_0,v_1), (v_2,v_4)}, weight = 2
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-    let problem = MaximumMatching::<_, i32>::unit_weights(graph);
+    let problem = MaximumMatching::<_, i64>::unit_weights(graph);
     // Edges: 0=(0,1), 1=(0,2), 2=(1,3), 3=(2,3), 4=(2,4), 5=(3,4)
     // Select edges 0 and 4
-    let config = vec![1, 0, 0, 0, 1, 0];
-    let result = problem.evaluate(&config);
+    let config = vec![true, false, false, false, true, false];
+    let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best).unwrap(), 2);
+    let best = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+#[test]
+fn create_spec_uses_edge_weights_and_defaults_to_one() {
+    let problem = MaximumMatching::try_from(MaximumMatchingCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.weights(), vec![1]);
+    assert_eq!(MaximumMatchingCreateSpec::FIELDS[2].name, "edge_weights");
 }

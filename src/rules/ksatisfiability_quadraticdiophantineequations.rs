@@ -28,21 +28,16 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let Some(x) = self.target.decode_witness(target_solution) else {
-            return self.congruence_reduction.extract_solution(&[]);
-        };
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let Some(congruence_config) = self
-            .congruence_reduction
-            .target_problem()
-            .encode_witness(&x)
-        else {
-            return self.congruence_reduction.extract_solution(&[]);
-        };
-
-        self.congruence_reduction
-            .extract_solution(&congruence_config)
+        Ok({
+            self.congruence_reduction
+                .extract_solution(target_solution)?
+        })
     }
 }
 
@@ -67,22 +62,24 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
     QuadraticDiophantineEquations::new(BigUint::one(), source.b().clone(), c)
 }
 
-#[reduction(overhead = {
-    bit_length_a = "1",
-    bit_length_b = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_c = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-})]
+#[reduction(
+    transform = upper_bound {
+        bit_length_a = "1",
+        bit_length_b = "64 * (4 * num_vars^3 + num_vars + 1)^2 + 6 * num_vars^3 + 5",
+        bit_length_c = "128 * (4 * num_vars^3 + num_vars + 1)^2 + 20 * num_vars^3 + 2 * num_vars + 15",
+    }
+)]
 impl ReduceTo<QuadraticDiophantineEquations> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticDiophantineEquations;
 
-    fn reduce_to(&self) -> Self::Result {
-        let congruence_reduction = ReduceTo::<QuadraticCongruences>::reduce_to(self);
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let congruence_reduction = ReduceTo::<QuadraticCongruences>::reduce_to(self)?;
         let target = translate_congruence(congruence_reduction.target_problem());
 
-        Reduction3SATToQuadraticDiophantineEquations {
+        Ok(Reduction3SATToQuadraticDiophantineEquations {
             target,
             congruence_reduction,
-        }
+        })
     }
 }
 
@@ -111,18 +108,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "ksatisfiability_to_quadraticdiophantineequations",
         build: || {
             let source = canonical_source();
-            let reduction = ReduceTo::<QuadraticDiophantineEquations>::reduce_to(&source);
-            let target_config = reduction
-                .target_problem()
-                .encode_witness(&canonical_witness())
-                .expect("reference witness must fit QDE encoding");
+            let reduction = ReduceTo::<QuadraticDiophantineEquations>::reduce_to(&source)
+                .expect("reduction should succeed");
+            let target_config = canonical_witness();
 
             assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config: vec![1, 0, 0],
-                    target_config,
+                    source_config: serde_json::json!(vec![true, false, false]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

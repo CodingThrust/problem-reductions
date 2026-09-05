@@ -23,7 +23,7 @@ fn normalized_edge(u: usize, v: usize) -> (usize, usize) {
     }
 }
 
-fn literal_vertex(num_vars: usize, literal: i32) -> usize {
+fn literal_vertex(num_vars: usize, literal: i64) -> usize {
     if literal > 0 {
         literal as usize - 1
     } else {
@@ -47,40 +47,45 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let direct: Vec<usize> = self
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        let direct: Vec<bool> = self
             .negation_edge_indices
             .iter()
-            .map(
-                |&edge_idx| match target_solution.get(edge_idx).copied().unwrap_or(1) {
-                    0 => 1,
-                    _ => 0,
-                },
-            )
+            .map(|&edge_idx| !target_solution[edge_idx])
             .collect();
-        if self.source.evaluate(&direct).0 {
-            return direct;
+        if self.source.evaluate(&direct)?.0 {
+            return Ok(direct);
         }
 
-        let complement: Vec<usize> = direct.iter().map(|&value| 1 - value).collect();
-        if self.source.evaluate(&complement).0 {
-            return complement;
+        let complement: Vec<bool> = direct.iter().map(|&value| !value).collect();
+        if self.source.evaluate(&complement)?.0 {
+            return Ok(complement);
         }
 
-        direct
+        Err(crate::rules::ExtractionError::invalid(
+            "target coloring does not map to a satisfying source assignment",
+        ))
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 9 * num_clauses",
+    },
+    unavailable = {
+        num_triangles = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToMonochromaticTriangle;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let mut edges = Vec::with_capacity(num_vars + 9 * num_clauses);
@@ -129,11 +134,11 @@ impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
             .map(|var| edge_indices[&normalized_edge(var, num_vars + var)])
             .collect();
 
-        Reduction3SATToMonochromaticTriangle {
+        Ok(Reduction3SATToMonochromaticTriangle {
             target,
             source: self.clone(),
             negation_edge_indices,
-        }
+        })
     }
 }
 
@@ -150,17 +155,21 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let reduction =
                 <KSatisfiability<K3> as ReduceTo<MonochromaticTriangle<SimpleGraph>>>::reduce_to(
                     &source,
-                );
+                )
+                .expect("reduction should succeed");
             let target_config = BruteForce::new()
-                .find_witness(reduction.target_problem())
+                .solve(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
                 .expect("canonical MonochromaticTriangle example must be feasible");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

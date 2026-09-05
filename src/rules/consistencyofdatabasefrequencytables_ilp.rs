@@ -9,6 +9,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ConsistencyOfDatabaseFrequencyTables;
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing ConsistencyOfDatabaseFrequencyTables to ILP.
@@ -56,8 +57,8 @@ impl ReductionCDFTToILP {
 
     /// Encode a satisfying source assignment as a concrete ILP variable vector.
     #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn encode_source_solution(&self, source_solution: &[usize]) -> Vec<usize> {
-        let mut target_solution = vec![0usize; self.target.num_vars];
+    pub(crate) fn encode_source_solution(&self, source_solution: &[usize]) -> Vec<i64> {
+        let mut target_solution = vec![0_i64; self.target.num_vars()];
         let num_attributes = self.source.num_attributes();
 
         for object in 0..self.source.num_objects() {
@@ -90,36 +91,55 @@ impl ReductionResult for ReductionCDFTToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut source_solution = Vec::with_capacity(self.source.num_assignment_variables());
-        for object in 0..self.source.num_objects() {
-            for (attribute, &domain_size) in self.source.attribute_domains().iter().enumerate() {
-                let value = (0..domain_size)
-                    .find(|&candidate| {
-                        target_solution
-                            .get(self.assignment_var_index(object, attribute, candidate))
-                            .copied()
-                            .unwrap_or(0)
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let mut source_solution = Vec::with_capacity(self.source.num_assignment_variables());
+            for object in 0..self.source.num_objects() {
+                for (attribute, &domain_size) in self.source.attribute_domains().iter().enumerate()
+                {
+                    let mut selected = (0..domain_size).filter(|&candidate| {
+                        target_solution[self.assignment_var_index(object, attribute, candidate)]
                             == 1
-                    })
-                    .unwrap_or(0);
-                source_solution.push(value);
+                    });
+                    let value = match (selected.next(), selected.next()) {
+                        (Some(value), None) => value,
+                        (None, _) => {
+                            return Err(crate::rules::ExtractionError::invalid(format!(
+                                "object {object}, attribute {attribute} has no selected value"
+                            )))
+                        }
+                        (Some(_), Some(_)) => {
+                            return Err(crate::rules::ExtractionError::invalid(format!(
+                                "object {object}, attribute {attribute} has multiple selected values"
+                            )))
+                        }
+                    };
+                    source_solution.push(value);
+                }
             }
-        }
-        source_solution
+            source_solution
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_assignment_indicators + num_auxiliary_frequency_indicators",
-        num_constraints = "num_assignment_variables + num_known_values + num_frequency_cells + 3 * num_auxiliary_frequency_indicators",
+    transform = exact {
+        num_vars = "num_objects * total_domain_size + num_objects * num_frequency_cells",
+        num_constraints = "num_objects * num_attributes + num_known_values + num_frequency_cells + 3 * num_objects * num_frequency_cells",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
     type Result = ReductionCDFTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source = self.clone();
         let helper = ReductionCDFTToILP {
             target: ILP::empty(),
@@ -136,9 +156,9 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
         for object in 0..source.num_objects() {
             for (attribute, &domain_size) in source.attribute_domains().iter().enumerate() {
                 let terms = (0..domain_size)
-                    .map(|value| (helper.assignment_var_index(object, attribute, value), 1.0))
+                    .map(|value| (helper.assignment_var_index(object, attribute, value), 1))
                     .collect();
-                constraints.push(LinearConstraint::eq(terms, 1.0));
+                constraints.push(LinearConstraint::eq(terms, 1));
             }
         }
 
@@ -150,9 +170,9 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
                         known_value.attribute(),
                         known_value.value(),
                     ),
-                    1.0,
+                    1,
                 )],
-                1.0,
+                1,
             ));
         }
 
@@ -166,26 +186,19 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
                         .map(|object| {
                             (
                                 helper.auxiliary_var_index(table_index, object, value_a, value_b),
-                                1.0,
+                                1,
                             )
                         })
                         .collect();
-                    constraints.push(LinearConstraint::eq(
-                        count_terms,
-                        table.counts()[value_a][value_b] as f64,
-                    ));
+                    let count = table.counts()[value_a][value_b];
+                    constraints.push(LinearConstraint::eq(count_terms, count));
 
                     for object in 0..source.num_objects() {
                         let z = helper.auxiliary_var_index(table_index, object, value_a, value_b);
                         let y_a = helper.assignment_var_index(object, table.attribute_a(), value_a);
                         let y_b = helper.assignment_var_index(object, table.attribute_b(), value_b);
 
-                        constraints.push(LinearConstraint::le(vec![(z, 1.0), (y_a, -1.0)], 0.0));
-                        constraints.push(LinearConstraint::le(vec![(z, 1.0), (y_b, -1.0)], 0.0));
-                        constraints.push(LinearConstraint::ge(
-                            vec![(z, 1.0), (y_a, -1.0), (y_b, -1.0)],
-                            -1.0,
-                        ));
+                        constraints.extend(mccormick_product(z, y_a, y_b));
                     }
                 }
             }
@@ -196,9 +209,10 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
             constraints,
             vec![],
             ObjectiveSense::Minimize,
-        );
+        )
+        .map_err(Self::target_construction)?;
 
-        ReductionCDFTToILP { target, source }
+        Ok(ReductionCDFTToILP { target, source })
     }
 }
 

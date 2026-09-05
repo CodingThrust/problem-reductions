@@ -1,299 +1,441 @@
-//! General symbolic expression AST for reduction overhead.
+//! Symbolic expression integration for the problem-reduction domain.
 
-use crate::types::ProblemSize;
-use std::collections::{HashMap, HashSet};
+pub use num_bigint::BigInt;
+use num_rational::BigRational;
+#[cfg(test)]
+use num_traits::FromPrimitive;
+use num_traits::{One, Signed, ToPrimitive, Zero};
+pub use problemreductions_expr::{
+    Expr, ExprNode, ExprNodeId, ParseError, SubstitutionError, Symbol,
+};
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
-/// A symbolic math expression over problem size variables.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum Expr {
-    /// Numeric constant.
-    Const(f64),
-    /// Named variable (e.g., "num_vertices").
-    Var(&'static str),
-    /// Addition: a + b.
-    Add(Box<Expr>, Box<Expr>),
-    /// Multiplication: a * b.
-    Mul(Box<Expr>, Box<Expr>),
-    /// Exponentiation: base ^ exponent.
-    Pow(Box<Expr>, Box<Expr>),
-    /// Exponential function: exp(a).
-    Exp(Box<Expr>),
-    /// Natural logarithm: log(a).
-    Log(Box<Expr>),
-    /// Square root: sqrt(a).
-    Sqrt(Box<Expr>),
-    /// Factorial: factorial(a).
-    Factorial(Box<Expr>),
+use crate::types::ProblemParameters;
+
+/// Algebraic facts computed once from the shared expression DAG and consumed by
+/// exact-size evaluation and asymptotic-growth projection.
+#[derive(Clone, Debug)]
+pub(crate) struct AlgebraicAnalysis {
+    facts: HashMap<ExprNodeId, AlgebraicFacts>,
 }
 
-impl Expr {
-    /// Convenience constructor for exponentiation.
-    pub fn pow(base: Expr, exp: Expr) -> Self {
-        Expr::Pow(Box::new(base), Box::new(exp))
-    }
+#[derive(Clone, Debug)]
+pub(crate) struct AlgebraicFacts {
+    pub(crate) is_constant: bool,
+    pub(crate) exact_rational: Option<BigRational>,
+    pub(crate) linear: Option<BTreeMap<Symbol, BigRational>>,
+    pub(crate) constant_domain: Option<bool>,
+    pub(crate) sign: Option<Ordering>,
+    pub(crate) cmp_one: Option<Ordering>,
+}
 
-    /// Multiply expression by a scalar constant.
-    pub fn scale(self, c: f64) -> Self {
-        Expr::Const(c) * self
-    }
-
-    /// Evaluate the expression given concrete variable values.
-    pub fn eval(&self, vars: &ProblemSize) -> f64 {
-        match self {
-            Expr::Const(c) => *c,
-            Expr::Var(name) => vars.get(name).unwrap_or(0) as f64,
-            Expr::Add(a, b) => a.eval(vars) + b.eval(vars),
-            Expr::Mul(a, b) => a.eval(vars) * b.eval(vars),
-            Expr::Pow(base, exp) => base.eval(vars).powf(exp.eval(vars)),
-            Expr::Exp(a) => a.eval(vars).exp(),
-            Expr::Log(a) => a.eval(vars).ln(),
-            Expr::Sqrt(a) => a.eval(vars).sqrt(),
-            Expr::Factorial(a) => gamma_factorial(a.eval(vars)),
+impl AlgebraicAnalysis {
+    pub(crate) fn new(expressions: &[&Expr]) -> Self {
+        let mut facts = HashMap::new();
+        for expression in expressions {
+            analyze_algebraic(expression, &mut facts);
         }
+        Self { facts }
     }
 
-    /// Collect all variable names referenced in this expression.
-    pub fn variables(&self) -> HashSet<&'static str> {
-        let mut vars = HashSet::new();
-        self.collect_variables(&mut vars);
-        vars
+    pub(crate) fn facts(&self, expression: &Expr) -> &AlgebraicFacts {
+        &self.facts[&expression.node_identity()]
     }
+}
 
-    fn collect_variables(&self, vars: &mut HashSet<&'static str>) {
-        match self {
-            Expr::Const(_) => {}
-            Expr::Var(name) => {
-                vars.insert(name);
-            }
-            Expr::Add(a, b) | Expr::Mul(a, b) | Expr::Pow(a, b) => {
-                a.collect_variables(vars);
-                b.collect_variables(vars);
-            }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
-                a.collect_variables(vars);
+fn analyze_algebraic(
+    expression: &Expr,
+    memo: &mut HashMap<ExprNodeId, AlgebraicFacts>,
+) -> AlgebraicFacts {
+    if let Some(facts) = memo.get(&expression.node_identity()) {
+        return facts.clone();
+    }
+    let facts = match expression.node() {
+        ExprNode::Const(value) => AlgebraicFacts {
+            is_constant: true,
+            exact_rational: Some(value.clone()),
+            linear: Some(BTreeMap::new()),
+            constant_domain: Some(true),
+            sign: Some(value.cmp(&BigRational::from_integer(0.into()))),
+            cmp_one: Some(value.cmp(&BigRational::from_integer(1.into()))),
+        },
+        ExprNode::Var(symbol) => AlgebraicFacts {
+            is_constant: false,
+            exact_rational: None,
+            linear: Some(BTreeMap::from([(
+                symbol.clone(),
+                BigRational::from_integer(1.into()),
+            )])),
+            constant_domain: None,
+            sign: None,
+            cmp_one: None,
+        },
+        ExprNode::Add(values) => {
+            let children = values
+                .iter()
+                .map(|value| analyze_algebraic(value, memo))
+                .collect::<Vec<_>>();
+            let is_constant = children.iter().all(|facts| facts.is_constant);
+            AlgebraicFacts {
+                is_constant,
+                exact_rational: sum_exact(&children),
+                linear: sum_linear(&children),
+                constant_domain: is_constant.then(|| all_domains(&children)).flatten(),
+                sign: is_constant.then(|| sum_sign(&children)).flatten(),
+                cmp_one: None,
             }
         }
-    }
-
-    /// Substitute variables with other expressions.
-    pub fn substitute(&self, mapping: &HashMap<&str, &Expr>) -> Expr {
-        match self {
-            Expr::Const(c) => Expr::Const(*c),
-            Expr::Var(name) => {
-                if let Some(replacement) = mapping.get(name) {
-                    (*replacement).clone()
-                } else {
-                    Expr::Var(name)
+        ExprNode::Mul(values) => {
+            let children = values
+                .iter()
+                .map(|value| analyze_algebraic(value, memo))
+                .collect::<Vec<_>>();
+            let is_constant = children.iter().all(|facts| facts.is_constant);
+            let exact_rational = product_exact(&children);
+            AlgebraicFacts {
+                is_constant,
+                linear: product_linear(&children),
+                constant_domain: is_constant.then(|| all_domains(&children)).flatten(),
+                sign: is_constant.then(|| product_sign(&children)).flatten(),
+                cmp_one: exact_rational
+                    .as_ref()
+                    .map(|value| value.cmp(&BigRational::from_integer(1.into()))),
+                exact_rational,
+            }
+        }
+        ExprNode::Pow(base, exponent) => {
+            let base = analyze_algebraic(base, memo);
+            let exponent = analyze_algebraic(exponent, memo);
+            let is_constant = base.is_constant && exponent.is_constant;
+            let exact_rational = match (
+                base.exact_rational.as_ref(),
+                exponent.exact_rational.as_ref(),
+            ) {
+                (Some(base), Some(exponent)) if exponent == &-BigRational::one() => {
+                    (!base.is_zero()).then(|| base.recip())
                 }
-            }
-            Expr::Add(a, b) => a.substitute(mapping) + b.substitute(mapping),
-            Expr::Mul(a, b) => a.substitute(mapping) * b.substitute(mapping),
-            Expr::Pow(a, b) => Expr::pow(a.substitute(mapping), b.substitute(mapping)),
-            Expr::Exp(a) => Expr::Exp(Box::new(a.substitute(mapping))),
-            Expr::Log(a) => Expr::Log(Box::new(a.substitute(mapping))),
-            Expr::Sqrt(a) => Expr::Sqrt(Box::new(a.substitute(mapping))),
-            Expr::Factorial(a) => Expr::Factorial(Box::new(a.substitute(mapping))),
-        }
-    }
-
-    /// Parse an expression string into an `Expr` at runtime.
-    ///
-    /// **Memory note:** Variable names are leaked to `&'static str` via `Box::leak`
-    /// since `Expr::Var` requires static lifetimes. Each unique variable name leaks
-    /// a small allocation that is never freed. This is acceptable for testing and
-    /// one-time cross-check evaluation, but should not be used in hot loops with
-    /// dynamic input.
-    ///
-    /// # Panics
-    /// Panics if the expression string has invalid syntax.
-    pub fn parse(input: &str) -> Expr {
-        Self::try_parse(input)
-            .unwrap_or_else(|e| panic!("failed to parse expression \"{input}\": {e}"))
-    }
-
-    /// Parse an expression string into an `Expr`, returning a normal error on failure.
-    pub fn try_parse(input: &str) -> Result<Expr, String> {
-        parse_to_expr(input)
-    }
-
-    /// Check if this expression is a polynomial (no exp/log/sqrt, integer exponents only).
-    pub fn is_polynomial(&self) -> bool {
-        match self {
-            Expr::Const(_) | Expr::Var(_) => true,
-            Expr::Add(a, b) | Expr::Mul(a, b) => a.is_polynomial() && b.is_polynomial(),
-            Expr::Pow(base, exp) => {
-                base.is_polynomial()
-                    && matches!(exp.as_ref(), Expr::Const(c) if *c >= 0.0 && (*c - c.round()).abs() < 1e-10)
-            }
-            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) | Expr::Factorial(_) => false,
-        }
-    }
-
-    /// Check whether this expression is suitable for asymptotic complexity notation.
-    ///
-    /// This is intentionally conservative for symbolic size formulas:
-    /// - rejects explicit multiplicative constant factors like `3 * n`
-    /// - rejects additive constant terms like `n + 1`
-    /// - allows constants used as exponents (e.g. `n^(1/3)`)
-    /// - allows constants used as exponential bases (e.g. `2^n`)
-    ///
-    /// The goal is to accept expressions that already look like reduced
-    /// asymptotic notation, rather than exact-count formulas.
-    pub fn is_valid_complexity_notation(&self) -> bool {
-        self.is_valid_complexity_notation_inner()
-    }
-
-    fn is_valid_complexity_notation_inner(&self) -> bool {
-        match self {
-            Expr::Const(c) => (*c - 1.0).abs() < 1e-10,
-            Expr::Var(_) => true,
-            Expr::Add(a, b) => {
-                a.constant_value().is_none()
-                    && b.constant_value().is_none()
-                    && a.is_valid_complexity_notation_inner()
-                    && b.is_valid_complexity_notation_inner()
-            }
-            Expr::Mul(a, b) => {
-                a.constant_value().is_none()
-                    && b.constant_value().is_none()
-                    && a.is_valid_complexity_notation_inner()
-                    && b.is_valid_complexity_notation_inner()
-            }
-            Expr::Pow(base, exp) => {
-                let base_is_constant = base.constant_value().is_some();
-                let exp_is_constant = exp.constant_value().is_some();
-
-                let base_ok = if base_is_constant {
-                    base.is_valid_exponential_base()
-                } else {
-                    base.is_valid_complexity_notation_inner()
-                };
-
-                let exp_ok = if exp_is_constant {
-                    true
-                } else {
-                    exp.is_valid_complexity_notation_inner()
-                };
-
-                base_ok && exp_ok
-            }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
-                a.is_valid_complexity_notation_inner()
+                _ => None,
+            };
+            let domain = if is_constant {
+                power_domain(&base, &exponent)
+            } else {
+                None
+            };
+            let sign = domain
+                .is_some_and(|defined| defined)
+                .then(|| power_sign(&base, &exponent))
+                .flatten();
+            let cmp_one = domain
+                .is_some_and(|defined| defined)
+                .then(|| power_cmp_one(&base, &exponent))
+                .flatten();
+            AlgebraicFacts {
+                is_constant,
+                exact_rational,
+                linear: is_constant.then(BTreeMap::new),
+                constant_domain: domain,
+                sign,
+                cmp_one,
             }
         }
-    }
+        ExprNode::Exp(value) => {
+            let value = analyze_algebraic(value, memo);
+            let domain = value.is_constant.then_some(value.constant_domain).flatten();
+            AlgebraicFacts {
+                is_constant: value.is_constant,
+                exact_rational: value
+                    .exact_rational
+                    .as_ref()
+                    .filter(|value| value.is_zero())
+                    .map(|_| BigRational::from_integer(1.into())),
+                linear: value.is_constant.then(BTreeMap::new),
+                constant_domain: domain,
+                sign: domain
+                    .is_some_and(|defined| defined)
+                    .then_some(Ordering::Greater),
+                cmp_one: value.sign,
+            }
+        }
+        ExprNode::Log(value) => {
+            let value = analyze_algebraic(value, memo);
+            let domain = if value.is_constant {
+                value
+                    .constant_domain
+                    .map(|defined| defined && value.sign == Some(Ordering::Greater))
+            } else {
+                None
+            };
+            AlgebraicFacts {
+                is_constant: value.is_constant,
+                exact_rational: value
+                    .exact_rational
+                    .as_ref()
+                    .filter(|value| value.is_one())
+                    .map(|_| BigRational::from_integer(0.into())),
+                linear: value.is_constant.then(BTreeMap::new),
+                constant_domain: domain,
+                sign: domain
+                    .is_some_and(|defined| defined)
+                    .then_some(value.cmp_one)
+                    .flatten(),
+                cmp_one: None,
+            }
+        }
+        ExprNode::Factorial(value) => {
+            let value = analyze_algebraic(value, memo);
+            let valid = value
+                .exact_rational
+                .as_ref()
+                .map(|value| value.is_integer() && !value.is_negative());
+            AlgebraicFacts {
+                is_constant: value.is_constant,
+                exact_rational: None,
+                linear: value.is_constant.then(BTreeMap::new),
+                constant_domain: value.is_constant.then_some(valid).flatten(),
+                sign: valid
+                    .is_some_and(|valid| valid)
+                    .then_some(Ordering::Greater),
+                cmp_one: valid.and_then(|valid| {
+                    valid.then(|| {
+                        if value
+                            .exact_rational
+                            .as_ref()
+                            .is_some_and(|value| value <= &BigRational::from_integer(1.into()))
+                        {
+                            Ordering::Equal
+                        } else {
+                            Ordering::Greater
+                        }
+                    })
+                }),
+            }
+        }
+    };
+    memo.insert(expression.node_identity(), facts.clone());
+    facts
+}
 
-    fn is_valid_exponential_base(&self) -> bool {
-        self.constant_value().is_some_and(|c| c > 0.0)
-    }
+fn sum_exact(children: &[AlgebraicFacts]) -> Option<BigRational> {
+    children.iter().try_fold(BigRational::zero(), |sum, child| {
+        Some(sum + child.exact_rational.as_ref()?)
+    })
+}
 
-    pub(crate) fn constant_value(&self) -> Option<f64> {
-        match self {
-            Expr::Const(c) => Some(*c),
-            Expr::Var(_) => None,
-            Expr::Add(a, b) => Some(a.constant_value()? + b.constant_value()?),
-            Expr::Mul(a, b) => Some(a.constant_value()? * b.constant_value()?),
-            Expr::Pow(base, exp) => Some(base.constant_value()?.powf(exp.constant_value()?)),
-            Expr::Exp(a) => Some(a.constant_value()?.exp()),
-            Expr::Log(a) => Some(a.constant_value()?.ln()),
-            Expr::Sqrt(a) => Some(a.constant_value()?.sqrt()),
-            Expr::Factorial(a) => Some(gamma_factorial(a.constant_value()?)),
+fn product_exact(children: &[AlgebraicFacts]) -> Option<BigRational> {
+    children
+        .iter()
+        .try_fold(BigRational::one(), |product, child| {
+            Some(product * child.exact_rational.as_ref()?)
+        })
+}
+
+fn sum_linear(children: &[AlgebraicFacts]) -> Option<BTreeMap<Symbol, BigRational>> {
+    let mut result = BTreeMap::new();
+    for child in children {
+        for (symbol, coefficient) in child.linear.as_ref()? {
+            *result
+                .entry(symbol.clone())
+                .or_insert_with(BigRational::zero) += coefficient;
+        }
+    }
+    result.retain(|_, coefficient| !coefficient.is_zero());
+    Some(result)
+}
+
+fn product_linear(children: &[AlgebraicFacts]) -> Option<BTreeMap<Symbol, BigRational>> {
+    if children.iter().all(|child| child.is_constant) {
+        return Some(BTreeMap::new());
+    }
+    let mut coefficient = BigRational::one();
+    let mut linear = None;
+    for child in children {
+        if child.is_constant {
+            coefficient *= child.exact_rational.as_ref()?;
+        } else if linear.is_some() {
+            return None;
+        } else {
+            linear = Some(child.linear.clone()?);
+        }
+    }
+    let mut linear = linear?;
+    for value in linear.values_mut() {
+        *value *= &coefficient;
+    }
+    linear.retain(|_, value| !value.is_zero());
+    Some(linear)
+}
+
+fn all_domains(children: &[AlgebraicFacts]) -> Option<bool> {
+    let mut defined = true;
+    for child in children {
+        defined &= child.constant_domain?;
+    }
+    Some(defined)
+}
+
+fn sum_sign(children: &[AlgebraicFacts]) -> Option<Ordering> {
+    if let Some(value) = sum_exact(children) {
+        return Some(value.cmp(&BigRational::zero()));
+    }
+    let signs = children
+        .iter()
+        .map(|child| child.sign)
+        .collect::<Option<Vec<_>>>()?;
+    if signs.iter().all(|sign| *sign != Ordering::Less) {
+        Some(if signs.contains(&Ordering::Greater) {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        })
+    } else if signs.iter().all(|sign| *sign != Ordering::Greater) {
+        Some(Ordering::Less)
+    } else {
+        None
+    }
+}
+
+fn product_sign(children: &[AlgebraicFacts]) -> Option<Ordering> {
+    let mut sign = Ordering::Greater;
+    for child in children {
+        match child.sign? {
+            Ordering::Equal => return Some(Ordering::Equal),
+            Ordering::Less => sign = sign.reverse(),
+            Ordering::Greater => {}
+        }
+    }
+    Some(sign)
+}
+
+fn power_domain(base: &AlgebraicFacts, exponent: &AlgebraicFacts) -> Option<bool> {
+    if !base.constant_domain? || !exponent.constant_domain? {
+        return Some(false);
+    }
+    match base.sign? {
+        Ordering::Greater => Some(true),
+        Ordering::Equal => Some(exponent.sign? == Ordering::Greater),
+        Ordering::Less => exponent
+            .exact_rational
+            .as_ref()
+            .map(|value| value.is_integer()),
+    }
+}
+
+fn power_sign(base: &AlgebraicFacts, exponent: &AlgebraicFacts) -> Option<Ordering> {
+    let exponent_value = exponent.exact_rational.as_ref()?;
+    if exponent_value.is_zero() {
+        return Some(Ordering::Greater);
+    }
+    match base.sign? {
+        Ordering::Greater => Some(Ordering::Greater),
+        Ordering::Equal => Some(Ordering::Equal),
+        Ordering::Less => {
+            let exponent = exponent_value.to_integer();
+            if (&exponent % 2u8).is_zero() {
+                Some(Ordering::Greater)
+            } else {
+                Some(Ordering::Less)
+            }
         }
     }
 }
 
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expr::Const(c) => {
-                let ci = c.round() as i64;
-                if (*c - ci as f64).abs() < 1e-10 {
-                    write!(f, "{ci}")
-                } else {
-                    write!(f, "{c}")
-                }
-            }
-            Expr::Var(name) => write!(f, "{name}"),
-            Expr::Add(a, b) => write!(f, "{a} + {b}"),
-            Expr::Mul(a, b) => {
-                let left = if matches!(a.as_ref(), Expr::Add(_, _)) {
-                    format!("({a})")
-                } else {
-                    format!("{a}")
-                };
-                let right = if matches!(b.as_ref(), Expr::Add(_, _)) {
-                    format!("({b})")
-                } else {
-                    format!("{b}")
-                };
-                write!(f, "{left} * {right}")
-            }
-            Expr::Pow(base, exp) => {
-                // Special case: x^0.5 → sqrt(x)
-                if let Expr::Const(e) = exp.as_ref() {
-                    if (*e - 0.5).abs() < 1e-15 {
-                        return write!(f, "sqrt({base})");
-                    }
-                }
-                let base_str = if matches!(base.as_ref(), Expr::Add(_, _) | Expr::Mul(_, _)) {
-                    format!("({base})")
-                } else {
-                    format!("{base}")
-                };
-                let exp_str = if matches!(exp.as_ref(), Expr::Add(_, _) | Expr::Mul(_, _)) {
-                    format!("({exp})")
-                } else {
-                    format!("{exp}")
-                };
-                write!(f, "{base_str}^{exp_str}")
-            }
-            Expr::Exp(a) => write!(f, "exp({a})"),
-            Expr::Log(a) => write!(f, "log({a})"),
-            Expr::Sqrt(a) => write!(f, "sqrt({a})"),
-            Expr::Factorial(a) => write!(f, "factorial({a})"),
+fn power_cmp_one(base: &AlgebraicFacts, exponent: &AlgebraicFacts) -> Option<Ordering> {
+    let exponent = exponent.exact_rational.as_ref()?;
+    if exponent.is_zero() || base.cmp_one == Some(Ordering::Equal) {
+        Some(Ordering::Equal)
+    } else if exponent.is_positive() {
+        base.cmp_one
+    } else {
+        base.cmp_one.map(Ordering::reverse)
+    }
+}
+
+/// Evaluate an expression numerically at an explicitly approximate boundary.
+pub fn evaluate_approximate(
+    expression: &Expr,
+    variables: &ProblemParameters,
+) -> Result<f64, ApproximationError> {
+    evaluate_approximate_inner(expression, variables, &mut HashMap::new())
+}
+
+fn evaluate_approximate_inner(
+    expression: &Expr,
+    variables: &ProblemParameters,
+    memo: &mut HashMap<ExprNodeId, f64>,
+) -> Result<f64, ApproximationError> {
+    if let Some(value) = memo.get(&expression.node_identity()) {
+        return Ok(*value);
+    }
+    let value = match expression.node() {
+        ExprNode::Const(value) => rational_to_f64(value),
+        ExprNode::Var(name) => variables
+            .get(name.as_str())
+            .map(|value| value as f64)
+            .ok_or_else(|| ApproximationError::MissingVariable(name.to_string())),
+        ExprNode::Add(values) => values.iter().try_fold(0.0, |sum, value| {
+            Ok(sum + evaluate_approximate_inner(value, variables, memo)?)
+        }),
+        ExprNode::Mul(values) => values.iter().try_fold(1.0, |product, value| {
+            Ok(product * evaluate_approximate_inner(value, variables, memo)?)
+        }),
+        ExprNode::Pow(base, exponent) => Ok(evaluate_approximate_inner(base, variables, memo)?
+            .powf(evaluate_approximate_inner(exponent, variables, memo)?)),
+        ExprNode::Exp(value) => Ok(evaluate_approximate_inner(value, variables, memo)?.exp()),
+        ExprNode::Log(value) => Ok(evaluate_approximate_inner(value, variables, memo)?.ln()),
+        ExprNode::Factorial(value) => {
+            approximate_factorial(evaluate_approximate_inner(value, variables, memo)?)
         }
+    }?;
+    if !value.is_finite() {
+        return Err(ApproximationError::NonFiniteResult(expression.to_string()));
+    }
+    memo.insert(expression.node_identity(), value);
+    Ok(value)
+}
+
+/// Convert an approximation produced by the growth domain back to an exact AST constant.
+#[cfg(test)]
+pub(crate) fn expression_from_approximation(value: f64) -> Expr {
+    Expr::constant(
+        BigRational::from_f64(value)
+            .expect("growth-domain expression constants must be finite numbers"),
+    )
+}
+
+pub(crate) fn rational_to_f64(value: &BigRational) -> Result<f64, ApproximationError> {
+    value
+        .to_f64()
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| ApproximationError::OutOfRange(value.to_string()))
+}
+
+pub(crate) fn approximate_factorial(value: f64) -> Result<f64, ApproximationError> {
+    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 {
+        return Err(ApproximationError::InvalidFactorialArgument(
+            value.to_string(),
+        ));
+    }
+    if value > 170.0 {
+        Err(ApproximationError::NonFiniteResult(format!(
+            "factorial({value})"
+        )))
+    } else {
+        Ok((2..=value as u64).fold(1.0, |product, factor| product * factor as f64))
     }
 }
 
-impl std::ops::Add for Expr {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Expr::Add(Box::new(self), Box::new(other))
-    }
-}
-
-impl std::ops::Mul for Expr {
-    type Output = Self;
-
-    fn mul(self, other: Self) -> Self {
-        Expr::Mul(Box::new(self), Box::new(other))
-    }
-}
-
-impl std::ops::Sub for Expr {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        self + Expr::Const(-1.0) * other
-    }
-}
-
-impl std::ops::Div for Expr {
-    type Output = Self;
-
-    fn div(self, other: Self) -> Self {
-        self * Expr::pow(other, Expr::Const(-1.0))
-    }
-}
-
-impl std::ops::Neg for Expr {
-    type Output = Self;
-
-    fn neg(self) -> Self {
-        Expr::Const(-1.0) * self
-    }
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ApproximationError {
+    #[error("missing expression variable {0}")]
+    MissingVariable(String),
+    #[error("exact constant {0} is outside the f64 approximation domain")]
+    OutOfRange(String),
+    #[error("factorial argument must be a non-negative integer, found {0}")]
+    InvalidFactorialArgument(String),
+    #[error("expression {0} has no finite real approximation")]
+    NonFiniteResult(String),
 }
 
 /// Error returned when analyzing asymptotic behavior.
@@ -303,269 +445,16 @@ pub enum AsymptoticAnalysisError {
 }
 
 impl fmt::Display for AsymptoticAnalysisError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Unsupported(expr) => write!(f, "unsupported asymptotic expression: {expr}"),
+            Self::Unsupported(expression) => {
+                write!(formatter, "unsupported asymptotic expression: {expression}")
+            }
         }
     }
 }
 
 impl std::error::Error for AsymptoticAnalysisError {}
-
-/// Error returned when exact canonicalization fails.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CanonicalizationError {
-    /// Expression cannot be canonicalized (e.g., variable in both base and exponent).
-    Unsupported(String),
-}
-
-impl fmt::Display for CanonicalizationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Unsupported(expr) => {
-                write!(f, "unsupported expression for canonicalization: {expr}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CanonicalizationError {}
-
-/// Return a normalized `Expr` representing the asymptotic behavior of `expr`.
-///
-/// This is now a compatibility wrapper for `big_o_normal_form()`.
-pub fn asymptotic_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
-    crate::big_o::big_o_normal_form(expr)
-}
-
-/// Compute factorial for non-negative values.
-///
-/// For non-negative integers, returns the exact integer factorial.
-/// For non-integer values, uses Stirling's approximation of the gamma function:
-/// n! = Γ(n+1) ≈ √(2πn) · (n/e)^n.
-fn gamma_factorial(n: f64) -> f64 {
-    if n < 0.0 {
-        return f64::NAN;
-    }
-    let rounded = n.round();
-    if (n - rounded).abs() < 1e-10 && rounded >= 0.0 {
-        let k = rounded as u64;
-        let mut result = 1u64;
-        for i in 2..=k {
-            result = result.saturating_mul(i);
-        }
-        result as f64
-    } else {
-        // Stirling's approximation: Γ(n+1) ≈ √(2πn) · (n/e)^n
-        (2.0 * std::f64::consts::PI * n).sqrt() * (n / std::f64::consts::E).powf(n)
-    }
-}
-
-// --- Runtime expression parser ---
-
-/// Parse an expression string into an `Expr`.
-///
-/// Uses the same grammar as the proc macro parser. Variable names are leaked
-/// to `&'static str` for compatibility with `Expr::Var`.
-fn parse_to_expr(input: &str) -> Result<Expr, String> {
-    let tokens = tokenize_expr(input)?;
-    let mut parser = ExprParser::new(tokens);
-    let expr = parser.parse_additive()?;
-    if parser.pos != parser.tokens.len() {
-        return Err(format!("trailing tokens at position {}", parser.pos));
-    }
-    Ok(expr)
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum ExprToken {
-    Number(f64),
-    Ident(String),
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Caret,
-    LParen,
-    RParen,
-}
-
-fn tokenize_expr(input: &str) -> Result<Vec<ExprToken>, String> {
-    let mut tokens = Vec::new();
-    let mut chars = input.chars().peekable();
-    while let Some(&ch) = chars.peek() {
-        match ch {
-            ' ' | '\t' | '\n' => {
-                chars.next();
-            }
-            '+' => {
-                chars.next();
-                tokens.push(ExprToken::Plus);
-            }
-            '-' => {
-                chars.next();
-                tokens.push(ExprToken::Minus);
-            }
-            '*' => {
-                chars.next();
-                tokens.push(ExprToken::Star);
-            }
-            '/' => {
-                chars.next();
-                tokens.push(ExprToken::Slash);
-            }
-            '^' => {
-                chars.next();
-                tokens.push(ExprToken::Caret);
-            }
-            '(' => {
-                chars.next();
-                tokens.push(ExprToken::LParen);
-            }
-            ')' => {
-                chars.next();
-                tokens.push(ExprToken::RParen);
-            }
-            c if c.is_ascii_digit() || c == '.' => {
-                let mut num = String::new();
-                while let Some(&c) = chars.peek() {
-                    if c.is_ascii_digit() || c == '.' {
-                        num.push(c);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-                tokens.push(ExprToken::Number(
-                    num.parse().map_err(|_| format!("invalid number: {num}"))?,
-                ));
-            }
-            c if c.is_ascii_alphabetic() || c == '_' => {
-                let mut ident = String::new();
-                while let Some(&c) = chars.peek() {
-                    if c.is_ascii_alphanumeric() || c == '_' {
-                        ident.push(c);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-                tokens.push(ExprToken::Ident(ident));
-            }
-            _ => return Err(format!("unexpected character: '{ch}'")),
-        }
-    }
-    Ok(tokens)
-}
-
-struct ExprParser {
-    tokens: Vec<ExprToken>,
-    pos: usize,
-}
-
-impl ExprParser {
-    fn new(tokens: Vec<ExprToken>) -> Self {
-        Self { tokens, pos: 0 }
-    }
-
-    fn peek(&self) -> Option<&ExprToken> {
-        self.tokens.get(self.pos)
-    }
-
-    fn advance(&mut self) -> Option<ExprToken> {
-        let tok = self.tokens.get(self.pos).cloned();
-        self.pos += 1;
-        tok
-    }
-
-    fn expect(&mut self, expected: &ExprToken) -> Result<(), String> {
-        match self.advance() {
-            Some(ref tok) if tok == expected => Ok(()),
-            Some(tok) => Err(format!("expected {expected:?}, got {tok:?}")),
-            None => Err(format!("expected {expected:?}, got end of input")),
-        }
-    }
-
-    fn parse_additive(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_multiplicative()?;
-        while matches!(self.peek(), Some(ExprToken::Plus) | Some(ExprToken::Minus)) {
-            let op = self.advance().unwrap();
-            let right = self.parse_multiplicative()?;
-            left = match op {
-                ExprToken::Plus => left + right,
-                ExprToken::Minus => left - right,
-                _ => unreachable!(),
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_multiplicative(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_unary()?;
-        while matches!(self.peek(), Some(ExprToken::Star) | Some(ExprToken::Slash)) {
-            let op = self.advance().unwrap();
-            let right = self.parse_unary()?;
-            left = match op {
-                ExprToken::Star => left * right,
-                ExprToken::Slash => left / right,
-                _ => unreachable!(),
-            };
-        }
-        Ok(left)
-    }
-
-    fn parse_power(&mut self) -> Result<Expr, String> {
-        let base = self.parse_primary()?;
-        if matches!(self.peek(), Some(ExprToken::Caret)) {
-            self.advance();
-            let exp = self.parse_unary()?; // right-associative, allows unary minus in exponent
-            Ok(Expr::pow(base, exp))
-        } else {
-            Ok(base)
-        }
-    }
-
-    fn parse_unary(&mut self) -> Result<Expr, String> {
-        if matches!(self.peek(), Some(ExprToken::Minus)) {
-            self.advance();
-            let expr = self.parse_unary()?;
-            Ok(-expr)
-        } else {
-            self.parse_power()
-        }
-    }
-
-    fn parse_primary(&mut self) -> Result<Expr, String> {
-        match self.advance() {
-            Some(ExprToken::Number(n)) => Ok(Expr::Const(n)),
-            Some(ExprToken::Ident(name)) => {
-                if matches!(self.peek(), Some(ExprToken::LParen)) {
-                    self.advance();
-                    let arg = self.parse_additive()?;
-                    self.expect(&ExprToken::RParen)?;
-                    match name.as_str() {
-                        "exp" => Ok(Expr::Exp(Box::new(arg))),
-                        "log" => Ok(Expr::Log(Box::new(arg))),
-                        "sqrt" => Ok(Expr::Sqrt(Box::new(arg))),
-                        "factorial" => Ok(Expr::Factorial(Box::new(arg))),
-                        _ => Err(format!("unknown function: {name}")),
-                    }
-                } else {
-                    // Leak the string to get &'static str for Expr::Var
-                    let leaked: &'static str = Box::leak(name.into_boxed_str());
-                    Ok(Expr::Var(leaked))
-                }
-            }
-            Some(ExprToken::LParen) => {
-                let expr = self.parse_additive()?;
-                self.expect(&ExprToken::RParen)?;
-                Ok(expr)
-            }
-            Some(tok) => Err(format!("unexpected token: {tok:?}")),
-            None => Err("unexpected end of input".to_string()),
-        }
-    }
-}
 
 #[cfg(test)]
 #[path = "unit_tests/expr.rs"]

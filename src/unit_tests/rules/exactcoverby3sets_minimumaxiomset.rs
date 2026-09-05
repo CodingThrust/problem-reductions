@@ -18,7 +18,8 @@ fn shared_zero_instance() -> ExactCoverBy3Sets {
 #[test]
 fn test_exactcoverby3sets_to_minimumaxiomset_closed_loop() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<MinimumAxiomSet>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumAxiomSet>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_satisfaction_round_trip_from_optimization_target(
@@ -28,15 +29,17 @@ fn test_exactcoverby3sets_to_minimumaxiomset_closed_loop() {
     );
 
     let optimal = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("expected an optimal target witness");
-    assert_eq!(target.evaluate(&optimal), Min(Some(2)));
+    assert_eq!(target.evaluate(&optimal).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_exactcoverby3sets_to_minimumaxiomset_structure() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<MinimumAxiomSet>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumAxiomSet>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_sentences(), 11);
@@ -57,23 +60,30 @@ fn test_exactcoverby3sets_to_minimumaxiomset_structure() {
 #[test]
 fn test_exactcoverby3sets_to_minimumaxiomset_no_instance_gap() {
     let source = shared_zero_instance();
-    let reduction = ReduceTo::<MinimumAxiomSet>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumAxiomSet>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let optimal = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("expected an optimal target witness");
-    assert_eq!(target.evaluate(&optimal), Min(Some(3)));
+    assert_eq!(target.evaluate(&optimal).unwrap(), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&optimal);
-    assert!(!source.evaluate(&extracted));
+    let extracted = reduction.extract_solution(&optimal).unwrap();
+    assert!(!source.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_extract_solution_reads_only_set_sentence_axioms() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<MinimumAxiomSet>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumAxiomSet>::reduce_to(&source).expect("reduction should succeed");
 
-    let extracted = reduction.extract_solution(&[1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1]);
-    assert_eq!(extracted, vec![0, 0, 0, 1, 1]);
+    let extracted = reduction
+        .extract_solution(&vec![
+            true, false, true, false, false, true, false, false, false, true, true,
+        ])
+        .unwrap();
+    assert_eq!(extracted, vec![false, false, false, true, true]);
 }

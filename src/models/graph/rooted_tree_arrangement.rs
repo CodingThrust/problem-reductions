@@ -18,11 +18,12 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a rooted-tree embedding of a graph with bounded total edge stretch",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Upper bound K on total tree stretch" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on total tree stretch" },
         ],
     }
 }
@@ -31,7 +32,19 @@ inventory::submit! {
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct RootedTreeArrangement<G> {
     graph: G,
-    bound: usize,
+    bound: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct RootedTreeArrangementRandomSpec {
+    /// Number of graph vertices.
+    num_vertices: usize,
+    /// Independent edge probability (default: 0.5).
+    edge_prob: Option<f64>,
+    /// Seed for reproducible generation.
+    seed: Option<i64>,
+    /// Maximum total edge stretch (defaults to a graph-size upper bound).
+    bound: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +53,7 @@ struct TreeInfo {
 }
 
 impl<G: Graph> RootedTreeArrangement<G> {
-    pub fn new(graph: G, bound: usize) -> Self {
+    pub fn new(graph: G, bound: i64) -> Self {
         Self { graph, bound }
     }
 
@@ -48,7 +61,7 @@ impl<G: Graph> RootedTreeArrangement<G> {
         &self.graph
     }
 
-    pub fn bound(&self) -> usize {
+    pub fn bound(&self) -> i64 {
         self.bound
     }
 
@@ -60,33 +73,53 @@ impl<G: Graph> RootedTreeArrangement<G> {
         self.graph.num_edges()
     }
 
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        matches!(self.total_edge_stretch(config), Some(stretch) if stretch <= self.bound)
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(matches!(self.total_edge_stretch(config)?, Some(stretch) if stretch <= self.bound))
     }
 
-    pub fn total_edge_stretch(&self, config: &[usize]) -> Option<usize> {
+    pub fn total_edge_stretch(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let n = self.graph.num_vertices();
         if n == 0 {
-            return config.is_empty().then_some(0);
+            return Ok(config.is_empty().then_some(0));
         }
 
-        let (parent, mapping) = self.split_config(config)?;
-        let tree = analyze_parent_array(parent)?;
+        let Some((parent, mapping)) = self.split_config(config) else {
+            return Ok(None);
+        };
+        let Some(tree) = analyze_parent_array(parent) else {
+            return Ok(None);
+        };
         if !is_valid_permutation(mapping) {
-            return None;
+            return Ok(None);
         }
 
-        let mut total = 0usize;
+        let mut total = 0_i64;
         for (u, v) in self.graph.edges() {
             let tree_u = mapping[u];
             let tree_v = mapping[v];
             if !are_ancestor_comparable(parent, tree_u, tree_v) {
-                return None;
+                return Ok(None);
             }
-            total += tree.depth[tree_u].abs_diff(tree.depth[tree_v]);
+            let stretch =
+                i64::try_from(tree.depth[tree_u].abs_diff(tree.depth[tree_v])).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting a rooted-tree edge stretch to i64".to_string(),
+                    )
+                })?;
+            total = total.checked_add(stretch).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing rooted-tree arrangement edge stretches".to_string(),
+                )
+            })?;
         }
 
-        Some(total)
+        Ok(Some(total))
     }
 
     fn split_config<'a>(&self, config: &'a [usize]) -> Option<(&'a [usize], &'a [usize])> {
@@ -100,19 +133,36 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "RootedTreeArrangement";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != 2 * n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "tree-arrangement representation length does not match the graph".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for RootedTreeArrangement<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
         let n = self.graph.num_vertices();
         vec![n; 2 * n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
     }
 }
 
@@ -204,8 +254,46 @@ fn are_ancestor_comparable(parent: &[usize], u: usize, v: usize) -> bool {
     is_ancestor(parent, u, v) || is_ancestor(parent, v, u)
 }
 
+crate::impl_random_generate!(
+    RootedTreeArrangement<SimpleGraph>,
+    RootedTreeArrangementRandomSpec,
+    |spec| {
+        let graph = crate::random::SimpleGraphRandomSpec {
+            num_vertices: spec.num_vertices,
+            edge_prob: spec.edge_prob,
+            seed: spec.seed,
+        }
+        .graph()?;
+        let bound = match spec.bound {
+            Some(bound) => bound,
+            None => {
+                let max_depth = if spec.num_vertices == 0 {
+                    0
+                } else {
+                    spec.num_vertices - 1
+                };
+                let max_stretch = max_depth.checked_mul(graph.num_edges()).ok_or_else(|| {
+                    crate::registry::ConstructionError::IntegerOverflow(
+                        "default rooted-tree arrangement bound overflows usize".into(),
+                    )
+                })?;
+                i64::try_from(max_stretch).map_err(|_| {
+                    crate::registry::ConstructionError::IntegerOverflow(
+                        "default rooted-tree arrangement bound does not fit i64".into(),
+                    )
+                })?
+            }
+        };
+        Ok(RootedTreeArrangement::new(graph, bound))
+    }
+);
+
 crate::declare_variants! {
-    default RootedTreeArrangement<SimpleGraph> => "2^num_vertices",
+    default RootedTreeArrangement<SimpleGraph> => "2^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    RootedTreeArrangement<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -216,7 +304,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]),
             5,
         )),
-        optimal_config: vec![0, 0, 1, 2, 0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 0, 1, 2, 0, 1, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

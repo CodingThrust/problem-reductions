@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 pub struct ProblemSpec {
     /// Resolved canonical problem name.
     pub name: String,
-    /// Positional variant values (e.g., ["UnitDiskGraph", "i32"]).
+    /// Positional variant values (e.g., ["UnitDiskGraph", "i64"]).
     pub variant_values: Vec<String>,
 }
 
@@ -39,12 +39,6 @@ pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("MinimumCodeGenerationParallelAssignments") {
         return "MinimumCodeGenerationParallelAssignments".to_string();
     }
-    if input.eq_ignore_ascii_case("ThreeMatroidIntersection") {
-        return "ThreeMatroidIntersection".to_string();
-    }
-    if input.eq_ignore_ascii_case("GraphPartitioning") {
-        return "GraphPartitioning".to_string();
-    }
     if let Some((entry, _)) = problemreductions::registry::find_variant_by_alias(input) {
         return entry.name.to_string();
     }
@@ -73,7 +67,7 @@ pub fn resolve_catalog_problem_ref(
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-/// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.
+/// Parse a problem spec string like "MIS/UnitDiskGraph/i64" into name + variant values.
 ///
 /// Resolution order:
 /// 1. **Variant-level alias** (`"3SAT"` → `KSatisfiability` + variant tokens `["K3"]`):
@@ -89,7 +83,10 @@ pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
     {
         // Prepend the alias's own variant values; the slash-spec resolver handles
         // additional user tokens (and errors on dimension collisions).
-        let mut variant_values: Vec<String> = variant_map.into_values().collect();
+        let mut variant_values: Vec<String> = ordered_variant_values(entry.name, &variant_map)
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
         variant_values.extend(user_tokens);
         return Ok(ProblemSpec {
             name: entry.name.to_string(),
@@ -103,6 +100,25 @@ pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
         name,
         variant_values: user_tokens,
     })
+}
+
+/// Variant values in the model's declared dimension order (not map key order).
+pub(crate) fn ordered_variant_values<'a>(
+    name: &str,
+    variant: &'a BTreeMap<String, String>,
+) -> Vec<&'a str> {
+    let problem = problemreductions::registry::find_problem_type(name)
+        .expect("registered problem has a schema");
+    problem
+        .dimensions
+        .iter()
+        .map(|dimension| {
+            variant
+                .get(dimension.key)
+                .expect("registered variant has every declared dimension")
+                .as_str()
+        })
+        .collect()
 }
 
 fn format_variant(variant: &BTreeMap<String, String>) -> String {
@@ -138,11 +154,52 @@ fn resolve_variant_updates(
         return Ok(default_variant.clone());
     }
 
+    let problem = problemreductions::registry::find_problem_type(&spec.name)
+        .expect("registered problem has a schema");
+    if spec.variant_values.len() == problem.dimensions.len()
+        && problem
+            .dimensions
+            .iter()
+            .zip(&spec.variant_values)
+            .all(|(dimension, value)| dimension.allowed_values.contains(&value.as_str()))
+    {
+        let resolved = problem
+            .dimensions
+            .iter()
+            .zip(&spec.variant_values)
+            .map(|(dimension, value)| (dimension.key.to_string(), value.clone()))
+            .collect();
+        anyhow::ensure!(
+            known_variants.contains(&resolved),
+            "Resolved variant {} is not declared for {}",
+            format_variant(&resolved),
+            spec.name
+        );
+        return Ok(resolved);
+    }
+
     let token_index = dimension_values(known_variants);
     let mut resolved = default_variant.clone();
     let mut updated_dimensions = BTreeSet::new();
 
     for token in &spec.variant_values {
+        if let Some((dimension, value)) = token.split_once('=') {
+            let values = token_index.get(dimension).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown variant dimension \"{dimension}\" for {}",
+                    spec.name
+                )
+            })?;
+            if !values.contains(value) {
+                anyhow::bail!("Unknown value \"{value}\" for variant dimension \"{dimension}\"");
+            }
+            if !updated_dimensions.insert(dimension.to_string()) {
+                anyhow::bail!("Variant dimension \"{dimension}\" was specified more than once");
+            }
+            resolved.insert(dimension.to_string(), value.to_string());
+            continue;
+        }
+
         let matching_dimensions = token_index
             .iter()
             .filter(|(_, values)| values.contains(token))
@@ -321,6 +378,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn registered_variant_names_round_trip_in_declared_order() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        for entry in problemreductions::registry::variant_entries() {
+            let variant = entry.variant_map();
+            let name = format!(
+                "{}{}",
+                entry.name,
+                crate::commands::graph::variant_to_full_slash(entry.name, &variant)
+            );
+            let resolved = resolve_problem_ref(&name, &graph).unwrap();
+            assert_eq!(resolved.variant, variant, "{name}");
+            let parsed = crate::cli::Cli::try_parse_from(["pred", "create", &name]).unwrap();
+            let crate::cli::Commands::Create(args) = parsed.command else {
+                panic!("expected create command");
+            };
+            let (_, actual) = crate::create_args::resolve_registered_create_variant(
+                args.problem.as_deref().unwrap(),
+            );
+            assert_eq!(actual, variant, "{name}");
+        }
+    }
+
+    #[test]
+    fn ilp_full_name_uses_variable_then_coefficient() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let resolved = resolve_problem_ref("ILP/bool/i64", &graph).unwrap();
+        assert_eq!(resolved.variant["variable"], "bool");
+        assert_eq!(resolved.variant["coefficient"], "i64");
+        assert_eq!(
+            crate::commands::graph::variant_to_full_slash("ILP", &resolved.variant),
+            "/bool/i64"
+        );
+    }
+
+    #[test]
     fn test_alias_resolution() {
         assert_eq!(resolve_alias("MIS"), "MaximumIndependentSet");
         assert_eq!(resolve_alias("mis"), "MaximumIndependentSet");
@@ -369,6 +461,14 @@ mod tests {
         let spec = parse_problem_spec("MIS/SimpleGraph/f64").unwrap();
         assert_eq!(spec.name, "MaximumIndependentSet");
         assert_eq!(spec.variant_values, vec!["SimpleGraph", "f64"]);
+    }
+
+    #[test]
+    fn resolve_problem_ref_accepts_named_variant_dimension() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let resolved = resolve_problem_ref("ILP/variable=i64", &graph).unwrap();
+        assert_eq!(resolved.variant["variable"], "i64");
+        assert_eq!(resolved.variant["coefficient"], "i64");
     }
 
     #[test]
@@ -577,7 +677,7 @@ mod tests {
     #[test]
     fn resolve_problem_ref_rejects_duplicate_dimension_updates() {
         let graph = problemreductions::rules::ReductionGraph::new();
-        let err = resolve_problem_ref("MIS/One/i32", &graph).unwrap_err();
+        let err = resolve_problem_ref("MIS/One/i64", &graph).unwrap_err();
         assert!(
             err.to_string().contains("specified more than once"),
             "expected duplicate-dimension error, got: {err}"
@@ -611,7 +711,7 @@ mod tests {
     fn parse_problem_type_extracts_name_from_variant_spec() {
         // parse_problem_type extracts just the problem name from a variant spec
         assert_eq!(
-            parse_problem_type("MIS/UnitDiskGraph/i32").unwrap(),
+            parse_problem_type("MIS/UnitDiskGraph/i64").unwrap(),
             "MaximumIndependentSet"
         );
     }
@@ -619,9 +719,9 @@ mod tests {
     #[test]
     fn resolve_catalog_problem_ref_validates_against_schema() {
         // Schema-valid values should resolve
-        let r = resolve_catalog_problem_ref("MIS/i32").unwrap();
+        let r = resolve_catalog_problem_ref("MIS/i64").unwrap();
         assert_eq!(r.name(), "MaximumIndependentSet");
-        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("i32"));
+        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("i64"));
     }
 
     #[test]

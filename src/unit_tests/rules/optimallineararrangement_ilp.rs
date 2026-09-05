@@ -7,11 +7,12 @@ use crate::traits::Problem;
 fn test_reduction_creates_valid_ilp() {
     // Path P4: 0-1-2-3
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionOLAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_x=16, p_v=4, z_e=3, total=23
-    assert_eq!(ilp.num_vars, 23);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 23);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -21,19 +22,21 @@ fn test_optimallineararrangement_to_ilp_closed_loop() {
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert!(problem.evaluate(&bf_solution).0.is_some());
+    assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
 
     // Solve via ILP
-    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionOLAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(
-        problem.evaluate(&extracted).0.is_some(),
+        problem.evaluate(&extracted).unwrap().0.is_some(),
         "ILP solution should produce a valid arrangement"
     );
 }
@@ -49,35 +52,39 @@ fn test_optimallineararrangement_to_ilp_with_chords() {
     // BruteForce on source
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert!(problem.evaluate(&bf_solution).0.is_some());
+    assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
 
     // Solve via ILP
-    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionOLAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert!(problem.evaluate(&extracted).0.is_some());
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert!(problem.evaluate(&extracted).unwrap().0.is_some());
 }
 
 #[test]
 fn test_solution_extraction() {
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionOLAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert!(problem.evaluate(&extracted).0.is_some());
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert!(problem.evaluate(&extracted).unwrap().0.is_some());
 }
 
 #[test]
 fn test_optimallineararrangement_to_ilp_bf_vs_ilp() {
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionOLAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

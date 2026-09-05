@@ -36,41 +36,50 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_original_vertices;
-        if n == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        if target_solution.len() != n + 3 {
-            return vec![0; n];
-        }
-
-        let v_prime = n; // index of duplicated vertex v'
-        let s = n + 1; // pendant attached to v=0
-        let t = n + 2; // pendant attached to v'
-
-        // The two pendants force any valid witness to have endpoints s and t.
-        let reversed;
-        let oriented = match (target_solution.first(), target_solution.last()) {
-            (Some(&start), Some(&end)) if start == s && end == t => target_solution,
-            (Some(&start), Some(&end)) if start == t && end == s => {
-                reversed = target_solution.iter().copied().rev().collect::<Vec<_>>();
-                reversed.as_slice()
+        Ok({
+            let n = self.num_original_vertices;
+            if n == 0 {
+                return Ok(vec![]);
             }
-            _ => return vec![0; n],
-        };
 
-        if oriented.get(1) != Some(&0) || oriented.get(n + 1) != Some(&v_prime) {
-            return vec![0; n];
-        }
+            let v_prime = n; // index of duplicated vertex v'
+            let s = n + 1; // pendant attached to v=0
+            let t = n + 2; // pendant attached to v'
 
-        oriented[1..=n].to_vec()
+            // The two pendants force any valid witness to have endpoints s and t.
+            let reversed;
+            let oriented = match (target_solution.first(), target_solution.last()) {
+                (Some(&start), Some(&end)) if start == s && end == t => target_solution,
+                (Some(&start), Some(&end)) if start == t && end == s => {
+                    reversed = target_solution.iter().copied().rev().collect::<Vec<_>>();
+                    reversed.as_slice()
+                }
+                _ => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "target path does not have the required pendant endpoints",
+                    ))
+                }
+            };
+
+            if oriented.get(1) != Some(&0) || oriented.get(n + 1) != Some(&v_prime) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target path does not traverse the duplicated source vertex correctly",
+                ));
+            }
+
+            oriented[1..=n].to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vertices = "num_vertices + 3",
         num_edges = "num_edges + num_vertices + 1",
     }
@@ -78,17 +87,17 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
 impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToHamiltonianPath;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
 
         // HC is unsatisfiable for n < 3; return a trivially unsatisfiable HP instance.
         if n < 3 {
             let target_graph = SimpleGraph::empty(n + 3);
             let target = HamiltonianPath::new(target_graph);
-            return ReductionHamiltonianCircuitToHamiltonianPath {
+            return Ok(ReductionHamiltonianCircuitToHamiltonianPath {
                 target,
                 num_original_vertices: n,
-            };
+            });
         }
 
         let source_graph = self.graph();
@@ -123,10 +132,10 @@ impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> 
         let target_graph = SimpleGraph::new(n + 3, edges);
         let target = HamiltonianPath::new(target_graph);
 
-        ReductionHamiltonianCircuitToHamiltonianPath {
+        Ok(ReductionHamiltonianCircuitToHamiltonianPath {
             target,
             num_original_vertices: n,
-        }
+        })
     }
 }
 
@@ -143,9 +152,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 source,
                 SolutionPair {
                     // HC solution: visit vertices in order 0, 1, 2, 3
-                    source_config: vec![0, 1, 2, 3],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
                     // HP solution on G' (7 vertices): s=5, 0, 1, 2, 3, v'=4, t=6
-                    target_config: vec![5, 0, 1, 2, 3, 4, 6],
+                    target_config: serde_json::json!(vec![5, 0, 1, 2, 3, 4, 6]),
                 },
             )
         },

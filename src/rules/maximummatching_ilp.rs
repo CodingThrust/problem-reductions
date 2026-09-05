@@ -24,7 +24,7 @@ pub struct ReductionMatchingToILP {
 }
 
 impl ReductionResult for ReductionMatchingToILP {
-    type Source = MaximumMatching<SimpleGraph, i32>;
+    type Source = MaximumMatching<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -35,21 +35,29 @@ impl ReductionResult for ReductionMatchingToILP {
     ///
     /// Since the mapping is 1:1 (each edge maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_edges",
         num_constraints = "num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {
     type Result = ReductionMatchingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_edges(); // Number of edges
 
         // Constraints: For each vertex v, sum of incident edge variables <= 1
@@ -59,22 +67,23 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
             .filter_map(|vertex| v2e.get(&vertex))
             .filter(|edges| !edges.is_empty())
             .map(|edges| {
-                let terms: Vec<(usize, f64)> = edges.iter().map(|&e| (e, 1.0)).collect();
-                LinearConstraint::le(terms, 1.0)
+                let terms: Vec<(usize, i64)> = edges.iter().map(|&e| (e, 1)).collect();
+                LinearConstraint::le(terms, 1)
             })
             .collect();
 
         // Objective: maximize sum of w_e * x_e (weighted sum of selected edges)
         let weights = self.weights();
-        let objective: Vec<(usize, f64)> = weights
+        let objective: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
+            .map(|(edge, &weight)| (edge, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionMatchingToILP { target }
+        Ok(ReductionMatchingToILP { target })
     }
 }
 

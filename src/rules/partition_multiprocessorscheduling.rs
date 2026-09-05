@@ -32,24 +32,37 @@ impl ReductionResult for ReductionPartitionToMPS {
 
     /// Solution extraction: identity mapping.
     /// Partition config (0/1 for subset) maps directly to processor assignment (0/1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution
+            .iter()
+            .map(|&processor| processor == 1)
+            .collect())
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    transform = exact {
+        num_tasks = "num_elements",
+    },
+    unavailable = {
+        num_processors = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<MultiprocessorScheduling> for Partition {
     type Result = ReductionPartitionToMPS;
 
-    fn reduce_to(&self) -> Self::Result {
-        let lengths: Vec<u64> = self.sizes().to_vec();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let lengths: Vec<i64> = self.sizes().to_vec();
         let deadline = self.total_sum() / 2;
 
-        ReductionPartitionToMPS {
+        Ok(ReductionPartitionToMPS {
             target: MultiprocessorScheduling::new(lengths, 2, deadline),
-        }
+        })
     }
 }
 
@@ -63,10 +76,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // sizes [1, 2, 3, 4], sum=10, target=5
             // partition: {1,4} on proc 0 and {2,3} on proc 1
             crate::example_db::specs::rule_example_with_witness::<_, MultiprocessorScheduling>(
-                Partition::new(vec![1, 2, 3, 4]),
+                Partition::new(vec![1, 2, 3, 4]).unwrap(),
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![0, 1, 1, 0]),
                 },
             )
         },

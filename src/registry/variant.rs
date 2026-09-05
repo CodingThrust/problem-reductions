@@ -3,11 +3,222 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 
-use crate::registry::dyn_problem::{DynProblem, SolveValueFn, SolveWitnessFn};
+use crate::registry::dyn_problem::DynProblem;
+use crate::registry::FieldInfo;
+
+/// Reusable syntax used to transport one construction input.
+///
+/// `Auto` asks a frontend to choose the codec from `type_name`. The explicit
+/// variants are for Rust types whose compact external syntax is ambiguous.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CreateInputCodec {
+    /// Infer the transport syntax from the Rust value type.
+    #[default]
+    Auto,
+    /// A single scalar value.
+    Scalar,
+    /// A JSON value.
+    Json,
+    /// Comma-separated values.
+    CommaSeparated,
+    /// Semicolon-separated rows or groups.
+    SemicolonSeparated,
+    /// Undirected edges such as `0-1,1-2`.
+    EdgeList,
+    /// Directed arcs such as `0>1,1>2`.
+    ArcList,
+    /// Bipartite-local edges such as `0-0,0-1`.
+    BipartiteEdgeList,
+    /// Equality-linked index pairs such as `2=5;4=3`.
+    EqualityPairList,
+    /// Functional dependencies such as `0,1:2;2:3,4`.
+    FunctionalDependencyList,
+    /// Semicolon-separated character strings sharing one inferred alphabet.
+    CharacterRows,
+}
+
+/// A user-facing input accepted when constructing a problem instance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CreateInputInfo {
+    /// Input name in snake_case. Frontends may render it in their native style.
+    pub name: &'static str,
+    /// Concrete Rust value type accepted by the construction spec.
+    pub type_name: &'static str,
+    /// Human-readable input description.
+    pub description: &'static str,
+    /// Whether the input must be present.
+    pub required: bool,
+    /// Reusable transport syntax for this input.
+    pub codec: CreateInputCodec,
+}
+
+impl CreateInputInfo {
+    /// Promote catalog field metadata into a required construction input.
+    pub const fn from_field(field: FieldInfo) -> Self {
+        Self {
+            name: field.name,
+            type_name: field.type_name,
+            description: field.description,
+            required: true,
+            codec: CreateInputCodec::Auto,
+        }
+    }
+}
+
+/// Static construction-input metadata generated from a typed create spec.
+pub trait CreateSpec {
+    /// Construction-facing field metadata used by the problem catalog.
+    const FIELDS: &'static [FieldInfo];
+    /// Inputs accepted by this construction spec.
+    const INPUTS: &'static [CreateInputInfo];
+
+    /// Deserialize normalized construction inputs into the typed specification.
+    fn deserialize_inputs(data: serde_json::Value) -> Result<Self, serde_json::Error>
+    where
+        Self: Sized + serde::de::DeserializeOwned,
+    {
+        serde_json::from_value(data)
+    }
+}
+
+/// Failure while validating or applying a model construction contract.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ConstructionError {
+    /// No concrete variant matches the requested problem reference.
+    #[error("no registered variant for `{name}` with variant {variant:?}")]
+    UnregisteredVariant {
+        /// Canonical problem name.
+        name: String,
+        /// Exact requested variant.
+        variant: BTreeMap<String, String>,
+    },
+    /// Construction values must be supplied as a named JSON object.
+    #[error("construction inputs must be a JSON object")]
+    ExpectedObject,
+    /// A construction contract declared the same input more than once.
+    #[error("construction input `{0}` is declared more than once")]
+    DuplicateInput(String),
+    /// The caller supplied values outside the declared construction contract.
+    #[error("unknown construction input(s): {}", .0.join(", "))]
+    UnknownInputs(Vec<String>),
+    /// The caller omitted required construction values.
+    #[error("missing required construction input(s): {}", .0.join(", "))]
+    MissingInputs(Vec<String>),
+    /// Normalized values could not be deserialized into the direct model or create spec.
+    #[error("invalid construction input: {0}")]
+    InvalidInput(String),
+    /// A typed create spec failed to convert into the problem model.
+    #[error("problem construction failed: {0}")]
+    Conversion(String),
+    /// Arithmetic used to produce a stored model field overflowed.
+    #[error("integer overflow during construction: {0}")]
+    IntegerOverflow(String),
+    /// A stored approximate value is not finite.
+    #[error("non-finite floating-point construction value: {0}")]
+    NonFiniteFloat(String),
+    /// An exact integer cannot be stored in the target floating-point domain.
+    #[error("inexact integer-to-float construction value: {0}")]
+    InexactFloatConversion(#[from] crate::types::ExactI64ToF64Error),
+}
+
+impl From<String> for ConstructionError {
+    fn from(message: String) -> Self {
+        Self::Conversion(message)
+    }
+}
+
+impl From<&str> for ConstructionError {
+    fn from(message: &str) -> Self {
+        Self::Conversion(message.to_string())
+    }
+}
+
+impl From<std::convert::Infallible> for ConstructionError {
+    fn from(value: std::convert::Infallible) -> Self {
+        match value {}
+    }
+}
+
+/// Type-erased problem constructor used by dynamic frontends.
+pub type ConstructProblemFn =
+    fn(serde_json::Value) -> Result<Box<dyn DynProblem>, ConstructionError>;
+
+/// Random-generation contract for one concrete problem variant.
+#[derive(Clone, Copy)]
+pub struct RandomRegistration {
+    /// Inputs accepted by the generator.
+    pub inputs: &'static [CreateInputInfo],
+    /// Generate a concrete problem from normalized inputs.
+    pub generate: ConstructProblemFn,
+}
+
+/// A concrete problem type that can generate itself from typed random inputs.
+pub trait RandomGenerate: DynProblem + Sized {
+    /// Inputs accepted by this model's random generator.
+    const INPUTS: &'static [CreateInputInfo];
+
+    /// Generate a concrete problem from normalized random inputs.
+    fn generate(data: serde_json::Value) -> Result<Self, ConstructionError>;
+}
+
+/// Validate normalized values against a typed construction contract.
+pub fn validate_create_inputs(
+    inputs: &[CreateInputInfo],
+    data: &serde_json::Value,
+) -> Result<(), ConstructionError> {
+    validate_input_contract(
+        inputs.iter().map(|input| (input.name, input.required)),
+        data,
+    )
+}
+
+/// Validate the direct-construction path backed by catalog field metadata.
+///
+/// Direct models have no separate create DTO, so every catalog field is a
+/// required construction input.
+pub fn validate_direct_create_inputs(
+    fields: &[FieldInfo],
+    data: &serde_json::Value,
+) -> Result<(), ConstructionError> {
+    validate_input_contract(fields.iter().map(|field| (field.name, true)), data)
+}
+
+fn validate_input_contract<'a>(
+    inputs: impl IntoIterator<Item = (&'a str, bool)>,
+    data: &serde_json::Value,
+) -> Result<(), ConstructionError> {
+    let object = data.as_object().ok_or(ConstructionError::ExpectedObject)?;
+    let mut declared = BTreeMap::new();
+    for (name, required) in inputs {
+        if declared.insert(name, required).is_some() {
+            return Err(ConstructionError::DuplicateInput(name.to_string()));
+        }
+    }
+
+    let unknown = object
+        .keys()
+        .filter(|name| !declared.contains_key(name.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !unknown.is_empty() {
+        return Err(ConstructionError::UnknownInputs(unknown));
+    }
+
+    let missing = declared
+        .into_iter()
+        .filter(|(name, required)| *required && !object.contains_key(*name))
+        .map(|(name, _)| name.to_string())
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(ConstructionError::MissingInputs(missing));
+    }
+
+    Ok(())
+}
 
 /// A registered problem variant entry.
 ///
-/// Submitted by [`declare_variants!`] for each concrete problem type.
+/// Submitted by `declare_variants!` for each concrete problem type.
 /// The reduction graph uses these entries to build nodes with complexity metadata.
 pub struct VariantEntry {
     /// Problem name (from `Problem::NAME`).
@@ -20,6 +231,10 @@ pub struct VariantEntry {
     /// Takes a `&dyn Any` (must be `&ProblemType`), calls getter methods directly,
     /// and returns the estimated worst-case time as f64.
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
+    /// Canonical problem-owned parameter names.
+    pub parameter_names_fn: fn() -> &'static [&'static str],
+    /// Measure the complete canonical parameters of a concrete instance.
+    pub parameter_measure_fn: fn(&dyn Any) -> crate::types::ProblemParameters,
     /// Whether this entry is the declared default variant for its problem.
     pub is_default: bool,
     /// Variant-level aliases (e.g., `&["3SAT"]` for `KSatisfiability<K3>`).
@@ -28,14 +243,17 @@ pub struct VariantEntry {
     /// specific reduction-graph node, not just to a canonical problem name. The CLI
     /// resolver tries variant-level aliases first and falls back to problem-level.
     pub aliases: &'static [&'static str],
+    /// Custom construction inputs. `None` means the catalog schema fields are
+    /// also the construction inputs through the direct path.
+    pub create_inputs: Option<&'static [CreateInputInfo]>,
+    /// Construct a validated concrete problem from normalized construction data.
+    pub construct_fn: ConstructProblemFn,
+    /// Model-owned random generator for this exact variant.
+    pub random: Option<RandomRegistration>,
     /// Factory: deserialize JSON into a boxed dynamic problem.
     pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
     /// Serialize: downcast `&dyn Any` and serialize to JSON.
     pub serialize_fn: fn(&dyn Any) -> Option<serde_json::Value>,
-    /// Solve value: downcast `&dyn Any` and brute-force solve to an aggregate string.
-    pub solve_value_fn: SolveValueFn,
-    /// Solve witness: downcast `&dyn Any` and brute-force recover a witness when available.
-    pub solve_witness_fn: SolveWitnessFn,
 }
 
 impl VariantEntry {
@@ -50,6 +268,70 @@ impl VariantEntry {
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    /// Return the canonical parameter names for this exact variant.
+    pub fn parameter_names(&self) -> &'static [&'static str] {
+        (self.parameter_names_fn)()
+    }
+}
+
+/// Return every registered concrete problem variant.
+pub fn variant_entries() -> Vec<&'static VariantEntry> {
+    inventory::iter::<VariantEntry>().collect()
+}
+
+/// Validate canonical parameter schemas for every registered exact variant.
+pub fn validate_variant_parameter_schemas() -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+    let mut schemas = BTreeMap::<&str, Vec<&str>>::new();
+
+    for entry in inventory::iter::<VariantEntry> {
+        let names = entry.parameter_names();
+        if names.is_empty() {
+            errors.push(format!("{} has no parameters", variant_label(entry)));
+            continue;
+        }
+
+        let unique = names
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if unique.len() != names.len() {
+            errors.push(format!(
+                "{} declares duplicate parameters: {names:?}",
+                variant_label(entry)
+            ));
+        }
+
+        let canonical = names.to_vec();
+        if let Some(expected) = schemas.get(entry.name) {
+            if expected != &canonical {
+                errors.push(format!(
+                    "{} has parameter schema {canonical:?}, expected {expected:?}",
+                    variant_label(entry)
+                ));
+            }
+        } else {
+            schemas.insert(entry.name, canonical.clone());
+        }
+
+        let expression = crate::expr::Expr::parse(entry.complexity);
+        for variable in expression.variables() {
+            if !canonical.contains(&variable) {
+                errors.push(format!(
+                    "{} complexity references unknown parameter `{variable}`; declared: {canonical:?}",
+                    variant_label(entry)
+                ));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        errors.sort();
+        Err(errors)
     }
 }
 

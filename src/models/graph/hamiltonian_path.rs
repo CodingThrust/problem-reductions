@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a Hamiltonian path in a graph",
         fields: &[
@@ -51,14 +52,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::HamiltonianPath;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph: 0-1-2-3
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 /// let problem = HamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,19 +100,44 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "HamiltonianPath";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "path ordering length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&vertex| vertex >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "path ordering contains an out-of-range vertex".into(),
+            ));
+        }
+        Ok(crate::types::Or(is_valid_hamiltonian_path(
+            &self.graph,
+            config,
+        )))
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for HamiltonianPath<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
         let n = self.graph.num_vertices();
         vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_hamiltonian_path(&self.graph, config))
     }
 }
 
@@ -161,14 +187,24 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (5, 1),
             ],
         ))),
-        optimal_config: vec![0, 2, 4, 3, 1, 5],
+        optimal_config: serde_json::json!(vec![0, 2, 4, 3, 1, 5]),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 // Use Bjorklund (2014) O*(1.657^n) as best known for general undirected graphs
+crate::impl_random_generate!(
+    HamiltonianPath<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(HamiltonianPath::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default HamiltonianPath<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianPath<SimpleGraph> => "1.657^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    HamiltonianPath<SimpleGraph>,
 }
 
 #[cfg(test)]

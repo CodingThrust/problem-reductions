@@ -4,6 +4,75 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
+fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
+    let command = pred()
+        .args(["path", source, target, "--limit", "all", "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        command.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&command.stderr)
+    );
+    let envelope: serde_json::Value = serde_json::from_slice(&command.stdout).unwrap();
+    let entry = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| {
+            let edges = entry["path"].as_array().unwrap();
+            let mut actual = vec![edges[0]["from"]["name"].as_str().unwrap()];
+            actual.extend(
+                edges
+                    .iter()
+                    .map(|edge| edge["to"]["name"].as_str().unwrap()),
+            );
+            actual == names
+        })
+        .expect("requested route must be present in path enumeration");
+    std::fs::write(output, serde_json::to_vec_pretty(entry).unwrap()).unwrap();
+}
+
+fn reduce_named_to_file(
+    problem: &std::path::Path,
+    source: &str,
+    target: &str,
+    names: &[&str],
+    output: &std::path::Path,
+) -> std::process::Output {
+    let route = output.with_extension("route.json");
+    write_named_route(source, target, names, &route);
+    let result = pred()
+        .args([
+            "-o",
+            output.to_str().unwrap(),
+            "reduce",
+            problem.to_str().unwrap(),
+            "--via",
+            route.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    std::fs::remove_file(route).ok();
+    result
+}
+
+fn write_direct_route(source: &str, target: &str, output: &std::path::Path) {
+    let command = pred()
+        .args(["path", source, target, "--limit", "all", "--json"])
+        .output()
+        .unwrap();
+    assert!(command.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&command.stdout).unwrap();
+    let route = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| path["steps"] == 1)
+        .expect("advertised direct reduction must have a direct route");
+    std::fs::write(output, serde_json::to_vec_pretty(route).unwrap()).unwrap();
+}
+
 #[test]
 fn test_help() {
     let output = pred().arg("--help").output().unwrap();
@@ -17,13 +86,75 @@ fn test_list() {
     let output = pred().args(["list"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("MaximumIndependentSet"));
-    assert!(stdout.contains("QUBO"));
+    assert!(stdout.contains("Registered catalog"));
+    assert!(stdout.contains("graph"));
+    for category in ["algebraic", "formula", "graph", "misc", "set"] {
+        assert!(stdout.contains(category));
+    }
+    assert!(!stdout.contains("MaximumIndependentSet"));
+    assert!(stdout.lines().count() < 30, "default list is too verbose");
+}
+
+#[test]
+fn test_list_filters_by_category() {
+    let output = pred()
+        .args(["list", "--category", "formula"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+    assert!(!stdout.contains("MaximumIndependentSet"));
+}
+
+#[test]
+fn test_list_json_respects_category_filter() {
+    let output = pred()
+        .args(["list", "--category", "formula", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let variants = json["variants"].as_array().unwrap();
+    assert_eq!(json["num_types"], 9);
+    assert!(variants
+        .iter()
+        .all(|variant| variant["name"] != "MaximumIndependentSet"));
+    assert!(variants
+        .iter()
+        .all(|variant| variant["category"] == "formula"));
+    assert!(variants
+        .iter()
+        .any(|variant| variant["name"] == "KSatisfiability/K3"));
+}
+
+#[test]
+fn test_list_category_rejects_unknown_value() {
+    let output = pred()
+        .args(["list", "--category", "unknown"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("unknown problem category `unknown`"));
+    assert!(stderr.contains("algebraic, formula, graph, misc, set"));
+}
+
+#[test]
+fn test_list_searches_variant_aliases() {
+    let output = pred().args(["list", "3SAT"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+    assert!(stdout.contains("3SAT"));
 }
 
 #[test]
 fn test_list_includes_undirected_two_commodity_integral_flow() {
-    let output = pred().args(["list"]).output().unwrap();
+    let output = pred()
+        .args(["list", "UndirectedTwoCommodity"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -35,7 +166,10 @@ fn test_list_includes_undirected_two_commodity_integral_flow() {
 
 #[test]
 fn test_list_includes_integral_flow_homologous_arcs() {
-    let output = pred().args(["list"]).output().unwrap();
+    let output = pred()
+        .args(["list", "IntegralFlowHomologousArcs"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -59,7 +193,10 @@ fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
 
 #[test]
 fn test_list_rules() {
-    let output = pred().args(["list", "--rules"]).output().unwrap();
+    let output = pred()
+        .args(["list", "--rules", "--all", "--verbose"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -69,7 +206,7 @@ fn test_list_rules() {
     assert!(stdout.contains("Registered reduction rules:"));
     assert!(stdout.contains("Source"));
     assert!(stdout.contains("Target"));
-    assert!(stdout.contains("Overhead"));
+    assert!(stdout.contains("Parameter transform"));
     // Should contain a known reduction
     assert!(
         stdout.contains("MaximumIndependentSet"),
@@ -88,7 +225,31 @@ fn test_list_rules_json() {
     assert!(!rules.is_empty());
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
-    assert!(rules[0]["overhead"].is_string());
+    assert!(rules[0]["parameter_contract"].is_string());
+}
+
+#[test]
+fn test_list_rules_searches_problem_aliases() {
+    let output = pred().args(["list", "--rules", "3SAT"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+}
+
+#[test]
+fn test_list_rules_json_respects_query() {
+    let output = pred()
+        .args(["list", "--rules", "3SAT", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let rules = json["rules"].as_array().unwrap();
+    assert_eq!(json["num_rules"].as_u64().unwrap() as usize, rules.len());
+    assert!(rules.iter().all(|rule| {
+        rule["source"].as_str().unwrap().contains("KSatisfiability")
+            || rule["target"].as_str().unwrap().contains("KSatisfiability")
+    }));
 }
 
 #[test]
@@ -189,8 +350,12 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     let stdout = String::from_utf8(solve.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"], "BalancedCompleteBipartiteSubgraph");
-    assert_eq!(json["solver"], "ilp");
-    assert_eq!(json["reduced_to"], "ILP");
+    assert_eq!(json["solver"]["kind"], "ilp");
+    assert!(json["solver"]["reduction_path"]
+        .as_array()
+        .and_then(|path| path.last())
+        .and_then(|step| step.as_str())
+        .is_some_and(|step| step.starts_with("ILP<")));
     assert_eq!(json["evaluation"], "Or(true)");
     assert!(
         json["solution"]
@@ -203,35 +368,8 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
 }
 
 #[test]
-fn test_path() {
-    let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Path"));
-    assert!(stdout.contains("step"));
-}
-
-#[test]
-fn test_path_save() {
-    let tmp = std::env::temp_dir().join("pred_test_path.json");
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "-o", tmp.to_str().unwrap()])
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    assert!(tmp.exists());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json["path"].is_array());
-    std::fs::remove_file(&tmp).ok();
-}
-
-#[test]
-fn test_path_all() {
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "--all"])
-        .output()
-        .unwrap();
+fn test_path_enumerates_without_mode() {
+    let output = pred().args(["path", "MIS", "QUBO/f64"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Found"));
@@ -239,11 +377,126 @@ fn test_path_all() {
 }
 
 #[test]
-fn test_path_all_save() {
-    let dir = std::env::temp_dir().join("pred_test_all_paths");
-    let _ = std::fs::remove_dir_all(&dir);
+fn test_path_rejects_zero_edge_route_for_symbolic_and_concrete_queries() {
+    let symbolic = pred()
+        .args(["path", "MIS", "MIS", "--json"])
+        .output()
+        .unwrap();
+    assert!(!symbolic.status.success());
+    assert!(String::from_utf8_lossy(&symbolic.stderr).contains("No reduction path"));
+
+    let instance = std::env::temp_dir().join("pred_path_same_source_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":2,"edges":[[0,1]]},"weights":[1,1]}}"#,
+    )
+    .unwrap();
+    let concrete = pred()
+        .args([
+            "path",
+            "MIS/SimpleGraph/i64",
+            "MIS/SimpleGraph/i64",
+            instance.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    std::fs::remove_file(instance).ok();
+    assert!(!concrete.status.success());
+    assert!(String::from_utf8_lossy(&concrete.stderr).contains("No reduction path"));
+}
+
+#[test]
+fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target() {
+    let instance = std::env::temp_dir().join("pred_path_concrete_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+    )
+    .unwrap();
+    let run = || {
+        let output = pred()
+            .args([
+                "path",
+                "MIS/SimpleGraph/i64",
+                "MaximumClique/SimpleGraph/i64",
+                instance.to_str().unwrap(),
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap()
+    };
+    let first = run();
+    let second = run();
+    std::fs::remove_file(instance).ok();
+    assert_eq!(first, second);
+    let json: serde_json::Value = serde_json::from_str(&first).unwrap();
+    let overall = json["paths"][0]["actual_target_parameters"]["fields"]
+        .as_array()
+        .unwrap();
+    let value = |field: &str| &overall.iter().find(|item| item["field"] == field).unwrap()["value"];
+    assert_eq!(value("num_vertices"), 5);
+    assert_eq!(value("num_edges"), 6);
+    assert!(json.get("comparison").is_none());
+}
+
+#[test]
+fn test_path_returns_every_enumerated_candidate_in_stable_order() {
+    let instance = std::env::temp_dir().join("pred_path_candidates_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+    )
+    .unwrap();
+    let run = |limit: &str| {
+        let output = pred()
+            .args([
+                "path",
+                "MIS/SimpleGraph/i64",
+                "QUBO/f64",
+                instance.to_str().unwrap(),
+                "--limit",
+                limit,
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
+
+    let first_three = run("3");
+    let first = run("1");
+    std::fs::remove_file(instance).unwrap();
+
+    assert_eq!(first_three["paths"].as_array().unwrap().len(), 3);
+    assert_eq!(first["paths"].as_array().unwrap().len(), 1);
+    assert_eq!(first_three["truncated"], true);
+    assert_eq!(first["truncated"], true);
+    assert_eq!(first["paths"][0], first_three["paths"][0]);
+}
+
+#[test]
+fn test_path_save() {
+    let tmp = std::env::temp_dir().join("pred_test_path.json");
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--all", "-o", dir.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
+            "-o",
+            tmp.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(
@@ -251,17 +504,87 @@ fn test_path_all_save() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(dir.is_dir());
-    let entries: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
-    assert!(entries.len() > 1, "expected multiple path files");
-
-    // Verify first file is valid JSON
-    let first = dir.join("path_1.json");
-    let content = std::fs::read_to_string(&first).unwrap();
+    assert!(tmp.exists());
+    let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json["path"].is_array());
+    assert!(json.get("path").is_none());
+    assert!(json["paths"]
+        .as_array()
+        .is_some_and(|paths| !paths.is_empty()));
+    std::fs::remove_file(&tmp).ok();
+}
 
-    std::fs::remove_dir_all(&dir).ok();
+#[test]
+fn test_path_limit_bounds_enumeration() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO/f64", "--limit", "1", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["paths"].as_array().unwrap().len(), 1);
+    assert_eq!(json["truncated"], true);
+    assert!(json.get("returned").is_none());
+    assert!(json.get("max_paths").is_none());
+}
+
+#[test]
+fn test_path_rejects_limit_above_maximum() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--limit", "1000"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("limit must be an integer from 1 to 999 or 'all'"));
+}
+
+#[test]
+fn test_path_limit_all_is_alias_for_999() {
+    let run = |limit: &str| {
+        let output = pred()
+            .args(["path", "MIS", "QUBO/f64", "--limit", limit, "--json"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        output.stdout
+    };
+
+    assert_eq!(run("all"), run("999"));
+}
+
+#[test]
+fn test_path_rejects_zero_limit() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--limit", "0"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("limit must be an integer from 1 to 999 or 'all'"));
+}
+
+#[test]
+fn test_path_set_save() {
+    let file = std::env::temp_dir().join("pred_test_paths.json");
+    let output = pred()
+        .args(["path", "MIS", "QUBO/f64", "-o", file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["paths"].is_array());
+
+    std::fs::remove_file(&file).ok();
 }
 
 #[test]
@@ -379,7 +702,7 @@ fn test_unknown_problem_no_match() {
 fn test_evaluate() {
     let problem_json = r#"{
         "type": "MaximumIndependentSet",
-        "variant": {"graph": "SimpleGraph", "weight": "i32"},
+        "variant": {"graph": "SimpleGraph", "weight": "i64"},
         "data": {
             "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
@@ -389,7 +712,12 @@ fn test_evaluate() {
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
-        .args(["evaluate", tmp.to_str().unwrap(), "--config", "1,0,1,0"])
+        .args([
+            "evaluate",
+            tmp.to_str().unwrap(),
+            "--config",
+            "[true,false,true,false]",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -415,7 +743,12 @@ fn test_evaluate_sat() {
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
-        .args(["evaluate", tmp.to_str().unwrap(), "--config", "1,1,0"])
+        .args([
+            "evaluate",
+            tmp.to_str().unwrap(),
+            "--config",
+            "[true,true,false]",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -435,7 +768,7 @@ fn test_evaluate_consecutive_block_minimization_rejects_ragged_matrix() {
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
-        .args(["evaluate", tmp.to_str().unwrap(), "--config", "0,1"])
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "[0,1]"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -449,7 +782,7 @@ fn test_evaluate_consecutive_block_minimization_rejects_ragged_matrix() {
 fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
     let problem_json = r#"{
         "type": "MultipleChoiceBranching",
-        "variant": {"weight": "i32"},
+        "variant": {"weight": "i64"},
         "data": {
             "graph": {"num_vertices": 2, "arcs": [[0,1]]},
             "weights": [1],
@@ -545,7 +878,7 @@ fn test_create_undirected_two_commodity_integral_flow_missing_capacities_shows_u
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --capacities"));
+    assert!(stderr.contains("missing required construction input(s): capacities"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -576,7 +909,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_invalid_capacity_t
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Invalid capacity `x`"));
+    assert!(stderr.contains("invalid digit found in string"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -607,7 +940,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_cou
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Expected 3 capacities but got 2"));
+    assert!(stderr.contains("capacities length must match graph edge count"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -640,7 +973,6 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_oversized_capacity
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains(format!("Invalid capacity `{oversized}`").as_str()));
     assert!(stderr.contains("number too large to fit in target type"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
@@ -672,7 +1004,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
+    assert!(stderr.contains("source_1 must be less than num_vertices"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
@@ -747,7 +1079,7 @@ fn test_create_integral_flow_bundles_missing_bundles_shows_usage() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --bundles"));
+    assert!(stderr.contains("missing required construction input(s): bundles"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
 }
 
@@ -776,7 +1108,7 @@ fn test_create_integral_flow_bundles_rejects_wrong_bundle_capacity_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Expected 3 bundle capacities but got 2"));
+    assert!(stderr.contains("bundles length must match bundle_capacities length"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
 }
 
@@ -805,7 +1137,7 @@ fn test_create_integral_flow_bundles_rejects_out_of_range_bundle_arc() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("bundle 1 references arc 7"));
+    assert!(stderr.contains("bundle 1 arc is out of range"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
@@ -888,7 +1220,7 @@ fn test_create_integral_flow_homologous_arcs_requires_homologous_pairs() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --homologous-pairs"));
+    assert!(stderr.contains("missing required construction input(s): homologous_pairs"));
     assert!(stderr.contains("Usage: pred create IntegralFlowHomologousArcs"));
 }
 
@@ -915,7 +1247,7 @@ fn test_create_integral_flow_homologous_arcs_rejects_invalid_pair_token() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("u=v"));
+    assert!(stderr.contains("expected format left=right"));
     assert!(stderr.contains("Usage: pred create IntegralFlowHomologousArcs"));
 }
 
@@ -983,7 +1315,7 @@ fn test_create_integral_flow_with_multipliers_missing_multipliers_shows_usage() 
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --multipliers"));
+    assert!(stderr.contains("missing required construction input(s): multipliers"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -1010,7 +1342,7 @@ fn test_create_integral_flow_with_multipliers_rejects_wrong_multiplier_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Expected 4 multipliers but got 3"));
+    assert!(stderr.contains("multipliers length must match num_vertices"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -1064,7 +1396,7 @@ fn test_create_integral_flow_with_multipliers_rejects_identical_source_and_sink(
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires distinct --source and --sink"));
+    assert!(stderr.contains("source and sink must be distinct"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -1075,45 +1407,24 @@ fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
             "create",
             "ConsecutiveBlockMinimization",
             "--matrix",
-            "[[true],[true,false]]",
-            "--bound",
+            "1;1,0",
+            "--bound-k",
             "2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("all matrix rows must have the same length"));
+    assert!(stderr.contains("All rows in --matrix must have the same length"));
     assert!(stderr.contains("Usage: pred create ConsecutiveBlockMinimization"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
-}
-
-#[test]
-fn test_create_consecutive_block_minimization_help_mentions_json_matrix_format() {
-    let output = pred()
-        .args(["create", "ConsecutiveBlockMinimization"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("JSON 2D bool array"));
-    assert!(stderr.contains("[[true,false,true],[false,true,true]]"));
-}
-
-#[test]
-fn test_create_help_mentions_consecutive_block_minimization_matrix_format() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("ConsecutiveBlockMinimization"));
-    assert!(stdout.contains("JSON 2D bool array"));
 }
 
 #[test]
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",
-        "variant": {"graph": "SimpleGraph", "weight": "i32"},
+        "variant": {"graph": "SimpleGraph", "weight": "i64"},
         "data": {
             "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
@@ -1121,7 +1432,19 @@ fn test_reduce() {
     }"#;
     let input = std::env::temp_dir().join("pred_test_reduce_in.json");
     let output_file = std::env::temp_dir().join("pred_test_reduce_out.json");
+    let route_file = std::env::temp_dir().join("pred_test_reduce_route.json");
     std::fs::write(&input, problem_json).unwrap();
+    write_named_route(
+        "MIS/SimpleGraph/i64",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     let output = pred()
         .args([
@@ -1129,8 +1452,8 @@ fn test_reduce() {
             output_file.to_str().unwrap(),
             "reduce",
             input.to_str().unwrap(),
-            "--to",
-            "QUBO",
+            "--via",
+            route_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -1148,6 +1471,7 @@ fn test_reduce() {
     assert!(bundle["path"].is_array());
 
     std::fs::remove_file(&input).ok();
+    std::fs::remove_file(&route_file).ok();
     std::fs::remove_file(&output_file).ok();
 }
 
@@ -1160,7 +1484,7 @@ fn test_reduce_via_path() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1170,19 +1494,19 @@ fn test_reduce_via_path() {
         .unwrap();
     assert!(create_out.status.success());
 
-    // 2. Generate path file (use same variant as the problem)
+    // 2. Explicitly extract a named route from the enumerated path set.
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
-    let path_out = pred()
-        .args([
-            "path",
-            "MIS/SimpleGraph/i32",
+    write_named_route(
+        "MIS/SimpleGraph/i64",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(path_out.status.success());
+        ],
+        &path_file,
+    );
 
     // 3. Reduce via path file
     let output_file = std::env::temp_dir().join("pred_test_reduce_via_out.json");
@@ -1192,8 +1516,6 @@ fn test_reduce_via_path() {
             output_file.to_str().unwrap(),
             "reduce",
             problem_file.to_str().unwrap(),
-            "--to",
-            "QUBO",
             "--via",
             path_file.to_str().unwrap(),
         ])
@@ -1217,6 +1539,141 @@ fn test_reduce_via_path() {
 }
 
 #[test]
+fn test_reduce_rejects_discontinuous_explicit_route() {
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_discontinuous_in.json");
+    let route_file = std::env::temp_dir().join("pred_test_reduce_discontinuous_route.json");
+    let create = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS/SimpleGraph/i64",
+            "--graph",
+            "0-1,1-2",
+            "--weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create.status.success());
+    write_named_route(
+        "MIS/SimpleGraph/i64",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
+    let mut route: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&route_file).unwrap()).unwrap();
+    route["path"][1]["from"]["name"] = serde_json::json!("MinimumVertexCover");
+    std::fs::write(&route_file, serde_json::to_vec_pretty(&route).unwrap()).unwrap();
+
+    let output = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            route_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("not continuous"));
+
+    std::fs::remove_file(problem_file).ok();
+    std::fs::remove_file(route_file).ok();
+}
+
+/// A path-set envelope is not itself an executable route.
+#[test]
+fn test_reduce_rejects_unselected_path_set() {
+    // 1. Create a small source problem (small so the target brute-force stays tiny).
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_via_bare_in.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS/SimpleGraph/i64",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    // 2. Save the path set without choosing a route.
+    let path_file = std::env::temp_dir().join("pred_test_reduce_via_bare_path.json");
+    let path_out = pred()
+        .args([
+            "path",
+            "MaximumIndependentSet/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
+            "-o",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        path_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&path_out.stderr)
+    );
+
+    let reduce_out = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!reduce_out.status.success());
+    assert!(String::from_utf8_lossy(&reduce_out.stderr).contains("explicit route"));
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&path_file).ok();
+}
+
+/// Every path-set item carries its route, while the envelope selects none.
+#[test]
+fn test_path_set_envelope_has_only_per_item_paths() {
+    let output = pred()
+        .args([
+            "path",
+            "MIS/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+
+    assert!(json["paths"]
+        .as_array()
+        .is_some_and(|paths| !paths.is_empty()));
+
+    assert!(json.get("path").is_none());
+    let path = json["paths"][0]["path"]
+        .as_array()
+        .expect("path-set item route");
+    assert!(!path.is_empty(), "path-set item must have ≥ 1 step");
+    let first = &path[0];
+    assert!(first["from"]["name"].is_string(), "step needs from.name");
+    assert!(first["to"]["name"].is_string(), "step needs to.name");
+    assert_eq!(first["from"]["name"], "MaximumIndependentSet");
+}
+
+#[test]
 fn test_reduce_via_infer_target() {
     // --via without --to: target is inferred from the path file
     let problem_file = std::env::temp_dir().join("pred_test_reduce_via_infer_in.json");
@@ -1225,7 +1682,7 @@ fn test_reduce_via_infer_target() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1236,17 +1693,17 @@ fn test_reduce_via_infer_target() {
     assert!(create_out.status.success());
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_infer_path.json");
-    let path_out = pred()
-        .args([
-            "path",
-            "MIS/SimpleGraph/i32",
+    write_named_route(
+        "MIS/SimpleGraph/i64",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(path_out.status.success());
+        ],
+        &path_file,
+    );
 
     let output_file = std::env::temp_dir().join("pred_test_reduce_via_infer_out.json");
     let reduce_out = pred()
@@ -1277,14 +1734,14 @@ fn test_reduce_via_infer_target() {
 }
 
 #[test]
-fn test_reduce_via_rejects_target_variant_mismatch() {
+fn test_reduce_via_preserves_explicit_target_variant() {
     let problem_file = std::env::temp_dir().join("pred_test_reduce_via_variant_in.json");
     let create_out = pred()
         .args([
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1295,50 +1752,36 @@ fn test_reduce_via_rejects_target_variant_mismatch() {
     assert!(create_out.status.success());
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_variant_path.json");
-    let path_out = pred()
-        .args([
-            "path",
-            "MIS/SimpleGraph/i32",
-            "ILP/bool",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        path_out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&path_out.stderr)
+    write_named_route(
+        "MIS/SimpleGraph/i64",
+        "ILP/bool",
+        &["MaximumIndependentSet", "MaximumClique", "ILP"],
+        &path_file,
     );
 
     let reduce_out = pred()
         .args([
             "reduce",
             problem_file.to_str().unwrap(),
-            "--to",
-            "ILP/i32",
             "--via",
             path_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
     assert!(
-        !reduce_out.status.success(),
+        reduce_out.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&reduce_out.stderr)
     );
-    let stderr = String::from_utf8_lossy(&reduce_out.stderr);
-    assert!(
-        stderr.contains("ILP") && stderr.contains("i32") && stderr.contains("bool"),
-        "expected variant mismatch details, got: {stderr}"
-    );
+    let bundle: serde_json::Value = serde_json::from_slice(&reduce_out.stdout).unwrap();
+    assert_eq!(bundle["target"]["variant"]["variable"], "bool");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&path_file).ok();
 }
 
 #[test]
-fn test_reduce_missing_to_and_via() {
+fn test_reduce_missing_via() {
     let problem_file = std::env::temp_dir().join("pred_test_reduce_missing.json");
     let create_out = pred()
         .args([
@@ -1359,7 +1802,7 @@ fn test_reduce_missing_to_and_via() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--to") || stderr.contains("--via"));
+    assert!(stderr.contains("--via"));
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -1450,7 +1893,7 @@ fn test_create_multiprocessor_scheduling_rejects_zero_processors() {
         "zero processors should return a user error, got panic output: {stderr}"
     );
     assert!(
-        stderr.contains("requires --num-processors > 0"),
+        stderr.contains("num_processors must be positive"),
         "expected a validation error for zero processors, got: {stderr}"
     );
 }
@@ -1464,9 +1907,9 @@ fn test_create_x3c_alias() {
             output_file.to_str().unwrap(),
             "create",
             "X3C",
-            "--universe",
+            "--universe-size",
             "6",
-            "--sets",
+            "--subsets",
             "0,1,2;3,4,5",
         ])
         .output()
@@ -1572,12 +2015,12 @@ fn test_solve_d2cif_default_solver_uses_ilp() {
     );
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     assert!(
-        stdout.contains("\"solver\": \"ilp\""),
+        stdout.contains("\"kind\": \"ilp\""),
         "expected ILP solver output, got: {stdout}"
     );
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "expected auto-reduction marker, got: {stdout}"
+        stdout.contains("\"reduction_path\""),
+        "expected registered ILP pipeline metadata, got: {stdout}"
     );
 
     std::fs::remove_file(&output_file).ok();
@@ -1627,7 +2070,14 @@ fn test_inspect_rectilinear_picture_compression_lists_ilp_and_bruteforce() {
 #[test]
 fn test_create_x3c_rejects_duplicate_subset_elements() {
     let output = pred()
-        .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])
+        .args([
+            "create",
+            "X3C",
+            "--universe-size",
+            "6",
+            "--subsets",
+            "0,0,1;3,4,5",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -1651,7 +2101,7 @@ fn test_create_comparative_containment() {
             output_file.to_str().unwrap(),
             "create",
             "ComparativeContainment",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,2,3;0,1",
@@ -1674,7 +2124,7 @@ fn test_create_comparative_containment() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "ComparativeContainment");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["universe_size"], 4);
     assert_eq!(
         json["data"]["r_sets"],
@@ -1696,7 +2146,7 @@ fn test_create_comparative_containment_rejects_out_of_range_elements_without_pan
         .args([
             "create",
             "ComparativeContainment",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,4",
@@ -1720,7 +2170,7 @@ fn test_create_comparative_containment_rejects_nonpositive_weights_without_panic
         .args([
             "create",
             "ComparativeContainment",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1",
@@ -1746,9 +2196,9 @@ fn test_create_set_basis() {
             output_file.to_str().unwrap(),
             "create",
             "SetBasis",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1;1,2;0,2;0,1,2",
             "--k",
             "3",
@@ -1781,7 +2231,7 @@ fn test_create_comparative_containment_f64() {
             output_file.to_str().unwrap(),
             "create",
             "ComparativeContainment/f64",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,2,3;0,1",
@@ -1817,7 +2267,7 @@ fn test_create_comparative_containment_one_rejects_nonunit_weights() {
         .args([
             "create",
             "ComparativeContainment/One",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,2,3;0,1",
@@ -1837,7 +2287,7 @@ fn test_create_comparative_containment_one_rejects_nonunit_weights() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Non-unit weights are not supported for ComparativeContainment/One"),
+        stderr.contains("expected 1 for One, got 2"),
         "stderr: {stderr}"
     );
 }
@@ -1856,7 +2306,6 @@ fn test_create_comparative_containment_no_flags_shows_help() {
     assert!(stderr.contains("--universe-size"), "stderr: {stderr}");
     assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
     assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
-    assert!(!stderr.contains("--universe "), "stderr: {stderr}");
 }
 
 #[test]
@@ -1868,9 +2317,9 @@ fn test_create_minimum_hitting_set() {
             output_file.to_str().unwrap(),
             "create",
             "MinimumHittingSet",
-            "--universe",
+            "--universe-size",
             "6",
-            "--sets",
+            "--subsets",
             "0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4",
         ])
         .output()
@@ -1908,9 +2357,9 @@ fn test_create_minimum_hitting_set_rejects_out_of_range_elements_without_panicki
         .args([
             "create",
             "MinimumHittingSet",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1,4;1,2",
         ])
         .output()
@@ -1925,36 +2374,24 @@ fn test_create_minimum_hitting_set_rejects_out_of_range_elements_without_panicki
 }
 
 #[test]
-fn test_create_help_lists_minimum_hitting_set_flags() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("MinimumHittingSet") && stdout.contains("--universe-size, --subsets"),
-        "stdout: {stdout}"
-    );
-}
-
-#[test]
 fn test_create_set_basis_requires_k() {
     let output = pred()
         .args([
             "create",
             "SetBasis",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1;1,2;0,2;0,1,2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("SetBasis requires --k"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("missing required construction input(s): k"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -1963,9 +2400,9 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
         .args([
             "create",
             "SetBasis",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,4",
             "--k",
             "1",
@@ -1991,7 +2428,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness() {
             output_file.to_str().unwrap(),
             "create",
             "SequencingToMinimizeWeightedTardiness",
-            "--sizes",
+            "--lengths",
             "3,4,2,5,3",
             "--weights",
             "2,3,1,4,2",
@@ -2042,7 +2479,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_leng
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("lengths length (3) must equal weights length (2)"),
+        stderr.contains("weights length must equal lengths length"),
         "stderr: {stderr}"
     );
 }
@@ -2057,10 +2494,6 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
     assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("semicolon-separated dependencies"),
-        "stderr: {stderr}"
-    );
 }
 
 #[test]
@@ -2093,14 +2526,7 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
 #[test]
 fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
     let output = pred()
-        .args([
-            "create",
-            "MinimumCardinalityKey",
-            "--dependencies",
-            "0>0",
-            "--bound",
-            "1",
-        ])
+        .args(["create", "MinimumCardinalityKey", "--dependencies", "0>0"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -2121,7 +2547,7 @@ fn test_create_two_dimensional_consecutive_sets_accepts_alphabet_size_flag() {
             "TwoDimensionalConsecutiveSets",
             "--alphabet-size",
             "6",
-            "--sets",
+            "--subsets",
             "0,1,2;3,4,5;1,3;2,4;0,5",
         ])
         .output()
@@ -2149,7 +2575,7 @@ fn test_create_two_dimensional_consecutive_sets_rejects_zero_alphabet_size_witho
             "TwoDimensionalConsecutiveSets",
             "--alphabet-size",
             "0",
-            "--sets",
+            "--subsets",
             "0",
         ])
         .output()
@@ -2171,7 +2597,7 @@ fn test_create_two_dimensional_consecutive_sets_rejects_duplicate_elements_witho
             "TwoDimensionalConsecutiveSets",
             "--alphabet-size",
             "3",
-            "--sets",
+            "--subsets",
             "0,0",
         ])
         .output()
@@ -2211,7 +2637,7 @@ fn test_create_then_evaluate() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "1,0,1,0",
+            "[true,false,true,false]",
         ])
         .output()
         .unwrap();
@@ -2264,14 +2690,14 @@ fn test_create_multiple_choice_branching() {
             "-o",
             output_file.to_str().unwrap(),
             "create",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "--arcs",
             "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
             "--weights",
             "3,2,4,1,2,3,1,3",
             "--partition",
             "0,1;2,3;4,7;5,6",
-            "--bound",
+            "--threshold",
             "10",
         ])
         .output()
@@ -2286,7 +2712,7 @@ fn test_create_multiple_choice_branching() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "MultipleChoiceBranching");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(
         json["data"]["weights"],
         serde_json::json!([3, 2, 4, 1, 2, 3, 1, 3])
@@ -2303,7 +2729,7 @@ fn test_create_multiple_choice_branching() {
 #[test]
 fn test_create_model_example_multiple_choice_branching() {
     let output = pred()
-        .args(["create", "--example", "MultipleChoiceBranching/i32"])
+        .args(["create", "--example", "MultipleChoiceBranching/i64"])
         .output()
         .unwrap();
     assert!(
@@ -2315,7 +2741,7 @@ fn test_create_model_example_multiple_choice_branching() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MultipleChoiceBranching");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["threshold"], 10);
     assert_eq!(json["data"]["partition"].as_array().unwrap().len(), 4);
 }
@@ -2333,7 +2759,7 @@ fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() 
         .args([
             "create",
             "--example",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -2359,11 +2785,63 @@ fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() 
 }
 
 #[test]
+fn test_kth_largest_m_tuple_solve_uses_k_threshold() {
+    let solve = |k: u64| {
+        let create = pred()
+            .args([
+                "create",
+                "KthLargestMTuple",
+                "--subsets",
+                "2,5,8;3,6;1,4,7",
+                "--k",
+                &k.to_string(),
+                "--bound",
+                "12",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            create.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&create.stderr)
+        );
+
+        let path = std::env::temp_dir().join(format!(
+            "pred_test_kth_largest_m_tuple_{}_{}.json",
+            std::process::id(),
+            k
+        ));
+        std::fs::write(&path, create.stdout).unwrap();
+
+        let output = pred()
+            .args(["solve", path.to_str().unwrap(), "--solver", "brute-force"])
+            .output()
+            .unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
+
+    let at_threshold = solve(14);
+    let above_threshold = solve(15);
+
+    assert_eq!(at_threshold["status"], "optimal");
+    assert_eq!(at_threshold["evaluation"], "Or(true)");
+    assert_eq!(above_threshold["status"], "infeasible");
+    assert!(above_threshold.get("evaluation").is_none());
+    assert!(above_threshold.get("solution").is_none());
+}
+
+#[test]
 fn test_create_acyclic_partition() {
     let output = pred()
         .args([
             "create",
-            "AcyclicPartition/i32",
+            "AcyclicPartition/i64",
             "--arcs",
             "0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5",
             "--weights",
@@ -2386,7 +2864,7 @@ fn test_create_acyclic_partition() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "AcyclicPartition");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(
         json["data"]["vertex_weights"],
         serde_json::json!([2, 3, 2, 1, 3, 1])
@@ -2402,7 +2880,7 @@ fn test_create_acyclic_partition() {
 #[test]
 fn test_create_model_example_acyclic_partition() {
     let output = pred()
-        .args(["create", "--example", "AcyclicPartition/i32"])
+        .args(["create", "--example", "AcyclicPartition/i64"])
         .output()
         .unwrap();
     assert!(
@@ -2414,7 +2892,7 @@ fn test_create_model_example_acyclic_partition() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "AcyclicPartition");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["weight_bound"], 5);
     assert_eq!(json["data"]["cost_bound"], 5);
     assert_eq!(json["data"]["graph"]["num_vertices"], 6);
@@ -2433,7 +2911,7 @@ fn test_create_model_example_acyclic_partition_round_trips_into_solve() {
         .args([
             "create",
             "--example",
-            "AcyclicPartition/i32",
+            "AcyclicPartition/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -2470,10 +2948,8 @@ fn test_create_mixed_chinese_postman() {
             "0>1,1>2,2>3,3>0",
             "--edge-weights",
             "2,3,1,2",
-            "--arc-costs",
+            "--arc-weights",
             "2,3,1,4",
-            "--bound",
-            "24",
         ])
         .output()
         .unwrap();
@@ -2486,7 +2962,7 @@ fn test_create_mixed_chinese_postman() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MixedChinesePostman");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["graph"]["num_vertices"], 5);
     assert_eq!(json["data"]["arc_weights"], serde_json::json!([2, 3, 1, 4]));
     assert_eq!(
@@ -2498,7 +2974,7 @@ fn test_create_mixed_chinese_postman() {
 #[test]
 fn test_create_model_example_mixed_chinese_postman() {
     let output = pred()
-        .args(["create", "--example", "MixedChinesePostman/i32"])
+        .args(["create", "--example", "MixedChinesePostman/i64"])
         .output()
         .unwrap();
     assert!(
@@ -2510,7 +2986,7 @@ fn test_create_model_example_mixed_chinese_postman() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MixedChinesePostman");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -2523,10 +2999,8 @@ fn test_create_mixed_chinese_postman_missing_arcs_shows_usage() {
             "0-2,1-3,0-4,4-2",
             "--edge-weights",
             "2,3,1,2",
-            "--arc-costs",
+            "--arc-weights",
             "2,3,1,4",
-            "--bound",
-            "24",
         ])
         .output()
         .unwrap();
@@ -2534,7 +3008,7 @@ fn test_create_mixed_chinese_postman_missing_arcs_shows_usage() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("MixedChinesePostman requires --arcs"),
+        stderr.contains("missing required construction input(s): arcs"),
         "expected missing --arcs error, got: {stderr}"
     );
     assert!(
@@ -2555,10 +3029,8 @@ fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
             "0>1,1>2,2>3,3>0",
             "--edge-weights",
             "2,3",
-            "--arc-costs",
+            "--arc-weights",
             "2,3,1,4",
-            "--bound",
-            "24",
         ])
         .output()
         .unwrap();
@@ -2566,57 +3038,8 @@ fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Expected 4 edge weight"),
+        stderr.contains("edge_weights length must match num_edges"),
         "expected edge-weight mismatch diagnostic, got: {stderr}"
-    );
-}
-
-#[test]
-fn test_create_multiple_choice_branching_rejects_negative_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "MultipleChoiceBranching/i32",
-            "--arcs",
-            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
-            "--weights",
-            "3,2,4,1,2,3,1,3",
-            "--partition",
-            "0,1;2,3;4,7;5,6",
-            "--bound=-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(
-        stderr.contains("threshold") || stderr.contains("--bound"),
-        "stderr should mention the invalid threshold: {stderr}"
-    );
-}
-
-#[test]
-fn test_create_multiple_choice_branching_rejects_overflowing_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "MultipleChoiceBranching/i32",
-            "--arcs",
-            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
-            "--weights",
-            "3,2,4,1,2,3,1,3",
-            "--partition",
-            "0,1;2,3;4,7;5,6",
-            "--bound",
-            "2147483648",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(
-        stderr.contains("threshold") || stderr.contains("--bound"),
-        "stderr should mention the overflowing threshold: {stderr}"
     );
 }
 
@@ -2625,14 +3048,14 @@ fn test_create_multiple_choice_branching_rejects_invalid_partition_without_panic
     let output = pred()
         .args([
             "create",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "--arcs",
             "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
             "--weights",
             "3,2,4,1,2,3,1,3",
             "--partition",
             "0,1;2,3;4,7;5,7",
-            "--bound",
+            "--threshold",
             "10",
         ])
         .output()
@@ -2659,7 +3082,7 @@ fn test_create_qubo() {
             "create",
             "QUBO",
             "--matrix",
-            "1,0.5;0.5,2",
+            "1,-1;0,2",
         ])
         .output()
         .unwrap();
@@ -2673,6 +3096,33 @@ fn test_create_qubo() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "QUBO");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_qubo_f64() {
+    let output_file = std::env::temp_dir().join("pred_test_create_qubo_f64.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "QUBO/f64",
+            "--matrix",
+            "1,0.5;0,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["variant"]["weight"], "f64");
 
     std::fs::remove_file(&output_file).ok();
 }
@@ -2712,7 +3162,7 @@ fn test_solve_brute_force() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY (as in tests)
-    assert!(stdout.contains("\"solver\": \"brute-force\""));
+    assert!(stdout.contains("\"kind\": \"brute-force\""));
     assert!(stdout.contains("\"solution\""));
 
     std::fs::remove_file(&problem_file).ok();
@@ -2744,11 +3194,11 @@ fn test_solve_ilp() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("\"solver\": \"ilp\""));
+    assert!(stdout.contains("\"kind\": \"ilp\""));
     assert!(stdout.contains("\"solution\""));
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "MIS solved with ILP should show auto-reduction: {stdout}"
+        stdout.contains("\"reduction_path\""),
+        "MIS solved with ILP should report its registered pipeline: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -2756,7 +3206,7 @@ fn test_solve_ilp() {
 
 #[test]
 fn test_solve_ilp_default() {
-    // Default solver is ilp
+    // MIS has no customized solver, so its registered ILP pipeline is the default.
     let problem_file = std::env::temp_dir().join("pred_test_solve_default.json");
     let create_out = pred()
         .args([
@@ -2783,16 +3233,15 @@ fn test_solve_ilp_default() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("\"solver\": \"ilp\"") && stdout.contains("\"reduced_to\": \"ILP\""),
-        "MIS with default solver should show auto-reduction: {stdout}"
+        stdout.contains("\"kind\": \"ilp\"") && stdout.contains("\"reduction_path\""),
+        "MIS with default solver should report its registered ILP pipeline: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
-fn test_solve_ilp_shows_via_ilp() {
-    // When solving a non-ILP problem with ILP solver, output should show "via ILP"
+fn test_solve_ilp_reports_registered_pipeline() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_via_ilp.json");
     let create_out = pred()
         .args([
@@ -2819,8 +3268,8 @@ fn test_solve_ilp_shows_via_ilp() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "Non-ILP problem solved with ILP should show auto-reduction indicator, got: {stdout}"
+        stdout.contains("\"reduction_path\""),
+        "Non-ILP problem solved with ILP should report its registered pipeline, got: {stdout}"
     );
     assert!(stdout.contains("\"problem\": \"MaximumIndependentSet\""));
 
@@ -2865,7 +3314,7 @@ fn test_solve_json_output() {
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(json["solution"].is_array());
-    assert_eq!(json["solver"], "brute-force");
+    assert_eq!(json["solver"]["kind"], "brute-force");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -2890,17 +3339,19 @@ fn test_solve_bundle() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -2931,10 +3382,88 @@ fn test_solve_bundle() {
     std::fs::remove_file(&bundle_file).ok();
 }
 
+fn solve_sat_to_nae_bundle(case: &str, clauses: &str) -> serde_json::Value {
+    let temp_dir = std::env::temp_dir();
+    let process_id = std::process::id();
+    let problem_file = temp_dir.join(format!("pred_test_{case}_{process_id}_sat.json"));
+    let bundle_file = temp_dir.join(format!("pred_test_{case}_{process_id}_sat_nae_bundle.json"));
+
+    let create = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "Satisfiability",
+            "--num-vars",
+            "1",
+            "--clauses",
+            clauses,
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let reduce = reduce_named_to_file(
+        &problem_file,
+        "Satisfiability",
+        "NAESatisfiability",
+        &["Satisfiability", "NAESatisfiability"],
+        &bundle_file,
+    );
+    assert!(
+        reduce.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce.stderr)
+    );
+
+    let solve = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        solve.status.success(),
+        "solve stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+
+    std::fs::remove_file(problem_file).unwrap();
+    std::fs::remove_file(bundle_file).unwrap();
+    serde_json::from_slice(&solve.stdout).unwrap()
+}
+
+#[test]
+fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability() {
+    let infeasible = solve_sat_to_nae_bundle("infeasible", "1;-1");
+    assert_eq!(infeasible["status"], "infeasible");
+    assert!(infeasible.get("evaluation").is_none());
+    assert!(infeasible.get("solution").is_none());
+    assert_eq!(infeasible["intermediate"]["status"], "infeasible");
+    assert!(infeasible["intermediate"].get("evaluation").is_none());
+    assert!(infeasible["intermediate"].get("solution").is_none());
+
+    let feasible = solve_sat_to_nae_bundle("feasible", "1");
+    assert_eq!(feasible["status"], "optimal");
+    assert_eq!(feasible["evaluation"], "Or(true)");
+    assert!(feasible["solution"].is_array());
+    assert_eq!(feasible["intermediate"]["status"], "optimal");
+    assert_eq!(feasible["intermediate"]["evaluation"], "Or(true)");
+    assert!(feasible["intermediate"]["solution"].is_array());
+}
+
 #[test]
 fn test_solve_bundle_ilp() {
     // Create → Reduce → Solve bundle with ILP
-    // Use MVC as target since it has an ILP reduction path (QUBO does not)
+    // Use MVC as the bundle target to exercise its registered fixed ILP pipeline.
     let problem_file = std::env::temp_dir().join("pred_test_solve_bundle_ilp_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_solve_bundle_ilp.json");
 
@@ -2951,17 +3480,17 @@ fn test_solve_bundle_ilp() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "MVC",
-        ])
-        .output()
-        .unwrap();
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "MVC/SimpleGraph/i64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MinimumVertexCover",
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -2987,8 +3516,8 @@ fn test_solve_bundle_ilp() {
 }
 
 #[test]
-fn test_solve_direct_ilp_i32_problem() {
-    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i32_problem.json");
+fn test_solve_direct_ilp_i64_problem() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i64_problem.json");
 
     let create_out = pred()
         .args([
@@ -2998,7 +3527,7 @@ fn test_solve_direct_ilp_i32_problem() {
             "--example",
             "SequencingToMinimizeWeightedCompletionTime",
             "--to",
-            "ILP/i32",
+            "ILP/variable=i64",
             "--example-side",
             "target",
         ])
@@ -3021,13 +3550,13 @@ fn test_solve_direct_ilp_i32_problem() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("\"problem\": \"ILP\""), "{stdout}");
-    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+    assert!(stdout.contains("\"kind\": \"ilp\""), "{stdout}");
 
     std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
-fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
+fn test_solve_partial_ilp_route_defaults_to_brute_force() {
     let problem_file = std::env::temp_dir()
         .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
 
@@ -3041,7 +3570,7 @@ fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
             "2,1,3,1,2",
             "--weights",
             "3,5,1,4,2",
-            "--precedence-pairs",
+            "--precedences",
             "0>2,1>4",
         ])
         .output()
@@ -3066,7 +3595,7 @@ fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
         stdout.contains("\"problem\": \"SequencingToMinimizeWeightedCompletionTime\""),
         "{stdout}"
     );
-    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+    assert!(stdout.contains("\"kind\": \"brute-force\""), "{stdout}");
     assert!(stdout.contains("\"solution\": ["), "{stdout}");
 
     std::fs::remove_file(&problem_file).ok();
@@ -3105,7 +3634,7 @@ fn test_solve_unknown_solver() {
 }
 
 #[test]
-fn test_solve_help_mentions_bruteforce_only_models() {
+fn test_solve_help_describes_deterministic_dispatch_and_overrides() {
     let output = pred().args(["solve", "--help"]).output().unwrap();
     assert!(
         output.status.success(),
@@ -3113,7 +3642,11 @@ fn test_solve_help_mentions_bruteforce_only_models() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("MinMaxMulticenter"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("deterministically selects"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("never searches"), "stdout: {stdout}");
     assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
 }
 
@@ -3211,7 +3744,7 @@ fn test_create_bounded_component_spanning_forest() {
             "2,3,1,2,3,1,2,1",
             "--k",
             "3",
-            "--bound",
+            "--max-weight",
             "6",
         ])
         .output()
@@ -3241,14 +3774,14 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
             "1,1,1,1",
             "--k",
             "0",
-            "--bound",
+            "--max-weight",
             "2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--k >= 1"), "stderr: {stderr}");
+    assert!(stderr.contains("k must be at least 1"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3264,7 +3797,7 @@ fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_verti
             "1,1,1,1",
             "--k",
             "5",
-            "--bound",
+            "--max-weight",
             "2",
             "-o",
         ])
@@ -3292,14 +3825,17 @@ fn test_create_bounded_component_spanning_forest_rejects_negative_weights() {
             "1,-1,1,1",
             "--k",
             "2",
-            "--bound",
+            "--max-weight",
             "2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --weights"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("weights must be nonnegative"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -3321,29 +3857,10 @@ fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("positive --max-weight"), "stderr: {stderr}");
-}
-
-#[test]
-fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "BoundedComponentSpanningForest",
-            "--graph",
-            "0-1,1-2,2-3",
-            "--weights",
-            "1,1,1,1",
-            "--k",
-            "2",
-            "--bound",
-            "3000000000",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("within i32 range"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("max_weight must be positive"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -3490,7 +4007,7 @@ fn test_create_string_to_string_correction_rejects_negative_bound() {
         "negative bound should be rejected"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+    assert!(stderr.contains("invalid value '-1'"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3594,8 +4111,6 @@ fn test_create_3sat() {
             "3",
             "--clauses",
             "1,2,3;-1,2,-3",
-            "--k",
-            "3",
         ])
         .output()
         .unwrap();
@@ -3662,7 +4177,7 @@ fn test_create_steiner_tree() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "SteinerTree");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2, 4]));
     std::fs::remove_file(&output_file).ok();
 }
@@ -3701,7 +4216,7 @@ fn test_create_sequencing_to_minimize_weighted_completion_time() {
             "2,1,3,1,2",
             "--weights",
             "3,5,1,4,2",
-            "--precedence-pairs",
+            "--precedences",
             "0>2,1>4",
         ])
         .output()
@@ -3721,18 +4236,6 @@ fn test_create_sequencing_to_minimize_weighted_completion_time() {
         serde_json::json!([[0, 2], [1, 4]])
     );
     std::fs::remove_file(&output_file).ok();
-}
-
-#[test]
-fn test_create_help_describes_precedence_pairs_generically() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"));
 }
 
 #[test]
@@ -3783,9 +4286,9 @@ fn test_create_from_example_source() {
         .args([
             "create",
             "--example",
-            "MVC/SimpleGraph/i32",
+            "MVC/SimpleGraph/i64",
             "--to",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
         ])
         .output()
         .unwrap();
@@ -3806,9 +4309,9 @@ fn test_create_from_example_target() {
         .args([
             "create",
             "--example",
-            "MVC/SimpleGraph/i32",
+            "MVC/SimpleGraph/i64",
             "--to",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--example-side",
             "target",
         ])
@@ -3850,7 +4353,7 @@ fn test_create_unknown_example_problem() {
 #[test]
 fn test_create_model_example_mis() {
     let output = pred()
-        .args(["create", "--example", "MIS/SimpleGraph/i32"])
+        .args(["create", "--example", "MIS/SimpleGraph/i64"])
         .output()
         .unwrap();
     assert!(
@@ -3862,7 +4365,7 @@ fn test_create_model_example_mis() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -3886,7 +4389,7 @@ fn test_create_model_example_mis_shorthand() {
 #[test]
 fn test_create_model_example_mis_weight_only() {
     let output = pred()
-        .args(["create", "--example", "MIS/i32"])
+        .args(["create", "--example", "MIS/i64"])
         .output()
         .unwrap();
     assert!(
@@ -3898,7 +4401,7 @@ fn test_create_model_example_mis_weight_only() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -3916,7 +4419,7 @@ fn test_create_model_example_steiner_tree() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "SteinerTree");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -3951,10 +4454,6 @@ fn test_create_no_flags_shows_help() {
         stderr.contains("--weights"),
         "expected '--weights' in help output, got: {stderr}"
     );
-    assert!(
-        stderr.contains("Example:"),
-        "expected 'Example:' in help output, got: {stderr}"
-    );
 }
 
 #[test]
@@ -3975,7 +4474,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_no_flags_shows_help() {
 #[test]
 fn test_create_multiple_choice_branching_help_uses_threshold_flag() {
     let output = pred()
-        .args(["create", "MultipleChoiceBranching/i32"])
+        .args(["create", "MultipleChoiceBranching/i64"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -3987,10 +4486,6 @@ fn test_create_multiple_choice_branching_help_uses_threshold_flag() {
     assert!(
         !stderr.contains("--bound"),
         "help output should not advertise '--bound', got: {stderr}"
-    );
-    assert!(
-        stderr.contains("semicolon-separated groups"),
-        "expected '--partition' help to describe groups, got: {stderr}"
     );
 }
 
@@ -4093,29 +4588,6 @@ fn test_create_register_sufficiency() {
 }
 
 #[test]
-fn test_create_help_uses_generic_matrix_and_k_descriptions() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("Matrix input"),
-        "expected generic matrix help, got: {stdout}"
-    );
-    assert!(
-        stdout.contains("Shared integer parameter"),
-        "expected generic k help, got: {stdout}"
-    );
-    assert!(
-        !stdout.contains("Matrix for QUBO"),
-        "create --help should not imply --matrix is QUBO-only, got: {stdout}"
-    );
-    assert!(
-        !stdout.contains("Number of colors for KColoring"),
-        "create --help should not imply --k is KColoring-only, got: {stdout}"
-    );
-}
-
-#[test]
 fn test_create_length_bounded_disjoint_paths_help_uses_max_length_flag() {
     let output = pred()
         .args(["create", "LengthBoundedDisjointPaths"])
@@ -4149,10 +4621,6 @@ fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
         stderr.contains("--bound"),
         "expected '--bound' in help output, got: {stderr}"
     );
-    assert!(
-        stderr.contains("semicolon-separated 0/1 rows: \"1,0;0,1\""),
-        "expected bool matrix format hint in help output, got: {stderr}"
-    );
 }
 
 #[test]
@@ -4164,8 +4632,8 @@ fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--universe"),
-        "expected '--universe' in help output, got: {stderr}"
+        stderr.contains("--universe-size"),
+        "expected '--universe-size' in help output, got: {stderr}"
     );
     assert!(
         stderr.contains("--dependencies"),
@@ -4211,6 +4679,27 @@ fn test_create_lcs_with_raw_strings_infers_alphabet() {
 }
 
 #[test]
+fn test_create_shortest_common_supersequence_derives_internal_fields() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestCommonSupersequence",
+            "--strings",
+            "0,1,2;1,2,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(json["data"]["max_length"], 6);
+}
+
+#[test]
 fn test_create_lcs_rejects_empty_strings_without_panicking() {
     let output = pred()
         .args(["create", "LCS", "--strings", ""])
@@ -4219,7 +4708,7 @@ fn test_create_lcs_rejects_empty_strings_without_panicking() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("at least one non-empty string"),
+        stderr.contains("at least one input string must be non-empty"),
         "expected user-facing validation error, got: {stderr}"
     );
     assert!(
@@ -4265,7 +4754,7 @@ fn test_create_minmaxmulticenter_success() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinMaxMulticenter");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["k"], 2);
     assert_eq!(
         json["data"]["vertex_weights"],
@@ -4361,11 +4850,8 @@ fn test_solve_minmaxmulticenter_default_solver_uses_ilp() {
         String::from_utf8_lossy(&solve_out.stderr)
     );
     let stdout = String::from_utf8(solve_out.stdout).unwrap();
-    assert!(stdout.contains("\"solver\": \"ilp\""), "stdout: {stdout}");
-    assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "stdout: {stdout}"
-    );
+    assert!(stdout.contains("\"kind\": \"ilp\""), "stdout: {stdout}");
+    assert!(stdout.contains("\"reduction_path\""), "stdout: {stdout}");
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -4478,7 +4964,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
             "0",
             "--sink",
             "0",
-            "--bound",
+            "--max-length",
             "1",
         ])
         .output()
@@ -4486,7 +4972,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--source and --sink must be distinct"),
+        stderr.contains("source and sink must be distinct"),
         "expected user-facing validation error, got: {stderr}"
     );
     assert!(
@@ -4507,7 +4993,7 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
             "0",
             "--sink",
             "3",
-            "--bound",
+            "--max-length",
             "2",
         ])
         .output()
@@ -4525,6 +5011,60 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
     // max_paths is auto-computed: min(deg(0), deg(3)) = min(2, 2) = 2
     assert_eq!(json["data"]["max_paths"], 2);
     assert_eq!(json["data"]["max_length"], 2);
+}
+
+#[test]
+fn test_solve_length_bounded_disjoint_paths_with_chord() {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let created = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2,0-2",
+            "--source",
+            "0",
+            "--sink",
+            "2",
+            "--max-length",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let mut child = pred()
+        .args(["solve", "-", "--json", "--quiet"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&created.stdout)
+        .unwrap();
+    let solved = child.wait_with_output().unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(json["status"], "optimal");
+    assert_eq!(json["solver"]["kind"], "ilp");
+    assert_eq!(json["evaluation"], "Max(2)");
+    let paths = json["solution"].as_array().unwrap();
+    assert_eq!(paths.len(), 2);
+    assert!(paths.contains(&serde_json::json!([true, true, false])));
+    assert!(paths.contains(&serde_json::json!([false, false, true])));
 }
 
 #[test]
@@ -4546,11 +5086,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr
-            .contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
-        "expected user-facing negative-bound error, got: {stderr}"
-    );
+    assert!(stderr.contains("invalid value '-1'"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4570,11 +5106,7 @@ fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr
-            .contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
-        "expected shared negative-bound validation, got: {stderr}"
-    );
+    assert!(stderr.contains("invalid value '-1'"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4688,7 +5220,7 @@ fn test_evaluate_wrong_config_length() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "1,0",
+            "[true,false]",
         ])
         .output()
         .unwrap();
@@ -4723,7 +5255,7 @@ fn test_evaluate_json_output() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "1,0,1",
+            "[true,false,true]",
         ])
         .output()
         .unwrap();
@@ -4778,87 +5310,93 @@ fn test_path_unknown_target() {
 }
 
 #[test]
-fn test_path_with_cost_minimize_field() {
+fn test_path_rejects_removed_cost_selection() {
     let output = pred()
         .args(["path", "MIS", "QUBO", "--cost", "minimize:num_variables"])
         .output()
         .unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Path"));
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unexpected argument '--cost'"));
 }
 
 #[test]
-fn test_path_unknown_cost() {
+fn test_path_rejects_removed_unfiltered_option() {
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--cost", "bad-cost"])
+        .args(["path", "MIS", "QUBO", "--unfiltered"])
         .output()
         .unwrap();
     assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unknown cost function"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unexpected argument '--unfiltered'"));
 }
 
 #[test]
-fn test_path_overall_overhead_text() {
-    // Use a multi-step path so the "Overall" section appears
+fn test_path_overall_exact_map_text() {
     let output = pred().args(["path", "KSAT/K3", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
         stdout.contains("Overall"),
-        "multi-step path should show Overall overhead"
+        "multi-step path should show Overall exact-map accounting"
     );
 }
 
 #[test]
-fn test_path_overall_overhead_json() {
-    let tmp = std::env::temp_dir().join("pred_test_path_overall.json");
+fn test_path_overall_exact_map_json() {
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "-o", tmp.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let json = &envelope["paths"][0];
     assert!(
-        json["overall_overhead"].is_array(),
-        "JSON should contain overall_overhead"
+        json["overall_parameters"]["fields"].is_array(),
+        "JSON should contain an overall exact parameter relation"
     );
-    let items = json["overall_overhead"].as_array().unwrap();
-    assert!(!items.is_empty(), "overall_overhead should have entries");
+    let items = json["overall_parameters"]["fields"].as_array().unwrap();
+    assert!(!items.is_empty(), "overall exact map should have entries");
     assert!(items[0]["field"].is_string());
     assert!(items[0]["formula"].is_string());
-    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]
-fn test_path_overall_overhead_composition() {
-    // Verify that overall overhead is the symbolic composition of per-step overheads,
-    // not just the last step's overhead. For a multi-step path A→B→C, the overall
-    // should substitute B's output expressions into C's input expressions.
-    let tmp = std::env::temp_dir().join("pred_test_path_composition.json");
-    // 3SAT → SAT → MIS gives a 2-step path where:
-    //   Step 1 (3SAT→SAT): num_literals = num_literals (identity)
-    //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
-    //   Overall: num_vertices = num_literals, num_edges = num_literals^2
+fn test_path_overall_upper_bound_map_composition() {
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "-o", tmp.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS/SimpleGraph/One",
+            "MaximumClique/SimpleGraph/i64",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let json = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| {
+            path["steps"].as_u64().is_some_and(|steps| steps >= 2)
+                && path["overall_parameters"]["fields"]
+                    .as_array()
+                    .and_then(|fields| fields.iter().find(|field| field["field"] == "num_edges"))
+                    .and_then(|field| field["formula"].as_str())
+                    .is_some_and(|formula| {
+                        formula.contains("num_vertices") && !formula.contains("num_edges")
+                    })
+        })
+        .expect("multi-step route with a composed edge bound");
 
-    // Must have at least 2 steps (K3→KN variant cast adds an extra step)
     assert!(json["steps"].as_u64().unwrap() >= 2);
 
-    // Collect overall overhead into a map
-    let overall: std::collections::HashMap<String, String> = json["overall_overhead"]
+    let overall: std::collections::HashMap<String, String> = json["overall_parameters"]["fields"]
         .as_array()
         .unwrap()
         .iter()
@@ -4870,8 +5408,6 @@ fn test_path_overall_overhead_composition() {
         })
         .collect();
 
-    // The composed overhead should reference source (3SAT) variables, not intermediate ones.
-    // num_vertices and num_edges should both be expressed in terms of num_literals.
     assert!(
         overall.contains_key("num_vertices"),
         "overall should have num_vertices"
@@ -4881,24 +5417,22 @@ fn test_path_overall_overhead_composition() {
         "overall should have num_edges"
     );
     assert!(
-        overall["num_vertices"].contains("num_literals"),
+        overall["num_vertices"].contains("num_vertices"),
         "num_vertices should be in terms of source vars, got: {}",
         overall["num_vertices"]
     );
     assert!(
-        overall["num_edges"].contains("num_literals"),
-        "num_edges should be in terms of source vars, got: {}",
+        overall["num_edges"].contains("num_vertices")
+            && !overall["num_edges"].contains("num_edges"),
+        "composed edge bound should be in terms of source vertices, got: {}",
         overall["num_edges"]
     );
-
-    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]
-fn test_path_all_overall_overhead() {
-    // Every path in --all --json output should have overall_overhead
+fn test_path_set_has_explicit_parameter_information() {
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
+        .args(["path", "KSAT/K3", "MIS", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -4910,21 +5444,89 @@ fn test_path_all_overall_overhead() {
     assert!(!paths.is_empty());
     for (i, p) in paths.iter().enumerate() {
         assert!(
-            p["overall_overhead"].is_array(),
-            "path {} missing overall_overhead",
-            i + 1
-        );
-        let items = p["overall_overhead"].as_array().unwrap();
-        assert!(
-            !items.is_empty(),
-            "path {} has empty overall_overhead",
+            p["overall_parameters"]["fields"].is_array(),
+            "path {} has no explicit size result",
             i + 1
         );
     }
     // Verify envelope metadata
-    assert!(envelope["returned"].is_number());
-    assert!(envelope["max_paths"].is_number());
+    assert!(envelope.get("returned").is_none());
+    assert!(envelope.get("max_paths").is_none());
+    assert!(envelope.get("analysis").is_none());
     assert!(envelope["truncated"].is_boolean());
+}
+
+#[test]
+fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() {
+    let output = pred()
+        .args(["path", "Factoring", "SpinGlass", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let overall = &envelope["paths"][0]["overall_parameters"];
+    let fields = overall["fields"].as_array().unwrap();
+    assert!(!fields.is_empty());
+    assert!(fields.iter().all(|field| {
+        field["relation"] == "unavailable"
+            && field["field"].is_string()
+            && field["reason"].is_string()
+    }));
+    assert!(overall.get("exact_composition_error").is_none());
+    assert!(overall.get("bound_composition_error").is_none());
+}
+
+#[test]
+fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
+    let output = pred()
+        .args([
+            "path",
+            "HighlyConnectedDeletion",
+            "ILP/bool",
+            "--limit",
+            "1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let fields = envelope["paths"][0]["overall_parameters"]["fields"]
+        .as_array()
+        .unwrap();
+    let relations = fields
+        .iter()
+        .map(|field| {
+            (
+                field["field"].as_str().unwrap(),
+                field["relation"].as_str().unwrap(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(relations["num_constraints"], "exact");
+    assert_eq!(relations["num_vars"], "unavailable");
+}
+
+#[test]
+fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
+    let output = pred()
+        .args(["path", "HighlyConnectedDeletion", "ILP/bool", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let fields = envelope["paths"][0]["overall_parameters"]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|field| (field["field"].as_str().unwrap(), field))
+        .collect::<std::collections::BTreeMap<_, _>>();
+
+    assert_eq!(fields["num_vars"]["relation"], "unavailable");
+    assert!(fields["num_vars"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("variable exponent unsupported"));
 }
 
 #[test]
@@ -4962,41 +5564,11 @@ fn test_show_json_output() {
 }
 
 #[test]
-fn test_show_size_fields() {
+fn test_show_parameters() {
     let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Size fields"));
-}
-
-#[test]
-fn test_reduce_unknown_target() {
-    let problem_file = std::env::temp_dir().join("pred_test_reduce_unknown.json");
-    let create_out = pred()
-        .args([
-            "-o",
-            problem_file.to_str().unwrap(),
-            "create",
-            "MIS",
-            "--graph",
-            "0-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(create_out.status.success());
-
-    let output = pred()
-        .args([
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "NonExistent",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-
-    std::fs::remove_file(&problem_file).ok();
+    assert!(stdout.contains("Parameters"));
 }
 
 #[test]
@@ -5015,13 +5587,26 @@ fn test_reduce_stdout() {
         .output()
         .unwrap();
     assert!(create_out.status.success());
+    let route_file = std::env::temp_dir().join("pred_test_reduce_stdout_route.json");
+    write_named_route(
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     let output = pred()
         .args([
             "reduce",
             problem_file.to_str().unwrap(),
-            "--to",
-            "QUBO",
+            "--via",
+            route_file.to_str().unwrap(),
             "--json",
         ])
         .output()
@@ -5037,6 +5622,7 @@ fn test_reduce_stdout() {
     assert!(json["target"].is_object());
 
     std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&route_file).ok();
 }
 
 #[test]
@@ -5055,9 +5641,27 @@ fn test_reduce_auto_json_output() {
         .output()
         .unwrap();
     assert!(create_out.status.success());
+    let route_file = std::env::temp_dir().join("pred_test_reduce_human_route.json");
+    write_named_route(
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     let output = pred()
-        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO"])
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            route_file.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(
@@ -5081,6 +5685,7 @@ fn test_reduce_auto_json_output() {
     );
 
     std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&route_file).ok();
 }
 
 // ---- Hint suppression tests ----
@@ -5162,17 +5767,19 @@ fn test_solve_bundle_no_hint_when_piped() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(reduce_out.status.success());
 
     let output = pred()
@@ -5541,11 +6148,11 @@ fn test_solve_sum_of_squares_partition_default_solver_uses_ilp() {
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("\"solver\": \"ilp\""),
+        stdout.contains("\"kind\": \"ilp\""),
         "stdout should report the ILP solver, got: {stdout}"
     );
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
+        stdout.contains("\"reduction_path\""),
         "stdout should report the ILP reduction target, got: {stdout}"
     );
 
@@ -5557,14 +6164,14 @@ fn test_create_multiple_choice_branching_pipe_to_solve() {
     let create_out = pred()
         .args([
             "create",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "--arcs",
             "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
             "--weights",
             "3,2,4,1,2,3,1,3",
             "--partition",
             "0,1;2,3;4,7;5,6",
-            "--bound",
+            "--threshold",
             "10",
         ])
         .output()
@@ -5604,7 +6211,7 @@ fn test_create_multiple_choice_branching_pipe_to_solve() {
 
 #[test]
 fn test_create_pipe_to_evaluate() {
-    // pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
+    // pred create MIS --graph 0-1,1-2 | pred evaluate - --config '[true,false,true]'
     let create_out = pred()
         .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
@@ -5617,7 +6224,7 @@ fn test_create_pipe_to_evaluate() {
 
     use std::io::Write;
     let mut child = pred()
-        .args(["evaluate", "-", "--config", "1,0,1"])
+        .args(["evaluate", "-", "--config", "[true,false,true]"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -5644,7 +6251,7 @@ fn test_create_pipe_to_evaluate() {
 
 #[test]
 fn test_create_pipe_to_reduce() {
-    // pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
+    // pred create MIS --graph 0-1,1-2 | pred reduce - --via route.json
     let create_out = pred()
         .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
@@ -5654,10 +6261,29 @@ fn test_create_pipe_to_reduce() {
         "create stderr: {}",
         String::from_utf8_lossy(&create_out.stderr)
     );
+    let route_file = std::env::temp_dir().join("pred_test_pipe_reduce_route.json");
+    write_named_route(
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     use std::io::Write;
     let mut child = pred()
-        .args(["reduce", "-", "--to", "QUBO", "--json"])
+        .args([
+            "reduce",
+            "-",
+            "--via",
+            route_file.to_str().unwrap(),
+            "--json",
+        ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -5681,6 +6307,7 @@ fn test_create_pipe_to_reduce() {
         json["source"].is_object(),
         "expected source object in reduction bundle, got: {stdout}"
     );
+    std::fs::remove_file(route_file).ok();
 }
 
 // ---- Inspect command tests ----
@@ -5726,6 +6353,141 @@ fn test_inspect_problem() {
     );
 
     std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
+    let unit_file = std::env::temp_dir().join("pred_test_inspect_exact_variant_unit.json");
+    let weighted_file = std::env::temp_dir().join("pred_test_inspect_exact_variant_weighted.json");
+
+    let unit_create = pred()
+        .args([
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2,2-3",
+            "-o",
+            unit_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        unit_create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&unit_create.stderr)
+    );
+
+    let weighted_create = pred()
+        .args([
+            "create",
+            "MIS/SimpleGraph/i64",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "3,1,2,1",
+            "-o",
+            weighted_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        weighted_create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&weighted_create.stderr)
+    );
+
+    for (source, source_ref, expected, excluded) in [
+        (
+            &unit_file,
+            "MIS/SimpleGraph/One",
+            "MaximumSetPacking",
+            "IntegralFlowBundles",
+        ),
+        (
+            &weighted_file,
+            "MIS/SimpleGraph/i64",
+            "IntegralFlowBundles",
+            "MaximumIndependentSet/KingsSubgraph/One",
+        ),
+    ] {
+        let inspect = pred()
+            .args(["inspect", source.to_str().unwrap(), "--json"])
+            .output()
+            .unwrap();
+        assert!(
+            inspect.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&inspect.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&inspect.stdout).unwrap();
+        let targets = json["reduces_to"].as_array().unwrap();
+        assert!(targets.iter().any(|target| target == expected));
+        assert!(!targets.iter().any(|target| target == excluded));
+
+        for (index, target) in targets.iter().enumerate() {
+            let target = target.as_str().unwrap();
+            let bundle = std::env::temp_dir().join(format!(
+                "pred_test_inspect_exact_variant_bundle_{index}.json"
+            ));
+            let route = bundle.with_extension("route.json");
+            write_direct_route(source_ref, target, &route);
+            let reduce = pred()
+                .args([
+                    "reduce",
+                    source.to_str().unwrap(),
+                    "--via",
+                    route.to_str().unwrap(),
+                    "-o",
+                    bundle.to_str().unwrap(),
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                reduce.status.success(),
+                "inspect advertised non-executable target {target}: {}",
+                String::from_utf8_lossy(&reduce.stderr)
+            );
+            std::fs::remove_file(route).unwrap();
+            std::fs::remove_file(bundle).unwrap();
+        }
+    }
+
+    std::fs::remove_file(unit_file).unwrap();
+    std::fs::remove_file(weighted_file).unwrap();
+}
+
+#[test]
+fn test_inspect_excludes_non_witness_reductions() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_witness_reductions_only.json");
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "MinimumDominatingSet",
+            "-o",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let inspect = pred()
+        .args(["inspect", problem_file.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        inspect.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&inspect.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inspect.stdout).unwrap();
+    assert_eq!(json["reduces_to"], serde_json::json!(["ILP"]));
+
+    std::fs::remove_file(problem_file).unwrap();
 }
 
 #[test]
@@ -5790,17 +6552,19 @@ fn test_inspect_bundle() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -5908,21 +6672,21 @@ fn test_inspect_json_output() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["kind"], "problem");
     assert_eq!(json["type"], "MaximumIndependentSet");
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "MIS size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "MIS parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_edges"),
-        "MIS size_fields should contain num_edges, got: {:?}",
-        size_fields
+        parameters.contains(&"num_edges"),
+        "MIS parameters should contain num_edges, got: {:?}",
+        parameters
     );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
@@ -5990,7 +6754,7 @@ fn test_inspect_multiprocessor_scheduling_reports_ilp_and_brute_force() {
 }
 
 #[test]
-fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
+fn test_inspect_undirected_two_commodity_integral_flow_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
     let create_out = pred()
@@ -6027,21 +6791,21 @@ fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "UndirectedTwoCommodityIntegralFlow parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_edges"),
-        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
-        size_fields
+        parameters.contains(&"num_edges"),
+        "UndirectedTwoCommodityIntegralFlow parameters should contain num_edges, got: {:?}",
+        parameters
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -6049,7 +6813,7 @@ fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
 }
 
 #[test]
-fn test_inspect_integral_flow_with_multipliers_reports_size_fields() {
+fn test_inspect_integral_flow_with_multipliers_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_ifwm_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_ifwm_inspect_out.json");
     let create_out = pred()
@@ -6085,23 +6849,23 @@ fn test_inspect_integral_flow_with_multipliers_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert!(size_fields.contains(&"num_vertices"));
-    assert!(size_fields.contains(&"num_arcs"));
-    assert!(size_fields.contains(&"max_capacity"));
-    assert!(size_fields.contains(&"requirement"));
+    assert!(parameters.contains(&"num_vertices"));
+    assert!(parameters.contains(&"num_arcs"));
+    assert!(parameters.contains(&"max_capacity"));
+    assert!(parameters.contains(&"requirement"));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
 }
 
 #[test]
-fn test_inspect_acyclic_partition_reports_size_fields() {
+fn test_inspect_acyclic_partition_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_acyclic_partition_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_acyclic_partition_inspect_out.json");
     let create_out = pred()
@@ -6110,7 +6874,7 @@ fn test_inspect_acyclic_partition_reports_size_fields() {
             problem_file.to_str().unwrap(),
             "create",
             "--example",
-            "AcyclicPartition/i32",
+            "AcyclicPartition/i64",
         ])
         .output()
         .unwrap();
@@ -6138,21 +6902,21 @@ fn test_inspect_acyclic_partition_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "AcyclicPartition size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "AcyclicPartition parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_arcs"),
-        "AcyclicPartition size_fields should contain num_arcs, got: {:?}",
-        size_fields
+        parameters.contains(&"num_arcs"),
+        "AcyclicPartition parameters should contain num_arcs, got: {:?}",
+        parameters
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -6160,7 +6924,7 @@ fn test_inspect_acyclic_partition_reports_size_fields() {
 }
 
 #[test]
-fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
+fn test_inspect_multiple_copy_file_allocation_reports_parameters() {
     let problem_file = std::env::temp_dir().join("pred_test_mcfa_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_mcfa_inspect_out.json");
     let create_out = pred()
@@ -6197,21 +6961,21 @@ fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
 
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let size_fields: Vec<&str> = json["size_fields"]
+    let parameters: Vec<&str> = json["parameters"]
         .as_array()
-        .expect("size_fields should be an array")
+        .expect("parameters should be an array")
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
     assert!(
-        size_fields.contains(&"num_vertices"),
-        "MultipleCopyFileAllocation size_fields should contain num_vertices, got: {:?}",
-        size_fields
+        parameters.contains(&"num_vertices"),
+        "MultipleCopyFileAllocation parameters should contain num_vertices, got: {:?}",
+        parameters
     );
     assert!(
-        size_fields.contains(&"num_edges"),
-        "MultipleCopyFileAllocation size_fields should contain num_edges, got: {:?}",
-        size_fields
+        parameters.contains(&"num_edges"),
+        "MultipleCopyFileAllocation parameters should contain num_edges, got: {:?}",
+        parameters
     );
     let solvers: Vec<&str> = json["solvers"]
         .as_array()
@@ -6330,8 +7094,8 @@ fn test_create_random_unsupported() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("not supported"),
-        "expected 'not supported' in error, got: {stderr}"
+        stderr.contains("unexpected argument '--random'"),
+        "expected Clap to reject unsupported random generation, got: {stderr}"
     );
 }
 
@@ -6344,7 +7108,7 @@ fn test_create_random_steiner_tree_requires_two_vertices() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("SteinerTree random generation requires --num-vertices >= 2"),
+        stderr.contains("num_vertices must be at least 2"),
         "{stderr}"
     );
 }
@@ -6366,7 +7130,7 @@ fn test_create_random_invalid_edge_prob() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--edge-prob must be between"),
+        stderr.contains("edge_prob must be between"),
         "expected edge-prob validation error, got: {stderr}"
     );
 }
@@ -6557,17 +7321,29 @@ fn test_create_factoring_no_flags_shows_help() {
 }
 
 #[test]
-fn test_create_factoring_missing_bits() {
+fn test_create_factoring_derives_missing_bits() {
     let output = pred()
         .args(["create", "Factoring", "--target", "15"])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--m"),
-        "expected '--m' in error, got: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["m"], 2);
+    assert_eq!(json["data"]["n"], 3);
+}
+
+#[test]
+fn test_create_factoring_requires_bits_together() {
+    let output = pred()
+        .args(["create", "Factoring", "--target", "15", "--m", "2"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("provided together"));
 }
 
 #[test]
@@ -6578,7 +7354,7 @@ fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
             "BoyceCoddNormalFormViolation",
             "--n",
             "3",
-            "--sets",
+            "--subsets",
             "0:4",
             "--target",
             "0,1,2",
@@ -6595,7 +7371,7 @@ fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
         "CLI should return a user-facing error, got: {stderr}"
     );
     assert!(
-        stderr.contains("out of range"),
+        stderr.contains("outside universe of size 3"),
         "expected out-of-range error, got: {stderr}"
     );
 }
@@ -6608,7 +7384,7 @@ fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
             "BoyceCoddNormalFormViolation",
             "--n",
             "3",
-            "--sets",
+            "--subsets",
             "4:0",
             "--target",
             "0,1,2",
@@ -6621,7 +7397,7 @@ fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("lhs contains attribute index 4"),
+        stderr.contains("subsets[0] contains attribute 4 outside universe of size 3"),
         "expected lhs-specific out-of-range error, got: {stderr}"
     );
 }
@@ -6634,7 +7410,7 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
             "BoyceCoddNormalFormViolation",
             "--n",
             "3",
-            "--sets",
+            "--subsets",
             "0:1",
             "--target",
             "0,1,4",
@@ -6647,7 +7423,7 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Target subset contains attribute index 4"),
+        stderr.contains("target contains attribute 4 outside universe of size 3"),
         "expected target-specific out-of-range error, got: {stderr}"
     );
 }
@@ -6663,9 +7439,9 @@ fn test_create_consistency_of_database_frequency_tables() {
             "--attribute-domains",
             "2,3,2",
             "--frequency-tables",
-            "0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1",
+            r#"[{"attribute_a":0,"attribute_b":1,"counts":[[1,1,1],[1,1,1]]},{"attribute_a":1,"attribute_b":2,"counts":[[1,1],[0,2],[1,1]]}]"#,
             "--known-values",
-            "0,0,0;3,0,1;1,2,1",
+            r#"[{"object":0,"attribute":0,"value":0},{"object":3,"attribute":0,"value":1},{"object":1,"attribute":2,"value":1}]"#,
         ])
         .output()
         .unwrap();
@@ -6725,8 +7501,6 @@ fn test_create_multiple_copy_file_allocation() {
             "5,4,3,2",
             "--storage",
             "1,1,1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -6752,10 +7526,8 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "2,-1,3,-2,1,-3",
-            "--precedence-pairs",
+            "--precedences",
             "0>2,1>2,1>3,2>4,3>5,4>5",
-            "--bound",
-            "4",
         ])
         .output()
         .unwrap();
@@ -6831,8 +7603,6 @@ fn test_create_multiple_copy_file_allocation_rejects_length_mismatch() {
             "5,4",
             "--storage",
             "1,1,1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -6854,15 +7624,15 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_missing_costs() {
         .args([
             "create",
             "SequencingToMinimizeMaximumCumulativeCost",
-            "--bound",
-            "4",
+            "--precedences",
+            "0>1",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("requires --costs"),
+        stderr.contains("missing required construction input(s): costs"),
         "expected missing --costs message, got: {stderr}"
     );
 }
@@ -6879,8 +7649,6 @@ fn test_create_multiple_copy_file_allocation_rejects_storage_length_mismatch() {
             "5,4,3,2",
             "--storage",
             "1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -6904,10 +7672,8 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "1,-1,2",
-            "--precedence-pairs",
+            "--precedences",
             "0>3",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
@@ -6931,15 +7697,13 @@ fn test_create_multiple_copy_file_allocation_rejects_invalid_usage_values() {
             "5,x,3,2",
             "--storage",
             "1,1,1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("invalid usage list"),
+        stderr.contains("invalid digit found in string"),
         "expected usage parse diagnostic, got: {stderr}"
     );
     assert!(
@@ -6958,8 +7722,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence
             "1,-1,2",
             "--precedences",
             "a>b",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
@@ -6979,8 +7741,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_va
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "-1,2,-3",
-            "--bound",
-            "-1",
         ])
         .output()
         .unwrap();
@@ -7017,7 +7777,7 @@ fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "0,0",
+            "[0,0]",
         ])
         .output()
         .unwrap();
@@ -7070,7 +7830,7 @@ fn test_solve_multiple_copy_file_allocation_brute_force() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("\"solver\": \"brute-force\""),
+        stdout.contains("\"kind\": \"brute-force\""),
         "MultipleCopyFileAllocation should solve with brute-force: {stdout}"
     );
 
@@ -7194,7 +7954,7 @@ fn test_create_mis_triangular_subgraph() {
     let output = pred()
         .args([
             "create",
-            "MIS/TriangularSubgraph/i32",
+            "MIS/TriangularSubgraph/i64",
             "--positions",
             "0,0;0,1;1,0;1,1",
         ])
@@ -7245,8 +8005,8 @@ fn test_create_mvc_kings_subgraph_unsupported_variant() {
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("Unknown variant token \"KingsSubgraph\""),
-        "should mention unknown variant token: {stderr}"
+        stderr.contains("Unknown variant value \"KingsSubgraph\""),
+        "should reject the unregistered variant: {stderr}"
     );
 }
 
@@ -7277,7 +8037,7 @@ fn test_create_mis_kings_subgraph_with_weights() {
     let output = pred()
         .args([
             "create",
-            "MIS/KingsSubgraph/i32",
+            "MIS/KingsSubgraph/i64",
             "--positions",
             "0,0;1,0;1,1",
             "--weights",
@@ -7294,7 +8054,7 @@ fn test_create_mis_kings_subgraph_with_weights() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "KingsSubgraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -7327,7 +8087,7 @@ fn test_create_random_triangular_subgraph() {
     let output = pred()
         .args([
             "create",
-            "MIS/TriangularSubgraph/i32",
+            "MIS/TriangularSubgraph/i64",
             "--random",
             "--num-vertices",
             "8",
@@ -7408,6 +8168,46 @@ fn test_create_geometry_graph_missing_positions() {
 // ---- Round-trip: canonical examples through solve ----
 
 #[test]
+fn test_fixed_directed_graph_examples_round_trip_into_inspect_and_solve() {
+    for name in ["DirectedHamiltonianPath", "EulerianPath", "Kernel"] {
+        let path = std::env::temp_dir().join(format!(
+            "pred_test_fixed_directed_graph_{name}_{}.json",
+            std::process::id()
+        ));
+        let create = pred()
+            .args(["create", "--example", name, "-o", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(
+            create.status.success(),
+            "{name} create: {}",
+            String::from_utf8_lossy(&create.stderr)
+        );
+        let instance: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(instance["variant"], serde_json::json!({}));
+
+        for command in ["inspect", "solve"] {
+            let output = pred()
+                .args([command, path.to_str().unwrap(), "--json"])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{name} {command}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            if command == "solve" {
+                let solved: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+                assert_eq!(solved["status"], "optimal", "{name}");
+                assert_eq!(solved["evaluation"], "Or(true)", "{name}");
+            }
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
 fn test_create_model_example_mis_round_trips_into_solve() {
     let path = std::env::temp_dir().join(format!(
         "pred_test_model_example_mis_{}.json",
@@ -7420,7 +8220,7 @@ fn test_create_model_example_mis_round_trips_into_solve() {
         .args([
             "create",
             "--example",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -7458,9 +8258,9 @@ fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
         .args([
             "create",
             "--example",
-            "MVC/SimpleGraph/i32",
+            "MVC/SimpleGraph/i64",
             "--to",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -7488,7 +8288,7 @@ fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
 #[test]
 fn test_create_rule_example_mvc_to_mis_weight_only() {
     let output = pred()
-        .args(["create", "--example", "MVC/i32", "--to", "MIS/i32"])
+        .args(["create", "--example", "MVC/i64", "--to", "MIS/i64"])
         .output()
         .unwrap();
     assert!(
@@ -7500,7 +8300,7 @@ fn test_create_rule_example_mvc_to_mis_weight_only() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumVertexCover");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -7509,9 +8309,9 @@ fn test_create_rule_example_mvc_to_mis_target_weight_only() {
         .args([
             "create",
             "--example",
-            "MVC/i32",
+            "MVC/i64",
             "--to",
-            "MIS/i32",
+            "MIS/i64",
             "--example-side",
             "target",
         ])
@@ -7526,7 +8326,7 @@ fn test_create_rule_example_mvc_to_mis_target_weight_only() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 // ---- Variant-level show semantics ----
@@ -7578,18 +8378,9 @@ fn test_show_ksat_works() {
 // ---- Capped multi-path ----
 
 #[test]
-fn test_path_all_max_paths_truncates() {
-    // With --max-paths 3, should limit to 3 paths and indicate truncation
+fn test_path_limit_truncates() {
     let output = pred()
-        .args([
-            "path",
-            "KSat",
-            "QUBO",
-            "--all",
-            "--max-paths",
-            "3",
-            "--json",
-        ])
+        .args(["path", "KSat", "QUBO/f64", "--limit", "3", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -7607,7 +8398,6 @@ fn test_path_all_max_paths_truncates() {
         "should return at most 3 paths, got {}",
         paths.len()
     );
-    assert_eq!(envelope["max_paths"], 3);
     // KSat -> QUBO has many paths, so truncation is expected
     assert_eq!(
         envelope["truncated"], true,
@@ -7615,17 +8405,72 @@ fn test_path_all_max_paths_truncates() {
     );
 }
 
-#[test]
-fn test_path_all_max_paths_text_truncation_note() {
+// Helper: run `pred path S T --limit N --json` and return the ordered list of
+// per-path step counts.
+fn path_step_counts(limit: &str) -> Vec<u64> {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--all", "--max-paths", "2"])
+        .args(["path", "KSat", "QUBO/f64", "--limit", limit, "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    envelope["paths"]
+        .as_array()
+        .expect("should have paths array")
+        .iter()
+        .map(|p| p["steps"].as_u64().expect("steps is a number"))
+        .collect()
+}
+
+#[test]
+fn test_path_truncates_after_sorting_not_before() {
+    // Path enumeration must order length-first and truncate only after
+    // ordering, so a small --limit returns the SHORTEST routes, not whichever
+    // routes DFS discovered first. Compare a tightly-truncated run against a run
+    // with a generous budget.
+    let full = path_step_counts("500");
+    assert!(full.len() > 3, "KSat->QUBO should have many routes");
+
+    // Full list is sorted shortest-first.
+    assert!(
+        full.windows(2).all(|w| w[0] <= w[1]),
+        "paths must be returned shortest-first, got {full:?}"
+    );
+    let shortest = *full.first().unwrap();
+
+    let truncated = path_step_counts("3");
+    assert!(truncated.len() <= 3);
+    // Truncated result is still sorted shortest-first...
+    assert!(
+        truncated.windows(2).all(|w| w[0] <= w[1]),
+        "truncated paths must be shortest-first, got {truncated:?}"
+    );
+    // ...and it must include the known shortest length (the bug returned long
+    // early-discovered routes and dropped the short ones).
+    assert_eq!(
+        truncated[0], shortest,
+        "truncated result must start with the known shortest route length {shortest}"
+    );
+    // The truncated step counts are exactly the shortest prefix of the full order.
+    assert_eq!(truncated.as_slice(), &full[..truncated.len()]);
+}
+
+#[test]
+fn test_path_limit_text_truncation_note() {
+    let output = pred()
+        .args(["path", "KSat", "QUBO/f64", "--limit", "2"])
         .output()
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("--max-paths"),
-        "truncation note should mention --max-paths: {stdout}"
+        stdout.contains("--limit"),
+        "truncation note should mention --limit: {stdout}"
     );
 }
 
@@ -7730,7 +8575,7 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Expected 8 edge length values but got 7"),
+        stderr.contains("edge_lengths has 7 entries, expected 8"),
         "stderr: {stderr}"
     );
 }
@@ -7749,14 +8594,6 @@ fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
     assert!(
         stderr.contains("--edge-lengths"),
         "expected '--edge-lengths' in help output, got: {stderr}"
-    );
-    assert!(
-        stderr.match_indices("comma-separated: 1,2,3").count() >= 2,
-        "expected vector hints for edge lengths and weights, got: {stderr}"
-    );
-    assert!(
-        stderr.match_indices("numeric value: 10").count() >= 1,
-        "expected numeric hint for weight bound, got: {stderr}"
     );
 }
 
@@ -7784,7 +8621,7 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("source_vertex 9 out of bounds"),
+        stderr.contains("source_vertex 9 is outside graph with 6 vertices"),
         "stderr: {stderr}"
     );
     assert!(
@@ -7815,7 +8652,7 @@ fn test_create_shortest_weight_constrained_path_requires_edge_lengths() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("ShortestWeightConstrainedPath requires --edge-lengths"),
+        stderr.contains("missing required construction input(s): edge_lengths"),
         "stderr: {stderr}"
     );
 }
@@ -7844,7 +8681,7 @@ fn test_create_shortest_weight_constrained_path_rejects_weights_flag_typo() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("uses --edge-weights, not --weights"),
+        stderr.contains("unexpected argument '--weights'"),
         "stderr: {stderr}"
     );
 }
@@ -7872,7 +8709,7 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("All edge lengths must be positive (> 0)"),
+        stderr.contains("edge_lengths must be positive"),
         "stderr: {stderr}"
     );
 }
@@ -7890,16 +8727,16 @@ fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("edge_lengths (Vec<W>)"),
-        "expected Vec<W> schema type for edge_lengths, got: {stdout}"
+        stdout.contains("edge_lengths (Vec<i64>)"),
+        "expected concrete Vec<i64> construction type for edge_lengths, got: {stdout}"
     );
     assert!(
-        stdout.contains("edge_weights (Vec<W>)"),
-        "expected Vec<W> schema type for edge_weights, got: {stdout}"
+        stdout.contains("edge_weights (Vec<i64>)"),
+        "expected concrete Vec<i64> construction type for edge_weights, got: {stdout}"
     );
     assert!(
-        stdout.contains("weight_bound (W::Sum)"),
-        "expected W::Sum schema type for weight_bound, got: {stdout}"
+        stdout.contains("weight_bound (i64)"),
+        "expected concrete i64 construction type for weight_bound, got: {stdout}"
     );
 }
 
@@ -7919,41 +8756,6 @@ fn test_show_json_has_default_field() {
     assert!(json["variant"].is_object(), "should have variant object");
 }
 
-// ---- path --all directory output includes manifest ----
-
-#[test]
-fn test_path_all_save_manifest() {
-    let dir = std::env::temp_dir().join("pred_test_all_paths_manifest");
-    let _ = std::fs::remove_dir_all(&dir);
-    let output = pred()
-        .args([
-            "path",
-            "MaxCut",
-            "QUBO",
-            "--all",
-            "-o",
-            dir.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(dir.is_dir());
-
-    let manifest_file = dir.join("manifest.json");
-    assert!(manifest_file.exists(), "manifest.json should be created");
-    let manifest_content = std::fs::read_to_string(&manifest_file).unwrap();
-    let manifest: serde_json::Value = serde_json::from_str(&manifest_content).unwrap();
-    assert!(manifest["paths"].is_number());
-    assert!(manifest["max_paths"].is_number());
-    assert!(manifest["truncated"].is_boolean());
-
-    std::fs::remove_dir_all(&dir).ok();
-}
-
 #[test]
 fn test_create_nonunit_weights_require_weighted_variant() {
     let output = pred()
@@ -7969,16 +8771,12 @@ fn test_create_nonunit_weights_require_weighted_variant() {
         .unwrap();
     assert!(
         !output.status.success(),
-        "non-unit weights should require /i32"
+        "non-unit weights should require /i64"
     );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("Use the weighted variant instead"),
-        "stderr should point to the explicit weighted variant: {stderr}"
-    );
-    assert!(
-        stderr.contains("MaximumIndependentSet/SimpleGraph/i32"),
-        "stderr should include the exact weighted variant: {stderr}"
+        stderr.contains("expected 1 for One, got 3"),
+        "stderr should reject non-unit input for the One variant: {stderr}"
     );
 }
 
@@ -8012,7 +8810,7 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let create_output = pred()
         .args([
             "create",
-            "MIS/i32",
+            "MIS/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -8076,7 +8874,7 @@ fn test_create_minimum_multiway_cut() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "MinimumMultiwayCut");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2]));
     assert_eq!(json["data"]["edge_weights"], serde_json::json!([1, 1, 1]));
     std::fs::remove_file(&output_file).ok();
@@ -8130,9 +8928,9 @@ fn test_create_ensemble_computation() {
             output_file.to_str().unwrap(),
             "create",
             "EnsembleComputation",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1,2;0,1,3",
             "--budget",
             "4",
@@ -8179,10 +8977,6 @@ fn test_create_ensemble_computation_no_flags_uses_cli_flag_names() {
         stderr.contains("--budget"),
         "expected --budget in help, got: {stderr}"
     );
-    assert!(
-        !stderr.contains("--universe "),
-        "help should use canonical CLI flags, got: {stderr}"
-    );
 }
 
 #[test]
@@ -8191,9 +8985,9 @@ fn test_create_ensemble_computation_rejects_out_of_range_elements_without_panick
         .args([
             "create",
             "EnsembleComputation",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1,5",
             "--budget",
             "4",
@@ -8213,7 +9007,7 @@ fn test_create_ensemble_computation_rejects_out_of_range_elements_without_panick
 }
 
 #[test]
-fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
+fn test_create_scheduling_with_individual_deadlines() {
     let output_file =
         std::env::temp_dir().join("pred_test_create_scheduling_with_individual_deadlines.json");
     let output = pred()
@@ -8222,13 +9016,13 @@ fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
             output_file.to_str().unwrap(),
             "create",
             "SchedulingWithIndividualDeadlines",
-            "--n",
+            "--num-tasks",
             "7",
             "--deadlines",
             "2,1,2,2,3,3,2",
-            "--m",
+            "--num-processors",
             "3",
-            "--precedence-pairs",
+            "--precedences",
             "0>3,1>3,1>4,2>4,2>5",
         ])
         .output()
@@ -8244,48 +9038,6 @@ fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
     assert_eq!(json["data"]["num_processors"], 3);
     assert_eq!(json["data"]["num_tasks"], 7);
     std::fs::remove_file(&output_file).ok();
-}
-
-#[test]
-fn test_create_scheduling_with_individual_deadlines_help_mentions_m_alias() {
-    let output = pred()
-        .args(["create", "SchedulingWithIndividualDeadlines"])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "problem-specific help should exit non-zero"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("--num-processors/--m"),
-        "expected alias in problem-specific help, got: {stderr}"
-    );
-}
-
-#[test]
-fn test_create_scheduling_with_individual_deadlines_rejects_conflicting_processor_flags() {
-    let output = pred()
-        .args([
-            "create",
-            "SchedulingWithIndividualDeadlines",
-            "--n",
-            "3",
-            "--deadlines",
-            "1,1,2",
-            "--num-processors",
-            "3",
-            "--m",
-            "2",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("conflicting processor counts"),
-        "expected conflict error, got: {stderr}"
-    );
 }
 
 #[test]
@@ -8341,7 +9093,7 @@ fn test_create_model_example_minimum_multiway_cut() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumMultiwayCut");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -8400,7 +9152,7 @@ fn test_create_minimum_multiway_cut_rejects_single_terminal() {
 }
 
 #[test]
-fn test_create_sequencing_within_intervals_rejects_empty_window() {
+fn test_create_and_solve_sequencing_within_intervals_empty_window() {
     let output = pred()
         .args([
             "create",
@@ -8414,16 +9166,35 @@ fn test_create_sequencing_within_intervals_rejects_empty_window() {
         ])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        !stderr.contains("panicked at"),
-        "expected graceful CLI error, got panic: {stderr}"
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        stderr.contains("time window is empty"),
-        "expected empty-window validation error, got: {stderr}"
-    );
+    for solver in ["brute-force", "ilp"] {
+        use std::io::Write;
+        let mut child = pred()
+            .args(["solve", "-", "--solver", solver, "--json"])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&output.stdout)
+            .unwrap();
+        let solved = child.wait_with_output().unwrap();
+        assert!(
+            solved.status.success(),
+            "{}",
+            String::from_utf8_lossy(&solved.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+        assert_eq!(json["status"], "infeasible");
+    }
 }
 
 #[test]
@@ -8460,11 +9231,11 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
             "create",
             "SequencingWithinIntervals",
             "--release-times",
-            "18446744073709551615",
+            "0",
             "--deadlines",
-            "18446744073709551615",
+            "9223372036854775807",
             "--lengths",
-            "1",
+            "0",
         ])
         .output()
         .unwrap();
@@ -8475,13 +9246,13 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
         "expected graceful CLI error, got panic: {stderr}"
     );
     assert!(
-        stderr.contains("overflow computing r(i) + l(i)"),
+        stderr.contains("task start-slot count overflows i64"),
         "expected overflow validation error, got: {stderr}"
     );
 }
 
 #[test]
-fn test_solve_customized_unsupported_problem_shows_hint() {
+fn deterministic_solver_dispatch_rejects_non_override_solver_names() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_unsupported.json");
     let create_out = pred()
         .args([
@@ -8496,27 +9267,69 @@ fn test_solve_customized_unsupported_problem_shows_hint() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let output = pred()
-        .args([
-            "solve",
-            problem_file.to_str().unwrap(),
-            "--solver",
-            "customized",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("unsupported by customized solver"),
-        "expected customized solver hint, got: {stderr}"
-    );
+    for rejected in ["auto", "fd-minimum-cardinality-key"] {
+        let output = pred()
+            .args([
+                "solve",
+                problem_file.to_str().unwrap(),
+                "--solver",
+                rejected,
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "accepted --solver {rejected}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!("Unknown solver: {rejected}")),
+            "unexpected error for {rejected}: {stderr}"
+        );
+    }
 
     std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
-fn test_solve_customized_minimum_cardinality_key() {
+fn deterministic_solver_dispatch_cli_output_is_repeatable_for_each_solver_class() {
+    let problem_file = std::env::temp_dir().join("pred_test_solver_repeatability.json");
+    let problem = serde_json::json!({
+        "type": "RootedTreeArrangement",
+        "variant": {"graph": "SimpleGraph"},
+        "data": {
+            "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]},
+            "bound": 3
+        }
+    });
+    std::fs::write(&problem_file, serde_json::to_vec(&problem).unwrap()).unwrap();
+
+    for solver in [None, Some("customized"), Some("ilp"), Some("brute-force")] {
+        let run = || {
+            let mut command = pred();
+            command.args(["--json", "solve", problem_file.to_str().unwrap()]);
+            if let Some(solver) = solver {
+                command.args(["--solver", solver]);
+            }
+            command.output().unwrap()
+        };
+        let first = run();
+        let second = run();
+        assert!(
+            first.status.success(),
+            "first {solver:?} solve failed: {}",
+            String::from_utf8_lossy(&first.stderr)
+        );
+        assert!(
+            second.status.success(),
+            "second {solver:?} solve failed: {}",
+            String::from_utf8_lossy(&second.stderr)
+        );
+        assert_eq!(first.stdout, second.stdout, "{solver:?} output changed");
+    }
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn deterministic_solver_dispatch_defaults_minimum_cardinality_key_to_customized() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_mck.json");
     let create_out = pred()
         .args([
@@ -8538,12 +9351,7 @@ fn test_solve_customized_minimum_cardinality_key() {
     );
 
     let output = pred()
-        .args([
-            "solve",
-            problem_file.to_str().unwrap(),
-            "--solver",
-            "customized",
-        ])
+        .args(["solve", problem_file.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(
@@ -8552,9 +9360,11 @@ fn test_solve_customized_minimum_cardinality_key() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("customized"),
-        "expected 'customized' in output, got: {stdout}"
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["solver"]["kind"], "customized");
+    assert_eq!(
+        json["solver"]["implementation"],
+        "fd-minimum-cardinality-key"
     );
     assert!(
         stdout.contains("Min("),
@@ -8565,7 +9375,7 @@ fn test_solve_customized_minimum_cardinality_key() {
 }
 
 #[test]
-fn test_solve_customized_bundle_does_not_panic() {
+fn test_solve_bundle_rejects_unavailable_customized_solver_without_panicking() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_bundle_problem.json");
     let bundle_file = std::env::temp_dir().join("pred_test_solve_customized_bundle.json");
 
@@ -8582,17 +9392,19 @@ fn test_solve_customized_bundle_does_not_panic() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce failed: {}",
@@ -8611,15 +9423,15 @@ fn test_solve_customized_bundle_does_not_panic() {
     let stderr = String::from_utf8_lossy(&solve_out.stderr);
     assert!(
         !stderr.contains("panicked at"),
-        "customized bundle solve should fail gracefully, got: {stderr}"
+        "unavailable customized solver should fail gracefully, got: {stderr}"
     );
     assert!(
         !solve_out.status.success(),
-        "customized solver should not silently succeed on unsupported bundle target"
+        "unavailable customized solver should not silently succeed"
     );
     assert!(
-        stderr.contains("unsupported by customized solver"),
-        "expected customized solver error, got: {stderr}"
+        stderr.contains("No customized solver is registered"),
+        "expected missing customized capability error, got: {stderr}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -8627,7 +9439,7 @@ fn test_solve_customized_bundle_does_not_panic() {
 }
 
 #[test]
-fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+fn test_inspect_minimum_cardinality_key_reports_customized_capability() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_customized_mck.json");
     let create_out = pred()
         .args([
@@ -8660,21 +9472,16 @@ fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
 
     let stdout = String::from_utf8(inspect_out.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let solvers: Vec<&str> = json["solvers"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|value| value.as_str().unwrap())
-        .collect();
-    assert!(
-        solvers.contains(&"customized"),
-        "inspect should list customized when supported, got: {json}"
+    assert_eq!(json["default_solver"], "customized");
+    assert_eq!(
+        json["solver_capabilities"]["customized"]["implementation"],
+        "fd-minimum-cardinality-key"
     );
 
     std::fs::remove_file(&problem_file).ok();
 }
 
-/// Solve a bundle with brute-force and return `(target_config_csv, source_evaluation)`.
+/// Solve a bundle with brute-force and return `(target_solution_json, source_evaluation)`.
 ///
 /// Used by extract tests so they do not depend on the exact reduction path chosen
 /// (which differs between `--features mcp` and default builds).
@@ -8695,14 +9502,9 @@ fn extract_test_solve_bundle(bundle_file: &std::path::Path) -> (String, String) 
         String::from_utf8_lossy(&solve_out.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&solve_out.stdout).unwrap();
-    let target_cfg: Vec<String> = json["intermediate"]["solution"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_u64().unwrap().to_string())
-        .collect();
+    let target_solution = json["intermediate"]["solution"].to_string();
     let source_eval = json["evaluation"].as_str().unwrap().to_string();
-    (target_cfg.join(","), source_eval)
+    (target_solution, source_eval)
 }
 
 #[test]
@@ -8723,27 +9525,27 @@ fn test_extract_roundtrip_mis_to_qubo() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
         String::from_utf8_lossy(&reduce_out.stderr)
     );
 
-    // Derive a valid target config from `pred solve`, so this test works
-    // regardless of which reduction path is chosen (path length varies with
-    // feature flags — e.g. mcp build picks MIS -> ... -> ILP -> QUBO instead
-    // of the shorter MaxSetPacking -> QUBO path).
+    // Derive a valid target config from `pred solve`, so this test remains
+    // independent of the reduction path selected by the graph search.
     let (target_cfg, expected_source_eval) = extract_test_solve_bundle(&bundle_file);
 
     let extract_out = pred()
@@ -8772,30 +9574,80 @@ fn test_extract_roundtrip_mis_to_qubo() {
 
     // intermediate.solution must be exactly the target config we passed in
     // (extract echoes the input target config unchanged).
-    let expected_target: Vec<serde_json::Value> = target_cfg
-        .split(',')
-        .map(|s| serde_json::json!(s.parse::<u64>().unwrap()))
-        .collect();
-    assert_eq!(
-        json["intermediate"]["solution"].as_array().unwrap(),
-        &expected_target
-    );
+    let expected_target: serde_json::Value = serde_json::from_str(&target_cfg).unwrap();
+    assert_eq!(json["intermediate"]["solution"], expected_target);
 
     // Source config is over 4 MIS variables and must describe an independent set
     // whose size matches `expected_source_eval` (e.g. "Max(2)" -> 2 ones).
-    let source_sol: Vec<u64> = json["solution"]
+    let source_sol: Vec<bool> = json["solution"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|v| v.as_u64().unwrap())
+        .map(|v| v.as_bool().unwrap())
         .collect();
     assert_eq!(source_sol.len(), 4);
-    assert!(source_sol.iter().all(|b| *b == 0 || *b == 1));
-    let ones = source_sol.iter().filter(|b| **b == 1).count();
+    let ones = source_sol.iter().filter(|&&selected| selected).count();
     assert_eq!(
         expected_source_eval,
         format!("Max({ones})"),
         "MIS size in solution should match declared evaluation"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_extract_rejects_structurally_invalid_one_hot_config() {
+    let problem_file = std::env::temp_dir().join("pred_test_extract_tsp_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_tsp_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "TSP",
+            "--graph",
+            "0-1,1-2,0-2",
+            "--edge-weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "TSP/SimpleGraph/i64",
+        "QUBO",
+        &["TravelingSalesman", "QUBO"],
+        &bundle_file,
+    );
+    assert!(
+        reduce_out.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let extract_out = pred()
+        .args([
+            "extract",
+            bundle_file.to_str().unwrap(),
+            "--config",
+            "[false,false,false,false,false,false,false,false,false]",
+        ])
+        .output()
+        .unwrap();
+    assert!(!extract_out.status.success());
+    let stderr = String::from_utf8(extract_out.stderr).unwrap();
+    assert!(
+        stderr.contains("tour position 0 does not select exactly one vertex"),
+        "unexpected stderr: {stderr}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -8824,7 +9676,7 @@ fn test_extract_rejects_plain_problem_file() {
             "extract",
             problem_file.to_str().unwrap(),
             "--config",
-            "0,1,0",
+            "[false,true,false]",
         ])
         .output()
         .unwrap();
@@ -8854,26 +9706,33 @@ fn test_extract_rejects_wrong_config_length() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     let extract_out = pred()
-        .args(["extract", bundle_file.to_str().unwrap(), "--config", "0,1"])
+        .args([
+            "extract",
+            bundle_file.to_str().unwrap(),
+            "--config",
+            "[false,true]",
+        ])
         .output()
         .unwrap();
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("Target config has 2 values"),
+        stderr.contains("solution has 2 variables, expected"),
         "unexpected stderr: {stderr}"
     );
 
@@ -8882,7 +9741,7 @@ fn test_extract_rejects_wrong_config_length() {
 }
 
 #[test]
-fn test_extract_rejects_out_of_range_config_value() {
+fn test_extract_rejects_non_boolean_solution_value() {
     let problem_file = std::env::temp_dir().join("pred_test_extract_range_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_extract_range_bundle.json");
 
@@ -8897,24 +9756,26 @@ fn test_extract_rejects_out_of_range_config_value() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
-    // Build a valid-length config from pred solve, then flip one entry to 9
-    // (always out of range for a binary QUBO regardless of path).
+    // Build a valid semantic solution from pred solve, then replace one Boolean
+    // entry with an integer.
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
-    let mut parts: Vec<String> = target_cfg.split(',').map(|s| s.to_string()).collect();
-    parts[0] = "9".to_string();
-    let bad_cfg = parts.join(",");
+    let mut bad_cfg: serde_json::Value = serde_json::from_str(&target_cfg).unwrap();
+    bad_cfg.as_array_mut().unwrap()[0] = serde_json::json!(9);
+    let bad_cfg = bad_cfg.to_string();
 
     let extract_out = pred()
         .args([
@@ -8928,7 +9789,7 @@ fn test_extract_rejects_out_of_range_config_value() {
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("out of range"),
+        stderr.contains("invalid solution JSON"),
         "unexpected stderr: {stderr}"
     );
 
@@ -8955,17 +9816,19 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
@@ -8979,7 +9842,7 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
             "extract",
             tampered_file.to_str().unwrap(),
             "--config",
-            "0,1,0",
+            "[false,true,false]",
         ])
         .output()
         .unwrap();
@@ -9019,17 +9882,19 @@ fn test_extract_rejects_tampered_target_data() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     // Tamper: flip one QUBO matrix entry so target.data no longer matches
     // what the reduction chain actually produces.
@@ -9104,17 +9969,19 @@ fn test_extract_reads_bundle_from_stdin() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
 

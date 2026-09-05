@@ -1,30 +1,40 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use num_bigint::BigUint;
 use std::collections::HashMap;
 include!("../jl_helpers.rs");
 
 #[test]
 fn test_read_bit() {
     // 6 = 110 in binary (little-endian: bit1=0, bit2=1, bit3=1)
-    assert!(!read_bit(6, 1)); // bit 1 (LSB) = 0
-    assert!(read_bit(6, 2)); // bit 2 = 1
-    assert!(read_bit(6, 3)); // bit 3 = 1
-    assert!(!read_bit(6, 4)); // bit 4 = 0
+    assert!(!read_bit(&BigUint::from(6u32), 1)); // bit 1 (LSB) = 0
+    assert!(read_bit(&BigUint::from(6u32), 2)); // bit 2 = 1
+    assert!(read_bit(&BigUint::from(6u32), 3)); // bit 3 = 1
+    assert!(!read_bit(&BigUint::from(6u32), 4)); // bit 4 = 0
 
     // 15 = 1111 in binary
-    assert!(read_bit(15, 1));
-    assert!(read_bit(15, 2));
-    assert!(read_bit(15, 3));
-    assert!(read_bit(15, 4));
-    assert!(!read_bit(15, 5));
+    assert!(read_bit(&BigUint::from(15u32), 1));
+    assert!(read_bit(&BigUint::from(15u32), 2));
+    assert!(read_bit(&BigUint::from(15u32), 3));
+    assert!(read_bit(&BigUint::from(15u32), 4));
+    assert!(!read_bit(&BigUint::from(15u32), 5));
+}
+
+#[test]
+fn test_read_bit_supports_positions_beyond_u64_width() {
+    let value = BigUint::from(1u32) << 100;
+    assert!(read_bit(&value, 101));
+    assert!(!read_bit(&value, 100));
 }
 
 #[test]
 fn test_reduction_structure() {
     // Factor 6 = 2 * 3 with 2-bit factors
-    let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     assert_eq!(reduction.p_vars().len(), 2);
     assert_eq!(reduction.q_vars().len(), 2);
@@ -34,8 +44,9 @@ fn test_reduction_structure() {
 #[test]
 fn test_reduction_structure_3x3() {
     // Factor 15 = 3 * 5 with 3-bit factors
-    let factoring = Factoring::new(3, 3, 15);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(15, 3, 3);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     assert_eq!(reduction.p_vars().len(), 3);
     assert_eq!(reduction.q_vars().len(), 3);
@@ -95,13 +106,14 @@ fn check_factorization_satisfies(
     }
 
     // Also verify the product equals target (redundant but explicit)
-    p_val * q_val == factoring.target()
+    BigUint::from(p_val) * BigUint::from(q_val) == *factoring.target()
 }
 
 #[test]
 fn test_factorization_6_satisfies_circuit() {
-    let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     // 2 * 3 = 6 should satisfy the circuit
     assert!(
@@ -130,8 +142,9 @@ fn test_factorization_6_satisfies_circuit() {
 
 #[test]
 fn test_factoring_to_circuit_closed_loop() {
-    let factoring = Factoring::new(4, 4, 15);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(15, 4, 4);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     // Valid factorizations of 15
     assert!(
@@ -160,8 +173,9 @@ fn test_factoring_to_circuit_closed_loop() {
 
 #[test]
 fn test_factorization_21_satisfies_circuit() {
-    let factoring = Factoring::new(3, 3, 21);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(21, 3, 3);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     // 3 * 7 = 21
     assert!(
@@ -182,8 +196,9 @@ fn test_factorization_21_satisfies_circuit() {
 
 #[test]
 fn test_target_problem_structure() {
-    let factoring = Factoring::new(3, 4, 15);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(15, 3, 4);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
     let circuit = reduction.target_problem();
 
     // Verify the circuit has variables and assignments
@@ -193,40 +208,47 @@ fn test_target_problem_structure() {
 
 #[test]
 fn test_extract_solution() {
-    let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
     let circuit_sat = reduction.target_problem();
 
     // Create a solution where p=2 (binary: 01) and q=3 (binary: 11)
     // We need to find the indices of p1, p2, q1, q2 in the variable list
     let var_names = circuit_sat.variable_names();
-    let mut sol = vec![0usize; var_names.len()];
+    let mut sol = vec![false; var_names.len()];
 
     // Now evaluate the circuit to set all internal variables correctly
     let assignments = evaluate_multiplier_circuit(&reduction, 2, 3);
     for (i, name) in var_names.iter().enumerate() {
         if let Some(&val) = assignments.get(name) {
-            sol[i] = if val { 1 } else { 0 };
+            sol[i] = val;
         }
     }
 
-    let factoring_sol = reduction.extract_solution(&sol);
-    assert_eq!(
-        factoring_sol.len(),
-        4,
-        "Should have 4 bits (2 for p, 2 for q)"
-    );
+    let factoring_sol = reduction.extract_solution(&sol).unwrap();
+    let (p, q) = factoring_sol.clone();
+    assert_eq!(p, BigUint::from(2u32), "p should be 2");
+    assert_eq!(q, BigUint::from(3u32), "q should be 3");
+    assert_eq!(p * q, BigUint::from(6u32), "Product should equal target");
 
-    let (p, q) = factoring.read_factors(&factoring_sol);
-    assert_eq!(p, 2, "p should be 2");
-    assert_eq!(q, 3, "q should be 3");
-    assert_eq!(p * q, 6, "Product should equal target");
+    let assignments = evaluate_multiplier_circuit(&reduction, 3, 2);
+    for (i, name) in var_names.iter().enumerate() {
+        if let Some(&val) = assignments.get(name) {
+            sol[i] = val;
+        }
+    }
+    assert_eq!(
+        reduction.extract_solution(&sol).unwrap(),
+        (BigUint::from(2u32), BigUint::from(3u32))
+    );
 }
 
 #[test]
 fn test_prime_7_only_trivial_factorizations() {
-    let factoring = Factoring::new(3, 3, 7);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(7, 3, 3);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     // Check that only trivial factorizations satisfy
     for p in 0..8u64 {
@@ -258,8 +280,9 @@ fn test_prime_7_only_trivial_factorizations() {
 #[test]
 fn test_all_2bit_factorizations() {
     // Test all possible 2-bit * 2-bit multiplications for target 6
-    let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(6, 2, 2);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     let mut valid_factorizations = Vec::new();
     for p in 0..4u64 {
@@ -283,8 +306,9 @@ fn test_all_2bit_factorizations() {
 #[test]
 fn test_factorization_1_trivial() {
     // Factor 1 = 1 * 1
-    let factoring = Factoring::new(2, 2, 1);
-    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
+    let factoring = Factoring::with_factor_bits(1, 2, 2);
+    let reduction =
+        ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
 
     assert!(
         check_factorization_satisfies(&factoring, &reduction, 1, 1),
@@ -297,9 +321,19 @@ fn test_factorization_1_trivial() {
 }
 
 #[test]
+fn test_oversized_target_is_explicitly_infeasible() {
+    let target = BigUint::from(1u32) << 70;
+    let source = Factoring::with_factor_bits(target, 2, 2);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    let config = vec![false; target.num_variables()];
+    assert!(!target.evaluate(&config).unwrap());
+}
+
+#[test]
 fn test_jl_parity_factoring_to_circuitsat() {
-    let source = Factoring::new(1, 1, 1);
-    let result = ReduceTo::<CircuitSAT>::reduce_to(&source);
+    let source = Factoring::with_factor_bits(1, 1, 1);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_satisfaction_target(
         &source,
         &result,
@@ -310,8 +344,30 @@ fn test_jl_parity_factoring_to_circuitsat() {
     ))
     .unwrap();
     let solver = BruteForce::new();
-    let jl_best_source = jl_parse_configs_set(&data["cases"][0]["best_source"]);
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let jl_best_source: HashSet<(BigUint, BigUint)> =
+        jl_parse_configs_set(&data["cases"][0]["best_source"])
+            .into_iter()
+            .map(|bits| {
+                let decode = |slice: &[usize]| {
+                    slice
+                        .iter()
+                        .enumerate()
+                        .fold(BigUint::from(0u32), |value, (bit, &set)| {
+                            if set == 1 {
+                                value + (BigUint::from(1u32) << bit)
+                            } else {
+                                value
+                            }
+                        })
+                };
+                (decode(&bits[..source.m()]), decode(&bits[source.m()..]))
+            })
+            .collect();
+    let best_source: HashSet<(BigUint, BigUint)> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_eq!(
         best_source, jl_best_source,
         "Factoring best source mismatch"

@@ -34,13 +34,21 @@ impl ReductionResult for ReductionKCliqueToSubIso {
     /// The SubgraphIsomorphism config maps each pattern vertex (0..k-1) to a
     /// host vertex. We create a binary vector of length n and set positions
     /// f(0), f(1), ..., f(k-1) to 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        KClique::<SimpleGraph>::config_from_vertices(self.num_source_vertices, target_solution)
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(KClique::<SimpleGraph>::config_from_vertices(
+            self.num_source_vertices,
+            target_solution,
+        ))
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_host_vertices = "num_vertices",
         num_host_edges = "num_edges",
         num_pattern_vertices = "k",
@@ -50,7 +58,7 @@ impl ReductionResult for ReductionKCliqueToSubIso {
 impl ReduceTo<SubgraphIsomorphism> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToSubIso;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
 
@@ -59,10 +67,10 @@ impl ReduceTo<SubgraphIsomorphism> for KClique<SimpleGraph> {
 
         let target = SubgraphIsomorphism::new(host, pattern);
 
-        ReductionKCliqueToSubIso {
+        Ok(ReductionKCliqueToSubIso {
             target,
             num_source_vertices: n,
-        }
+        })
     }
 }
 
@@ -81,8 +89,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, SubgraphIsomorphism>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1, 1, 1],
-                    target_config: vec![2, 3, 4],
+                    source_config: serde_json::json!(vec![false, false, true, true, true]),
+                    target_config: serde_json::json!(vec![2, 3, 4]),
                 },
             )
         },

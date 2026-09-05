@@ -18,35 +18,33 @@ impl ReductionResult for ReductionPartitionToKnapsack {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-fn partition_size_to_i64(value: u64) -> i64 {
-    i64::try_from(value)
-        .expect("Partition -> Knapsack requires all sizes and total_sum / 2 to fit in i64")
-}
-
-#[reduction(overhead = {
-    num_items = "num_elements",
-})]
+#[reduction(
+    transform = exact { num_items = "num_elements" },
+    unavailable = {
+        capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;
 
-    fn reduce_to(&self) -> Self::Result {
-        let weights: Vec<i64> = self
-            .sizes()
-            .iter()
-            .copied()
-            .map(partition_size_to_i64)
-            .collect();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let weights = self.sizes().to_vec();
         let values = weights.clone();
-        let capacity = partition_size_to_i64(self.total_sum() / 2);
+        let capacity = self.total_sum() / 2;
 
-        ReductionPartitionToKnapsack {
+        Ok(ReductionPartitionToKnapsack {
             target: Knapsack::new(weights, values, capacity),
-        }
+        })
     }
 }
 
@@ -58,10 +56,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_knapsack",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, Knapsack>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0, 0],
-                    target_config: vec![1, 0, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, false, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, false, false]),
                 },
             )
         },

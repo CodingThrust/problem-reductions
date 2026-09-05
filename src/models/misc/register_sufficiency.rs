@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Register Sufficiency",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a DAG computation can be performed using K or fewer registers",
         fields: &[
@@ -42,7 +43,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::RegisterSufficiency;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 vertices: v2 depends on v0, v3 depends on v0 and v1
 /// let problem = RegisterSufficiency::new(
@@ -51,7 +52,7 @@ inventory::submit! {
 ///     2,
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,10 +122,13 @@ impl RegisterSufficiency {
     /// Simulate register usage for a given evaluation ordering and return the
     /// maximum number of registers used, or `None` if the ordering is invalid
     /// (not a permutation or violates dependencies).
-    pub fn simulate_registers(&self, config: &[usize]) -> Option<usize> {
+    pub fn simulate_registers(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let n = self.num_vertices;
         if config.len() != n {
-            return None;
+            return Ok(None);
         }
 
         // Check valid permutation: each position 0..n-1 used exactly once
@@ -132,10 +136,10 @@ impl RegisterSufficiency {
         let mut used = vec![false; n];
         for (vertex, &position) in config.iter().enumerate() {
             if position >= n {
-                return None;
+                return Ok(None);
             }
             if used[position] {
-                return None;
+                return Ok(None);
             }
             used[position] = true;
             order[position] = vertex;
@@ -179,7 +183,7 @@ impl RegisterSufficiency {
             for &dep in &dependencies[vertex] {
                 if config[dep] >= step {
                     // Dependency not yet evaluated
-                    return None;
+                    return Ok(None);
                 }
             }
 
@@ -198,7 +202,11 @@ impl RegisterSufficiency {
             max_registers = max_registers.max(reg_count);
         }
 
-        Some(max_registers)
+        Ok(Some(i64::try_from(max_registers).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting register-usage count to i64".into(),
+            )
+        })?))
     }
 
     /// Exact branch-and-bound solver: finds a topological ordering using at
@@ -342,26 +350,58 @@ impl BnBState {
 
 impl Problem for RegisterSufficiency {
     const NAME: &'static str = "RegisterSufficiency";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("bound", bound),
+        ("num_arcs", num_arcs),
+        ("num_sinks", num_sinks),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_vertices; self.num_vertices]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_vertices {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= self.num_vertices) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering contains an out-of-range position".into(),
+            ));
+        }
+        let bound = i64::try_from(self.bound).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting register bound to i64".into(),
+            )
+        })?;
+        Ok(crate::types::Or(
+            self.simulate_registers(config)?
+                .is_some_and(|max_reg| max_reg <= bound),
+        ))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(
-            self.simulate_registers(config)
-                .is_some_and(|max_reg| max_reg <= self.bound),
-        )
+impl crate::solvers::BruteForceProblem for RegisterSufficiency {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_vertices; self.num_vertices]
     }
 }
 
 crate::declare_variants! {
     default RegisterSufficiency => "num_vertices ^ 2 * 2 ^ num_vertices",
+}
+
+crate::register_brute_force! {
+    RegisterSufficiency,
 }
 
 #[cfg(feature = "example-db")]
@@ -387,7 +427,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Order: v1,v2,v3,v4,v6,v5,v7 (1-indexed) = v0,v1,v2,v3,v5,v4,v6 (0-indexed)
         // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
-        optimal_config: vec![0, 1, 2, 3, 5, 4, 6],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3, 5, 4, 6]),
         optimal_value: serde_json::json!(true),
     }]
 }

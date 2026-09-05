@@ -26,13 +26,18 @@ impl ReductionResult for ReductionVCToHS {
 
     /// Solution extraction: variables correspond 1:1.
     /// Element i in the hitting set corresponds to vertex i in the vertex cover.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         universe_size = "num_vertices",
         num_sets = "num_edges",
     }
@@ -40,7 +45,7 @@ impl ReductionResult for ReductionVCToHS {
 impl ReduceTo<MinimumHittingSet> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToHS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_vertices = self.graph().num_vertices();
 
@@ -49,7 +54,7 @@ impl ReduceTo<MinimumHittingSet> for MinimumVertexCover<SimpleGraph, One> {
 
         let target = MinimumHittingSet::new(num_vertices, sets);
 
-        ReductionVCToHS { target }
+        Ok(ReductionVCToHS { target })
     }
 }
 
@@ -80,8 +85,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumHittingSet>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 1, 0],
-                    target_config: vec![1, 0, 0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, true, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, true, false]),
                 },
             )
         },

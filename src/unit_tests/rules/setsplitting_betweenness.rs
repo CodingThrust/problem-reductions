@@ -22,7 +22,7 @@ fn issue_no_instance() -> SetSplitting {
 #[test]
 fn test_setsplitting_to_betweenness_closed_loop() {
     let source = small_yes_instance();
-    let reduction = ReduceTo::<Betweenness>::reduce_to(&source);
+    let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -34,7 +34,7 @@ fn test_setsplitting_to_betweenness_closed_loop() {
 #[test]
 fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<Betweenness>::reduce_to(&source);
+    let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_elements(), 10);
@@ -52,15 +52,17 @@ fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
         ],
     );
     assert_eq!(
-        reduction.extract_solution(&[8, 2, 9, 0, 1, 4, 3, 6, 7, 5]),
-        vec![1, 0, 1, 0, 0]
+        reduction
+            .extract_solution(&vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
+            .unwrap(),
+        vec![true, false, true, false, false]
     );
 }
 
 #[test]
 fn test_setsplitting_to_betweenness_normalizes_large_subsets() {
     let source = SetSplitting::new(4, vec![vec![0, 1, 2, 3]]);
-    let reduction = ReduceTo::<Betweenness>::reduce_to(&source);
+    let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_elements(), 9);
@@ -73,10 +75,11 @@ fn test_setsplitting_to_betweenness_normalizes_large_subsets() {
 #[test]
 fn test_setsplitting_to_betweenness_issue_no_instance_is_unsat() {
     let source = issue_no_instance();
-    let reduction = ReduceTo::<Betweenness>::reduce_to(&source);
+    let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
+        .unwrap()
         .is_none());
 }
 
@@ -92,6 +95,12 @@ fn test_setsplitting_to_betweenness_canonical_example_spec() {
     assert_eq!(example.solutions.len(), 1);
 
     let pair = &example.solutions[0];
-    assert_eq!(pair.source_config, vec![1, 0, 1, 0, 0]);
-    assert_eq!(pair.target_config, vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5]);
+    assert_eq!(
+        pair.source_config,
+        serde_json::json!([true, false, true, false, false])
+    );
+    assert_eq!(
+        pair.target_config,
+        serde_json::json!([8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
+    );
 }

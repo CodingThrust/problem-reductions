@@ -12,7 +12,8 @@ use crate::variant::K3;
 fn test_kcoloring_to_twodimensionalconsecutivesets_closed_loop() {
     // Triangle graph: 3-colorable
     let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source);
+    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -25,7 +26,8 @@ fn test_kcoloring_to_twodimensionalconsecutivesets_closed_loop() {
 fn test_kcoloring_to_tdcs_target_structure() {
     // Graph with 4 vertices and 3 edges: path 0-1-2-3
     let source = KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source);
+    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Alphabet: 4 vertices + 3 edges = 7
@@ -50,11 +52,12 @@ fn test_kcoloring_to_tdcs_non_3colorable() {
     ));
 
     let solver = BruteForce::new();
-    let source_solutions = solver.find_all_witnesses(&source);
+    let source_solutions = solver.find_all_witnesses(&source).unwrap();
     assert!(source_solutions.is_empty(), "K4 is not 3-colorable");
 
     // Verify the reduction produces the correct structure
-    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source);
+    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(target.alphabet_size(), 10); // 4 vertices + 6 edges
     assert_eq!(target.num_subsets(), 6);
@@ -64,7 +67,8 @@ fn test_kcoloring_to_tdcs_non_3colorable() {
 fn test_kcoloring_to_tdcs_bipartite() {
     // Path 0-1-2: bipartite, 2-colorable (hence 3-colorable)
     let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source);
+    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -77,7 +81,8 @@ fn test_kcoloring_to_tdcs_bipartite() {
 fn test_kcoloring_to_tdcs_single_edge() {
     // Single edge: trivially 3-colorable
     let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
-    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source);
+    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.alphabet_size(), 3); // 2 vertices + 1 edge
@@ -94,17 +99,20 @@ fn test_kcoloring_to_tdcs_single_edge() {
 fn test_kcoloring_to_tdcs_extract_solution_valid() {
     // Triangle: verify extracted coloring is valid
     let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source);
+    let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(reduction.target_problem());
+    let target_solutions = solver
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
 
     for target_sol in &target_solutions {
-        let source_sol = reduction.extract_solution(target_sol);
+        let source_sol = reduction.extract_solution(target_sol).unwrap();
         assert_eq!(source_sol.len(), 3);
         // Verify it is a valid coloring
         assert!(
-            source.evaluate(&source_sol).0,
+            source.evaluate(&source_sol).unwrap().0,
             "Extracted coloring must be valid: {:?}",
             source_sol
         );

@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Matrix Cover",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find sign assignment minimizing quadratic form over nonnegative integer matrix",
         fields: &[
@@ -36,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::MinimumMatrixCover;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = MinimumMatrixCover::new(vec![
 ///     vec![0, 3, 1, 0],
@@ -46,7 +47,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,42 +88,69 @@ impl MinimumMatrixCover {
 
 impl Problem for MinimumMatrixCover {
     const NAME: &'static str = "MinimumMatrixCover";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_parameters![("num_rows", num_rows),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_rows()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let n = self.num_rows();
-        if config.len() != n {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        // Map config to signs: 0 → -1, 1 → +1
-        let signs: Vec<i64> = config.iter().map(|&x| 2 * x as i64 - 1).collect();
-
-        // Compute Σ_{i,j} a_ij * f(i) * f(j)
-        let mut value: i64 = 0;
-        for i in 0..n {
-            for j in 0..n {
-                value += self.matrix[i][j] * signs[i] * signs[j];
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_rows();
+            if config.len() != n {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "row-sign assignment length does not match the matrix".into(),
+                ));
             }
-        }
+            // Map config to signs: 0 → -1, 1 → +1
+            let signs: Vec<i64> = config
+                .iter()
+                .map(|&value| if value { 1 } else { -1 })
+                .collect();
 
-        Min(Some(value))
+            // Compute Σ_{i,j} a_ij * f(i) * f(j)
+            let mut value: i64 = 0;
+            for i in 0..n {
+                for j in 0..n {
+                    let term = self.matrix[i][j]
+                        .checked_mul(signs[i])
+                        .and_then(|term| term.checked_mul(signs[j]))
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "multiplying matrix-cover objective term".into(),
+                            )
+                        })?;
+                    value = value.checked_add(term).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing matrix-cover objective".into(),
+                        )
+                    })?;
+                }
+            }
+
+            Min(Some(value))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumMatrixCover {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_rows()]
     }
 }
 
 crate::declare_variants! {
     default MinimumMatrixCover => "2^num_rows",
+}
+
+crate::register_brute_force! {
+    MinimumMatrixCover decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -137,7 +165,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 0, 0, 4],
             vec![0, 2, 4, 0],
         ])),
-        optimal_config: vec![0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![false, true, true, false]),
         optimal_value: serde_json::json!(-20),
     }]
 }

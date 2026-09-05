@@ -1,4 +1,4 @@
-//! Reduction from BiconnectivityAugmentation to ILP<i32>.
+//! Reduction from BiconnectivityAugmentation to `ILP<i64>`.
 //!
 //! Select candidate edges under budget and, for every deleted vertex q,
 //! certify that the remaining augmented graph stays connected via unit-flow
@@ -12,43 +12,55 @@ use crate::topology::{Graph, SimpleGraph};
 
 #[derive(Debug, Clone)]
 pub struct ReductionBiconnAugToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_candidates: usize,
 }
 
 impl ReductionResult for ReductionBiconnAugToILP {
-    type Source = BiconnectivityAugmentation<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = BiconnectivityAugmentation<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_candidates].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_candidates]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_potential_edges + 2 * num_vertices * num_vertices * (num_edges + num_potential_edges)",
-        num_constraints = "1 + 2 * num_vertices * num_vertices * num_potential_edges + num_vertices * num_vertices * num_vertices",
+        num_constraints = "num_potential_edges + 1 + 4 * num_vertices * (num_edges + num_potential_edges) + num_vertices^2 * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
     type Result = ReductionBiconnAugToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let p = self.num_potential_edges();
 
         // Trivial case: n ≤ 1 already biconnected
         if n <= 1 {
-            let target = ILP::new(p, vec![], vec![], ObjectiveSense::Minimize);
-            return ReductionBiconnAugToILP {
+            let target = ILP::new(p, vec![], vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
+            return Ok(ReductionBiconnAugToILP {
                 target,
                 num_candidates: p,
-            };
+            });
         }
 
         let base_edges = self.graph().edges();
@@ -70,17 +82,17 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
 
         // Binary bounds: y_j ≤ 1
         for j in 0..p {
-            constraints.push(LinearConstraint::le(vec![(j, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(j, 1)], 1));
         }
 
         // Budget constraint: Σ w_j y_j ≤ B
-        let budget_terms: Vec<(usize, f64)> = self
+        let budget_terms: Vec<(usize, i64)> = self
             .potential_weights()
             .iter()
             .enumerate()
-            .map(|(j, &(_, _, w))| (j, w as f64))
+            .map(|(candidate, &(_, _, weight))| (candidate, weight))
             .collect();
-        constraints.push(LinearConstraint::le(budget_terms, *self.budget() as f64));
+        constraints.push(LinearConstraint::le(budget_terms, *self.budget()));
 
         // For each deleted vertex q
         for q in 0..n {
@@ -92,13 +104,13 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                     for i in 0..m {
                         for eta in 0..2 {
                             constraints
-                                .push(LinearConstraint::eq(vec![(f_idx(q, t, i, eta), 1.0)], 0.0));
+                                .push(LinearConstraint::eq(vec![(f_idx(q, t, i, eta), 1)], 0));
                         }
                     }
                     for j in 0..p {
                         for eta in 0..2 {
                             constraints
-                                .push(LinearConstraint::eq(vec![(g_idx(q, t, j, eta), 1.0)], 0.0));
+                                .push(LinearConstraint::eq(vec![(g_idx(q, t, j, eta), 1)], 0));
                         }
                     }
                     continue;
@@ -109,7 +121,7 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                     if u == q || v == q {
                         for eta in 0..2 {
                             constraints
-                                .push(LinearConstraint::eq(vec![(f_idx(q, t, i, eta), 1.0)], 0.0));
+                                .push(LinearConstraint::eq(vec![(f_idx(q, t, i, eta), 1)], 0));
                         }
                     }
                 }
@@ -117,7 +129,7 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                     if sj == q || tj == q {
                         for eta in 0..2 {
                             constraints
-                                .push(LinearConstraint::eq(vec![(g_idx(q, t, j, eta), 1.0)], 0.0));
+                                .push(LinearConstraint::eq(vec![(g_idx(q, t, j, eta), 1)], 0));
                         }
                     }
                 }
@@ -130,8 +142,8 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                     }
                     for eta in 0..2 {
                         constraints.push(LinearConstraint::le(
-                            vec![(g_idx(q, t, j, eta), 1.0), (j, -1.0)],
-                            0.0,
+                            vec![(g_idx(q, t, j, eta), 1), (j, -1)],
+                            0,
                         ));
                     }
                 }
@@ -141,7 +153,7 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                     if v == q {
                         continue;
                     }
-                    let mut terms: Vec<(usize, f64)> = Vec::new();
+                    let mut terms: Vec<(usize, i64)> = Vec::new();
 
                     // Base edges
                     for (i, &(u_e, v_e)) in base_edges.iter().enumerate() {
@@ -150,12 +162,12 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                         }
                         // eta=0 means u->v direction
                         if u_e == v {
-                            terms.push((f_idx(q, t, i, 0), 1.0)); // outgoing
-                            terms.push((f_idx(q, t, i, 1), -1.0)); // incoming
+                            terms.push((f_idx(q, t, i, 0), 1)); // outgoing
+                            terms.push((f_idx(q, t, i, 1), -1)); // incoming
                         }
                         if v_e == v {
-                            terms.push((f_idx(q, t, i, 0), -1.0)); // incoming
-                            terms.push((f_idx(q, t, i, 1), 1.0)); // outgoing
+                            terms.push((f_idx(q, t, i, 0), -1)); // incoming
+                            terms.push((f_idx(q, t, i, 1), 1)); // outgoing
                         }
                     }
 
@@ -166,32 +178,33 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
                         }
                         // eta=0 means s->t direction
                         if sj == v {
-                            terms.push((g_idx(q, t, j, 0), 1.0));
-                            terms.push((g_idx(q, t, j, 1), -1.0));
+                            terms.push((g_idx(q, t, j, 0), 1));
+                            terms.push((g_idx(q, t, j, 1), -1));
                         }
                         if tj == v {
-                            terms.push((g_idx(q, t, j, 0), -1.0));
-                            terms.push((g_idx(q, t, j, 1), 1.0));
+                            terms.push((g_idx(q, t, j, 0), -1));
+                            terms.push((g_idx(q, t, j, 1), 1));
                         }
                     }
 
                     let rhs = if v == root {
-                        1.0
+                        1
                     } else if v == t {
-                        -1.0
+                        -1
                     } else {
-                        0.0
+                        0
                     };
                     constraints.push(LinearConstraint::eq(terms, rhs));
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionBiconnAugToILP {
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionBiconnAugToILP {
             target,
             num_candidates: p,
-        }
+        })
     }
 }
 
@@ -208,16 +221,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
             );
             let reduction: ReductionBiconnAugToILP =
-                crate::rules::ReduceTo::<ILP<i32>>::reduce_to(&source);
+                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&ilp_sol);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
-                    source_config: extracted,
-                    target_config: ilp_sol,
+                    source_config: serde_json::json!(extracted),
+                    target_config: serde_json::json!(ilp_sol),
                 },
             )
         },

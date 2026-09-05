@@ -7,7 +7,8 @@ use crate::rules::ReduceTo;
 fn test_minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters_closed_loop() {
     let source = issue_example_source();
     let reduction: ReductionFVSToCodeGen =
-        ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source);
+        ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
