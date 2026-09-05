@@ -86,3 +86,16 @@ fn test_sumofsquarespartition_to_ilp_trivial() {
     // Optimal: {1},{2} -> 1+4=5
     assert_eq!(value, Min(Some(5)));
 }
+
+#[test]
+fn test_sumofsquarespartition_to_ilp_requires_exact_mip_optimality() {
+    let problem = SumOfSquaresPartition::new(vec![85, 141, 61, 22, 123, 39], 3);
+    let reduction: ReductionSSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should prove the exact optimum");
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(74129)));
+}

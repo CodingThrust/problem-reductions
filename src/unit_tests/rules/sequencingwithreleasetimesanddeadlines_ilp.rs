@@ -45,6 +45,19 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
 }
 
 #[test]
+fn test_sequencingwithreleasetimesanddeadlines_to_ilp_rejects_empty_start_window() {
+    // Task 0 cannot meet its deadline even when it starts immediately. Its
+    // admissible start-time set is empty, rather than the singleton {0}.
+    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![14], vec![0], vec![13]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+
+    assert!(
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+        "a task longer than its release-deadline window must make the ILP infeasible"
+    );
+}
+
+#[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_single_task() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![3], vec![1], vec![5]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

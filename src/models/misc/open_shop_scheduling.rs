@@ -39,10 +39,10 @@ inventory::submit! {
 ///
 /// # Configuration Encoding
 ///
-/// The configuration is a flat array of `n * m` values.
-/// `config[i * n .. (i + 1) * n]` gives the permutation of jobs on machine `i`
-/// (direct job indices, not Lehmer code). A segment is valid iff it is a
-/// permutation of `0..n`. Invalid configs return `Min(None)`.
+/// The configuration is a flat array of `n * m` non-negative start times in
+/// job-major order: `config[j * m + i]` is the start time of job `j` on
+/// machine `i`. A configuration is valid exactly when operations of the same
+/// job and operations on the same machine do not overlap.
 ///
 /// # Example
 ///
@@ -78,23 +78,7 @@ impl TryFrom<OpenShopSchedulingSerde> for OpenShopScheduling {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(value: OpenShopSchedulingSerde) -> Result<Self, Self::Error> {
-        for (job, times) in value.processing_times.iter().enumerate() {
-            if times.len() != value.num_machines {
-                return Err(format!(
-                    "processing_times[{job}] has {} entries, expected {}",
-                    times.len(),
-                    value.num_machines
-                )
-                .into());
-            }
-            if times.iter().any(|&time| time < 0) {
-                return Err(format!("processing_times[{job}] contains a negative duration").into());
-            }
-        }
-        Ok(Self {
-            num_machines: value.num_machines,
-            processing_times: value.processing_times,
-        })
+        Self::try_new(value.num_machines, value.processing_times)
     }
 }
 
@@ -110,20 +94,7 @@ impl TryFrom<OpenShopSchedulingCreateSpec> for OpenShopScheduling {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: OpenShopSchedulingCreateSpec) -> Result<Self, Self::Error> {
-        for (job, times) in spec.processing_times.iter().enumerate() {
-            if times.len() != spec.num_processors {
-                return Err(format!(
-                    "processing_times[{job}] has {} entries, expected {}",
-                    times.len(),
-                    spec.num_processors
-                )
-                .into());
-            }
-            if times.iter().any(|&time| time < 0) {
-                return Err(format!("processing_times[{job}] contains a negative duration").into());
-            }
-        }
-        Ok(Self::new(spec.num_processors, spec.processing_times))
+        Self::try_new(spec.num_processors, spec.processing_times)
     }
 }
 
@@ -136,26 +107,58 @@ impl OpenShopScheduling {
     ///   Each inner Vec must have length `num_machines`.
     ///
     /// # Panics
-    /// Panics if any job does not have exactly `num_machines` processing times.
+    /// Panics if the processing matrix or its schedule horizon is invalid.
     pub fn new(num_machines: usize, processing_times: Vec<Vec<i64>>) -> Self {
-        for (j, times) in processing_times.iter().enumerate() {
-            assert_eq!(
-                times.len(),
-                num_machines,
-                "Job {} has {} processing times, expected {}",
-                j,
-                times.len(),
-                num_machines
-            );
-            assert!(
-                times.iter().all(|&time| time >= 0),
-                "Job {j} has a negative processing time"
-            );
+        Self::try_new(num_machines, processing_times)
+            .expect("invalid open-shop scheduling instance")
+    }
+
+    /// Construct an instance, validating dimensions, durations, and the horizon.
+    pub fn try_new(
+        num_machines: usize,
+        processing_times: Vec<Vec<i64>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (job, times) in processing_times.iter().enumerate() {
+            if times.len() != num_machines {
+                return Err(format!(
+                    "processing_times[{job}] has {} entries, expected {num_machines}",
+                    times.len(),
+                )
+                .into());
+            }
+            if times.iter().any(|&time| time < 0) {
+                return Err(format!("processing_times[{job}] contains a negative duration").into());
+            }
         }
-        Self {
+        processing_times
+            .len()
+            .checked_mul(num_machines)
+            .ok_or_else(|| {
+                crate::registry::ConstructionError::IntegerOverflow(
+                    "operation count overflows usize".into(),
+                )
+            })?;
+        let horizon = processing_times
+            .iter()
+            .flatten()
+            .try_fold(0i64, |total, &time| total.checked_add(time))
+            .ok_or_else(|| {
+                crate::registry::ConstructionError::IntegerOverflow(
+                    "schedule horizon overflows i64".into(),
+                )
+            })?;
+        usize::try_from(horizon)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .ok_or_else(|| {
+                crate::registry::ConstructionError::IntegerOverflow(
+                    "schedule horizon domain overflows usize".into(),
+                )
+            })?;
+        Ok(Self {
             num_machines,
             processing_times,
-        }
+        })
     }
 
     /// Get the number of machines.
@@ -173,100 +176,56 @@ impl OpenShopScheduling {
         &self.processing_times
     }
 
-    /// Decode the per-machine job orderings from a config.
-    ///
-    /// Returns `None` if the config length is wrong or any segment is not a
-    /// valid permutation of `0..n`.
-    pub fn decode_orders(&self, config: &[usize]) -> Option<Vec<Vec<usize>>> {
-        let n = self.num_jobs();
-        let m = self.num_machines;
-        if config.len() != n * m {
-            return None;
-        }
-        let mut orders = Vec::with_capacity(m);
-        for i in 0..m {
-            let seg = &config[i * n..(i + 1) * n];
-            // Validate that seg is a permutation of 0..n
-            let mut seen = vec![false; n];
-            for &job in seg {
-                if job >= n || seen[job] {
-                    return None;
-                }
-                seen[job] = true;
-            }
-            orders.push(seg.to_vec());
-        }
-        Some(orders)
+    /// Return the sum of all processing times, a valid serial-schedule horizon.
+    pub fn schedule_horizon(&self) -> usize {
+        self.processing_times
+            .iter()
+            .flatten()
+            .try_fold(0usize, |total, &time| {
+                usize::try_from(time)
+                    .ok()
+                    .and_then(|time| total.checked_add(time))
+            })
+            .expect("processing times must fit the brute-force schedule horizon")
     }
 
-    /// Compute the makespan from a set of per-machine job orderings.
-    ///
-    /// Uses a greedy simulation: at each step, among all machines whose next
-    /// scheduled job can start (both machine and job are free), schedule the
-    /// one with the earliest available start time.
-    pub fn compute_makespan(
+    fn finish_time(
         &self,
-        orders: &[Vec<usize>],
+        config: &[usize],
+        job: usize,
+        machine: usize,
     ) -> Result<i64, crate::traits::EvaluationError> {
-        let n = self.num_jobs();
-        let m = self.num_machines;
+        let start = i64::try_from(config[job * self.num_machines + machine]).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting an open-shop start time to i64".into(),
+            )
+        })?;
+        start
+            .checked_add(self.processing_times[job][machine])
+            .ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing an open-shop completion time".into(),
+                )
+            })
+    }
 
-        if n == 0 || m == 0 {
-            return Ok(0);
-        }
-
-        // `machine_avail[i]` = next time machine i is free.
-        let mut machine_avail = vec![0_i64; m];
-        // `job_avail[j]` = next time job j is free (all its currently scheduled
-        // tasks have finished).
-        let mut job_avail = vec![0_i64; n];
-        // Pointer to next unscheduled position in each machine's ordering.
-        let mut next_on_machine = vec![0usize; m];
-
-        let total_tasks = n * m;
-        let mut scheduled = 0;
-
-        while scheduled < total_tasks {
-            // Find the (machine, earliest start time) among all machines that
-            // still have unscheduled tasks.
-            let mut best_start = i64::MAX;
-            let mut best_machine = usize::MAX;
-
-            for i in 0..m {
-                if next_on_machine[i] < n {
-                    let j = orders[i][next_on_machine[i]];
-                    let start = machine_avail[i].max(job_avail[j]);
-                    // Tie-break by machine index to make the result deterministic.
-                    if start < best_start || (start == best_start && i < best_machine) {
-                        best_start = start;
-                        best_machine = i;
-                    }
-                }
-            }
-
-            // Schedule the chosen task.
-            let i = best_machine;
-            let j = orders[i][next_on_machine[i]];
-            let start = machine_avail[i].max(job_avail[j]);
-            let finish = start
-                .checked_add(self.processing_times[j][i])
-                .ok_or_else(|| {
-                    crate::traits::EvaluationError::IntegerOverflow(
-                        "computing an open-shop task completion time".to_string(),
-                    )
-                })?;
-            machine_avail[i] = finish;
-            job_avail[j] = finish;
-            next_on_machine[i] += 1;
-            scheduled += 1;
-        }
-
-        Ok(machine_avail
-            .iter()
-            .copied()
-            .max()
-            .unwrap_or(0)
-            .max(job_avail.iter().copied().max().unwrap_or(0)))
+    fn operations_overlap(
+        &self,
+        config: &[usize],
+        first: (usize, usize),
+        second: (usize, usize),
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        let (j1, i1) = first;
+        let (j2, i2) = second;
+        let s1 = i64::try_from(config[j1 * self.num_machines + i1]).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow("converting start time to i64".into())
+        })?;
+        let s2 = i64::try_from(config[j2 * self.num_machines + i2]).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow("converting start time to i64".into())
+        })?;
+        let f1 = self.finish_time(config, j1, i1)?;
+        let f2 = self.finish_time(config, j2, i2)?;
+        Ok(s1 < f2 && s2 < f1)
     }
 }
 
@@ -275,7 +234,11 @@ impl Problem for OpenShopScheduling {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_parameters![("num_jobs", num_jobs), ("num_machines", num_machines),];
+    crate::problem_parameters![
+        ("num_jobs", num_jobs),
+        ("num_machines", num_machines),
+        ("schedule_horizon", schedule_horizon),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -286,33 +249,52 @@ impl Problem for OpenShopScheduling {
         config: &Self::Solution,
     ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         let n = self.num_jobs();
-        if config.len() != n * self.num_machines {
+        let m = self.num_machines;
+        if config.len() != n * m {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
-                "machine-order representation length does not match the instance".into(),
+                "start-time representation length does not match the instance".into(),
             ));
         }
-        if config.iter().any(|&job| job >= n) {
-            return Err(crate::traits::EvaluationError::InvalidConfiguration(
-                "machine order contains an out-of-range job".into(),
-            ));
+        for machine in 0..m {
+            for first in 0..n {
+                for second in (first + 1)..n {
+                    if self.operations_overlap(config, (first, machine), (second, machine))? {
+                        return Ok(Min(None));
+                    }
+                }
+            }
         }
-        match self.decode_orders(config) {
-            Some(orders) => Ok(Min(Some(self.compute_makespan(&orders)?))),
-            None => Ok(Min(None)),
+        for job in 0..n {
+            for first in 0..m {
+                for second in (first + 1)..m {
+                    if self.operations_overlap(config, (job, first), (job, second))? {
+                        return Ok(Min(None));
+                    }
+                }
+            }
         }
+        let mut makespan = 0;
+        for job in 0..n {
+            for machine in 0..m {
+                makespan = makespan.max(self.finish_time(config, job, machine)?);
+            }
+        }
+        Ok(Min(Some(makespan)))
     }
 }
 
 impl crate::solvers::BruteForceProblem for OpenShopScheduling {
     fn dimensions(&self) -> Vec<usize> {
-        let n = self.num_jobs();
-        let m = self.num_machines;
-        vec![n; n * m]
+        let domain = self
+            .schedule_horizon()
+            .checked_add(1)
+            .expect("schedule horizon overflow");
+        vec![domain; self.num_jobs() * self.num_machines]
     }
 }
 
 crate::declare_variants! {
-    default OpenShopScheduling => "factorial(num_jobs)^num_machines" create OpenShopSchedulingCreateSpec,
+    default OpenShopScheduling => "(schedule_horizon + 1)^(num_jobs * num_machines)" create OpenShopSchedulingCreateSpec,
 }
 
 crate::register_brute_force! {
@@ -331,29 +313,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Per-machine totals: M1=8, M2=8, M3=7.  Per-job totals: J1=6, J2=6, J3=6, J4=5.
     // Lower bound: max(8, 6) = 8. True optimal makespan = 8.
     //
-    // Optimal machine orderings (0-indexed jobs):
-    //   M1: [J1, J2, J3, J4] = [0, 1, 2, 3]
-    //   M2: [J2, J1, J4, J3] = [1, 0, 3, 2]
-    //   M3: [J3, J4, J1, J2] = [2, 3, 0, 1]
-    //
-    // config = [M1 order | M2 order | M3 order]
-    //        = [0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1]
-    //
-    // Resulting schedule:
-    //   J1: M1=[0,3), M2=[7,8), M3=[1,3)  — job non-overlap: [0,3),[1,3) overlap!
-    //   Actually use simulation to verify:
-    //   Step 1: best start = M1(J1:0), M2(J2:0), M3(J3:0) → M1 ties with M2,M3; pick M1
-    //           J1 on M1: [0,3)
-    //   ... (simulation produces makespan=8)
-    //
-    // 224 out of 13824 orderings achieve the optimal makespan of 8.
+    // Job-major start times: J1=[0,3,4], J2=[3,0,6], J3=[5,6,0], J4=[6,4,3].
+    // Each job and machine has non-overlapping operations; the last finish is 8.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "open_shop_scheduling",
         instance: Box::new(OpenShopScheduling::new(
             3,
             vec![vec![3, 1, 2], vec![2, 3, 1], vec![1, 2, 3], vec![2, 2, 1]],
         )),
-        optimal_config: serde_json::json!(vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1]),
+        optimal_config: serde_json::json!(vec![0, 3, 4, 3, 0, 6, 5, 6, 0, 6, 4, 3]),
         optimal_value: serde_json::json!(8),
     }]
 }

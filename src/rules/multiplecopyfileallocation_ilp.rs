@@ -83,40 +83,9 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let num_vars = n + n * n;
-        // Big-M penalty for unreachable pairs: use a value larger than any feasible
-        // total cost to make unreachable assignments infeasible.
-        let overflow = |operation| {
-            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(operation)
-        };
-        let total_storage = self.storage().iter().try_fold(0_i64, |total, &value| {
-            total
-                .checked_add(value)
-                .ok_or_else(|| overflow("summing storage costs for big-M"))
-        })?;
-        let total_usage = self.usage().iter().try_fold(0_i64, |total, &value| {
-            total
-                .checked_add(value)
-                .ok_or_else(|| overflow("summing usage values for big-M"))
-        })?;
-        let vertex_count = Self::exact_i64(n, "converting the vertex count for big-M")?;
-        let big_m = total_usage
-            .checked_mul(vertex_count)
-            .and_then(|usage| total_storage.checked_add(usage))
-            .and_then(|total| total.checked_add(1))
-            .ok_or_else(|| overflow("computing big-M"))?;
-
-        // Precompute all-pairs shortest-path distances using BFS.
+        // Precompute all-pairs shortest-path distances using BFS. A negative
+        // distance marks an unreachable pair and is prohibited below.
         let all_dist: Vec<Vec<i64>> = (0..n).map(|s| bfs_distances(self.graph(), s, n)).collect();
-
-        // Effective distance from v to u: use big_m when unreachable.
-        let eff_dist = |v: usize, u: usize| -> i64 {
-            let d = all_dist[u][v]; // distance from v to u = BFS from u, query v
-            if d < 0 {
-                big_m
-            } else {
-                d
-            }
-        };
 
         // Index helpers.
         let x_var = |v: usize| v;
@@ -130,13 +99,18 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
             constraints.push(LinearConstraint::eq(terms, 1));
         }
 
-        // Capacity link constraints: ∀v,u: y_{v,u} ≤ x_u  →  y_{v,u} - x_u ≤ 0
-        for v in 0..n {
-            for u in 0..n {
-                constraints.push(LinearConstraint::le(
-                    vec![(y_var(v, u), 1), (x_var(u), -1)],
-                    0,
-                ));
+        // Reachable assignments require a selected copy. Unreachable
+        // assignments are forbidden exactly rather than discouraged by a cost.
+        for (u, distances_from_u) in all_dist.iter().enumerate() {
+            for (v, &distance) in distances_from_u.iter().enumerate() {
+                if distance < 0 {
+                    constraints.push(LinearConstraint::eq(vec![(y_var(v, u), 1)], 0));
+                } else {
+                    constraints.push(LinearConstraint::le(
+                        vec![(y_var(v, u), 1), (x_var(u), -1)],
+                        0,
+                    ));
+                }
             }
         }
 
@@ -148,18 +122,19 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
                 objective.push((x_var(v), sc));
             }
         }
-        for v in 0..n {
-            for u in 0..n {
-                let service_cost =
-                    self.usage()[v].checked_mul(eff_dist(v, u)).ok_or_else(|| {
-                        crate::rules::ReductionError::integer_overflow::<
-                            MultipleCopyFileAllocation,
-                            ILP<bool>,
-                        >("multiplying usage by service distance")
-                    })?;
-                let coeff = service_cost;
-                if coeff != 0 {
-                    objective.push((y_var(v, u), coeff));
+        for (u, distances_from_u) in all_dist.iter().enumerate() {
+            for (v, &distance) in distances_from_u.iter().enumerate() {
+                if distance < 0 {
+                    continue;
+                }
+                let service_cost = self.usage()[v].checked_mul(distance).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        MultipleCopyFileAllocation,
+                        ILP<bool>,
+                    >("multiplying usage by service distance")
+                })?;
+                if service_cost != 0 {
+                    objective.push((y_var(v, u), service_cost));
                 }
             }
         }

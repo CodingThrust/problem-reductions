@@ -17,6 +17,7 @@ pub(crate) mod coloring_qubo;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
 pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
+pub(crate) mod ensemblecomputation_ilp;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_boundeddiameterspanningtree;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
@@ -389,6 +390,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
+    specs.extend(ensemblecomputation_ilp::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(maxcut_minimummatrixcover::canonical_rule_example_specs());

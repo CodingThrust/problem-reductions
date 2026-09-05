@@ -145,7 +145,7 @@ fn test_undirected_two_commodity_integral_flow_paper_example() {
     assert!(problem.evaluate(&config).unwrap());
 
     let all = BruteForce::new().find_all_witnesses(&problem).unwrap();
-    assert_eq!(all.len(), 2);
+    assert_eq!(all.len(), 1);
     assert!(all.contains(&config));
 }
 

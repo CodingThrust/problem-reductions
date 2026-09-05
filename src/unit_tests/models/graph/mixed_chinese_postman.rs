@@ -161,3 +161,21 @@ fn test_mixed_chinese_postman_problem_name() {
         "MixedChinesePostman"
     );
 }
+
+#[test]
+fn test_mixed_chinese_postman_ignores_isolated_vertices() {
+    let problem = MixedChinesePostman::new(
+        MixedGraph::new(
+            8,
+            vec![(5, 3), (1, 4), (0, 1), (2, 4), (0, 5)],
+            vec![(4, 2), (0, 4), (0, 2), (1, 3)],
+        ),
+        vec![4, 5, 1, 12, 9],
+        vec![6, 1, 13, 7],
+    );
+
+    assert_eq!(
+        problem.evaluate(&vec![false, true, true, true]).unwrap(),
+        Min(Some(69))
+    );
+}

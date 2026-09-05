@@ -356,7 +356,11 @@ pub fn load_problem(
     data: Value,
 ) -> Result<LoadedProblem> {
     let canonical = resolve_alias(name);
-    let inner = problemreductions::registry::load_dyn(&canonical, variant, data)
+    let problem_type = problemreductions::registry::find_problem_type(&canonical)
+        .ok_or_else(|| anyhow::anyhow!("Unknown problem type: {canonical}"))?;
+    let normalized =
+        problemreductions::registry::ProblemRef::from_prefix_map(&problem_type, variant.clone())?;
+    let inner = problemreductions::registry::load_dyn(&canonical, normalized.variant(), data)
         .map_err(|e| anyhow::anyhow!(e))?;
     Ok(LoadedProblem { inner })
 }
@@ -439,6 +443,26 @@ mod tests {
             serde_json::to_value(&problem).unwrap(),
         );
         assert!(loaded.is_err());
+    }
+
+    #[test]
+    fn test_load_problem_fills_trailing_ilp_coefficient_variant() {
+        let data = json!({
+            "variables": [{"lower_bound": 0, "upper_bound": 1}],
+            "constraints": [],
+            "objective": [[0, 1]],
+            "sense": "Minimize"
+        });
+        let variant = BTreeMap::from([("variable".to_string(), "bool".to_string())]);
+        let loaded = load_problem("ILP", &variant, data).unwrap();
+        assert_eq!(loaded.variant_map()["variable"], "bool");
+        assert_eq!(loaded.variant_map()["coefficient"], "i64");
+    }
+
+    #[test]
+    fn test_load_problem_rejects_non_prefix_ilp_variant() {
+        let variant = BTreeMap::from([("coefficient".to_string(), "i64".to_string())]);
+        assert!(load_problem("ILP", &variant, json!({})).is_err());
     }
 
     #[test]

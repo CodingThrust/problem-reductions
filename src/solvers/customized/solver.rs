@@ -9,8 +9,8 @@ use crate::models::graph::{
     RootedTreeArrangement,
 };
 use crate::models::misc::{
-    AdditionalKey, BoyceCoddNormalFormViolation, EnsembleComputation, GroupingBySwapping,
-    MinimumDecisionTree, ShortestCommonSuperstring, TimetableDesign,
+    AdditionalKey, BoyceCoddNormalFormViolation, GroupingBySwapping, MinimumDecisionTree,
+    ShortestCommonSuperstring, TimetableDesign,
 };
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
 use crate::solvers::registry::CustomizedSolverRegistration;
@@ -75,9 +75,6 @@ register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| Ok
 ));
 register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| Ok(
     super::minimum_decision_tree::solve(problem)
-));
-register_customized_solver!(EnsembleComputation, "breadth-first-search", |problem| Ok(
-    super::ensemble_computation::solve(problem)
 ));
 register_customized_solver!(
     MinimumCostCirculation,

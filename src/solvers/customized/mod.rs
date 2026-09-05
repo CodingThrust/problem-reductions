@@ -4,6 +4,7 @@
 //! performed by the solver capability registry rather than a downcast chain.
 
 pub(crate) mod closest_vector_problem;
+#[cfg(test)]
 pub(crate) mod ensemble_computation;
 pub(crate) mod fd_subset_search;
 pub(crate) mod grouping_by_swapping;

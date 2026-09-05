@@ -185,6 +185,8 @@ impl ILPSolver {
             let mut model = unsolved
                 .using(highs)
                 .set_option("random_seed", 0i32)
+                .set_option("mip_rel_gap", 0.0)
+                .set_option("mip_abs_gap", 0.0)
                 .set_parallel(HighsParallelType::Off)
                 .set_threads(1);
             if let Some(seconds) = self.time_limit {

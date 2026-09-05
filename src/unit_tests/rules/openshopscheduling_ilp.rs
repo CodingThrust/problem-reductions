@@ -98,23 +98,13 @@ fn test_openshopscheduling_to_ilp_closed_loop_medium() {
 
 #[test]
 fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
-    // For small instance, if we manually craft an ILP solution, extraction should
-    // order jobs on each machine by start time.
     let p = small_instance();
     let reduction: ReductionOSSToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
-
-    // Variable layout: x_{0,1,0}=0, x_{0,1,1}=1, s_{0,0}=1, s_{0,1}=0, s_{1,0}=0, s_{1,1}=2, y_{0,0,1}=0, y_{1,0,1}=1, C=3
-    // => M1: job 1 starts at 0, job 0 starts at 1 → order [1, 0]
-    // => M2: job 0 starts at 0, job 1 starts at 2 → order [0, 1]
-    let target_solution = vec![0, 1, 1, 0, 0, 2, 0, 1, 3];
+    let target_solution = vec![1, 0, 0, 1, 1, 0, 1, 0, 3];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    // M1: J1 at t=0, J0 at t=1 → order [1, 0]
-    // M2: J0 at t=0, J1 at t=2 → order [0, 1]
-    assert_eq!(extracted[0..2], [1, 0], "M1 order should be [1, 0]");
-    assert_eq!(extracted[2..4], [0, 1], "M2 order should be [0, 1]");
-    let value = p.evaluate(&extracted).unwrap();
-    assert!(value.0.is_some(), "extracted config should be valid");
+    assert_eq!(extracted, vec![0, 1, 1, 0]);
+    assert_eq!(p.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
 
 // ─── single job / single machine ─────────────────────────────────────────────

@@ -80,12 +80,13 @@ impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
         // by not including them; add explicit zero constraints for safety).
         for j in 0..n {
             let r = release_times[j] as usize;
-            let last_start = if deadlines[j] >= lengths[j] {
-                (deadlines[j] - lengths[j]) as usize
-            } else {
-                0
-            };
-            let terms: Vec<(usize, i64)> = (r..=last_start)
+            let last_start = deadlines[j]
+                .checked_sub(lengths[j])
+                .and_then(|time| usize::try_from(time).ok());
+            let terms: Vec<(usize, i64)> = last_start
+                .filter(|&last| r <= last)
+                .into_iter()
+                .flat_map(|last| r..=last)
                 .filter(|&t| t < horizon)
                 .map(|t| (var(j, t), 1))
                 .collect();
@@ -93,7 +94,7 @@ impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
 
             // Zero-fix variables outside the admissible window
             for t in 0..horizon {
-                if t < r || t > last_start {
+                if t < r || last_start.is_none_or(|last| t > last) {
                     constraints.push(LinearConstraint::eq(vec![(var(j, t), 1)], 0));
                 }
             }

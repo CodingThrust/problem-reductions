@@ -111,6 +111,39 @@ impl ProblemRef {
         })
     }
 
+    /// Create a `ProblemRef` from a non-empty prefix of the declared dimensions.
+    ///
+    /// Missing trailing dimensions are filled with their declared defaults. This
+    /// is intended for external formats that permit trailing generic arguments
+    /// to be omitted while keeping the leading type arguments mandatory.
+    pub fn from_prefix_map(
+        problem_type: &ProblemType,
+        variant: BTreeMap<String, String>,
+    ) -> Result<Self, ConstructionError> {
+        if !problem_type.dimensions.is_empty() && variant.is_empty() {
+            return Err(format!(
+                "Variant for {} must specify its first dimension \"{}\"",
+                problem_type.canonical_name, problem_type.dimensions[0].key
+            )
+            .into());
+        }
+
+        let supplied = variant.len();
+        if supplied > problem_type.dimensions.len()
+            || problem_type.dimensions[..supplied]
+                .iter()
+                .any(|dimension| !variant.contains_key(dimension.key))
+        {
+            return Err(format!(
+                "Variant for {} must specify a prefix of its dimensions",
+                problem_type.canonical_name
+            )
+            .into());
+        }
+
+        Self::from_map(problem_type, variant)
+    }
+
     /// Get the canonical problem name.
     pub fn name(&self) -> &str {
         &self.name

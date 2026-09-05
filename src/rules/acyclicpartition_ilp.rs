@@ -1,7 +1,7 @@
 //! Reduction from AcyclicPartition to `ILP<i64>`.
 //!
 //! One-hot assignment x_{v,c}, McCormick same-class indicators s_{t,c},
-//! crossing flags y_t, class ordering o_c, vertex-order copies p_v.
+//! crossing flags y_t, and partition labels used directly as a topological order.
 //! See the paper entry for the full formulation.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
@@ -37,8 +37,8 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
 
 #[reduction(
     transform = exact {
-        num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + 2 * num_vertices",
-        num_constraints = "2 * num_vertices^2 + 3 * num_arcs * num_vertices + 6 * num_vertices + 2 * num_arcs + 1",
+        num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs",
+        num_constraints = "2 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -56,21 +56,11 @@ impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
         // x_{v,c} : v*n + c                          [0, n^2)
         // s_{t,c} : n^2 + t*n + c                    [n^2, n^2 + m*n)
         // y_t     : n^2 + m*n + t                     [n^2 + m*n, n^2 + m*n + m)
-        // o_c     : n^2 + m*n + m + c                 [n^2 + m*n + m, n^2 + m*n + m + n)
-        // p_v     : n^2 + m*n + m + n + v              [n^2 + m*n + m + n, n^2 + m*n + m + 2n)
         let x_idx = |v: usize, c: usize| -> usize { v * n + c };
         let s_idx = |t: usize, c: usize| -> usize { n * n + t * n + c };
         let y_idx = |t: usize| -> usize { n * n + m * n + t };
-        let o_idx = |c: usize| -> usize { n * n + m * n + m + c };
-        let p_idx = |v: usize| -> usize { n * n + m * n + m + n + v };
-
-        let num_vars = n * n + m * n + m + 2 * n;
+        let num_vars = n * n + m * n + m;
         let mut constraints = Vec::new();
-        let big_m = Self::exact_i64(n, "representing the vertex count in ILP rows")?;
-        let order_bound = Self::exact_i64(
-            n - 1,
-            "representing the maximum partition order in ILP rows",
-        )?;
         let vertex_weights = self.vertex_weights();
         let arc_costs = self.arc_costs();
         let weight_bound = *self.weight_bound();
@@ -116,40 +106,17 @@ impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
             .collect();
         constraints.push(LinearConstraint::le(cost_terms, cost_bound));
 
-        // 6) Order bounds: 0 ≤ o_c ≤ n-1, 0 ≤ p_v ≤ n-1
-        for c in 0..n {
-            constraints.push(LinearConstraint::ge(vec![(o_idx(c), 1)], 0));
-            constraints.push(LinearConstraint::le(vec![(o_idx(c), 1)], order_bound));
-        }
-        for v in 0..n {
-            constraints.push(LinearConstraint::ge(vec![(p_idx(v), 1)], 0));
-            constraints.push(LinearConstraint::le(vec![(p_idx(v), 1)], order_bound));
-        }
-
-        // 7) Link p_v to o_c: p_v - o_c ≤ (n-1)(1 - x_{v,c}) and o_c - p_v ≤ (n-1)(1 - x_{v,c})
-        for v in 0..n {
-            for c in 0..n {
-                // p_v - o_c + (n-1)*x_{v,c} ≤ n-1
-                constraints.push(LinearConstraint::le(
-                    vec![(p_idx(v), 1), (o_idx(c), -1), (x_idx(v, c), order_bound)],
-                    order_bound,
-                ));
-                // o_c - p_v + (n-1)*x_{v,c} ≤ n-1
-                constraints.push(LinearConstraint::le(
-                    vec![(o_idx(c), 1), (p_idx(v), -1), (x_idx(v, c), order_bound)],
-                    order_bound,
-                ));
+        // 6) Topological labels: every arc goes from a lower or equal class to a
+        //    higher or equal class. Equal labels are internal arcs; strict
+        //    increases are quotient arcs.
+        for (u, v) in arcs {
+            let mut terms = Vec::with_capacity(2 * n.saturating_sub(1));
+            for c in 1..n {
+                let label = Self::exact_i64(c, "representing a partition label in ILP rows")?;
+                terms.push((x_idx(u, c), label));
+                terms.push((x_idx(v, c), -label));
             }
-        }
-
-        // 8) DAG ordering: p_{v_t} - p_{u_t} ≥ 1 - n * Σ_c s_{t,c}
-        //    i.e., p_{v_t} - p_{u_t} + n * Σ_c s_{t,c} ≥ 1
-        for (t, &(u, v)) in arcs.iter().enumerate() {
-            let mut terms = vec![(p_idx(v), 1), (p_idx(u), -1)];
-            for c in 0..n {
-                terms.push((s_idx(t, c), big_m));
-            }
-            constraints.push(LinearConstraint::ge(terms, 1));
+            constraints.push(LinearConstraint::le(terms, 0));
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)

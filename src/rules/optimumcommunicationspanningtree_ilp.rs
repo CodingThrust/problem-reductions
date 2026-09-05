@@ -2,7 +2,7 @@
 //!
 //! Uses a multi-commodity flow formulation:
 //! - Binary edge variables x_e for each edge of K_n
-//! - For each pair (u,v) with r(u,v) > 0, directed flow variables route 1 unit
+//! - For every vertex pair (u,v), directed flow variables route 1 unit, proving connectivity
 //!   from u to v through the tree
 //! - Tree constraints: sum x_e = n-1, and connectivity via flow conservation
 //! - Objective: minimize sum_{(u,v): r>0} r(u,v) * w(e) * (flow_uv(e->dir) + flow_uv(e<-dir))
@@ -65,13 +65,11 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
         let w = self.edge_weights();
         let r = self.requirements();
 
-        // Enumerate commodities: all pairs (s, t) with s < t and r(s,t) > 0
+        // Enumerate every pair: zero-requirement commodities still enforce spanning connectivity.
         let mut commodities: Vec<(usize, usize)> = Vec::new();
-        for (s, row) in r.iter().enumerate() {
-            for (t, &req) in row.iter().enumerate().skip(s + 1) {
-                if req > 0 {
-                    commodities.push((s, t));
-                }
+        for s in 0..n {
+            for t in (s + 1)..n {
+                commodities.push((s, t));
             }
         }
         let num_commodities = commodities.len();

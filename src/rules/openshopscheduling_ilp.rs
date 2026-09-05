@@ -86,33 +86,15 @@ impl ReductionResult for ReductionOSSToILP {
         &self.target
     }
 
-    /// Extract per-machine job orderings from the ILP start times, then
-    /// convert to the config format (direct permutation indices per machine).
+    /// Extract the job-major operation start times from the ILP solution.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok({
-            let n = self.num_jobs;
-            let m = self.num_machines;
-
-            // Read start times s_{j,i} for each (j, i)
-            let start = |j: usize, i: usize| -> i64 {
-                let idx = self.num_order_vars + j * m + i;
-                target_solution[idx]
-            };
-
-            // For each machine, sort jobs by their start time on that machine
-            let mut config = Vec::with_capacity(n * m);
-            for i in 0..m {
-                let mut jobs: Vec<usize> = (0..n).collect();
-                jobs.sort_by_key(|&j| (start(j, i), j));
-                config.extend(jobs);
-            }
-            config
-        })
+        let start = self.num_order_vars;
+        let end = start + self.num_jobs * self.num_machines;
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[start..end])
     }
 }
 

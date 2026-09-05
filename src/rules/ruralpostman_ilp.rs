@@ -32,7 +32,11 @@ impl ReductionResult for ReductionRPToILP {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_edges])
+        if self.target.num_vars() == 0 {
+            Ok(vec![0; self.num_edges])
+        } else {
+            crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_edges])
+        }
     }
 }
 
@@ -58,7 +62,7 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
             return Ok(ReductionRPToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
                     .map_err(Self::target_construction)?,
-                num_edges: 0,
+                num_edges: m,
             });
         }
 

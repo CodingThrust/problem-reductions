@@ -284,7 +284,14 @@ where
             return Ok(Min(None));
         };
 
-        if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
+        let available = self.available_arc_pairs();
+        let mut keep = vec![false; self.graph.num_vertices()];
+        for &(tail, head) in &available {
+            keep[tail] = true;
+            keep[head] = true;
+        }
+        if !DirectedGraph::new(self.graph.num_vertices(), available)
+            .induced_subgraph(&keep)
             .is_strongly_connected()
         {
             return Ok(Min(None));

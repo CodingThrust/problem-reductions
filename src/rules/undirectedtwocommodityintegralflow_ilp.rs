@@ -64,7 +64,7 @@ impl ReductionResult for ReductionU2CIFToILP {
 #[reduction(
     transform = exact {
         num_vars = "6 * num_edges",
-        num_constraints = "7 * num_edges + 2 * num_nonterminal_vertices + 2",
+        num_constraints = "7 * num_edges + num_conservation_constraints + 2",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -87,7 +87,7 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
         let d1 = |edge: usize| 4 * e + 2 * edge;
         let d2 = |edge: usize| 4 * e + 2 * edge + 1;
 
-        let mut constraints = Vec::with_capacity(7 * e + 2 * self.num_nonterminal_vertices() + 2);
+        let mut constraints = Vec::with_capacity(7 * e + self.num_conservation_constraints() + 2);
 
         for (edge_idx, (_u, _v)) in edges.iter().enumerate() {
             let cap = self.capacities()[edge_idx];
@@ -131,45 +131,32 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
             ));
         }
 
-        // Flow conservation for each commodity at non-terminal vertices
-        let terminals = [
-            self.source_1(),
-            self.sink_1(),
-            self.source_2(),
-            self.sink_2(),
-        ];
-
-        for vertex in 0..n {
-            if terminals.contains(&vertex) {
-                continue;
-            }
-
-            // Commodity 1 conservation: Σ_in f1 - Σ_out f1 = 0
-            let mut terms_c1: Vec<(usize, i64)> = Vec::new();
-            // Commodity 2 conservation: Σ_in f2 - Σ_out f2 = 0
-            let mut terms_c2: Vec<(usize, i64)> = Vec::new();
-
-            for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-                if vertex == u {
-                    // outgoing from u: f1_{uv} goes out, f1_{vu} comes in
-                    terms_c1.push((f1_uv(edge_idx), -1));
-                    terms_c1.push((f1_vu(edge_idx), 1));
-                    terms_c2.push((f2_uv(edge_idx), -1));
-                    terms_c2.push((f2_vu(edge_idx), 1));
-                } else if vertex == v {
-                    // outgoing from v: f1_{vu} goes out, f1_{uv} comes in
-                    terms_c1.push((f1_uv(edge_idx), 1));
-                    terms_c1.push((f1_vu(edge_idx), -1));
-                    terms_c2.push((f2_uv(edge_idx), 1));
-                    terms_c2.push((f2_vu(edge_idx), -1));
+        // Each commodity is conserved at every vertex except its own source and sink.
+        for (commodity, source, sink) in [
+            (1, self.source_1(), self.sink_1()),
+            (2, self.source_2(), self.sink_2()),
+        ] {
+            for vertex in 0..n {
+                if vertex == source || vertex == sink {
+                    continue;
                 }
-            }
 
-            if !terms_c1.is_empty() {
-                constraints.push(LinearConstraint::eq(terms_c1, 0));
-            }
-            if !terms_c2.is_empty() {
-                constraints.push(LinearConstraint::eq(terms_c2, 0));
+                let mut terms = Vec::new();
+                for (edge_idx, &(u, v)) in edges.iter().enumerate() {
+                    let (uv, vu) = if commodity == 1 {
+                        (f1_uv(edge_idx), f1_vu(edge_idx))
+                    } else {
+                        (f2_uv(edge_idx), f2_vu(edge_idx))
+                    };
+                    if vertex == u {
+                        terms.push((uv, -1));
+                        terms.push((vu, 1));
+                    } else if vertex == v {
+                        terms.push((uv, 1));
+                        terms.push((vu, -1));
+                    }
+                }
+                constraints.push(LinearConstraint::eq(terms, 0));
             }
         }
 

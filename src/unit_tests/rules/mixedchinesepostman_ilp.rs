@@ -79,3 +79,21 @@ fn test_mixedchinesepostman_to_ilp_weighted() {
         "ILP solution should match brute-force optimal for weighted instance"
     );
 }
+
+#[test]
+fn test_mixedchinesepostman_to_ilp_with_isolated_vertices() {
+    let source = MixedChinesePostman::new(
+        MixedGraph::new(
+            8,
+            vec![(5, 3), (1, 4), (0, 1), (2, 4), (0, 5)],
+            vec![(4, 2), (0, 4), (0, 2), (1, 3)],
+        ),
+        vec![4, 5, 1, 12, 9],
+        vec![6, 1, 13, 7],
+    );
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+
+    assert_eq!(source.evaluate(&extracted).unwrap().0, Some(69));
+}

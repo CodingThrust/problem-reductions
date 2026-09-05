@@ -6,7 +6,7 @@ use crate::types::Min;
 
 /// 2 machines, 2 jobs: smallest non-trivial instance.
 /// processing_times[j][i]: J1=[1,2], J2=[2,1]
-/// All four orderings give the same makespan = 3 (symmetric).
+/// A two-by-two instance with an optimal makespan of 3.
 fn two_by_two() -> OpenShopScheduling {
     OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]])
 }
@@ -25,9 +25,9 @@ fn test_open_shop_create_spec_uses_num_processors_input() {
     assert_eq!(problem.num_machines(), 2);
 }
 
-/// 3 machines, 3 jobs: a small asymmetric instance.
-fn three_by_three() -> OpenShopScheduling {
-    OpenShopScheduling::new(3, vec![vec![1, 2, 3], vec![3, 2, 1], vec![2, 1, 2]])
+/// Two jobs on one machine: a small brute-force instance.
+fn small_asymmetric() -> OpenShopScheduling {
+    OpenShopScheduling::new(1, vec![vec![2], vec![3]])
 }
 
 /// Issue #506 example: 4 jobs × 3 machines, true optimal makespan = 8.
@@ -60,11 +60,10 @@ fn test_open_shop_scheduling_creation() {
 #[test]
 fn test_open_shop_scheduling_dims() {
     let p = issue_example();
-    // n = 4 jobs, m = 3 machines → n*m = 12 config variables, each in 0..4
-    assert_eq!(p.dimensions(), vec![4usize; 12]);
+    assert_eq!(p.dimensions(), vec![24usize; 12]);
 
     let p2 = two_by_two();
-    assert_eq!(p2.dimensions(), vec![2usize; 4]);
+    assert_eq!(p2.dimensions(), vec![7usize; 4]);
 }
 
 // ─── evaluate ────────────────────────────────────────────────────────────────
@@ -72,18 +71,15 @@ fn test_open_shop_scheduling_dims() {
 #[test]
 fn test_open_shop_scheduling_evaluate_issue_example_optimal() {
     let p = issue_example();
-    // Optimal config: M1=[0,1,2,3], M2=[1,0,3,2], M3=[2,3,0,1]
-    // True optimal makespan = 8 (the issue body incorrectly claimed 11).
-    let config = vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1];
+    // Job-major start times for a schedule with makespan 8.
+    let config = vec![0, 3, 4, 3, 0, 6, 5, 6, 0, 6, 4, 3];
     assert_eq!(p.evaluate(&config).unwrap(), Min(Some(8)));
 }
 
 #[test]
 fn test_open_shop_scheduling_evaluate_issue_example_suboptimal_schedule() {
     let p = issue_example();
-    // The schedule from the issue body: M1=[2,1,0,3], M2=[2,1,0,3], M3=[2,0,1,3]
-    // gives makespan 11, which is valid but not optimal (optimal is 8).
-    let config = vec![2, 1, 0, 3, 2, 1, 0, 3, 2, 0, 1, 3];
+    let config = vec![3, 6, 7, 1, 3, 9, 0, 1, 3, 6, 8, 10];
     let value = p.evaluate(&config).unwrap();
     assert_eq!(value, Min(Some(11)));
 }
@@ -91,8 +87,7 @@ fn test_open_shop_scheduling_evaluate_issue_example_suboptimal_schedule() {
 #[test]
 fn test_open_shop_scheduling_evaluate_suboptimal() {
     let p = issue_example();
-    // Identity orderings on all machines: M1=[0,1,2,3], M2=[0,1,2,3], M3=[0,1,2,3]
-    let config = vec![0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3];
+    let config = vec![0, 3, 4, 3, 5, 8, 5, 8, 10, 6, 10, 13];
     let value = p.evaluate(&config).unwrap();
     // Must be valid and > 8 (non-optimal)
     assert!(value.0.is_some());
@@ -100,10 +95,9 @@ fn test_open_shop_scheduling_evaluate_suboptimal() {
 }
 
 #[test]
-fn test_open_shop_scheduling_evaluate_invalid_not_permutation() {
+fn test_open_shop_scheduling_evaluate_overlapping_operations() {
     let p = issue_example();
-    // config[0..4] = [0,0,0,0] is not a permutation → invalid
-    let config = vec![0, 0, 0, 0, 0, 1, 2, 3, 0, 1, 2, 3];
+    let config = vec![0; 12];
     assert_eq!(p.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -141,10 +135,10 @@ fn test_open_shop_scheduling_evaluate_two_by_two() {
     //   Step 3: M1 done, M2 next is J1 (start=max(0,1)=1), schedule J1 on M2: [1,3), machine_avail[1]=3, job_avail[0]=3
     //   Step 4: M2 next is J2 (start=max(3,3)=3), schedule J2 on M2: [3,4), machine_avail[1]=4, job_avail[1]=4
     // Makespan = 4
-    let config = vec![0, 1, 0, 1];
+    let config = vec![0, 1, 1, 0];
     let val = p.evaluate(&config).unwrap();
     assert!(val.0.is_some());
-    assert_eq!(val, Min(Some(4)));
+    assert_eq!(val, Min(Some(3)));
 }
 
 // ─── decode_orders ───────────────────────────────────────────────────────────
@@ -152,23 +146,19 @@ fn test_open_shop_scheduling_evaluate_two_by_two() {
 #[test]
 fn test_open_shop_scheduling_decode_orders_valid() {
     let p = two_by_two();
-    let config = vec![0, 1, 1, 0];
-    let orders = p.decode_orders(&config).unwrap();
-    assert_eq!(orders, vec![vec![0, 1], vec![1, 0]]);
+    assert_eq!(p.evaluate(&vec![0, 1, 1, 0]).unwrap(), Min(Some(3)));
 }
 
 #[test]
 fn test_open_shop_scheduling_decode_orders_invalid_duplicate() {
     let p = two_by_two();
-    let config = vec![0, 0, 1, 0]; // first machine has duplicate 0
-    assert!(p.decode_orders(&config).is_none());
+    assert_eq!(p.evaluate(&vec![0, 1, 0, 3]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_open_shop_scheduling_decode_orders_invalid_out_of_range() {
     let p = two_by_two();
-    let config = vec![0, 2, 1, 0]; // job 2 out of range for n=2
-    assert!(p.decode_orders(&config).is_none());
+    assert_eq!(p.evaluate(&vec![0, 0, 1, 3]).unwrap(), Min(None));
 }
 
 // ─── compute_makespan ────────────────────────────────────────────────────────
@@ -176,26 +166,15 @@ fn test_open_shop_scheduling_decode_orders_invalid_out_of_range() {
 #[test]
 fn test_open_shop_scheduling_compute_makespan_optimal_schedule() {
     let p = issue_example();
-    // True optimal: M1=[0,1,2,3], M2=[1,0,3,2], M3=[2,3,0,1], makespan=8
-    let orders = vec![
-        vec![0, 1, 2, 3], // M1
-        vec![1, 0, 3, 2], // M2
-        vec![2, 3, 0, 1], // M3
-    ];
-    assert_eq!(p.compute_makespan(&orders).unwrap(), 8);
+    let starts = vec![0, 3, 4, 3, 0, 6, 5, 6, 0, 6, 4, 3];
+    assert_eq!(p.evaluate(&starts).unwrap(), Min(Some(8)));
 }
 
 #[test]
 fn test_open_shop_scheduling_compute_makespan_issue_example_schedule() {
     let p = issue_example();
-    // The schedule from the issue body: makespan=11 (valid but suboptimal)
-    let orders = vec![vec![2, 1, 0, 3], vec![2, 1, 0, 3], vec![2, 0, 1, 3]];
-    // Manually verified start/finish times:
-    // J1: M1=[3,6), M2=[6,7), M3=[7,9)
-    // J2: M1=[1,3), M2=[3,6), M3=[9,10)
-    // J3: M1=[0,1), M2=[1,3), M3=[3,6)
-    // J4: M1=[6,8), M2=[8,10), M3=[10,11)
-    assert_eq!(p.compute_makespan(&orders).unwrap(), 11);
+    let starts = vec![3, 6, 7, 1, 3, 9, 0, 1, 3, 6, 8, 10];
+    assert_eq!(p.evaluate(&starts).unwrap(), Min(Some(11)));
 }
 
 // ─── problem trait ───────────────────────────────────────────────────────────
@@ -236,8 +215,8 @@ fn test_open_shop_scheduling_brute_force_small() {
 
 #[test]
 fn test_open_shop_scheduling_brute_force_medium() {
-    // 3x3 instance: brute force over 3^9 = 19683 configs (216 valid schedules)
-    let p = three_by_three();
+    // Small start-time domain keeps exhaustive solving bounded.
+    let p = small_asymmetric();
     let solver = BruteForce::new();
     let value_solution = solver.solve(&p).unwrap().unwrap();
     let value = p.evaluate(&value_solution).unwrap();
@@ -250,6 +229,44 @@ fn test_open_shop_scheduling_brute_force_medium() {
 fn test_open_shop_scheduling_canonical_example_config_is_optimal() {
     // Verify that the canonical example config achieves the true optimal makespan = 8
     let p = issue_example();
-    let optimal_config = vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1];
+    let optimal_config = vec![0, 3, 4, 3, 0, 6, 5, 6, 0, 6, 4, 3];
     assert_eq!(p.evaluate(&optimal_config).unwrap(), Min(Some(8)));
+}
+
+#[test]
+fn test_open_shop_scheduling_construction_paths_reject_invalid_matrices() {
+    for (machines, times) in [
+        (2, vec![vec![1]]),
+        (1, vec![vec![-1]]),
+        (2, vec![vec![i64::MAX, 1]]),
+    ] {
+        assert!(OpenShopScheduling::try_new(machines, times.clone()).is_err());
+        assert!(OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
+            num_processors: machines,
+            processing_times: times.clone(),
+        })
+        .is_err());
+        assert!(
+            serde_json::from_value::<OpenShopScheduling>(serde_json::json!({
+                "num_machines": machines, "processing_times": times,
+            }))
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn test_open_shop_scheduling_construction_overflow_is_typed() {
+    let times = vec![vec![i64::MAX, 1]];
+    assert!(matches!(
+        OpenShopScheduling::try_new(2, times.clone()),
+        Err(crate::registry::ConstructionError::IntegerOverflow(_))
+    ));
+    assert!(matches!(
+        OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
+            num_processors: 2,
+            processing_times: times,
+        }),
+        Err(crate::registry::ConstructionError::IntegerOverflow(_))
+    ));
 }

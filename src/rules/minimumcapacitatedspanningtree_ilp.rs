@@ -8,7 +8,9 @@
 //! Variable layout (all non-negative integers, `ILP<i64>`):
 //! - `y_e` for each undirected edge `e` (indices `0..m`): edge selector (binary)
 //! - `f_{2e}`, `f_{2e+1}` for each edge `e=(u,v)` (indices `m..3m`):
-//!   directed flow from u to v and v to u respectively
+//!   directed requirement flow from u to v and v to u respectively
+//! - `g_{2e}`, `g_{2e+1}` for each edge `e=(u,v)` (indices `3m..5m`):
+//!   directed unit-demand connectivity flow
 //!
 //! Constraints:
 //! 1. Tree cardinality: sum(y_e) = n-1
@@ -17,6 +19,8 @@
 //!    root absorbs all (total R = sum of requirements)
 //! 4. Flow-edge linking: f_{uv} + f_{vu} <= R * y_e
 //! 5. Capacity: f_{uv} <= c and f_{vu} <= c for each directed edge
+//! 6. Connectivity flow: each non-root vertex sends one unit to the root,
+//!    linked to selected edges by g_{uv} + g_{vu} <= (n-1)y_e
 //!
 //! Objective: minimize sum(w_e * y_e)
 
@@ -60,8 +64,8 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
 
 #[reduction(
     transform = upper_bound {
-        num_vars = "3 * num_edges",
-        num_constraints = "5 * num_edges + num_vertices + 1",
+        num_vars = "5 * num_edges",
+        num_constraints = "5 * num_edges + 2 * num_vertices + 1",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -78,21 +82,26 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
         let requirements = self.requirements();
         let cap = *self.capacity();
 
-        let num_vars = 3 * m;
+        let num_vars = 5 * m;
 
         // Variable indices
         let edge_var = |e: usize| e; // y_e: 0..m
         let flow_var = |e: usize, dir: usize| m + 2 * e + dir; // f: m..3m
+        let connectivity_var = |e: usize, dir: usize| 3 * m + 2 * e + dir; // g: 3m..5m
 
         // Total requirement (flow from all non-root vertices to root)
-        let total_req = requirements.iter().try_fold(0_i64, |total, requirement| {
-            total.checked_add(requirement.to_sum()).ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<
-                    MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
-                    ILP<i64>,
-                >("summing vertex requirements")
-            })
-        })?;
+        let total_req = requirements
+            .iter()
+            .enumerate()
+            .filter(|(vertex, _)| *vertex != root)
+            .try_fold(0_i64, |total, (_, requirement)| {
+                total.checked_add(requirement.to_sum()).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
+                        ILP<i64>,
+                    >("summing vertex requirements")
+                })
+            })?;
         let mut constraints = Vec::new();
 
         // 1. Tree cardinality: sum(y_e) = n - 1
@@ -156,6 +165,39 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
         for edge_idx in 0..m {
             constraints.push(LinearConstraint::le(vec![(flow_var(edge_idx, 0), 1)], cap));
             constraints.push(LinearConstraint::le(vec![(flow_var(edge_idx, 1), 1)], cap));
+        }
+
+        // 6. Unit-demand flow guarantees that every vertex is connected to the root,
+        // including vertices whose capacity requirement is zero.
+        let connectivity_total = Self::exact_i64(n, "encoding connectivity flow")? - 1;
+        for vertex in 0..n {
+            let mut terms = Vec::new();
+            for (edge_idx, &(u, v)) in edges.iter().enumerate() {
+                if v == vertex {
+                    terms.push((connectivity_var(edge_idx, 0), 1));
+                    terms.push((connectivity_var(edge_idx, 1), -1));
+                }
+                if u == vertex {
+                    terms.push((connectivity_var(edge_idx, 0), -1));
+                    terms.push((connectivity_var(edge_idx, 1), 1));
+                }
+            }
+            let rhs = if vertex == root {
+                connectivity_total
+            } else {
+                -1
+            };
+            constraints.push(LinearConstraint::eq(terms, rhs));
+        }
+        for edge_idx in 0..m {
+            constraints.push(LinearConstraint::le(
+                vec![
+                    (connectivity_var(edge_idx, 0), 1),
+                    (connectivity_var(edge_idx, 1), 1),
+                    (edge_var(edge_idx), -connectivity_total),
+                ],
+                0,
+            ));
         }
 
         // Objective: minimize sum(w_e * y_e)

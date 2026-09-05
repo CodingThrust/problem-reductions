@@ -78,6 +78,26 @@ fn test_cos_to_ilp_bf_vs_ilp() {
 }
 
 #[test]
+fn test_cos_to_ilp_allows_zero_rows_in_selected_submatrix() {
+    let problem = ConsecutiveOnesSubmatrix::new(
+        vec![
+            vec![true, true, true, true],
+            vec![false, false, true, false],
+            vec![true, false, false, true],
+        ],
+        1,
+    );
+    let reduction: ReductionCOSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
+
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("a single selected column always has C1P");
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
+}
+
+#[test]
 fn test_cos_to_ilp_trivial() {
     // 2x2 identity, K=2
     let problem = ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 2);

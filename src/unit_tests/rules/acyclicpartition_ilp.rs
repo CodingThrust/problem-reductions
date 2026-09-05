@@ -46,8 +46,10 @@ fn test_reduction_num_vars() {
     let reduction: ReductionAcyclicPartitionToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    // n=4, m=3: n^2 + m*n + m + 2*n = 16 + 12 + 3 + 8 = 39
-    assert_eq!(ilp.num_vars(), 39);
+    // n=4, m=3: n^2 + m*n + m = 16 + 12 + 3 = 31
+    assert_eq!(ilp.num_vars(), 31);
+    // 2n + 3mn + 2m + 1 = 8 + 36 + 6 + 1 = 51
+    assert_eq!(ilp.num_constraints(), 51);
 }
 
 #[test]
@@ -89,4 +91,23 @@ fn test_acyclicpartition_to_ilp_bf_vs_ilp() {
     let reduction: ReductionAcyclicPartitionToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}
+
+#[test]
+fn test_acyclicpartition_to_ilp_regression_direct_topological_labels() {
+    let source = AcyclicPartition::new(
+        DirectedGraph::new(6, vec![(2, 1), (1, 0), (4, 3), (3, 2), (5, 4)]),
+        vec![8, 3, 1, 9, 4, 4],
+        vec![4, 10, 0, 7, 3],
+        11,
+        10,
+    );
+    let reduction: ReductionAcyclicPartitionToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("the feasible source instance must yield a feasible ILP");
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+
+    assert!(source.evaluate(&extracted).unwrap().0);
 }

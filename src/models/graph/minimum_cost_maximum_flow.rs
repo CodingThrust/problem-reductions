@@ -39,7 +39,7 @@
 //! ties by `cost(f)`. The optimum is always non-negative, and a smaller
 //! score is strictly better in the lex order.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -93,7 +93,7 @@ inventory::submit! {
 /// assert_eq!(problem.flow_value(&witness).unwrap(), 3);
 /// assert_eq!(problem.total_cost(&witness).unwrap(), 7);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumCostMaximumFlow {
     /// The directed graph G = (V, A).
     graph: DirectedGraph,
@@ -105,6 +105,40 @@ pub struct MinimumCostMaximumFlow {
     capacities: Vec<i64>,
     /// Cost cost(a) for each arc.
     costs: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCostMaximumFlowSerde {
+    graph: DirectedGraph,
+    source: usize,
+    sink: usize,
+    capacities: Vec<i64>,
+    costs: Vec<i64>,
+}
+
+impl TryFrom<MinimumCostMaximumFlowSerde> for MinimumCostMaximumFlow {
+    type Error = ConstructionError;
+
+    fn try_from(value: MinimumCostMaximumFlowSerde) -> Result<Self, Self::Error> {
+        Self::try_new(
+            value.graph,
+            value.source,
+            value.sink,
+            value.capacities,
+            value.costs,
+        )
+    }
+}
+
+impl<'de> Deserialize<'de> for MinimumCostMaximumFlow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        MinimumCostMaximumFlowSerde::deserialize(deserializer)?
+            .try_into()
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 impl MinimumCostMaximumFlow {
@@ -127,36 +161,55 @@ impl MinimumCostMaximumFlow {
         capacities: Vec<i64>,
         costs: Vec<i64>,
     ) -> Self {
+        Self::try_new(graph, source, sink, capacities, costs)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        source: usize,
+        sink: usize,
+        capacities: Vec<i64>,
+        costs: Vec<i64>,
+    ) -> Result<Self, ConstructionError> {
         let n = graph.num_vertices();
         let m = graph.num_arcs();
-        assert_eq!(
-            capacities.len(),
-            m,
-            "capacities length ({}) must match num_arcs ({m})",
-            capacities.len()
-        );
-        assert_eq!(
-            costs.len(),
-            m,
-            "costs length ({}) must match num_arcs ({m})",
-            costs.len()
-        );
-        assert!(source < n, "source ({source}) >= num_vertices ({n})");
-        assert!(sink < n, "sink ({sink}) >= num_vertices ({n})");
-        assert_ne!(source, sink, "source and sink must be distinct");
-        for (i, &c) in capacities.iter().enumerate() {
-            assert!(c >= 0, "capacity[{i}] = {c} is negative");
+        if capacities.len() != m {
+            return Err(format!(
+                "capacities length ({}) must match num_arcs ({m})",
+                capacities.len()
+            )
+            .into());
         }
-        for (i, &c) in costs.iter().enumerate() {
-            assert!(c >= 0, "cost[{i}] = {c} is negative");
+        if costs.len() != m {
+            return Err(format!("costs length ({}) must match num_arcs ({m})", costs.len()).into());
         }
-        Self {
+        if source >= n {
+            return Err(format!("source ({source}) >= num_vertices ({n})").into());
+        }
+        if sink >= n {
+            return Err(format!("sink ({sink}) >= num_vertices ({n})").into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if let Some((index, capacity)) = capacities
+            .iter()
+            .enumerate()
+            .find(|(_, capacity)| **capacity < 0)
+        {
+            return Err(format!("capacity[{index}] = {capacity} is negative").into());
+        }
+        if let Some((index, cost)) = costs.iter().enumerate().find(|(_, cost)| **cost < 0) {
+            return Err(format!("cost[{index}] = {cost} is negative").into());
+        }
+        Ok(Self {
             graph,
             source,
             sink,
             capacities,
             costs,
-        }
+        })
     }
 
     /// Get a reference to the underlying directed graph.

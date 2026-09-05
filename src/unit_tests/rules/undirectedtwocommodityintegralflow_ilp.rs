@@ -44,7 +44,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
 
     // 3 edges → 4 flow vars + 2 direction vars per edge = 18 variables.
     assert_eq!(ilp.num_vars(), 18);
-    assert_eq!(ilp.constraints().len(), 25);
+    assert_eq!(ilp.constraints().len(), 27);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert!(ilp.objective().is_empty());
 }
@@ -120,6 +120,23 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_infeasible() {
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should yield infeasible ILP"
     );
+}
+
+#[test]
+fn test_other_commodity_source_cannot_create_flow() {
+    let problem = UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(4, vec![(1, 3)]),
+        vec![2],
+        0,
+        3,
+        1,
+        3,
+        1,
+        0,
+    );
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
 
 #[test]

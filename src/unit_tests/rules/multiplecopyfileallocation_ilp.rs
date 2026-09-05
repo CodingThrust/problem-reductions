@@ -99,3 +99,22 @@ fn test_multiplecopyfileallocation_to_ilp_trivial() {
     assert_eq!(extracted.len(), 1);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
+
+#[test]
+fn test_multiplecopyfileallocation_unreachable_assignments_are_forbidden() {
+    let problem = MultipleCopyFileAllocation::new(
+        SimpleGraph::new(4, vec![(0, 1)]),
+        vec![1, 0, 0, 0],
+        vec![8, 4, 6, 2],
+    );
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    let direct = BruteForce::new().solve(&problem).unwrap().unwrap();
+    let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let extracted = reduction.extract_solution(&target).unwrap();
+
+    assert_eq!(
+        problem.evaluate(&extracted).unwrap(),
+        problem.evaluate(&direct).unwrap()
+    );
+    assert!(extracted[2] && extracted[3]);
+}

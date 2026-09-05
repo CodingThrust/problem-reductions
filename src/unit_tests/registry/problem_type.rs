@@ -132,6 +132,26 @@ fn problem_ref_from_values_graph_override() {
 }
 
 #[test]
+fn problem_ref_from_prefix_map_fills_only_trailing_defaults() {
+    let problem = find_problem_type("ILP").unwrap();
+    let problem_ref = ProblemRef::from_prefix_map(
+        &problem,
+        [("variable".to_string(), "bool".to_string())].into(),
+    )
+    .unwrap();
+    assert_eq!(problem_ref.variant()["variable"], "bool");
+    assert_eq!(problem_ref.variant()["coefficient"], "i64");
+}
+
+#[test]
+fn problem_ref_from_prefix_map_requires_leading_dimension() {
+    let problem = find_problem_type("ILP").unwrap();
+    let coefficient_only = [("coefficient".to_string(), "f64".to_string())].into();
+    assert!(ProblemRef::from_prefix_map(&problem, coefficient_only).is_err());
+    assert!(ProblemRef::from_prefix_map(&problem, Default::default()).is_err());
+}
+
+#[test]
 fn parse_catalog_problem_ref_bare_mis() {
     let r = parse_catalog_problem_ref("MIS").unwrap();
     assert_eq!(r.name(), "MaximumIndependentSet");

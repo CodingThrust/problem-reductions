@@ -9059,43 +9059,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let m = x.instance.num_machines
   let n = p.len()
   let cfg = x.optimal_config
-  // Decode per-machine orderings: cfg[i*n..(i+1)*n] is machine i's job order
-  let orders = range(m).map(i => cfg.slice(i * n, (i + 1) * n))
-
-  // Greedy simulation to compute start times
-  let machine-avail = range(m).map(_ => 0)
-  let job-avail = range(n).map(_ => 0)
-  let next-on = range(m).map(_ => 0)
-  let start-times = range(n).map(_ => range(m).map(_ => 0))
-  let finish-times = range(n).map(_ => range(m).map(_ => 0))
-
-  let total-tasks = n * m
-  let scheduled = 0
-  while scheduled < total-tasks {
-    // Find machine with earliest next start
-    let best-start = 999999
-    let best-machine = -1
-    for i in range(m) {
-      if next-on.at(i) < n {
-        let j = orders.at(i).at(next-on.at(i))
-        let s = calc.max(machine-avail.at(i), job-avail.at(j))
-        if s < best-start or (s == best-start and (best-machine == -1 or i < best-machine)) {
-          best-start = s
-          best-machine = i
-        }
-      }
-    }
-    let i = best-machine
-    let j = orders.at(i).at(next-on.at(i))
-    let s = calc.max(machine-avail.at(i), job-avail.at(j))
-    let f = s + p.at(j).at(i)
-    start-times.at(j).at(i) = s
-    finish-times.at(j).at(i) = f
-    machine-avail.at(i) = f
-    job-avail.at(j) = f
-    next-on.at(i) += 1
-    scheduled += 1
-  }
+  let start-times = range(n).map(j => cfg.slice(j * m, (j + 1) * m))
+  let finish-times = range(n).map(j => range(m).map(i => start-times.at(j).at(i) + p.at(j).at(i)))
 
   let makespan = calc.max(..range(n).map(j => calc.max(..range(m).map(i => finish-times.at(j).at(i)))))
 
@@ -9106,16 +9071,16 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       2. *Job constraint:* Each job occupies at most one machine at a time.
       Unlike flow-shop or job-shop scheduling, there is no prescribed order for a job's tasks across machines.
     ][
-      Open Shop Scheduling is problem SS14 in Garey and Johnson's catalog @garey1979 (decision version: does a schedule exist with makespan $<= D$?). NP-completeness for $m >= 3$ machines was established by Gonzalez and Sahni via reduction from Partition @gonzalez1976. The problem is solvable in polynomial time for $m = 2$ and also for the preemptive variant with any $m$ @gonzalez1976. This codebase evaluates a candidate schedule by simulating a greedy active schedule: for each step, the machine with the earliest feasible next-job start is processed next. The configuration encodes one permutation of jobs per machine (direct indices), giving $(n!)^m$ candidate orderings.
+      Open Shop Scheduling is problem SS14 in Garey and Johnson's catalog @garey1979 (decision version: does a schedule exist with makespan $<= D$?). NP-completeness for $m >= 3$ machines was established by Gonzalez and Sahni via reduction from Partition @gonzalez1976. The problem is solvable in polynomial time for $m = 2$ and also for the preemptive variant with any $m$ @gonzalez1976. A configuration directly records the nonnegative start time $sigma(j,i)$ of every operation in job-major order. This represents both machine-side and job-side ordering decisions without requiring a greedy reconstruction.
 
       *Example.* Let $m = #m$ machines and $n = #n$ jobs with processing times
       #align(center, math.equation([$P = #math.mat(..p.map(row => row.map(v => [#v])))$]))
-      The canonical optimal orderings are:
+      The canonical optimal start-time matrix is:
       #align(center, table(
-        columns: 2,
-        align: (left, left),
-        table.header([Machine], [Job order]),
-        ..range(m).map(i => ([M#(i+1)], orders.at(i).map(j => [$J_#(j+1)$]).join[$,$])).flatten()
+        columns: m + 1,
+        align: center,
+        table.header([Job], ..range(m).map(i => [M#(i+1)])),
+        ..range(n).map(j => ([J#(j+1)], ..start-times.at(j).map(s => [#s]))).flatten()
       ))
       giving the Gantt chart in @fig:openshop and makespan *#makespan*.
 
@@ -11856,6 +11821,43 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Correctness._ ($arrow.r.double$) If $Y$ is a vertex cover with $|Y| <= K$, the right-hand side equals $0$ and the inequality $K - |Y| >= 0$ holds. ($arrow.l.double$) Suppose the inequality holds for some $Y$. If $Y$ leaves an edge uncovered, the right-hand side is at least $n + 1 > n >= K - |Y|$, a contradiction. Hence $Y$ is a vertex cover and $K - |Y| >= 0$, i.e.\ $|Y| <= K$.
 
   _Solution extraction._ The indicator vector of $Y subset.eq X$ over the universe $X = V$ is read off as the source vertex-cover indicator. Two corner cases are emitted as trivial instances: when $K >= n$ every cover satisfies the bound, so the target is the empty Comparative Containment instance whose unique configuration is trivially feasible; when $K < 0$ the bound is unattainable, and the target is a fixed unsatisfiable instance with a single penalty set.
+]
+
+#let ec_ilp = load-example("EnsembleComputation", "ILP")
+#let ec_ilp_sol = ec_ilp.solutions.at(0)
+#reduction-rule("EnsembleComputation", "ILP",
+  example: true,
+  example-caption: [Three-slot disjoint-union circuit on four atoms],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ec_ilp.source) + " -o ensemble.json",
+      "pred reduce ensemble.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ensemble.json --config " + cli-config(ec_ilp_sol.source_config),
+    )
+    The source has universe size #ec_ilp.source.instance.universe_size, budget #ec_ilp.source.instance.budget, and targets #ec_ilp.source.instance.subsets. Its stored witness uses #(ec_ilp_sol.source_config.len() / 2) union operations. The ILP selector variables recover the same ordered operand pairs, and evaluating the extracted source configuration gives #(ec_ilp_sol.source_config.len() / 2) #sym.checkmark.
+  ],
+)[
+  This polynomial-size slot encoding follows the circuit viewpoint used by Järvisalo, Kaski, Koivisto, and Korhonen @jarvisaloEtAl2012. It represents at most $J$ ordered disjoint-union gates without enumerating the $2^|A|$ possible sets.
+][
+  _Construction._ Let $A={0,dots,u-1}$, let $cal(C)=(C_1,dots,C_t)$, and number operation slots $k=0,dots,J-1$. Binary $a_k$ activates slot $k$, with $a_k >= a_(k+1)$. Two one-hot selector families choose each active slot's left and right operands from the $u$ singleton atoms and results of earlier active slots; because union is commutative, require the left operand index to be smaller than the right operand index. For a selector $s$ and earlier result bit $r_(h,e)$, a binary auxiliary $v=s r_(h,e)$ is enforced by $v<=s$, $v<=r_(h,e)$, and $v>=s+r_(h,e)-1$. Thus the selected operand-membership bits $lambda_(k,e)$ and $rho_(k,e)$ are linear expressions. Impose
+  $
+    lambda_(k,e)+rho_(k,e) <= 1, quad
+    r_(k,e)=lambda_(k,e)+rho_(k,e)
+  $
+  for every $k,e$. Match variable $m_(c,k)$ may equal one only if $a_k=1$ and every result bit $r_(k,e)$ equals the membership of $e$ in $C_c$; require $sum_k m_(c,k)>=1$. Minimize $sum_k a_k$. The construction uses
+  $
+    3 J u + J(J-1)(u+1) + t J + J
+  $
+  variables and
+  $
+    (5 J-1)+J(J-1)(1+3 u)+2 J u+t J(u+2)+t
+  $
+  constraints.
+
+  _Correctness._ ($arrow.r.double$) A valid $K<=J$ operation program activates its first $K$ slots, copies each operand reference into the corresponding selector, and assigns the computed membership and match bits; all constraints hold with objective $K$. ($arrow.l.double$) In any feasible ILP solution the active slots form a prefix, each operand is either an atom or an earlier active result, the McCormick constraints recover its exact membership, and the disjointness and union equations make every active slot a legal operation. Match constraints ensure that every required set occurs as a result. Therefore the optimum is the minimum feasible operation count within budget $J$. Empty and singleton targets remain infeasible because atoms are operands, not computed results.
+
+  _Solution extraction._ Read the two one-hot operand selectors from active slots in increasing order. Preserve atom indices and encode earlier result $h$ as operand index $u+h$; fill unused suffix slots with a harmless disjoint atom pair because source evaluation stops once all targets have appeared.
 ]
 
 #reduction-rule("MinimumVertexCover", "EnsembleComputation")[
@@ -14716,11 +14718,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     "minimize" quad & sum_v s_v x_v + sum_(v,u) "usage"_v d(v, u) y_(v,u) \
     "subject to" quad & sum_u y_(v,u) = 1 quad forall v \
-    & y_(v,u) <= x_u quad forall v, u \
+    & y_(v,u) <= x_u quad forall v, u " with " d(v,u) < infinity \
+    & y_(v,u) = 0 quad forall v, u " with " d(v,u) = infinity \
     & x_v, y_(v,u) in {0, 1}.
   $
 
-  _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the objective linearizes the total cost.
+  _Correctness._ Assignment constraints ensure each vertex is served by exactly one reachable copy; unreachable pairs are explicitly forbidden, as required by the shortest-path distance in the problem definition @garey1979. Capacity links prevent assignment to non-copy vertices, and the objective linearizes the total cost.
 
   _Solution extraction._ Copy placement: ${v : x_v = 1}$.
 ]
@@ -14992,7 +14995,9 @@ The following reductions to Integer Linear Programming are straightforward formu
     & d^k_e in {0, 1}, f^k_(u,v) in ZZ_(>=0).
   $
 
-  _Correctness._ Direction indicators linearize the capacity-sharing constraint; flow conservation and demand constraints ensure valid multi-commodity flow.
+  Here $b^k_v = 0$ at every vertex other than commodity $k$'s own source and sink; the sink receives at least its requirement and the source supplies that flow.
+
+  _Correctness._ Direction indicators linearize the capacity-sharing constraint. Per-commodity conservation prevents flow from being created or destroyed at another commodity's terminals, as required by the standard multicommodity-flow formulation @garey1979.
 
   _Solution extraction._ Flow variables (first $4|E|$ variables).
 ]
@@ -15088,24 +15093,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("DisjointConnectingPaths", "ILP")[
-  Route one unit of flow for each terminal pair on an oriented copy of the graph, and forbid internal vertices from carrying more than one commodity.
+  Use a binary multicommodity flow with one commodity per terminal pair and unit capacity on every vertex. The construction has $2 k |E|$ variables and $k |V| + |V|$ constraints.
 ][
-  _Construction._ For terminal pairs $(s_k, t_k)$, variables: binary $f^k_(u,v)$ on each orientation of each edge and integer order variables $h^k_v$. The ILP is:
+  _Construction._ Let $A$ contain both orientations of every edge, and let $S = {s_1, dots, s_k}$. For each pair $(s_i,t_i)$ and arc $(u,v) in A$, introduce a binary variable $f^i_(u,v)$. Write $delta^+(v)$ and $delta^-(v)$ for the arcs leaving and entering $v$. Add
   $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(w) f^k_(s_k,w) - sum_(u) f^k_(u,s_k) = 1 quad forall k \
-    & sum_(u) f^k_(u,t_k) - sum_(w) f^k_(t_k,w) = 1 quad forall k \
-    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = 0 quad forall k, v in V backslash {s_k, t_k} \
-    & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
-    & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall "non-terminal" v \
-    & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
-    & f^k_(u,v) in {0, 1}, h^k_v in ZZ_(>=0).
+    sum_(a in delta^+(v)) f^i_a - sum_(a in delta^-(v)) f^i_a
+    = cases(1 & "if " v=s_i, -1 & "if " v=t_i, 0 & "otherwise")
+    quad forall i,v,
   $
+  and the vertex-capacity constraints
+  $
+    sum_i sum_(a in delta^-(v)) f^i_a + bb(1)[v in S] <= 1
+    quad forall v in V.
+  $
+  The source model requires all $2k$ terminal vertices to be pairwise distinct.
 
-  _Correctness._ ($arrow.r.double$) A family of pairwise internally vertex-disjoint connecting paths orients each path from its source to its sink and satisfies all constraints. ($arrow.l.double$) The conservation, disjointness, and ordering constraints force each commodity to trace one simple path, and different commodities can intersect only at terminals.
+  _Correctness._ ($arrow.r.double$) Given pairwise vertex-disjoint paths, orient path $i$ from $s_i$ to $t_i$ and set precisely its arc variables to one. Flow conservation holds. Every non-source path vertex has one incoming arc, each source contributes its indicator term, and disjointness therefore gives every vertex load at most one.
 
-  _Solution extraction._ Mark an edge selected in the source config iff some orientation of that edge carries flow for some commodity.
+  ($arrow.l.double$) Consider a feasible binary flow. At $s_i$, the capacity constraint permits no incoming arc, so conservation gives exactly one outgoing arc. At every reached nonterminal vertex, the single incoming arc and conservation give exactly one outgoing arc. The walk cannot revisit a vertex, because the first entry and the later entry would violate its unit incoming capacity; since the graph is finite, it reaches $t_i$. The same capacity constraints prevent paths of different commodities from sharing any vertex. Positive-flow components not reached from a source are circulations disjoint from these paths and do not affect the extracted witness.
+
+  _Solution extraction._ For every commodity, search its positive-flow arcs from $s_i$ to $t_i$ and mark only the undirected edges on that path. Discard disconnected circulations. The union of the extracted paths is the source edge-selection vector.
 ]
+
 
 #reduction-rule("LengthBoundedDisjointPaths", "ILP")[
   Maximize the number of active unit-flow commodities, each using at most $K$ edges, with shared internal-vertex capacities.
@@ -15300,7 +15309,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Correctness._ ($arrow.r.double$) Any feasible open-shop schedule with the given permutations $sigma_i$ induces valid ordering bits $x_{j k i}$ and $y_{j i i'}$ and start times satisfying all non-overlap constraints. ($arrow.l.double$) Any feasible ILP solution defines non-overlapping start times for all tasks, respecting both machine and job constraints.
 
-  _Solution extraction._ For each machine $i$, sort jobs by their ILP start times $s_{j,i}$ to recover the per-machine permutation; output the concatenation of these $m$ direct-index permutations.
+  _Solution extraction._ Return the $n m$ start-time variables $s_{j,i}$ directly in job-major order.
 ]
 
 #reduction-rule("MinimumTardinessSequencing", "ILP")[
@@ -15715,19 +15724,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("AcyclicPartition", "ILP")[
-  Assign every vertex to one partition class, bound the weight and crossing cost of those classes, and impose a topological order on the quotient digraph.
+  Assign every vertex to a topologically numbered partition class and directly require every arc to have nondecreasing class labels, following the upper-triangular formulation of @ozkayaCatalyurek2022.
 ][
   _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i64>` with variable order
-  $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t, (o_c)_c, (p_v)_v$.
+  $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t$.
   The indices are
   $"idx"_x(v,c) = v n + c$,
   $"idx"_s(t,c) = n^2 + t n + c$,
-  $"idx"_y(t) = n^2 + m n + t$,
-  $"idx"_o(c) = n^2 + m n + m + c$,
-  and $ "idx"_p(v) = n^2 + m n + m + n + v$.
-  There are $n^2 + m n + m + 2 n$ variables.
+  and $"idx"_y(t) = n^2 + m n + t$.
+  There are $n^2 + m n + m$ variables.
 
-  Here $x_(v,c) in {0, 1}$ means vertex $v$ is assigned to class $c$, $s_(t,c) in {0, 1}$ means both endpoints of arc $a_t$ lie in class $c$, $y_t in {0, 1}$ marks that arc $a_t$ crosses between two different classes, $o_c in {0, dots, n - 1}$ is the order assigned to class $c$, and $p_v in {0, dots, n - 1}$ copies the order of the class chosen by vertex $v$.
+  Here $x_(v,c) in {0, 1}$ means vertex $v$ is assigned to topological class label $c$, $s_(t,c) in {0, 1}$ means both endpoints of arc $a_t$ lie in class $c$, and $y_t in {0, 1}$ marks that arc $a_t$ crosses between two different classes.
 
   The constraints are:
   $sum_(c = 0)^(n - 1) x_(v,c) = 1$ for every vertex $v$;
@@ -15735,12 +15742,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $s_(t,c) <= x_(u_t,c)$, $s_(t,c) <= x_(v_t,c)$, and $s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1$ for every arc $a_t$ and class $c$;
   $y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1$ for every arc $a_t$, so $y_t = 1$ exactly for crossing arcs;
   $sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K$;
-  $0 <= o_c <= n - 1$ and $0 <= p_v <= n - 1$ for all classes $c$ and vertices $v$;
-  $p_v - o_c <= (n - 1) (1 - x_(v,c))$ and $o_c - p_v <= (n - 1) (1 - x_(v,c))$ for all $v, c$, so $p_v = o_c$ whenever $x_(v,c) = 1$;
-  and for every arc $a_t = (u_t -> v_t)$,
-  $p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c)$.
-  The exact big-$M$ here is $M = n$: if $u_t$ and $v_t$ lie in the same class, then $sum_c s_(t,c) = 1$ and the right-hand side is $1 - n = -(n - 1)$, which is precisely the smallest possible difference between two order variables in ${0, dots, n - 1}$. If the arc crosses between two distinct classes, then $sum_c s_(t,c) = 0$ and the inequality becomes $p_(v_t) - p_(u_t) >= 1$. For the realized classes $c$ and $d$ of the endpoints, this is exactly the requested form
-  $o_d - o_c >= 1 - M sum_h s_(t,h)$.
+  and $sum_(c = 0)^(n - 1) c x_(u_t,c) <= sum_(c = 0)^(n - 1) c x_(v_t,c)$ for every arc $a_t = (u_t -> v_t)$.
+  The last inequality directly requires every original arc to go from a lower or equal class label to a higher or equal label. Equality represents an internal arc; a crossing arc has distinct labels and therefore strictly increases along the corresponding quotient arc.
 
   The ILP is:
   $
@@ -15751,12 +15754,11 @@ The following reductions to Integer Linear Programming are straightforward formu
     & s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1 quad forall t, c \
     & y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1 quad forall t in {0, dots, m - 1} \
     & sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K \
-    & p_v - o_c <= (n - 1) (1 - x_(v,c)), o_c - p_v <= (n - 1) (1 - x_(v,c)) quad forall v, c \
-    & p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c) quad forall t in {0, dots, m - 1} \
-    & x_(v,c), s_(t,c), y_t in {0, 1}; o_c, p_v in {0, dots, n - 1}.
+    & sum_(c = 0)^(n - 1) c x_(u_t,c) <= sum_(c = 0)^(n - 1) c x_(v_t,c) quad forall t in {0, dots, m - 1} \
+    & x_(v,c), s_(t,c), y_t in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any valid acyclic partition gives a class assignment whose quotient arcs respect some topological ordering, with the same class weights and crossing cost. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, charges exactly the inter-class arcs, and the order variables force the quotient digraph to be acyclic.
+  _Correctness._ ($arrow.r.double$) Given a valid acyclic partition, choose a topological ordering of its quotient digraph and relabel each used class by its position in that ordering. This relabeling preserves class membership, class weights, and crossing cost. Every internal arc has equal endpoint labels, while every quotient arc goes to a strictly larger label, so the direct ordering inequalities hold. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, and charges exactly the inter-class arcs. Along every quotient arc the endpoint classes have distinct, nondecreasing labels and hence the label strictly increases. A directed quotient cycle would require a strict increase around the cycle back to its starting label, which is impossible; therefore the quotient digraph is acyclic.
 
   _Solution extraction._ For each vertex $v$, output the unique class label $c$ with $x_(v,c) = 1$.
 ]
@@ -16509,16 +16511,16 @@ The following reductions to Integer Linear Programming are straightforward formu
         *Step 3 -- Verify.* The ILP optimum extracts to edge selection $(#fmt-values(ocst_ilp_sol.source_config))$, which matches the source optimum #sym.checkmark.
       ],
     )[
-      Binary edge selectors determine the spanning tree. Multi-commodity flow variables route one unit of flow for each vertex pair with positive requirement, and the objective minimizes the total weighted communication cost.
+      Binary edge selectors determine the spanning tree. Multi-commodity flow variables route one unit for every vertex pair, including zero-requirement pairs, and the objective minimizes the total weighted communication cost @hu1974ocst.
     ][
-      _Construction._ Given $K_n$ with weights $w(e)$ and requirements $r(u, v)$, let $m = n(n-1)/2$. Introduce binary edge variables $x_e$ for each edge. For each pair $(s, t)$ with $r(s, t) > 0$, add directed flow variables $f^(s t)_(e, "fwd")$ and $f^(s t)_(e, "bwd")$ for each edge $e$.
+      _Construction._ Given $K_n$ with weights $w(e)$ and requirements $r(u, v)$, let $m = n(n-1)/2$. Introduce binary edge variables $x_e$ for each edge. For every pair $(s, t)$ with $s < t$, add directed flow variables $f^(s t)_(e, "fwd")$ and $f^(s t)_(e, "bwd")$ for each edge $e$. Zero-requirement commodities have zero objective coefficient but are retained to certify that every vertex belongs to the spanning tree.
 
       Constraints:
       - Tree size: $sum_e x_e = n - 1$
       - Flow conservation: for each commodity $(s, t)$ and each vertex $v$, net inflow equals $-1$ at source $s$, $+1$ at sink $t$, and $0$ elsewhere.
       - Capacity linking: $f^(s t)_(e, "dir") <= x_e$ for each commodity and direction.
 
-      Objective: $min sum_((s,t): r > 0) r(s,t) dot sum_e w(e) dot (f^(s t)_(e, "fwd") + f^(s t)_(e, "bwd")))$
+      Objective: $min sum_(s<t) r(s,t) dot sum_e w(e) dot (f^(s t)_(e, "fwd") + f^(s t)_(e, "bwd")))$
 
       _Correctness._ ($arrow.r.double$) Any spanning tree defines edge selectors and unique path flows. The objective equals the communication cost. ($arrow.l.double$) Any feasible ILP solution with $n - 1$ selected edges and valid flows corresponds to a connected spanning subgraph (tree), and the flow cost equals the path-weighted communication cost.
 
@@ -16918,11 +16920,11 @@ The following table shows concrete target-variable counts for example instances,
 }
 
 #reduction-rule("MinimumCapacitatedSpanningTree", "ILP")[
-  Binary edge selectors $y_e$ plus directed requirement-flow variables. Flow conservation routes each vertex's requirement to the root; capacity constraints bound flow per edge.
+  Binary edge selectors $y_e$, directed requirement-flow variables $f$, and directed unit-demand connectivity variables $g$. The first flow enforces subtree capacities; the second connects even zero-requirement vertices.
 ][
-  _Construction._ $3m$ variables: $m$ edge selectors + $2m$ directed flow. Tree cardinality, binary bounds, flow conservation (each non-root vertex generates $r(v)$ flow toward root), flow-edge linking, and per-edge capacity bounds ($<= c$). Minimize $sum_e w(e) dot y_e$.
+  _Construction._ $5m$ variables: $m$ edge selectors and two directed flows of $2m$ variables each. Requirement flow sends $r(v)$ units from each non-root vertex to the root and is bounded by capacity $c$. Connectivity flow sends one unit from every non-root vertex to the root and satisfies $g_(u v)+g_(v u) <= (n-1)y_e$. Also impose $sum_e y_e=n-1$ and minimize $sum_e w(e) dot y_e$. This combines the standard non-unit-demand flow model @gouveiaLopes2000 with the standard unit-demand spanning-tree flow.
 
-  _Correctness._ ($arrow.r.double$) A feasible capacitated spanning tree induces a valid flow. ($arrow.l.double$) A feasible ILP solution encodes a spanning tree satisfying capacity constraints.
+  _Correctness._ ($arrow.r.double$) A feasible capacitated spanning tree induces both flows along its unique root paths. ($arrow.l.double$) Unit-demand flow makes every vertex reachable from the root; together with $n-1$ selected edges this gives a spanning tree. Requirement flow on that tree equals each rooted subtree's total requirement, so its capacity bounds are exactly the source constraints.
 
   _Solution extraction._ First $m$ variables (edge selectors) give the source configuration.
 ]
@@ -18966,9 +18968,9 @@ The following table shows concrete target-variable counts for example instances,
           [$J_3$], [#p.at(3).at(0)], [#p.at(3).at(1)], [#p.at(3).at(2)],
         ) The first three jobs come from the partition elements, and the special job $J_3$ has processing time $Q = #q$ on every machine.
 
-        *Step 3 -- Decode the canonical machine orders.* The target configuration $(#fmt-values(part_oss_sol.target_config))$ splits into $M_1 = (0, 1, 2, 3)$, $M_2 = (0, 1, 2, 3)$, and $M_3 = (2, 3, 0, 1)$. On machine $M_3$, job $J_2$ occupies $[0, 3)$ and the special job $J_3$ starts exactly at time $Q = 3$, so the prefix before the special job contains precisely job $J_2$.
+        *Step 3 -- Decode the canonical start times.* The target configuration $(#fmt-values(part_oss_sol.target_config))$ is job-major. On machine $M_1$, jobs $J_0$ and $J_1$ occupy $[0,1)$ and $[1,3)$, and the special job $J_3$ starts exactly at time $Q = 3$.
 
-        *Step 4 -- Verify extraction and makespan.* Because only $J_2$ finishes on $M_3$ by time $Q$, the extracted source vector is $(#fmt-values(part_oss_sol.source_config))$, i.e.\ subset sum #right-sum versus #left-sum. Evaluating the stored machine orders gives a concrete makespan of $12$, so the `load-example()` fixture shows both the machine assignment and the middle-machine split used for extraction #sym.checkmark.
+        *Step 4 -- Verify extraction and makespan.* The element jobs completing on $M_1$ by time $Q$ are exactly $J_0,J_1$, so the extracted source vector is $(#fmt-values(part_oss_sol.source_config))$, i.e.\ subset sum #right-sum versus #left-sum. Evaluating the explicit schedule gives the optimal makespan $9 = 3Q$ #sym.checkmark.
       ]
     }
 

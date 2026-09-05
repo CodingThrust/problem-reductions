@@ -210,10 +210,11 @@ impl UndirectedTwoCommodityIntegralFlow {
         self.graph.num_edges()
     }
 
-    pub fn num_nonterminal_vertices(&self) -> usize {
-        (0..self.num_vertices())
-            .filter(|&vertex| !self.is_terminal(vertex))
-            .count()
+    pub fn num_conservation_constraints(&self) -> usize {
+        [(self.source_1, self.sink_1), (self.source_2, self.sink_2)]
+            .into_iter()
+            .map(|(source, sink)| self.num_vertices() - if source == sink { 1 } else { 2 })
+            .sum()
     }
 
     pub fn is_valid_solution(
@@ -242,10 +243,6 @@ impl UndirectedTwoCommodityIntegralFlow {
             *config.get(start + 2)?,
             *config.get(start + 3)?,
         ])
-    }
-
-    fn is_terminal(&self, vertex: usize) -> bool {
-        [self.source_1, self.sink_1, self.source_2, self.sink_2].contains(&vertex)
     }
 
     fn flow_pair_for_commodity(flows: [usize; 4], commodity: usize) -> (usize, usize) {
@@ -358,14 +355,17 @@ impl UndirectedTwoCommodityIntegralFlow {
             }
         }
 
-        for vertex in 0..self.num_vertices() {
-            if self.is_terminal(vertex) {
-                continue;
-            }
-            if self.commodity_balance(config, 1, vertex)? != Some(0)
-                || self.commodity_balance(config, 2, vertex)? != Some(0)
-            {
-                return Ok(crate::types::Or(false));
+        for (commodity, source, sink) in [
+            (1, self.source_1, self.sink_1),
+            (2, self.source_2, self.sink_2),
+        ] {
+            for vertex in 0..self.num_vertices() {
+                if vertex != source
+                    && vertex != sink
+                    && self.commodity_balance(config, commodity, vertex)? != Some(0)
+                {
+                    return Ok(crate::types::Or(false));
+                }
             }
         }
 
@@ -386,7 +386,7 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
 
     crate::problem_parameters![
         ("num_edges", num_edges),
-        ("num_nonterminal_vertices", num_nonterminal_vertices),
+        ("num_conservation_constraints", num_conservation_constraints),
         ("num_vertices", num_vertices),
     ];
 

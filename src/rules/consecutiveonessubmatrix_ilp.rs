@@ -110,24 +110,18 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
 
         // C1P interval constraints on the K-position permuted submatrix
         for r in 0..m {
-            // beta_r = 1 if row r has at least one 1 in the original matrix
-            // (among any column, not just selected ones — the ILP will determine)
-            // We use beta_r = 1 for rows that have any 1, to allow intervals
-            let beta_r: i64 = if self.matrix()[r].iter().any(|&v| v) {
-                1
-            } else {
-                0
-            };
-
-            // sum_p l_{r,p} = beta_r
+            // A row has either no interval (all selected entries are zero), or
+            // exactly one pair of left and right boundaries. Existing a <= h
+            // constraints force the latter whenever a selected entry is one.
             let l_terms: Vec<(usize, i64)> = (0..k).map(|p| (l_off + r * k + p, 1)).collect();
-            constraints.push(LinearConstraint::eq(l_terms, beta_r));
+            constraints.push(LinearConstraint::le(l_terms.clone(), 1));
 
-            // sum_p u_{r,p} = beta_r
             let u_terms: Vec<(usize, i64)> = (0..k).map(|p| (u_off + r * k + p, 1)).collect();
-            constraints.push(LinearConstraint::eq(u_terms, beta_r));
+            let mut boundary_count_terms = l_terms;
+            boundary_count_terms.extend(u_terms.into_iter().map(|(index, _)| (index, -1)));
+            constraints.push(LinearConstraint::eq(boundary_count_terms, 0));
 
-            // sum_p p*l_{r,p} <= sum_p p*u_{r,p} + (K-1)*(1 - beta_r)
+            // The left boundary cannot occur after the right boundary
             if k > 0 {
                 let mut order_terms = Vec::new();
                 for p in 0..k {
@@ -138,13 +132,7 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
                     order_terms.push((l_off + r * k + p, p_i64));
                     order_terms.push((u_off + r * k + p, -p_i64));
                 }
-                constraints.push(LinearConstraint::le(
-                    order_terms,
-                    <Self as ReduceTo<ILP<bool>>>::exact_i64(
-                        k - 1,
-                        "encoding the final selected-column position",
-                    )? * (1 - beta_r),
-                ));
+                constraints.push(LinearConstraint::le(order_terms, 0));
             }
 
             for p in 0..k {

@@ -69,3 +69,18 @@ fn test_ruralpostman_to_ilp_bf_vs_ilp() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
+
+#[test]
+fn test_ruralpostman_empty_required_set_extracts_zero_multiplicities() {
+    let source = RuralPostman::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![4, 7],
+        vec![],
+    );
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let extracted = reduction.extract_solution(&target).unwrap();
+
+    assert_eq!(extracted, vec![0, 0]);
+    assert_eq!(source.evaluate(&extracted).unwrap().0, Some(0));
+}

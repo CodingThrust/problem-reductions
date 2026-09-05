@@ -187,3 +187,15 @@ fn test_minimum_cost_maximum_flow_serialization() {
         problem.evaluate(&vec![2, 1, 1, 1, 2]).unwrap()
     );
 }
+
+#[test]
+fn deserialization_rejects_negative_costs() {
+    let value = serde_json::json!({
+        "graph": {"num_vertices": 2, "arcs": [[0, 1]]},
+        "source": 0,
+        "sink": 1,
+        "capacities": [1],
+        "costs": [-1]
+    });
+    assert!(serde_json::from_value::<MinimumCostMaximumFlow>(value).is_err());
+}

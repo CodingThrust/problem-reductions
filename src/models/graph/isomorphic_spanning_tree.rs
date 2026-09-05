@@ -54,11 +54,28 @@ inventory::submit! {
 /// let sol = solver.solve(&problem).unwrap();
 /// assert!(sol.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize)]
 pub struct IsomorphicSpanningTree<G> {
     graph: G,
     tree: SimpleGraph,
+}
+
+impl<'de, G> Deserialize<'de> for IsomorphicSpanningTree<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Helper<G> {
+            graph: G,
+            tree: SimpleGraph,
+        }
+        let helper = Helper::<G>::deserialize(deserializer)?;
+        Self::try_new(helper.graph, helper.tree).map_err(serde::de::Error::custom)
+    }
 }
 
 impl<G: Graph> IsomorphicSpanningTree<G> {
@@ -69,19 +86,21 @@ impl<G: Graph> IsomorphicSpanningTree<G> {
     /// Panics if |V(G)| != |V(T)| or if T is not a tree (not connected or
     /// wrong number of edges).
     pub fn new(graph: G, tree: SimpleGraph) -> Self {
+        Self::try_new(graph, tree).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, tree: SimpleGraph) -> Result<Self, &'static str> {
         let n = graph.num_vertices();
-        assert_eq!(
-            n,
-            tree.num_vertices(),
-            "graph and tree must have the same number of vertices"
-        );
-        assert_eq!(
-            tree.num_edges(),
-            n.saturating_sub(1),
-            "tree must have exactly n-1 edges"
-        );
-        assert!(is_connected(&tree), "tree must be connected");
-        Self { graph, tree }
+        if n != tree.num_vertices() {
+            return Err("graph and tree must have the same number of vertices");
+        }
+        if tree.num_edges() != n.saturating_sub(1) {
+            return Err("tree must have exactly n-1 edges");
+        }
+        if !is_connected(&tree) {
+            return Err("tree must be connected");
+        }
+        Ok(Self { graph, tree })
     }
 
     /// Get a reference to the host graph.

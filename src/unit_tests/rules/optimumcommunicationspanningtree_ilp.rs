@@ -134,3 +134,26 @@ fn test_ocst_to_ilp_canonical_example_spec() {
     assert_eq!(example.target.problem, "ILP");
     assert!(!example.solutions.is_empty());
 }
+
+#[test]
+fn test_ocst_zero_requirement_pairs_still_enforce_spanning_tree() {
+    let problem = OptimumCommunicationSpanningTree::new(
+        vec![
+            vec![0, 9, 6, 3],
+            vec![9, 0, 7, 8],
+            vec![6, 7, 0, 3],
+            vec![3, 8, 3, 0],
+        ],
+        vec![
+            vec![0, 0, 0, 0],
+            vec![0, 0, 1, 4],
+            vec![0, 1, 0, 4],
+            vec![0, 4, 4, 0],
+        ],
+    );
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let extracted = reduction.extract_solution(&solution).unwrap();
+
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(55)));
+}

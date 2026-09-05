@@ -195,3 +195,20 @@ fn test_steiner_tree_rejects_wrong_weight_count() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = SteinerTree::new(graph, vec![1, 1, 1], vec![0, 2]);
 }
+
+#[test]
+fn test_steiner_tree_deserialization_rejects_invalid_invariants() {
+    let one_terminal = serde_json::json!({
+        "graph": {"num_vertices": 2, "edges": [[0, 1]]},
+        "edge_weights": [1],
+        "terminals": [0]
+    });
+    assert!(serde_json::from_value::<SteinerTree<SimpleGraph, i64>>(one_terminal).is_err());
+
+    let wrong_weights = serde_json::json!({
+        "graph": {"num_vertices": 2, "edges": [[0, 1]]},
+        "edge_weights": [],
+        "terminals": [0, 1]
+    });
+    assert!(serde_json::from_value::<SteinerTree<SimpleGraph, i64>>(wrong_weights).is_err());
+}

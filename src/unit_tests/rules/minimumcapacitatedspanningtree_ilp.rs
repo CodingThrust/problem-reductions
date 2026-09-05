@@ -48,8 +48,8 @@ fn test_reduction_creates_expected_ilp_shape() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // m=5: num_vars = 3*5 = 15
-    assert_eq!(ilp.num_vars(), 15);
+    // m=5: num_vars = 5*5 = 25
+    assert_eq!(ilp.num_vars(), 25);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
@@ -96,8 +96,8 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
-    // 15 variables total, first 5 are edge selectors
-    let mut target_solution = vec![0; 15];
+    // 25 variables total, first 5 are edge selectors
+    let mut target_solution = vec![0; 25];
     target_solution[0] = 1; // edge (0,1)
     target_solution[1] = 1; // edge (0,2)
     target_solution[3] = 1; // edge (1,3)
@@ -154,4 +154,18 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(6)));
     assert!(problem.is_valid_solution(&extracted).unwrap());
+}
+
+#[test]
+fn test_zero_requirement_vertex_still_must_be_connected() {
+    let problem = MinimumCapacitatedSpanningTree::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 3)]),
+        vec![1, 1, 1],
+        0,
+        vec![0, 1, 0, 1],
+        2,
+    );
+    let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }

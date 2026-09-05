@@ -213,3 +213,23 @@ fn test_isomorphicspanningtree_disconnected_tree() {
     let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]);
     IsomorphicSpanningTree::new(graph, tree);
 }
+
+#[test]
+fn test_isomorphicspanningtree_deserialization_rejects_invalid_tree_invariants() {
+    for value in [
+        serde_json::json!({
+            "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]},
+            "tree": {"num_vertices": 1, "edges": []},
+        }),
+        serde_json::json!({
+            "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]},
+            "tree": {"num_vertices": 3, "edges": [[0, 1], [1, 2], [0, 2]]},
+        }),
+        serde_json::json!({
+            "graph": {"num_vertices": 4, "edges": [[0, 1], [1, 2], [2, 3]]},
+            "tree": {"num_vertices": 4, "edges": [[0, 1], [1, 2], [0, 2]]},
+        }),
+    ] {
+        assert!(serde_json::from_value::<IsomorphicSpanningTree<SimpleGraph>>(value).is_err());
+    }
+}

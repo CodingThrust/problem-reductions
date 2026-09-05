@@ -190,6 +190,12 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
+    ("EnsembleComputation", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "f64")]),
+}
+
+register_ilp_pipeline! {
     ("EulerianPath", []),
     ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
     ("ILP", [("variable", "i64"), ("coefficient", "f64")]),

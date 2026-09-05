@@ -51,7 +51,7 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edges (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SteinerTree<G, W> {
     /// The underlying graph.
     graph: G,
@@ -59,6 +59,28 @@ pub struct SteinerTree<G, W> {
     edge_weights: Vec<W>,
     /// Terminal vertices that must be connected.
     terminals: Vec<usize>,
+}
+
+impl<'de, G, W> Deserialize<'de> for SteinerTree<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Fields<G, W> {
+            graph: G,
+            edge_weights: Vec<W>,
+            terminals: Vec<usize>,
+        }
+
+        let fields = Fields::deserialize(deserializer)?;
+        Self::try_new(fields.graph, fields.edge_weights, fields.terminals)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -102,34 +124,38 @@ impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<Simpl
             )
             .into());
         }
-        Ok(Self::new(spec.graph, spec.edge_weights, spec.terminals))
+        Self::try_new(spec.graph, spec.edge_weights, spec.terminals).map_err(Into::into)
     }
 }
 
 impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
-    /// Create a SteinerTree problem from a graph, edge weights, and terminals.
-    pub fn new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        let n = graph.num_vertices();
-        let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
-        assert_eq!(
-            distinct_terminals.len(),
-            terminals.len(),
-            "terminals must be distinct"
-        );
-        for &t in &terminals {
-            assert!(t < n, "terminal {t} out of range (num_vertices = {n})");
+    fn try_new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Result<Self, String> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".into());
         }
-        assert!(terminals.len() >= 2, "at least 2 terminals required");
-        Self {
+        if terminals.len() < 2 {
+            return Err("at least 2 terminals required".into());
+        }
+        let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
+        if distinct_terminals.len() != terminals.len() {
+            return Err("terminals must be distinct".into());
+        }
+        let n = graph.num_vertices();
+        if let Some(&terminal) = terminals.iter().find(|&&terminal| terminal >= n) {
+            return Err(format!(
+                "terminal {terminal} out of range (num_vertices = {n})"
+            ));
+        }
+        Ok(Self {
             graph,
             edge_weights,
             terminals,
-        }
+        })
+    }
+
+    /// Create a SteinerTree problem from a graph, edge weights, and terminals.
+    pub fn new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Self {
+        Self::try_new(graph, edge_weights, terminals).unwrap_or_else(|error| panic!("{error}"))
     }
 
     /// Create a SteinerTree problem with unit edge weights.
