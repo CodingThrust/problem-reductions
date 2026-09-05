@@ -19,7 +19,7 @@ inventory::submit! {
         aliases: &["MIS"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "KingsSubgraph", "TriangularSubgraph", "UnitDiskGraph"]),
-            VariantDimension::new("weight", "One", &["One", "i64"]),
+            VariantDimension::new("weight", "One", &["One", "i64", "f64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -113,6 +113,7 @@ macro_rules! simple_mis_spec {
 }
 simple_mis_spec!(MaximumIndependentSetSimpleOneCreateSpec, One, One);
 simple_mis_spec!(MaximumIndependentSetSimpleI64CreateSpec, i64, 1_i64);
+simple_mis_spec!(MaximumIndependentSetSimpleF64CreateSpec, f64, 1_f64);
 
 macro_rules! grid_mis_spec {
     ($name:ident,$graph:ty,$weight:ty,$one:expr) => {
@@ -339,6 +340,7 @@ crate::declare_variants! {
     MaximumIndependentSet<TriangularSubgraph, i64> => "2^sqrt(num_vertices)" create MaximumIndependentSetTriangularI64CreateSpec random,
     MaximumIndependentSet<UnitDiskGraph, i64> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskI64CreateSpec random,
     MaximumIndependentSet<UnitDiskGraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskOneCreateSpec random,
+    MaximumIndependentSet<SimpleGraph, f64> => "2^num_vertices" create MaximumIndependentSetSimpleF64CreateSpec,
 }
 
 crate::register_brute_force! {
@@ -349,6 +351,7 @@ crate::register_brute_force! {
     MaximumIndependentSet<TriangularSubgraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
     MaximumIndependentSet<UnitDiskGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
     MaximumIndependentSet<UnitDiskGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<SimpleGraph, f64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MaximumIndependentSet<G, W>

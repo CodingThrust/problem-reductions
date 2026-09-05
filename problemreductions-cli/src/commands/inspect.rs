@@ -122,7 +122,10 @@ pub(crate) fn executable_reduction_targets(
                 format!(
                     "{}{}",
                     edge.target_name,
-                    crate::commands::graph::variant_to_full_slash(&edge.target_variant)
+                    crate::commands::graph::variant_to_full_slash(
+                        edge.target_name,
+                        &edge.target_variant
+                    )
                 )
             }
         })

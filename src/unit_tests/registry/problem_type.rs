@@ -2,7 +2,7 @@ use crate::registry::{
     find_problem_type, find_problem_type_by_alias, parse_catalog_problem_ref, problem_types,
     ProblemCategory, ProblemRef, ProblemSchemaEntry,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 #[test]
 fn typed_problem_ref_fills_declared_defaults() {
@@ -251,10 +251,6 @@ fn catalog_dimensions_cover_all_declared_variants() {
     use crate::registry::variant::VariantEntry;
 
     for entry in inventory::iter::<ProblemSchemaEntry> {
-        if entry.dimensions.is_empty() {
-            continue;
-        }
-
         // Collect all variant entries for this problem
         let variants: Vec<_> = inventory::iter::<VariantEntry>
             .into_iter()
@@ -263,6 +259,20 @@ fn catalog_dimensions_cover_all_declared_variants() {
 
         for ve in &variants {
             let variant_pairs = ve.variant();
+            assert_eq!(
+                entry
+                    .dimensions
+                    .iter()
+                    .map(|dim| dim.key)
+                    .collect::<BTreeSet<_>>(),
+                variant_pairs
+                    .iter()
+                    .map(|(key, _)| *key)
+                    .collect::<BTreeSet<_>>(),
+                "Problem {} catalog dimensions must match its declared variant {:?}",
+                entry.name,
+                variant_pairs,
+            );
             for (key, value) in &variant_pairs {
                 if let Some(dim) = entry.dimensions.iter().find(|d| d.key == *key) {
                     assert!(
@@ -302,5 +312,40 @@ fn graph_defaults_are_catalog_defaults_for_registered_variants() {
                 }
             }
         }
+    }
+}
+
+#[test]
+fn concrete_rule_and_solver_variants_have_standard_registration() {
+    // Actual implementations determine the required set, not a Cartesian product
+    // of independently listed schema dimensions.
+    let mut required = BTreeSet::new();
+    for rule in crate::rules::registry::reduction_entries() {
+        required.insert((
+            rule.source_name,
+            crate::export::variant_to_map(rule.source_variant()),
+        ));
+        required.insert((
+            rule.target_name,
+            crate::export::variant_to_map(rule.target_variant()),
+        ));
+    }
+    for solver in inventory::iter::<crate::solvers::BruteForceRegistration> {
+        required.insert((
+            solver.source_name,
+            crate::export::variant_to_map((solver.source_variant_fn)()),
+        ));
+    }
+    for (name, variant) in required {
+        assert!(
+            crate::registry::find_variant_entry(name, &variant).is_some(),
+            "Concrete implementation missing standard registration: {name} {variant:?}"
+        );
+    }
+    // Building the capability registry also validates every concrete customized
+    // solver and each node in every fixed ILP pipeline against variant entries.
+    for entry in crate::registry::variant_entries() {
+        let key = crate::solvers::ExactProblemKey::new(entry.name, entry.variant_map());
+        crate::solvers::solver_capabilities(&key).expect("all concrete solvers must be registered");
     }
 }

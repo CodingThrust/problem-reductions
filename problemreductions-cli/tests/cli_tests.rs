@@ -8168,6 +8168,46 @@ fn test_create_geometry_graph_missing_positions() {
 // ---- Round-trip: canonical examples through solve ----
 
 #[test]
+fn test_fixed_directed_graph_examples_round_trip_into_inspect_and_solve() {
+    for name in ["DirectedHamiltonianPath", "EulerianPath", "Kernel"] {
+        let path = std::env::temp_dir().join(format!(
+            "pred_test_fixed_directed_graph_{name}_{}.json",
+            std::process::id()
+        ));
+        let create = pred()
+            .args(["create", "--example", name, "-o", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert!(
+            create.status.success(),
+            "{name} create: {}",
+            String::from_utf8_lossy(&create.stderr)
+        );
+        let instance: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(instance["variant"], serde_json::json!({}));
+
+        for command in ["inspect", "solve"] {
+            let output = pred()
+                .args([command, path.to_str().unwrap(), "--json"])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{name} {command}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            if command == "solve" {
+                let solved: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+                assert_eq!(solved["status"], "optimal", "{name}");
+                assert_eq!(solved["evaluation"], "Or(true)", "{name}");
+            }
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
 fn test_create_model_example_mis_round_trips_into_solve() {
     let path = std::env::temp_dir().join(format!(
         "pred_test_model_example_mis_{}.json",

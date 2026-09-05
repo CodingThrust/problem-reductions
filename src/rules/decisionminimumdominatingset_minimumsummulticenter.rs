@@ -1,19 +1,23 @@
 //! Reduction from Decision Minimum Dominating Set to Minimum Sum Multicenter.
 //!
-//! On unit-weight, unit-length graphs, choosing `K` centers with total distance
-//! `n - K` is exactly choosing a dominating set of size at most `K`.
+//! For K >= 0, add an isolated vertex and choose min(K, n) + 1 centers.
+//! Finite cost forces the isolated vertex to be a center. The optimum equals
+//! n - min(K, n) iff the original graph has a dominating set of size <= K.
+//! For K < 0, two added isolated vertices and one center force infeasibility.
 
 use crate::models::decision::Decision;
 use crate::models::graph::{MinimumDominatingSet, MinimumSumMulticenter};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::One;
+use crate::types::{Min, One, Or};
 
 /// Result of reducing DecisionMinimumDominatingSet to MinimumSumMulticenter.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
     target: MinimumSumMulticenter<SimpleGraph, i64>,
+    source_num_vertices: usize,
+    threshold: i64,
 }
 
 impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
@@ -28,13 +32,37 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.to_vec())
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target placement does not certify a dominating set within the source bound",
+            ));
+        }
+        // Original vertices precede the auxiliary isolated vertices.
+        Ok(target_solution[..self.source_num_vertices].to_vec())
     }
 }
 
-#[reduction(transform = upper_bound { num_vertices = "num_vertices", num_edges = "num_edges" })]
+impl crate::rules::AggregateReductionResult
+    for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter
+{
+    type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
+    type Target = MinimumSumMulticenter<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Min<i64>) -> Or {
+        Or(target_value.0 == Some(self.threshold))
+    }
+}
+
+#[reduction(
+    aggregate = custom,
+    transform = upper_bound { num_vertices = "num_vertices + 2", num_edges = "num_edges" }
+)]
 impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i64>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {
@@ -42,14 +70,49 @@ impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i64>>
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_graph = self.inner().graph();
+        let n = source_graph.num_vertices();
+        let (target_n, centers, threshold) = multicenter_parameters(n, *self.bound())?;
         let target = MinimumSumMulticenter::new(
-            SimpleGraph::new(source_graph.num_vertices(), source_graph.edges()),
-            vec![1i64; source_graph.num_vertices()],
+            SimpleGraph::new(target_n, source_graph.edges()),
+            vec![1i64; target_n],
             vec![1i64; source_graph.num_edges()],
-            self.k(),
+            centers,
         );
-        Ok(ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter { target })
+        Ok(
+            ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
+                target,
+                source_num_vertices: n,
+                threshold,
+            },
+        )
     }
+}
+
+/// Compute the construction's counts without allocating the graph, so numeric
+/// domain boundaries can be checked independently of available memory.
+fn multicenter_parameters(
+    n: usize,
+    bound: i64,
+) -> Result<(usize, usize, i64), crate::rules::ReductionError> {
+    type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
+    type Target = MinimumSumMulticenter<SimpleGraph, i64>;
+    let overflow = || {
+        crate::rules::ReductionError::integer_overflow::<Source, Target>(
+            "encoding multicenter construction parameters",
+        )
+    };
+    let extra_vertices = if bound < 0 { 2 } else { 1 };
+    let target_n = n.checked_add(extra_vertices).ok_or_else(overflow)?;
+    let n_i64 = i64::try_from(n).map_err(|_| overflow())?;
+    if bound < 0 {
+        // Two auxiliary isolates cannot both be served by one center.
+        return Ok((target_n, 1, -1));
+    }
+    // No subset contains more than n vertices, so these bounds are equivalent.
+    let q = bound.min(n_i64);
+    let q_usize = usize::try_from(q).map_err(|_| overflow())?;
+    // q <= n and n + 1 was checked above, so q + 1 cannot overflow.
+    Ok((target_n, q_usize + 1, n_i64 - q))
 }
 
 #[cfg(feature = "example-db")]
@@ -75,7 +138,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, true, false, false]),
-                    target_config: serde_json::json!(vec![true, false, false, true, false, false]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, true, false, false, true
+                    ]),
                 },
             )
         },

@@ -120,7 +120,7 @@ fn test_reduction() {
 fn target_solution_validation_rejects_shape_and_domain_errors() {
     let target = TargetProblem;
 
-    assert!(validate_target_solution(&target, &vec![1, 0]).is_ok());
+    assert_eq!(validate_target_solution(&target, &vec![1, 0]).unwrap(), 1);
     assert!(validate_target_solution(&target, &vec![1]).is_err());
     assert!(validate_target_solution(&target, &vec![1, 0, 0]).is_err());
     assert!(validate_target_solution(&target, &vec![1, 2]).is_err());

@@ -518,3 +518,76 @@ fn deterministic_solver_dispatch_repeats_each_available_solver_class() {
     }
     assert!(evaluations.windows(2).all(|pair| pair[0] == pair[1]));
 }
+
+fn check_unit_dominating_decision(num_vertices: usize, edges: &[(usize, usize)], bound: i64) {
+    let variant = BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "One".into()),
+    ]);
+    let problem = load_dyn(
+        "DecisionMinimumDominatingSet",
+        &variant,
+        serde_json::json!({
+            "inner": {
+                "graph": {"num_vertices": num_vertices, "edges": edges},
+                "weights": vec![1; num_vertices],
+            },
+            "bound": bound,
+        }),
+    )
+    .unwrap();
+    let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
+    for backend in [SolverRequest::Ilp, SolverRequest::Default] {
+        let actual = solve(&problem, backend).unwrap();
+        let SolverExecution::Ilp { reduction_path } = &actual.solver else {
+            panic!("expected the registered ILP pipeline");
+        };
+        assert!(
+            reduction_path
+                .iter()
+                .any(|node| node.starts_with("MinimumSumMulticenter")),
+            "{reduction_path:?}"
+        );
+        assert_eq!(
+            matches!(actual.outcome, SolveOutcome::Infeasible),
+            matches!(reference.outcome, SolveOutcome::Infeasible),
+            "n={num_vertices}, edges={edges:?}, bound={bound}, backend={backend:?}"
+        );
+        if let SolveOutcome::Optimal {
+            solution,
+            evaluation,
+        } = actual.outcome
+        {
+            assert_eq!(evaluation, "Or(true)");
+            assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+        }
+    }
+}
+
+#[test]
+fn unit_dominating_decision_ilp_handles_zero_negative_and_large_bounds() {
+    for (n, edges) in [(0, vec![]), (1, vec![]), (3, vec![(0, 1), (1, 2)])] {
+        for bound in [i64::MIN, -1, 0, 1, 3, i64::MAX] {
+            check_unit_dominating_decision(n, &edges, bound);
+        }
+    }
+}
+
+#[test]
+fn unit_dominating_decision_ilp_rejects_no_instance_with_feasible_multicenter_target() {
+    check_unit_dominating_decision(4, &[(0, 1), (1, 2), (2, 3)], 1);
+}
+
+#[test]
+fn unit_dominating_decision_ilp_matches_all_three_vertex_graphs() {
+    for mask in 0..8 {
+        let edges: Vec<_> = [(0, 1), (0, 2), (1, 2)]
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, edge)| (mask & (1 << index) != 0).then_some(edge))
+            .collect();
+        for bound in 0..=4 {
+            check_unit_dominating_decision(3, &edges, bound);
+        }
+    }
+}

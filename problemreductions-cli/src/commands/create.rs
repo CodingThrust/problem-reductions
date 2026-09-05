@@ -38,17 +38,11 @@ fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result
 }
 
 fn format_problem_ref(problem: &ProblemRef) -> String {
-    if problem.variant.is_empty() {
-        return problem.name.clone();
-    }
-
-    let values = problem
-        .variant
-        .values()
-        .cloned()
-        .collect::<Vec<_>>()
-        .join("/");
-    format!("{}/{}", problem.name, values)
+    format!(
+        "{}{}",
+        problem.name,
+        super::graph::variant_to_full_slash(&problem.name, &problem.variant)
+    )
 }
 
 fn ensure_attribute_indices_in_range(

@@ -11585,20 +11585,24 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     )
     *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
-    *Step 2 -- Build the target instance.* Keep the graph unchanged, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
+    *Step 2 -- Build the target instance.* Add one isolated vertex $z$, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
 
-    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness is the same indicator vector, hence a valid YES witness for the original decision instance #sym.checkmark
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1, 0)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness removes the coordinate of $z$, hence a valid YES witness for the original decision instance #sym.checkmark
   ],
 )[
-  This $O(n + m)$ parameter-setting reduction @garey1979[ND51] keeps the graph unchanged, sets every vertex weight and edge length to $1$, copies the decision budget $K$ into the target center count $k$, and compares the target optimum against $B = |V| - K$. On such unit graphs, every exact-$K$ center placement has total distance at least $n - K$, with equality exactly when every non-center vertex is adjacent to a center.
+  This $O(n + m)$ reduction uses unit vertex weights and edge lengths. For $K >= 0$, let $q = min(K, n)$, add one isolated vertex $z$, and request exactly $q + 1$ centers. The source answer is YES exactly when the target optimum is $B = n - q$. For $K < 0$, add two isolated vertices and request one center, producing an infeasible target.
 ][
-  _Construction._ Given a decision dominating-set instance $(G = (V, E), K)$ with unit vertex weights, build a Minimum Sum Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$. Let $n = |V|$, and define the decision threshold $B = n - K$ for the target optimum.
+  _Construction and domain._ Let $n = |V|$. For nonnegative $K$, replacing $K$ by $q = min(K, n)$ preserves the decision problem because every vertex subset has size at most $n$. The auxiliary isolate makes $1 <= q + 1 <= n + 1$, so the target is defined even for $K = 0$ and the empty source graph. All original edges are retained. For negative $K$, no source subset can satisfy the bound, and two auxiliary isolates cannot both be served by one center. The target has at most $n + 2$ vertices and exactly $m$ edges.
 
-  _Correctness._ ($arrow.r.double$) If $D subset.eq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every chosen center contributes distance $0$, and every non-center vertex is adjacent to at least one chosen center, so every non-center contributes distance $1$. Hence the total weighted distance is exactly $n - K = B$.
+  _Correctness for nonnegative bounds._ Every finite-cost placement must select $z$, leaving exactly $q$ original centers. Each of the $n - q$ original non-centers has distance at least one, so every finite target cost is at least $B = n - q$.
 
-  ($arrow.l.double$) Suppose a set $P subset.eq V$ of exactly $K$ centers has total weighted distance at most $B = n - K$. Every non-center vertex has distance at least $1$ from $P$, so any exact-$K$ center placement has total distance at least $n - K$. Therefore total distance at most $n - K$ forces equality, meaning every non-center contributes exactly $1$. Thus every non-center vertex is adjacent to some center in $P$, so $P$ is a dominating set of size $K$.
+  ($arrow.r.double$) A source dominating set of size at most $K$ also has size at most $q$. Pad it to size $q$ and add $z$. Each original non-center has distance exactly one; the resulting target cost equals $B$ and is optimal.
 
-  _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
+  ($arrow.l.double$) A target placement of cost $B$ must select $z$. Equality in the distance lower bound forces every original non-center to have distance one from an original center. Removing $z$ therefore gives a dominating set of size $q <= K$.
+
+  _Boundary cases._ If $K = 0 < n$, one center cannot serve both the isolate and the original graph, so the target is infeasible. If $n = 0$ and $K >= 0$, the sole vertex $z$ is selected and the cost is zero, correctly certifying the empty dominating set. If $K >= n$, selecting all target vertices gives cost zero and extracts all original vertices. Negative bounds give infeasibility as shown above.
+
+  _Value and solution extraction._ Map a finite target optimum equal to $B$ to YES; map any other optimum or infeasibility to NO. For negative bounds use comparison value $-1$, which no finite nonnegative target cost can equal. Extract a source witness only from a placement whose cost equals the comparison value, by removing the auxiliary coordinates. Reject every other placement; an optimal target solution with cost greater than $B$ is not a source YES witness.
 ]
 
 #let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")

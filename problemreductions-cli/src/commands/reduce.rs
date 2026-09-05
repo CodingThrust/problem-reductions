@@ -80,9 +80,9 @@ pub(crate) fn execute_route(
         anyhow::bail!(
             "Explicit route starts with {}{} but source problem is {}{}",
             first.name,
-            variant_to_full_slash(&first.variant),
+            variant_to_full_slash(&first.name, &first.variant),
             source_name,
-            variant_to_full_slash(&source_variant),
+            variant_to_full_slash(source_name, &source_variant),
         );
     }
 

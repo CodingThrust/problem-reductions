@@ -5,7 +5,7 @@
 //! selected vertices) and absorbing (every unselected vertex has an arc to
 //! some selected vertex).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -15,9 +15,7 @@ inventory::submit! {
         name: "Kernel",
         display_name: "Kernel",
         aliases: &[],
-        dimensions: &[
-            VariantDimension::new("graph", "DirectedGraph", &["DirectedGraph"]),
-        ],
+        dimensions: &[],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does the directed graph contain a kernel (independent and absorbing vertex subset)?",

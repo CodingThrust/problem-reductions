@@ -3,7 +3,7 @@
 //! The Directed Hamiltonian Path problem asks whether a directed graph contains
 //! a simple directed path that visits every vertex exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -13,9 +13,7 @@ inventory::submit! {
         name: "DirectedHamiltonianPath",
         display_name: "Directed Hamiltonian Path",
         aliases: &["DHP"],
-        dimensions: &[
-            VariantDimension::new("graph", "DirectedGraph", &["DirectedGraph"]),
-        ],
+        dimensions: &[],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does the directed graph contain a Hamiltonian path?",

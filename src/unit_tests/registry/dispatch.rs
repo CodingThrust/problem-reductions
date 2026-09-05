@@ -291,3 +291,103 @@ fn test_loaded_dyn_problem_debug() {
     assert!(debug.contains("LoadedDynProblem"));
     assert!(debug.contains("MaximumIndependentSet"));
 }
+
+#[test]
+fn explicit_independent_set_variants_round_trip_through_standard_api() {
+    for (graph, weight) in [
+        ("SimpleGraph", "One"),
+        ("SimpleGraph", "i64"),
+        ("SimpleGraph", "f64"),
+        ("KingsSubgraph", "One"),
+        ("KingsSubgraph", "i64"),
+        ("TriangularSubgraph", "i64"),
+        ("UnitDiskGraph", "One"),
+        ("UnitDiskGraph", "i64"),
+    ] {
+        let variant = BTreeMap::from([
+            ("graph".into(), graph.into()),
+            ("weight".into(), weight.into()),
+        ]);
+        let base = if graph == "SimpleGraph" {
+            serde_json::json!({"graph": [[0,1],[1,2]], "num_vertices": 3})
+        } else {
+            serde_json::json!({"positions": [[0,0],[1,0],[2,0]]})
+        };
+        for explicit in [false, true] {
+            let mut input = base.clone();
+            if explicit {
+                input["weights"] = match weight {
+                    "One" => serde_json::json!([1, 1, 1]),
+                    "i64" => serde_json::json!([1, 5, 2]),
+                    "f64" => serde_json::json!([0.5, 2.5, 0.75]),
+                    _ => unreachable!(),
+                };
+            }
+            let problem =
+                crate::registry::construct_dyn("MaximumIndependentSet", &variant, input).unwrap();
+            let loaded =
+                load_dyn("MaximumIndependentSet", &variant, problem.serialize_json()).unwrap();
+            for backend in [SolverRequest::Default, SolverRequest::BruteForce] {
+                let result = solve(&loaded, backend).unwrap();
+                let SolveOutcome::Optimal {
+                    evaluation,
+                    solution,
+                } = result.outcome
+                else {
+                    panic!("expected optimum")
+                };
+                let expected = if !explicit || weight == "One" {
+                    "Max(2)"
+                } else if weight == "i64" {
+                    "Max(5)"
+                } else {
+                    "Max(2.5)"
+                };
+                assert_eq!(evaluation, expected, "{variant:?}");
+                assert_eq!(loaded.evaluate_dyn(&solution).unwrap(), expected);
+            }
+        }
+        let mut bad = base.clone();
+        bad["weights"] = serde_json::json!([1]);
+        assert!(crate::registry::construct_dyn("MaximumIndependentSet", &variant, bad).is_err());
+        let empty = if graph == "SimpleGraph" {
+            serde_json::json!({"graph": [], "num_vertices": 0})
+        } else {
+            serde_json::json!({"positions": []})
+        };
+        assert!(crate::registry::construct_dyn("MaximumIndependentSet", &variant, empty).is_ok());
+    }
+}
+
+#[test]
+fn registered_weight_variants_reject_invalid_graphs_and_witnesses() {
+    for (name, weight) in [
+        ("MaximumIndependentSet", "One"),
+        ("MaximumIndependentSet", "i64"),
+        ("MaximumIndependentSet", "f64"),
+        ("MaxCut", "One"),
+        ("MaxCut", "i64"),
+    ] {
+        let variant = BTreeMap::from([
+            ("graph".into(), "SimpleGraph".into()),
+            ("weight".into(), weight.into()),
+        ]);
+        for input in [
+            serde_json::json!({"graph": []}),
+            serde_json::json!({"graph": [[0,0]]}),
+            serde_json::json!({"graph": [[0,1]], "num_vertices": 1}),
+            serde_json::json!({"graph": [[0,usize::MAX]]}),
+        ] {
+            assert!(crate::registry::construct_dyn(name, &variant, input).is_err());
+        }
+        let problem =
+            crate::registry::construct_dyn(name, &variant, serde_json::json!({"graph": [[0,1]]}))
+                .unwrap();
+        for witness in [
+            serde_json::json!([false]),
+            serde_json::json!([false, false, false]),
+        ] {
+            assert!(problem.evaluate_dyn(&witness).is_err());
+        }
+    }
+}

@@ -160,13 +160,12 @@ impl ExtractionError {
 
 pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
 
-/// Ask the target model to validate the structure of a typed solution.
+/// Validate a typed target solution and return its evaluated value for reuse.
 pub(crate) fn validate_target_solution<P: Problem>(
     target: &P,
     solution: &P::Solution,
-) -> ExtractionResult<()> {
-    target.evaluate(solution)?;
-    Ok(())
+) -> ExtractionResult<P::Value> {
+    Ok(target.evaluate(solution)?)
 }
 
 /// Result of reducing a source problem to a target problem.

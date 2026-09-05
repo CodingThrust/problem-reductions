@@ -88,7 +88,7 @@ pub fn list(
             let rules = graph.outgoing_reductions(name).len();
 
             for (i, v) in variants.iter().enumerate() {
-                let slash = variant_to_full_slash(v);
+                let slash = variant_to_full_slash(name, v);
                 let display = if slash.is_empty() {
                     name.to_string()
                 } else {
@@ -291,8 +291,8 @@ pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputCon
     let mut rows_data: Vec<RuleRow> = Vec::new();
     for name in &types {
         for edge in graph.outgoing_reductions(name) {
-            let source_slash = variant_to_full_slash(&edge.source_variant);
-            let target_slash = variant_to_full_slash(&edge.target_variant);
+            let source_slash = variant_to_full_slash(edge.source_name, &edge.source_variant);
+            let target_slash = variant_to_full_slash(edge.target_name, &edge.target_variant);
             let contract_parts = fmt_parameter_contract(&edge.parameter_contract);
             rows_data.push(RuleRow {
                 source: format!("{}{}", edge.source_name, source_slash),
@@ -438,7 +438,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let complexity = graph.variant_complexity(name, variant).unwrap_or("");
     out.emit(
         || {
-            let slash = variant_to_full_slash(variant);
+            let slash = variant_to_full_slash(name, variant);
             let header = format!("{name}{slash}");
             let mut text = format!("{}\n", crate::output::fmt_problem_name(&header));
             if let Some(schema) = schema {
@@ -660,11 +660,11 @@ pub(crate) fn parameter_contract_to_json(
 
 /// Convert a variant BTreeMap to slash notation showing ALL values.
 /// E.g., {graph: "SimpleGraph", weight: "i64"} → "/SimpleGraph/i64".
-pub(crate) fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
+pub(crate) fn variant_to_full_slash(name: &str, variant: &BTreeMap<String, String>) -> String {
     if variant.is_empty() {
         String::new()
     } else {
-        let vals: Vec<&str> = variant.values().map(|v| v.as_str()).collect();
+        let vals = crate::problem_name::ordered_variant_values(name, variant);
         format!("/{}", vals.join("/"))
     }
 }
@@ -678,7 +678,7 @@ pub(crate) fn variant_hint_for(graph: &ReductionGraph, name: &str) -> String {
     }
     let list: Vec<String> = variants
         .iter()
-        .map(|v| format!("{}{}", name, variant_to_full_slash(v)))
+        .map(|v| format!("{}{}", name, variant_to_full_slash(name, v)))
         .collect();
     format!(
         "\nTip: try specifying a variant. Available variants for {}:\n  {}\n",
@@ -690,7 +690,7 @@ pub(crate) fn variant_hint_for(graph: &ReductionGraph, name: &str) -> String {
 /// Format a problem node as **bold name/variant** in slash notation.
 /// This is the single source of truth for "name/variant" display.
 fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
-    let slash = variant_to_full_slash(variant);
+    let slash = variant_to_full_slash(name, variant);
     crate::output::fmt_problem_name(&format!("{name}{slash}"))
 }
 
@@ -951,10 +951,10 @@ pub fn path(
             anyhow::bail!(
                 "Source argument resolves to {}{} but {} contains {}{}",
                 src_ref.name,
-                variant_to_full_slash(&src_ref.variant),
+                variant_to_full_slash(&src_ref.name, &src_ref.variant),
                 instance.display(),
                 loaded.problem_name(),
-                variant_to_full_slash(&loaded.variant_map()),
+                variant_to_full_slash(loaded.problem_name(), &loaded.variant_map()),
             );
         }
         path_concrete(

@@ -15,7 +15,7 @@
 //! time `O(num_vertices + num_arcs)` by the classical degree-balance plus
 //! Hierholzer construction (Bang-Jensen & Gutin 2009; Ebert 1988).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -25,9 +25,7 @@ inventory::submit! {
         name: "EulerianPath",
         display_name: "Eulerian Path",
         aliases: &[],
-        dimensions: &[
-            VariantDimension::new("graph", "DirectedGraph", &["DirectedGraph"]),
-        ],
+        dimensions: &[],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does the directed multigraph admit a directed trail using every arc exactly once?",
