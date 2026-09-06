@@ -184,7 +184,7 @@
       .filter((name) => families.includes(name))
       .map((name) => {
         const variants = variantsOf(name);
-        return `<a class="problem-card" href="${problemHref(name)}"><span class="eyebrow">${escape(categories[variants[0].category] || "COMPUTATIONAL PROBLEM").toUpperCase()}</span><h3>${escape(nameOf(name))}</h3><p>${escape(description(name))}.</p><div class="mini-art">${miniArt(name)}</div><div class="card-bottom"><span>${variants.length} variant${variants.length === 1 ? "" : "s"} · ${edgesOf(name).length} incident reductions</span><span aria-hidden="true">↗</span></div></a>`;
+        return `<a class="problem-card" href="${problemHref(name)}"><span class="context-label">${escape(categories[variants[0].category] || "Computational problem")}</span><h3>${escape(nameOf(name))}</h3><p>${escape(description(name))}.</p><div class="mini-art">${miniArt(name)}</div><div class="card-bottom"><span>${variants.length} variant${variants.length === 1 ? "" : "s"} · ${edgesOf(name).length} incident reductions</span><span aria-hidden="true">↗</span></div></a>`;
       })
       .join("");
     document.querySelector("#featured-art").innerHTML = complementArt();
@@ -200,7 +200,6 @@
         <div class="breadcrumbs">
           <a href="#home">Home</a><span>/</span><span>The atlas</span>
         </div>
-        <p class="eyebrow">THE EXECUTABLE ATLAS</p>
         <h1>Find your next <em>connection.</em></h1>
         <p>
           Explore ${families.length} problem families and their implemented
@@ -219,14 +218,14 @@
               autocomplete="off"
             /><kbd>/</kbd></label
           ><span class="result-count" role="status" aria-live="polite"></span>
-          <a class="text-link" href="./introduction.html#reduction-graph"
+          <a class="text-link" href="./reduction-graph.html"
             >Find a reduction path <span aria-hidden="true">↗</span></a
           >
         </div>
       </div>
       <div class="wrap atlas-layout">
         <aside class="filters" aria-label="Filter problems by category">
-          <p class="eyebrow">INPUT STRUCTURE</p>
+          <p class="context-label">Input structure</p>
           ${[["all", "All problems"], ...Object.entries(categories)].map(([key, label]) => `<button class="filter-button" data-filter="${key}" aria-pressed="${filter === key}"><span>${label}</span><span>${key === "all" ? families.length : families.filter((name) => variantsOf(name)[0].category === key).length}</span></button>`).join("")}
         </aside>
         <div class="atlas-results" id="atlas-results"></div>
@@ -264,7 +263,7 @@
       );
     });
     document.querySelector(".result-count").textContent =
-      `${results.length} OF ${families.length} PROBLEM FAMILIES`;
+      `${results.length} of ${families.length} problem families`;
     document.querySelector("#atlas-results").innerHTML = results.length
       ? results
           .map((name) => {
@@ -311,8 +310,8 @@
     );
   }
 
-  function codePanel(command, label = "REPRODUCE IN YOUR TERMINAL") {
-    return `<div class="code-panel"><div class="terminal-header"><span>${label}</span><button class="copy-button" data-copy="${escape(command)}" aria-label="Copy command">Copy</button></div><pre>${escape(command)}</pre></div>`;
+  function codePanel(command) {
+    return `<div class="code-panel"><div class="terminal-header"><button class="copy-button" data-copy="${escape(command)}" aria-label="Copy command">Copy</button></div><pre>${escape(command)}</pre></div>`;
   }
 
   function problemPage(name, params) {
@@ -340,10 +339,6 @@
           <a href="#home">Home</a><span>/</span><a href="#atlas">Atlas</a
           ><span>/</span><span>${escape(nameOf(name))}</span>
         </div>
-        <p class="eyebrow">
-          ${escape(categories[node.category] || node.category).toUpperCase()} /
-          PROBLEM
-        </p>
         <h1>${escape(nameOf(name))}<span class="brand-period">.</span></h1>
         <p>${escape(description(name))}.</p>
         <div class="variant-control">
@@ -395,7 +390,6 @@
           </section>
         </div>
         <aside class="reading-aside">
-          <p class="eyebrow">PROBLEM RECORD</p>
           <dl class="metadata">
             <div>
               <dt>Input structure</dt>
@@ -467,10 +461,10 @@
           <a href="#home">Home</a><span>/</span><a href="#atlas">Atlas</a
           ><span>/</span><span>Reduction record</span>
         </div>
-        <p class="eyebrow">
-          ${complement ? "CLASSICAL CONSTRUCTION" : "REGISTERED CONSTRUCTION"} /
-          IMPLEMENTED
-        </p>
+        <span class="pill"
+          >${complement ? "Classical reduction" : "Registered reduction"} ·
+          Implemented</span
+        >
         <h1>
           ${escape(nameOf(sourceName))}<br /><em
             >→ ${escape(nameOf(targetName))}</em
@@ -490,7 +484,7 @@
             <h2>What the rule guarantees</h2>
             <div class="evidence-grid">
               <div class="evidence-item">
-                <span class="eyebrow">SOURCE VARIANT</span>
+                <span class="context-label">Source variant</span>
                 <h3>${escape(nameOf(sourceName))}</h3>
                 <p>${escape(variantLabel(source))}</p>
                 <a href="${problemHref(sourceName, source)}"
@@ -498,7 +492,7 @@
                 >
               </div>
               <div class="evidence-item">
-                <span class="eyebrow">TARGET VARIANT</span>
+                <span class="context-label">Target variant</span>
                 <h3>${escape(nameOf(targetName))}</h3>
                 <p>${escape(variantLabel(target))}</p>
                 <a href="${problemHref(targetName, target)}"
@@ -534,7 +528,6 @@
             </p>
             <div class="evidence-grid">
               <div class="evidence-item">
-                <span class="eyebrow">01 / IMPLEMENTATION</span>
                 <h3>Executable Rust construction</h3>
                 <p>
                   Inspect the transformation and its extraction contract
@@ -543,7 +536,6 @@
                 <a href="${sourceHref(edge)}">Read source ↗</a>
               </div>
               <div class="evidence-item">
-                <span class="eyebrow">02 / MATHEMATICS</span>
                 <h3>Definitions and proof</h3>
                 <p>
                   Read the mathematical treatment in the project's compiled
@@ -552,7 +544,6 @@
                 <a href="./reductions.pdf">Open the paper ↗</a>
               </div>
               <div class="evidence-item">
-                <span class="eyebrow">03 / REPRODUCIBILITY</span>
                 <h3>Inspect and run the tests</h3>
                 <p>
                   Tests exercise finite instances. This page does not report a
@@ -565,7 +556,6 @@
                 >
               </div>
               <div class="evidence-item">
-                <span class="eyebrow">04 / RESEARCH STATUS</span>
                 <h3>
                   ${complement ? "Established mathematical result" : "Implemented in the library"}
                 </h3>
@@ -589,7 +579,6 @@
           </section>
         </div>
         <aside class="reading-aside">
-          <p class="eyebrow">REDUCTION RECORD</p>
           <dl class="metadata">
             <div>
               <dt>Status</dt>
@@ -628,7 +617,7 @@
   function notFound() {
     document.title = `Not found — ${baseTitle}`;
     main.innerHTML =
-      '<div class="wrap section empty-state"><p class="eyebrow">RECORD NOT FOUND</p><h1>This connection is not in the atlas.</h1><p>The link may refer to a different registry version. Search the current atlas to find its available variants.</p><a href="#atlas" class="button primary">Explore the atlas →</a></div>';
+      '<div class="wrap section empty-state"><h1>This connection is not in the atlas.</h1><p>The link may refer to a different registry version. Search the current atlas to find its available variants.</p><a href="#atlas" class="button primary">Explore the atlas →</a></div>';
   }
 
   function render() {

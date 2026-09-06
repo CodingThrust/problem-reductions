@@ -4,11 +4,75 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import shutil
 import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def build_markdown(output):
+    """Publish the same short guides with mdBook includes expanded for agents."""
+    source = ROOT / "docs/src"
+    destination = output / "markdown"
+    destination.mkdir(parents=True, exist_ok=True)
+    summary = (source / "SUMMARY.md").read_text()
+    pages = re.findall(r"\[([^\]]+)\]\(([^)]+\.md)\)", summary)
+
+    def expand_include(match, parent):
+        filename, _, anchor = match.group(1).partition(":")
+        path = parent / filename
+        content = path.read_text()
+        if anchor:
+            lines, active = [], False
+            for line in content.splitlines():
+                if re.search(r"ANCHOR:\s*" + re.escape(anchor) + r"\s*$", line):
+                    active = True
+                elif re.search(r"ANCHOR_END:\s*" + re.escape(anchor) + r"\s*$", line):
+                    active = False
+                    break
+                elif active and not re.search(r"ANCHOR(?:_END)?:", line):
+                    lines.append(line)
+            if not lines:
+                raise ValueError(f"Missing include anchor {anchor} in {path}")
+            content = "\n".join(lines)
+        return content.rstrip()
+
+    for _, filename in pages:
+        path = source / filename
+        content = re.sub(r"\{\{#include\s+([^}]+)\}\}",
+                         lambda match: expand_include(match, path.parent), path.read_text())
+
+        def relocate_link(match):
+            label, target = match.groups()
+            if target.startswith(("http:", "https:", "#", "mailto:")):
+                return match.group(0)
+            target = target.removeprefix("./")
+            if target.startswith("markdown/"):
+                target = target.removeprefix("markdown/")
+            elif not (source / target.split("#")[0]).is_file() or not target.split("#")[0].endswith(".md"):
+                target = "../" + target
+            return f"[{label}]({target})"
+
+        content = re.sub(r"\[([^\]]*)\]\(([^)]+)\)", relocate_link, content)
+        # Embedded players and diagrams remain available in the HTML counterpart.
+        content = re.sub(r'<iframe\b[^>]*>.*?</iframe>',
+                         '[Watch the recording](../static/cli-demo.html)', content, flags=re.S)
+        (destination / filename).write_text(content)
+        # mdBook rewrites .md links, including raw HTML, to .html. This index is
+        # a downloadable Markdown artifact, so restore its intended URL.
+        html_path = output / Path(filename).with_suffix(".html")
+        if html_path.exists():
+            html_path.write_text(html_path.read_text().replace(
+                'href="markdown/index.html"', 'href="markdown/index.md"'))
+    (destination / "index.md").write_text(
+        "# Problem Reductions documentation\n\n"
+        "Task-sized guides for agents. Read only the pages relevant to your task. "
+        "Code includes are expanded; registry data is available as "
+        "[graph JSON](../reductions/reduction_graph.json) and "
+        "[schemas JSON](../reductions/problem_schemas.json).\n\n" +
+        summary.removeprefix("# Summary\n").lstrip())
 
 
 def build(output, graph_path, schemas_path):
@@ -24,6 +88,7 @@ def build(output, graph_path, schemas_path):
     source = ROOT / "docs/website"
     output.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
+    build_markdown(output)
     # Preserve the original artwork, adapting only its colors for the dark website.
     logo = ET.parse(ROOT / "docs/logo.svg")
     palette = {

@@ -65,3 +65,51 @@ Set `WEBSITE_BROWSER_CHANNEL=chrome` to use an installed Chrome instead, or
 `WEBSITE_BASE_URL=http://localhost:3001/` to change the preview address. The suite
 exercises search, filters, exact variants, deep links, keyboard navigation,
 clipboard actions, the mathematical example, legacy docs, and mobile overflow.
+
+## Documentation
+
+The guide uses short task pages grouped in `docs/src/SUMMARY.md`: start here,
+agent workflows, CLI reference, Rust library, and internals. Keep one task or
+contract per page and link prerequisites and next steps. Agent prompts name the
+actual repository skill file; instructions distinguish implemented capabilities
+from the research goal.
+
+`docs/src/static/docs-theme.css` supplies the restrained dark reading theme;
+`docs-theme.js` adds Markdown access and redirects old section links. Native
+mdBook search, code copying, and sidebar navigation remain available. Both
+mdBook 0.4.37 (deployment) and 0.5.2 are supported.
+
+The website builder emits `book/markdown/` from the same source pages, expanding
+Rust and generated-output includes. The Markdown index is the entry point for
+agents. The builder preserves the Markdown index URL after mdBook’s HTML link rewriting.
+
+To check the complete assembled documentation, build the API and PDF first:
+
+```sh
+make doc
+make paper
+cp docs/paper/reductions.pdf book/reductions.pdf
+uv run --no-project --with playwright python scripts/test_documentation.py
+```
+
+The checks cover task navigation, search, clipboard, Markdown links and includes,
+legacy section redirects, mobile layout, offline playback, and replaying the
+recorded CLI workflow against its expected optimum.
+
+## CLI recording
+
+`docs/src/static/cli-demo.cast` contains real PTY output from six successful
+commands against the current CLI. `cli-demo.html` embeds that cast and
+asciinema-player 3.8.0 for offline playback, with autoplay disabled. The bundled
+player is Apache-2.0 licensed; its license is alongside the recording.
+
+To refresh the recording, use the `how-to-demo-cli` skill from
+[qude-software-skills](https://github.com/QudeLeap/qude-software-skills/tree/main/skills/how-to-demo-cli).
+Build the CLI, create an isolated temporary directory, and place a `pred` symlink
+to the new executable there. Record the commands in `docs/src/cli-demo.md`, using
+`./pred` in that directory, at 88 columns × 22 rows with `--theme nord`,
+`--typing-speed 35`, `--step-pause 2.5`, and `--no-autoplay`.
+
+Retain real output and exit codes; never substitute a simulated successful run.
+The checked-in HTML adds the documentation palette and a compact embedded mode
+to the skill's generated wrapper. Preserve those wrapper styles when refreshing.

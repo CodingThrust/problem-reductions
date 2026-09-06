@@ -128,11 +128,11 @@ class WebsiteTests(unittest.TestCase):
         self.page.go_back()
         expect(self.page.locator("#atlas-search")).to_be_visible()
 
-    def test_legacy_documentation_is_reachable(self):
+    def test_documentation_is_reachable(self):
         self.visit()
         self.page.locator(".docs-nav").click()
-        self.assertTrue(self.page.url.endswith("/cli.html"))
-        expect(self.page.get_by_role("heading", name="CLI Tool", exact=True)).to_be_visible()
+        self.assertTrue(self.page.url.endswith("/introduction.html"))
+        expect(self.page.get_by_role("heading", name="Documentation", exact=True)).to_be_visible()
         self.assertNotIn("{{#include", self.page.locator("body").inner_text())
 
 

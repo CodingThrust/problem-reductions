@@ -142,11 +142,10 @@ p {
   width: min(1280px, calc(100% - 112px));
   margin-inline: auto;
 }
-.eyebrow {
-  font-family: var(--mono);
-  font-size: 10px;
+.context-label {
+  font-family: var(--sans);
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: 0.11em;
   line-height: 1.5;
 }
 .site-header {
@@ -235,19 +234,6 @@ p {
 .hero-copy {
   position: relative;
   z-index: 2;
-}
-.announcement {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
-  margin-bottom: 29px;
-  font-size: 9px;
-  color: var(--green);
-}
-.announcement > span:last-child {
-  margin-left: 12px;
 }
 .status-dot {
   width: 6px;
@@ -345,9 +331,7 @@ p {
   color: var(--muted);
 }
 .map-scale {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.1em;
+  font-size: 11px;
 }
 .hero-graph {
   height: 427px;
@@ -460,12 +444,6 @@ p {
   background: var(--pale);
   border-radius: 4px;
 }
-.graph-feature .eyebrow {
-  font-size: 8px;
-  color: var(--muted);
-  display: block;
-  margin-bottom: 4px;
-}
 .graph-feature strong {
   font-size: 12px;
   font-weight: 500;
@@ -530,11 +508,8 @@ p {
   align-items: end;
   margin-bottom: 44px;
 }
-.section-heading .eyebrow {
-  margin-bottom: 20px;
-}
 .section-heading > p,
-.section-heading > div > p:not(.eyebrow) {
+.section-heading > div > p {
   max-width: 405px;
   font-size: 14px;
   line-height: 1.85;
@@ -558,8 +533,8 @@ p {
 .problem-card:hover {
   background: var(--pale);
 }
-.problem-card .eyebrow {
-  font-size: 9px;
+.problem-card .context-label {
+  font-size: 12px;
   color: var(--muted);
 }
 .problem-card h3 {
@@ -608,25 +583,11 @@ p {
   color: var(--ink);
   padding-block: 85px;
 }
-.research-section .eyebrow {
-  color: #b4c7ad;
-}
 .research-section h2 em {
   color: var(--lime);
 }
 .research-section p {
   color: #b5c5b2;
-}
-.outline-badge {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.1em;
-  border: 1px solid #496445;
-  border-radius: 3px;
-  color: var(--lime);
-  padding: 4px 8px;
-  margin-top: 16px;
 }
 .research-cycle {
   display: grid;
@@ -642,18 +603,6 @@ p {
   padding-left: 25px;
   border-left: 1px solid #3a513d;
 }
-.cycle-number {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--lime);
-  margin-bottom: 30px;
-}
-.cycle-number > span {
-  font-size: 18px;
-  font-family: var(--sans);
-}
 .research-cycle h3 {
   font-size: 18px;
   margin-bottom: 14px;
@@ -661,14 +610,6 @@ p {
 .research-cycle p {
   font-size: 12px;
   line-height: 1.85;
-}
-.cycle-artifact {
-  display: block;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.05em;
-  color: #bccfa8;
-  margin-top: 28px;
 }
 .research-note {
   display: flex;
@@ -711,9 +652,7 @@ p {
   background: #22331f;
   padding: 5px 8px;
   border-radius: 4px;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.04em;
+  font-size: 11px;
 }
 .featured-copy h3 {
   font-size: 33px;
@@ -746,10 +685,7 @@ p {
   gap: 70px;
   align-items: center;
 }
-.infrastructure-section .eyebrow {
-  margin-bottom: 23px;
-}
-.infrastructure-section p:not(.eyebrow) {
+.infrastructure-section p {
   font-size: 13px;
   line-height: 1.9;
   margin-top: 23px;
@@ -781,6 +717,9 @@ p {
   height: 6px;
   border-radius: 50%;
   background: #556e4c;
+}
+.code-panel .terminal-header {
+  justify-content: flex-end;
 }
 .copy-button {
   border: 0;
@@ -891,15 +830,15 @@ pre {
 .breadcrumbs a:hover {
   text-decoration: underline;
 }
-.page-header .eyebrow {
-  margin-bottom: 18px;
+.page-header .pill {
+  margin-bottom: 20px;
 }
 .page-header h1 {
   font-size: clamp(42px, 5vw, 65px);
   max-width: 960px;
   overflow-wrap: anywhere;
 }
-.page-header > p:not(.eyebrow) {
+.page-header > p {
   font-size: 15px;
   max-width: 680px;
   line-height: 1.8;
@@ -955,7 +894,7 @@ pre {
   position: sticky;
   top: 110px;
 }
-.filters .eyebrow {
+.filters .context-label {
   margin-bottom: 13px;
   color: var(--muted);
 }
@@ -1089,9 +1028,6 @@ pre {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 25px;
-}
-.reading-aside .eyebrow {
-  color: var(--muted);
 }
 .metadata {
   margin: 21px 0 24px;
@@ -1241,8 +1177,8 @@ pre {
   font-size: 11px;
   line-height: 1.8;
 }
-.evidence-item .eyebrow {
-  font-size: 8px;
+.evidence-item .context-label {
+  font-size: 12px;
 }
 .evidence-item a {
   display: inline-block;
@@ -1499,7 +1435,7 @@ pre {
     margin-bottom: 30px;
   }
   .section-heading > p,
-  .section-heading > div > p:not(.eyebrow) {
+  .section-heading > div > p {
     max-width: 550px;
   }
   .problem-showcase {
@@ -1515,7 +1451,7 @@ pre {
     grid-template-columns: 1fr 130px;
     gap: 0 15px;
   }
-  .problem-card .eyebrow,
+  .problem-card .context-label,
   .problem-card h3,
   .problem-card p {
     grid-column: 1;
@@ -1609,7 +1545,7 @@ pre {
     flex-wrap: wrap;
     gap: 6px;
   }
-  .filters .eyebrow {
+  .filters .context-label {
     width: 100%;
     margin-bottom: 5px;
   }
@@ -1651,7 +1587,7 @@ pre {
   .page-header h1 {
     font-size: 48px;
   }
-  .page-header > p:not(.eyebrow) {
+  .page-header > p {
     font-size: 14px;
   }
   .atlas-controls {
@@ -1705,10 +1641,6 @@ pre {
   .hero h1 {
     font-size: 61px;
   }
-  .announcement {
-    font-size: 8px;
-    gap: 8px;
-  }
   .hero-description {
     font-size: 14px;
   }
@@ -1755,9 +1687,6 @@ pre {
   }
   .research-cycle p {
     font-size: 11px;
-  }
-  .cycle-artifact {
-    font-size: 7px;
   }
   .evidence-grid {
     grid-template-columns: 1fr;

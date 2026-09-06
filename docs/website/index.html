@@ -47,7 +47,7 @@
           <a href="#atlas" data-nav="atlas">Atlas</a>
           <a href="#research" data-nav="research">Research</a>
           <a href="#infrastructure" data-nav="infrastructure">Infrastructure</a>
-          <a href="./cli.html" class="docs-nav"
+          <a href="./introduction.html" class="docs-nav"
             >Docs <span aria-hidden="true">↗</span></a
           >
         </nav>
@@ -70,10 +70,6 @@
     <main id="main" tabindex="-1">
       <section class="hero wrap">
         <div class="hero-copy">
-          <a href="#research" class="eyebrow announcement"
-            ><span class="status-dot"></span> TOWARD AUTONOMOUS DISCOVERY
-            <span aria-hidden="true">↗</span></a
-          >
           <h1>
             A new route<br />through
             <em
@@ -101,8 +97,8 @@
         </div>
         <div class="atlas-visual">
           <div class="visual-toolbar">
-            <span class="eyebrow">THE REDUCTION ATLAS</span
-            ><span class="map-scale">PROBLEM OVERVIEW</span>
+            <span class="context-label">Reduction atlas</span
+            ><span class="map-scale">Variants grouped</span>
           </div>
           <div
             id="hero-graph"
@@ -116,7 +112,6 @@
           <a class="graph-feature" href="#featured"
             ><span class="feature-icon" aria-hidden="true">↳</span
             ><span
-              ><span class="eyebrow">EXPLORE A REDUCTION</span
               ><strong
                 >Vertex Cover <span aria-hidden="true">→</span> Independent
                 Set</strong
@@ -144,7 +139,6 @@
       <section class="section wrap" id="connections">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">01 / THE ATLAS</p>
             <h2>One problem.<br /><em>Many possibilities.</em></h2>
           </div>
           <p>
@@ -165,7 +159,6 @@
         <div class="wrap">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">02 / THE RESEARCH ENGINE</p>
               <h2>Knowledge that<br /><em>builds on itself.</em></h2>
             </div>
             <div>
@@ -174,45 +167,36 @@
                 questions, construct reductions, search for counterexamples, and
                 turn surviving ideas into reusable mathematics.
               </p>
-              <span class="outline-badge">RESEARCH DIRECTION</span>
             </div>
           </div>
           <div class="research-cycle">
             <article>
-              <span class="cycle-number">01 <span>↗</span></span>
               <h3>Find the frontier</h3>
               <p>
                 Identify missing solver access, costly constructions, and
                 opportunities to improve the atlas.
               </p>
-              <span class="cycle-artifact">QUESTION + BASELINE</span>
             </article>
             <article>
-              <span class="cycle-number">02 <span>↗</span></span>
               <h3>Build a hypothesis</h3>
               <p>
                 Explore the literature. Propose a mapping, its assumptions, and
                 the claims it must satisfy.
               </p>
-              <span class="cycle-artifact">CONSTRUCTION + PROOF</span>
             </article>
             <article>
-              <span class="cycle-number">03 <span>↗</span></span>
               <h3>Try to break it</h3>
               <p>
                 Challenge the construction with independent implementations and
                 adversarial examples.
               </p>
-              <span class="cycle-artifact">TESTS + COUNTEREXAMPLES</span>
             </article>
             <article>
-              <span class="cycle-number">04 <span>↺</span></span>
               <h3>Grow the atlas</h3>
               <p>
                 Review the evidence. Integrate useful results and use what was
                 learned to guide the next question.
               </p>
-              <span class="cycle-artifact">REUSABLE KNOWLEDGE</span>
             </article>
           </div>
           <div class="research-note">
@@ -231,7 +215,6 @@
       <section class="section wrap evidence-section" id="featured">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">03 / INSIDE A REDUCTION</p>
             <h2>Every connection<br /><em>has a construction.</em></h2>
           </div>
           <p>
@@ -241,7 +224,7 @@
         </div>
         <a class="featured-result" id="featured-result-link" href="#atlas"
           ><div class="featured-copy">
-            <span class="pill">CLASSICAL REDUCTION · IMPLEMENTED</span>
+            <span class="pill">Classical reduction · Implemented</span>
             <h3>Two perspectives.<br />The same graph.</h3>
             <p>
               A vertex cover and an independent set are complements. A simple
@@ -257,25 +240,22 @@
       </section>
       <section class="infrastructure-section wrap" id="infrastructure">
         <div>
-          <p class="eyebrow">04 / OPEN INFRASTRUCTURE</p>
           <h2>Give your research<br /><em>a place to start.</em></h2>
           <p>
             Use the atlas from your terminal. Connect an agent.<br />Build on
             the same models and constructions.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="./cli.html"
+            <a class="button primary" href="./introduction.html"
               >Read the documentation <span aria-hidden="true">↗</span></a
-            ><a
-              class="text-link"
-              href="https://github.com/CodingThrust/problem-reductions"
-              >View source <span aria-hidden="true">↗</span></a
+            ><a class="text-link" href="./cli-demo.html"
+              >Watch the CLI <span aria-hidden="true">↗</span></a
             >
           </div>
         </div>
         <div class="terminal">
           <div class="terminal-header">
-            <span><i></i><i></i><i></i></span><span>YOUR NEXT CONNECTION</span
+            <span><i></i><i></i><i></i></span
             ><button
               class="copy-button"
               data-copy="cargo install problemreductions-cli"
@@ -315,7 +295,7 @@
           >GitHub ↗</a
         >
         <a href="./reductions.pdf">Paper ↗</a>
-        <a href="./cli.html">Documentation ↗</a>
+        <a href="./introduction.html">Documentation ↗</a>
         <span>Open source · MIT</span>
       </div>
     </footer>
@@ -323,7 +303,7 @@
     <noscript
       ><p class="wrap">
         Interactive exploration requires JavaScript. You can still read the
-        <a href="./cli.html">documentation</a> and
+        <a href="./introduction.html">documentation</a> and
         <a href="./reductions.pdf">paper</a>.
       </p></noscript
     >

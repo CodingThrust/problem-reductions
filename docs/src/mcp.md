@@ -1,107 +1,31 @@
-# MCP Server
+# Connect with MCP
 
-The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant.
+`pred mcp` exposes catalog queries, instance creation, reductions, and solving over a local stdio MCP server.
 
-## Setup
-
-Install the `pred` CLI, then configure your AI assistant:
+## Install with MCP support
 
 ```bash
-cargo install problemreductions-cli
+cargo install problemreductions-cli --features mcp
+pred mcp --help
 ```
 
-**Claude Code:**
+For the current checkout, use `cargo install --path problemreductions-cli --features mcp`. MCP is an optional feature and is not included in the default CLI install.
 
-```bash
-claude mcp add --scope user problemreductions -- pred mcp
-```
+## Configure your client
 
-**Cursor / Windsurf** — add to `.cursor/mcp.json` or `~/.codeium/windsurf/mcp_config.json`:
+Register a local stdio server with executable `pred` and argument `mcp`. Clients using an `mcpServers` configuration accept this shape:
 
 ```json
-{ "mcpServers": { "problemreductions": { "command": "pred", "args": ["mcp"] } } }
+{
+  "mcpServers": {
+    "problemreductions": {
+      "command": "pred",
+      "args": ["mcp"]
+    }
+  }
+}
 ```
 
-**OpenCode** — add to `opencode.json`:
+Ensure the client can resolve `pred` on its `PATH`, or supply the executable's absolute path. Reload the client and request the server's tool list to verify the connection.
 
-```json
-{ "mcp": { "problemreductions": { "type": "local", "command": ["pred", "mcp"] } } }
-```
-
-Restart your AI assistant after configuration.
-
-## Walkthrough
-
-A complete Claude Code session showing how the AI assistant uses MCP tools behind the scenes to answer your questions.
-
-**You:** Create a weighted MIS problem on a 4-vertex graph with edges 0-1, 1-2, 2-3, 3-0, 0-2 and weights [1, 2, 3, 4], explain the result.
-
-> **Assistant:** I created a Maximum Independent Set instance on a SimpleGraph with 4 vertices, 5 edges, and integer weights [1, 2, 3, 4]. Each vertex has a weight, and the goal is to find a subset of non-adjacent vertices that maximizes total weight.
-
-**You:** What can I do with this problem? Explain the result.
-
-> **Assistant:** This instance has 4 binary variables (one per vertex). It can be reduced to 5 other problem types: ILP, MaximumSetPacking, MinimumVertexCover, QUBO, and other MIS variants. You can solve it directly using either an ILP solver or brute-force search.
-
-**You:** Check if selecting vertices 1 and 3 is a valid solution, explain the result.
-
-> **Assistant:** Yes! Selecting vertices 1 and 3 (configuration [0,1,0,1]) is a valid independent set — these two vertices are not adjacent. The total weight is 2 + 4 = 6.
-
-**You:** Reduce this to QUBO, explain the result.
-
-> **Assistant:** Done. The MIS instance was transformed into a 4x4 QUBO matrix:
->
-> ```
-> [-1.0, 11.0, 11.0, 11.0]
-> [ 0.0, -2.0, 11.0,  0.0]
-> [ 0.0,  0.0, -3.0, 11.0]
-> [ 0.0,  0.0,  0.0, -4.0]
-> ```
->
-> The diagonal entries (-1, -2, -3, -4) encode vertex weights negated for minimization. The off-diagonal entries (11.0) are large penalties on edges — selecting two adjacent vertices would incur a penalty that outweighs any benefit. The reduction path is: MaximumIndependentSet → MaximumSetPacking → QUBO.
-
-**You:** Now solve it through the reduction, explain the result.
-
-> **Assistant:** The ILP solver found the optimal solution by solving the QUBO, then mapping the result back to the original MIS:
->
-> - **QUBO solution:** [0,1,0,1] with objective -6.0 (minimization)
-> - **MIS solution:** vertices {1, 3} with weight **6** (maximization)
->
-> The QUBO objective of -6.0 corresponds to the MIS maximum of 6 — the reduction correctly inverts the sign. This confirms that {1, 3} is the optimal independent set.
-
-## Available Tools
-
-The MCP server provides 10 tools organized into two categories: **graph query tools** for exploring the reduction graph, and **instance tools** for working with concrete problem instances.
-
-### Graph Query Tools
-
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
-| `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
-| `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `cost` (string, default: "minimize-steps"), `all` (bool, default: false) | Find a reduction path between two problems, optionally minimizing a size field or returning all paths |
-| `export_graph` | *(none)* | Export the full reduction graph as JSON (nodes, edges, overheads) |
-
-### Instance Tools
-
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `create_problem` | `problem_type` (string), `params` (JSON object) | Create a problem instance from parameters and return its JSON representation. Supports graph problems, SAT, QUBO, SpinGlass, KColoring, Factoring, and random graph generation |
-| `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, size metrics, available solvers, and reduction targets |
-| `evaluate` | `problem_json` (string), `config` (array of int) | Evaluate a configuration against a problem instance and return the objective value or feasibility |
-| `reduce` | `problem_json` (string), `target` (string) | Reduce a problem instance to a target type, returning a reduction bundle with the transformed instance and path metadata |
-| `solve` | `problem_json` (string), `solver` ("ilp"\|"brute-force", default: "ilp"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using ILP or brute-force, with optional timeout |
-
-## Available Prompts
-
-The server provides 7 task-oriented prompt templates:
-
-| Prompt | Arguments | Description |
-|--------|-----------|-------------|
-| `what_is` | `problem_type` (required) | Explain a problem type |
-| `model_my_problem` | `description` (required) | Map a real-world problem to an NP-hard type |
-| `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
-| `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
-| `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
-| `find_reduction` | `source` (required), `target` (required) | Find the best reduction path between two problems |
-| `overview` | *(none)* | Explore the full landscape of NP-hard problems |
+Next: [tool reference](mcp-tools.md) or [example session](mcp-walkthrough.md).
