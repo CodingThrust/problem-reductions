@@ -1,6 +1,8 @@
 # Problem Reductions
 
-**problem-reductions** is a rust library that provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and industry applications.
+**problem-reductions** provides executable definitions of computationally hard problems and reduction rules between them. The library is the foundation for an autonomous research infrastructure: a system in which AI agents investigate useful connections, challenge candidate constructions, and expand a reusable atlas of computational knowledge.
+
+[Explore the research website and problem atlas →](./index.html)
 
 ## Reduction Graph
 
@@ -45,7 +47,7 @@ Computational complexity theory has produced a rich body of polynomial-time redu
 
 Our goal is to build a comprehensive, machine-readable reduction graph: a directed graph in which every node is a computational problem and every edge is a verified polynomial-time reduction. Given such a graph, one can automatically compose reduction paths to route any source problem to any reachable target solver.
 
-A key enabler is AI-assisted implementation. We propose a pipeline of `algorithm → paper → software`, in which AI agents translate published reduction proofs into tested code. The critical question — can AI-generated reductions be trusted? — has a concrete answer: nearly all reductions admit **closed-loop verification**. A round-trip test reduces a source instance to a target, solves the target, extracts the solution back, and checks it against a direct solve of the source. This property makes correctness mechanically verifiable, independent of how the code was produced.
+A key enabler is AI-assisted implementation. We propose a pipeline of `algorithm → paper → software`, in which AI agents translate published reduction proofs into tested code. For witness-capable reductions, a **closed-loop test** reduces a source instance to a target, solves the target, extracts the solution back, and checks it against a direct solve of the source. These tests provide evidence about finite instances; a general correctness claim still requires a mathematical proof. Aggregate and Turing reductions have their own contracts and require corresponding checks.
 
 <div class="theme-light-only">
 
