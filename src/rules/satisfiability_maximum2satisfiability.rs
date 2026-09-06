@@ -4,12 +4,14 @@ use crate::models::formula::{CNFClause, Maximum2Satisfiability, Satisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::{Max, Or};
 
 /// Result of reducing SAT to MAX-2-SAT.
 #[derive(Debug, Clone)]
 pub struct ReductionSatisfiabilityToMaximum2Satisfiability {
     target: Maximum2Satisfiability,
     source_num_vars: usize,
+    target_score: i64,
 }
 
 impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
@@ -24,9 +26,29 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
+        if !certificate.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target assignment does not certify satisfiability",
+            ));
+        }
 
         Ok(target_solution[..self.source_num_vars].to_vec())
+    }
+}
+
+impl crate::rules::AggregateReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
+    type Source = Satisfiability;
+    type Target = Maximum2Satisfiability;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: Max<i64>) -> Or {
+        Or(value == Max(Some(self.target_score)))
     }
 }
 
@@ -99,6 +121,7 @@ fn add_gjs_gadget(clause: &CNFClause, w: i64, target_clauses: &mut Vec<CNFClause
 }
 
 #[reduction(
+    aggregate = custom,
     transform = upper_bound {
         num_vars = "num_vars + 2 * num_literals + 4 * num_clauses",
         num_clauses = "10 * (num_literals + 3 * num_clauses)",
@@ -134,6 +157,14 @@ impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
                     Maximum2Satisfiability,
                 >("computing the target clause count")
             })?;
+        let clause_count = <Self as ReduceTo<Maximum2Satisfiability>>::exact_i64(
+            capacity,
+            "representing every satisfied-clause count",
+        )?;
+        // capacity=10*M. The target value is at most 10*M, and each
+        // normalized clause contributes at most seven satisfied clauses.
+        // Dividing first guarantees this exact score stays within i64.
+        let target_score = (clause_count / 10) * 7;
         let mut target_clauses = Vec::with_capacity(capacity);
         for clause in &normalized {
             let w =
@@ -146,11 +177,13 @@ impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
             add_gjs_gadget(clause, w, &mut target_clauses);
         }
 
-        let target = Maximum2Satisfiability::new(variables.num_vars(), target_clauses);
+        let target = Maximum2Satisfiability::try_new(variables.num_vars(), target_clauses)
+            .map_err(<Self as ReduceTo<Maximum2Satisfiability>>::target_construction)?;
 
         Ok(ReductionSatisfiabilityToMaximum2Satisfiability {
             target,
             source_num_vars: self.num_vars(),
+            target_score,
         })
     }
 }

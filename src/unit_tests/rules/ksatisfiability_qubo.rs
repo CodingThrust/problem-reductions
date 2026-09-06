@@ -178,3 +178,155 @@ fn test_k3satisfiability_to_qubo_all_negated() {
     // 7 out of 8 assignments satisfy (¬x1 ∨ ¬x2 ∨ ¬x3)
     assert_eq!(qubo_solutions.len(), 7);
 }
+
+#[test]
+fn test_sat_qubo_all_short_clauses_and_raw_targets() {
+    use crate::rules::AggregateReductionResult;
+    use crate::types::{Min, Or};
+    macro_rules! verify {
+        ($k:ty, $width:expr) => {{
+            let mut clauses = vec![vec![]];
+            for width in 1..=$width {
+                for mask in 0..(1 << width) {
+                    clauses.push(
+                        (0..width)
+                            .map(|p| if mask & (1 << p) == 0 { 1 } else { -1 })
+                            .collect(),
+                    );
+                }
+            }
+            for a in &clauses {
+                for b in &clauses {
+                    let source = KSatisfiability::<$k>::new_allow_less(
+                        1,
+                        vec![CNFClause::new(a.clone()), CNFClause::new(b.clone())],
+                    );
+                    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+                    let target = ReductionResult::target_problem(&reduction);
+                    let mut minimum = i64::MAX;
+                    for mask in 0..(1 << target.num_vars()) {
+                        let witness: Vec<_> = (0..target.num_vars())
+                            .map(|p| mask & (1 << p) != 0)
+                            .collect();
+                        let energy = target.evaluate(&witness).unwrap().0.unwrap();
+                        let mut penalty = 0;
+                        for (j, clause) in [a, b].iter().enumerate() {
+                            let y: Vec<i64> = clause
+                                .iter()
+                                .map(|&l| i64::from(witness[0] != (l > 0)))
+                                .collect();
+                            penalty += match y.as_slice() {
+                                [] => 1,
+                                &[u] => u,
+                                &[u, v] => u * v,
+                                &[u, v, w] => {
+                                    let z = i64::from(witness[1 + j]);
+                                    z * w + 2 * (u * v - 2 * u * z - 2 * v * z + 3 * z)
+                                }
+                                _ => unreachable!(),
+                            };
+                        }
+                        assert_eq!(energy - reduction.zero_penalty_energy, penalty);
+                        assert_eq!(
+                            AggregateReductionResult::extract_value(&reduction, Min(Some(energy))),
+                            Or(penalty == 0)
+                        );
+                        if penalty == 0 {
+                            let decoded = reduction.extract_solution(&witness).unwrap();
+                            assert!(source.evaluate(&decoded).unwrap().0);
+                        } else {
+                            assert!(reduction.extract_solution(&witness).is_err());
+                        }
+                        minimum = minimum.min(energy);
+                    }
+                    let sat = [false, true]
+                        .into_iter()
+                        .any(|x| source.evaluate(&vec![x]).unwrap().0);
+                    assert_eq!(
+                        AggregateReductionResult::extract_value(&reduction, Min(Some(minimum))),
+                        Or(sat)
+                    );
+                    assert_eq!(
+                        AggregateReductionResult::extract_value(&reduction, Min(None)),
+                        Or(false)
+                    );
+                    assert!(reduction.extract_solution(&vec![]).is_err());
+                    assert!(reduction
+                        .extract_solution(&vec![false; target.num_vars() + 1])
+                        .is_err());
+                }
+            }
+            for n in [0, 3] {
+                let source = KSatisfiability::<$k>::new(n, vec![]);
+                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+                assert_eq!(
+                    reduction.extract_solution(&vec![false; n]).unwrap(),
+                    vec![false; n]
+                );
+            }
+        }};
+    }
+    verify!(K2, 2);
+    verify!(K3, 3);
+}
+
+#[test]
+fn test_sat_qubo_checked_numeric_boundaries() {
+    let mut matrix = vec![vec![i64::MAX]];
+    assert!(add_coefficient(&mut matrix, 0, 0, 1).is_err());
+    let mut matrix = vec![vec![i64::MIN]];
+    assert!(add_coefficient(&mut matrix, 0, 0, -1).is_err());
+    assert!(build_qubo_matrix(usize::MAX, &[], 1).is_err());
+    // This variable count is legal for the source on both 32- and 64-bit hosts,
+    // but its dense target cannot have an addressable number of entries.
+    let n = usize::MAX / 2;
+    let k2 = KSatisfiability::<K2>::new(n, vec![]);
+    let k3 = KSatisfiability::<K3>::new(n, vec![]);
+    assert!(matches!(
+        ReduceTo::<QUBO<i64>>::reduce_to(&k2),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
+    assert!(matches!(
+        ReduceTo::<QUBO<i64>>::reduce_to(&k3),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
+}
+
+#[test]
+fn test_sat_qubo_registered_aggregate_threshold() {
+    use crate::types::Or;
+    macro_rules! check {
+        ($k:ty) => {
+            for (clauses, expected) in [(vec![vec![1]], true), (vec![vec![1], vec![-1]], false)] {
+                let source = KSatisfiability::<$k>::new_allow_less(
+                    1,
+                    clauses.into_iter().map(CNFClause::new).collect(),
+                );
+                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+                let mut witness = vec![false; reduction.target.num_vars()];
+                witness[0] = expected;
+                let entries = crate::rules::registry::reduction_entries();
+                let edge = entries
+                    .iter()
+                    .find(|e| {
+                        e.source_name == "KSatisfiability"
+                            && e.target_name == "QUBO"
+                            && (e.source_variant_fn)() == KSatisfiability::<$k>::variant()
+                            && (e.target_variant_fn)() == QUBO::<i64>::variant()
+                    })
+                    .unwrap();
+                let aggregate = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
+                assert_eq!(
+                    *aggregate
+                        .extract_value_from_solution_dyn(&witness)
+                        .unwrap()
+                        .downcast::<Or>()
+                        .unwrap(),
+                    Or(expected)
+                );
+            }
+        };
+    }
+    check!(K2);
+    check!(K3);
+}

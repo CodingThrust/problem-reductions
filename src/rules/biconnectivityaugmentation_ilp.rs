@@ -1,10 +1,10 @@
 //! Reduction from BiconnectivityAugmentation to `ILP<i64>`.
 //!
-//! Select candidate edges under budget and, for every deleted vertex q,
+//! Select candidate edges under budget and, both before deletion and for every deleted vertex q,
 //! certify that the remaining augmented graph stays connected via unit-flow
 //! commodities from a surviving root to every other surviving vertex.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BiconnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -14,6 +14,36 @@ use crate::topology::{Graph, SimpleGraph};
 pub struct ReductionBiconnAugToILP {
     target: ILP<i64>,
     num_candidates: usize,
+}
+
+impl ReductionBiconnAugToILP {
+    fn dimensions(
+        n: usize,
+        m: usize,
+        p: usize,
+    ) -> Result<(usize, usize), crate::rules::ReductionError> {
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<
+                BiconnectivityAugmentation<SimpleGraph, i64>,
+                ILP<i64>,
+            >("computing connectivity flow variable counts")
+        };
+        let commodities = n
+            .checked_add(1)
+            .and_then(|x| x.checked_mul(n))
+            .ok_or_else(overflow)?;
+        let base_variables = commodities
+            .checked_mul(m)
+            .and_then(|x| x.checked_mul(2))
+            .ok_or_else(overflow)?;
+        let candidate_start = p.checked_add(base_variables).ok_or_else(overflow)?;
+        let num_variables = commodities
+            .checked_mul(p)
+            .and_then(|x| x.checked_mul(2))
+            .and_then(|x| x.checked_add(candidate_start))
+            .ok_or_else(overflow)?;
+        Ok((candidate_start, num_variables))
+    }
 }
 
 impl ReductionResult for ReductionBiconnAugToILP {
@@ -28,7 +58,14 @@ impl ReductionResult for ReductionBiconnAugToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .value
+            .is_none()
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         Ok(target_solution[..self.num_candidates]
             .iter()
@@ -39,8 +76,8 @@ impl ReductionResult for ReductionBiconnAugToILP {
 
 #[reduction(
     transform = upper_bound {
-        num_vars = "num_potential_edges + 2 * num_vertices * num_vertices * (num_edges + num_potential_edges)",
-        num_constraints = "num_potential_edges + 1 + 4 * num_vertices * (num_edges + num_potential_edges) + num_vertices^2 * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
+        num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
+        num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -53,37 +90,19 @@ impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
         let n = self.num_vertices();
         let p = self.num_potential_edges();
 
-        // Trivial case: n ≤ 1 already biconnected
-        if n <= 1 {
-            let target = ILP::new(p, vec![], vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?;
-            return Ok(ReductionBiconnAugToILP {
-                target,
-                num_candidates: p,
-            });
-        }
-
         let base_edges = self.graph().edges();
         let m = base_edges.len();
 
-        // Variable layout:
-        // y_j:                j                                      [0, p)
-        // f^{q,t}_{i,eta}:   p + ((q*n + t)*m + i)*2 + eta          [p, p + 2*m*n^2)
-        // g^{q,t}_{j,eta}:   p + 2*m*n^2 + ((q*n + t)*p + j)*2 + eta  [p + 2*m*n^2, p + 2*n^2*(m+p))
-        let num_vars = p + 2 * n * n * (m + p);
+        // q = n certifies the original graph; q < n deletes that vertex.
+        // y_j occupies [0,p), followed by all base-edge and candidate-edge flows.
+        let (candidate_start, num_vars) = ReductionBiconnAugToILP::dimensions(n, m, p)?;
         let f_idx = |q: usize, t: usize, i: usize, eta: usize| -> usize {
             p + ((q * n + t) * m + i) * 2 + eta
         };
         let g_idx = |q: usize, t: usize, j: usize, eta: usize| -> usize {
-            p + 2 * m * n * n + ((q * n + t) * p + j) * 2 + eta
+            candidate_start + ((q * n + t) * p + j) * 2 + eta
         };
-
         let mut constraints = Vec::new();
-
-        // Binary bounds: y_j ≤ 1
-        for j in 0..p {
-            constraints.push(LinearConstraint::le(vec![(j, 1)], 1));
-        }
 
         // Budget constraint: Σ w_j y_j ≤ B
         let budget_terms: Vec<(usize, i64)> = self
@@ -94,8 +113,8 @@ impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
             .collect();
         constraints.push(LinearConstraint::le(budget_terms, *self.budget()));
 
-        // For each deleted vertex q
-        for q in 0..n {
+        // Include q = n: no endpoint equals n, so no vertex or edge is deleted.
+        for q in 0..=n {
             let root = if q != 0 { 0 } else { 1 };
 
             for t in 0..n {
@@ -199,8 +218,13 @@ impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let target = ILP::with_variables(
+            vec![IntegerVariable::binary(); num_vars],
+            constraints,
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .map_err(Self::target_construction)?;
         Ok(ReductionBiconnAugToILP {
             target,
             num_candidates: p,

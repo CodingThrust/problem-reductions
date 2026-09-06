@@ -134,9 +134,9 @@ where
                     .map(|&side| if side { 1 } else { -1 })
                     .collect(),
                 Some(anc) => {
-                    // If ancilla is 1, flip all bits; then remove ancilla
+                    // Normalize the ancilla to spin +1 so its edge contributes h_i * s_i.
                     let mut sol = target_solution.to_vec();
-                    if sol[anc] {
+                    if !sol[anc] {
                         for x in sol.iter_mut() {
                             *x = !*x;
                         }

@@ -259,3 +259,99 @@ fn test_decision_mds_solver() {
     let config = witness.unwrap();
     assert_eq!(decision.evaluate(&config).unwrap(), Or(true));
 }
+
+#[test]
+fn test_decision_mis_unit_registration_and_construction() {
+    use crate::models::decision::DecisionCreateSpec;
+    use crate::registry::CreateSpec;
+    type Unit = MaximumIndependentSet<SimpleGraph, One>;
+    type Weighted = MaximumIndependentSet<SimpleGraph, i64>;
+    let entries: Vec<_> = crate::registry::variant_entries()
+        .into_iter()
+        .filter(|e| e.name == "DecisionMaximumIndependentSet")
+        .collect();
+    assert_eq!(entries.len(), 2);
+    let defaults: Vec<_> = entries.iter().filter(|e| e.is_default).collect();
+    assert_eq!(defaults.len(), 1);
+    assert_eq!(
+        defaults[0].variant(),
+        vec![("graph", "SimpleGraph"), ("weight", "i64")]
+    );
+    assert_eq!(
+        DecisionCreateSpec::<Unit>::FIELDS,
+        DecisionCreateSpec::<Weighted>::FIELDS
+    );
+    assert_eq!(DecisionCreateSpec::<Unit>::INPUTS.len(), 3);
+    let data = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"weights":[1,1,1],"bound":2});
+    let spec: DecisionCreateSpec<Unit> = serde_json::from_value(data.clone()).unwrap();
+    let decision: Decision<Unit> = spec.into();
+    assert_eq!(decision.evaluate(&vec![true, false, true]), Ok(Or(true)));
+    let witness = BruteForce::new().solve(&decision).unwrap().unwrap();
+    assert_eq!(decision.evaluate(&witness), Ok(Or(true)));
+    let entry = entries.into_iter().find(|e| !e.is_default).unwrap();
+    assert!((entry.complexity_eval_fn)(&decision) > 1.0);
+    assert_eq!(
+        (entry.parameter_measure_fn)(&decision),
+        decision.parameters()
+    );
+    let mut invalid = data;
+    invalid["weights"][0] = serde_json::json!(2);
+    assert!(serde_json::from_value::<DecisionCreateSpec<Unit>>(invalid).is_err());
+}
+
+#[test]
+fn test_decision_mis_unit_dynamic_identity_edges() {
+    let decision = Decision::new(
+        MaximumIndependentSet::new(SimpleGraph::path(3), vec![One; 3]),
+        2,
+    );
+    let variant = Decision::<MaximumIndependentSet<SimpleGraph, One>>::variant();
+    let entries = crate::rules::registry::reduction_entries();
+    let edge = entries
+        .iter()
+        .find(|e| {
+            e.source_name == "DecisionMaximumIndependentSet"
+                && e.target_name == "MaximumIndependentSet"
+                && (e.source_variant_fn)() == variant
+        })
+        .unwrap();
+    assert_eq!((edge.parameter_declarations_fn)().fields.len(), 2);
+    let witness = vec![true, false, true];
+    let reduced = (edge.reduce_fn.unwrap())(&decision).unwrap();
+    assert_eq!(
+        *reduced
+            .extract_solution_dyn(&witness)
+            .unwrap()
+            .downcast::<Vec<bool>>()
+            .unwrap(),
+        witness
+    );
+    assert!(matches!(
+        (edge.reduce_fn.unwrap())(decision.inner()),
+        Err(crate::rules::ReductionError::SourceTypeMismatch { .. })
+    ));
+    let aggregate = (edge.reduce_aggregate_fn.unwrap())(&decision).unwrap();
+    assert_eq!(
+        *aggregate
+            .extract_value_from_solution_dyn(&witness)
+            .unwrap()
+            .downcast::<Or>()
+            .unwrap(),
+        Or(true)
+    );
+    assert!(matches!(
+        (edge.reduce_aggregate_fn.unwrap())(decision.inner()),
+        Err(crate::rules::ReductionError::SourceTypeMismatch { .. })
+    ));
+    let reverse = entries
+        .iter()
+        .find(|e| {
+            e.source_name == "MaximumIndependentSet"
+                && e.target_name == "DecisionMaximumIndependentSet"
+                && (e.source_variant_fn)() == variant
+        })
+        .unwrap();
+    assert!(reverse.turing);
+    assert!(reverse.reduce_fn.is_none());
+    assert_eq!((reverse.parameter_declarations_fn)().fields.len(), 2);
+}

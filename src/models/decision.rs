@@ -27,6 +27,8 @@ macro_rules! decision_problem_meta {
 
 /// Register the boilerplate inventory entries for a concrete `Decision<P>` variant.
 ///
+/// Optional `additional: [Inner => "complexity", ...]` entries share the primary
+/// variant's construction fields and decoder without adding another schema or default.
 /// Both decision/optimization edges derive their identity parameter transforms directly
 /// from the inner problem's canonical parameter schema.
 #[macro_export]
@@ -40,6 +42,7 @@ macro_rules! register_decision_variant {
         category: $category:expr,
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
+        $(additional: [$($additional:ty => $additional_complexity:literal),* $(,)?],)?
         decode: $decoder:expr
         $(, $random:ident)?
     ) => {
@@ -52,7 +55,7 @@ macro_rules! register_decision_variant {
             ];
         }
 
-        $crate::register_decision_variant!(@declare $inner, $complexity, $decoder $(, $random)?);
+        $crate::register_decision_variant!(@declare $inner, $complexity, $decoder, [$($($additional => $additional_complexity),*)?] $(, $random)?);
 
         $crate::inventory::submit! {
             $crate::registry::ProblemSchemaEntry {
@@ -67,6 +70,24 @@ macro_rules! register_decision_variant {
             }
         }
 
+        $crate::register_decision_variant!(@edges $inner, $name);
+        $($(
+            impl $crate::registry::CreateSpec
+                for $crate::models::decision::DecisionCreateSpec<$additional>
+            {
+                const FIELDS: &'static [$crate::registry::FieldInfo] =
+                    <$crate::models::decision::DecisionCreateSpec<$inner> as $crate::registry::CreateSpec>::FIELDS;
+                const INPUTS: &'static [$crate::registry::CreateInputInfo] =
+                    <$crate::models::decision::DecisionCreateSpec<$inner> as $crate::registry::CreateSpec>::INPUTS;
+            }
+            $crate::register_brute_force! {
+                $crate::models::decision::Decision<$additional> decode $decoder,
+            }
+            $crate::register_decision_variant!(@edges $additional, $name);
+        )*)?
+    };
+
+    (@edges $inner:ty, $name:literal) => {
         // Decision<P> → P: both witness (identity config) and aggregate (solve + compare)
         $crate::inventory::submit! {
             $crate::rules::ReductionEntry {
@@ -132,17 +153,19 @@ macro_rules! register_decision_variant {
         }
     };
 
-    (@declare $inner:ty, $complexity:literal, $decoder:expr, random) => {
+    (@declare $inner:ty, $complexity:literal, $decoder:expr, [$($additional:ty => $additional_complexity:literal),*], random) => {
         $crate::declare_variants! {
             default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner> random,
+            $($crate::models::decision::Decision<$additional> => $additional_complexity create $crate::models::decision::DecisionCreateSpec<$additional>,)*
         }
         $crate::register_brute_force! {
             $crate::models::decision::Decision<$inner> decode $decoder,
         }
     };
-    (@declare $inner:ty, $complexity:literal, $decoder:expr) => {
+    (@declare $inner:ty, $complexity:literal, $decoder:expr, [$($additional:ty => $additional_complexity:literal),*]) => {
         $crate::declare_variants! {
             default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner>,
+            $($crate::models::decision::Decision<$additional> => $additional_complexity create $crate::models::decision::DecisionCreateSpec<$additional>,)*
         }
         $crate::register_brute_force! {
             $crate::models::decision::Decision<$inner> decode $decoder,

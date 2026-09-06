@@ -45,9 +45,9 @@ impl ReductionResult for ReductionSCToILP {
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
-        num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs",
+        num_constraints = "num_arcs + num_arcs + 4 * num_arcs * num_arcs * num_arcs",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -103,15 +103,15 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
                     let head_i = self.arcs()[i].1;
                     let tail_j = self.arcs()[j].0;
 
+                    // The product relation is required for every pair, even
+                    // unreachable ones: z = 0 alone does not forbid adjacency.
+                    constraints.extend(mccormick_product(
+                        z_idx(i, j, p),
+                        x_idx(i, p),
+                        x_idx(j, next_p),
+                    ));
                     if distances[head_i][tail_j] == i64::MAX {
-                        // Infeasible pair: z_{i,j,p} = 0
                         constraints.push(LinearConstraint::eq(vec![(z_idx(i, j, p), 1)], 0));
-                    } else {
-                        constraints.extend(mccormick_product(
-                            z_idx(i, j, p),
-                            x_idx(i, p),
-                            x_idx(j, next_p),
-                        ));
                     }
                 }
             }

@@ -230,10 +230,13 @@ fn test_jl_parity_sat_to_independentset() {
                     .solve(result.target_problem())
                     .unwrap()
                     .expect("SAT->IS: target should have an optimal solution");
-                let extracted = result.extract_solution(&target_solution).unwrap();
-                assert!(
-                    !source.evaluate(&extracted).unwrap(),
-                    "SAT->IS [{label}]: unsatisfiable but extracted satisfies"
+                assert!(result.extract_solution(&target_solution).is_err());
+                assert_eq!(
+                    crate::rules::AggregateReductionResult::extract_value(
+                        &result,
+                        result.target_problem().evaluate(&target_solution).unwrap(),
+                    ),
+                    Or(false),
                 );
             } else {
                 assert_satisfaction_round_trip_from_optimization_target(
@@ -248,5 +251,76 @@ fn test_jl_parity_sat_to_independentset() {
                 );
             }
         }
+    }
+}
+
+#[test]
+fn test_sat_to_independentset_all_certificates() {
+    let clauses = [
+        vec![],
+        vec![1],
+        vec![-1],
+        vec![1, 1],
+        vec![1, -1],
+        vec![1, 2],
+        vec![-1, -2],
+    ];
+    for first in &clauses {
+        for second in &clauses {
+            let source = Satisfiability::new(
+                2,
+                vec![
+                    CNFClause::new(first.clone()),
+                    CNFClause::new(second.clone()),
+                ],
+            );
+            let reduction =
+                ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+            let target = reduction.target_problem();
+            assert!(std::ptr::eq(
+                target,
+                crate::rules::AggregateReductionResult::target_problem(&reduction)
+            ));
+            let mut accepted = false;
+            for mask in 0..(1usize << target.num_vertices()) {
+                let config: Vec<bool> = (0..target.num_vertices())
+                    .map(|i| mask & (1 << i) != 0)
+                    .collect();
+                let value = target.evaluate(&config).unwrap();
+                let certificate = value == Max(Some(2));
+                assert_eq!(
+                    crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+                    Or(certificate)
+                );
+                match reduction.extract_solution(&config) {
+                    Ok(assignment) => {
+                        assert!(certificate);
+                        assert_eq!(source.evaluate(&assignment).unwrap(), Or(true));
+                        accepted = true;
+                    }
+                    Err(_) => assert!(!certificate),
+                }
+            }
+            assert_eq!(
+                accepted,
+                BruteForce::new().solve(&source).unwrap().is_some()
+            );
+            assert!(reduction
+                .extract_solution(&vec![false; target.num_vertices() + 1])
+                .is_err());
+        }
+    }
+    for num_vars in [0, 3] {
+        let source = Satisfiability::new(num_vars, vec![]);
+        let reduction =
+            ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+        assert_eq!(
+            reduction.extract_solution(&vec![]).unwrap(),
+            vec![false; num_vars]
+        );
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&reduction, Max(None)),
+            Or(false)
+        );
     }
 }

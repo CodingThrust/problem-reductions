@@ -98,3 +98,44 @@ fn test_hamiltoniancircuit_to_longestcircuit_extract_solution() {
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).unwrap());
 }
+
+#[test]
+fn test_hamiltoniancircuit_extraction_matches_all_small_target_configurations() {
+    // Enumerate every simple graph and every edge selection, including graphs
+    // with no circuit, short circuits, and malformed selections of valid length.
+    for n in 0..=4 {
+        let possible: Vec<_> = (0..n)
+            .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
+            .collect();
+        for graph_mask in 0usize..(1 << possible.len()) {
+            let edges: Vec<_> = possible
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &edge)| ((graph_mask >> i) & 1 == 1).then_some(edge))
+                .collect();
+            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+            let reduction =
+                ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+            let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+            for mask in 0usize..(1 << target.num_edges()) {
+                let config: Vec<_> = (0..target.num_edges())
+                    .map(|i| (mask >> i) & 1 == 1)
+                    .collect();
+                let value = target.evaluate(&config).unwrap();
+                let certifies = value.0 == Some(n as i64);
+                let extracted = reduction.extract_solution(&config);
+                assert_eq!(
+                    extracted.is_ok(),
+                    certifies,
+                    "n={n}, graph={graph_mask}, config={mask}"
+                );
+                if let Ok(order) = extracted {
+                    assert!(source.evaluate(&order).unwrap().0);
+                }
+            }
+            assert!(reduction
+                .extract_solution(&vec![false; target.num_edges() + 1])
+                .is_err());
+        }
+    }
+}

@@ -1,6 +1,9 @@
 //! Reduction from KSatisfiability (3-SAT) to Feasible Register Assignment.
 //!
-//! This follows Sethi's Reduction 3 / Theorem 5.11:
+//! This follows Sethi's Reduction 3 / Theorem 5.11 (STOC 1973):
+//! Nonempty short clauses are padded by literal repetition, an empty clause
+//! maps to a fixed infeasible DAG, and appearing variables are compacted with
+//! an inverse map. No ordering or distinct-variable hypothesis is needed.
 //! - Variable leaf pairs `s_pos[k], s_neg[k]` share register `S[k]`
 //! - Each literal occurrence adds `p[i,j], q[i,j], r[i,j], rbar[i,j]`
 //! - `r[i,j]` and `rbar[i,j]` share register `R[i,j]`
@@ -14,6 +17,7 @@ use crate::models::misc::FeasibleRegisterAssignment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
+use std::collections::BTreeSet;
 
 fn s_pos_idx(var: usize) -> usize {
     var
@@ -59,6 +63,7 @@ fn r_register(num_vars: usize, clause_idx: usize, literal_pos: usize) -> usize {
 pub struct Reduction3SATToFeasibleRegisterAssignment {
     target: FeasibleRegisterAssignment,
     num_vars: usize,
+    source_variables: Vec<usize>,
 }
 
 impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
@@ -73,38 +78,85 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok({
-            (0..self.num_vars)
-                .map(|var| {
-                    target_solution[s_pos_idx(var)] < target_solution[s_neg_idx(self.num_vars, var)]
-                })
-                .collect()
-        })
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target configuration is not a feasible register assignment realization",
+            ));
+        }
+        let mut assignment = vec![false; self.num_vars];
+        let compact_vars = self.source_variables.len();
+        for (compact, &original) in self.source_variables.iter().enumerate() {
+            assignment[original] = target_solution[s_pos_idx(compact)]
+                < target_solution[s_neg_idx(compact_vars, compact)];
+        }
+        Ok(assignment)
     }
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "2 * num_vars + 12 * num_clauses",
         num_arcs = "15 * num_clauses",
         num_registers = "num_vars + 9 * num_clauses",
-    },
-    unavailable = {
-        num_same_register_pairs = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_same_register_pairs = "num_vars + 3 * num_clauses",
     }
 )]
 impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let num_vars = self.num_vars();
+        if self
+            .clauses()
+            .iter()
+            .any(|clause| clause.literals.is_empty())
+        {
+            // Both predecessors must remain live until vertex 2, but they
+            // share a register. This acyclic target has no realization.
+            return Ok(Reduction3SATToFeasibleRegisterAssignment {
+                target: FeasibleRegisterAssignment::new(3, vec![(2, 0), (2, 1)], 2, vec![0, 0, 1]),
+                num_vars: self.num_vars(),
+                source_variables: Vec::new(),
+            });
+        }
+        let source_variables: Vec<_> = self
+            .clauses()
+            .iter()
+            .flat_map(|clause| clause.literals.iter())
+            .map(|literal| {
+                usize::try_from(literal.unsigned_abs()).expect("native SAT indices fit usize") - 1
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let num_vars = source_variables.len();
         let num_clauses = self.num_clauses();
-        let num_vertices = 2 * num_vars + 12 * num_clauses;
-        let num_registers = num_vars + 9 * num_clauses;
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, FeasibleRegisterAssignment>(
+                operation,
+            )
+        };
+        let variable_vertices = num_vars
+            .checked_mul(2)
+            .ok_or_else(|| overflow("counting variable leaves"))?;
+        let clause_vertices = num_clauses
+            .checked_mul(12)
+            .ok_or_else(|| overflow("counting clause vertices"))?;
+        let num_vertices = variable_vertices
+            .checked_add(clause_vertices)
+            .ok_or_else(|| overflow("counting target vertices"))?;
+        let clause_registers = num_clauses
+            .checked_mul(9)
+            .ok_or_else(|| overflow("counting clause registers"))?;
+        let num_registers = num_vars
+            .checked_add(clause_registers)
+            .ok_or_else(|| overflow("counting target registers"))?;
+        let num_arcs = num_clauses
+            .checked_mul(15)
+            .ok_or_else(|| overflow("counting target arcs"))?;
         let mut assignment = vec![0usize; num_vertices];
-        let mut arcs = Vec::with_capacity(15 * num_clauses);
+        let mut arcs = Vec::with_capacity(num_arcs);
 
         for var in 0..num_vars {
             assignment[s_pos_idx(var)] = var;
@@ -112,6 +164,10 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
         }
 
         for (clause_idx, clause) in self.clauses().iter().enumerate() {
+            // Repetition preserves a nonempty disjunction. Every occurrence
+            // keeps its own gadget and register pair, even for repeated literals.
+            let mut literals = clause.literals.clone();
+            literals.resize(3, literals[0]);
             for literal_pos in 0..3 {
                 assignment[p_idx(num_vars, clause_idx, literal_pos)] =
                     p_register(num_vars, clause_idx, literal_pos);
@@ -145,8 +201,13 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
                 rbar_idx(num_vars, clause_idx, 0),
             ));
 
-            for (literal_pos, &literal) in clause.literals.iter().enumerate() {
-                let var = literal.unsigned_abs() as usize - 1;
+            for (literal_pos, &literal) in literals.iter().enumerate() {
+                let original = usize::try_from(literal.unsigned_abs())
+                    .expect("native SAT indices fit usize")
+                    - 1;
+                let var = source_variables
+                    .binary_search(&original)
+                    .expect("all appearing variables were collected");
                 let (literal_leaf, opposite_leaf) = if literal > 0 {
                     (s_pos_idx(var), s_neg_idx(num_vars, var))
                 } else {
@@ -159,7 +220,8 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
 
         Ok(Reduction3SATToFeasibleRegisterAssignment {
             target: FeasibleRegisterAssignment::new(num_vertices, arcs, num_registers, assignment),
-            num_vars,
+            num_vars: self.num_vars(),
+            source_variables,
         })
     }
 }

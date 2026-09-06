@@ -13,7 +13,7 @@ use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::types::One;
+use crate::types::{Max, One, Or};
 
 /// A literal in the SAT problem, representing a variable or its negation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +61,8 @@ pub struct ReductionSATToIS {
     num_source_variables: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
+    /// Exact independent-set cardinality certifying satisfiability.
+    target_size: i64,
 }
 
 impl ReductionResult for ReductionSATToIS {
@@ -80,26 +82,35 @@ impl ReductionResult for ReductionSATToIS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
+        if !certificate.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target independent set does not certify satisfiability",
+            ));
+        }
 
-        Ok({
-            let mut assignment = vec![false; self.num_source_variables];
-            let mut covered = vec![false; self.num_source_variables];
-
-            for (vertex_idx, &selected) in target_solution.iter().enumerate() {
-                if selected {
-                    let literal = &self.literals[vertex_idx];
-                    // If the literal is positive (neg=false), variable should be true (1)
-                    // If the literal is negated (neg=true), variable should be false (0)
-                    assignment[literal.name] = !literal.neg;
-                    covered[literal.name] = true;
-                }
+        let mut assignment = vec![false; self.num_source_variables];
+        for (literal, &selected) in self.literals.iter().zip(target_solution) {
+            if selected {
+                assignment[literal.name] = !literal.neg;
             }
+        }
+        Ok(assignment)
+    }
+}
 
-            // Variables not covered can be assigned any value (we use 0)
-            // They are already initialized to 0
-            assignment
-        })
+impl crate::rules::AggregateReductionResult for ReductionSATToIS {
+    type Source = Satisfiability;
+    type Target = MaximumIndependentSet<SimpleGraph, One>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Max<i64>) -> Or {
+        Or(target_value == Max(Some(self.target_size)))
     }
 }
 
@@ -116,6 +127,7 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
+    aggregate = custom,
     transform = upper_bound {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",
@@ -125,21 +137,24 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
     type Result = ReductionSATToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let target_size = <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
+            self.num_clauses(),
+            "representing the satisfying independent-set cardinality",
+        )?;
         let mut literals: Vec<BoolVar> = Vec::new();
         let mut edges: Vec<(usize, usize)> = Vec::new();
-        let mut vertex_count = 0;
 
         // First pass: add vertices for each literal in each clause
         // and add clique edges within each clause
         for clause in self.clauses() {
-            let clause_start = vertex_count;
+            let clause_start = literals.len();
 
             // Add vertices for each literal in this clause
             for &lit in &clause.literals {
                 literals.push(BoolVar::from_literal(lit));
-                vertex_count += 1;
             }
 
+            let vertex_count = literals.len();
             // Add clique edges within this clause
             for i in clause_start..vertex_count {
                 for j in (i + 1)..vertex_count {
@@ -148,9 +163,9 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
             }
         }
 
-        // Second pass: add edges between complementary literals across clauses
-        // Since we only add clique edges within clauses in the first pass,
-        // complementary literals in different clauses won't already have an edge
+        let vertex_count = literals.len();
+        // Add complementary-literal edges. Within a clause these may duplicate
+        // clique edges, which does not change independent-set feasibility.
         for i in 0..vertex_count {
             for j in (i + 1)..vertex_count {
                 if literals[i].is_complement(&literals[j]) {
@@ -169,6 +184,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
             literals,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
+            target_size,
         })
     }
 }

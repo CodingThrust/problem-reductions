@@ -15,11 +15,8 @@ fn example_graph() -> SimpleGraph {
     )
 }
 
-fn decision_ola(graph: SimpleGraph, k: usize) -> Decision<OptimalLinearArrangement<SimpleGraph>> {
-    Decision::new(
-        OptimalLinearArrangement::new(graph),
-        i64::try_from(k).unwrap(),
-    )
+fn decision_ola(graph: SimpleGraph, k: i64) -> Decision<OptimalLinearArrangement<SimpleGraph>> {
+    Decision::new(OptimalLinearArrangement::new(graph), k)
 }
 
 #[test]
@@ -89,13 +86,13 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_closed_loo
 
 #[test]
 fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_edgeless_sentinel() {
-    // Edgeless graph: always YES regardless of bound.
+    // Edgeless graph: YES at bound zero, with one column per vertex.
     let source = decision_ola(SimpleGraph::new(3, vec![]), 0);
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_eq!(target.matrix().to_vec(), vec![vec![false]]);
+    assert_eq!(target.matrix().to_vec(), vec![vec![false; 3]]);
     assert_eq!(target.bound(), 0);
 
     let witness = BruteForce::new().solve(target).unwrap().unwrap();
@@ -158,6 +155,56 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_extract_in
             .extract_solution(&vec![0, 0, 1, 2, 3, 4])
             .unwrap_err()
             .to_string(),
-        "target column order is not a permutation"
+        "target column order is not a satisfying augmentation certificate"
     );
+}
+
+#[test]
+fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_domains() {
+    let cases = [
+        (0, vec![], i64::MIN, false),
+        (0, vec![], 0, true),
+        (3, vec![], -1, false),
+        (3, vec![], i64::MAX, true),
+        (1, vec![(0, 0)], 0, true),
+        (2, vec![(0, 0), (0, 1), (0, 1), (1, 1)], 1, false),
+        (2, vec![(0, 0), (0, 1), (0, 1), (1, 1)], 2, true),
+    ];
+    for (n, edges, bound, expected) in cases {
+        let m = edges.len();
+        let source = decision_ola(SimpleGraph::new(n, edges), bound);
+        let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        assert!(target.num_rows() <= m + 3);
+        assert!(target.num_cols() <= n + 3);
+        assert_eq!(
+            BruteForce::new().solve(&source).unwrap().is_some(),
+            expected
+        );
+        let witness = BruteForce::new().solve(target).unwrap();
+        assert_eq!(witness.is_some(), expected);
+        if let Some(witness) = witness {
+            assert_eq!(
+                source
+                    .evaluate(&reduction.extract_solution(&witness).unwrap())
+                    .unwrap(),
+                Or(true)
+            );
+        } else {
+            assert!(reduction
+                .extract_solution(&(0..target.num_cols()).collect())
+                .is_err());
+        }
+    }
+}
+
+#[test]
+fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_certificate() {
+    let source = decision_ola(SimpleGraph::new(3, vec![(0, 2)]), 1);
+    let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source).unwrap();
+    assert!(reduction.extract_solution(&vec![0, 1, 2]).is_err());
+    assert!(reduction.extract_solution(&vec![0, 1, 3]).is_err());
+    let arrangement = reduction.extract_solution(&vec![2, 0, 1]).unwrap();
+    assert_eq!(arrangement, vec![1, 2, 0]);
+    assert_eq!(source.evaluate(&arrangement).unwrap(), Or(true));
 }

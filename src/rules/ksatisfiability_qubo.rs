@@ -22,6 +22,7 @@ use crate::variant::{K2, K3};
 pub struct ReductionKSatToQUBO {
     target: QUBO<i64>,
     source_num_vars: usize,
+    zero_penalty_energy: i64,
 }
 
 impl ReductionResult for ReductionKSatToQUBO {
@@ -36,8 +37,13 @@ impl ReductionResult for ReductionKSatToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "QUBO energy does not meet the SAT zero-penalty threshold",
+            ));
+        }
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
@@ -47,6 +53,7 @@ impl ReductionResult for ReductionKSatToQUBO {
 pub struct Reduction3SATToQUBO {
     target: QUBO<i64>,
     source_num_vars: usize,
+    zero_penalty_energy: i64,
 }
 
 impl ReductionResult for Reduction3SATToQUBO {
@@ -61,17 +68,15 @@ impl ReductionResult for Reduction3SATToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "QUBO energy does not meet the SAT zero-penalty threshold",
+            ));
+        }
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
-}
-
-/// Convert a signed literal to (0-indexed variable, is_negated).
-fn lit_to_var(lit: i64) -> (usize, bool) {
-    let var = (lit.unsigned_abs() as usize) - 1;
-    let neg = lit < 0;
-    (var, neg)
 }
 
 /// Add the quadratic penalty term for a 2-literal clause to the QUBO matrix.
@@ -90,11 +95,14 @@ fn add_coefficient(
     Ok(())
 }
 
-fn add_2sat_clause_penalty(matrix: &mut [Vec<i64>], lits: &[i64]) -> Result<(), &'static str> {
+fn add_2sat_clause_penalty(
+    matrix: &mut [Vec<i64>],
+    lits: &[(usize, bool)],
+) -> Result<(), &'static str> {
     assert_eq!(lits.len(), 2, "Expected 2-literal clause");
 
-    let (var_i, neg_i) = lit_to_var(lits[0]);
-    let (var_j, neg_j) = lit_to_var(lits[1]);
+    let (var_i, neg_i) = lits[0];
+    let (var_j, neg_j) = lits[1];
 
     // Ensure i <= j for upper-triangular form
     let (i, j, ni, nj) = if var_i <= var_j {
@@ -144,15 +152,15 @@ fn add_2sat_clause_penalty(matrix: &mut [Vec<i64>], lits: &[i64]) -> Result<(), 
 /// `aux_var` is the 0-indexed auxiliary variable.
 fn add_3sat_clause_penalty(
     matrix: &mut [Vec<i64>],
-    lits: &[i64],
+    lits: &[(usize, bool)],
     aux_var: usize,
 ) -> Result<(), &'static str> {
     assert_eq!(lits.len(), 3, "Expected 3-literal clause");
     let penalty = 2; // Rosenberg penalty weight
 
-    let (v1, n1) = lit_to_var(lits[0]);
-    let (v2, n2) = lit_to_var(lits[1]);
-    let (v3, n3) = lit_to_var(lits[2]);
+    let (v1, n1) = lits[0];
+    let (v2, n2) = lits[1];
+    let (v3, n3) = lits[2];
     let a = aux_var;
 
     // We need to express yi = (1 - li) in terms of xi:
@@ -269,59 +277,79 @@ fn add_3sat_clause_penalty(
     // a is a binary variable, a^2 = a, so linear a → diagonal
     add_coefficient(matrix, a, a, 3 * penalty)?;
 
-    // We also need to add linear terms that come from constant offsets in products
-    // Actually, let's verify: the full expansion of
-    //   H = a·y3 + M·(y1·y2 - 2·y1·a - 2·y2·a + 3·a)
-    // All terms are handled above.
-    //
-    // However, we need to account for the case where "add_ya" with !ni adds
-    // a linear term in `a`. Let me verify the add_ya logic handles this correctly.
-    //
-    // add_ya with ni=false: yi = 1-xi, yi*a = a - xi*a
-    //   matrix[a][a] += coeff (linear in a)
-    //   matrix[min(vi,a)][max(vi,a)] -= coeff (quadratic xi*a)
-    // This is correct.
-
-    // Note: We ignore constant terms (don't affect QUBO optimization).
     Ok(())
 }
 
-/// Build a QUBO matrix from a KSatisfiability instance.
-///
-/// For K=2, directly encodes quadratic penalties.
-/// For K=3, uses Rosenberg quadratization with one auxiliary variable per clause.
-///
-/// Returns (matrix, num_source_vars) where matrix is (n + aux) x (n + aux).
+/// Expand clause penalties and retain the constant omitted by QUBO.
+/// K3 reserves one auxiliary per clause, including free auxiliaries for short
+/// clauses; K2 reserves none. The source constructor validates clause widths.
 fn build_qubo_matrix(
     num_vars: usize,
     clauses: &[crate::models::formula::CNFClause],
-    k: usize,
-) -> Result<Vec<Vec<i64>>, &'static str> {
-    match k {
-        2 => {
-            let mut matrix = vec![vec![0; num_vars]; num_vars];
-            for clause in clauses {
-                add_2sat_clause_penalty(&mut matrix, &clause.literals)?;
+    num_aux: usize,
+) -> Result<(Vec<Vec<i64>>, i64), &'static str> {
+    let total = num_vars
+        .checked_add(num_aux)
+        .ok_or("computing the number of SAT QUBO variables")?;
+    total
+        .checked_mul(total)
+        .ok_or("computing the SAT QUBO dense matrix entry count")?;
+    let mut matrix = vec![vec![0; total]; total];
+    let mut constant = 0i64;
+    for (idx, clause) in clauses.iter().enumerate() {
+        let literals: Vec<_> = clause
+            .variables()
+            .into_iter()
+            .zip(&clause.literals)
+            .map(|(variable, &literal)| (variable, literal < 0))
+            .collect();
+        let offset = match literals.as_slice() {
+            [] => 1,
+            &[(v, neg)] => {
+                add_coefficient(&mut matrix, v, v, if neg { 1 } else { -1 })?;
+                i64::from(!neg)
             }
-            Ok(matrix)
-        }
-        3 => {
-            let num_aux = clauses.len(); // one auxiliary per clause
-            let total = num_vars
-                .checked_add(num_aux)
-                .ok_or("computing the number of SAT QUBO variables")?;
-            let mut matrix = vec![vec![0; total]; total];
-            for (idx, clause) in clauses.iter().enumerate() {
-                let aux_var = num_vars + idx;
-                add_3sat_clause_penalty(&mut matrix, &clause.literals, aux_var)?;
+            &[(_, n1), (_, n2)] => {
+                add_2sat_clause_penalty(&mut matrix, &literals)?;
+                i64::from(!n1 && !n2)
             }
-            Ok(matrix)
-        }
-        _ => unimplemented!("KSatisfiability to QUBO only supports K=2 and K=3"),
+            &[(_, n1), (_, n2), _] => {
+                add_3sat_clause_penalty(&mut matrix, &literals, num_vars + idx)?;
+                2 * i64::from(!n1 && !n2)
+            }
+            _ => unreachable!("the source validates clause width at most three"),
+        };
+        constant = constant
+            .checked_add(offset)
+            .ok_or("accumulating the SAT QUBO constant")?;
+    }
+    Ok((matrix, constant))
+}
+
+impl crate::rules::AggregateReductionResult for ReductionKSatToQUBO {
+    type Source = KSatisfiability<K2>;
+    type Target = QUBO<i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(self.zero_penalty_energy))
+    }
+}
+
+impl crate::rules::AggregateReductionResult for Reduction3SATToQUBO {
+    type Source = KSatisfiability<K3>;
+    type Target = QUBO<i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(self.zero_penalty_energy))
     }
 }
 
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vars = "num_vars",
     }
@@ -331,7 +359,7 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K2> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
-        let matrix = build_qubo_matrix(n, self.clauses(), 2).map_err(|operation| {
+        let (matrix, constant) = build_qubo_matrix(n, self.clauses(), 0).map_err(|operation| {
             crate::rules::ReductionError::integer_overflow::<KSatisfiability<K2>, QUBO<i64>>(
                 operation,
             )
@@ -344,11 +372,13 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K2> {
                 )
             })?,
             source_num_vars: n,
+            zero_penalty_energy: -constant,
         })
     }
 }
 
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vars = "num_vars + num_clauses",
     }
@@ -358,11 +388,12 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K3> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
-        let matrix = build_qubo_matrix(n, self.clauses(), 3).map_err(|operation| {
-            crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, QUBO<i64>>(
-                operation,
-            )
-        })?;
+        let (matrix, constant) =
+            build_qubo_matrix(n, self.clauses(), self.num_clauses()).map_err(|operation| {
+                crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, QUBO<i64>>(
+                    operation,
+                )
+            })?;
 
         Ok(Reduction3SATToQUBO {
             target: QUBO::from_matrix(matrix).map_err(|message| {
@@ -371,6 +402,7 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K3> {
                 )
             })?,
             source_num_vars: n,
+            zero_penalty_energy: -constant,
         })
     }
 }

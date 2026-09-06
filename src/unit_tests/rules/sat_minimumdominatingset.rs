@@ -69,16 +69,15 @@ fn test_extract_solution_negative_literal() {
 }
 
 #[test]
-fn test_extract_solution_dummy() {
-    // (x1 OR x2) where only x1 matters
+fn test_extract_solution_unused_variable() {
+    // The unit clause x1 leaves x2 unused.
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
-    // Select: vertex 0 (x1 positive) and vertex 5 (x2 dummy)
-    // Vertex 0 dominates: itself, 1, 2, and clause 6
-    // Vertex 5 dominates: 3, 4, and itself
-    let ds_sol = vec![true, false, false, false, false, true, false];
+    // Only x1 occurs, so its triangle is the only gadget. The unused x2
+    // remains false in the extracted source assignment.
+    let ds_sol = vec![true, false, false, false];
     let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
     assert_eq!(sat_sol, vec![true, false]); // x1 = true, x2 = false (from dummy)
 }
@@ -147,7 +146,7 @@ fn test_extract_solution_too_many_selected() {
     let ds_sol = vec![true, true, false, false];
     assert_eq!(
         reduction.extract_solution(&ds_sol).unwrap_err().to_string(),
-        "variable 0 gadget must select exactly one vertex, got 2"
+        "target dominating set does not certify satisfiability"
     );
 }
 
@@ -162,7 +161,7 @@ fn test_extract_solution_rejects_unselected_variable_gadget() {
             .extract_solution(&vec![false, false, false, false])
             .unwrap_err()
             .to_string(),
-        "variable 0 gadget must select exactly one vertex, got 0"
+        "target dominating set does not certify satisfiability"
     );
 }
 
@@ -177,7 +176,7 @@ fn test_extract_solution_rejects_selected_clause_vertex() {
             .extract_solution(&vec![true, false, false, true])
             .unwrap_err()
             .to_string(),
-        "clause vertex 0 is selected"
+        "target dominating set does not certify satisfiability"
     );
 }
 
@@ -262,5 +261,91 @@ fn test_jl_parity_sat_to_dominatingset() {
                 );
             }
         }
+    }
+}
+
+#[test]
+fn test_sat_to_dominatingset_native_certificates() {
+    use crate::traits::Problem;
+    for (n, clauses) in [
+        (0, vec![]),
+        (0, vec![vec![]]),
+        (1, vec![vec![1]]),
+        (1, vec![vec![1], vec![-1]]),
+        (2, vec![vec![2, -2, 2]]),
+        (2, vec![vec![1, 2]]),
+        (3, vec![vec![1, 3], vec![-1, -3]]),
+        (3, vec![vec![1], vec![]]),
+    ] {
+        let source = Satisfiability::new(n, clauses.into_iter().map(CNFClause::new).collect());
+        let result =
+            ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let target = result.target_problem();
+        assert!(std::ptr::eq(
+            target,
+            crate::rules::AggregateReductionResult::target_problem(&result)
+        ));
+        let mut accepted = false;
+        for mask in 0..(1usize << target.num_vertices()) {
+            let config: Vec<_> = (0..target.num_vertices())
+                .map(|i| mask & (1 << i) != 0)
+                .collect();
+            let value = target.evaluate(&config).unwrap();
+            let certificate = value == Min(Some(result.target_size));
+            assert_eq!(
+                crate::rules::AggregateReductionResult::extract_value(&result, value),
+                Or(certificate)
+            );
+            match result.extract_solution(&config) {
+                Ok(x) => {
+                    assert!(certificate);
+                    assert_eq!(source.evaluate(&x).unwrap(), Or(true));
+                    accepted = true;
+                }
+                Err(_) => assert!(!certificate),
+            }
+        }
+        assert_eq!(
+            accepted,
+            BruteForce::new().solve(&source).unwrap().is_some()
+        );
+        assert!(result
+            .extract_solution(&vec![false; target.num_vertices() + 1])
+            .is_err());
+    }
+}
+
+#[test]
+fn test_sat_to_dominatingset_sparse_declared_variables() {
+    for clauses in [vec![], vec![CNFClause::new(vec![i64::MAX])]] {
+        let source = Satisfiability::new(i64::MAX as usize, clauses);
+        let result =
+            ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        assert_eq!(result.num_literals(), i64::MAX as usize);
+        assert!(result.target_problem().num_vertices() <= 4);
+        // Construction is compact. Extracting an i64::MAX-length source vector
+        // is intentionally not attempted in a unit test.
+    }
+}
+
+#[test]
+fn test_sat_to_dominatingset_dimension_boundaries() {
+    assert_eq!(ReductionSATToDS::target_dimensions(0, 0).unwrap(), (0, 0));
+    assert_eq!(ReductionSATToDS::target_dimensions(2, 3).unwrap(), (9, 2));
+    assert!(ReductionSATToDS::target_dimensions(usize::MAX, 0).is_err());
+    assert!(ReductionSATToDS::target_dimensions(1, usize::MAX).is_err());
+    if usize::BITS == 64 {
+        let maximum = i64::MAX as usize;
+        assert_eq!(
+            ReductionSATToDS::target_dimensions(0, maximum).unwrap(),
+            (maximum, 0)
+        );
+        assert!(ReductionSATToDS::target_dimensions(0, maximum + 1).is_err());
+        let variables = maximum / 3;
+        assert_eq!(
+            ReductionSATToDS::target_dimensions(variables, maximum % 3).unwrap(),
+            (maximum, variables as i64)
+        );
+        assert!(ReductionSATToDS::target_dimensions(variables, maximum % 3 + 1).is_err());
     }
 }

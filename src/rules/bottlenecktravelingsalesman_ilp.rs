@@ -1,30 +1,18 @@
-//! Reduction from BottleneckTravelingSalesman to ILP (Integer Linear Programming).
-//!
-//! Cyclic position-assignment formulation with bottleneck variable:
-//! - Binary x_{v,p}: vertex v at position p (cyclic tour)
-//! - Binary z_{e,p,dir}: linearized consecutive-pair products
-//! - Integer bottleneck variable b >= w_e * z_{e,p,dir}
-//! - Objective: minimize b
+//! Bottleneck TSP to ILP using cyclic positions and a selected maximum edge.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BottleneckTravelingSalesman;
 use crate::reduction;
-use crate::rules::ilp_helpers::mccormick_product;
-use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
-/// Result of reducing BottleneckTravelingSalesman to ILP.
-///
-/// Variable layout (`ILP<i64>`, all non-negative):
-/// - `x_{v,p}` at index `v * n + p`, bounded to {0,1}
-/// - `z_{e,p,dir}` at index `n^2 + 2*(e*n + p) + dir`, bounded to {0,1}
-/// - `b` (bottleneck) at index `n^2 + 2*m*n`
+/// A tour is encoded by positions and distinct directed uses of source edges.
+/// One selected maximum-weight edge carries the exact objective coefficient.
 #[derive(Debug, Clone)]
 pub struct ReductionBTSPToILP {
     target: ILP<i64>,
     num_vertices: usize,
-    source_edges: Vec<(usize, usize)>,
+    num_edges: usize,
 }
 
 impl ReductionResult for ReductionBTSPToILP {
@@ -35,47 +23,70 @@ impl ReductionResult for ReductionBTSPToILP {
         &self.target
     }
 
-    /// Extract: decode tour from x variables, then mark selected edges.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.is_valid() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
+        let n = self.num_vertices;
+        Ok((0..self.num_edges)
+            .map(|edge| {
+                (0..2 * n).any(|offset| target_solution[n * n + 2 * n * edge + offset] == 1)
+            })
+            .collect())
+    }
+}
 
-        Ok({
-            let n = self.num_vertices;
-
-            let tour = one_hot_decode(target_solution, n, n, 0)?;
-
-            // Map tour to edge selection
-            let mut edge_selection = vec![false; self.source_edges.len()];
-            for p in 0..n {
-                let u = tour[p];
-                let v = tour[(p + 1) % n];
-                let edge = self
-                    .source_edges
-                    .iter()
-                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target tour uses absent source edge ({u}, {v})"
-                        ))
-                    })?;
-                edge_selection[edge] = true;
-            }
-
-            edge_selection
-        })
+impl ReductionBTSPToILP {
+    fn dimensions(
+        n: usize,
+        m: usize,
+    ) -> Result<(usize, usize, usize, usize), crate::rules::ReductionError> {
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<BottleneckTravelingSalesman, ILP<i64>>(
+                "sizing the cyclic edge-selection formulation",
+            )
+        };
+        let x = n.checked_mul(n).ok_or_else(overflow)?;
+        let z = n
+            .checked_mul(m)
+            .and_then(|v| v.checked_mul(2))
+            .ok_or_else(overflow)?;
+        let vars = x
+            .checked_add(z)
+            .and_then(|v| v.checked_add(m))
+            .ok_or_else(overflow)?;
+        let constraints = vars
+            .checked_add(z)
+            .and_then(|v| v.checked_add(z))
+            .and_then(|v| {
+                n.checked_add(m)
+                    .and_then(|extra| extra.checked_mul(3))
+                    .and_then(|extra| v.checked_add(extra))
+            })
+            .and_then(|v| v.checked_add(1))
+            .ok_or_else(overflow)?;
+        <BottleneckTravelingSalesman as ReduceTo<ILP<i64>>>::exact_i64(
+            vars,
+            "bounding binary constraint accumulation",
+        )?;
+        Ok((x, z, vars, constraints))
     }
 }
 
 #[reduction(
     transform = exact {
-        num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + 1",
-        num_constraints = "2 * num_vertices + num_vertices^2 + 2 * num_edges * num_vertices + 6 * num_edges * num_vertices + num_vertices + 2 * num_edges * num_vertices",
+        num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + num_edges",
+        num_constraints = "num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1",
     },
     unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "threshold comparisons depend on the ordering of edge weights",
     }
 )]
 impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
@@ -83,97 +94,100 @@ impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let graph = self.graph();
-        let edges = graph.edges();
+        let edges = self.graph().edges();
         let m = edges.len();
         let weights = self.weights();
-
-        let num_x = n * n;
-        let num_z = 2 * m * n;
-        let b_idx = num_x + num_z;
-        let num_vars = num_x + num_z + 1;
-
-        let x_idx = |v: usize, p: usize| -> usize { v * n + p };
-        let z_fwd_idx = |e: usize, p: usize| -> usize { num_x + 2 * (e * n + p) };
-        let z_rev_idx = |e: usize, p: usize| -> usize { num_x + 2 * (e * n + p) + 1 };
-
-        let mut constraints = Vec::new();
-
-        // Assignment: each vertex in exactly one position
-        for v in 0..n {
-            let terms: Vec<(usize, i64)> = (0..n).map(|p| (x_idx(v, p), 1)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1));
+        if weights.len() != m {
+            return Err(
+                crate::rules::ReductionError::invalid_target::<Self, ILP<i64>>(
+                    "edge weights must match the source edges",
+                ),
+            );
         }
-
-        // Assignment: each position has exactly one vertex
+        let (num_x, num_z, num_vars, num_constraints) = ReductionBTSPToILP::dimensions(n, m)?;
+        let x = |vertex: usize, position: usize| vertex * n + position;
+        let z = |edge: usize, position: usize, direction: usize| {
+            num_x + 2 * (edge * n + position) + direction
+        };
+        let q = |edge: usize| num_x + num_z + edge;
+        let uses = |edge: usize| {
+            (0..n)
+                .flat_map(move |p| [(z(edge, p, 0), 1), (z(edge, p, 1), 1)])
+                .collect::<Vec<_>>()
+        };
+        let mut constraints = Vec::with_capacity(num_constraints);
+        // ILP<i64> variables are nonnegative. Check binary bounds before sums.
+        for variable in 0..num_vars {
+            constraints.push(LinearConstraint::le(vec![(variable, 1)], 1));
+        }
+        for vertex in 0..n {
+            constraints.push(LinearConstraint::eq(
+                (0..n).map(|p| (x(vertex, p), 1)).collect(),
+                1,
+            ));
+        }
         for p in 0..n {
-            let terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v, p), 1)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1));
+            constraints.push(LinearConstraint::eq(
+                (0..n).map(|vertex| (x(vertex, p), 1)).collect(),
+                1,
+            ));
         }
-
-        // Binary bounds for x variables (`ILP<i64>` is non-negative integer)
-        for idx in 0..num_x {
-            constraints.push(LinearConstraint::le(vec![(idx, 1)], 1));
-        }
-
-        // Binary bounds for z variables
-        for idx in 0..num_z {
-            constraints.push(LinearConstraint::le(vec![(num_x + idx, 1)], 1));
-        }
-
-        // McCormick linearization for z variables (cyclic: position (p+1) mod n)
-        for (e, &(u, v)) in edges.iter().enumerate() {
+        // Choose one actual edge at each cyclic step. Parallel edges remain
+        // independent choices, and the two orientations of a loop are choices.
+        for (edge, &(u, v)) in edges.iter().enumerate() {
             for p in 0..n {
-                let p_next = (p + 1) % n;
-                // Forward: z_fwd = x_{u,p} * x_{v,p_next}
-                constraints.extend(mccormick_product(
-                    z_fwd_idx(e, p),
-                    x_idx(u, p),
-                    x_idx(v, p_next),
-                ));
-                // Reverse: z_rev = x_{v,p} * x_{u,p_next}
-                constraints.extend(mccormick_product(
-                    z_rev_idx(e, p),
-                    x_idx(v, p),
-                    x_idx(u, p_next),
-                ));
+                for (direction, a, b) in [(0, u, v), (1, v, u)] {
+                    constraints.push(LinearConstraint::le(
+                        vec![(z(edge, p, direction), 1), (x(a, p), -1)],
+                        0,
+                    ));
+                    constraints.push(LinearConstraint::le(
+                        vec![(z(edge, p, direction), 1), (x(b, (p + 1) % n), -1)],
+                        0,
+                    ));
+                }
             }
         }
-
-        // Adjacency: for each position p, exactly one edge in either direction
         for p in 0..n {
-            let mut terms = Vec::new();
-            for e in 0..m {
-                terms.push((z_fwd_idx(e, p), 1));
-                terms.push((z_rev_idx(e, p), 1));
-            }
-            constraints.push(LinearConstraint::eq(terms, 1));
+            constraints.push(LinearConstraint::eq(
+                (0..m)
+                    .flat_map(|edge| [(z(edge, p, 0), 1), (z(edge, p, 1), 1)])
+                    .collect(),
+                1,
+            ));
         }
-
-        // Bottleneck: b >= w_e * z_{e,p,dir} for all e, p, dir
-        for (e, &w) in weights.iter().enumerate() {
-            for p in 0..n {
-                constraints.push(LinearConstraint::ge(
-                    vec![(b_idx, 1), (z_fwd_idx(e, p), -w)],
-                    0,
-                ));
-                constraints.push(LinearConstraint::ge(
-                    vec![(b_idx, 1), (z_rev_idx(e, p), -w)],
-                    0,
-                ));
-            }
+        for edge in 0..m {
+            constraints.push(LinearConstraint::le(uses(edge), 1));
         }
-
-        // Objective: minimize b
-        let objective = vec![(b_idx, 1)];
-
+        // The selector is a used edge whose weight dominates every used edge.
+        // We compare weights without subtraction or negation, including MIN.
+        constraints.push(LinearConstraint::eq(
+            (0..m).map(|edge| (q(edge), 1)).collect(),
+            1,
+        ));
+        for edge in 0..m {
+            let mut threshold = uses(edge);
+            threshold.extend(
+                (0..m)
+                    .filter(|&other| weights[other] >= weights[edge])
+                    .map(|other| (q(other), -1)),
+            );
+            constraints.push(LinearConstraint::le(threshold, 0));
+            let mut selected = vec![(q(edge), 1)];
+            selected.extend(uses(edge).into_iter().map(|(var, _)| (var, -1)));
+            constraints.push(LinearConstraint::le(selected, 0));
+        }
+        let objective = weights
+            .into_iter()
+            .enumerate()
+            .map(|(edge, weight)| (q(edge), weight))
+            .collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
-
         Ok(ReductionBTSPToILP {
             target,
             num_vertices: n,
-            source_edges: edges,
+            num_edges: m,
         })
     }
 }

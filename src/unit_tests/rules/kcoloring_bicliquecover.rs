@@ -250,3 +250,118 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted, vec![0]);
 }
+
+#[test]
+fn test_kcoloring_to_bicliquecover_native_loops_are_infeasible() {
+    for n in [1, 4] {
+        for q in [0, 1, usize::MAX] {
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![(0, 0)]), q);
+            let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+            let target = reduction.target_problem();
+            assert_eq!(target.k(), 0);
+            assert_eq!(target.graph().left_edges(), &[(0, 0)]);
+            assert!(target.evaluate(&vec![]).unwrap().0.is_none());
+            assert!(BruteForce::new().solve(target).unwrap().is_none());
+            assert!(reduction.extract_solution(&vec![]).is_err());
+            if q == 0 {
+                assert!(source.evaluate(&vec![0; n]).is_err());
+            } else {
+                assert!(!source.evaluate(&vec![0; n]).unwrap().0);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_kcoloring_to_bicliquecover_normalizes_all_color_counts() {
+    for n in 0..=3 {
+        for q in [0, 1, 2, 3, 4, usize::MAX] {
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![]), q);
+            let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+            let target = reduction.target_problem();
+            assert_eq!(target.k(), n + q.min(n));
+            if q > 0 || n == 0 {
+                // Large native color labels are relabeled, not used as indices.
+                let coloring = vec![q.saturating_sub(1); n];
+                assert!(source.evaluate(&coloring).unwrap().0);
+                let witness = forward_witness(&source, &coloring);
+                assert!(target.evaluate(&witness).unwrap().0.is_some());
+                let decoded = reduction.extract_solution(&witness).unwrap();
+                assert!(source.evaluate(&decoded).unwrap().0);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    for invalid in [
+        vec![],
+        vec![vec![true; 7]; 4],
+        vec![vec![true; 8]; 4],
+        vec![vec![false; 8]; 4],
+    ] {
+        assert!(reduction.extract_solution(&invalid).is_err());
+    }
+    let valid = forward_witness(&source, &[0, 1]);
+    assert!(target.evaluate(&valid).unwrap().0.is_some());
+    let mut reordered = valid.clone();
+    reordered.reverse();
+    assert!(
+        source
+            .evaluate(&reduction.extract_solution(&reordered).unwrap())
+            .unwrap()
+            .0
+    );
+}
+
+#[test]
+fn test_kcoloring_to_bicliquecover_repeated_reversed_edges() {
+    let simple = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let repeated =
+        KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 0), (1, 2), (0, 1)]), 2);
+    let a = ReduceTo::<BicliqueCover>::reduce_to(&simple).unwrap();
+    let b = ReduceTo::<BicliqueCover>::reduce_to(&repeated).unwrap();
+    assert_eq!(
+        a.target_problem().graph().left_edges(),
+        b.target_problem().graph().left_edges()
+    );
+    let witness = forward_witness(&repeated, &[0, 1, 0]);
+    assert!(
+        repeated
+            .evaluate(&b.extract_solution(&witness).unwrap())
+            .unwrap()
+            .0
+    );
+}
+
+#[test]
+fn test_kcoloring_to_bicliquecover_all_single_vertex_target_configs() {
+    for q in 0..=1 {
+        let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), q);
+        let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        let bits = target.k() * target.num_vertices();
+        let mut feasible = false;
+        for mask in 0..(1usize << bits) {
+            let config: Vec<Vec<bool>> = (0..target.k())
+                .map(|r| {
+                    (0..target.num_vertices())
+                        .map(|v| mask & (1 << (r * target.num_vertices() + v)) != 0)
+                        .collect()
+                })
+                .collect();
+            let value = target.evaluate(&config).unwrap();
+            let decoded = reduction.extract_solution(&config);
+            assert_eq!(decoded.is_ok(), value.0.is_some());
+            if let Ok(coloring) = decoded {
+                feasible = true;
+                assert!(source.evaluate(&coloring).unwrap().0);
+            }
+        }
+        assert_eq!(feasible, q > 0);
+    }
+}

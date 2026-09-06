@@ -2,7 +2,10 @@
 //!
 //! Based on the Eswaran & Tarjan (1976) approach:
 //!
-//! Given a Hamiltonian Circuit instance G = (V, E) with n vertices, construct a
+//! For n < 3, the source has no circuit: output three isolated vertices with
+//! no candidate edges and budget zero, a fixed infeasible target.
+//!
+//! Given a Hamiltonian Circuit instance G = (V, E) with n >= 3 vertices, construct a
 //! BiconnectivityAugmentation instance as follows:
 //!
 //! 1. Start with an edgeless graph on n vertices.
@@ -48,7 +51,13 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target augmentation is infeasible",
+            ));
+        }
 
         Ok({
             let n = self.num_vertices;
@@ -109,8 +118,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
 }
 
 #[reduction(
-    transform = exact {
-        num_vertices = "num_vertices",
+    transform = upper_bound {
+        num_vertices = "num_vertices + 3",
         num_edges = "0",
         num_potential_edges = "num_vertices * (num_vertices - 1) / 2",
     }
@@ -120,6 +129,13 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircu
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
+        if n < 3 {
+            return Ok(ReductionHamiltonianCircuitToBiconnectivityAugmentation {
+                target: BiconnectivityAugmentation::new(SimpleGraph::empty(3), vec![], 0),
+                num_vertices: n,
+                potential_edges: vec![],
+            });
+        }
         let graph = self.graph();
 
         // Edgeless initial graph

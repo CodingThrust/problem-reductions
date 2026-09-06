@@ -1,33 +1,38 @@
-//! Reduction from KSatisfiability (3-SAT) to MonochromaticTriangle.
+//! Reduction from 3-SAT to edge colouring without monochromatic triangles.
 //!
-//! For each variable, create positive/negative literal vertices joined by a
-//! negation edge. Each clause adds three fresh intermediates that form a clause
-//! triangle, plus six fan edges from the clause literals to those intermediates.
-//! The resulting graph has a triangle-free 2-edge-coloring iff the source
-//! formula is satisfiable.
+//! The construction uses the signal-sender framework of Burr, Erdős and Lovász
+//! (On graphs of Ramsey type, 1976). Here an equality sender is two K5 copies
+//! sharing a private triangle: their two complementary edges must have the same
+//! colour. NAE clause triangles are linked to disjoint literal signal edges by
+//! these senders, so their colour constraints actually encode the formula.
+//!
+//! See the full sender, composition and extraction proof in reductions.typ.
 
-use crate::models::formula::KSatisfiability;
+use crate::models::formula::{KSatisfiability, NAESatisfiability, Satisfiability};
 use crate::models::graph::MonochromaticTriangle;
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
+use crate::rules::satisfiability_naesatisfiability::ReductionSATToNAESAT;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
 use crate::variant::K3;
-use std::collections::HashMap;
 
-fn normalized_edge(u: usize, v: usize) -> (usize, usize) {
-    if u < v {
-        (u, v)
-    } else {
-        (v, u)
-    }
-}
-
-fn literal_vertex(num_vars: usize, literal: i64) -> usize {
-    if literal > 0 {
-        literal as usize - 1
-    } else {
-        num_vars + literal.unsigned_abs() as usize - 1
+/// Append the fifteen nonterminal edges of an equality sender.
+///
+/// The terminal edges already exist and have four distinct endpoints. The
+/// three vertices starting at `private` belong only to this sender. Both K5
+/// copies induce the same private triangle; their complementary edges have
+/// its majority colour in every valid colouring. Either equal colour extends.
+fn add_equality_sender(
+    edges: &mut Vec<(usize, usize)>,
+    first: (usize, usize),
+    second: (usize, usize),
+    private: usize,
+) {
+    let [u, v, w] = [private, private + 1, private + 2];
+    edges.extend([(u, v), (u, w), (v, w)]);
+    for endpoint in [first.0, first.1, second.0, second.1] {
+        edges.extend([(endpoint, u), (endpoint, v), (endpoint, w)]);
     }
 }
 
@@ -35,8 +40,7 @@ fn literal_vertex(num_vars: usize, literal: i64) -> usize {
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToMonochromaticTriangle {
     target: MonochromaticTriangle<SimpleGraph>,
-    source: KSatisfiability<K3>,
-    negation_edge_indices: Vec<usize>,
+    nae_reduction: ReductionSATToNAESAT,
 }
 
 impl ReductionResult for Reduction3SATToMonochromaticTriangle {
@@ -52,92 +56,108 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        let direct: Vec<bool> = self
-            .negation_edge_indices
-            .iter()
-            .map(|&edge_idx| !target_solution[edge_idx])
+        let nae_solution = (0..self.nae_reduction.target_problem().num_vars())
+            .map(|index| target_solution[2 * index])
             .collect();
-        if self.source.evaluate(&direct)?.0 {
-            return Ok(direct);
-        }
-
-        let complement: Vec<bool> = direct.iter().map(|&value| !value).collect();
-        if self.source.evaluate(&complement)?.0 {
-            return Ok(complement);
-        }
-
-        Err(crate::rules::ExtractionError::invalid(
-            "target coloring does not map to a satisfying source assignment",
-        ))
+        // Reuse the formal SAT -> NAE extraction (including sentinel
+        // normalization); no assignment search or speculative complement.
+        self.nae_reduction.extract_solution(&nae_solution)
     }
 }
 
 #[reduction(
-    transform = exact {
-        num_vertices = "2 * num_vars + 3 * num_clauses",
-        num_edges = "num_vars + 9 * num_clauses",
-    },
-    unavailable = {
-        num_triangles = "the exact target parameter is not represented by this reduction's symbolic transform",
+    transform = upper_bound {
+        num_vertices = "16 * num_vars + 40 * num_clauses + 16",
+        num_edges = "50 * num_vars + 146 * num_clauses + 50",
+        num_triangles = "58 * num_vars + 174 * num_clauses + 58",
     }
 )]
 impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToMonochromaticTriangle;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let num_vars = self.num_vars();
-        let num_clauses = self.num_clauses();
-        let mut edges = Vec::with_capacity(num_vars + 9 * num_clauses);
+        let sat = ReduceTo::<Satisfiability>::reduce_to(self)?;
+        let nae_reduction = ReduceTo::<NAESatisfiability>::reduce_to(sat.target_problem())?;
+        let nae = nae_reduction.target_problem();
+        let auxiliary_count = nae.clauses().iter().filter(|c| c.len() == 4).count();
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, MonochromaticTriangle<SimpleGraph>>(
+                "computing signal-sender graph size",
+            )
+        };
+        let variable_count = nae
+            .num_vars()
+            .checked_add(auxiliary_count)
+            .ok_or_else(overflow)?;
+        let triple_count = variable_count
+            .checked_add(nae.num_clauses())
+            .and_then(|n| n.checked_add(auxiliary_count))
+            .ok_or_else(overflow)?;
+        let num_vertices = variable_count
+            .checked_mul(4)
+            .and_then(|n| triple_count.checked_mul(12).and_then(|t| n.checked_add(t)))
+            .ok_or_else(overflow)?;
+        let num_edges = variable_count
+            .checked_mul(2)
+            .and_then(|n| triple_count.checked_mul(48).and_then(|t| n.checked_add(t)))
+            .ok_or_else(overflow)?;
 
-        for var in 0..num_vars {
-            edges.push((var, num_vars + var));
+        let mut variables =
+            SatVariableAllocator::new("KSatisfiability -> MonochromaticTriangle", nae.num_vars())
+                .map_err(
+                crate::rules::ReductionError::construction::<
+                    Self,
+                    MonochromaticTriangle<SimpleGraph>,
+                >,
+            )?;
+        let mut triples = Vec::with_capacity(triple_count);
+        for index in 0..variable_count {
+            let literal = i64::try_from(index + 1).map_err(|_| overflow())?;
+            triples.push([literal, literal, -literal]);
+        }
+        for clause in nae.clauses() {
+            let literals = &clause.literals;
+            if literals.len() == 4 {
+                let z = variables.allocate().map_err(
+                    crate::rules::ReductionError::construction::<
+                        Self,
+                        MonochromaticTriangle<SimpleGraph>,
+                    >,
+                )?;
+                triples.push([literals[0], literals[1], z]);
+                triples.push([-z, literals[2], literals[3]]);
+            } else {
+                // NAE(a,b) = NAE(a,b,b). Formal SAT -> NAE produces only
+                // lengths 2, 3 and 4, including NAE(s,s) for an empty clause.
+                triples.push([literals[0], literals[1], literals[literals.len() - 1]]);
+            }
         }
 
-        for (clause_idx, clause) in self.clauses().iter().enumerate() {
-            let clause_base = 2 * num_vars + 3 * clause_idx;
-            let m12 = clause_base;
-            let m13 = clause_base + 1;
-            let m23 = clause_base + 2;
-            let literal_vertices: Vec<usize> = clause
-                .literals
-                .iter()
-                .map(|&literal| literal_vertex(num_vars, literal))
-                .collect();
-            let v1 = literal_vertices[0];
-            let v2 = literal_vertices[1];
-            let v3 = literal_vertices[2];
-
-            edges.extend_from_slice(&[
-                (v1, m12),
-                (v2, m12),
-                (v1, m13),
-                (v3, m13),
-                (v2, m23),
-                (v3, m23),
-                (m12, m13),
-                (m12, m23),
-                (m13, m23),
-            ]);
+        let mut edges = Vec::with_capacity(num_edges);
+        for index in 0..variable_count {
+            edges.extend([(4 * index, 4 * index + 1), (4 * index + 2, 4 * index + 3)]);
         }
-
-        let target =
-            MonochromaticTriangle::new(SimpleGraph::new(2 * num_vars + 3 * num_clauses, edges));
-        let edge_indices: HashMap<(usize, usize), usize> = target
-            .edge_list()
-            .iter()
-            .copied()
-            .enumerate()
-            .map(|(idx, (u, v))| (normalized_edge(u, v), idx))
-            .collect();
-        let negation_edge_indices = (0..num_vars)
-            .map(|var| edge_indices[&normalized_edge(var, num_vars + var)])
-            .collect();
-
+        // All following offsets are bounded by the checked total above.
+        let mut next_vertex = 4 * variable_count;
+        for triple in triples {
+            let [a, b, c] = [next_vertex, next_vertex + 1, next_vertex + 2];
+            next_vertex += 3;
+            let sides = [(a, b), (a, c), (b, c)];
+            edges.extend(sides);
+            for (literal, side) in triple.into_iter().zip(sides) {
+                let index = usize::try_from(literal.unsigned_abs() - 1)
+                    .expect("validated SAT variable index fits usize");
+                let endpoint = 4 * index + if literal < 0 { 2 } else { 0 };
+                add_equality_sender(&mut edges, (endpoint, endpoint + 1), side, next_vertex);
+                next_vertex += 3;
+            }
+        }
+        debug_assert_eq!(next_vertex, num_vertices);
+        debug_assert_eq!(edges.len(), num_edges);
+        let target = MonochromaticTriangle::new(SimpleGraph::new(num_vertices, edges));
         Ok(Reduction3SATToMonochromaticTriangle {
             target,
-            source: self.clone(),
-            negation_edge_indices,
+            nae_reduction,
         })
     }
 }
@@ -146,21 +166,17 @@ impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
     use crate::models::formula::CNFClause;
-    use crate::solvers::BruteForce;
+    use crate::solvers::ILPSolver;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_monochromatictriangle",
         build: || {
             let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-            let reduction =
-                <KSatisfiability<K3> as ReduceTo<MonochromaticTriangle<SimpleGraph>>>::reduce_to(
-                    &source,
-                )
+            let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source)
                 .expect("reduction should succeed");
-            let target_config = BruteForce::new()
+            let target_config = ILPSolver::new()
                 .solve(reduction.target_problem())
-                .expect("canonical target evaluation must succeed")
-                .expect("canonical MonochromaticTriangle example must be feasible");
+                .expect("canonical target must be colourable");
             let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,

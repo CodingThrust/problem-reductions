@@ -35,7 +35,7 @@ fn test_ksatisfiability_to_quadraticdiophantineequations_closed_loop() {
 }
 
 #[test]
-fn test_ksatisfiability_to_quadraticdiophantineequations_yes_vector_matches_reference() {
+fn test_ksatisfiability_to_quadraticdiophantineequations_canonical_witness() {
     let source = canonical_source();
     let reduction = ReduceTo::<QuadraticDiophantineEquations>::reduce_to(&source)
         .expect("reduction should succeed");

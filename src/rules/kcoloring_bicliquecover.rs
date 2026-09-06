@@ -3,13 +3,13 @@
 //! Self-contained gadget: given a KColoring instance `(G, q)` with `n = |V|`
 //! and `m = |E|`, build a bipartite graph `H = (L, R, F)` with `2n` left
 //! vertices and `2n` right vertices, and ask for a biclique cover of `H`
-//! using `n + q` sub-bicliques. The construction is designed so that
+//! using `n + min(q, n)` sub-bicliques. The construction is designed so that
 //! exactly `n` of the bicliques are forced to cover guard-anchor edges,
 //! leaving at most `q` bicliques to cover the `n` diagonal edges
 //! `(a_v, b_v)`. These remaining bicliques behave as color classes: two
 //! source vertices may share one only when they are nonadjacent in `G`.
 //!
-//! See issue #1058 for the full proof sketch.
+//! The paper contains the full proof, including native loops and repeated edges.
 //!
 //! ## Vertex layout
 //!
@@ -72,7 +72,13 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.0.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target configuration is not a biclique cover",
+            ));
+        }
 
         Ok({
             let n = self.num_vertices;
@@ -116,12 +122,12 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
 }
 
 #[reduction(
-    transform = exact {
-        left_size = "2 * num_vertices",
-        num_vertices = "4 * num_vertices",
-        num_edges = "2 * num_vertices * (num_vertices - 1) - 4 * num_edges + 3 * num_vertices",
-        rank = "num_vertices + num_colors",
-        right_size = "2 * num_vertices",
+    transform = upper_bound {
+        left_size = "2 * num_vertices + 1",
+        num_vertices = "4 * num_vertices + 2",
+        num_edges = "2 * num_vertices^2 + num_vertices + 1",
+        rank = "2 * num_vertices",
+        right_size = "2 * num_vertices + 1",
     }
 )]
 impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
@@ -129,12 +135,24 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
-        let q = self.num_colors();
+        // Relabeling the used colors preserves feasibility with at most n colors.
+        // Native node storage bounds make 4*n and n+min(q,n) fit usize.
+        let q = self.num_colors().min(n);
+        let native_edges = self.graph().edges();
+        if native_edges.iter().any(|&(u, v)| u == v) {
+            // A loop cannot be properly colored. A single edge cannot be
+            // covered with zero bicliques, giving a fixed NO instance.
+            return Ok(ReductionKColoringToBicliqueCover {
+                target: BicliqueCover::new(BipartiteGraph::new(1, 1, vec![(0, 0)]), 0),
+                num_vertices: n,
+                num_colors: q,
+            });
+        }
 
         // Build the set of source edges as an undirected lookup so the
-        // construction can skip endpoints {u,v} in E in O(1).
+        // construction can test endpoints {u,v} in E in O(log m).
         let mut source_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
-        for (u, v) in self.graph().edges() {
+        for (u, v) in native_edges {
             let (a, b) = if u <= v { (u, v) } else { (v, u) };
             source_edges.insert((a, b));
         }
@@ -229,7 +247,7 @@ pub(crate) fn forward_witness(
     coloring: &[usize],
 ) -> Vec<Vec<bool>> {
     let n = source.graph().num_vertices();
-    let q = source.num_colors();
+    let q = source.num_colors().min(n);
     let k = n + q;
     let left_size = 2 * n;
     let num_vertices = 4 * n;

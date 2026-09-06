@@ -6,7 +6,7 @@
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
-use crate::types::{Min, WeightElement};
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -16,12 +16,12 @@ inventory::submit! {
         display_name: "Minimum Feedback Vertex Set",
         aliases: &["FVS"],
         dimensions: &[
-            VariantDimension::new("weight", "i64", &["i64"]),
+            VariantDimension::new("weight", "i64", &["i64", "One"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight feedback vertex set in a directed graph",
-        fields: MinimumFeedbackVertexSetCreateSpec::FIELDS,
+        fields: MinimumFeedbackVertexSetCreateSpec::<i64>::FIELDS,
     }
 }
 
@@ -58,17 +58,19 @@ pub struct MinimumFeedbackVertexSet<W> {
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
-struct MinimumFeedbackVertexSetCreateSpec {
+struct MinimumFeedbackVertexSetCreateSpec<W> {
     /// The directed graph.
     graph: DirectedGraph,
     /// Vertex weights; defaults to one per vertex.
-    weights: Option<Vec<i64>>,
+    weights: Option<Vec<W>>,
 }
-impl TryFrom<MinimumFeedbackVertexSetCreateSpec> for MinimumFeedbackVertexSet<i64> {
+impl<W: WeightElement> TryFrom<MinimumFeedbackVertexSetCreateSpec<W>>
+    for MinimumFeedbackVertexSet<W>
+{
     type Error = crate::registry::ConstructionError;
-    fn try_from(spec: MinimumFeedbackVertexSetCreateSpec) -> Result<Self, Self::Error> {
+    fn try_from(spec: MinimumFeedbackVertexSetCreateSpec<W>) -> Result<Self, Self::Error> {
         let count = spec.graph.num_vertices();
-        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        let weights = spec.weights.unwrap_or_else(|| vec![W::unit(); count]);
         if weights.len() != count {
             return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
         }
@@ -189,28 +191,41 @@ where
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackVertexSet<i64> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec,
+    default MinimumFeedbackVertexSet<i64> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec<i64>,
+    MinimumFeedbackVertexSet<One> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec<One>,
 }
 
 crate::register_brute_force! {
     MinimumFeedbackVertexSet<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MinimumFeedbackVertexSet<One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::DirectedGraph;
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_feedback_vertex_set",
-        instance: Box::new(MinimumFeedbackVertexSet::new(
-            DirectedGraph::new(
-                5,
-                vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
-            ),
-            vec![1i64; 5],
-        )),
-        optimal_config: serde_json::json!(vec![true, false, false, false, false]),
-        optimal_value: serde_json::json!(1),
-    }]
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "minimum_feedback_vertex_set",
+            instance: Box::new(MinimumFeedbackVertexSet::new(
+                DirectedGraph::new(
+                    5,
+                    vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
+                ),
+                vec![1i64; 5],
+            )),
+            optimal_config: serde_json::json!(vec![true, false, false, false, false]),
+            optimal_value: serde_json::json!(1),
+        },
+        crate::example_db::specs::ModelExampleSpec {
+            id: "minimum_feedback_vertex_set_unit",
+            instance: Box::new(MinimumFeedbackVertexSet::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+                vec![One; 3],
+            )),
+            optimal_config: serde_json::json!(vec![true, false, false]),
+            optimal_value: serde_json::json!(1),
+        },
+    ]
 }
 
 /// Check if a set of vertices is a feedback vertex set (removing them makes the graph a DAG).

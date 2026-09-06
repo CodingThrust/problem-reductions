@@ -86,3 +86,58 @@ fn test_monochromatic_triangle_to_ilp_extract_solution_identity() {
     assert_eq!(extracted, vec![false, false, true, true, false, true]);
     assert!(problem.evaluate(&extracted).unwrap());
 }
+
+#[test]
+fn test_monochromatictriangle_to_ilp_preserves_every_small_coloring() {
+    use crate::traits::Problem;
+    // Every labelled subgraph of K5 and every edge colouring: 3^10 cases.
+    let pairs: Vec<_> = (0..5)
+        .flat_map(|u| (u + 1..5).map(move |v| (u, v)))
+        .collect();
+    for mask in 0..(1 << 10) {
+        let edges: Vec<_> = pairs
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &edge)| (mask & (1 << i) != 0).then_some(edge))
+            .collect();
+        let source = MonochromaticTriangle::new(SimpleGraph::new(5, edges));
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        for bits in 0..(1 << source.num_edges()) {
+            let coloring: Vec<_> = (0..source.num_edges())
+                .map(|i| bits & (1 << i) != 0)
+                .collect();
+            let assignment = coloring.iter().map(|&value| i64::from(value)).collect();
+            assert_eq!(
+                source.evaluate(&coloring).unwrap().0,
+                reduction
+                    .target_problem()
+                    .evaluate(&assignment)
+                    .unwrap()
+                    .is_valid()
+            );
+        }
+    }
+}
+
+#[test]
+fn test_monochromatictriangle_to_ilp_shared_k5_all_colorings() {
+    let mut edges = vec![(0, 1), (2, 3), (4, 5), (4, 6), (5, 6)];
+    edges.extend((0..4).flat_map(|u| (4..7).map(move |v| (u, v))));
+    let source = MonochromaticTriangle::new(SimpleGraph::new(7, edges));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().num_constraints(), 49);
+    for bits in 0..(1 << source.num_edges()) {
+        let coloring: Vec<_> = (0..source.num_edges())
+            .map(|i| bits & (1 << i) != 0)
+            .collect();
+        let assignment = coloring.iter().map(|&value| i64::from(value)).collect();
+        assert_eq!(
+            source.evaluate(&coloring).unwrap().0,
+            reduction
+                .target_problem()
+                .evaluate(&assignment)
+                .unwrap()
+                .is_valid()
+        );
+    }
+}

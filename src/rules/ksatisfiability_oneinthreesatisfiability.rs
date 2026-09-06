@@ -1,14 +1,21 @@
 //! Reduction from KSatisfiability (3-SAT) to One-In-Three Satisfiability.
+//!
+//! Schaefer's Lemma 3.5 (STOC 1978) expresses a three-input disjunction
+//! using five one-in-three constraints. Missing native clause positions
+//! use the forced false variable; appearing source variables are compacted
+//! and restored through an inverse map during extraction.
 
 use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToOneInThreeSAT {
     source_num_vars: usize,
+    source_variables: Vec<usize>,
     target: OneInThreeSatisfiability,
 }
 
@@ -24,14 +31,23 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution[..self.source_num_vars].to_vec())
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target assignment does not satisfy every one-in-three clause",
+            ));
+        }
+        let mut assignment = vec![false; self.source_num_vars];
+        for (compact, &original) in self.source_variables.iter().enumerate() {
+            assignment[original] = target_solution[compact];
+        }
+        Ok(assignment)
     }
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_vars + 2 + 6 * num_clauses",
         num_clauses = "1 + 5 * num_clauses",
     })]
@@ -40,9 +56,19 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_num_vars = self.num_vars();
+        let source_variables: Vec<_> = self
+            .clauses()
+            .iter()
+            .flat_map(|clause| clause.literals.iter())
+            .map(|literal| {
+                usize::try_from(literal.unsigned_abs()).expect("native SAT indices fit usize") - 1
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
         let mut variables = SatVariableAllocator::new(
             "KSatisfiability -> OneInThreeSatisfiability",
-            source_num_vars,
+            source_variables.len(),
         )
         .map_err(
             crate::rules::ReductionError::construction::<
@@ -73,14 +99,20 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
         clauses.push(CNFClause::new(vec![z_false, z_false, z_true]));
 
         for clause in self.clauses() {
-            let [l1, l2, l3] = clause.literals.as_slice() else {
-                return Err(crate::rules::ReductionError::invalid_target::<
-                    KSatisfiability<K3>,
-                    OneInThreeSatisfiability,
-                >(
-                    "source K3 clause does not contain exactly three literals"
-                ));
-            };
+            // Adding false disjuncts preserves every native clause, including
+            // the empty disjunction, while using the same three-input gadget.
+            let mut literals = [z_false; 3];
+            for (position, &literal) in clause.literals.iter().enumerate() {
+                let original = usize::try_from(literal.unsigned_abs())
+                    .expect("native SAT indices fit usize")
+                    - 1;
+                let compact = source_variables
+                    .binary_search(&original)
+                    .expect("all appearing variables were collected");
+                let variable = i64::try_from(compact + 1).expect("compact SAT indices fit i64");
+                literals[position] = if literal > 0 { variable } else { -variable };
+            }
+            let [l1, l2, l3] = literals;
             let allocated = variables.allocate_many(6).map_err(
                 crate::rules::ReductionError::construction::<
                     KSatisfiability<K3>,
@@ -96,17 +128,20 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
                 ));
             };
 
-            clauses.push(CNFClause::new(vec![*l1, *a, *d]));
-            clauses.push(CNFClause::new(vec![*l2, *b, *d]));
+            clauses.push(CNFClause::new(vec![l1, *a, *d]));
+            clauses.push(CNFClause::new(vec![l2, *b, *d]));
             clauses.push(CNFClause::new(vec![*a, *b, *e]));
             clauses.push(CNFClause::new(vec![*c, *d, *f]));
-            clauses.push(CNFClause::new(vec![*l3, *c, z_false]));
+            clauses.push(CNFClause::new(vec![l3, *c, z_false]));
         }
 
-        let target = OneInThreeSatisfiability::new(variables.num_vars(), clauses);
+        let target = OneInThreeSatisfiability::try_new(variables.num_vars(), clauses).map_err(
+            crate::rules::ReductionError::construction::<Self, OneInThreeSatisfiability>,
+        )?;
 
         Ok(Reduction3SATToOneInThreeSAT {
             source_num_vars,
+            source_variables,
             target,
         })
     }

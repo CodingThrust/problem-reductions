@@ -185,6 +185,7 @@
   "CyclicOrdering": [Cyclic Ordering],
   "AcyclicPartition": [Acyclic Partition],
   "MaximumIndependentSet": [Maximum Independent Set],
+  "DecisionMaximumIndependentSet": [Decision Maximum Independent Set],
   "MaximumLeafSpanningTree": [Maximum Leaf Spanning Tree],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
@@ -2735,6 +2736,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("KColoring")[
       Given $G = (V, E)$ and a positive integer $k$, determine whether there exists a proper $k$-coloring $c: V -> {1, ..., k}$ such that $c(u) eq.not c(v)$ for every $(u, v) in E$.
     ][
+    Fixed variants derive their color count from the type parameter; a serialized `num_colors` that disagrees with that fixed count is rejected. The `KN` variant stores its color count at runtime.
+
     Graph coloring arises in register allocation, frequency assignment, and scheduling @garey1979. Deciding $k$-colorability is NP-complete for $k >= 3$ but solvable in $O(n+m)$ for $k=2$ via bipartiteness testing. For $k = 3$, the best known algorithm runs in $O^*(1.3289^n)$ @beigel2005; for $k = 4$ in $O^*(1.7159^n)$ @wu2024; for $k = 5$ in $O^*((2-epsilon)^n)$ @zamir2021. In general, inclusion-exclusion achieves $O^*(2^n)$ @bjorklund2009.
 
     *Example.* Consider the house graph $G$ with $k = #k$ colors. The coloring #range(nv).map(i => $c(v_#i) = #(coloring.at(i) + 1)$).join(", ") is proper: no adjacent pair shares a color, so the number of conflicts is 0. The house graph has chromatic number $chi(G) = #k$ because the triangle $(v_2, v_3, v_4)$ requires #k colors.
@@ -3719,7 +3722,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("MinimumFeedbackVertexSet")
+  let x = load-model-example("MinimumFeedbackVertexSet", variant: (weight: "i64"))
   let nv = graph-num-vertices(x.instance)
   let ne = x.instance.graph.arcs.len()
   let arcs = x.instance.graph.arcs
@@ -11540,7 +11543,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example: true,
   example-source-variant: (graph: "SimpleGraph", weight: "One"),
   example-target-variant: (graph: "SimpleGraph", weight: "One"),
-  example-caption: [6-vertex unit graph: dominating set of size 2 equals a 2-center of radius 1],
+  example-caption: [6-vertex source: two auxiliary centers encode the domination threshold],
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
@@ -11550,18 +11553,18 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     )
     *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
-    *Step 2 -- Build the target instance.* Keep the graph unchanged, assign weight $1$ to every vertex, assign length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore still has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
+    *Step 2 -- Build the target instance.* Append two isolated vertices, assign weight $1$ to every vertex and length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
 
-    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the maximum weighted distance is $1$. The extracted source witness is the same indicator vector, hence a dominating set of size $2$ #sym.checkmark
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1, 0, 0)$ to the nearest center, so the maximum weighted distance is $1$. Discarding the two auxiliary center bits recovers a dominating set of size $2$ #sym.checkmark
   ],
 )[
-  This $O(n + m)$ parameter-setting reduction @garey1979[ND50] keeps the graph unchanged, replaces all vertex weights and edge lengths by $1$, and copies the decision budget $K$ into the target center count $k$. On such unit graphs, a $k$-center solution of radius at most $1$ exists exactly when every vertex is itself chosen or adjacent to a chosen vertex, which is the dominating-set condition.
+  The radius-threshold relation between centers and dominating sets @hochbaumshmoys1985 is extended here to all signed source bounds using two mandatory isolated centers. This $O(n+m+1)$ construction preserves the existing endpoint variants.
 ][
-  _Construction._ Given a unit-weight decision dominating-set instance $(G = (V, E), K)$, build a Min-Max Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$.
+  _Construction._ For source graph $G=(V,E)$ with $n$ vertices and integer bound $K$, set $q=max(-1,min(K,n))$. Add isolated vertices $a=n$ and $b=n+1$, leaving every original edge record unchanged. Give all vertices and edges unit weights and lengths, and require exactly $k=q+2$ centers. Then $1<=k<=n+2$ for every input, including an empty graph.
 
-  _Correctness._ ($arrow.r.double$) If $D subset.eq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every vertex is then either a center (distance $0$) or adjacent to one (distance $1$), so the target maximum weighted distance is at most $1$. ($arrow.l.double$) If a set $P subset.eq V$ of exactly $K$ centers has maximum weighted distance at most $1$, then every vertex lies at graph distance $0$ or $1$ from some vertex of $P$. Hence every vertex is either in $P$ or adjacent to a vertex of $P$, so $P$ is a dominating set of size $K$.
+  _Correctness._ Every finite target placement must select both isolated vertices. If a source dominating set $D$ has $|D|<=K$, then $q>=0$ and $|D|<=q<=n$. Extend $D$ to $q$ original vertices and add $a,b$. This placement has $k$ centers and radius at most $1$, proving the forward direction. Conversely, a target placement of radius at most $1$ selects both isolates and exactly $q$ original vertices. Each original vertex is within one original edge of a selected vertex, so those $q<=K$ vertices dominate $G$. For $K<0$, $k=1$ cannot cover both isolates and the target has no finite placement. For $n=0,K>=0$, the two isolates form a radius-zero placement. Loops and repeated edges preserve this reasoning.
 
-  _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
+  _Solution extraction and NO instances._ Evaluate the full target indicator first. A finite radius at most $1$ permits extraction of its first $n$ bits. Any larger radius or infeasible placement is rejected. The formal aggregate map sends an optimum $r<=1$ to true, and an optimum $r>1$ or infeasibility to false. In particular, a four-vertex path with $K=1$ produces optimum radius $2$, not an infeasible target. Checked parameter arithmetic precedes allocation; unrepresentable counts return the formal numeric error. Target sizes are exactly $n+2$ vertices and $m$ edge records.
 ]
 
 #let dmds_msmc = load-example(
@@ -11812,19 +11815,15 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     Source VC witness $(#fmt-values(dmvc_cc_sol.source_config))$, target containment indicator $(#fmt-values(dmvc_cc_sol.target_config))$.
   ],
 )[
-  Plaisted's reduction @plaisted1976 encodes a unit-weight Decision Vertex Cover instance $(G = (V, E), K)$ as a Comparative Containment instance on universe $X = V$. Each vertex contributes a complement set with unit reward; each edge contributes a complement-of-edge penalty set with weight $|V| + 1$ that dominates the total reward whenever the edge is uncovered; and a single budget set with weight $|V| - K$ enforces the cardinality bound.
+  This signed-weight extension of the complement-set encoding for Comparative Containment (Garey--Johnson SP10 @garey1979, credited there to @plaisted1976) preserves the existing `i64` Decision Vertex Cover endpoint. It handles negative and zero vertex weights without changing the target's positive-weight definition.
 ][
-  _Construction._ Given a unit-weight VC instance $(G = (V, E), K)$ with $n = |V|$, set the universe $X = V$ and define:
-  - For each vertex $v in V$, the reward set $R_v = V without {v}$ with weight $w(R_v) = 1$. Then $Y subset.eq R_v$ iff $v in.not Y$, so $sum_(Y subset.eq R_v) w(R_v) = n - |Y|$.
-  - For each edge $e = {u, v} in E$, the edge-penalty set $S_e = V without {u, v}$ with weight $w(S_e) = n + 1$. Then $Y subset.eq S_e$ iff neither $u$ nor $v$ lies in $Y$, i.e.\ iff $e$ is uncovered.
-  - A budget set $S_0 = V$ with weight $w(S_0) = n - K$. Since $Y subset.eq V$ always holds, this set contributes the constant penalty $n - K$.
+  _Construction._ For vertex weights $w_v$ and threshold $K$, define $U=sum_v max(w_v,0)$, $L=sum_v min(w_v,0)$, $W=U+L$, $B=min(K,U)$, $C=B-W$, and $P=U-L+1$. Use universe $X=V$. Process the signed terms $(V without {v},w_v)$ in vertex order and then $(V,C)$: put positive terms in $R$, negative terms in $S$ with their negated coefficients, and omit zero terms. Finally, for each edge record $(u,v)$, append $(V without {u,v},P)$ to $S$ in edge order.
 
-  The containment inequality becomes $n - |Y| >= (n + 1) dot (\#"uncovered edges") + (n - K)$, which simplifies to
-  $ K - |Y| >= (n + 1) dot (\#"uncovered edges"). $
+  _Correctness._ For subset $Y$, let $q(Y)$ count uncovered edge records and $w(Y)=sum_(v in Y)w_v$. The difference between the two containment totals is
+  $ D(Y)=C+sum_(v in.not Y)w_v-P q(Y)=B-w(Y)-P q(Y). $
+  Every subset has $L<=w(Y)<=U$, so the thresholds $K$ and $B$ are equivalent. A cover meeting the source bound has $q(Y)=0$ and $D(Y)>=0$, proving the forward direction. Conversely, an uncovered edge would imply $D(Y)<=U-L-P=-1$, contradicting target feasibility. Thus any feasible target subset covers all edges and satisfies $w(Y)<=B<=K$. This also forces selection of looped vertices; repeated edges repeat the same constraint. Empty graphs use the same construction.
 
-  _Correctness._ ($arrow.r.double$) If $Y$ is a vertex cover with $|Y| <= K$, the right-hand side equals $0$ and the inequality $K - |Y| >= 0$ holds. ($arrow.l.double$) Suppose the inequality holds for some $Y$. If $Y$ leaves an edge uncovered, the right-hand side is at least $n + 1 > n >= K - |Y|$, a contradiction. Hence $Y$ is a vertex cover and $K - |Y| >= 0$, i.e.\ $|Y| <= K$.
-
-  _Solution extraction._ The indicator vector of $Y subset.eq X$ over the universe $X = V$ is read off as the source vertex-cover indicator. Two corner cases are emitted as trivial instances: when $K >= n$ every cover satisfies the bound, so the target is the empty Comparative Containment instance whose unique configuration is trivially feasible; when $K < 0$ the bound is unattainable, and the target is a fixed unsatisfiable instance with a single penalty set.
+  _Solution extraction and arithmetic._ Validate target feasibility through the target API and return the identical indicator vector. All derived coefficients and both complete target-family sums use checked `i64` arithmetic; an unrepresentable construction returns the formal numeric error. Positive family weights ensure that checking their complete sums bounds every target evaluation. No source solve or replacement witness is used. There are exactly $n$ universe elements, at most $n+1$ R-sets, and at most $n+m+1$ S-sets; explicit complement construction takes $O(n(n+m+1))$ time and space.
 ]
 
 #let ec_ilp = load-example("EnsembleComputation", "ILP")
@@ -11865,13 +11864,20 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 ]
 
 #reduction-rule("MinimumVertexCover", "EnsembleComputation")[
-  This $O(|V| + |E|)$ reduction @garey1979 encodes the unit-weight vertex-cover problem as an ensemble-computation minimization over disjoint unions. A fresh element $a_0$ is introduced, and each edge becomes a 3-element target subset. The minimum sequence length equals $K^* + |E|$, where $K^*$ is the minimum vertex cover size.
+  This reduction @garey1979 (Theorem 3.6, pp. 66--68) maps unit-weight vertex cover to disjoint-union ensemble computation. If $tau$ is the minimum cover size and $m$ the number of edges, the target optimum is $m+tau$. The extraction below applies to every optimal target program, without assuming that the solver returns a normalized program.
 ][
-  _Construction._ Given a unit-weight VC instance $G = (V, E)$, let $a_0$ be a fresh element not in $V$. Set the universe $A = V union {a_0}$ with $|A| = |V| + 1$. For each edge ${u, v} in E$, add the subset ${a_0, u, v}$ to the collection $C$. Set the search-space bound $J = |V| + |E|$.
+  _Construction._ For a simple graph $G=(V,E)$ with $n=|V|$ and $m=|E|$, give the original vertices indices $0,dots,n-1$ and introduce a fresh atom $a_0$ with index $n$. Set $A=V union {a_0}$ and require the $m$ distinct triples ${a_0,u,v}$ for ${u,v} in E$. Use operation budget $J=max(1,n+m)$, including the positive-budget representation of an empty computation. Thus the universe size is $n+1$, the number of required sets is $m$, and $J<=n+m+1$.
 
-  _Correctness._ ($arrow.r.double$) If $C'$ is a vertex cover of size $K$, label its elements $v_1, dots, v_K$ and the edges $e_1, dots, e_m$. Since $C'$ covers every edge, each $e_j = {u_j, v_(r[j])}$ where $v_(r[j]) in C'$. The sequence of $K + m$ operations $z_i = {a_0} union {v_i}$ for $i = 1, dots, K$ followed by $z_(K+j) = {u_j} union z_(r[j])$ for $j = 1, dots, m$ produces every target subset in exactly $K + |E|$ steps. ($arrow.l.double$) An exchange argument (Garey & Johnson, PO9) shows that any minimum-length sequence can be normalized to use only ${a_0} union {u}$ and ${v} union z_k$ forms. Each edge contributes exactly one operation of the second form, so the number of first-form operations equals the sequence length minus $|E|$. Since the first-form vertices must cover all edges, the minimum sequence length is $K^* + |E|$.
+  _Forward bound._ For a vertex cover $C$, first compute ${a_0,v}$ for each $v in C$. For each edge, choose an endpoint $v in C$ and unite ${a_0,v}$ with its other endpoint singleton. The resulting program computes every required triple with at most $|C|+m$ operations, within budget $J$. In particular the optimum $L^*$ satisfies $L^*<=tau+m$.
 
-  _Solution extraction._ From an optimal witness, collect all vertices appearing as singleton operands (indices $< |V|$). In a minimum-length normalized sequence, exactly the $K^*$ cover vertices appear as ${a_0}$-paired singletons.
+  _Backward bound._ Let $L$ be the evaluated prefix length of any valid target program. Every computed set has at least two elements, because all initial operands are singletons and every union is disjoint. Therefore a two-element set is produced exactly by two singleton operands. Each required triple must be formed using an earlier two-element set and a singleton. For its edge ${u,v}$, this pair is one of ${a_0,u}$, ${a_0,v}$, or ${u,v}$. Select respectively $u$, $v$, or $min(u,v)$ from the operation producing that pair. Each selection covers the corresponding edge. Applying this selection to every pair-producing operation in the prefix gives a vertex cover $S$.
+
+  At least $m$ distinct operations produce the required triples; none of these produces a pair. Consequently $|S|<=L-m$, even if the program repeats intermediate sets or contains unused operations and larger sets. At an optimum, $tau<=|S|<=L^*-m<=tau$, proving both $L^*=m+tau$ and optimality of the extracted cover.
+
+  _Solution extraction._ Use the existing target validation API's evaluated prefix length and ignore padding after that prefix. Whenever both operands are singleton indices, select their smaller index. The fresh atom has the largest singleton index, so this implements all three mathematical choices above. Operations with a computed operand contribute no selected vertex. Extraction takes $O(n+L)$ time after target validation and does not perform normalization or source optimization. With no required sets the evaluated prefix is empty and the extracted cover is empty.
+
+  The same extraction also covers native graph representations with loops or repeated edges. A loop at $u$ requires the pair ${a_0,u}$ and therefore forces selection of $u$. Repeated required sets need only be computed once. With $d$ distinct non-loop edges, the preceding bounds become $|S|<=L-d$ and $L^*=tau+d$; the unchanged budget based on all edge records remains sufficient.
+
 ]
 
 #let mvc_aog = load-example("MinimumVertexCover", "MinimumWeightAndOrGraph")
@@ -12077,54 +12083,41 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   In our implementation, $P = 1 + n$ and the stored integer objective is twice the equivalent half-integral formulation: one-hot coefficients are scaled from $(-P, 2P)$ to $(-2P, 4P)$ and edge-conflict coefficients from $P\/2$ to $P$. Multiplication by the positive constant 2 preserves the complete argmin set.
 
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ violates any one-hot constraint (some vertex has 0 or $>= 2$ colors), the one-hot penalty dominates the edge-conflict range, so $bold(x)$ is not a minimizer. ($arrow.l.double$) Among valid one-hot encodings, $f$ reduces to the edge conflict term, minimized when no two adjacent vertices share a color — exactly the $k$-coloring objective.
+  _Correctness._ The stored QUBO energy is $E(bold(x)) = f(bold(x)) - 2P n$. Every term of $f$ is nonnegative, so $E(bold(x)) >= -2P n$, with equality precisely when every vertex has one color and every edge has differently colored endpoints (@lucas2014, Section 6.1).
+  ($arrow.r.double$) Given a proper coloring, set exactly its indicated color bit at each vertex. Both penalty sums vanish, so its QUBO energy is $-2P n$, attaining the global lower bound.
+  ($arrow.l.double$) If a target configuration has energy $-2P n$, each nonnegative penalty vanishes. Every vertex therefore has a unique selected color, and the edge penalties imply a proper source coloring. If the graph has no proper coloring, every target configuration has energy strictly greater than $-2P n$; an optimal target configuration alone is not a coloring certificate.
 
-  _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
+  _Aggregation and extraction._ Map a finite target optimum equal to $-2P n$ to true, and every other target value to false. Validate a target configuration once and apply this same equality test before reading its unique selected color in each row. In particular, reject one-hot configurations with monochromatic edges, as well as rows with zero or multiple selected colors. The omitted constant and matrix dimensions are computed with checked integer arithmetic before allocation. For $n = 0$ the empty coloring attains energy zero, including $k = 0$; for $n > 0$, $k = 0$, the empty target configuration has energy zero greater than the negative threshold and certifies no coloring.
 ]
 
 #reduction-rule("MaximumSetPacking", "QUBO")[
-  Set packing selects mutually disjoint sets of maximum total weight. Two sets conflict if and only if they share a universe element — the same adjacency structure as an independent set on the _intersection graph_. This reduction builds the intersection graph implicitly and applies the IS penalty method directly: each set becomes a QUBO variable, diagonal entries reward selection, and off-diagonal entries penalize pairs of overlapping sets with a penalty large enough to forbid any overlap.
+  Encode set selection with one binary variable per set and penalize overlapping pairs. The construction supports positive, zero, and negative weights.
 ][
-  _Construction._ Given sets $S_1, ..., S_m$ with weights $w_1, ..., w_m$, introduce binary variables $x_i in {0,1}$ for each set. Two sets $S_i, S_j$ _conflict_ iff $S_i inter S_j != emptyset$. The packing objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for every conflicting pair. Applying the penalty method (@sec:penalty-method):
-  $ f(bold(x)) = -sum_i w_i x_i + P sum_(S_i inter S_j != emptyset, thin i < j) x_i x_j $
-  with $P = 1 + sum_i w_i$. The QUBO coefficients are: diagonal $Q_(i i) = -w_i$ (reward for selecting set $S_i$), off-diagonal $Q_(i j) = P$ for each conflicting pair $i < j$ (penalty for overlap).
+  _Construction._ Given sets $S_1, ..., S_m$ with finite real weights $w_1, ..., w_m$, let $M = max({1} union {w_i : 1 <= i <= m})$ and $P = 2M$. Introduce binary variables $x_i$ and minimize
+  $ f(bold(x)) = -sum_i w_i x_i + P sum_(i < j, thin S_i inter S_j != emptyset) x_i x_j. $
+  Thus $Q_(i i) = -w_i$ and $Q_(i j) = P$ for conflicting pairs $i < j$, with all other entries zero. The floating-point implementation rejects a non-finite computed penalty; it never emits an infinite coefficient. As with the source and target real-weight models, numerical evaluation uses finite approximate arithmetic.
 
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ encodes a maximum-weight packing, all selected sets are mutually disjoint, so all penalty terms vanish and $f(bold(x)) = -sum_(i in cal(P)) w_i$. Any assignment selecting overlapping sets incurs penalty $P > sum_i w_i$, making it suboptimal. ($arrow.l.double$) Among feasible assignments (no overlapping sets selected), the penalty terms vanish and $f(bold(x)) = -sum_(i in cal(P)) w_i$, minimized exactly when $cal(P)$ is a maximum-weight packing.
+  _Correctness._ First suppose an assignment selects a set $S_i$ that conflicts with $d >= 1$ other selected sets. Removing $S_i$ changes the energy by $w_i - P d < 0$, since $P > max(0, w_i)$. Therefore every minimizer is a packing, including when some weights are zero or negative. Repeating such removals turns any conflicting assignment into a packing of strictly lower energy.
 
-  _Solution extraction._ Return $bold(x)$ directly — each $x_i = 1$ indicates set $S_i$ is in the packing.
+  ($arrow.r.double$) A maximum-weight packing has energy equal to the negative optimum packing weight. Every other packing has at least this energy, and every conflicting assignment has higher energy than some packing. Hence every maximum-weight packing minimizes $f$.
+
+  ($arrow.l.double$) Every minimizer is conflict-free by the deletion argument. On conflict-free assignments $f(bold(x)) = -sum_i w_i x_i$, so a minimizer must maximize the packing weight. This holds for every target minimizer, not just one choice among ties. Empty sets and an empty family require no special construction.
+
+  _Solution extraction._ Return $bold(x)$ directly. There are exactly $m$ target variables.
 ]
 
 #reduction-rule("KSatisfiability", "QUBO")[
-  Each clause in a $k$-SAT formula is falsified by exactly one assignment to its literals. For $k = 2$, this falsifying pattern is a product of two (possibly complemented) binary variables — already quadratic, so each clause maps directly to QUBO terms. For $k = 3$, the falsifying pattern $y_1 y_2 y_3$ is cubic; Rosenberg quadratization replaces the product $y_1 y_2$ with an auxiliary variable $a$, enforced by a penalty that makes $a != y_1 y_2$ suboptimal. The total QUBO counts unsatisfied clauses, so minimizers maximize satisfiability.
+  Clause falsification penalties become a quadratic objective using Rosenberg quadratization. Retain its omitted constant to decode the SAT decision, rather than interpreting an arbitrary QUBO configuration as a satisfying assignment.
 ][
-  *Case $k = 2$.*
+  _Construction._ Let $n$ be the number of source variables and $m$ the clause count. For each literal let $y$ be its falsity indicator: $y=1-x$ for a positive literal and $y=x$ for a negative one. For widths zero, one and two, the clause penalty is respectively $1$, $y_1$, and $y_1 y_2$. For width three use
+  $ H = a y_3 + 2(y_1 y_2 - 2 y_1 a - 2 y_2 a + 3a). $
+  Rosenberg's penalty is zero when $a=y_1 y_2$ and positive otherwise @borosgruber2014quadratization. Its multiplier 2 strictly exceeds the possible unit gain from the $a y_3$ term. Thus minimizing over each independent auxiliary gives exactly the clause falsification indicator, including repeated or complementary literals. Expand with $x^2=x$ into an upper-triangular QUBO matrix, and retain the omitted constant $C$.
 
-  _Construction._ Each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
+  _Correctness._ For every source assignment, the minimum target energy over auxiliaries is the number of falsified clauses minus $C$. Every clause expression is nonnegative before subtracting $C$. Hence the formula is satisfiable iff the global target minimum is exactly $-C$. A satisfying assignment lifts by setting each cubic auxiliary to $y_1 y_2$; every zero-penalty target configuration projects to a satisfying source assignment. If an empty clause occurs, its constant penalty 1 prevents the threshold from being attained. Empty formulas have $C=0$ and every source assignment satisfies them.
 
-  #table(
-    columns: (auto, auto, auto, auto),
-    inset: 4pt,
-    align: left,
-    table.header([*Clause*], [*Falsified when*], [*Penalty*], [*QUBO contributions*]),
-    [$x_i or x_j$], [$x_i=0, x_j=0$], [$(1-x_i)(1-x_j)$], [$Q_(i i) -= 1, Q_(j j) -= 1, Q_(i j) += 1$],
-    [$overline(x_i) or x_j$], [$x_i=1, x_j=0$], [$x_i(1-x_j)$], [$Q_(i i) += 1, Q_(i j) -= 1$],
-    [$x_i or overline(x_j)$], [$x_i=0, x_j=1$], [$(1-x_i)x_j$], [$Q_(j j) += 1, Q_(i j) -= 1$],
-    [$overline(x_i) or overline(x_j)$], [$x_i=1, x_j=1$], [$x_i x_j$], [$Q_(i j) += 1$],
-  )
+  _Extraction._ Formal target validation precedes decoding. The registered aggregate decoder maps `Min(E)` to `Or(E == Some(-C))`; direct witness extraction rejects other energies and reads the first $n$ coordinates only at the threshold. It does not solve SAT or repair auxiliary assignments. Target optimality must be established before interpreting an aggregate result as the source decision.
 
-  Summing over all clauses, $f(bold(x)) = sum_j "penalty"_j (bold(x))$ counts falsified clauses.
-
-  _Correctness._ ($arrow.r.double$) Each penalty term is non-negative and equals 1 exactly when its clause is falsified. If $bold(x)$ satisfies all clauses, $f(bold(x)) = 0$. ($arrow.l.double$) Any minimizer of $f$ achieves the fewest falsified clauses, hence maximizes satisfiability.
-
-  *Case $k = 3$ (Rosenberg quadratization).*
-
-  _Construction._ For each clause $(ell_1 or ell_2 or ell_3)$, define complement variables $y_i = overline(ell_i)$ (so $y_i = x_i$ if the literal is negated, $y_i = 1 - x_i$ if positive). The clause is violated when $y_1 y_2 y_3 = 1$. This cubic penalty is reduced to quadratic form by introducing an auxiliary variable $a$ and the substitution $a = y_1 y_2$, enforced via a Rosenberg penalty with weight $M$:
-  $ H = a dot y_3 + M (y_1 y_2 - 2 y_1 a - 2 y_2 a + 3a) $
-  where $M = 2$ suffices. Each clause adds one auxiliary variable (indices $n, n+1, ..., n+m-1$), so the total QUBO has $n + m$ variables.
-
-  _Correctness._ ($arrow.r.double$) If $a = y_1 y_2$, the Rosenberg penalty term vanishes and $H = y_1 y_2 y_3$ counts the clause violation faithfully. ($arrow.l.double$) If $a != y_1 y_2$, the penalty $M(dots.c) >= 1$ strictly exceeds the clause-counting contribution (at most 1), so any minimizer must have $a = y_1 y_2$ for every clause. Among such assignments, $H$ counts unsatisfied clauses, and minimizers maximize satisfiability.
-
-  _Solution extraction._ Discard auxiliary variables: return $bold(x)[0..n]$.
+  _Domain and overhead._ The K2 variant has $n$ variables; K3 reserves $n+m$, with unused auxiliaries mathematically free for short clauses. Native `new_allow_less` permits widths up to K; CLI and serde still require exactly K per actual clause. Source `Or` maps to target `Min<i64>` with an explicitly stored signed threshold. Matrix and constant accumulation use checked arithmetic; literal indices come from the formal `CNFClause::variables` API. Neither endpoint nor variant changes.
 ]
 
 #let ksat_qc = load-example("KSatisfiability", "QuadraticCongruences")
@@ -12158,36 +12151,45 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     *Multiplicity:* The fixture stores one canonical satisfying witness.
   ],
 )[
-  Manders and Adleman's number-theoretic reduction encodes a 3-SAT assignment as a pattern of signs $alpha_j in {-1, +1}$ in a bounded knapsack-style congruence, then uses carefully chosen prime powers and the Chinese Remainder Theorem to realize those signs as divisibility conditions on $H - x$ and $H + x$. Squaring removes the sign ambiguity and yields one quadratic congruence $x^2 equiv a mod b$ together with an explicit bound $x < c$. The bound is essential: without it, the composite-modulus quadratic residuosity problem becomes much easier once the factorization of $b$ is known.
+  The bounded quadratic-congruence construction of Manders and Adleman @mandersAdleman1976 converts an odd signed-knapsack target into a square congruence using prime powers and the Chinese Remainder Theorem. We give base-eight positions only to the actual normalized clauses. The same slack equation handles every native clause width from zero through three.
 ][
-  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables, first deduplicate clauses and restrict to the active variables. Enumerate all signed 3-clauses over those variables as $sigma_1, dots, sigma_M$. Define the base-8 clause weight $8^j$ for $sigma_j$, form $tau_phi = -sum_(sigma_j in phi) 8^j$, and for each variable compute the positive and negative occurrence sums $f_i^+$ and $f_i^-$. In doubled form, set $N = 2M + l$ and coefficients
-  $ d_0 = 2, quad d_(2k-1) = -8^k, quad d_(2k) = -2 dot 8^k, quad d_(2M+i) = f_i^+ - f_i^- $
-  together with
-  $ tau_2 = 2 tau_phi + sum_(j=0)^N d_j + 2 sum_(i=1)^l f_i^- $
-  modulo $2 dot 8^(M+1)$.
+  _Construction._ Delete tautologies and duplicate literals and clauses, retaining empty clauses. Compact the $l$ occurring variables, recording their original positions. Let $C_1, dots, C_m$ be the remaining clauses, $r_j = |C_j|$, $N = 2m+l+1$, and $D=8^(m+1)$. Let $f_i^+$ and $f_i^-$ be the sums of $8^j$ over clauses containing variable $i$ positively and negatively. Define $N$ integer coefficients and an odd target:
+  $ c_0=1, quad c_(2j-1)=-8^j/2, quad c_(2j)=-8^j, quad c_(2m+i)=(f_i^+-f_i^-)/2, $
+  $ tau=1+sum_(j=1)^m (r_j-5)8^j/2. $
+  Take the first $N$ primes starting at $13$, indexed from zero, and put $q_i=p_i^N$ and $K=product_i q_i$. Let $theta_i$ be the least positive integer satisfying $theta_i equiv c_i mod D$, $theta_i equiv 0 mod (K/q_i)$, and $p_i$ not dividing $theta_i$. CRT gives a residue modulo $D K/q_i$; choosing the first positive representative and, if necessary, adding that modulus once gives $theta_i$. Set $H=sum_i theta_i$ and
+  $ b=2D K, quad a=(2D+K)^(-1)(K tau^2+2D H^2) mod b, quad c=H+1. $
+  The target's formal domain is $0<x<c$, equivalently $1<=x<=H$.
 
-  Choose distinct odd primes $p_0, dots, p_N >= 13$ and let $K = product_(j=0)^N p_j^(N+1)$. For each $j$, construct $theta_j$ so that
-  $ theta_j equiv d_j mod 2 dot 8^(M+1), quad theta_j equiv 0 mod product_(i != j) p_i^(N+1) $
-  and $p_j$ does not divide $theta_j$. Set $H = sum_j theta_j$, $b = 2 dot 8^(M+1) dot K$, and
-  $ a = (2 dot 8^(M+1) + K)^(-1) (K tau_2^2 + 2 dot 8^(M+1) H^2) mod b, quad c = H + 1. $
+  _Clause encoding._ For signs $alpha_i in {-1,+1}$, put $t_i=(1-alpha_(2m+i))/2$ and $y_j=(3-alpha_(2j-1)-2alpha_(2j))/2 in {0,1,2,3}$. Let $T_j$ count true literals in $C_j$ and $R_j=y_j-T_j+1$. Direct expansion gives
+  $ sum_i c_i alpha_i-tau=alpha_0-1+sum_(j=1)^m R_j 8^j. $
+  Here $-2<=R_j<=4$ and $alpha_0-1 in {-2,0}$. The right side has absolute value less than $D$. Taking successive residues modulo eight shows that it vanishes exactly when $alpha_0=1$ and all $R_j=0$. Thus the linear congruence modulo $D$ encodes precisely the satisfying assignments. An empty clause has $T_j=0$ and cannot have $R_j=0$; it requires no exceptional construction.
 
-  _Correctness._ ($arrow.r.double$) A satisfying assignment determines signs $alpha_j in {-1, +1}$ for the lifted knapsack system so that $x = sum_j alpha_j theta_j$ obeys both $x equiv tau_2 mod 2 dot 8^(M+1)$ and $(H+x)(H-x) equiv 0 mod K$. These together imply $x^2 equiv a mod b$ with $0 <= x <= H < c$. ($arrow.l.double$) Any witness $x < c$ with $x^2 equiv a mod b$ yields, for each $j$, a unique sign from whether $p_j^(N+1)$ divides $H-x$ or $H+x$. Those signs recover an exact knapsack solution and hence a satisfying assignment of the original 3-SAT instance.
+  _Magnitude and square-root lemmas._ Each $theta_i<=2D K/q_i$. For $m>=1$, $N>=2m+1>=3$ and $13^N>4N D$, giving $2H<K$. When $m=0$, no variable occurs, and $N=1$, $theta_0=1$, $K=13$ give the same inequality. Also $tau equiv 1 mod 4$ and $D$ is a power of two divisible by eight. For odd $tau$, $x^2 equiv tau^2 mod (2D)$ holds exactly when $x equiv tau$ or $x equiv -tau mod D$: among $x-tau$ and $x+tau$, one has exactly one factor of two and the other must contain all the remaining factors. This is the odd-target hypothesis of the original square-root lemma; doubling the coefficients without increasing the square modulus does not preserve it.
 
-  _Solution extraction._ Recover each sign $alpha_j$ from the divisibility of $H - x$ and $H + x$ by $p_j^(N+1)$. For variable coordinates $j = 2M+i$, interpret $alpha_j = -1$ as $x_i = 1$ and $alpha_j = +1$ as $x_i = 0$.
+  _Forward direction._ A satisfying assignment chooses $alpha_0=1$ and $y_j=T_j-1 in {0,1,2}$. With $z=sum_i alpha_i theta_i$, the linear congruence gives $z equiv tau mod D$, hence $z$ is odd and $z^2 equiv tau^2 mod (2D)$. For every $i$, $z equiv alpha_i H mod q_i$, so $z^2 equiv H^2 mod K$. Therefore $x=|z|$ is positive, at most $H$, and satisfies the target congruence by CRT.
+
+  _Backward direction and extraction._ A target witness satisfies both square congruences. Since $p_i$ does not divide $H$, exactly one of $H-x$ and $H+x$ is divisible by $q_i$; write the corresponding sign as $epsilon_i$. The signed sum $z=sum_i epsilon_i theta_i$ is congruent to $x$ modulo $K$. The inequality $|z-x|<=2H<K$ implies $z=x$. The square-root lemma gives $x equiv plus.minus tau mod D$. Since $theta_0 equiv 1 mod 4$ and every other $theta_i equiv 0 mod 4$, the sign $epsilon_0$ chooses the orientation: $alpha_i=epsilon_0 epsilon_i$ has $alpha_0=1$ and its signed sum is congruent to $tau$ modulo $D$. The clause encoding then proves source feasibility. The extractor validates the target once, rejects `Or(false)`, and returns $t_i=1$ exactly when $epsilon_i != epsilon_0$ at a variable coordinate. Restore original variable positions and set free, absent coordinates to false.
+
+  _Domain and overhead._ Both endpoints have value type `Or`; the target witness and arithmetic use arbitrary-precision integers. Literal and clause normalization is valid for native widths zero through three, while CLI/serde retain their existing exact-K contract. For original counts $s$ variables and $c_s$ clauses, let $U=2c_s+s+1$. The implementation uses checked coordinate counts and `u64` primes, so each target bit length is at most $64U^2+3c_s+4$: $K<2^(64N^2)$, $b=2D K$, and $H+1<=K$. No endpoint or variant changes.
 ]
 
 #reduction-rule("KSatisfiability", "QuadraticDiophantineEquations")[
-  This reduction chains through the Manders--Adleman quadratic congruence construction. Given a 3-SAT instance $phi$, first reduce to a Quadratic Congruences instance $(a, b, c)$ with $x^2 equiv a mod b$ and $x < c$, then convert the bounded congruence into a Diophantine equation $x^2 + b' y = c'$ with $a' = 1$. The conversion exploits the fact that $x < c$ implies $x^2$ is bounded, so the residue $c' - x^2$ is always positive and divisible by $b'$ precisely when the congruence holds.
+  Compose the preceding Manders--Adleman bounded-congruence construction with an exact conversion to $x^2 + B y = C$ in positive integers. Both native solution types are `BigUint`, representing $x$; both value types are `Or`. The target model recovers the unique $y$ from $x$.
 ][
-  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses:
+  _Construction._ First obtain the formal congruence instance $(a,b,c)$ with $0<=a<b$, $b,c>0$, and witnesses $0<x<c$. Let $h=c-1$. If $c=1$ or $h^2<a$, output $x^2+y=1$, which has no positive solution. Otherwise put
+  $ p=floor((h^2-a)/b)+1, quad C=a+b p, quad B=b. $
+  Output the native equation instance $(1,B,C)$. Its parameters are positive and obey
+  $ h^2<C<=h^2+b, quad C-b<=h^2. $
 
-  *Step 1.* Apply the Manders--Adleman reduction (KSatisfiability $arrow.r$ QuadraticCongruences) to obtain $(a, b, c)$ such that $phi$ is satisfiable iff $exists x < c: x^2 equiv a mod b$.
+  _Forward direction._ A congruence witness has $1<=x<=h$ and $x^2=a+b k$ for an integer $k>=0$. In particular $h^2>=a$, so neither NO branch applies. Since $x^2<=h^2<C$, the integer $y=(C-x^2)/b=p-k$ is positive and satisfies the equation. The source SAT assignment lifts through the preceding congruence theorem.
 
-  *Step 2.* Convert to a Diophantine equation. Let $h = c - 1$. Compute a padding value $p = floor((h^2 - a) \/ b) + 1$ and set $c' = a + b dot p$. Output the Diophantine equation $x^2 + b y = c'$ (i.e., $a' = 1$, $b' = b$). A positive integer $x$ with $x^2 + b y = c'$ must satisfy $y = (c' - x^2) \/ b > 0$, which requires $1 <= x <= h = c - 1$.
+  _Backward direction._ For a positive solution of the nonconstant target, $x^2=C-b y equiv a mod b$ and
+  $ x^2<=C-b<=h^2, $
+  hence $1<=x<=h<c$. Thus the same native integer $x$ is a valid congruence witness and its established extractor returns a satisfying SAT assignment. If the fixed NO target was selected, no positive solution exists; the congruence also has no witness because its positive interval is empty or every allowed square is less than its least nonnegative residue $a$.
 
-  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, the congruence has a witness $x_0 < c$ with $x_0^2 equiv a mod b$. Then $x_0^2 - a = b k$ for some non-negative integer $k$. Since $c' = a + b p$ and $x_0 <= c - 1 = h$, we have $c' - x_0^2 = b(p - k) > 0$, and $y = p - k$ is a positive integer. So $(x_0, y)$ is a solution to $x^2 + b y = c'$. ($arrow.l.double$) If $(x, y)$ satisfies $x^2 + b y = c'$ with $x, y >= 1$, then $x^2 = c' - b y equiv c' mod b equiv a mod b$ (since $c' = a + b p$). Also $x^2 < c' = a + b p <= h^2 + b$, and since $y >= 1$ we have $x^2 = c' - b y <= c' - b < h^2 + b - b = h^2$, so $x <= h < c$. Thus $x$ is a valid congruence witness, and the original formula is satisfiable.
+  _Endpoint equality._ The inequality $C-b<=h^2$ can be equality and must not be replaced by a strict inequality. For the empty source formula, the upstream instance is $(a,b,c)=(1,208,2)$; the equation is $x^2+208y=209$. Its solution $x=y=1$ has $x=h$ and is valid at both endpoints.
 
-  _Solution extraction._ Decode the Diophantine witness $x$ from its little-endian binary encoding. Then extract a 3-SAT assignment by passing $x$ through the congruence-to-SAT extraction (sign recovery from divisibility by prime powers).
+  _Solution extraction and bounds._ Pass the native `BigUint` witness directly to the validated congruence extractor; no binary-vector conversion is part of the reduction. Its positive-$y$ check and the displayed inequalities cover arbitrary target witnesses, including $x=h$, zero, and out-of-bound integers. If the preceding common bit-length bound is $L=64(2c_s+s+1)^2+3c_s+4$, the new coefficient bit lengths are bounded by $1$, $L$, and $2L+1$, since $C<=h^2+b$; the fixed NO instance obeys the same bounds. Here $s,c_s$ are the original variable and clause counts. All computed integers have arbitrary precision, and no endpoint or variant changes.
 ]
 
 #let ksat_ss = load-example("KSatisfiability", "SubsetSum")
@@ -12246,27 +12248,28 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
         *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#fmt-values(ss-cvp-sizes))$ and target $B = #ss-cvp-target$.
 
         *Step 2 -- Build the lattice.* The reduction creates the basis
-        $ bold(B) = #to-mat(ss-cvp-basis) $
+        $ bold(B)^top = #to-mat(ss-cvp-basis) $
         together with target $ bold(t) = (#fmt-values(ss-cvp-target-vec))^top $
         in the standard CVP model, with no coefficient bounds.
 
-        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#fmt-values(ss-cvp-x))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (2, 0, 0, 2, 2 dot #ss-cvp-target)^top$, the difference vector is $(1, -1, -1, 1, 0)^top$ and the Euclidean distance is $sqrt(4) = 2$.
+        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the Euclidean distance is $sqrt(4) = 2$.
 
         *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
       ],
     )[
-      This integer-scaled form of the classical Subset Sum lattice embedding @lagarias1985 @coster1992 produces $n$ basis vectors in ambient dimension $n+1$. The first coordinates enforce binary coefficients at the optimum; they are not bounds stored by CVP.
+      The classical exact-distance embedding @micciancio2001 enforces binary coefficients through a minimum squared-distance threshold. To retain arbitrary-precision source integers in the existing integer-basis CVP model, this construction uses paired coordinates and binary carry equations. Its basis entries are only $-2$, $0$, and $1$.
     ][
-      _Construction._ Given sizes $s_0, dots, s_(n-1) in ZZ^+$ and target $B in ZZ^+$, define one basis vector per element:
-      $ bold(b)_i = 2 bold(e)_i + 2s_i bold(e)_(n+1) $
-      for $i in {0, dots, n-1}$, and set
-      $ bold(t) = (1, dots, 1, 2B)^top. $
+      _Construction._ Let $n$ be the number of items, and let $b >= 1$ be the maximum bit length of their nonnegative sizes and target $T$. Write $s_(i,j), t_j in {0,1}$ for bit $j$ of size $s_i$ and target $T$. Introduce integer coefficients $x_0, dots, x_(n-1)$ and carries $c_1, dots, c_(b-1)$, with fixed boundary values $c_0=c_b=0$. The displacement vector consists of $x_i$ for all items, then $x_i-1$ for all items, then residuals
+      $ r_j = sum_(i=0)^(n-1) s_(i,j) x_i + c_j - 2 c_(j+1) - t_j $
+      in descending bit order. These linear expressions define the integer basis columns and a target containing only zeros and ones. Carry columns are also ordered by descending bit index. The first $n$ coordinate rows form an identity on item columns; the remaining carry block has unit pivots in this order. Consequently the full-column-rank check has no exponentially growing pivots.
 
-      _Correctness._ ($arrow.r.double$) If $bold(x) in {0,1}^n$ is a satisfying Subset Sum solution, then $sum_i s_i x_i = B$ and
-      $ norm(bold(B) bold(x) - bold(t))_2^2 = sum_(i=0)^(n-1) (2x_i-1)^2 + 4(sum_i s_i x_i-B)^2 = n. $
-      ($arrow.l.double$) For every integer $x_i$, the odd square $(2x_i-1)^2$ is at least one, with equality exactly when $x_i in {0,1}$. Thus squared distance at most $n$ forces a binary vector and forces $sum_i s_i x_i=B$. Consequently the Subset Sum instance is satisfiable exactly when the CVP optimum is $sqrt(n)$.
+      _Correctness._ Every integer vector satisfies
+      $ norm(bold(B) bold(z)-bold(t))_2^2 = sum_i (x_i^2 + (x_i-1)^2) + sum_j r_j^2 >= n. $
+      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the optimum is $sqrt(n)$ exactly for YES instances. Empty item lists and target zero use the same construction.
 
-      _Solution extraction._ Return true at index $i$ exactly when the CVP coefficient is one.
+      _Solution extraction._ Validate the target configuration once and require a finite distance exactly $sqrt(n)$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal distance proves NO and provides no source witness.
+
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. On a 64-bit platform this bounds $n < 2^30$; the threshold and the unit squared-distance gap remain distinguishable in the target's floating-point evaluation. The paired coordinates and boundary carry equations also ensure every threshold witness has exactly evaluated small integer residuals. The solver retains its existing floating-point sphere enumeration; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -12274,21 +12277,19 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 // Removed: SubsetSum → CapacityAssignment (unsound reduction, #1006)
 
 #reduction-rule("ILP", "QUBO")[
-  A binary ILP optimizes a linear objective over binary variables subject to linear constraints. The penalty method converts each equality constraint $bold(a)_k^top bold(x) = b_k$ into the quadratic penalty $(bold(a)_k^top bold(x) - b_k)^2$, which is zero if and only if the constraint is satisfied. Inequality constraints are first converted to equalities using binary slack variables with powers-of-two coefficients. The resulting unconstrained quadratic over binary variables is a QUBO whose matrix $Q$ combines the negated objective (as diagonal terms) with the expanded constraint penalties (as a Gram matrix $A^top A$).
+  Binary ILP constraints are encoded by squared integer residuals with binary slack variables, following the penalty construction discussed by Lucas @lucas2014[Section 3]. The rule retains the omitted constant and uses a certified energy interval to recover the original objective direction or report infeasibility. No assumption that the ILP is feasible is needed.
 ][
-  _Construction._ First, normalize all constraints to equalities. Inequalities $bold(a)_k^top bold(x) <= b_k$ become $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 (b_k + 1))$ binary slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
+  _Construction._ Let the normalized source have $n$ binary variables, rows $a_k x diamond_k b_k$, and original objective coefficients $g_i$. Define the minimization-oriented objective $d=g$ for a minimizing source and $d=-g$ for a maximizing source. For a $<=$ row set $R_k=b_k-sum_i min(a_(k i),0)$, and for a $>=$ row set $R_k=sum_i max(a_(k i),0)-b_k$. Use $S_k=ceil(log_2(R_k+1))$ bits if $R_k>0$, and zero bits otherwise; equality rows have zero slack bits. Add powers-of-two slack with positive sign for $<=$ and negative sign for $>=$. A negative range means the row is impossible on binary assignments; leaving it as an equality still has no zero-residual assignment. A zero range makes equality equivalent to the inequality. A positive range represents every slack needed by a feasible source assignment. Larger representable slacks cannot create spurious zero-residual assignments.
 
-  Applying the penalty method (@sec:penalty-method), combine the negated objective with quadratic constraint penalties:
-  $ f(bold(x)') = -bold(c')^top bold(x)' + P sum_(k=1)^m (bold(a)'_k^(top) bold(x)' - b_k)^2 $
-  where $bold(c)' = (bold(c), bold(0))$ and $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$. Expanding the quadratic penalty:
-  $ sum_k (bold(a)'_k^(top) bold(x)' - b_k)^2 = bold(x)'^(top) A'^(top) A' bold(x)' - 2 bold(b)^top A' bold(x)' + ||bold(b)||_2^2 $
-  Combining with $-bold(c')^top bold(x)'$ and dropping the constant $||bold(b)||_2^2$:
-  $ Q = -"diag"(bold(c)' + 2P bold(b)^top A') + P A'^(top) A' $
-  The diagonal contains linear terms (objective plus constraint); the upper triangle of $A'^(top) A'$ gives quadratic cross-terms.
+  Write the extended rows as $A' z=b$, where the first $n$ bits of $z$ are $x$ and the remaining bits are row-specific slack. Set $P=1+sum_i |d_i|+sum_k |b_k|$, $C=P sum_k b_k^2$, $L=sum_i min(d_i,0)$, and $U=sum_i max(d_i,0)$. The upper-triangular QUBO matrix has diagonal $Q_(i i)=d_i+P sum_k ((a'_(k i))^2-2 b_k a'_(k i))$ and off-diagonal $Q_(i j)=2P sum_k a'_(k i)a'_(k j)$ for $i<j$; extend $d$ by zeros on slack coordinates. Its energy satisfies
+  $ E(z)+C=d^top x+P sum_k (a'_k z-b_k)^2. $
+  Store the energy interval $[L-C,U-C]$, the constant $C$, and the source sense in the reduction result. Dimensions, matrix arithmetic, constant and interval endpoints are checked before use. The target has $n+sum_k S_k$ variables; its registered overhead remains unavailable because the source parameter vector omits coefficient magnitudes and right-hand sides.
 
-  _Correctness._ ($arrow.r.double$) If $bold(x)'^*$ is an optimal ILP solution, then $A' bold(x)'^* = bold(b)$ and all penalty terms vanish, so $f(bold(x)'^*) = -bold(c')^top bold(x)'^*$. ($arrow.l.double$) If any constraint is violated, $(bold(a)'_k^(top) bold(x)' - b_k)^2 >= 1$ and the penalty $P > ||bold(c)||_1$ exceeds the entire objective range, so $bold(x)'$ cannot be a QUBO minimizer. Among feasible assignments (all penalties zero), $f$ reduces to $-bold(c')^top bold(x)'$, minimized at the ILP optimum.
+  _Forward direction._ Every feasible source assignment has a slack extension satisfying every row, with $E+C=d^top x$ in $[L,U]$. Hence its target energy lies in the stored interval. For positive slack range the powers-of-two encoding represents the exact required slack; for zero range no slack is needed.
 
-  _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+  _Backward direction and optimization._ For any configuration with nonzero residual, integrality gives a squared-residual sum at least one. Thus $E+C>=L+P>U$, since $P>U-L=sum_i |d_i|$. Such a configuration cannot lie in the stored interval or beat a zero-residual configuration. An energy in the interval therefore has zero residual and projects to a feasible source assignment. When a feasible source exists, minimizing target energy minimizes $d^top x$, which gives the original optimum after reversing the sign for a maximizing source. When no feasible source exists, every target configuration lies above the interval; a finite QUBO optimum is then correctly mapped to an absent source value.
+
+  _Aggregate and solution extraction._ The concrete source value is `Extremum<i64>` and the target is `Min<i64>`. The custom aggregate accepts only energies in $[L-C,U-C]$, adds $C$, and reverses the sign for a maximizing source; it returns the corresponding absent `Extremum` otherwise. Checked interval construction guarantees the addition is representable; the strict objective-magnitude penalty bound also makes sign reversal safe. The direct extractor evaluates the target exactly once, reuses this predicate, and returns the first $n$ bits as integer zero/one values only for a zero-residual certificate. Wrong slack choices and infeasible source projections are rejected with a formal extraction error. Target evaluation errors remain errors, not infeasibility claims.
 ]
 
 #let part_cpi = load-example("Partition", "CosineProductIntegration")
@@ -12662,14 +12663,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     Canonical feasible witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
-  Each boolean gate (AND, OR, NOT, XOR) has a truth table that can be captured exactly by a small set of linear inequalities over binary variables. By Tseitin-style flattening, each internal expression node gets an auxiliary ILP variable constrained to match its gate's output, so the conjunction of all gate constraints is feasible if and only if the circuit is satisfiable. The ILP has a trivial objective (minimize 0), making it a pure feasibility problem.
+  Each boolean gate (AND, OR, NOT, XOR) has a truth table that can be captured exactly by a small set of linear inequalities over binary variables. By Tseitin-style flattening, expression outputs and binary XOR fold steps get auxiliary ILP variables constrained to match their values, so the conjunction of all gate constraints is feasible if and only if the circuit is satisfiable. The ILP has a trivial objective (minimize 0), making it a pure feasibility problem.
 ][
-  _Construction._ Recursively assign an ILP variable to each expression node. Named circuit variables keep their identity; internal nodes get auxiliary variables.
+  _Construction._ Pre-register named circuit variables in the source order. Recursively lower expression trees, allocating outputs for constants, NOT, AND and OR, and one output per binary XOR fold step. Multi-input XOR is a left fold; a single input is unchanged and an empty XOR uses the existing constant-false encoding. All variable allocations use checked index arithmetic.
 
   _Gate encodings_ (output $c$, inputs $a_1, ..., a_k$, all binary):
   - NOT: $c + a = 1$
   - AND: $c <= a_i$ ($forall i$), $c >= sum a_i - (k - 1)$
   - OR: $c >= a_i$ ($forall i$), $c <= sum a_i$
+  - Constants: $c=0$ or $c=1$. Empty AND and OR are already covered by their formulas: $c>=1$ and $c<=0$, respectively.
   - XOR (binary, chained pairwise): $c <= a + b$, $c >= a - b$, $c >= b - a$, $c <= 2 - a - b$
 
   _Objective._ Minimize $0$ (feasibility problem): any feasible solution satisfies the circuit.
@@ -12689,9 +12691,13 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     & "all gate and input variables are binary".
   $
 
-  _Correctness._ ($arrow.r.double$) Each gate encoding is the convex hull of the gate's truth table rows (viewed as binary vectors), so a satisfying circuit assignment satisfies all constraints. ($arrow.l.double$) Any binary feasible solution respects every gate's input-output relation, and since gates are composed in topological order, the full circuit evaluates to true.
+  For each named output $y$ of an assignment with expression result $c$, add $y=c$ unless the two already share a variable. No output is implicitly forced true. The standard AND, OR and NOT linearizations are documented in the MOSEK Modeling Cookbook, Section 9.1.9; the four XOR inequalities can be checked on the four input pairs.
 
-  _Solution extraction._ Return values of the named circuit variables.
+  _Correctness._ ($arrow.r.double$) Fix a satisfying assignment of all source names, evaluate each expression tree, and give every auxiliary its expression or partial XOR value. Every gate row holds, and the named-output equalities hold by source feasibility. ($arrow.l.double$) With binary inputs, the gate rows determine their outputs exactly: AND is one precisely when every input is one, OR is zero precisely when every input is zero, and the four XOR rows force output zero on equal inputs and one on unequal inputs. Structural induction on each expression tree, followed by the named-output equalities, proves every source assignment constraint. Named assignments may form cycles; no topological ordering of them is assumed.
+
+  _Solution extraction._ Validate the target assignment once and reject it if the ILP evaluation is infeasible. Otherwise read all named source variables in their original order. Since the objective is zero, every feasible ILP assignment is an admissible witness.
+
+  _Overhead._ For $v$ named variables, $t$ expression nodes and $o$ named outputs, the target has at most $v+2t$ variables and $5t+o$ constraints. Non-XOR outputs and empty XOR outputs contribute at most $t$ auxiliaries. Binary XOR steps contribute at most the number of expression-tree edges, hence at most $t$. Base gate rows contribute at most $t$, while input inequalities and binary XOR rows contribute at most four times the number of tree edges. Output equalities add at most $o$ rows. This accounts for arbitrarily many constant inputs: three constants under one XOR use five auxiliaries, exceeding the former one-auxiliary-per-node bound of four.
 ]
 
 == Non-Trivial Reductions
@@ -12713,7 +12719,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     IS of size #sat-num-clauses(sat_mis.source.instance) $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
   ],
 )[
-  @karp1972 A satisfying assignment must make at least one literal true in every clause, and different clauses cannot assign contradictory values to the same variable. These two requirements map naturally to an independent set problem: _intra-clause cliques_ force exactly one literal per clause to be selected, while _conflict edges_ between complementary literals across clauses enforce consistency. The target IS size equals the number of clauses $m$, so an IS of size $m$ exists iff the formula is satisfiable.
+  @karp1972 A satisfying assignment must make at least one literal true in every clause, and different clauses cannot assign contradictory values to the same variable. These two requirements map naturally to an independent set problem: _intra-clause cliques_ allow at most one literal per clause to be selected, while _conflict edges_ between complementary literals across clauses enforce consistency. The target IS size equals the number of clauses $m$, so an IS of size $m$ exists iff the formula is satisfiable.
 ][
   _Construction._ For $phi = and.big_(j=1)^m C_j$ with $C_j = (ell_(j,1) or ... or ell_(j,k_j))$:
 
@@ -12723,7 +12729,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A satisfying assignment selects one true literal per clause; these vertices form an IS of size $m$ (no clause edges by selection, no conflict edges by consistency). ($arrow.l.double$) An IS of size $m$ must contain exactly one vertex per clause (by clause cliques); the corresponding literals are consistent (by conflict edges) and satisfy $phi$.
 
-  _Solution extraction._ For $v_(j,i) in S$ with literal $x_k$: set $x_k = 1$; for $overline(x_k)$: set $x_k = 0$.
+  _Solution extraction._ Validate the target configuration and require a finite independent-set value exactly $m$ before decoding. For $v_(j,i) in S$ with literal $x_k$, set $x_k = 1$; for $overline(x_k)$, set $x_k = 0$. Unselected variables may be set to false. The aggregate map returns true precisely at value $m$. An optimal value below $m$ proves that the source formula is unsatisfiable; it does not provide a satisfying assignment. An empty formula has threshold zero; any empty clause makes the threshold unattainable.
+
+  _Representation and size._ The implementation checks that $m$ fits the exact target score type. Every feasible independent set has size at most $m$, so all partial sums of its unit weights also fit. Repeated literals remain distinct vertices. Complementary occurrences within a clause may add a duplicate edge; this does not affect feasibility. With $L = sum_j k_j$, the stored edge count is at most $2 binom(L, 2) <= L^2$, and the vertex count is exactly $L$.
 ]
 
 #let sat_kc = load-example("Satisfiability", "KColoring")
@@ -12771,13 +12779,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
   ],
 )[
-  @garey1979 Each variable is represented by a triangle whose three vertices correspond to the positive literal, negative literal, and a dummy. Any dominating set must include at least one vertex from each triangle to dominate the dummy. The clause vertices are connected only to the literal vertices that appear in the clause, so a dominating set of minimum size $n$ (one vertex per triangle) dominates all clause vertices iff the chosen literals satisfy every clause.
+  @garey1979 Each variable that occurs in the formula is represented by a triangle with positive, negative, and dummy vertices. Let $q$ be the number of occurring variables. Every dominating set needs at least one vertex from each triangle to dominate its dummy. A dominating set of size $q$ exists exactly when the formula is satisfiable.
 ][
-  _Construction._ (1) _Variable triangle_ for $x_i$: vertices $"pos"_i = 3i$, $"neg"_i = 3i+1$, $"dum"_i = 3i+2$ forming a triangle. The dummy vertex $"dum"_i$ is adjacent only to $"pos"_i$ and $"neg"_i$, so it can only be dominated by a vertex from its own triangle. (2) _Clause vertex_ $c_j = 3n+j$ connected to $"pos"_i$ if $x_i in C_j$, to $"neg"_i$ if $overline(x_i) in C_j$.
+  _Construction._ List the occurring source variable indices in increasing order as $u_0, dots, u_(q-1)$. Variables absent from every clause require no gadget. For each dense index $i$, create $"pos"_i = 3i$, $"neg"_i = 3i+1$, and $"dum"_i = 3i+2$, joining them as a triangle. For clause $C_j$, create $c_j = 3q+j$ and join it to the positive or negative vertex of each literal occurrence in the clause. All vertex weights are one; repeated occurrences retain duplicate edge entries.
 
-  _Correctness._ ($arrow.r.double$) Given a satisfying assignment, select $"pos"_i$ if $x_i = 1$, else $"neg"_i$. This dominates all triangle vertices (each triangle has one selected vertex adjacent to both others). Each clause $C_j$ has at least one true literal, so $c_j$ is adjacent to at least one selected vertex. Total size: $n$. ($arrow.l.double$) Any dominating set needs $>= 1$ vertex per triangle (to dominate $"dum"_i$). A set of size $n$ has exactly one per triangle. If $"dum"_i$ is selected, it does not dominate any clause vertex; but it does dominate $"pos"_i$ and $"neg"_i$, which still need to cover clauses. Since $"dum"_i$ has no clause neighbors, we can swap it for $"pos"_i$ or $"neg"_i$ without losing domination of the triangle. After swapping, each clause vertex $c_j$ must be dominated by some $"pos"_i$ or $"neg"_i$, defining a consistent satisfying assignment.
+  _Correctness._ ($arrow.r.double$) Given a satisfying assignment, select one literal vertex per occurring variable according to its truth value. Each triangle is dominated, and every clause vertex has a selected true-literal neighbor. The set has size $q$. ($arrow.l.double$) To dominate the private dummy of each triangle, any dominating set must select at least one vertex from that triangle. A set of size $q$ therefore selects exactly one per triangle and no clause vertices. Every clause must consequently have a selected literal neighbor. Set a variable true precisely when its positive vertex is selected, and false when its negative or dummy vertex is selected. Every selected literal remains true, so all clauses are satisfied. Absent variables may also be set false because no clause refers to them.
 
-  _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
+  _Solution extraction._ Evaluate the target configuration once and require a finite value equal to $q$, using the same certificate as the aggregate map. Decode through the stored map from source indices to dense gadget indices. Invalid dominating configurations and values above $q$ provide no satisfying witness and are rejected. The empty formula has $q=m=0$ and an empty target; an empty clause creates an isolated clause vertex, forcing the optimum above $q$.
+
+  _Size and arithmetic._ For $n$ declared variables, $m$ clauses, and $L$ literal occurrences, the actual target has $3q+m <= 3n+m$ vertices and $3q+L <= 3n+L$ stored edges. Thus the registered formulas are upper bounds. Checked arithmetic computes the vertex count and verifies that every possible sum of unit weights fits #raw("i64"), including the all-selected configuration. Construction depends on occurring variables, so a large declared index alone does not allocate unused triangles. Producing the source assignment still requires its declared length.
 ]
 
 #let sat_ifha = load-example("Satisfiability", "IntegralFlowHomologousArcs")
@@ -12929,7 +12939,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   $
   ($arrow.r.double$) If $phi$ is satisfiable, then the normalized formula $psi$ is satisfiable by Step 1. Every normalized clause is true, so each gadget attains value $7$ and the target optimum is $7 m'$. ($arrow.l.double$) If the target optimum is $7 m'$, then every gadget must contribute $7$, so every normalized clause $D_t$ is true. Hence $psi$ is satisfiable, and the normalization in Step 1 implies that the restriction to the original variables satisfies $phi$. If $phi$ is unsatisfiable, then $psi$ is unsatisfiable, so every assignment leaves at least one normalized clause false and the target optimum is strictly less than $7 m'$.
 
-  _Solution extraction._ Discard all auxiliary normalization variables and all gadget variables $w_t$; return only the first $n$ Boolean variables $(x_1, dots, x_n)$.
+  _Solution extraction._ Evaluate the target assignment exactly once through the formal validator. Accept only the exact score $7m'$, then return its prefix on the original variables. Since every gadget contributes at most seven, this score forces every normalized clause to hold, and the normalization proof guarantees that the prefix satisfies the original formula. An optimal score below $7m'$ represents source infeasibility and is rejected as a witness. The custom aggregate maps exactly $7m'$ to true and every other value, including an infeasible value, to false. The empty formula has $m'=0$ and accepts its zero-score assignments; an empty source clause creates a contradictory normalized pair and prevents attaining the threshold.
+
+  _Arithmetic._ Checked construction bounds the complete target clause count $10m'$ in `i64`, so every satisfied-clause count is representable. The exact score is computed as $(10m' / 10) dot 7$, dividing first to stay within that bound. The existing variable allocator validates literal indices, and the target is constructed through its fallible public API.
 ]
 
 #let sat_cs = load-example("Satisfiability", "CircuitSAT")
@@ -13022,17 +13034,22 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     Canonical ground-state witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
-  @whitfield2012 @lucas2014 Each logic gate can be represented as an Ising gadget --- a small set of spins with couplings $J_(i j)$ and fields $h_i$ chosen so that the gadget's ground states correspond exactly to the gate's truth table rows. Composing gadgets for all gates in the circuit yields a spin glass whose ground states encode precisely the satisfying assignments of the circuit. The energy gap between valid and invalid I/O patterns ensures that any global ground state respects every gate's logic.
+  Each gate contributes a Hamiltonian bounded below by a known constant. The circuit is satisfiable exactly when the target optimum attains the sum of those constants. A ground state above this threshold is not a satisfying witness. This uses the nonnegative-penalty principle described by @bian2010ising.
 ][
-  _Construction._
+  _Construction._ Boolean bits $x$ use spins $s=2x-1$. The repository energy convention is $H=sum_((i,j)) J_(i j)s_i s_j + sum_i h_i s_i$, including any diagonal terms created by identified inputs. Use the gadgets in @tab:gadgets; a new expression output is tied to each named assignment output by a coupling $-4 s_u s_v$ whenever the two spins differ. Constants use fields $+1$ for false and $-1$ for true. Multi-input gates are binary folds; a single input is unchanged. Empty AND is true, while empty OR and XOR are false, as in the source evaluator. No final output is implicitly forced true: the source asks that every named assignment equal its expression.
 
-  _Spin mapping:_ Boolean variables $sigma in {0,1}$ map to Ising spins $s = 2sigma - 1 in {-1, +1}$. Each circuit variable is assigned a unique spin index; gate gadgets reference these indices for their inputs and outputs.
+  _Local bounds._ In bits $x,y$ with output $z$, the AND and OR energies are respectively $4(x y-2x z-2y z+3z)-3$ and $4(x+y+z+x y-2x z-2y z)-3$. Their minima are $-3$, attained exactly on valid truth-table rows. The XOR gadget with auxiliary bit $a$ has energy $2(x+y-z-2a)^2-4$, with minimum $-4$ exactly when $z=x " XOR " y$ and the auxiliary is consistent. NOT has energy $2(x+z-1)^2-1$, with minimum $-1$. Each constant has minimum $-1$; each equality coupling has minimum $-4$ exactly on equal spins.
 
-  _Gate gadgets_ (inputs 0,1; output 2; auxiliary 3 for XOR) are listed in @tab:gadgets. For each gate, instantiate the gadget's couplings and fields. The total Hamiltonian is the sum over all gadgets: $H = -sum_(i < j) J_(i j) s_i s_j - sum_i h_i s_i$.
+  Let $b$ be the sum of these local minima over the gadgets and equality constraints actually emitted. Store $b$ using checked signed integer arithmetic. Then $H-b$ is a sum of nonnegative local penalties, even when expressions share variables, inputs repeat, or named assignments form cycles.
 
-  _Correctness._ ($arrow.r.double$) A satisfying circuit assignment maps to a spin configuration where every gadget is in a ground state (valid I/O), so the total energy is minimized. ($arrow.l.double$) Any global ground state must minimize each gadget's contribution. Since each gadget's ground states match its gate's truth table, the spin configuration encodes a valid circuit evaluation. The output spin is constrained to $+1$ (true), so the circuit is satisfied.
+  _Forward direction._ Given a satisfying source assignment, evaluate each finite expression tree under that assignment, set its fresh output spins accordingly, and choose each XOR auxiliary to satisfy $x+y=z+2a$. Every equality to a named output holds because the source assignment satisfies all constraints. Thus every local term attains its lower bound and $H=b$.
 
-  _Solution extraction._ Map spins back to Boolean: $sigma_i = (s_i + 1) / 2$. Return the circuit input variables.
+  _Backward direction._ A target state with $H=b$ has zero total penalty, so every nonnegative local penalty is zero. Induction on each expression tree gives its correct output; the equality terms identify it with all corresponding named output variables. Reading named spins therefore satisfies every source assignment constraint. This proof does not assume that an inconsistent circuit can simultaneously minimize its local terms.
+
+  _Value and witness extraction._ Convert the proved target minimum $E$ to source feasibility by $E=b$. The witness extractor validates the target once, rejects states whose energy differs from $b$, and returns every source variable in the model's canonical order using $x=(s+1)/2$. The empty circuit has $b=0$ and the empty witness.
+
+  _Overhead._ For $v$ source variables, $t$ expression-tree nodes, and $o$ assignment outputs, there are at most $v+3t$ spins and $6t+o$ stored interactions. There are at most $t$ constant and NOT output spins, and binary folds allocate at most two spins per expression-tree edge, of which there are at most $t$. Merging interactions can only reduce the latter count. All coefficient accumulation and threshold addition use checked integer arithmetic.
+
 ]
 
 #figure(
@@ -13069,7 +13086,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     Canonical witness: $#fact-p times #fact-q = #fact_cs.source.instance.target$ #sym.checkmark
   ],
 )[
-  Integer multiplication can be implemented as a boolean circuit: an $m times n$ array multiplier computes $p times q$ using only AND, XOR, and OR gates arranged in a grid of full adders. Constraining the output bits to match $N$ turns the circuit into a satisfiability problem --- the circuit is satisfiable iff $N = p times q$ for some $p, q$ within the given bit widths. _(Folklore; no canonical reference.)_
+  Integer multiplication can be implemented as a boolean circuit: an $m times n$ array multiplier computes $p times q$ using only AND, XOR, and OR gates arranged in a grid of full adders. Constraining the output bits to match $N$ turns the circuit into a satisfiability problem --- the circuit is satisfiable iff $N = p times q$ for some $p, q$ within the given bit widths. The partial-product and array-adder construction follows @dally2006ee108[Section 10.4, Figures 10.15–10.16]; the zero-width extension is justified below.
 ][
   _Construction._ Build $m times n$ array multiplier for $p times q$:
 
@@ -13077,11 +13094,18 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   $ a := p_i and q_j, quad t_1 := a xor s_"prev", quad s_(i,j) := t_1 xor c_"prev" $
   $ t_2 := t_1 and c_"prev", quad t_3 := a and s_"prev", quad c_(i,j) := t_2 or t_3 $
 
-  _Output constraint:_ Fix output wires to the binary representation of $N$: $M_k := "bit"_k(N)$ for $k = 1, dots, m+n$.
+  _Accumulator and output:_ Start with a zero accumulator, expressing its $n$ retained bits as $q_j and 0$. These expressions retain every second-factor input even when $m = 0$. Each row emits its low sum bit; after all rows, the remaining accumulator bits give the high product bits. Define $m+n$ named output wires by these actual expressions, then fix output wires to the binary representation of $N$: $M_k := "bit"_k(N)$ for $k = 1, dots, m+n$. If $N$ has a set bit beyond this width, add two contradictory assignments to one wire. If both widths are zero, there are no product wires and this same overflow check rejects every nonzero target.
 
-  _Correctness._ ($arrow.r.double$) If $N = p times q$ with $p < 2^m$ and $q < 2^n$, setting the input bits to the binary representations of $p$ and $q$ produces output bits matching $N$, satisfying all constraints. ($arrow.l.double$) Any satisfying assignment to the circuit computes a valid multiplication (the gates enforce arithmetic correctness), and the output constraint ensures the product equals $N$.
+  _Correctness._ Let $Q$ be the second factor, $p_i$ the zero-indexed first-factor bits, $R_i$ the integer represented by row $i$'s sum and final carry, and $L_i$ the integer encoded by its first $i$ emitted low bits. Set $R_0 = L_0 = 0$. Full-adder equations give $R_i = p_(i-1) Q + floor(R_(i-1)/2)$. Induction gives
+  $L_i + 2^i floor(R_i/2) = Q sum_(j=0)^(i-1) p_j 2^j.$
+  Thus the emitted bits followed by the residual bits represent exactly $P Q$, including the empty sum when $m = 0$.
 
-  _Solution extraction._ Read off factor bits $p = sum_i p_i 2^(i-1)$ and $q = sum_j q_j 2^(j-1)$, then return $(min(p,q), max(p,q))$.
+  ($arrow.r.double$) For any source factorization, assign the factor inputs and evaluate the acyclic arithmetic assignments in order. The invariant makes all output equalities hold, and a representable product cannot trigger the overflow contradiction. ($arrow.l.double$) Every satisfying assignment obeys each full-adder equation, so induction forces its named product bits to equal the actual input product. The output constants and high-bit rejection then force $P Q = N$.
+
+  _Solution extraction._ Evaluate the target certificate once and reject it unless all equations hold. Read off factor bits $p = sum_i p_i 2^(i-1)$ and $q = sum_j q_j 2^(j-1)$, then return $(min(p,q), max(p,q))$. The source requires $m <= n$. Sorting preserves the asymmetric bounds: if inputs are exchanged, the new smaller factor is below the old first factor, while both inputs fit the larger width.
+
+  _Size and arithmetic._ Product width and assignment capacity are checked before allocation. At most $6 m n + 2(m+n) + 2$ assignments and $6 m n + 2(m+n) + 1$ variables are generated. Factors and products use exact arbitrary-precision integers; the circuit enforces bit arithmetic without floating-point conversions. The cell and output assignments use only the existing Boolean expression API.
+
 ]
 
 #let mc_sg = load-example("MaxCut", "SpinGlass")
@@ -13162,13 +13186,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ]
 
 #reduction-rule("KColoring", "TwoDimensionalConsecutiveSets")[
-  @lipski1977fct A graph 3-coloring can be encoded as a partition problem on an alphabet. Each edge becomes a size-3 subset containing the two endpoint symbols plus a unique dummy symbol, and a valid 3-coloring corresponds to partitioning the alphabet into 3 groups where each edge-subset spans exactly 3 consecutive groups with one element per group. The reduction uses $n + m$ alphabet symbols and $m$ subsets for a graph with $n$ vertices and $m$ edges.
+  A fixed three-coloring problem reduces to the ordered-partition problem of @lipski1978consecutive (Problem 5). For a nonempty loopless graph with $n$ vertices and $m$ stored edges, use one vertex symbol and one private symbol per edge; every edge becomes a three-element subset. The construction and decoding below also cover empty graphs and native self-loops.
 ][
-  _Construction._ Given $G = (V, E)$ with $|V| = n$ and $|E| = m$, build alphabet $Sigma = V union {d_e : e in E}$ of size $n + m$. For each edge $e = {u, v} in E$, define subset $Sigma_e = {u, v, d_e}$. The collection is $cal(C) = {Sigma_e : e in E}$ with $|cal(C)| = m$ subsets, each of size 3.
+  _Construction._ The source is `KColoring<K3, SimpleGraph>`: the fixed type requires exactly three available colors, and persisted `num_colors` must agree. If any source edge is a self-loop, return alphabet ${0,1,2}$ and subsets ${0,1},{1,2},{0,2}$. Otherwise label vertices $0,...,n-1$ and stored edges $e_0,...,e_(m-1)$. Use alphabet size $max(1,n+m)$ and, for $e_i={u,v}$, subset ${u,v,n+i}$. Construct through the target's fallible constructor. Repeated source edges receive distinct private symbols.
 
-  _Correctness._ ($arrow.r.double$) Given a valid 3-coloring $chi: V arrow {1, 2, 3}$, define partition groups $X_c = {v in V : chi(v) = c}$ for $c in {1, 2, 3}$. For each edge $e = {u, v}$, assign dummy $d_e$ to the unique third color $c^* in {1, 2, 3} backslash {chi(u), chi(v)}$ (which exists since $chi(u) != chi(v)$). Then $Sigma_e = {u, v, d_e}$ has its three elements in three distinct groups ${X_(chi(u)), X_(chi(v)), X_(c^*)} = {X_1, X_2, X_3}$, which are consecutive with one element per group. ($arrow.l.double$) If a valid partition into $k$ groups exists, each size-3 subset ${u, v, d_e}$ must occupy 3 distinct consecutive groups. In particular, $u$ and $v$ are in different groups. Mapping groups to colors gives a valid 3-coloring.
+  _Forward direction._ For a loopless graph, a proper coloring assigns adjacent vertices distinct colors from ${0,1,2}$. Assign each edge's private symbol the remaining third color. Each triple occupies all three consecutive nonempty color groups, one symbol per group. If there are no edges, all group assignments satisfy the empty family of constraints; in particular the empty source maps to one unconstrained symbol. A looped source has no proper coloring.
 
-  _Solution extraction._ The first $n$ symbols in the target configuration correspond to the graph vertices. Their group assignments, compressed to $0, 1, 2$, yield the 3-coloring.
+  _Backward direction._ In any feasible target partition for an ordinary graph, an edge triple occupies three distinct consecutive nonempty groups. Its endpoint groups are therefore distinct and differ by at most two in the ordered partition. Remove groups containing only private symbols and rank the remaining vertex groups starting at zero. Deleting groups cannot increase the distance between endpoint ranks, so every edge has rank difference 1 or 2. Assigning each vertex its group rank modulo 3 gives different colors on every edge, regardless of the total number of groups. For the loop sentinel, all three symbols would have to be pairwise distinct and every pair consecutive. The first and last groups cannot be adjacent, proving target infeasibility.
+
+  _Solution extraction._ Validate the target once, require `Or(true)`, and then return the ranks modulo 3 of the first $n$ symbols. Infeasible and malformed certificates are rejected. The loop sentinel never reaches prefix decoding, even when its alphabet is smaller than $n$. The empty-source prefix is empty and is a valid coloring.
+
+  _Domain and overhead._ The actual alphabet and subset counts are bounded by $n+m+3$ and $m+3$. Source graph storage contains nonzero-sized petgraph node and edge records. With $I=$ `isize::MAX`, their vector allocation bounds imply $n<=floor(I/8)$ and $m<=floor(I/16)$ for the native unit-weight, `u32`-indexed graph, so $n+m$ and every private-symbol index fit `usize`. Group ranks are at most the alphabet size minus one; modulo 3 yields exactly the source color domain. Target allocation failures remain errors. This proof uses the ordered-set definition; it does not assume that every target witness uses only three groups.
 ]
 
 #reduction-rule("Factoring", "ILP")[
@@ -13361,34 +13389,32 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $S = {v : x_v = 1}$.
 ]
 
-#let fvs_cg = load-example("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters")
+#let fvs_cg = load-example("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters", source-variant: (weight: "One"))
 #let fvs_cg_sol = fvs_cg.solutions.at(0)
 #let fvs_cg_fvs = fvs_cg_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #reduction-rule("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters",
   example: true,
+  example-source-variant: (weight: "One"),
   example-caption: [3-cycle digraph: FVS of size 1 maps to an expression DAG needing 1 LOAD],
   extra: [
     #pred-commands(
-      "pred create --example MinimumFeedbackVertexSet -o fvs.json",
+      "pred create --example MinimumFeedbackVertexSet/One -o fvs.json",
       "pred reduce fvs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate fvs.json --config " + cli-config(fvs_cg_sol.source_config),
     )
     Source FVS: $F = {#fmt-values(fvs_cg_fvs)}$ (size #fvs_cg_fvs.len()) on a digraph with $n = #fvs_cg.source.instance.graph.num_vertices$ vertices and $m = #fvs_cg.source.instance.graph.arcs.len()$ arcs \
     Target DAG: #fvs_cg.target.instance.num_vertices vertices, left arcs $L$: #{fvs_cg.target.instance.left_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}, right arcs $R$: #{fvs_cg.target.instance.right_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")} \
-    Target evaluation order: $(#fmt-values(fvs_cg_sol.target_config))$ with #fvs_cg_sol.target_config.len() instructions #sym.checkmark
+    Target evaluation order: $(#fmt-values(fvs_cg_sol.target_config))$ with #(fvs_cg_sol.target_config.len() + fvs_cg_fvs.len()) instructions #sym.checkmark
   ],
 )[
-  The Aho--Johnson--Ullman chain gadget construction @ahoJohnsonUllman1977 encodes a feedback vertex set problem as a code generation problem on an expression DAG with unlimited registers and 2-address instructions. Each source vertex becomes a leaf (input register), and each outgoing arc becomes an internal chain node. The number of LOAD (copy) instructions needed in an optimal program equals the size of a minimum feedback vertex set.
+  For the unit-weight variant, minimum feedback vertex set reduces to code generation on a leaf-sharing expression DAG with unlimited registers and 2-address instructions. The cardinality reduction of Aho--Johnson--Ullman @ahoJohnsonUllman1977 motivates the construction; separate start operations below extend it uniformly to self-loops. Arbitrary vertex weights are not represented by unit-cost copies and are excluded from this rule. If the source has $n$ vertices, $m$ arc records, and minimum feedback vertex set size $tau$, the target optimum is $n + m + tau$.
 ][
-  _Construction._ Given a directed graph $G = (V, A)$ with $n = |V|$ vertices and $m = |A|$ arcs, build an expression DAG $D$ with $n + m$ vertices as follows. Vertices $0, dots, n-1$ are _leaves_ (one per source vertex), each stored in its own register. For each source vertex $x$ with outgoing arcs $(x, y_1), dots, (x, y_d)$, create a chain of $d$ internal nodes $x^1, dots, x^d$ where:
-  - $x^1$ has left child $x^0$ (the leaf for $x$) and right child $y_1^0$ (the leaf for $y_1$),
-  - $x^i$ ($i >= 2$) has left child $x^(i-1)$ (previous chain node) and right child $y_i^0$ (the leaf for $y_i$).
-  The left operand's register is destroyed by the OP instruction; a LOAD (copy) is needed whenever a leaf register must survive past its destruction.
+  _Construction._ Introduce one leaf $x^0$ per source vertex and a right-only dummy leaf $q$. For every vertex $x$, including sinks and isolated vertices, create a start operation $s_x$ with operands $(x^0, q)$. For each outgoing arc $(x, y_i)$, append an operation $c_(x,i)$ with the preceding operation in this chain as left operand and $y_i^0$ as right operand. Preserve the source arc order within each chain. There are $n + 1$ leaves and $N = n + m$ operations, hence $2n + m + 1$ vertices and $N$ operand arcs of each kind. The construction is linear in $n + m + 1$ and always yields a binary expression DAG.
 
-  _Correctness._ ($arrow.r.double$) If $F subset.eq V$ is a feedback vertex set of size $k$, then $G[V backslash F]$ is a DAG. The topological order of $G[V backslash F]$ induces an evaluation order of the chain nodes such that each leaf $x^0$ with $x in.not F$ is consumed (as a left child) only after all chain nodes that reference it as a right child have been evaluated. Only leaves corresponding to vertices in $F$ need a LOAD instruction (their register is destroyed before some right-child usage). Hence the program uses exactly $n + m - n + k = m + k$ instructions, of which $k$ are LOADs. ($arrow.l.double$) If an optimal program uses $k$ LOAD instructions, the $k$ leaves that require LOADs form a set $F$: removing $F$ from $G$ leaves a DAG (otherwise a directed cycle $v_1 -> dots -> v_l -> v_1$ would require each $v_i^0$ to be consumed before $v_(i+1)^0$, creating a circular register dependency that demands at least one additional LOAD for each cycle). Thus $F$ is a feedback vertex set of size $k$.
+  _Extraction and backward direction._ In any valid evaluation order, select $x$ exactly when some right-use of $x^0$ occurs after $s_x$. Each original leaf is overwritten only at its start, the dummy leaf is never overwritten, and each internal result has at most one use. Therefore the instruction count is exactly $N + |F|$ for the extracted set $F$. For every source arc $(x,y)$ with $y in.not F$, the order satisfies $s_x < c_(x,i) < s_y$. Thus start positions strictly increase on every arc induced by $V backslash F$, which is acyclic. A self-loop forces its vertex into $F$ by the same inequality. This argument covers arbitrary interleavings and parallel arcs.
 
-  _Solution extraction._ Given a target evaluation order (permutation of internal nodes), identify which leaves require a LOAD: leaf $x^0$ needs a LOAD iff the chain-start node $x^1$ is evaluated before some other internal node that uses $x^0$ as a right child. Set $c_x = 1$ for such vertices and $c_x = 0$ otherwise.
+  _Forward direction and optimality._ Given a feedback vertex set $F$, execute complete chains for its vertices first, then complete chains for the remaining vertices in a topological order of $G[V backslash F]$. Every right-use of an unselected leaf precedes its start, so this order costs at most $N + |F|$. Combined with the backward bound, this proves that the target optimum is $N + tau$ and that every optimal target order extracts a minimum feedback vertex set. The empty source produces one dummy leaf and an empty order of cost zero.
 ]
 
 #reduction-rule("MaximumClique", "ILP")[
@@ -13794,15 +13820,16 @@ The following reductions to Integer Linear Programming are straightforward formu
     The source decision bound is $K = #dola_c1ma.source.instance.bound$, so the target augmentation bound is $K - m = #dola_c1ma.source.instance.bound - #dola_c1ma.target.instance.matrix.len() = #dola_c1ma.target.instance.bound$. Source arrangement $f = (#fmt-values(dola_c1ma_sol.source_config))$ corresponds to target column permutation $(#fmt-values(dola_c1ma_sol.target_config))$.
   ],
 )[
-  @garey1979[SR16] @booth1987 This $O(n m)$ reduction maps a decision Optimal Linear Arrangement instance $(G, K)$ to the edge-vertex incidence matrix of $G$ with augmentation bound $K - |E|$. A column permutation is exactly a vertex ordering; making each edge row consecutive costs one flip per interior gap, so the cheapest augmentation under a fixed ordering equals (total edge length) $- |E|$.
+  The incidence construction of @booth1975[Theorem 4.19, pp. 106–108], transposed to use edge rows and vertex columns, gives an $O(1 + n (m + 1))$ reduction. Let $ell$ count non-loop edges, including multiplicity. The augmentation cost for any vertex ordering equals its total edge length minus $ell$.
 ][
-  _Construction._ Let $G = (V, E)$ with $n = |V|$, $m = |E|$, and decision bound $K$. Build the $m times n$ binary matrix $A$ with rows indexed by edges and columns by vertices: for edge $e_i = {u, v}$ set $A[i][u] = A[i][v] = 1$ and all other entries of row $i$ to $0$. Each row has exactly two $1$'s. Set the augmentation bound to $"bound" = K - m$.
+  _Construction._ If $K < ell$, emit the fixed matrix $[[1,1,0],[0,1,1],[1,0,1]]$ with bound zero. Otherwise, form the edge-vertex incidence matrix and use augmentation bound $K - ell$. Retain duplicate edge rows and single-one loop rows. When there are no edges, use one all-zero row of length $n$ to retain all vertex columns; this row is empty when $n = 0$.
 
-  _Correctness._ A column permutation is a bijection $f : V -> {1, dots, n}$. In the row for edge ${u, v}$ the two $1$'s sit at positions $f(u)$ and $f(v)$; making the row consecutive forces filling every zero strictly between them, i.e.\ $|f(u) - f(v)| - 1$ flips. Summed over all rows the total augmentation cost is $sum_({u,v} in E) (|f(u) - f(v)| - 1) = (sum_({u,v} in E) |f(u) - f(v)|) - m$. ($arrow.r.double$) If $G$ admits an arrangement of total length at most $K$, using it as the column permutation costs at most $K - m = "bound"$ flips, so the target is YES. ($arrow.l.double$) If $A$ can be made C1P with at most $"bound"$ flips, the witnessing column permutation gives an arrangement of total length at most $"bound" + m = K$, so the source is YES.
+  _Correctness._ Every non-loop edge contributes at least one to arrangement length, so $K < ell$ implies NO, including negative bounds. The fixed matrix is NO because among three column pairs at least one pair is not adjacent. In the incidence case, each non-loop row requires exactly $|f(u) - f(v)| - 1$ flips, each loop row requires zero flips, and the additional zero row requires zero flips. Thus $A(f) = S(f) - ell$, where $S$ is arrangement length. Consequently $A(f) <= K - ell$ holds exactly when $S(f) <= K$. The column permutation and the source arrangement are inverse bijections, proving both directions, including empty graphs and repeated edges. The extension to loops and empty graphs follows from this identity; these cases are not premises of the cited two-ones-per-edge proof.
 
-  _Edge inputs._ If $m = 0$ every arrangement has length $0 <= K$, so emit the always-YES $1 times 1$ matrix $[[0]]$ with bound $max(0, K)$. If $K < m$ the source is NO (every arrangement costs at least $m$), so emit the fixed $3 times 3$ cyclic-overlap matrix $[[1,1,0],[0,1,1],[1,0,1]]$ with bound $0$, which is NO under all $6$ column permutations.
+  _Solution extraction._ Evaluate the target certificate once and reject it unless it is a permutation meeting the augmentation budget. Return its inverse permutation. No certificate passes for the NO matrix, so there is no source representative to invent in that branch.
 
-  _Solution extraction._ Read the C1P column permutation $sigma$ (column $sigma(p)$ sits at position $p$) and return the inverse: vertex $v$ receives arrangement position $sigma^(-1)(v)$.
+  _Arithmetic and size._ The non-loop edge count is converted to an exact signed integer. In the incidence branch $0 <= ell <= K <= 2^63 - 1$, so $K - ell$ is representable. Any accepted certificate has $S(f) <= K$, and its nonnegative edge-length partial sums are also representable. The target has at most $m + 3$ rows and $n + 3$ columns, covering both the incidence representation and the fixed NO matrix.
+
 ]
 
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
@@ -14176,18 +14203,9 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let st_ilp = load-example("SteinerTree", "ILP")
 #let st_ilp_sol = st_ilp.solutions.at(0)
-#let st_edges = st_ilp.source.instance.graph.edges
-#let st_weights = st_ilp.source.instance.edge_weights
-#let st_terminals = st_ilp.source.instance.terminals
-#let st_root = st_terminals.at(0)
-#let st_non_root_terminals = range(1, st_terminals.len()).map(i => st_terminals.at(i))
-#let st_selected_edge_indices = st_ilp_sol.source_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
-#let st_selected_edges = st_selected_edge_indices.map(i => st_edges.at(i))
-#let st_cost = st_selected_edge_indices.map(i => st_weights.at(i)).sum()
-
 #reduction-rule("SteinerTree", "ILP",
   example: true,
-  example-caption: [Canonical Steiner tree instance ($n = #st_ilp.source.instance.graph.num_vertices$, $m = #st_edges.len()$, $|T| = #st_terminals.len()$)],
+  example-caption: [Signed-weight exact tree formulation],
   extra: [
     #pred-commands(
       "pred create --example SteinerTree -o steinertree.json",
@@ -14195,45 +14213,17 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate steinertree.json --config " + cli-config(st_ilp_sol.source_config),
     )
-    *Step 1 -- Choose a root and one commodity per remaining terminal.* The canonical source instance has terminals $T = {#st_terminals.map(t => $v_#t$).join(", ")}$. The reduction fixes the first terminal as root $r = v_#st_root$ and creates one flow commodity for each remaining terminal: $v_#st_non_root_terminals.at(0)$ and $v_#st_non_root_terminals.at(1)$.
-
-    *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.variables.len() - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.variables.len() - st_edges.len())$.
-
-    *Step 3 -- Count the constraints commodity-by-commodity.* Each non-root terminal contributes one flow-conservation equality per vertex and two capacity inequalities per source edge. For this fixture that is $#st_ilp.source.instance.graph.num_vertices times #st_non_root_terminals.len() = #(st_ilp.source.instance.graph.num_vertices * st_non_root_terminals.len())$ equalities plus $#(2 * st_edges.len()) times #st_non_root_terminals.len() = #(2 * st_edges.len() * st_non_root_terminals.len())$ inequalities, totaling #st_ilp.target.instance.constraints.len() constraints.
-
-    *Step 4 -- Read the canonical witness pair.* The source witness selects edges ${#st_selected_edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$, so $bold(y)$ already encodes the Steiner tree. In the target witness, the commodity for $v_2$ routes along $v_0 arrow v_1 arrow v_2$, while the commodity for $v_4$ routes along $v_0 arrow v_1 arrow v_3 arrow v_4$. Every flow 1-entry therefore sits under a selected edge variable #sym.checkmark
-
-    *Step 5 -- Verify the objective end-to-end.* The selected-edge prefix is $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, matching the source witness $(#fmt-values(st_ilp_sol.source_config))$. The ILP objective is #st_selected_edge_indices.map(i => $#(st_weights.at(i))$).join($+$) $= #st_cost$, exactly the Steiner tree optimum stored in the fixture.
-
-    *Multiplicity:* The fixture stores one canonical witness. Other optimal Steiner trees could yield different feasible ILP witnesses, but every valid witness still exposes the source solution in the first $m$ variables.
+    *Source.* The canonical instance has five vertices, seven edges, and terminals $T={0,2,4}$.
+    *Target.* Seven edge selectors, five vertex selectors, and four commodities with fourteen directed flow variables each give 68 binary variables and 94 constraints. Every selected vertex receives its own root flow. The edge prefix $(#fmt-values(st_ilp_sol.source_config))$ selects the tree of cost 6; the vertex selectors and flows certify connectivity, while the cardinality equality excludes cycles.
   ],
 )[
-  The rooted multi-commodity flow formulation @wong1984steiner @kochmartin1998steiner introduces one binary selector $y_e$ for each source edge and, for every non-root terminal $t$, one binary flow variable on each directed source edge. Flow conservation sends one unit from the root to each terminal, while the linking inequalities $f^t_(u,v) <= y_e$ ensure that every used flow arc is backed by a selected source edge. The resulting binary ILP has $m + 2 m (k - 1)$ variables and $n (k - 1) + 2 m (k - 1)$ constraints.
+  Terminal-only flow formulations rely on nonnegative costs @goemansmyung1993catalog. To support signed weights and direct extraction of every feasible witness, use a commodity for every selected vertex and explicitly impose the tree cardinality identity.
 ][
-  _Construction._ Given an undirected weighted graph $G = (V, E, w)$ with strictly positive edge weights, terminals $T = {t_0, dots, t_(k-1)}$, and root $r = t_0$, introduce binary edge selectors $y_e in {0,1}$ for every $e in E$. For each non-root terminal $t in T backslash {r}$ and each directed copy of an undirected edge $(u, v) in E$, introduce a binary flow variable $f^t_(u,v) in {0,1}$. The target objective is
-  $ min sum_(e in E) w_e y_e. $
-  For every commodity $t$ and vertex $v$, enforce flow conservation:
-  $ sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v), $
-  where $A$ contains both orientations of every undirected edge, $b_(t,v) = -1$ at the root $v = r$, $b_(t,v) = 1$ at the sink $v = t$, and $b_(t,v) = 0$ otherwise. For every commodity $t$ and undirected edge $e = {u, v}$, add the capacity-linking inequalities
-  $ f^t_(u,v) <= y_e quad "and" quad f^t_(v,u) <= y_e. $
-  Binary flow variables suffice because any Steiner tree yields a unique simple root-to-terminal path for each commodity, so every commodity can be realized as a 0/1 path indicator.
+  _Construction._ Let $n=|V|$, $m=|E|$, $k=|T|$, and let $r$ be the first terminal. Binary $y_e$ selects edges, binary $z_v$ selects vertices, and binary $f^s_a$ carries a commodity for every $s in V backslash {r}$ on the bidirected source graph. Require $y_e<=z_u,z_v$ for each $e={u,v}$, $z_t=1$ for all terminals, and $sum_e y_e-sum_v z_v=-1$. For each sink $s$, inflow minus outflow equals $z_s$ at $s$, $-z_s$ at $r$, and zero elsewhere, with $f^s_a<=y_e$ for both orientations of edge $e$. Minimize $sum_e w_e y_e$ without changing weights. There are $m+n+2m(n-1)$ variables and $n(n-1)+2m n+k+1$ constraints.
 
-  The ILP is:
-  $
-    min quad & sum_(e in E) w_e y_e \
-    "subject to" quad & sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v) quad forall t in T backslash {r}, v in V \
-    & f^t_(u,v) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
-    & f^t_(v,u) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
-    & y_e, f^t_(u,v) in {0, 1}.
-  $
+  _Correctness._ Any source tree lifts by selecting its incident vertices and routing one unit along the unique root path to each selected sink; unselected sinks use zero flows. Conversely, a selected vertex outside the root component contradicts flow conservation summed over its component: all crossing flows vanish, but net demand is one. Thus all selected vertices are connected. Endpoint linking and the equality $|E'|=|V'|-1$ imply that the selected graph is a tree spanning all terminals. Both directions preserve the exact edge cost for positive, zero and negative weights; no optimality-based pruning is used.
 
-  _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are strictly positive, any cycle in the selected subgraph has positive total cost; the optimizer therefore never includes redundant edges, so the selected subgraph is already a Steiner tree. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
-
-  _Variable mapping._ The first $m$ ILP variables are the source-edge indicators $y_0, dots, y_(m-1)$ in source edge order. For terminal $t_p$ with $p in {1, dots, k-1}$, the next block of $2 m$ variables stores the directed arc indicators $f^(t_p)_(u,v)$ and $f^(t_p)_(v,u)$ for each source edge $(u, v)$.
-
-  _Solution extraction._ Read the first $m$ target variables as the source edge-selection vector. Since those coordinates are exactly the $y_e$ variables, the extracted source configuration is valid whenever the selected subgraph is pruned to its Steiner tree witness.
-
-  _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
+  _Extraction and numeric domain._ Validate the full target assignment and reject infeasibility, then return its first $m$ edge-selector coordinates. Source `Min<i64>` and target `Extremum<i64>` with minimization sense use identical objective sums. Checked counts precede allocation; structural coefficients are only $-1,0,1$. Existing typed objective-overflow checks remain in force. The endpoints and source tree definition are unchanged.
 ]
 
 #let mvc_hs = load-example("MinimumVertexCover", "MinimumHittingSet")
@@ -14355,7 +14345,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     *Multiplicity:* The fixture stores one canonical edge coloring. Any binary ILP solution satisfying all triangle pairs is a valid Monochromatic Triangle witness.
   ],
 )[
-  This $O(m + t)$ reduction uses one binary variable per edge and two linear inequalities per triangle, where $m = |E|$ and $t$ is the number of triangles in the source graph. The target ILP is a pure feasibility problem with $m$ variables and $2t$ constraints.
+  Use one binary variable per edge, two inequalities per triangle, and valid degree equalities in every five-vertex clique. The latter strengthen the linear relaxation without changing the set of feasible edge colourings. If $m=|E|$, $t$ is the triangle count and $h$ is the number of five-vertex cliques, the target has $m$ variables and at most $2t+15h$ constraints. Since $15h <= |V|^5/8$, enumeration and target size remain polynomial.
 ][
   _Construction._ Let the source graph edges be indexed as $e_0, dots, e_(m-1)$. Introduce binary variables $x_0, dots, x_(m-1)$, where $x_i = 0$ or $1$ is the color assigned to edge $e_i$. For every triangle $T = {e_a, e_b, e_c}$ in the source graph, add the pair of inequalities
   $
@@ -14363,7 +14353,9 @@ The following reductions to Integer Linear Programming are straightforward formu
     quad "and" quad
     x_a + x_b + x_c <= 2.
   $
-  The objective is empty, so the ILP asks only for feasibility.
+  For each five-vertex clique $C$ and every $v in C$, also impose $sum_(u in C backslash {v}) x_({u,v}) = 2$. For each triangle, enumerate edges between its common neighbours; each such edge completes a $K_5$. Any two edges opposite the same triangle must also have equal colours, so add equality constraints linking them to the first such edge. Add the degree equalities once per clique, when the base triangle consists of its three smallest vertices. The objective is empty, so the ILP asks only for feasibility.
+
+  _Validity of the added equalities._ In any colouring of $K_5$ without monochromatic triangles, a vertex cannot have three neighbours joined to it by the same colour: all three edges between those neighbours would have to use the opposite colour, producing a monochromatic triangle. Every vertex has degree four inside the clique, so it has exactly two edges of each colour. Thus every valid source colouring satisfies the degree equalities. For a fixed colour, write $r$ for its edge count inside a triangle of the clique and $t'$ for the colour of the complementary edge. The same degree count gives $5=r+(6-2r)+t'$, so $t'=r-1$: every edge opposite the same triangle has the same colour. Hence all added equalities apply to any input graph, independently of its origin, and exclude no legal colouring. If $k_T$ cliques contain triangle $T$, at most $k_T$ linking equalities are added there; $sum_T k_T=10h$. Together with $5h$ degree equalities this gives the stated constraint bound. These explicit linking rows let ILP presolve eliminate colour copies.
 
   _Correctness._ ($arrow.r.double$) Any triangle-free 2-edge-coloring assigns each triangle at least one edge of color 0 and at least one edge of color 1, so the corresponding sum is either $1$ or $2$ and both inequalities hold. ($arrow.l.double$) Any feasible ILP assignment gives a 0/1 color to every edge, and the triangle bounds forbid sums $0$ and $3$, so no triangle is monochromatic.
 
@@ -15217,44 +15209,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("StackerCrane", "ILP")[
-  Encode the required-arc order by a one-hot position assignment and charge the shortest connector distance between each consecutive pair of required arcs.
+  Encode the required-arc order by a one-hot position assignment and minimize the shortest connector distances between consecutive required arcs.
 ][
-  _Construction._ Let the required arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = ("tail"_i, "head"_i)$. Build the mixed connector graph
-  $H = (V, A union {(u, v), (v, u) : {u, v} in E})$,
-  where the original required arcs keep their given lengths and each undirected edge contributes both orientations with the same length. Because all lengths are nonnegative, compute the all-pairs connector distances
-  $D[u, v] = "dist"_H(u, v)$
-  either by running Dijkstra from every source vertex or by Floyd--Warshall on the $n$-vertex graph $H$; this is exactly the graph queried by `mixed_graph_adjacency()` and `shortest_path_length()` in the model. If $D[u, v] = oo$, the pair is impossible and will be forbidden explicitly.
+  _Construction._ Let $a_i = ("tail"_i, "head"_i)$ for $0 <= i < m$ be the required arcs, with lengths $ell_i >= 0$. In the mixed graph, retain every directed required arc and replace every undirected edge by both orientations of the same length. Compute shortest-path distances $D[u,v]$ in this graph; an unreachable pair has distance $oo$.
 
-  Use `ILP<bool>`. The binary position variables are $x_(i,p)$ for $i, p in {0, dots, m - 1}$, with index
-  $"idx"_x(i, p) = i m + p$.
-  The binary McCormick variables are $z_(i,j,p)$ for $i, j, p in {0, dots, m - 1}$, where position $p + 1$ is interpreted cyclically as $(p + 1) mod m$; their indices are
-  $"idx"_z(i, j, p) = m^2 + p m^2 + i m + j$.
-  There are $m^2 + m^3$ binary variables.
+  Introduce binary variables $x_(i,p)$ indicating that arc $i$ occupies position $p$, and $z_(i,j,p)$ indicating consecutive arcs $i,j$ at positions $p,p+1$. Positions are cyclic modulo $m$. Enforce
+  $ sum_p x_(i,p) = 1 quad forall i, quad sum_i x_(i,p) = 1 quad forall p, $
+  and, for *every* triple $(i,j,p)$, impose all three product constraints
+  $ z_(i,j,p) <= x_(i,p), quad z_(i,j,p) <= x_(j,(p+1) mod m), $
+  $ z_(i,j,p) >= x_(i,p) + x_(j,(p+1) mod m) - 1. $
+  Additionally impose $z_(i,j,p) = 0$ whenever $D["head"_i,"tail"_j] = oo$. This additional constraint does not replace the product constraints: together they forbid the unreachable adjacency.
 
-  The constraints are:
-  $sum_(p = 0)^(m - 1) x_(i,p) = 1$ for each required arc $i$;
-  $sum_(i = 0)^(m - 1) x_(i,p) = 1$ for each position $p$;
-  $z_(i,j,p) <= x_(i,p)$, $z_(i,j,p) <= x_(j,(p + 1) mod m)$, and $z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1$ for all $i, j, p$;
-  if $D["head"_i, "tail"_j] = oo$, then either set $z_(i,j,p) = 0$ for all $p$ or, equivalently, impose $x_(i,p) + x_(j,(p + 1) mod m) <= 1$ for all $p$;
-  and finally
-  $sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B$.
-  The first term is the total length of the required traversals, and the second term charges exactly one connector distance for each consecutive pair in the cyclic order.
+  Minimize
+  $ sum_p sum_(i,j: D["head"_i,"tail"_j] < oo) D["head"_i,"tail"_j] z_(i,j,p). $
+  The sum of required arc lengths $L = sum_i ell_i$ is constant and is omitted from the ILP objective. No decision threshold is introduced.
 
-  The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(p = 0)^(m - 1) x_(i,p) = 1 quad forall i in {0, dots, m - 1} \
-    & sum_(i = 0)^(m - 1) x_(i,p) = 1 quad forall p in {0, dots, m - 1} \
-    & z_(i,j,p) <= x_(i,p), z_(i,j,p) <= x_(j,(p + 1) mod m) quad forall i, j, p \
-    & z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1 quad forall i, j, p \
-    & z_(i,j,p) = 0 quad "whenever" D["head"_i, "tail"_j] = oo \
-    & sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B \
-    & x_(i,p), z_(i,j,p) in {0, 1}.
-  $
+  _Correctness._ ($arrow.r.double$) Every feasible source permutation defines a one-hot matrix $x$. Set each $z$ to its indicated product. All connectors used by the permutation are reachable, so the zero constraints also hold. The objective equals the source route length minus $L$.
 
-  _Correctness._ ($arrow.r.double$) Any feasible Stacker Crane permutation determines a one-hot assignment and consecutive-pair indicators whose connector costs equal the route length. ($arrow.l.double$) Any feasible ILP solution yields a permutation of the required arcs, and the linearized connector term is exactly the sum of shortest paths between consecutive arcs.
+  ($arrow.l.double$) The two assignment constraints make every feasible $x$ a permutation. The three product constraints force $z = x x$ for binary variables. If an adjacency were unreachable, its product would be one while its zero constraint required zero, a contradiction. Therefore the decoded permutation has a feasible closed walk, whose shortest connector lengths sum to the ILP objective. Its source value is exactly that objective plus $L$.
 
-  _Solution extraction._ Decode the permutation by taking, for each position $p$, the unique arc $a$ with $x_(a,p) = 1$.
+  Thus feasibility is equivalent in both directions and the constant offset preserves every optimum. Zero lengths and repeated or self-loop required arcs do not alter the argument. When $m=1$, the product is $x_(0,0)^2=x_(0,0)$ and still enforces a reachable return. When $m=0$, both models have the empty solution with value zero.
+
+  _Solution extraction._ For each position $p$, return the unique $i$ with $x_(i,p)=1$, using the existing one-hot decoder. There are $m^2+m^3$ binary variables and $2m+3m^3+m r$ constraints, where $r$ is the number of unreachable ordered required-arc pairs; hence at most $2m+4m^3$ constraints.
 ]
 
 #reduction-rule("SteinerTreeInGraphs", "ILP")[
@@ -15370,21 +15346,23 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("SequencingToMinimizeTardyTaskWeight", "ILP")[
-  Place each task in exactly one schedule position with a binary tardy indicator forced on whenever the completion time at that position exceeds the task's deadline.
+  Use position assignments and exact tardiness indicators, with both implications of each deadline comparison. Prefix bounds supply valid constants for the bounded-disjunction construction @vielma2015, including the signed lengths, signed weights, and arbitrary deadlines accepted by the source model.
 ][
-  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ occupies position $p$, and binary tardy indicator $u_j$. Let $M = sum_j ell_j$. The ILP is:
-  $
-    "minimize" quad & sum_j w_j u_j \
-    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
-    & sum_j x_(j,p) = 1 quad forall p \
-    & M x_(j,p) + sum_(p' < p) sum_(j') ell_(j') x_(j',p') - M u_j <= d_j - ell_j + M quad forall j, p \
-    & x_(j,p) in {0, 1}, u_j in {0, 1}.
-  $
-  The third family of constraints enforces: if task $j$ is at position $p$ (so $x_(j,p) = 1$), then its completion time $ell_j + sum_(p' < p) sum_(j') ell_(j') x_(j',p')$ exceeds $d_j$ only when $u_j = 1$.
+  _Construction._ For $n$ tasks introduce binary $x_(j,p)$ (task $j$ occupies position $p$) and binary $u_j$ (task $j$ is tardy), with the two families of assignment equations. Let $P_p = sum_(q<p) sum_j ell_j x_(j,q)$. Define $L_p$ and $U_p$ as the sums of the $p$ smallest and $p$ largest lengths respectively; both are zero for $p=0$. Any permutation satisfies $L_p <= P_p <= U_p$.
 
-  _Correctness._ ($arrow.r.double$) Any schedule induces completion times; for each tardy task the big-$M$ constraint forces $u_j = 1$, so the objective counts exactly the total tardy weight. ($arrow.l.double$) Any feasible ILP assignment is a valid permutation (by the assignment constraints) and the tardy indicators agree with the actual completion times.
+  For each task and position put
+  $ c_(j,p)=min(U_p,max(L_p-1,d_j-ell_j)), quad A_(j,p)=U_p-c_(j,p), quad F_(j,p)=c_(j,p)+1-L_p. $
+  The clipped integer cutoff preserves the comparison on the entire prefix interval: $P_p>d_j-ell_j$ iff $P_p>c_(j,p)$. Thus this bound transformation does not alter source semantics. Add
+  $
+    P_p + A_(j,p)x_(j,p)-A_(j,p)u_j &<= U_p, \
+    P_p - F_(j,p)x_(j,p)-F_(j,p)u_j &>= L_p-F_(j,p).
+  $
+  Minimize $sum_j w_j u_j$. There are exactly $n^2+n$ variables and $2n^2+2n$ constraints, with at most $n^4-n^3+6n^2$ nonzero coefficients. The formal ILP constructor normalizes the emitted constraints.
 
-  _Solution extraction._ Read the unique position $p$ with $x_(j,p) = 1$ for each task $j$ to recover the schedule permutation.
+  _Correctness._ When $x_(j,p)=0$, both inequalities are redundant under the prefix bounds. At the occupied position, $u_j=0$ enforces $P_p<=c_(j,p)$, while $u_j=1$ enforces $P_p>=c_(j,p)+1$. Therefore $u_j$ equals the actual integer tardiness predicate, rather than merely being forced on for late tasks.
+  ($arrow.r.double$) Every source permutation and its true tardiness indicators satisfy all assignment and prefix constraints with exactly its source objective. ($arrow.l.double$) Every feasible target assignment determines a permutation and, by the occupied-position constraints, its unique correct tardiness indicators. Objective values agree for every feasible target witness, even with negative weights; optimum values consequently agree. Empty source arrays give the empty ILP and objective zero.
+
+  _Numeric domain and extraction._ Counts, coefficients, right-hand sides, and sparse-evaluation partial-sum bounds are checked before target construction. Signed subset-sum bounds ensure all source time and weight accumulations are representable on successful reduction. For each position, minima/maxima of the sorted prefix sums bound partial sums using at most $p$ lengths; adding the indicator coefficients gives bounds for every target evaluation after the assignment equations. Unrepresentable construction returns a typed reduction error, never an infeasibility claim. The target is `ILP<bool,i64>` with fixed minimization sense. Validate it once, reject a nonfinite/infeasible evaluation, and use the existing one-hot decoder to recover the permutation. No source endpoint or model domain is changed.
 ]
 
 #reduction-rule("SequencingWithDeadlinesAndSetUpTimes", "ILP")[
@@ -15576,24 +15554,27 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("BottleneckTravelingSalesman", "ILP")[
-  Use a cyclic position assignment for the tour and a bottleneck variable that dominates the weight of every chosen tour edge.
+  Use cyclic positions, explicit edge-use choices, and a selected maximum-weight edge. The objective preserves signed edge weights without a big-$M$ constant.
 ][
-  _Construction._ Variables: binary $x_(v,p)$ for city-position assignment, binary $z_((u,v),p)$ for consecutive tour edges, and integer bottleneck variable $b$. The ILP is:
-  $
-    min quad & b \
-    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
-    & sum_v x_(v,p) = 1 quad forall p \
-    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
-    & z_((u,v),p) <= x_(v,(p+1) mod n) quad forall (u, v), p \
-    & z_((u,v),p) >= x_(u,p) + x_(v,(p+1) mod n) - 1 quad forall (u, v), p \
-    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
-    & b >= w_(u,v) z_((u,v),p) quad forall (u, v), p \
-    & x_(v,p), z_((u,v),p) in {0, 1}, b in ZZ_(>=0).
-  $
+  _Construction._ Let $n$ be the vertex count and $m$ the number of stored edges, counting parallel edges separately. Binary $x_(v,p)$ assigns vertex $v$ to position $p$. Binary $z_(e,p,d)$ chooses source edge $e$ at cyclic step $p$ in direction $d in {0,1}$. Binary $q_e$ selects one used maximum-weight edge. Define $y_e = sum_(p,d) z_(e,p,d)$ as an expression, not another variable. All variables retain the nonnegative integer ILP variant, with explicit upper bounds of one.
 
-  _Correctness._ ($arrow.r.double$) Any Hamiltonian tour yields a feasible assignment and sets $b$ to the maximum selected edge weight. ($arrow.l.double$) Any feasible ILP solution encodes a Hamiltonian cycle, and the minimax constraints force $b$ to equal its bottleneck edge weight.
+  Each vertex and position has exactly one assignment. For edge $e=(u,v)$, impose $z_(e,p,0) <= x_(u,p)$ and $z_(e,p,0) <= x_(v,(p+1) mod n)$, with reversed endpoints for direction one. Then impose
+  $
+    sum_(e,d) z_(e,p,d) = 1 quad forall p, quad y_e <= 1 quad forall e,
+  $
+  and the exact maximum selector
+  $
+    sum_e q_e = 1, quad q_e <= y_e, quad
+    y_e <= sum_(f: w_f >= w_e) q_f quad forall e.
+  $
+  Minimize $sum_e w_e q_e$. The threshold principle selects among edge weights @larusic2010; the explicit maximum selector and stored-edge treatment here give a direct ILP construction.
 
-  _Solution extraction._ Mark an edge selected in the source config iff it appears between two consecutive positions in the decoded cycle.
+  _Correctness._ ($arrow.r.double$) A connected degree-two spanning edge selection supplies a cyclic vertex order and distinct edge uses. This includes a one-vertex self-loop or a two-vertex cycle with two parallel edges when present in the native graph. Choose a used maximum-weight edge for $q$. All constraints hold and the objective is the source bottleneck.
+  ($arrow.l.double$) The position equalities give a permutation. Exactly one edge connects each consecutive pair, and no stored edge is used twice, so the decoded selection is connected, spans all vertices, and has degree two. The selected $q$ edge is used and dominates every used edge. Thus every feasible target witness has exactly the source value, not merely an upper bound. An empty graph has no selector and is infeasible.
+
+  _Numeric contract._ Constraints use only coefficients of magnitude one; weights are compared without subtraction or negation. Exactly one objective coefficient contributes, so even the minimum signed integer is preserved without overflowing an intermediate sum. Checked dimensions bound binary constraint accumulation. The target has $n^2+2 m n+m$ variables and $n^2+6 m n+4m+3n+1$ constraints. The default floating solver's transport range is a separate limitation.
+
+  _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one. Parallel edges keep their individual identities.
 ]
 
 #let hc_lc = load-example("HamiltonianCircuit", "LongestCircuit")
@@ -15629,7 +15610,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then this circuit uses $n$ edges each of length 1, giving total length $n$. Since a simple circuit on $n$ vertices can use at most $n$ edges, this is optimal. ($arrow.l.double$) If the longest circuit in $G'$ has length $n$, it uses $n$ unit-weight edges and therefore visits $n$ distinct vertices, i.e., every vertex exactly once. This circuit is therefore a Hamiltonian circuit in $G$.
 
-  _Solution extraction._ Read the selected target edges, traverse the unique degree-2 cycle they form, and return the resulting vertex permutation as the source Hamiltonian-circuit witness.
+  _Solution extraction._ Evaluate the target selection once and require a feasible circuit of length $n$. Reject infeasible selections and shorter circuits before decoding. Then traverse the selected cycle and return its vertex permutation. This criterion applies to every target configuration, without requiring an optimality claim from the caller. If the target has no feasible circuit, or its proven optimum is less than $n$, the source answer is NO. In particular, simple graphs with fewer than three vertices have no circuit; an empty edge selection is not a witness, including on the empty graph.
 ]
 
 #reduction-rule("LongestCircuit", "ILP")[
@@ -15785,45 +15766,22 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("BiconnectivityAugmentation", "ILP")[
-  Select candidate edges under the budget and, for every deleted vertex, certify that the remaining augmented graph stays connected by a flow witness.
+  Select candidate edges under the total budget and certify connectivity of both the original augmented graph and every vertex-deleted graph using bounded integral flow witnesses.
 ][
-  _Construction._ Let the base graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the candidate edges be $F = {f_0, dots, f_(p-1)}$ with $f_j = {s_j, t_j}$. If $n = |V| <= 1$, return the empty feasible ILP, since every 0- or 1-vertex graph is already biconnected in the model. Otherwise fix, for each deleted vertex $q$, the surviving root
-  $r_q = 0$ if $q != 0$, and $r_0 = 1$.
-  This choice is explicit and valid because $n >= 2$.
+  _Construction._ Let $n$ be the vertex count, $m$ the number of base edges, and $p$ the number of candidate edges. Candidate $j$ has cost $w_j$, and the budget is $B$. Use `ILP<i64>` with an empty minimization objective and every variable bounded to $[0,1]$ through `IntegerVariable::binary()`.
 
-  Use `ILP<i64>`. The candidate-selection bits are $y_j in {0, 1}$ with index $j$. For the connectivity witnesses, allocate the full $(q, t)$ commodity grid with $q, t in {0, dots, n - 1}$, even though the commodities with $t = q$ or $t = r_q$ will be pinned to 0. For each base edge $e_i$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $u_i -> v_i$ and $eta = 1$ mean $v_i -> u_i$; define binary flow variables $f^(q,t)_(i,eta)$ with index
-  $p + (((q n + t) m + i) 2 + eta)$.
-  For each candidate edge $f_j$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $s_j -> t_j$ and $eta = 1$ mean $t_j -> s_j$; define binary flow variables $g^(q,t)_(j,eta)$ with index
-  $p + 2 m n^2 + (((q n + t) p + j) 2 + eta)$.
-  There are $p + 2 n^2 (m + p)$ variables in total.
+  Selection variable $y_j$ has index $j$. Connectivity scenarios are $q in {0, dots, n}$: $q<n$ deletes vertex $q$, whereas $q=n$ deletes nothing. For each scenario and destination $t in {0, dots, n-1}$, reserve two directed flow variables per base edge and per candidate edge. Orientation $eta=0$ follows the stored endpoint order, and $eta=1$ reverses it. The indices are
+  $"idx"_f(q,t,i,eta)=p+2((q n+t)m+i)+eta$ and
+  $"idx"_g(q,t,j,eta)=p+2 m n(n+1)+2((q n+t)p+j)+eta$.
+  Thus the variable count is $p+2 n(n+1)(m+p)$.
 
-  The constraints are:
-  $sum_(j = 0)^(p - 1) w_j y_j <= B$;
-  for every deleted vertex $q$ and target $t$, if $t = q$ or $t = r_q$, set all $f^(q,t)_(i,eta)$ and $g^(q,t)_(j,eta)$ equal to 0;
-  if the deleted vertex $q$ is incident to base edge $e_i$ or candidate edge $f_j$, set the corresponding directed flow variables for that $(q,t)$ to 0, because they do not exist in $G - q$;
-  for each candidate edge variable, the exact activation big-$M$ is 1:
-  $g^(q,t)_(j,eta) <= y_j$ for every $q, t, j, eta$;
-  and for every valid pair $(q,t)$ with $t in.not {q, r_q}$ and every surviving vertex $v != q$, impose flow conservation
-  $sum_"out of v" (f^(q,t) + g^(q,t)) - sum_"into v" (f^(q,t) + g^(q,t)) = 1$
-  when $v = r_q$,
-  $= -1$ when $v = t$,
-  and $= 0$ otherwise.
-  The sums range over both orientations of all base and candidate edges that avoid $q$. Since every commodity carries exactly one unit, binary flows are sufficient.
+  Include the total-budget row $sum_(j=0)^(p-1) w_j y_j <= B$, even for an empty graph. In each scenario with surviving vertices, the root is $r_q=0$ unless vertex 0 is deleted, in which case $r_0=1$. If $t=q$ or $t=r_q$, pin that commodity's entire flow to zero. When no vertices survive, all commodities are pinned and no root is used. For other commodities, pin both orientations of edges incident to the deleted vertex to zero. Bound every surviving candidate flow by its selection bit, $g^(q,t)_(j,eta)<=y_j$. At each surviving vertex impose outgoing flow minus incoming flow equal to 1 at $r_q$, -1 at $t$, and 0 elsewhere. The scenario $q=n$ uses the same equations without deleting any edge or vertex.
 
-  The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(j = 0)^(p - 1) w_j y_j <= B \
-    & f^(q,t)_(i,eta) = 0 quad "whenever" t in {q, r_q} "or" e_i "is incident to" q \
-    & g^(q,t)_(j,eta) = 0 quad "whenever" t in {q, r_q} "or" f_j "is incident to" q \
-    & g^(q,t)_(j,eta) <= y_j quad forall q, t in {0, dots, n - 1}, j in {0, dots, p - 1}, eta in {0, 1} \
-    & "for each valid pair" (q,t) ", unit-flow conservation from" r_q "to" t "holds in" G - q \
-    & y_j, f^(q,t)_(i,eta), g^(q,t)_(j,eta) in {0, 1}.
-  $
+  _Correctness._ Unit paths satisfy flow conservation, and a nonzero feasible flow implies a source-to-destination path by flow decomposition or a cut argument @karger2021flow. In the forward direction, a feasible augmentation is connected before and after every vertex deletion; choose one simple path from each scenario root to each other surviving vertex. Their separate binary flow vectors satisfy all constraints, and the selected costs satisfy the budget. In the reverse direction, each unit-flow commodity forces its destination into the root's connected component. Scenario $q=n$ proves original connectivity; the other scenarios prove connectivity after each deletion. Both conditions are necessary, including on two vertices. Therefore the selected augmentation is biconnected. Zero- and one-vertex graphs satisfy the connectivity conditions by the model's convention; their empty selection still has cost zero and must meet $B$.
 
-  _Correctness._ ($arrow.r.double$) If the chosen augmentation makes the graph biconnected, then every vertex-deleted graph is connected and therefore supports the required flows. ($arrow.l.double$) If the ILP is feasible, then removing any single vertex leaves a connected graph, which is exactly the definition of biconnectivity for the augmented graph.
+  _Signed costs and arithmetic._ Costs need not be nonnegative. The source checks the final selected total against $B$, rather than rejecting a temporary excess that later negative costs may cancel. The budget row retains candidate order, so source and target perform the same checked i64 accumulation. Overflow remains an evaluation error; the implementation does not widen or reinterpret it as infeasibility. Connectivity coefficients and right-hand sides are in ${-1,0,1}$, and flow variables are bounded to $[0,1]$. Variable-layout arithmetic is checked before allocation.
 
-  _Solution extraction._ Output the binary selection vector of candidate edges.
+  _Solution extraction._ Validate the target assignment once and require a finite feasible objective value; then decode its first $p$ binary integers as candidate-selection bits. The empty objective equals zero on every feasible target. The constraint count is at most $1+n(n+1)(2m+4p+n)$.
 ]
 
 #reduction-rule("BoundedComponentSpanningForest", "ILP")[
@@ -17359,31 +17317,41 @@ The following table shows concrete target-variable counts for example instances,
 #let ksat_mono_sol = ksat_mono.solutions.at(0)
 #reduction-rule("KSatisfiability", "MonochromaticTriangle",
   example: true,
-  example-caption: [Single-clause 3-SAT instance ($n = #ksat_mono.source.instance.num_vars$, $m = #sat-num-clauses(ksat_mono.source.instance)$) reduced to a 4-triangle graph],
+  example-caption: [3-SAT encoded by NAE triangles and equality senders],
   extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(ksat_mono.source) + " -o ksat.json",
-      "pred reduce ksat.json --via route.json -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + cli-config(ksat_mono_sol.source_config),
-    )
-
-    *Step 1 -- Source instance.* The fixture uses the single clause $c_1 = (x_1 or x_2 or x_3)$. The extracted satisfying assignment is $(#fmt-values(ksat_mono_sol.source_config))$.
-
-    *Step 2 -- Build the clause gadget.* Create literal vertices $p_1, p_2, p_3, n_1, n_2, n_3$ together with negation edges $(p_1, n_1)$, $(p_2, n_2)$, and $(p_3, n_3)$. For the clause, add intermediates $m_12, m_13, m_23$ and the six fan edges $(p_1, m_12)$, $(p_2, m_12)$, $(p_1, m_13)$, $(p_3, m_13)$, $(p_2, m_23)$, $(p_3, m_23)$, plus the clause triangle on $(m_12, m_13, m_23)$. The target therefore has $|V| = #graph-num-vertices(ksat_mono.target.instance)$ vertices, $|E| = #graph-num-edges(ksat_mono.target.instance)$ edges, and $#ksat_mono.target.instance.triangles.len()$ triangles.
-
-    *Step 3 -- Verify a witness.* The stored target coloring is $(#fmt-values(ksat_mono_sol.target_config))$. Its first $n = #ksat_mono.source.instance.num_vars$ entries color the negation edges; reading those colors and applying the global color-swap symmetry fix yields the source assignment $(#fmt-values(ksat_mono_sol.source_config))$, which satisfies $c_1$ #sym.checkmark. The same target coloring makes all four target triangles non-monochromatic #sym.checkmark.
-
-    *Multiplicity:* The fixture stores one canonical target coloring. Swapping the two edge colors gives another valid witness and may flip the decoded assignment to its complement.
+    The single-clause example has $n=3$, $m=1$, five logical variables including the sentinel and splitting variable, and seven NAE triples. Its graph has $#graph-num-vertices(ksat_mono.target.instance)$ vertices, $#graph-num-edges(ksat_mono.target.instance)$ edges and $#ksat_mono.target.instance.triangles.len()$ triangles. The stored target witness decodes to $(#fmt-values(ksat_mono_sol.source_config))$ by normalizing variable-signal colours against the sentinel colour.
   ],
 )[
-  This $O(n + m)$ reduction @garey1979[GT6] uses one positive/negative literal pair per variable and one three-vertex clause gadget per clause. The target graph has $2n + 3m$ vertices and $n + 9m$ edges.
+  Use the signal-sender framework of @burrErdosLovasz1976Ramsey with the explicit seven-vertex equality sender proved below. The construction has linear graph size and preserves satisfiability in both directions. Its extraction works for every valid target colouring.
 ][
-  _Construction._ Let $phi = and_(j=1)^m (ell_1^j or ell_2^j or ell_3^j)$ be a 3-CNF formula on variables $x_1, dots, x_n$. For each variable $x_i$, create literal vertices $p_i$ and $n_i$ and add the negation edge $(p_i, n_i)$. For each clause $C_j$, map each literal $ell_r^j$ to its literal vertex $v_r^j$ ($x_i mapsto p_i$, $overline(x)_i mapsto n_i$). Introduce fresh intermediate vertices $m_12^j$, $m_13^j$, and $m_23^j$. Add fan edges $(v_1^j, m_12^j)$, $(v_2^j, m_12^j)$, $(v_1^j, m_13^j)$, $(v_3^j, m_13^j)$, $(v_2^j, m_23^j)$, and $(v_3^j, m_23^j)$, then connect the intermediates into the clause triangle $(m_12^j, m_13^j)$, $(m_12^j, m_23^j)$, $(m_13^j, m_23^j)$. Each clause gadget therefore contributes exactly four triangles: the clause triangle itself and the three fan triangles rooted at $v_1^j$, $v_2^j$, and $v_3^j$.
+  _Equality sender._ Take two disjoint signal edges $(a,b)$ and $(c,d)$ and three private vertices $u,v,w$. Form the union of the two complete graphs on ${a,b,u,v,w}$ and ${c,d,u,v,w}$. The sender has seven vertices, seventeen edges and nineteen triangles. It contains no edge between the two signal edges.
 
-  _Correctness._ ($arrow.r.double$) Fix a satisfying assignment of $phi$. Color each negation edge $(p_i, n_i)$ by the truth value of $x_i$, using color $0$ for true and color $1$ for false. For any clause, at least one of its literals is satisfied, and the four-triangle gadget has a 2-edge-coloring extending those literal choices with no monochromatic triangle; the implementation follows the verified local construction from issue #884 and colors each clause independently because the intermediates are clause-local. ($arrow.l.double$) Given a triangle-free coloring of the target graph, inspect the negation-edge colors. Either those colors, or their global complement after swapping the two colors, yields a satisfying assignment of the source formula under the same verified gadget analysis.
+  In every colouring of $K_5$ without a monochromatic triangle, each vertex has exactly two incident edges of each colour: three neighbours of one colour would have all three mutual edges of the other colour. Each colour graph is consequently a five-cycle. For either colour, let $r$ be its edge count in the private triangle and $t$ its edge count in the complementary signal edge. The private vertices have total degree six in that colour, so the number of crossing edges is $6-2r$. Counting the five edges of that colour gives $5=r+(6-2r)+t$, hence $t=r-1$. Thus the signal edge has the majority colour of the private triangle. Applied to both cliques, this forces the signal edges to have equal colours.
 
-  _Solution extraction._ Read the negation-edge colors in variable order, setting $x_i = 1$ when $(p_i, n_i)$ has color $0$ and $x_i = 0$ otherwise. If that assignment does not satisfy $phi$, complement all bits; this accounts for the global color-swap symmetry of the target witness.
+  Conversely, either equal signal colouring extends: make that colour the cycles $u,v,w,a,b,u$ and $u,v,w,c,d,u$ in the two cliques, and give all remaining edges the other colour. Both cycles agree on the private triangle, and each clique has no monochromatic triangle. No triangle crosses between the two signal edges.
+
+  _Construction._ Let the source have $n$ variables and $m$ clauses of length at most three; the typed API also admits shorter clauses. Let $q$ count its length-three clauses.
+
+  1. Apply the existing typed embedding into Satisfiability and the existing SAT-to-NAE reduction. It adds a sentinel $s$, replacing each nonempty clause $C$ by $"NAE"(C,s)$ and an empty clause by $"NAE"(s,s)$.
+  2. Replace $"NAE"(a,b)$ by $"NAE"(a,b,b)$; keep triples unchanged; replace $"NAE"(a,b,c,d)$ by $"NAE"(a,b,z)$ and $"NAE"(overline(z),c,d)$ with a fresh variable $z$. There are $N=n+1+q$ logical variables and $m+q$ resulting triples.
+  3. Give every logical variable $i$ two disjoint signal edges $P_i,M_i$. Their $4N$ vertices are disjoint from all subsequent clause vertices. For each variable include the sign-consistency triple $"NAE"(P_i,P_i,M_i)$, followed by the logical triples, using $P_i$ for a positive literal and $M_i$ for a negative one. There are $T=N+m+q$ triples in total.
+  4. Give every triple its own triangle. Connect its three edges to the three literal signals using three equality senders, each with fresh private vertices. The terminal edges already exist, so a sender adds three vertices and fifteen edges. Repeated literals use separate senders; no endpoint identification or case-specific repair is performed.
+
+  _NAE identities._ The length-two identity holds because duplicating a value does not change whether all values agree. For the length-four identity, if $a=b$ the first triple forces $z=overline(a)$; if $c=d$ the second forces $z=c$. These requirements conflict exactly when all four values agree. If either pair differs, its corresponding triple imposes no condition on $z$. This proves the identity in both directions for all input patterns.
+
+  _Triangle isolation._ Private vertices from different senders are nonadjacent. Any triangle containing a private sender vertex must lie in that sender: both other vertices belong to it, and the only edges among its four boundary vertices are its two terminal edges. This remains true after assembly because all variable signals and clause triangles have disjoint vertex sets, and senders add no boundary-to-boundary edges. A triangle containing no sender-private vertex is one of the clause triangles. Hence the target contains exactly the intended clause triangles and the nineteen triangles inside each sender, even with repeated or complementary literals and repeated variable occurrences.
+
+  _Correctness._ ($arrow.r.double$) Extend a satisfying source assignment with sentinel false using the formal SAT-to-NAE construction, and select each auxiliary value by the NAE identity. Give $P_i$ the variable value and $M_i$ its complement. All sign-consistency and logical triples are not-all-equal. Colour each clause edge with its literal signal colour, and extend every equality sender as above. Triangle isolation proves that the complete graph has no monochromatic triangle.
+
+  ($arrow.l.double$) In every valid target colouring, the sender forces each clause edge to equal its literal signal. Each sign-consistency triangle therefore enforces $"NAE"(P_i,P_i,M_i)$, so the negative signal is the complement of the positive one. Every logical triple satisfies its NAE relation. Eliminating the fresh splitting variables yields a valid assignment to the formal SAT-to-NAE target. Its extraction, which XORs the original variable values with the sentinel, satisfies the source formula. No trial assignment or source solve is needed. In particular, an empty source clause gives $"NAE"(s,s,s)$ and makes the target infeasible.
+
+  _Solution extraction._ Validate the target colouring and read the positive signal colours for the original variables and sentinel. Pass this assignment to the existing SAT-to-NAE extraction API. A global colour swap leaves the normalized source assignment unchanged.
+
+  _Overhead._ The exact counts are $4N+12T$ vertices, $2N+48T$ edges and $58T$ triangles. Since $q<=m$, these are bounded by $16n+40m+16$, $50n+146m+50$ and $58n+174m+58$, respectively. All graph-size arithmetic is checked before allocation. With exactly three literals per clause the bounds are equalities.
+
+  _YES example._ For the clause $(x_1 or x_2 or x_3)$, choose values $(1,0,0)$, sentinel $0$ and splitting variable $0$. Both logical triples evaluate to $"NAE"(1,0,0)$. Here $N=5$, $T=7$, giving 104 vertices, 346 edges and 406 triangles. The signal colours extend by the sender construction.
+
+  _NO example._ On three variables, take all eight clauses obtained by choosing every combination of literal signs. Every assignment falsifies one clause. Here $N=12$, $T=28$, giving 384 vertices, 1368 edges and 1624 triangles. Any target colouring would decode to an assignment satisfying all eight clauses, a contradiction. For the empty formula on zero variables, the same uniform construction has $N=T=1$ and a valid colouring that decodes to the empty assignment.
 ]
 
 #let ksat_1in3 = load-example("KSatisfiability", "OneInThreeSatisfiability")
@@ -17419,23 +17387,23 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. This single-clause source formula has 7 satisfying assignments, and each satisfying literal pattern extends to at least one target witness by the gadget construction.
   ],
 )[
-  This $O(n + m)$ reduction @schaefer1978 @garey1979[LO4] preserves the original variables, adds two global variables $z_0$ and $z_T$, and introduces six fresh auxiliaries per clause. Each 3-SAT clause $(ell_1 or ell_2 or ell_3)$ is replaced by a five-clause gadget of exact-one constraints. The target therefore has $n + 2 + 6m$ variables and $1 + 5m$ clauses.
+  Schaefer's Lemma 3.5 @schaefer1978 expresses a three-input disjunction by five exact-one constraints. The implementation compacts the $a$ appearing source variables, adds two global constant variables and six auxiliaries per clause. A source with $m$ clauses produces $a + 2 + 6m$ target variables and $1 + 5m$ target clauses, bounded by $n + 2 + 6m$ and $1 + 5m$ in the declared source parameters.
 ][
-  _Construction._ Let $phi = and_(j=1)^m (ell_1^j or ell_2^j or ell_3^j)$ be a 3-CNF formula on variables $x_1, dots, x_n$. Introduce global variables $z_0$ and $z_T$, and add the clause $R(z_0, z_0, z_T)$, where $R(u, v, w)$ means that exactly one of the three literals is true. This forces $z_0 = 0$ and $z_T = 1$. For every source clause $C_j = (ell_1^j or ell_2^j or ell_3^j)$, introduce six fresh auxiliaries $a_j, b_j, c_j, d_j, e_j, f_j$ and append the five target clauses
+  _Construction._ Let $J$ be the sorted original indices of the appearing variables. Replace each actual source literal by the corresponding compact variable with its sign preserved. Use the existing SAT variable allocator to allocate $z_0$ and $z_T$, followed by six fresh variables $a_j, b_j, c_j, d_j, e_j, f_j$ for each source clause. The global exact-one constraint $R(z_0,z_0,z_T)$ forces $(z_0,z_T)=(0,1)$. Each native source clause has zero through three positions; fill missing positions with $z_0$. This preserves its disjunction, including the empty clause's false value. For the resulting three literals $ell_1^j,ell_2^j,ell_3^j$, append
   $
-    R(ell_1^j, a_j, d_j), quad
-    R(ell_2^j, b_j, d_j), quad
-    R(a_j, b_j, e_j), quad
-    R(c_j, d_j, f_j), quad
-    R(ell_3^j, c_j, z_0).
+    R(ell_1^j,a_j,d_j), quad R(ell_2^j,b_j,d_j), quad
+    R(a_j,b_j,e_j), quad R(c_j,d_j,f_j), quad R(ell_3^j,c_j,z_0).
   $
-  Negated source literals are copied directly; no complement variables are needed because 1-in-3 SAT clauses in this codebase may contain negated literals.
+  Here $R$ counts literal occurrences, so its repeated $z_0$ in the global constraint is intentional. Negative literals remain permitted by the target model. Every clause uses this same construction; no empty-clause target case is needed.
 
-  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable. Set the first $n$ target variables according to any satisfying source assignment, and set $(z_0, z_T) = (0, 1)$. Consider one clause gadget. Because $ell_1^j or ell_2^j or ell_3^j = 1$, the truth triple $(ell_1^j, ell_2^j, ell_3^j)$ is one of the seven nonzero 0/1 patterns. For each such pattern there is a choice of $(a_j, b_j, c_j, d_j, e_j, f_j)$ satisfying all five exact-one clauses; the implementation uses the gadget directly and the worked example shows one such extension. Doing this independently for every clause yields a satisfying 1-in-3 assignment.
+  _Correctness._ ($arrow.r.double$) Given a satisfying source assignment, assign its appearing coordinates to the compact target variables and set the constants as above. Let $(x,y,z)$ be one padded clause's literal truth values. Set $d=(1-x)(1-y)$, $a=1-x-d$, $b=1-y-d$, $c=1-z$, $e=1-a-b$ and $f=z-d$. If $x=y=0$, satisfaction forces $z=1$, giving $(a,b,c,d,e,f)=(0,0,0,1,1,0)$. Otherwise $d=0$, $a=1-x$, $b=1-y$, $e=x+y-1$, and $f=z$; these and $c=1-z$ are Boolean because $x+y>=1$. Substitution gives $x+a+d=y+b+d=a+b+e=c+d+f=z+c=1$, satisfying all five constraints. Auxiliary variables are disjoint across clauses, so the assignments combine.
 
-  ($arrow.l.double$) Suppose the target instance is satisfiable. The global clause forces $z_0 = 0$. Fix any clause gadget, and assume for contradiction that $ell_1^j = ell_2^j = ell_3^j = 0$. Then $R(ell_3^j, c_j, z_0)$ forces $c_j = 1$. Next $R(c_j, d_j, f_j)$ forces $d_j = f_j = 0$. Then $R(ell_1^j, a_j, d_j)$ and $R(ell_2^j, b_j, d_j)$ force $a_j = b_j = 1$. But now $R(a_j, b_j, e_j)$ has two true literals, impossible. Therefore every source clause has at least one true literal, so the restriction to the original variables satisfies $phi$.
+  ($arrow.l.double$) Every target solution forces $z_0=0$. If a padded clause had $x=y=z=0$, the final constraint would force $c=1$; the fourth would then force $d=f=0$. The first two would force $a=b=1$, contradicting the third. Thus every padded disjunction is true, which implies every original clause is true. Repetition, opposite signs and missing positions do not change this argument.
 
-  _Solution extraction._ Return the first $n$ target coordinates unchanged, discarding $z_0$, $z_T$, and all clause auxiliaries.
+  _Solution extraction._ Validate the target assignment once using the formal evaluator and reject $"Or(false)"$. Initialize a length-$n$ false vector, then restore the compact source coordinates to their original positions in $J$. Unused source variables stay false. The resolved value types are $"Or" arrow.r "Or"$.
+
+  _Native bounds._ Since $a<=3m$, at most $9m+2$ target variables are allocated. The size of a successfully allocated native clause vector bounds $m$; with 24-byte clauses on 64-bit Rust (at least 12 bytes on 32-bit), this count stays within the signed literal domain and the native index domain. Sparse original indices never determine auxiliary allocation positions. Clause capacity is checked, allocator failures retain the formal construction error type, and the target is built through its fallible constructor. Resource exhaustion is not mathematical infeasibility.
+
 ]
 
 #let ksat_d2cif = load-example("KSatisfiability", "DirectedTwoCommodityIntegralFlow")
@@ -17474,13 +17442,19 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("KSatisfiability", "FeasibleRegisterAssignment",
   example: false,
 )[
-  Sethi's Reduction 3 @sethi1975 @garey1979[PO2] builds a DAG with shared-register variable leaf pairs and $p\/q\/r\/overline(r)$ clause gadgets with cyclic links, plus a preassigned register allocation. The target has $2n + 12m$ vertices, $15m$ arcs, and $K = n + 9m$ registers.
+  Sethi's Reduction 3 @sethi1973 builds a DAG with shared-register variable leaf pairs and $p\/q\/r\/overline(r)$ clause gadgets. Nonempty short clauses are padded by repeating a literal; occurring variables are compacted. For $s$ declared source variables and $c$ clauses, the target has at most $2s+12c$ vertices, $15c$ arcs, $s+9c$ registers, and $s+3c$ pairs of vertices sharing a register.
 ][
-  _Construction._ For each variable $x_k$, create two leaf nodes $s_k^+, s_k^-$ sharing register $S_k$. For each literal occurrence $Y_(i,j)$ in clause $C_i$, create four nodes $p_(i,j), q_(i,j), r_(i,j), overline(r)_(i,j)$ with internal arcs $q_(i,j) -> p_(i,j) -> r_(i,j)$ and cyclic links $q_(i,1) -> overline(r)_(i,2)$, $q_(i,2) -> overline(r)_(i,3)$, $q_(i,3) -> overline(r)_(i,1)$. Nodes $r_(i,j)$ and $overline(r)_(i,j)$ share register $R_(i,j)$. If $Y_(i,j) = x_k$: $r_(i,j) -> s_k^+$ and $overline(r)_(i,j) -> s_k^-$; if $Y_(i,j) = overline(x)_k$: swap the attachments.
+  _Native normalization._ If any clause is empty, return the three-vertex DAG with dependencies $(2,0),(2,1)$ and register assignment $(0,0,1)$. Both predecessors must stay live until vertex 2, so neither can overwrite the other's register; this target is infeasible. Otherwise collect appearing source indices in increasing order and store their inverse map. Pad each nonempty clause to three literal occurrences by repeating its first literal. Repetition preserves a disjunction, and each occurrence has its own gadget and register pair, so no distinct-variable assumption is needed. An empty conjunction yields the empty DAG and empty realization.
 
-  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, place the truth-selected leaf first for each variable, then unlock each clause gadget starting from a satisfied literal. ($arrow.l.double$) The cyclic links force at least one position $j$ per clause where $r_(i,j)$ appears before $overline(r)_(i,j)$; shared-register order transfer forces the corresponding literal leaf to appear first, encoding a true literal.
+  _Construction._ Let $a$ be the number of appearing variables. For each compact variable $x_k$, create leaves $s_k^+,s_k^-$ sharing register $S_k$. For every clause position $(i,j)$ create $p_(i,j),q_(i,j),r_(i,j),overline(r)_(i,j)$. The $p$ and $q$ registers are unique, while $r$ and $overline(r)$ share a fresh register $R_(i,j)$. Arcs point from a consumer to its dependency: $q_(i,j) -> p_(i,j) -> r_(i,j)$ and $q_(i,j) -> overline(r)_(i,j+1)$, with positions cyclic modulo three. For positive literal $x_k$, add $r_(i,j) -> s_k^+$ and $overline(r)_(i,j) -> s_k^-$; reverse these attachments for a negative literal. This DAG has four levels: leaves, $r/overline(r)$, $p$, and $q$.
 
-  _Solution extraction._ For each variable $x_k$, set $tau(x_k) = 1$ iff $s_k^+$ appears before $s_k^-$ in the realization.
+  _Forward correctness._ Follow Sethi's Lemma 5.5 @sethi1973. For each variable, execute its true-literal leaf, all direct consumers of that leaf, and then its opposite leaf. Every old leaf value is consumed before the shared register is overwritten; exactly one of each $r/overline(r)$ pair has executed. For every occurrence whose $r$ has executed, execute its $p$ and then $overline(r)$, consuming $r$ before overwriting its register. Now all $overline(r)$ vertices are available. In each clause choose a true occurrence $j$. Its $p_j$ is available, so execute $q_j$. This consumes $overline(r)_(j+1)$ and releases that register; if $r_(j+1)$ is missing, execute it and its $p$, then execute $q_(j+1)$. Continue around all three positions. Every dependency is met and every register overwrite follows the last use of its former value. Occurrence registers are disjoint across clauses, so these schedules combine.
+
+  _Backward correctness._ Lemma 5.7 transfers relative order between two shared-register pairs: if $u_1$ depends on $v_1$, $u_2$ on $v_2$, and each pair shares a register, then $u_1 < u_2$ iff $v_1 < v_2$ in every realization. A reversed order would overwrite a predecessor while its consumer is still pending. Apply this with $u_1=r$, $u_2=overline(r)$, and the two attached literal leaves. If every position in a clause had $overline(r)_j < r_j$, its register conflict would force $q_(j-1) < r_j$, whereas dependencies force $r_j < p_j < q_j$. Combining these inequalities cyclically is impossible. Thus at least one $r_j < overline(r)_j$, and order transfer makes its literal true. Every source clause is satisfied after undoing repetition and compaction.
+
+  _Extraction._ Validate the complete position vector and reject $"Or(false)"$. Set each appearing source variable true iff its compact positive leaf occurs before its negative leaf. Restore original indices through the inverse map and assign false to unused variables. The target model's permitted last-use overwrite does not weaken the order-transfer proof: neither member of a shared pair is the other member's consumer in this construction.
+
+  _Bounds and native arithmetic._ For the ordinary construction $a <= min(s,3c)$, so the displayed upper bounds follow from the exact counts $2a+12c$, $15c$, $a+9c$, and $a+3c$. The fixed NO target has counts $(3,2,2,1)$ and also satisfies the bounds whenever an empty clause exists; the empty YES target has all counts zero. Let $I="isize::MAX"$. A native source clause stores a vector object of 24 bytes on 64-bit or 12 bytes on 32-bit, so successful allocation of its outer vector bounds $c$ by $I/24$ or $I/12$. Therefore $2a+12c <= 18c$, $a+9c <= 12c$, and $15c$ fit $"usize"$ before target allocation on both architectures. Once the target register-assignment vector is allocated, every indexed vertex is within that vector. All same-register groups have size two except the fixed target's singleton, so pair counting introduces no large product. Checked construction arithmetic is retained; allocation and solver limits are not infeasibility proofs.
 ]
 
 #let ksat_rs = load-example("KSatisfiability", "RegisterSufficiency")
@@ -17505,15 +17479,24 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical satisfying assignment. Different satisfying assignments can induce different valid computation orders in the target DAG.
   ],
 )[
-  Sethi's Reduction I / Theorem 3.11 @sethi1975 @garey1979[PO1] builds a dependency DAG whose register pressure mirrors a literal-assignment phase followed by a clause-verification phase. For a 3-CNF formula with $n$ variables, $m$ clauses, and $b = max(0, 2n - m)$, the target has $3n^2 + 9n + 4m + b + 4$ vertices, $6n^2 + 19n + 16m + 2b + 1$ arcs, and register bound $K = 3m + 4n + 1 + b$.
+  Sethi's Reduction 1 and Theorem 3.11 @sethi1973 encode literal choices through register pressure. We extend the construction to the native zero-to-three-literal clause domain by truth-preserving normalization and explicit empty-formula boundaries. The original padding $b=max(2n-m,0)$ is retained.
 ][
-  _Construction._ Let $phi = and_(i=1)^m C_i$ be a 3-CNF formula over variables $x_1, dots, x_n$, where $C_i = (Y_(i,1) or Y_(i,2) or Y_(i,3))$. Define $b = max(0, 2n - m)$. Create node families $A = {a_j : 1 <= j <= 2n+1}$, $B = {b_j : 1 <= j <= b}$, $C = {c_i : 1 <= i <= m}$, $F = {f_(i,j) : 1 <= i <= m, 1 <= j <= 3}$, $M = {"initial", d, "final"}$, $R = {r_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+2}$, $S = {s_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $T = {t_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $U = {u_(k,1), u_(k,2) : 1 <= k <= n}$, $W = {w_k : 1 <= k <= n}$, $X = {x_k^+, x_k^- : 1 <= k <= n}$, and $Z = {z_k : 1 <= k <= n}$. Add the ten arc families from Sethi's theorem exactly as stated in the issue: $"initial"$ depends on every node in $A union B union F union U$, every node in $C union R union S union T union W$ depends on $"initial"$, $"final"$ depends on $W union X union Z union {"initial", d}$, each variable gadget links $x_k^+$ and $x_k^-$ to $z_k$, $u_(k,1)$, $u_(k,2)$, $s_(k,*)$, $t_(k,*)$, $r_(k,*)$, and each clause gadget links $c_i$ to $w_n$, $z_n$, its three $f_(i,j)$ nodes, and the literal-lock edges determined by whether $Y_(i,j)$ is positive or negative.
+  _Normalization._ A formula containing an empty clause is false; output a single output vertex with register bound zero. An empty conjunction is true; output the empty graph with bound zero. In every other case collect the appearing variables in increasing original-index order, map them to $1,dots,n$, and retain the inverse map. Keep the original clause order and literal occurrences. Repeat the first literal of each nonempty short clause until it has three positions. This preserves disjunction truth, gives $n,m>=1$, and never introduces a fictitious vertex for a missing literal. Let $Y_(i,j)$ denote the literal at position $j$ of clause $i$, allowing repeated literals.
 
-  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable under assignment $tau$. Execute Sethi's eight-stage schedule. In the variable phase, the chain gadgets force a choice between the positive and negative side of each variable, and the schedule can be arranged so that by the moment $w_n$ is computed, $x_k^+$ has appeared iff $tau(x_k) = 1$. Because every clause has a satisfied literal, the corresponding $f_(i,j)$ node is unlocked during the clause phase, and the lock edges from the opposite literals prevent incompatible clause traversals. Sethi proves that this entire computation uses at most $K$ registers, so the target Register Sufficiency instance is feasible.
+  _DAG construction._ Put $b=max(2n-m,0)$ and $K=3m+4n+1+b$. Arcs $(v,u)$ mean that $v$ depends on $u$. Create the following disjoint families, with one-based subscripts:
+  $ |A|=2n+1, quad |B|=b, quad |C|=m, quad F={f_(i,j):1<=i<=m,1<=j<=3}, $
+  $ M={"initial",d,"final"}, quad R_k={r_(k,j):1<=j<=2n-2k+2}, $
+  $ S_k={s_(k,j):1<=j<=2n-2k+1}, quad T_k={t_(k,j):1<=j<=2n-2k+1}, $
+  $ U_k={u_(k,1),u_(k,2)}, quad W={w_k}, quad X={x_k^+,x_k^-}, quad Z={z_k}, quad 1<=k<=n. $
+  Add arcs from `initial` to $A union B union F union U$, from every $C,R,S,T,W$ vertex to `initial`, and from `final` to $W union X union Z union {"initial",d}$. For each $k$, $x_k^+$ depends on $z_k,u_(k,1),S_k$; $x_k^-$ depends on $z_k,u_(k,2),T_k$; $w_k$ depends on both $U_k$ vertices; and $z_k$ depends on $R_k$. For $k>=2$, $z_k$ also depends on $w_(k-1),z_(k-1)$. Each $c_i$ depends on $w_n,z_n$ and all three $f_(i,j)$; $d$ depends on $B union C$. Finally, $Y_(i,j)$ denotes its corresponding positive or negative $X$ vertex: add $(Y_(i,j),f_(i,j))$ for every position and $(overline(Y)_(i,j),f_(i,l))$ whenever $j<l$. These are the original literal-lock arcs, interpreted per occurrence even when literals repeat.
 
-  ($arrow.l.double$) Suppose the target instance has a computation using at most $K$ registers. Stop immediately after $w_n$ is computed. At that snapshot, for each variable gadget, at most one of $x_k^+$ and $x_k^-$ has been computed. Define $tau(x_k) = 1$ iff $x_k^+$ has already been computed. Now assume some clause $C_i$ is false under $tau$. Then every literal $Y_(i,j)$ is false, so the corresponding literal node has not yet been computed by the $w_n$ snapshot. Consequently each $f_(i,j)$ still has an uncomputed literal predecessor. Sethi's clause-phase invariant leaves no free register between the computation of $w_n$ and the later computation of $d$, so such a clause node $c_i$ could not be discharged without exceeding $K$, contradiction. Therefore every clause contains a true literal under $tau$, and $phi$ is satisfiable.
+  _Forward schedule._ Compute the leaves $A,B,F,U$, then `initial`. For each $k$ in order, compute $R_k,z_k$, then $S_k,x_k^+$ if variable $k$ is true or $T_k,x_k^-$ if false, then $w_k$. Compute all $c_i$, then $d$, then the unused $S_k$ or $T_k$ groups and their corresponding literal vertices, and finally `final`. All dependencies are respected. The initial leaves occupy exactly $K$ registers; `initial` replaces one $A$ leaf and releases the other $2n$. The variable stages fit because $R_k$ needs $2n-2k+2$ temporary registers and the chosen literal group needs $2n-2k+1$. In a satisfied clause, its first true occurrence releases its $F$ register when $c_i$ is computed: all earlier opposite literals and that true literal have already executed. No extra register is required. Computing $d$ releases $m+b-1>=2n-1$ registers, enough to finish all remaining auxiliary groups. The last-use overwrite rule agrees with Sethi's Game 1.
 
-  _Solution extraction._ Given a target computation ordering, let $t(w_n)$ be the position of $w_n$. Output $x_k = 1$ exactly when $t(x_k^+) < t(w_n)$. This is the corrected extraction rule: the snapshot is taken at $w_n$, not $z_n$, and the sign test uses $x_k^+$, not $x_k^-$.
+  _Arbitrary-order variable invariant._ Auxiliary vertices in $R_k,S_k,T_k$ have the held `initial` value as their only predecessor and their designated parent as their only consumer. Delaying such a vertex until immediately before its parent preserves all parent orders and cannot increase the peak live set. Thus arbitrary bounded computations admit this grouped form for the counting argument. Before any clause executes, all $F,B$ values and `initial` remain held. Just after `initial`, $2n$ registers are free. The $R_1$ group needs all of them, preventing any premature $w$ vertex. Inductively, just after $z_k$, there are $2n-2k+1$ free registers. Computing one of $x_k^+,x_k^-$ consumes one permanently until its $U$ value can be released; the opposite auxiliary group then no longer fits. Computing $w_k$ first also consumes that one free register and permits neither literal. After $w_k$, exactly $2n-2k$ registers are free, all needed by $R_(k+1)$; older unchosen literal groups require more. Therefore, at the snapshot immediately after $w_n$, at most one literal per variable has executed and no register is free. This does not require every variable to have a selected literal.
+
+  _Clause locks and backward direction._ Before $d$, a completed $c_i$ retains its value. Its $F$ value at position $j$ can be released only if $Y_(i,j)$ and all earlier opposite literals have executed. Two released positions $j<l$ would require both $Y_(i,j)$ and its opposite to have executed, contradicting the variable invariant. This argument allows repetitions and complementary occurrences. Each $c_i$ thus releases at most one $F$ value, consumed immediately by its own output. No first free register can appear between $w_n$ and $d$, so unchosen literal groups remain impossible during the clause phase. Every computed $c_i$ must release exactly one $F$ value, whose literal has executed. Assign each appearing source variable true exactly when its positive literal preceded $w_n$; an executed negative literal then makes that variable false. Every clause has a true literal, proving source feasibility for every bounded target computation. The fixed boundary targets have the stated truth values because an output needs one register and the empty graph needs none.
+
+  _Extraction and native bounds._ Call the formal target validator once and reject `Or(false)`. For the empty-graph YES target return an all-false vector of the original source length. Otherwise use the $w_n$ snapshot, reject two executed opposite literals, restore original positions, and set unused variables false. The native value types are `Or` on both sides, with `Vec<bool>` source and vertex-to-position `Vec<usize>` target solutions. The ordinary target has $3n^2+9n+4m+b+4$ vertices, $6n^2+19n+16m+2b+1$ arcs, and one sink. For original counts $s,c$, upper bounds are $3s^2+11s+4c+4$, $6s^2+23s+16c+1$, $6s+3c+1$ registers, and one sink; both fixed targets also obey them. Layout squares, totals, register bound and arc capacity are checked before allocation; subsequent nonnegative offsets are bounded by those totals. Allocation and solver limits are reported as resource failures, not infeasibility. No endpoint or variant changes.
 ]
 
 #reduction-rule("FeasibleRegisterAssignment", "ILP",
@@ -17609,22 +17592,20 @@ The following table shows concrete target-variable counts for example instances,
       lits.join($or$)
     }).join($) and ($)) $
 
-    *Step 2 -- Construct the conflict graph.* Create one vertex per literal position: vertex $3j + p$ represents position $p$ ($0$-indexed) in clause $j$, giving $|V| = 3 dot #ksat_kc.source.instance.clauses.len() = #ksat_kc.target.instance.graph.num_vertices$ vertices. Connect $(j_1, p_1)$ and $(j_2, p_2)$ whenever $j_1 != j_2$ and the two literals are not contradictory. The resulting graph has $|E| = #ksat_kc.target.instance.graph.edges.len()$ edges: $E = {#ksat_kc.target.instance.graph.edges.map(e => "(" + fmt-values(e) + ")").join(", ")}$. Set $k = m = #ksat_kc.target.instance.k$.
+    *Step 2 -- Construct the compatibility graph.* Enumerate actual literal occurrences in clause order. For this fixture there are six occurrence vertices and anchor $6$. Connect compatible occurrences from different clauses, then connect the anchor to all six occurrences. The target has $#ksat_kc.target.instance.graph.num_vertices$ vertices, $#ksat_kc.target.instance.graph.edges.len()$ edges, and threshold $k=m+1=#ksat_kc.target.instance.k$.
 
-    *Step 3 -- Verify a solution.* The satisfying assignment $(x_1, x_2, x_3) = (#fmt-values(ksat_kc_sol.source_config))$ makes literal $x_3$ true in clause 0 (position 2, vertex 2) and literal $overline(x_1)$ true in clause 1 (position 0, vertex 3). The target configuration $bold(x) = (#fmt-values(ksat_kc_sol.target_config))$ selects vertices #{
-      ksat_kc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(" and ")
-    }, which form a clique (edge $(2, 3) in E$ #sym.checkmark) of size $k = #ksat_kc.target.instance.k$ spanning both clause groups #sym.checkmark
+    *Step 3 -- Verify a solution.* The assignment $(#fmt-values(ksat_kc_sol.source_config))$ makes occurrence $2$ ($x_3$) and occurrence $3$ ($overline(x_1)$) true. Together with anchor $6$, these form a triangle. The stored target vector is $(#fmt-values(ksat_kc_sol.target_config))$; decoding its literal vertices returns the stored source assignment #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. The formula has multiple satisfying assignments; each induces at least one $k$-clique by choosing one true literal per clause.
   ],
 )[
-  Assign one vertex per literal position $(j, p)$; connect vertices from different clauses whose literals are not contradictory. A $k$-clique selects one consistent true literal per clause.
+  Karp's literal-compatibility construction @karp1972 is extended with an anchor and, when needed, isolated padding. This keeps the same endpoint and handles both empty formulas and the shorter clauses accepted by the native `new_allow_less` API.
 ][
-  _Construction._ Given 3-CNF $phi = C_1 and dots.c and C_m$ over $n$ variables, construct $G = (V, E)$ with $V = {(j, p) : 1 <= j <= m, 1 <= p <= 3}$, $|V| = 3m$. Edge between $(j_1, p_1)$ and $(j_2, p_2)$ iff $j_1 != j_2$ and $ell_(j_1, p_1) != not ell_(j_2, p_2)$. Set $k = m$.
+  _Construction._ Let $m$ be the clause count and $t=sum_j |C_j|$ the actual occurrence count. Number literal vertices in clause/position order, with stored variable indices and polarities. Set $N=max(t,m)+1$, $k=m+1$, and anchor $a=t$. Connect two literal vertices iff they come from different clauses and are not opposite polarities of the same variable; then connect $a$ to all literal vertices. Any remaining vertices are isolated. Thus $1<=k<=N$, $N<=3m+1$, and the edge count is at most $9m^2+3m$.
 
-  _Correctness._ ($arrow.r.double$) A satisfying assignment picks one true literal per clause; these vertices form a clique since they span all clauses without contradiction. ($arrow.l.double$) A $k$-clique has exactly one vertex per clause group; the selected literals are pairwise non-contradictory, defining a satisfying assignment.
+  _Correctness._ A satisfying assignment selects a true occurrence from each clause; these mutually compatible vertices and the anchor form a $k$-clique. Conversely, the literal subgraph contains at most one vertex per clause in a clique, hence has clique number at most $m$. For $m>0$, any clique of size at least $k>=2$ excludes padding isolates and must contain the anchor plus one occurrence from every clause. Their polarities consistently satisfy all clauses. An empty clause prevents such a clique. For $m=0$, the target is a single anchor with $k=1$, and every source assignment satisfies the empty conjunction.
 
-  _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
+  _Solution extraction._ Validate the complete target selection and its true clique predicate first. Decode the literal vertices via their stored source indices and signs, leaving unselected variables false; ignore the nonliteral anchor and padding by the defined mapping. Checked occurrence and output counts precede allocation. Formal `CNFClause::variables` supplies validated indices. Normal CLI/serde still requires exactly three literals per actual clause; native short-clause support does not change variants or serialization.
 ]
 
 #let ksat_co = load-example("KSatisfiability", "CyclicOrdering")
@@ -17651,19 +17632,24 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. Any cyclic permutation of the target order is also valid, and other satisfying assignments of $phi$ induce additional valid cyclic orders.
   ],
 )[
-  This $O(n + m)$ reduction @garey1979 @galilMegiddo1977 represents each variable by a three-element orientation gadget and each clause by five auxiliary elements linked through ten cyclic-ordering triples. For $n$ variables and $m$ clauses it produces $3n + 5m$ target elements and $10m$ triples.
+  This reduction @galilMegiddo1977 first normalizes clauses to three distinct, globally ordered variables. With $s$ declared source variables and $c$ source clauses it produces at most $3s + 26c + 3$ elements and $40c + 2$ cyclic-order constraints. The original ten-constraint gadget is applied to the normalized formula.
 ][
-  _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. For each variable $x_i$, create three target elements $alpha_i, beta_i, gamma_i$. For a positive literal $x_i$, define its associated cyclically ordered triple as $(alpha_i, beta_i, gamma_i)$; for a negative literal $not x_i$, define it as $(alpha_i, gamma_i, beta_i)$. For each clause $C_nu = (ell_1 or ell_2 or ell_3)$, write the three associated literal triples as $(a, b, c)$, $(d, e, f)$, and $(g, h, i)$. Add five fresh auxiliary elements $j_nu, k_nu, l_nu, m_nu, n_nu$ and the ten cyclic-ordering triples
+  _Normalization._ An empty clause maps to the fixed NO target on three elements with constraints $(0,1,2)$ and $(0,2,1)$. Otherwise remove repeated literals within each clause and discard clauses containing both signs of a variable. Compact the remaining appearing variables in increasing original-index order, retaining the inverse map. Replace a two-literal clause $(a or b)$ by $(a or b or u) and (a or b or not u)$ with fresh $u$. Replace a unit clause $a$ by the four clauses $(a or (plus.minus u) or (plus.minus v))$ over both independent signs, with fresh $u,v$. These conjunctions are true for every auxiliary assignment when the original clause is true and false for at least one constituent clause under every auxiliary assignment when the original clause is false. Every resulting clause has three distinct variables; order its literals by increasing variable index. If no clauses remain, use the one-element unconstrained YES target.
+
+  _Construction._ Let the normalized formula have $N$ variables and $M$ clauses. For each variable $x_i$, create three target elements $alpha_i, beta_i, gamma_i$. A positive literal has associated triple $(alpha_i,beta_i,gamma_i)$; a negative literal has $(alpha_i,gamma_i,beta_i)$. For each normalized clause, let its three literal triples be $(a,b,c)$, $(d,e,f)$, $(g,h,i)$ in increasing variable order. Add five fresh elements $j,k,l,m,n$ and the ten constraints
   $
-  (a, c, j_nu), (b, j_nu, k_nu), (c, k_nu, l_nu), (d, f, j_nu), (e, j_nu, l_nu),
-  (f, l_nu, m_nu), (g, i, k_nu), (h, k_nu, m_nu), (i, m_nu, n_nu), (n_nu, m_nu, l_nu).
+  (a,c,j), (b,j,k), (c,k,l), (d,f,j), (e,j,l),
+  (f,l,m), (g,i,k), (h,k,m), (i,m,n), (n,m,l).
   $
+  There are $3N+5M$ elements and $10M$ constraints before the fixed boundary targets.
 
-  _Correctness._ ($arrow.r.double$) Let $S$ be a satisfying assignment of $phi$. For each variable, exactly one of the two opposite orientations $(alpha_i, beta_i, gamma_i)$ and $(alpha_i, gamma_i, beta_i)$ is derived by any cyclic order; interpret the literal made true by $S$ as the one whose associated orientation is _not_ derived. In every clause at least one literal is true, and Galil--Megiddo's clause gadget lemma shows that the ten triples above are then consistent with the three literal orientations for that clause @galilMegiddo1977. Because different clauses use disjoint auxiliary element sets, the per-clause cyclic orders combine into one global cyclic order satisfying all target triples. ($arrow.l.double$) Conversely, let a cyclic ordering satisfy every target triple. For each variable $x_i$, put $x_i = 1$ iff $(alpha_i, beta_i, gamma_i)$ is _not_ derived. If some clause had all three literals false under this rule, then all three associated literal orientations would be derived. The same clause gadget lemma implies that the ten triples for that clause would then be inconsistent, contradicting feasibility. Hence every clause contains a true literal, so the extracted assignment satisfies $phi$.
+  _Correctness._ ($arrow.r.double$) Extend a satisfying source assignment to the fresh Boolean variables. Order all normalized variables by index, using the consecutive element block $(alpha_i,gamma_i,beta_i)$ for a true variable and $(alpha_i,beta_i,gamma_i)$ for a false one. For each clause, Lemma 1's seven explicit local orders @galilMegiddo1977 satisfy its gadget. Deleting their five auxiliary elements gives exactly the restriction of this common variable-block order; this is where distinct and consistently ordered variables are essential. Insert each local auxiliary sequence after its preceding variable element in the common order. When several clauses use the same gap, concatenate their sequences in clause-index order. Each local order remains the restriction of the resulting global order because no constraint connects auxiliary elements from different clauses. Thus every target constraint holds, as formalized by Corollary 2 of the paper.
 
-  _Variable mapping._ Positive literal $x_i$ is read through the orientation $(alpha_i, beta_i, gamma_i)$, while negative literal $not x_i$ is read through the reversed orientation $(alpha_i, gamma_i, beta_i)$.
+  ($arrow.l.double$) Any valid target permutation determines a unique orientation for each variable triple. Assign $x_i$ true precisely when its positive triple is not derived. If all literals of a normalized clause were false, the ten gadget constraints together with its three forward literal orientations would be inconsistent by Lemma 1. Hence every normalized clause is satisfied. The short-clause equivalences imply the original clauses are satisfied by restriction to original variables; removed tautologies hold under every assignment.
 
-  _Solution extraction._ Given a target permutation $f$, set $x_i = 1$ iff $(f(alpha_i), f(beta_i), f(gamma_i))$ is _not_ in cyclic order; otherwise set $x_i = 0$.
+  _Solution extraction._ Validate the complete target configuration through the formal API and reject $"Or(false)"$. Read the reverse orientation of each compact original variable triple, restore its original index through the saved inverse map, and set unused source variables false. Fresh Boolean variables do not occur in the extracted vector. Cyclic rotations preserve every extracted truth value.
+
+  _Overhead and numeric domain._ If $a$ original variables occur in retained clauses, then $a <= min(s,3c)$, $N <= a+2c$, and $M <= 4c$. This gives the registered upper bounds including the boundary targets. The native normalized clause representation is an array of three $"i64"$ values, occupying 24 bytes. A successfully allocated outer vector therefore has $24M <= I$, where $I="isize::MAX"$. Every normalized variable appears in at least one clause, so $N <= 3M$, $3N+5M <= 14M < I$, and $10M < I$. All element indices and dimension products fit $"usize"$. Before this allocation, the original clause vector bounds fresh-variable counts by $N <= 5c$; its 24-byte object layout on 64-bit and 12-byte layout on 32-bit ensure fresh signed literals fit $"i64"$. Original large sparse indices are compacted before arithmetic. Allocation or default-solver limits remain resource outcomes, not infeasibility certificates.
 ]
 
 #let ksat_ps = load-example("KSatisfiability", "PreemptiveScheduling")
@@ -17766,44 +17752,28 @@ The following table shows concrete target-variable counts for example instances,
 #let ksat_ap_sol = ksat_ap.solutions.at(0)
 #reduction-rule("KSatisfiability", "AcyclicPartition",
   example: true,
-  example-caption: [3-SAT with $n = #ksat_ap.source.instance.num_vars$ variables, $m = #ksat_ap.source.instance.clauses.len()$ clause $arrow.r$ acyclic partition on #ksat_ap.target.instance.graph.num_vertices vertices],
+  example-caption: [3-SAT to a partition with two heavy anchors and unit incidence items],
   extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(ksat_ap.source) + " -o ksat.json",
-      "pred reduce ksat.json --via route.json -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + cli-config(ksat_ap_sol.source_config),
-    )
-
-    #{
-      let n = ksat_ap.source.instance.num_vars
-      let m = ksat_ap.source.instance.clauses.len()
-      let tgt = ksat_ap.target.instance
-      [
-        *Step 1 -- Source instance.* The canonical formula has $n = #n$ variable and $m = #m$ clause. The stored satisfying assignment is $(#fmt-values(ksat_ap_sol.source_config))$.
-
-        *Step 2 -- Compose the three-stage chain.* The reduction composes 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. First, the Sipser digit-encoding produces a Subset Sum instance with $2n + 2m$ elements. Second, the Subset Sum $arrow.r$ Partition padding appends at most one element. Third, the Partition $arrow.r$ Acyclic Partition gadget builds a bipartite digraph: for each of the Partition elements, create one item vertex; add a source vertex and a sink vertex, with arcs from source to every item vertex and from every item vertex to sink. The resulting digraph has #tgt.graph.num_vertices vertices and #tgt.graph.arcs.len() arcs. Vertex weights are doubled element sizes for items and $(Sigma + 1)$ for the two endpoints; the weight bound is $Sigma + 1 + Sigma - (Sigma mod 2)$ where $Sigma$ is the Partition total, and the arc-cost bound equals the number of items.
-
-        *Step 3 -- Verify a solution.* The target witness $(#fmt-values(ksat_ap_sol.target_config))$ partitions the #tgt.graph.num_vertices vertices into two blocks. The source and sink land in different blocks, ensuring the quotient digraph is acyclic. The item vertices split so that the doubled sizes on each side, together with the endpoint weight, respect the weight cap. Extracting back through Partition and Subset Sum recovers $(#fmt-values(ksat_ap_sol.source_config))$, which satisfies the formula #sym.checkmark
-
-        *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments of the source formula induce different balanced partitions of the item vertices.
-      ]
-    }
+    The canonical formula $(x_1 or x_1 or x_1)$ gives a clique graph with four vertices, three edges, and threshold two. The incidence construction has seven items and two anchors, capacity $c=3$, magnitude $M=15$, weight bound $B=21$, and cost bound $K=101$. Anchor weights are 18 and 14. The stored partition $(#fmt-values(ksat_ap_sol.target_config))$ puts two clique vertices and their edge item with the source anchor. Its cut cost is $105-2-2=101$. Formal extraction gives $(#fmt-values(ksat_ap_sol.source_config))$.
   ],
 )[
-  This composed reduction realizes 3-SAT $arrow.r$ Acyclic Partition via the witness-preserving chain 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. The first two stages are the classical Sipser digit encoding @sipser2012 and Garey--Johnson padding @garey1979; the final stage embeds the balanced partition into a bipartite source--sink digraph whose two-block quotient is automatically acyclic. For $n$ variables and $m$ clauses, the target has $2n + 2m + 3$ vertices and $4n + 4m + 2$ arcs.
+  Compose the literal-compatibility clique construction @karp1972 with the incidence construction below. All weights and arc costs are positive integers of polynomial magnitude. This incidence lemma is proved here; it does not use the digit-encoded Subset Sum chain.
 ][
-  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses:
+  _Construction._ First obtain a clique instance $H=(V,E)$ with threshold $k$ from the formal 3-SAT-to-KClique rule, including its universal vertex and padding. Write $h=|V|$, $e=|E|$, and $L=h+e$. Here $1 <= k <= h$.
 
-  (i) Apply the Sipser digit-encoding reduction (see KSatisfiability $arrow.r$ SubsetSum) to obtain a Subset Sum instance with $2n + 2m$ elements and target $T$.
+  1. Create one unit-weight item per vertex and edge of $H$. Set $c=k(k+1)/2$, $M=2L+1$, and $B=2(L+c)+1$.
+  2. Add anchors $s,t$ with weights $B-c$ and $B-L$. For every item $i$, add $(s,i)$ of cost $M$ and $(i,t)$ of cost $M-d_i$, where $d_i=deg_H(i)+1$ for vertex items and zero for edge items.
+  3. For every edge $a={u,v}$ add $(u,a)$ and $(v,a)$, each of cost one. Set the weight bound to $B$ and cut-cost bound to $K=M L-k^2$.
 
-  (ii) Apply the Subset Sum $arrow.r$ Partition reduction (see SubsetSum $arrow.r$ Partition) to obtain a Partition instance with at most $2n + 2m + 1$ elements and total $Sigma$.
+  _Forward direction._ Given a clique of at least $k$ vertices, choose exactly $k$ of them. Put these vertex items and their $k(k-1)/2$ edge items with $s$, and all remaining items with $t$. The source block contains exactly $c$ unit items; the sink block contains at most $L$. No dependency arc goes from the sink block to the source block, so the quotient is acyclic. Spoke costs are $M L-sum_(v " selected")(deg_H(v)+1)$, and dependency costs are $sum_(v " selected") deg_H(v)-k(k-1)$. Their sum is $M L-k^2=K$.
 
-  (iii) For each Partition element $a_i$, create one item vertex with weight $2 a_i$. Add a source vertex $s$ and a sink vertex $t$, each with weight $Sigma + 1$. Create arcs $(s, v_i)$ and $(v_i, t)$ for every item vertex $v_i$, all with unit cost. Set the weight bound $B = Sigma + 1 + Sigma - (Sigma mod 2)$ and the arc-cost bound $K =$ number of items.
+  _Backward direction._ Each anchor weighs more than $B/2$, so they occupy distinct blocks. If $r>=1$ items lie outside those blocks, spoke costs alone are at least $M(L+r)-(h+2e)>M L>K$, since $h+2e<=2L<M$. Thus every item is in an anchor block. Some spoke induces a source-to-sink quotient arc because $L>=1$. A dependency in the opposite direction would create a cycle, so an edge item in the source block has both endpoints there.
 
-  _Correctness._ ($arrow.r.double$) A satisfying assignment of $phi$ yields a Subset Sum solution, which yields a balanced Partition, which splits the item vertices into two groups of equal total size. Placing one group with $s$ and the other with $t$ gives a two-block partition. Each block's weight is $Sigma + 1 + Sigma <= B$. The arcs from $s$ to the opposite group and from the opposite group to $t$ form the cut, and the quotient digraph $s$-block $arrow$ $t$-block is acyclic. ($arrow.l.double$) Any feasible acyclic partition must separate $s$ and $t$ (otherwise the digon $s arrow v arrow t$ and $s arrow v' arrow t$ would create a quotient cycle). The weight bound forces the doubled item sizes in each block to be nearly balanced, recovering a balanced Partition. Reversing the Subset Sum and 3-SAT stages then yields a satisfying assignment.
+  Let $p$ and $q$ count vertex and edge items in the source block. Capacity gives $p+q<=c$ and closure gives $q<=p(p-1)/2$. The exact cut cost is $M L-p-2q$, hence $p+2q>=k^2$. If $p<k$, then $p+2q<=p^2<k^2$. If $p>k$, then $p+2q<=2c-p<k^2$. Therefore $p=k$ and $q=k(k-1)/2$: the selected vertices form a clique.
 
-  _Solution extraction._ Identify the block containing $s$ and the block containing $t$. Assign each item vertex to Partition side 0 or 1 according to whether it shares a block with $t$. Reverse the Subset Sum $arrow.r$ Partition extraction, then reverse the 3-SAT $arrow.r$ Subset Sum extraction.
+  _Solution extraction._ Validate the target partition, select precisely those vertex items sharing the label of $s$, and invoke the formal clique-to-SAT extractor. This mapping is independent of the numerical names of partition blocks.
+
+  _Overhead._ There are exactly $h+e+2$ vertices and $2h+4e$ arcs. With $m$ source clauses, $h<=3m+1$ and $e<=9m(m-1)/2+3m$, including native short or empty clauses. Thus target sizes are at most $(9m^2+3m+6)/2$ vertices and $18m^2+2$ arcs. The construction checks representability of counts and signed integer coefficients before allocating its incidence graph.
 ]
 
 #let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
@@ -17831,20 +17801,16 @@ The following table shows concrete target-variable counts for example instances,
       selected.join(", ")
     } — exactly the $n = #graph-num-vertices(hc_bicon.source.instance)$ cycle edges, each of weight 1, for a total cost of #hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => hc_bicon.target.instance.potential_weights.at(i).at(2)).sum() $= n = B$ #sym.checkmark
 
-    *Multiplicity:* The fixture stores one canonical witness. The 4-cycle has $#{
-      let n = graph-num-vertices(hc_bicon.source.instance)
-      let fac = range(1, n).fold(1, (acc, x) => acc * x)
-      str(int(fac / 2))
-    }$ distinct Hamiltonian circuits ($(n-1)! slash 2$ directed cycles up to reversal).
+    *Multiplicity:* The 4-cycle has one undirected Hamiltonian cycle up to rotation and reversal, represented by eight vertex permutations. All eight permutations select the same four undirected target edges.
   ],
 )[
-  Start with the edgeless graph on $n$ vertices. Price original edges at cost 1 and non-edges at cost 2. A budget-$n$ augmentation is achievable iff $G$ has a Hamiltonian circuit (the only way to biconnect with $n$ weight-1 edges is a Hamiltonian cycle).
+  For $n < 3$, output three isolated vertices, no candidate edges, and budget zero. For $n >= 3$, start with the edgeless graph on $n$ vertices. Price original edges at cost 1 and non-edges at cost 2, and set budget $n$. The resulting augmentation is feasible iff $G$ has a Hamiltonian circuit.
 ][
-  _Construction._ Given $G = (V, E)$ with $n = |V|$, let $H = (V, emptyset)$. For every pair ${u, v}$: potential edge with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+  _Construction._ The weighted construction is due to Eswaran and Tarjan @eswarantarjan1976 (also Theorems 7–8 of their January 1974 technical report ERL-M441). The source requires at least three vertices. If $n < 3$, map this necessarily negative instance to the disconnected three-vertex graph with no candidates and budget zero. Otherwise, let $H = (V, emptyset)$ and give every unordered pair of distinct vertices cost 1 if it is a source edge and 2 otherwise, with $B = n$. Source loops are irrelevant to a Hamiltonian circuit on at least three vertices; repeated source edges do not change adjacency or candidate costs.
 
-  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit selects $n$ weight-1 edges forming a 2-connected cycle, cost $= n$. ($arrow.l.double$) Budget $n$ with $>= n$ edges required (degree $>= 2$) forces exactly $n$ weight-1 edges (all from $E$), which must form a Hamiltonian cycle.
+  _Correctness._ For $n < 3$, both instances are infeasible. For $n >= 3$, a source Hamiltonian circuit selects $n$ weight-1 edges forming a biconnected cycle of cost $n$. Conversely, a feasible target is connected and every vertex has degree at least two: a degree-zero vertex contradicts connectivity, and a degree-one vertex would be separated from the other surviving vertices by deleting its neighbor. The degree sum therefore forces at least $n$ selected edges. Positive costs and budget $n$ force exactly $n$ edges, all of cost 1. Every degree is exactly two, so connectivity makes these edges a single spanning cycle of the source. All partial selected-weight sums are at most the final sum for feasible targets; evaluation therefore preserves the budget test with exact integer arithmetic.
 
-  _Solution extraction._ Walk the unique cycle from vertex 0 through selected edges to recover the circuit order.
+  _Solution extraction._ Validate the target certificate and require its evaluation to be `Or(true)` before decoding. Walk the selected cycle from vertex 0 to recover the circuit order. The negative sentinel has no feasible certificate. The target has at most $n+3$ vertices, no initial edges, and at most $n(n-1)/2$ candidates.
 ]
 
 #let hc_sca = load-example("HamiltonianCircuit", "StrongConnectivityAugmentation")
@@ -17909,13 +17875,17 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_sc_n$ there are $#hc_sc_n times 2 = #(hc_sc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct arc-service permutation.
   ],
 )[
-  Each vertex $v_i$ splits into $(v_i^"in", v_i^"out")$ with a mandatory directed arc of length 1. Undirected connector edges of length 1 encode original graph edges. A tour of cost $2n$ exists iff a Hamiltonian circuit exists.
+  Each vertex $v_i$ splits into $(v_i^"in", v_i^"out")$ with a mandatory directed arc of length 1. Undirected connector edges of length 1 encode original graph edges. For $n>=3$, a tour of cost $2n$ exists iff a Hamiltonian circuit exists; smaller source graphs have answer NO.
 ][
-  _Construction._ Given $G = (V, E)$ with $n = |V|$. Create $2n$ vertices: $v_i^"in" = 2i$, $v_i^"out" = 2i + 1$. Add $n$ mandatory arcs $(v_i^"in", v_i^"out")$ of length 1. For each ${v_i, v_j} in E$: connector edges $(v_i^"out", v_j^"in")$ and $(v_j^"out", v_i^"in")$ of length 1.
+  _Construction._ Let the source simple graph $G=(V,E)$ have $n=|V|$ vertices and $m=|E|$ edges. Replace vertex $i$ by $i^"in"=2i$ and $i^"out"=2i+1$, with a unit service arc from the former to the latter. For each source edge ${i,j}$, add unit undirected connectors ${i^"out",j^"in"}$ and ${j^"out",i^"in"}$. The target has exactly $2n$ vertices, $n$ service arcs, and $2m$ edges. The source answer is YES exactly when $n>=3$ and the target minimum exists and equals $2n$.
 
-  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives a tour serving arcs in circuit order, each inter-arc hop using one connector edge, total cost $2n$. ($arrow.l.double$) Cost $2n$ with $n$ arcs of cost 1 leaves exactly $n$ connector hops of cost 1 each; single-hop connections correspond to edges of $G$.
+  _Forward direction._ A Hamiltonian ordering gives the same service ordering. Each of its $n$ services costs one and each consecutive pair, including the closing pair, has a direct unit connector. Its cost is $2n$. Every connector links distinct split endpoints and has cost at least one, so this cost is optimal.
 
-  _Solution extraction._ The arc service permutation directly encodes the Hamiltonian circuit vertex order.
+  _Backward direction._ Suppose $n>=3$ and a service permutation has cost $2n$. Its $n$ services cost $n$, leaving exactly $n$ for the $n$ connectors. Each connector must therefore cost one. An outgoing split vertex has no outgoing service arc; a one-step connector to an incoming split vertex exists precisely for an original graph edge. Thus consecutive service indices, including the last and first, are adjacent in $G$. The permutation visits every vertex once and is a Hamiltonian circuit. Longer finite tours are not certificates.
+
+  _Boundaries and numeric domain._ Simple Hamiltonian circuits require at least three vertices. In particular, a two-vertex single-edge graph has target optimum four but no source circuit; the empty target has cost zero but the empty source has no circuit. The condition $n>=3$ handles this domain explicitly. A finite shortest connector can be chosen simple and uses at most $2n-1$ unit steps. Hence every finite service-order cost is at most $2n^2$. Split dimensions and this bound are checked for representability before allocation; a failure returns a typed reduction error. Target construction uses its fallible API.
+
+  _Solution extraction._ Evaluate once, apply the same aggregate certificate predicate, and reject non-certifying tours with an extraction error. Otherwise the service permutation is the source vertex order. The target evaluator permits service arcs on connector paths; the proof remains valid because equality forces each connector to be a single undirected edge. No target-definition change is required.
 ]
 
 #let hc_rp = load-example("HamiltonianCircuit", "RuralPostman")
@@ -17950,56 +17920,33 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Identify used connector edges and follow the successor map from vertex 0.
 ]
 
-#let mis_ifb = load-example("MaximumIndependentSet", "IntegralFlowBundles")
+#let mis_ifb = load-example("DecisionMaximumIndependentSet", "IntegralFlowBundles", source-variant: (graph: "SimpleGraph", weight: "One"))
 #let mis_ifb_sol = mis_ifb.solutions.at(0)
-#reduction-rule("MaximumIndependentSet", "IntegralFlowBundles",
+#reduction-rule("DecisionMaximumIndependentSet", "IntegralFlowBundles",
   example: true,
-  example-caption: [Path graph $P_#mis_ifb.source.instance.graph.num_vertices$ ($n = #mis_ifb.source.instance.graph.num_vertices$, $|E| = #mis_ifb.source.instance.graph.edges.len()$)],
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [The three-vertex path has an independent set of size at least two],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mis_ifb.source) + " -o mis.json",
-      "pred reduce mis.json --via route.json -o bundle.json",
+      "pred create --example DecisionMaximumIndependentSet/One -o independent-set.json",
+      "pred reduce independent-set.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mis.json --config " + cli-config(mis_ifb_sol.source_config),
+      "pred extract bundle.json --config " + cli-config(mis_ifb_sol.target_config),
     )
-
-    #{
-      let graph = mis_ifb.source.instance.graph
-      let n = graph.num_vertices
-      let verts = range(n).map(k => (k * 1.5, 0))
-      let is-in-set = mis_ifb_sol.source_config
-      let blue = graph-colors.at(0)
-      align(center, canvas(length: 0.8cm, {
-        import draw: *
-        for (u, v) in graph.edges {
-          g-edge(verts.at(u), verts.at(v))
-        }
-        for (k, pos) in verts.enumerate() {
-          g-node(pos, name: str(k),
-            fill: if is-in-set.at(k) { blue } else { white },
-            label: [$v_#k$])
-        }
-      }))
-    }
-
-    *Step 1 -- Source instance.* The path graph $P_#mis_ifb.source.instance.graph.num_vertices$ has $n = #mis_ifb.source.instance.graph.num_vertices$ vertices and edges ${#mis_ifb.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, with unit weights $(#fmt-values(mis_ifb.source.instance.weights))$.
-
-    *Step 2 -- Build the flow network.* The reduction creates a directed graph with $#mis_ifb.target.instance.graph.num_vertices$ nodes: source $s = #mis_ifb.target.instance.source$, intermediates $w_0, dots, w_(#(mis_ifb.source.instance.graph.num_vertices - 1))$, and sink $t = #mis_ifb.target.instance.sink$. There are $#mis_ifb.target.instance.graph.arcs.len()$ arcs ($2n = #(2 * mis_ifb.source.instance.graph.num_vertices)$): for each vertex $v_i$, arc $a_i^"in" = (s, w_i)$ at index $2i$ and $a_i^"out" = (w_i, t)$ at index $2i+1$.
-
-    *Step 3 -- Create bundles.* There are $#mis_ifb.target.instance.bundles.len()$ bundles total. For each original edge ${v_i, v_j} in E$, an edge bundle ${a_i^"out", a_j^"out"}$ with capacity 1 enforces that at most one endpoint is selected (#mis_ifb.source.instance.graph.edges.len() edge bundles). For each vertex $v_i$, a vertex bundle ${a_i^"in", a_i^"out"}$ with capacity 2 links the in/out arcs (#mis_ifb.source.instance.graph.num_vertices vertex bundles). Bundle capacities: $(#fmt-values(mis_ifb.target.instance.bundle_capacities))$. Flow requirement $R = #mis_ifb.target.instance.requirement$.
-
-    *Step 4 -- Verify a solution.* The canonical IS selects vertices ${#mis_ifb_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => $v_#i$).join(", ")}$ (config $(#fmt-values(mis_ifb_sol.source_config))$). Each selected vertex $v_i$ contributes flow 1 on arcs $a_i^"in"$ and $a_i^"out"$, giving target config $(#fmt-values(mis_ifb_sol.target_config))$. The total flow equals the IS size (#mis_ifb_sol.source_config.fold(0, (a, b) => a + bool-bit(b))). Every edge bundle is satisfied because no two adjacent vertices are both selected, and vertex bundles are satisfied with capacity 2 $>=$ individual flow of 1.
-
-    *Multiplicity:* The fixture stores one canonical witness. The path $P_#mis_ifb.source.instance.graph.num_vertices$ admits larger independent sets (e.g., ${v_0, v_2}$ or ${v_0, v_3}$), but the canonical witness suffices to demonstrate the reduction.
+    Source bound: #mis_ifb.source.instance.bound; selected vertices: #fmt-values(mis_ifb_sol.source_config) \
+    Target: #mis_ifb.target.instance.graph.num_vertices vertices, #mis_ifb.target.instance.graph.arcs.len() arcs, #mis_ifb.target.instance.bundles.len() bundles; requirement #mis_ifb.target.instance.requirement \
+    Feasible flow: #fmt-values(mis_ifb_sol.target_config)
   ],
 )[
-  Each vertex $v_i$ maps to a flow unit through an intermediate node; edge-bundle constraints cap combined outflow of adjacent pairs at 1, so feasible flow of value $k$ exists iff an independent set of size $>= k$ exists.
+  The unit-weight decision independent-set problem reduces to integral flow with bundles. Sahni's original construction @sahni1974[Theorem 2.2(b)(iv), p. 270] represents cardinality and recovers a maximum by repeated flow-threshold queries. The direct rule here preserves one explicit decision threshold; it does not claim that an arbitrary feasible flow solves weighted maximum independent set.
 ][
-  _Construction._ Directed graph on $n + 2$ nodes: source $s$, intermediates $w_0, dots, w_(n-1)$, sink $t$. Arcs $a_i^"in" = (s, w_i)$ (index $2i$) and $a_i^"out" = (w_i, t)$ (index $2i+1$). Edge bundles ${a_i^"out", a_j^"out"}$ with capacity 1 for each ${v_i, v_j} in E$. Vertex bundles ${a_i^"in", a_i^"out"}$ with capacity 2. Flow requirement $R = 1$.
+  _Construction._ Let $G$ have $n$ vertices, $m$ edge records, and integer bound $k$. Set $q = min(max(k,0),n+1)$ and $R=q+1$. Introduce a source $s$, a sink $t$, and intermediate vertices $w_0, dots, w_n$. For each $i$, add arcs $a_i=(s,w_i)$ and $b_i=(w_i,t)$, and the capacity-2 bundle ${a_i,b_i}$. Paths $0, dots, n-1$ represent source vertices; path $n$ is auxiliary. For each edge record $(u,v)$ add the capacity-1 bundle ${a_u,b_v}$. There are $n+3$ vertices, $2n+2$ arcs, and $m+n+1$ bundles. Every arc belongs to a bundle, and both arcs of each bundle are distinct even for a source self-loop.
 
-  _Correctness._ ($arrow.r.double$) An independent set $S$ gives flow $f_i = 1$ for $v_i in S$; edge bundles satisfied since $S$ is independent. ($arrow.l.double$) Feasible flow gives $f_i in {0,1}$; edge bundles force ${v_i : f_i = 1}$ to be independent.
+  _Backward direction._ Flow conservation and the path bundles imply that both arcs on path $i$ carry the same binary flow $x_i$. The edge bundles impose $x_u+x_v <= 1$, so $S={i<n:x_i=1}$ is independent. A self-loop imposes $2x_u <= 1$, forcing $x_u=0$ without a separate construction. The sink receives $|S|+x_n >= R$, hence $|S| >= q$. For $0<k<=n$ this is the required bound. Bounds $k<=0$ accept every independent set; bounds $k>n$ force $|S|>=n+1$ and make the target infeasible.
 
-  _Solution extraction._ Vertex $v_i$ in independent set iff target solution at arc index $2i+1$ is positive.
+  _Forward direction._ Given any independent set $S$ meeting $k$, send one unit through each selected path and the auxiliary path, and zero through all others. Every capacity and conservation constraint holds, and the inflow $|S|+1$ meets $R$. Thus the source and target are equivalent for every integer bound. Even the empty graph produces one auxiliary path: it is feasible for $k<=0$ and infeasible for $k>0$.
+
+  _Solution extraction._ After validating target feasibility, select original vertex $i$ exactly when its outgoing arc has flow 1. The auxiliary path is omitted. Repeated source edges add repeated constraints and do not change the proof. Allocation counts and the shifted threshold are checked before construction; no source solver is invoked during construction or extraction.
 ]
 
 #let hc_qa = load-example("HamiltonianCircuit", "QuadraticAssignment")
@@ -18015,22 +17962,28 @@ The following table shows concrete target-variable counts for example instances,
       "pred evaluate hc.json --config " + cli-config(hc_qa_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$. The penalty weight is $omega = n + 1 = #(hc_qa.source.instance.graph.num_vertices + 1)$.
+    *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$.
 
-    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 1$ if ${k,l} in E$, $d[k][l] = #(hc_qa.source.instance.graph.num_vertices + 1)$ for non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
+    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 0$ if ${k,l} in E$, $d[k][l] = 1$ for distinct non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
 
-    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#fmt-values(hc_qa_sol.source_config))$. The QAP permutation is the same: $(#fmt-values(hc_qa_sol.target_config))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 1 = 1$. Total cost $= #hc_qa.source.instance.graph.num_vertices = n$ #sym.checkmark
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#fmt-values(hc_qa_sol.source_config))$. The QAP permutation is the same: $(#fmt-values(hc_qa_sol.target_config))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 0 = 0$. Total cost $= 0$ #sym.checkmark
 
-    *Multiplicity:* The fixture stores one canonical witness. The cycle $C_#hc_qa.source.instance.graph.num_vertices$ has $#hc_qa.source.instance.graph.num_vertices$ rotations and 2 reflections, giving $2n = #(2 * hc_qa.source.instance.graph.num_vertices)$ distinct Hamiltonian circuits; the canonical one is the identity permutation.
+    *Multiplicity:* The fixture stores one canonical witness. The cycle $C_#hc_qa.source.instance.graph.num_vertices$ has $#hc_qa.source.instance.graph.num_vertices$ rotations and 2 reflections, giving $2n = #(2 * hc_qa.source.instance.graph.num_vertices)$ distinct visit-order permutations of the same undirected Hamiltonian circuit; the canonical one is the identity permutation.
   ],
 )[
-  Position-adjacency encoded in cost matrix $C$ (directed cycle on positions), graph-adjacency in distance matrix $D$ (1 for edges, $omega = n+1$ for non-edges). QAP optimum equals $n$ iff a Hamiltonian circuit exists.
+  Encode a cycle of positions in $C$ and missing source edges in the binary distance matrix $D$. The QAP optimum is zero iff the source has a Hamiltonian circuit. Sources with fewer than three vertices map to a fixed positive-cost target.
 ][
-  _Construction._ Let $G = (V, E)$ with $n = |V|$ and $omega = n + 1$. Cost matrix: $c[i][j] = 1$ if $j equiv i+1 space (mod n)$, else 0. Distance matrix: $d[k][l] = 0$ if $k = l$; 1 if ${k,l} in E$; $omega$ otherwise.
+  _Construction._ Let $n$ be the source vertex count and $N=max(n,3)$. Set $c[i][j]=1$ exactly when $j=(i+1) mod N$. Set diagonal entries of $D$ to zero. For $n>=3$, set $d[k][l]=1$ exactly when distinct vertices $k,l$ are not adjacent. For $n<3$, set every off-diagonal entry to 1. Both matrices have order $N$.
 
-  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit $v_0, dots, v_(n-1)$ with $gamma(i) = v_i$ gives cost $n$ (each consecutive pair is an edge). ($arrow.l.double$) Cost $n$ forces $d[gamma(i), gamma((i+1) mod n)] = 1$ for all $i$, meaning all consecutive pairs are edges.
+  _Relation to the literature._ The cycle-position construction is due to @sahni-gonzalez1976, Theorem 2.1(viii), p. 561. For $n>=3$, replacing their edge/non-edge costs 1 and $n+1$ by 0 and 1 changes the assignment cost from $n+n q$ to $q$, where $q$ counts missing cyclic edges. This preserves exact decision equivalence; no preservation of multiplicative approximation ratios is claimed.
 
-  _Solution extraction._ The QAP permutation $gamma$ is the Hamiltonian circuit visit order directly.
+  _Forward direction._ If a source Hamiltonian circuit has visit order $gamma$, then $n>=3$ and $gamma$ is a permutation. The only nonzero entries of $C$ connect consecutive cyclic positions, all of whose images are source edges. Each corresponding distance is zero, so the QAP cost is zero.
+
+  _Backward direction._ A valid target assignment is a permutation because the two matrix orders agree. For $n>=3$, its cost is the sum of the $n$ nonnegative indicators of missing cyclic edges. Zero cost forces every indicator to vanish, yielding a Hamiltonian circuit. For $n<3$, the source is NO by definition; the target has three positions and every permutation costs 3, so it has no zero-cost certificate.
+
+  _Solution and value extraction._ Validate the target configuration once and require its value to be `Min(Some(0))` before returning the same permutation. Invalid assignments and positive-cost assignments are rejected. The aggregate value map is `Or(value == Min(Some(0)))`; apply it to a proved optimum to decide the source. A timeout or unproved incumbent cannot certify NO.
+
+  _Domain and overhead._ Loops and repeated edges do not change adjacency between distinct vertices. Matrix entries are 0 or 1, with only $N$ nonzero cost entries, so every objective product and every partial sum lies between 0 and $N$. Native `SimpleGraph` vertex indices are bounded by the underlying `u32` graph representation, so these sums fit `i64`. Both target dimensions are $N<=n+3$; allocation failure is not a NO certificate.
 ]
 
 // Removed: HamiltonianPath → ConsecutiveOnesSubmatrix (unsound reduction, #1006)
@@ -18377,29 +18330,28 @@ The following table shows concrete target-variable counts for example instances,
 
 // 5. KColoring → BicliqueCover (#1058)
 #reduction-rule("KColoring", "BicliqueCover")[
-  Self-contained gadget @karp1972 @garey1979 @orlin1977 building a bipartite graph $H$ on $4 n$ vertices with rank $n + q$. Each source vertex $v$ contributes two left vertices $a_v, g_v$ and two right vertices $b_v, h_v$. Guard-anchor edges $(g_v, h_v)$ force $n$ bicliques to be spent on per-vertex guards, leaving at most $q$ remaining bicliques to cover the diagonal edges $(a_v, b_v)$, which behave as color classes under the classical sub-biclique semantics of BicliqueCover.
+  A guard construction embeds coloring feasibility into the finite-feasibility of BicliqueCover. The target uses the classical sub-biclique semantics described by @chandran_et_al:LIPIcs.IPEC.2016.11; the construction and proof below are self-contained. The source value is #raw("Or"), and the target value is #raw("Min<i64>"): any feasible target cover suffices, regardless of its total membership cost.
 ][
-  _Construction._ Let $(G = (V, E), q)$ be the source instance with $n = |V|$. Build $H = (L union.sq R, F)$ with $L = {a_v, g_v : v in V}$ and $R = {b_v, h_v : v in V}$ (so $|L| = |R| = 2 n$). Set the BicliqueCover rank to $k = n + q$. The edge set $F$ consists of:
-  $
-    "diagonal:"      quad & (a_v, b_v) && quad forall v in V \
-    "compatibility:" quad & (a_u, b_v) && quad forall u != v "with" {u, v} in.not E \
-    "guard-anchor:"  quad & (a_v, h_v), (g_v, h_v) && quad forall v in V \
-    "guard-compat:"  quad & (g_v, b_w) && quad forall v != w "with" {v, w} in.not E.
-  $
-  The total edge count is $n + 2(n(n-1) - 2m) + 2n = 2 n (n - 1) - 4 m + 3 n$ where $m = |E|$.
+  _Construction._ Let the source be $(G=(V,E),q)$ with $n=|V|$, and set $q'=min(q,n)$. A coloring uses at most $n$ distinct labels, so relabeling used colors preserves feasibility with $q'$ colors, including $n=0$ and $q=0$. If $G$ has a self-loop, return a target with one vertex on each side, one edge, and rank zero. This is a fixed NO instance.
 
-  _Correctness._ ($arrow.r.double$) Given a proper $q$-coloring of $G$, emit $n$ guard bicliques $G_v = ({a_v, g_v}, {h_v} union {b_w : w != v, {v, w} in.not E})$ and one color biclique $C_(c) = ({a_v : v "has color" c}, {b_v : v "has color" c})$ per color $c$. Each color class is an independent set, so all required compatibility edges exist and the color bicliques are valid sub-bicliques. Guard bicliques cover all guard-anchor and guard-compat edges; color bicliques cover the diagonal edges. ($arrow.l.double$) In any biclique cover, each guard-anchor edge $(g_v, h_v)$ must lie in its own biclique because no cross edge $(g_u, h_v)$ exists for $u != v$. A biclique containing $(g_v, h_v)$ cannot cover any diagonal edge $(a_u, b_u)$: if $u = v$ then $(g_v, b_v) in.not F$, and if $u != v$ then $(a_u, h_v) in.not F$. Hence at least $n$ bicliques are spent on guards and at most $q$ remain to cover all $n$ diagonal edges $(a_v, b_v)$. Vertices $u, v$ sharing such a diagonal-covering biclique require both $(a_u, b_v)$ and $(a_v, b_u)$ in $F$, which forces $u != v$ and ${u, v} in.not E$. Compacting the at most $q$ diagonal bicliques into colors $0, dots, q - 1$ gives a proper $q$-coloring of $G$.
+  Otherwise introduce left vertices $a_v,g_v$ and right vertices $b_v,h_v$ for every $v in V$. Set rank $k=n+q'$. Include the diagonal edges $(a_v,b_v)$, the guard edges $(a_v,h_v),(g_v,h_v)$, and, for every ordered pair of distinct nonadjacent vertices $u,v$, both $(a_u,b_v)$ and $(g_u,b_v)$. Repeated and reversed source edges express the same adjacency constraint. With $d$ distinct source edges, the target has $2n$ vertices per side and $2n^2+n-4d$ edges. The empty source produces an empty target of rank zero, a YES instance. Uniform upper bounds, including the loop sentinel, are $2n+1$ vertices per side, $4n+2$ total vertices, $2n^2+n+1$ edges, and rank $2n$.
 
-  _Solution extraction._ For each source vertex $v$, locate any biclique $r$ that contains both $a_v$ and $b_v$. Compact the distinct diagonal-covering biclique indices into colors $0, dots, q - 1$ in first-seen order and assign each $v$ its compacted color.
+  _Correctness._ ($arrow.r.double$) Relabel a proper source coloring to use at most $q'$ labels. For each vertex $v$, use the guard biclique with left side ${a_v,g_v}$ and right side ${h_v} union {b_w: w != v, {v,w} in.not E}$. For each used color class $C$, use the biclique with left side ${a_v:v in C}$ and right side ${b_v:v in C}$. Color classes are independent, so these are sub-bicliques. The guard bicliques cover both kinds of compatibility edges and all guard edges; the color bicliques cover every diagonal edge. Pad with empty rows to obtain exactly $k$ rows.
+
+  ($arrow.l.double$) Distinct guard-anchor edges $(g_v,h_v)$ cannot share a biclique, since $(g_u,h_v)$ is absent for $u != v$. A biclique containing an anchor cannot cover any diagonal $(a_u,b_u)$: when $u=v$, $(g_v,b_v)$ is absent; when $u != v$, $(a_u,h_v)$ is absent. Thus at least $n$ rows are occupied by anchors, leaving at most $q'$ rows covering diagonals. For each vertex choose the first row covering its diagonal, and compact these row identifiers into colors. Distinct source vertices assigned the same row require both cross edges in the target, hence are nonadjacent. This yields a proper coloring using at most $q'<=q$ colors. A self-loop makes the source infeasible for every $q$, agreeing with the fixed NO target.
+
+  _Solution extraction._ Validate the complete target configuration once and reject #raw("Min(None)") before decoding. Apply the diagonal-row mapping above to every feasible cover, including nonoptimal covers. The empty source yields an empty coloring.
+
+  _Native numeric domain._ Normalizing $q$ ensures $k<=2n$, even for the largest runtime color count. Native source node allocation bounds make $4n$ and all vertex indices fit #raw("usize"). On a 64-bit target let $I$ be #raw("isize::MAX"), $m$ the number of stored source edges, and $F$ the number of target edges. Each edge record occupies 16 bytes, so successful native allocations imply $F+4m<=5I/16$. Since $d<=m$ and $F=2n^2+n-4d$, this bounds $2n^2+n<=5I/16$. For $n>=2$, each valid target biclique has at most $2n$ members: a row with two $h$ vertices has no left vertices; one $h_v$ restricts the left side to ${a_v,g_v}$; and a row with no $h$ cannot contain both $g_v$ and $b_v$. Therefore every feasible cover has at most $4n^2<I$ members, within #raw("i64"). The cases $n=0,1$ have bounds zero and six. On 32-bit targets the edge-pair size is eight bytes, yielding $2n^2+n<=3I/8$ and an even smaller membership count relative to #raw("i64"). In both cases the binary dimension count $4n k<=8n^2$ fits #raw("usize"); allocating or solving a large target may still fail for resource reasons.
 ]
 
 // 6. KSatisfiability/K3 → BicliqueCover (#1057)
 #reduction-rule("KSatisfiability", "BicliqueCover")[
-  Polynomial reduction (Chandran, Issac, and Karrenbauer, IPEC 2016 @chandran_et_al:LIPIcs.IPEC.2016.11) from 3-SAT to BicliqueCover with logarithmic rank. Each source variable is split into a positive/negative pair $(t_i, f_i)$, exactly-one clauses tie them to opposite truth values, and the formula is padded so that $n = 2^ell$ normalized variables admit a balanced satisfying assignment with exactly $n / 2$ true variables. The construction then assembles a bipartite gadget whose biclique cover rank equals $k_f + 2 ell + 2$ iff the (normalized) formula is satisfiable.
+  Polynomial reduction (Chandran, Issac, and Karrenbauer, IPEC 2016 @chandran_et_al:LIPIcs.IPEC.2016.11) from 3-SAT to BicliqueCover with logarithmic rank. Each appearing source variable is split into a positive/negative pair $(t_i, f_i)$, exactly-one clauses tie them to opposite truth values, and the formula is padded so that $n = 2^ell$ normalized variables admit a balanced satisfying assignment with exactly $n / 2$ true variables. The construction then assembles a bipartite gadget whose biclique cover rank equals $k_f + 2 ell + 2$ iff the (normalized) formula is satisfiable.
 ][
-  _Construction._ Let $psi$ be a 3-CNF formula with source variables $x_1, dots, x_(n_s)$ and clauses $C_1, dots, C_(m_s)$. *Normalize* $psi$:
+  _Construction._ Let $psi$ have $n_s$ declared variables and $m_s$ clauses. The native Rust API also permits clauses of at most three literals. An empty clause maps to a single-edge, rank-zero NO target. A formula with no clauses maps to an empty, rank-zero YES target. Otherwise compact the $a$ variables that actually appear, recording their original indices, and repeat one literal in each nonempty short clause to obtain exactly three positions. Repetition preserves disjunction, and absent variables may be assigned false in the inverse map. *Normalize* this compact formula:
   $
-    "vars:" quad     & "introduce" t_i, f_i "for each" x_i "and pad to" n = 2^ell "variables" \
+    "vars:" quad     & "introduce" t_i, f_i "for each appearing" x_i "and pad to" n = 2^ell "variables" \
     "clauses:" quad  & "replace literal" x_i "by" t_i ";" not x_i "by" f_i \
                      & "add" (t_i or f_i or f_i) "and" (not t_i or not f_i or not f_i) "per pair."
   $
@@ -18421,6 +18373,13 @@ The following table shows concrete target-variable counts for example instances,
   _Correctness._ ($arrow.r.double$) A balanced satisfying assignment fixes one duplex pair $(B_1, overline(B)_1)$ in the crown graph (Lemma 13). Extend $B_1$ through $S_1$ and into one selected satisfied literal edge per clause; the omitted $H$-$P$ edges block extension by unsatisfied literals. Two guard bicliques absorb the remaining two literal edges of each clause and the $Q$ edges. Together with $B_1, overline(B)_1$ and $2 (ell - 1)$ more domino-extension pairs we obtain $2 ell + 2$ important-edge bicliques. Adding $k_f$ free-edge bicliques (Lemma 16) yields a cover of rank exactly $k_f + 2 ell + 2$. ($arrow.l.double$) Any rank-$k$ cover must spend $k_f$ bicliques on the $Y$ matching (Lemma 17) and leaves an induced matching of $2 ell + 2$ important edges, each in its own biclique. The constraints on $S_1$ force the literal-edge biclique to lie in $B_1$, and the omitted $H$-$P$ edges force the selected literals to agree with the assignment $x_i = (h_i^u in B_1)$. Mapping normalized variables back to source variables yields a satisfying assignment.
 
   _Solution extraction._ Identify the unique biclique $B_1$ that covers $s_(1, 1)^u s_(1, 1)^v$ and contains no $y_r^u$ or $y_r^v$. Read the normalized assignment $t_i = (h_i^u in B_1)$ and copy each source $x_i$ from its normalized $t_i$.
+
+  _Native normalization and decoding._ The power-of-two padding depends on the number $a$ of appearing variables, not on $n_s$. Thus even a huge declared variable index is relabeled before constructing $t_i,f_i$; the original index is used only in the inverse map. In any feasible target cover, the $k_f$ forcing edges and $2ell+2$ important matching edges require all available rows. Consequently exactly one row covers the first domino anchor. Validate the target once, reject #raw("Min(None)"), read the left crown vertices in this row, and map each $t_i$ to the corresponding original variable. All absent variables are assigned false. This defines the mapping for arbitrary row permutations and nonoptimal feasible covers; it does not require an extra assumption excluding single $Y$ vertices from a row.
+
+  _Parameter bounds._ For $s=n_s$ and $c=m_s$, normalization gives $n<=4(s+1)$, $m<=c+4(s+1)$, $ell<=s+1$, and $ceil(log_2 m)<=m$. Thus each target side has at most $31s+5c+39$ vertices and rank at most $14s+2c+22$. The registered upper bounds $32s+8c+48$ per side, $64s+16c+96$ total vertices, $(32s+8c+48)^2$ edges, and $16s+4c+32$ rank also include both sentinels; these are not exact equalities.
+
+  _Native arithmetic._ Let $I$ be #raw("isize::MAX") and let $m$ now denote the number of normalized clauses in a successfully allocated ordinary target. Since $m>=n>=2$, $ell<=m/2$ and $ceil(log_2 m)<=(m+1)/2$. Hence rank is at most $4m+9$ and each side has at most $17m/2+9$ vertices. The Boolean cell count is at most $68m^2+225m+162$. The target contains $9m(m-1)$ edges between distinct clause gadgets. Its edge-vector allocation therefore bounds this cell count by $I$ for $m>=6$ on 64-bit targets and $m>=75$ on 32-bit targets; the remaining small cases have bounds 2987 and 389180. All indices, dimensions, and membership counts consequently fit the native #raw("usize") and #raw("i64") types. Appearing-variable compaction also bounds new literal indices by actual clause storage. Allocation and solver failures remain execution or resource failures, not proofs of infeasibility.
+
 ]
 
 #let clustering_ilp = load-example("Clustering", "ILP")
@@ -18490,21 +18449,17 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. Any permutation of the six target clique labels is equivalent.
   ],
 )[
-  This $O((n + 2m)^2)$ reduction @garey1979[GT17] @orlin1977 @kouStockmeyerWong1978 inlines Orlin's vertex-clique-cover to edge-clique-cover construction. Each source vertex $v_i$ becomes left/right copies $x_i$ and $y_i$, each directed source edge contributes a 4-vertex gadget, and two side cliques account for the additive $2m + 2$ slack. The target graph has an edge-clique cover of size at most $K + 2m + 2$ if and only if the source graph admits a partition into at most $K$ cliques.
+  This reduction @garey1979[GT17] @orlin1977 @kouStockmeyerWong1978 converts vertex clique partition to edge clique cover. It uses the actual distinct non-loop adjacency pairs, and includes a private vertex on each side so that the two forced side cliques also exist for an empty source. No source endpoint restriction is added.
 ][
-  _Construction._ Let $(G = (V, E), K)$ be a Partition Into Cliques instance with $V = {v_1, dots, v_n}$ and $m = |E|$. Define the directed-edge index set $A = {(i,j) : i != j and {v_i,v_j} in E}$, so $|A| = 2m$. Create vertices $x_i, y_i$ for each source vertex $v_i$, gadget vertices $a_(i,j), b_(i,j)$ for each $(i,j) in A$, and two special vertices $z_L, z_R$. Let $L = {x_i : 1 <= i <= n} union {a_(i,j) : (i,j) in A}$ and $R = {y_i : 1 <= i <= n} union {b_(i,j) : (i,j) in A}$. Make $L$ a clique and $R$ a clique, join $z_L$ to every vertex of $L$ and $z_R$ to every vertex of $R$, add each matching edge $x_i y_i$, and for every $(i,j) in A$ add the four cross edges $x_i y_j$, $x_i b_(i,j)$, $a_(i,j) y_j$, and $a_(i,j) b_(i,j)$. Output the resulting Minimum Covering by Cliques instance. It has
-  $
-    |V(H)| = 2n + 4m + 2, quad |E(H)| = (n + 2m)^2 + 2n + 10m,
-  $
-  and threshold $K' = K + 2m + 2$.
+  _Construction._ Let $n$ be the source vertex count, $m$ its stored edge count, and $K$ its clique bound. Let $A = {(i,j) : i != j and {i,j} in E}$ and $q = |A|$. Source self-loops and repeated edges do not change $A$ or source clique feasibility; $q <= 2m$. Create copies $x_i,y_i$, gadget vertices $a_t,b_t$ for each pair $t=(i,j)$, anchors $z_L,z_R$, and private vertices $d_L,d_R$. Set $L={x_i} union {a_t} union {d_L}$ and $R={y_i} union {b_t} union {d_R}$. Make $L$ and $R$ cliques. Connect each anchor to its entire side. Add matching edges $x_i y_i$ and, for every $t=(i,j)$, the cross edges $x_i y_j$, $x_i b_t$, $a_t y_j$, and $a_t b_t$. The threshold is $B=min(K,n)+q+2$.
 
-  _Correctness._ ($arrow.r.double$) Suppose $G$ is partitioned into cliques $C_1, dots, C_t$ with $t <= K$. For each source clique $C_r$, define $D_r = {x_i, y_i : v_i in C_r}$. For each $(i,j) in A$, define $Q_(i,j) = {x_i, a_(i,j), b_(i,j), y_j}$. Also define $L^* = L union {z_L}$ and $R^* = R union {z_R}$. Every $D_r$ is a clique: if $v_i, v_j in C_r$ with $i != j$, then ${v_i,v_j} in E$, so the construction includes both cross edges $x_i y_j$ and $x_j y_i$. The family ${D_1, dots, D_t} union {Q_(i,j) : (i,j) in A} union {L^*, R^*}$ therefore covers every target edge, using at most $K + 2m + 2$ cliques.
+  _Correctness, forward._ Given a source partition into $c$ cliques $C$, cover the target with $D_C={x_i,y_i : i in C}$ for each block, $Q_t={x_i,a_t,b_t,y_j}$ for each pair $t=(i,j)$, and the two cliques $L union {z_L}$, $R union {z_R}$. Source adjacency supplies the cross edges in every $D_C$. This family covers every target edge using $c+q+2$ cliques, including when $n=0$.
 
-  ($arrow.l.double$) Conversely, suppose $H$ has an edge-clique cover with at most $K + 2m + 2$ cliques. Each gadget edge $a_(i,j) b_(i,j)$ belongs to the unique maximal clique $Q_(i,j)$, so covering all $2m$ such edges requires at least $2m$ distinct cliques. Likewise, some clique must contain $z_L$ and some clique must contain $z_R$, and neither of those cliques can contain a matching edge $x_i y_i$. Hence at most $K$ cliques remain available for the matching edges. If two matching edges $x_i y_i$ and $x_j y_j$ lie in the same target clique, that clique contains the four vertices $x_i, y_i, x_j, y_j$, so in particular $x_i y_j$ is an edge of $H$; by construction this implies ${v_i,v_j} in E$. Therefore the source vertices whose matching edges share one target-clique label form a clique of $G$. Grouping each $v_i$ by the label used on $x_i y_i$ yields a partition of $V$ into at most $K$ cliques.
+  _Correctness, backward._ The edge $a_t b_t$ belongs to the unique maximal clique $Q_t$, since $a_t$ has only $b_t,y_j$ as right neighbors and $b_t$ only $a_t,x_i$ as left neighbors. No two such forced edges share a cover label, and none can share a label with a matching edge because $i != j$. The edges $z_L d_L$ and $z_R d_R$ force two further labels unavailable to gadget or matching edges. Thus $q+2$ labels are reserved in every feasible cover. Matching edges sharing a remaining label imply pairwise source adjacency, giving a source clique partition. Consequently the exact target optimum is $q+2+c$, where $c$ is the minimum source clique partition size and $c=0$ for the empty graph. Source satisfaction is therefore equivalent to target optimum at most $B$.
 
-  _Variable mapping._ The source witness labels source vertices by clique. The target witness labels target edges by the covering clique that contains them.
+  _Extraction._ Evaluate the target once through the formal validator, and reject infeasibility or a value exceeding $B$. Read matching-edge labels in source vertex order and compress their equality classes. The backward proof guarantees at most $min(K,n)$ source cliques. Aggregate extraction applies the same finite-value threshold. This also handles serialized bounds $K=0$ or $K>n$ without reconstructing a more restrictive source constructor.
 
-  _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
+  _Size and arithmetic._ The exact counts are $|V(H)|=2n+2q+4$ and $|E(H)|=(n+q)^2+4n+7q+2$. Substituting $q<=2m$ gives the registered upper bounds. Checked layout counts and conversion of the edge count to `i64` ensure finite cover values are representable; the threshold is checked separately. Such representation failures are errors, not source NO answers.
 ]
 
 #let mcbc_migb = load-example("MinimumCoveringByCliques", "MinimumIntersectionGraphBasis")
@@ -18567,15 +18522,18 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n + m)$ reduction @garey1979 constructs a directed graph with $2n + 3m$ vertices and $2n + 6m$ arcs. Each variable contributes a digon on its positive and negative literal vertices, and each 3-clause contributes a directed 3-cycle whose three clause vertices point to the corresponding literal vertices. The implemented kernels may contain clause vertices as well as literal vertices.
+  This reduction uses variable digons and clause three-cycles, following the kernel hardness approach of @chvatal1973. With $a$ appearing variables, $m$ clauses and $L$ literal occurrences, the target has $2a + 3m$ vertices and $2a + 3m + L$ arcs. These are bounded by $2n + 3m$ and $2n + 6m$ on the native source domain. Each occurrence has its own clause vertex; kernels may include clause vertices as well as literals.
 ][
-  _Construction._ Let $phi = C_1 and dots and C_m$ be a 3-SAT instance on variables $x_1, dots, x_n$. For each variable $x_i$, create two literal vertices $p_i$ and $n_i$ with arcs $(p_i, n_i)$ and $(n_i, p_i)$. For each clause $C_j = (ell_(j,0) or ell_(j,1) or ell_(j,2))$, create clause vertices $c_(j,0), c_(j,1), c_(j,2)$ with cycle arcs $(c_(j,0), c_(j,1))$, $(c_(j,1), c_(j,2))$, and $(c_(j,2), c_(j,0))$. Add one literal arc $(c_(j,t), v(ell_(j,t)))$ from each clause vertex to the literal vertex representing its own literal. Thus each clause contributes 3 cycle arcs and 3 literal arcs, for a total of $2n + 6m$ arcs.
+  _Construction._ Collect the sorted original indices $J$ of appearing variables, with $a = |J|$. For each compact variable $i$, create literal vertices $p_i, n_i$ and both digon arcs. Each native clause has zero through three literals. Create three vertices $c_(j,0), c_(j,1), c_(j,2)$ and the directed cycle in that order, then add $(c_(j,t), v(ell_(j,t)))$ only for its actual literal positions. Repeated literals keep separate occurrence vertices. An empty clause therefore produces a three-cycle with no outgoing literal arcs, which has no kernel; an empty formula produces an empty graph, whose empty selection is a kernel. No padding is needed.
 
-  _Correctness._ ($arrow.r.double$) Let $alpha$ be a satisfying assignment. Put into $K$ exactly one literal vertex from each digon: $p_i$ if $alpha(x_i) = "true"$ and $n_i$ otherwise. For each clause $C_j$, additionally put $c_(j,t)$ into $K$ exactly when $ell_(j,t)$ is false and $ell_(j,(t+1) mod 3)$ is true. This never creates an arc inside $K$: each selected clause vertex points to a false literal vertex, and two adjacent clause vertices cannot both satisfy the selection rule. Every unselected literal vertex is absorbed by its digon partner. For an unselected clause vertex $c_(j,t)$, either $ell_(j,t)$ is true, so its literal arc hits the selected literal vertex, or $ell_(j,t)$ is false. In the latter case $c_(j,t)$ was not selected, so $ell_(j,(t+1) mod 3)$ is also false; because the clause is satisfied, $ell_(j,(t+2) mod 3)$ is true, hence $c_(j,(t+1) mod 3)$ was selected and absorbs $c_(j,t)$ along the cycle.
+  _Correctness._ ($arrow.r.double$) Given a satisfying source assignment, choose its true literal in each digon. Let $t_r$ indicate whether the literal at clause position $r$ is selected, with missing positions set to false. Select clause vertex $r$ exactly when $not t_r and t_((r+1) mod 3)$. A selected vertex points to no selected literal, and its successor cannot be selected, so independence holds. An unselected vertex with $t_r$ true is absorbed through its literal arc. Otherwise both $t_r$ and $t_((r+1) mod 3)$ are false. Since the clause is satisfied, $t_((r+2) mod 3)$ is true; its cycle successor is therefore selected and absorbs it. Unselected literal vertices are absorbed by their digon partners.
 
-  ($arrow.l.double$) Let $K$ be a kernel of the constructed digraph. In each variable digon, at most one literal vertex can lie in $K$ by independence, and at least one must lie in $K$ to absorb the other endpoint; so each digon contributes exactly one selected literal vertex. Set $alpha(x_i) = "true"$ iff $p_i in K$. Now fix a clause gadget with cycle $(c_(j,0), c_(j,1), c_(j,2))$. If none of its three literal vertices were selected, then the only possible absorbers for $c_(j,0), c_(j,1), c_(j,2)$ would be the cycle successors. Independence allows at most one clause vertex in $K$, but one selected vertex on a directed 3-cycle cannot absorb the other two, contradiction. Therefore every clause has at least one selected literal vertex, so $alpha$ satisfies every clause.
+  ($arrow.l.double$) Each literal vertex has only its digon partner as an outgoing neighbor. Independence and absorption force exactly one selected endpoint per variable. If a clause has no selected literal, absorption must occur entirely within its directed three-cycle. Independence permits at most one selected cycle vertex, which cannot absorb both others. This contradiction proves that every clause is satisfied, including the native short-clause semantics. This proof does not require distinct variables or a particular literal order.
 
-  _Solution extraction._ Read only the positive literal vertices: $alpha(x_i) = 1$ iff the even-indexed vertex for $x_i$ is in the kernel. Any selected clause vertices are ignored during extraction.
+  _Solution extraction._ Validate the target selection once using the formal target evaluator and reject $"Or(false)"$. Initialize a length-$n$ false vector and restore each original position $J_i$ from the selection of $p_i$. Unused variables remain false; selected clause vertices are ignored. The concrete value types are $"Or" arrow.r "Or"$.
+
+  _Bounds and native arithmetic._ Since $a <= L <= 3m$, the target has at most $9m$ vertices and $12m$ arcs. The registered relations use upper bounds in the declared source parameters, covering sparse variables and short clauses. Counts are checked before allocation, and every vertex index is bounded by the checked total. A successfully allocated native clause vector also bounds $m$ by its element layout and the address space; original sparse indices are never doubled. Allocation limits do not represent mathematical infeasibility.
+
 ]
 
 // 7. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
@@ -18762,9 +18720,9 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. Any feasible spanning tree of weight $B$ and diameter $D = 4$ corresponds to an exact cover via the same extractor, so additional witnesses, when they exist, just enumerate other exact covers.
   ],
 )[
-  This $O(m^2 + q)$ reduction @garey1979[ND4] embeds X3C into the spanning-tree gadget of Bounded Diameter Spanning Tree. The constructed graph has $3 + m + 3q$ vertices and $2 + 4m + binom(m, 2)$ edges with weights in ${1, 2}$. Setting $D = 4$ and $B = 4q + m + 2$, the BDST instance is feasible if and only if the X3C instance has an exact cover.
+  The X3C hardness route is catalogued in @garey1979[ND4]. The following $O(1 + m^2 + q)$ construction and proof embed X3C into the spanning-tree gadget of Bounded Diameter Spanning Tree. The constructed graph has $3 + m + 3q$ vertices and $2 + 4m + binom(m, 2)$ edges with weights in ${1, 2}$. Setting $D = 4$ and $B = 4q + m + 2$, the BDST instance is feasible if and only if the X3C instance has an exact cover.
 ][
-  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$. Introduce a root vertex $r$, two forced-path vertices $v_1, v_2$, set vertices $s_0, dots, s_(m-1)$, and element vertices $e_0, dots, e_(3q-1)$. Add the edges
+  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$. First compute the union of all triples. If it omits any universe element, return two isolated vertices with weight bound $1$ and diameter bound $4$: both problems are NO. Otherwise introduce a root vertex $r$, two forced-path vertices $v_1, v_2$, set vertices $s_0, dots, s_(m-1)$, and element vertices $e_0, dots, e_(3q-1)$. Add the edges
   $
     (r, v_1) " and " (v_1, v_2) " of weight " 1, quad (r, s_i) " of weight " 2 " for every " i,
   $
@@ -18773,11 +18731,14 @@ The following table shows concrete target-variable counts for example instances,
   $
   Set the diameter bound $D = 4$ and the weight bound $B = 4q + m + 2$.
 
-  _Correctness._ ($arrow.r.double$) Let $cal(C)' = {C_(i_1), dots, C_(i_q)}$ be an exact cover. Pick the forced-path edges, the $q$ root-to-set edges for the chosen indices, the $3q$ set-to-element edges that match the cover, and for every unselected set $C_i$ a single clique edge to some chosen set. This is a spanning tree of weight $2 + 2q + 3q + (m - q) = 4q + m + 2 = B$, and every vertex lies within distance $2$ of $r$, so the diameter is at most $4 = D$.
+  _Correctness._ ($arrow.r.double$) Let $cal(C)' = {C_(i_1), dots, C_(i_q)}$ be an exact cover. The coverage test cannot reject it. If $q = 0$, the legal collection is empty and the forced two-edge path is already a feasible tree. Otherwise $q >= 1$. Pick the forced-path edges, the $q$ root-to-set edges for the chosen indices, the $3q$ set-to-element edges that match the cover, and for every unselected set $C_i$ a single clique edge to some chosen set. This is a spanning tree of weight $2 + 2q + 3q + (m - q) = 4q + m + 2 = B$, and every vertex lies within distance $2$ of $r$, so the diameter is at most $4 = D$.
 
-  ($arrow.l.double$) Suppose $T$ is a spanning tree of weight at most $B$ and diameter at most $4$. Because $"dist"_T(r, v_2) = 2$ in any tree containing the forced edges, every other vertex must sit within distance $2$ of $r$; otherwise its distance to $v_2$ would exceed $4$. Element vertices $e_j$ have neighbors only among set vertices, so each $e_j$ is at depth $2$ and connects through some $s_i$ that is directly attached to $r$. Let $k$ be the number of root-to-set edges in $T$. The cheapest way to spawn the remaining $m - k$ set vertices uses clique edges of weight $1$, so the minimum tree weight is $k dot 2 + (m - k) dot 1 + 3q dot 1 + 2 dot 1 = k + m + 3q + 2$. Feasibility forces $k <= q$. Each chosen set covers at most three element vertices, so covering all $3q$ elements requires $k >= q$, hence $k = q$. The $q$ chosen sets contribute exactly $3q$ element attachments, so they must be pairwise disjoint and form an exact cover.
+  ($arrow.l.double$) Suppose $T$ is a spanning tree of weight at most $B$ and diameter at most $4$. Because $"dist"_T(r, v_2) = 2$ in any tree containing the forced edges, every other vertex must sit within distance $2$ of $r$; otherwise its distance to $v_2$ would exceed $4$. Element vertices $e_j$ have neighbors only among set vertices, so each $e_j$ is at depth $2$ and connects through some $s_i$ that is directly attached to $r$. Let $k$ be the number of root-to-set edges in $T$. Every spanning tree has exactly $m + 3q + 2$ edges, and exactly the $k$ root-to-set edges have weight $2$ rather than $1$. Its weight is therefore exactly $k + m + 3q + 2$. Feasibility forces $k <= q$. Each chosen set covers at most three element vertices, so covering all $3q$ elements requires $k >= q$, hence $k = q$. The $q$ chosen sets contribute exactly $3q$ element attachments, so they must be pairwise disjoint and form an exact cover.
 
-  _Solution extraction._ The target configuration has one coordinate per edge in the order produced by the construction. The $m$ coordinates indexing the root-to-set edges $(r, s_i)$ are the X3C selection vector: $x_i = 1$ iff $(r, s_i) in T$.
+  _Solution extraction._ First evaluate the target once and reject every configuration that is not a feasible bounded-diameter spanning tree. The fixed disconnected target has no accepted certificates. The target configuration has one coordinate per edge in the order produced by the construction. The $m$ coordinates indexing the root-to-set edges $(r, s_i)$ are the X3C selection vector: $x_i = 1$ iff $(r, s_i) in T$.
+
+  _Range and size._ Compute the union from the triples, without allocating an array indexed by the universe. Thus a large universe with no possible cover is handled before graph allocation. In the incidence branch the union test gives $3q <= 3m$. Vertex and edge counts and the weight bound are checked before allocation; all generated weights are positive. The target has at most $3 + m + 3q$ vertices and $2 + 4m + binom(m, 2)$ edges, including the disconnected NO target. Repeated triples remain separate set vertices; the exact-cover counting proof still applies.
+
 ]
 
 // 8. SubsetSum → IntegerExpressionMembership (#569)
@@ -18930,13 +18891,16 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n)$ reduction @karp1972 maps each element $a_i$ to a task with length $l(t_i) = a_i$, weight $w(t_i) = a_i$, and common deadline $T = B\/2$. The tardiness bound is $K = T$. Tasks scheduled before $T$ are on-time; those after are tardy. A balanced partition exists iff total tardy weight can be at most $K$.
+  This $O(n)$ specialization of Karp's common-deadline sequencing construction @karp1972 maps each element $a_i$ to a task with processing time and tardy weight $a_i$. For total $S$, use common deadline $B = floor(S / 2)$. A balanced partition exists exactly when the minimum tardy weight is $B$; other optimum values map to false through the formal aggregate reduction.
 ][
-  _Construction._ Given Partition instance $A = {a_1, dots, a_n}$ with total $B$. If $B$ is odd, output a trivially infeasible instance (all deadlines 0, $K = 0$). If $B$ is even, set $T = B\/2$. For each $a_i$, create task $t_i$ with $l(t_i) = w(t_i) = a_i$ and deadline $d(t_i) = T$. Set bound $K = T$.
+  _Construction._ The source has $n >= 1$ positive sizes with checked total $S$. Create $n$ tasks in source order, each with length and weight $a_i$, and deadline $B = floor(S / 2)$. The construction is identical for odd and even totals. Karp's original paper gives Knapsack to Job Sequencing (p. 100), with equal processing times and penalties and a common deadline; the Partition specialization and its optimization certificate are proved here.
 
-  _Correctness._ ($arrow.r.double$) A balanced partition $A', A''$ with sums $T$ each: schedule $A'$ first (on-time, total time $T$), then $A''$ (tardy, weight $T = K$). ($arrow.l.double$) If tardy weight $<= K = T$, then on-time tasks fit before $T$ and sum to $<= T$, while tardy tasks have weight $B - sum_("on-time") <= T$, forcing on-time sum $= T$. This yields a balanced partition.
+  _Correctness._ Let $E$ be the total size of tasks completing by $B$ in any valid permutation. Positive processing times make these tasks a prefix, so $E <= B$. Because weights equal processing times, tardy weight is $W = S - E >= S - B >= B$.
+  ($arrow.r.double$) For a balanced partition, schedule one half first, then the other. Their sizes are $B$ each; the first half finishes by $B$, and every remaining task finishes after $B$. Thus $W = B$, attaining the lower bound.
+  ($arrow.l.double$) If $W = B$, then $E = S - B <= B$. Together with $S >= 2B$ this forces $S = 2B$ and $E = B$. Hence the on-time and tardy tasks form a balanced partition. For odd $S$, every schedule instead has $W >= B + 1$, so no separate odd-input construction is needed.
 
-  _Solution extraction._ On-time tasks (completing by $T$) form one partition half ($x_i = 0$), tardy tasks the other ($x_i = 1$).
+  _Solution extraction._ Validate the target with the formal API once and require finite tardy weight exactly $B$. Return false for tasks completing by $B$ and true for tardy tasks; reject all other configurations as noncertifying. The aggregate maps `Min(Some(B))` to `Or(true)` and all other values to `Or(false)`. Every permutation is a feasible target schedule, so source infeasibility is represented by an optimum above $B$, not target infeasibility. Every completion sum and tardy-weight sum is at most the source's checked $S$, establishing full `i64` arithmetic safety without changing either endpoint.
+
 ]
 
 // 12. Partition → OpenShopScheduling (#481)
@@ -18981,15 +18945,18 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(k)$ reduction @gonzalez1976 creates $k + 1$ jobs on 3 machines: $k$ element jobs with $p_(j,i) = a_j$ on all machines, plus one special job with $p = Q = S\/2$. The target makespan is $3Q$. A balanced partition exists iff the open shop can achieve makespan $<= 3Q$.
+  This $O(k)$ construction follows the special-job scheduling argument of Gonzalez and Sahni @gonzalez1976[Lemma 4.1]. Their published construction uses $3k+1$ jobs with one nonzero operation per element copy; the implemented construction instead groups each element's three operations into one job and uses $k+1$ jobs. The independent schedule below proves this grouping preserves the reduction. A balanced partition exists exactly when the target achieves the makespan certificate $3Q$, where $Q=floor(S/2)$ and $S$ is the sum of the input sizes.
 ][
-  _Construction._ Given Partition instance $A = {a_1, dots, a_k}$ with total $S$ and $Q = S\/2$. Set $m = 3$ machines. For each $a_j$, create element job $J_j$ with $p_(j,1) = p_(j,2) = p_(j,3) = a_j$. Create special job $J_(k+1)$ with $p_(k+1,i) = Q$ on all machines. Deadline $D = 3Q$.
+  _Construction._ The source is a nonempty list of positive integers $a_1,...,a_k$, with $S=sum_j a_j$. Set $Q=floor(S/2)$. Use three machines, one job $(a_j,a_j,a_j)$ per element, and one special job $(Q,Q,Q)$. Let $D=3Q$.
 
-  _Correctness._ ($arrow.r.double$) With a balanced partition $I_1, I_2$, schedule the special job consecutively on machines 1, 2, 3 during $[0,Q), [Q,2Q), [2Q,3Q)$. Use a rotated assignment for $I_1$ and $I_2$ jobs to fill the remaining idle blocks, each of length $Q$. ($arrow.l.double$) With makespan $<= 3Q$, the special job alone needs $3Q$ elapsed time, so it tiles $[0,3Q)$ exactly. On each machine, element jobs fill two idle blocks of length $Q$ each. The jobs in one block sum to $Q$, giving a balanced partition.
+  _Forward correctness._ Given a balanced partition into groups $A,B$, each group has total size $Q$ and $S=2Q$. Divide time into three phases $[r Q,(r+1)Q)$, $r=0,1,2$. In phase $r$, run the special job on machine $r$, all jobs of $A$ consecutively on machine $(r+1) mod 3$, and all jobs of $B$ consecutively on machine $(r+2) mod 3$. Each group exactly fills its phase, each element job has one operation per phase, and the machine rotation processes it once on every machine. This is a feasible nonpreemptive schedule of makespan $D$.
 
-  _Solution extraction._ Identify the special job's position on machine 1. Element jobs in one idle block form a subset summing to $Q$.
+  _Backward correctness._ Every schedule has makespan at least $3Q$ by the special job's total processing time, and at least $S+Q$ by each machine's load. If a feasible schedule attains $D$, these bounds give $S+Q<=3Q$; together with $S>=2Q$ this forces $S=2Q$. Since the source sizes are positive, $Q>0$. The special job must run without gaps and start its three operations at $0,Q,2Q$, in some machine order. Select the unique machine on which it starts at $Q$. Element operations on that machine fit before $Q$ or after $2Q$, each interval having capacity $Q$. Their total load is $2Q$, so the jobs completing by $Q$ have total size exactly $Q$ and define a balanced partition. It is the middle machine that supplies these two separate intervals, not an arbitrary fixed machine.
+
+  _Odd sums and zero duration._ If $S$ is odd, each machine's load is $S+Q=3Q+1>D$, so the threshold cannot be attained. The only legal source with $Q=0$ is the singleton size one; the special job then has zero duration, but the positive element job prevents makespan zero. Thus no alternate endpoint or parity-specific construction is required.
+
+  _Aggregation and extraction._ Map a finite optimum equal to $D$ to true and all other values to false. Validate a target configuration once, apply this same certificate, then identify the middle machine and select its element jobs completing by $Q$. Reject invalid schedules and feasible schedules that do not attain the certificate. The existing checked target constructor validates its total horizon $3(S+Q)$ before computing $D$, so the smaller nonnegative certificate is representable. Target construction failures retain their formal error type.
 ]
-
 // 13. NAESatisfiability → MaxCut (#166)
 #let nae_mc = load-example("NAESatisfiability", "MaxCut")
 #let nae_mc_sol = nae_mc.solutions.at(0)
@@ -19022,19 +18989,26 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This implemented reduction sets $M = m + 1$, creates two literal vertices per variable, and adds one unit-weight edge for every literal pair inside a clause. When every clause has 3 literals, each clause gadget is a triangle, so the construction is the usual NAE-SAT-to-Max-Cut graph on $2n$ vertices with $n + 3m$ edges.
+  Reduce arbitrary NAE clauses of length at least two to binary edges and ternary triangles. Long clauses use fresh auxiliary variables in the standard NAE clause chain @jackson2025. Every satisfying source assignment extends to a cut attaining an explicit componentwise upper bound; a target cut is decoded only when it attains that bound.
 ][
-  _Construction._ Let $phi$ have $n$ variables and $m$ clauses, and set $M = m + 1$. For each variable $x_i$, create a positive literal vertex $p_i = 2i$ and a negative literal vertex $n_i = 2i + 1$, joined by one weight-$M$ edge. For each clause $C_j$, add a unit-weight edge between every pair of literal vertices appearing in $C_j$. In particular, if every clause has three literals, each clause becomes a unit-weight triangle.
+  _Clause expansion._ Let the source have $n$ variables, $m$ clauses of lengths $ell_j >= 2$, and $L = sum_j ell_j$ literal occurrences. Keep binary and ternary clauses. For a clause $(l_1,...,l_r)$ of length $r >= 4$, introduce $r-3$ fresh variables $z_1,...,z_(r-3)$ and replace it by
+  $ "NAE"(l_1,l_2,z_1), quad "NAE"(not z_1,l_3,z_2), quad dots.c, quad "NAE"(not z_(r-3),l_(r-1),l_r). $
+  For $r=4$ the chain consists of its first and last clauses. Auxiliary variables are private to each source clause.
 
-  _Correctness._ Assume from here on that each clause has exactly three literals, matching the canonical fixture. Then every clause gadget is a triangle.
+  _Chain equivalence._ For a list $R$ of at least two remaining literal values,
+  $ "NAE"(a,b,R) equiv exists z: "NAE"(a,b,z) and "NAE"(not z,R). $
+  If $a=b=c$ and the original clause is NAE-satisfied, $R$ contains a value different from $c$; choosing $z=not c$ satisfies both new clauses. If $a != b$, the first clause is satisfied for either $z$; if $R$ is constant $c$, choose $z=c$, and if $R$ is mixed either choice works. Conversely, if every original value were $c$, the first clause would force $z=not c$, making the second clause constant $c$. Repeated application proves both extension and restriction for the complete chain, including repeated and complementary literals (@jackson2025, Section 4, describes this chain).
 
-  ($arrow.r.double$) Let $alpha$ be a NAE-satisfying assignment. Put $p_i$ and $n_i$ on opposite sides of the cut according to $alpha$, so every variable edge is cut and contributes $M$. In each clause triangle, at least one literal is true and at least one is false, so the three vertices split $1$-$2$ across the cut and contribute exactly 2. Therefore the cut weight is $n M + 2m = n (m + 1) + 2m$.
+  _Cut construction._ Write $a = sum_j max(ell_j-3,0)$, $q=n+a$, $b=|{j:ell_j=2}|$, and $t=sum_(j:ell_j>=3)(ell_j-2)$. There are $q$ variables, $b$ binary clauses and $t$ ternary clauses after expansion. Set $M=m+1$. For each original or auxiliary variable, create positive and negative literal vertices joined by a weight-$M$ edge. A binary clause contributes one unit edge between its literal vertices; a ternary clause contributes all three unit edges between its literal occurrences. Preserve repeated edges and self-loops as supported by the graph representation. Define the certificate $K=q M+b+2t$.
 
-  ($arrow.l.double$) Suppose a cut has weight at least $n (m + 1) + 2m$. The $m$ clause triangles contribute at most $2m$ in total, so the variable edges must contribute at least $n (m + 1)$. Since each variable edge contributes at most $M = m + 1$, all $n$ variable edges are cut. Thus $p_i$ and $n_i$ lie on opposite sides for every variable, and the cut defines a consistent Boolean assignment by reading the side of $p_i$. The remaining $2m$ weight must come from the clause triangles, so each triangle contributes exactly 2 and therefore has vertices on both sides of the cut. Hence every clause contains both a true and a false literal, and the extracted assignment NAE-satisfies $phi$. Because a satisfying instance attains $n (m + 1) + 2m$, every optimal cut of the target has this form.
+  _Forward correctness._ A satisfying original assignment extends to satisfy all expanded clauses by chain equivalence. Put each literal vertex on its literal's truth side. All $q$ variable edges cross, each binary edge crosses, and every ternary triangle has exactly two crossing occurrence-pairs. The cut therefore attains $K$.
 
-  _Solution extraction._ Read the positive literal vertices: $x_i = 1$ iff vertex $2i$ lies on side 1 of the cut.
+  _Backward correctness._ Every cut has weight at most $K$: each variable edge contributes at most $M$, each binary edge at most one, and each triangle at most two. This holds even with coincident literal vertices or repeated edges. Equality forces all individual bounds to be attained. Because $M>0$, each variable and its negation lie on opposite sides; the binary and ternary gadgets then certify all expanded NAE clauses. Restricting their satisfying assignment to the original variables satisfies the original formula by chain equivalence. Thus a feasible source has target optimum exactly $K$, while an infeasible source has optimum strictly below $K$.
+
+  _Aggregation and extraction._ Return true precisely for a finite target optimum equal to $K$. Validate a target configuration once, apply this same certificate, and only then read the positive literal vertex of each original variable. Reject every configuration below the bound instead of returning an invalid source assignment. No assumption that an arbitrary optimum satisfies the formula is needed.
+
+  _Size and arithmetic._ The exact target has $2q$ vertices and $q+b+3t$ edges. Since $a=L-3m+b$, $t=L-2m$, and $b<=m$, the registered upper bounds are $2(n+L-2m)$ vertices and $n+4L-7m$ edges. All size totals, weights, the certificate, and the sum of all nonnegative target weights are checked before graph construction, including the graph's actual index domain. Consequently every successfully constructed cut sum is representable; arithmetic failures remain typed reduction errors.
 ]
-
 #let tdm_tp = load-example("ThreeDimensionalMatching", "ThreePartition")
 #let tdm_tp_sol = tdm_tp.solutions.at(0)
 
@@ -19504,7 +19478,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Correctness._ ($arrow.r.double$) A Hamiltonian $s$-$t$ path has $n - 1$ edges of length 1 each, giving total length $n - 1 = K$. ($arrow.l.double$) A simple $s'$-$t'$ path of length $>= K = n - 1$ has $>= n - 1$ edges. Since a simple path on $n$ vertices can have at most $n - 1$ edges, it has exactly $n - 1$ edges and visits all vertices -- it is a Hamiltonian $s$-$t$ path.
 
-  _Solution extraction._ From the edge-selection vector, trace the path from $s$ following selected edges to reconstruct the vertex permutation.
+  _Solution extraction._ Evaluate the target configuration once and apply the aggregate predicate: the value must be finite and equal to $n-1$. Reject infeasible selections and shorter paths before traversing any edges. The target feasibility check guarantees a single connected simple path from $s$ to $t$; its $n-1$ edges visit all $n$ vertices. Start at $s$ and repeatedly take the neighbor other than the preceding vertex. This terminates at $t$ and yields the source permutation without repetitions. The same argument applies to every supplied target configuration, independently of any caller claim of optimality. An absent target maximum or a proven maximum below $n-1$ certifies a NO source instance. The source requires distinct valid endpoints, so $n>=2$; no empty-graph or equal-endpoint convention is introduced. The target value resolves to `Max<i64>` because unit weight `One` has sum type `i64`. Checked evaluation errors are propagated, and the threshold comparison uses exact integer conversion.
 ]
 
 // 18. GraphPartitioning → MaxCut (from main codebase)

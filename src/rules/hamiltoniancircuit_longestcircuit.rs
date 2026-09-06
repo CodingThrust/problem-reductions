@@ -27,7 +27,13 @@ impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target circuit does not certify a Hamiltonian circuit",
+            ));
+        }
 
         crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
     }

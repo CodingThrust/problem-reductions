@@ -21,6 +21,7 @@ pub struct ReductionKColoringToQUBO<K: KValue> {
     target: QUBO<i64>,
     num_vertices: usize,
     num_colors: usize,
+    feasible_energy: i64,
     _phantom: std::marker::PhantomData<K>,
 }
 
@@ -37,7 +38,13 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target QUBO configuration does not certify a proper coloring",
+            ));
+        }
 
         (0..self.num_vertices)
             .map(|vertex| {
@@ -57,6 +64,46 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
     }
 }
 
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKColoringToQUBO<K> {
+    type Source = KColoring<K, SimpleGraph>;
+    type Target = QUBO<i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(self.feasible_energy))
+    }
+}
+
+/// Check dimensions and the omitted constant before allocating the matrix.
+fn coloring_qubo_parameters<K: KValue>(
+    n: usize,
+    k: usize,
+) -> Result<(usize, i64, i64), crate::rules::ReductionError> {
+    let overflow = |operation| {
+        crate::rules::ReductionError::integer_overflow::<KColoring<K, SimpleGraph>, QUBO<i64>>(
+            operation,
+        )
+    };
+    let nq = n
+        .checked_mul(k)
+        .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
+    nq.checked_mul(nq)
+        .ok_or_else(|| overflow("computing the QUBO matrix size"))?;
+    let n_i64 = i64::try_from(n)
+        .map_err(|_| overflow("converting the vertex count to a QUBO coefficient"))?;
+    let penalty = n_i64
+        .checked_add(1)
+        .ok_or_else(|| overflow("computing the coloring penalty"))?;
+    let feasible_energy = n_i64
+        .checked_mul(penalty)
+        .and_then(|value| value.checked_mul(-2))
+        .ok_or_else(|| overflow("computing the zero-penalty coloring energy"))?;
+    Ok((nq, penalty, feasible_energy))
+}
+
 /// Helper function implementing the KColoring to QUBO reduction logic.
 fn reduce_kcoloring_to_qubo<K: KValue>(
     problem: &KColoring<K, SimpleGraph>,
@@ -69,16 +116,8 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
             operation,
         )
     };
-    let nq = n
-        .checked_mul(k)
-        .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
+    let (nq, penalty, feasible_energy) = coloring_qubo_parameters::<K>(n, k)?;
 
-    // Use P = n + 1, then scale the former half-integral objective by two.
-    let n_i64 = i64::try_from(n)
-        .map_err(|_| overflow("converting the vertex count to a QUBO coefficient"))?;
-    let penalty = n_i64
-        .checked_add(1)
-        .ok_or_else(|| overflow("computing the coloring penalty"))?;
     let diagonal_penalty = penalty
         .checked_mul(-2)
         .ok_or_else(|| overflow("computing a coloring diagonal coefficient"))?;
@@ -137,12 +176,14 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
         })?,
         num_vertices: n,
         num_colors: k,
+        feasible_energy,
         _phantom: std::marker::PhantomData,
     })
 }
 
 // Register only the KN variant in the reduction graph
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vars = "num_vertices * num_colors",
     }

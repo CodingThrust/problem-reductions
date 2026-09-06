@@ -373,3 +373,59 @@ fn test_jl_parity_factoring_to_circuitsat() {
         "Factoring best source mismatch"
     );
 }
+
+#[test]
+fn test_factoring_to_circuit_zero_width_closed_loop() {
+    for n in 0..=3 {
+        for value in [0u32, 1, 2, 7] {
+            let source = Factoring::with_factor_bits(value, 0, n);
+            let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
+            assert_eq!(reduction.m_vars().len(), n);
+            let witness = BruteForce::new().solve(reduction.target_problem()).unwrap();
+            assert_eq!(witness.is_some(), value == 0);
+            if let Some(witness) = witness {
+                let extracted = reduction.extract_solution(&witness).unwrap();
+                assert!(source.is_valid_factorization(&extracted));
+                assert!(extracted.0.is_zero());
+            }
+        }
+    }
+}
+
+#[test]
+fn test_factoring_to_circuit_rejects_invalid_certificates() {
+    let source = Factoring::with_factor_bits(6, 2, 2);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
+    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(reduction
+        .extract_solution(&vec![false; reduction.target_problem().num_variables()])
+        .is_err());
+    let values = evaluate_multiplier_circuit(&reduction, 1, 1);
+    let config = reduction
+        .target_problem()
+        .variable_names()
+        .iter()
+        .map(|name| values[name])
+        .collect();
+    assert!(reduction.extract_solution(&config).is_err());
+}
+
+#[test]
+fn test_factoring_to_circuit_dimensions() {
+    assert_eq!(
+        ReductionFactoringToCircuit::dimensions(0, 0).unwrap(),
+        (0, 2)
+    );
+    assert_eq!(
+        ReductionFactoringToCircuit::dimensions(2, 3).unwrap(),
+        (5, 48)
+    );
+    for (m, n) in [
+        (usize::MAX, usize::MAX),
+        (0, usize::MAX),
+        (usize::MAX / 2, usize::MAX / 2),
+    ] {
+        let source = Factoring::with_factor_bits(0u32, m, n);
+        assert!(ReduceTo::<CircuitSAT>::reduce_to(&source).is_err());
+    }
+}

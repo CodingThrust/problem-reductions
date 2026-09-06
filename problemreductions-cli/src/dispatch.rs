@@ -423,6 +423,44 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn test_float_bundle_round_trip_corpus_regression() {
+        let source = serde_json::from_value(json!({
+            "type": "ExpectedRetrievalCost",
+            "variant": {},
+            "data": {
+                "num_sectors": 3,
+                "probabilities": [
+                    0.08974358974358974, 0.24358974358974358,
+                    0.23076923076923078, 0.23076923076923078,
+                    0.038461538461538464, 0.16666666666666666
+                ]
+            }
+        }))
+        .unwrap();
+        let route = crate::commands::reduce::parse_path_json(
+            r#"{"path":[{
+                "from":{"name":"ExpectedRetrievalCost","variant":{}},
+                "to":{"name":"ILP","variant":{"coefficient":"f64","variable":"bool"}}
+            }]}"#,
+        )
+        .unwrap();
+        let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
+        let encoded = serde_json::to_vec(&bundle).unwrap();
+        let mut restored: ReductionBundle = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(restored.source.data, bundle.source.data);
+        assert_eq!(restored.target.data, bundle.target.data);
+        BundleReplay::prepare(&restored).expect("an unchanged JSON bundle must replay exactly");
+
+        // A one-ULP change remains tampering; replay must not use a float tolerance.
+        let coefficient = restored.target.data["objective"][0][1].as_f64().unwrap();
+        restored.target.data["objective"][0][1] = json!(f64::from_bits(coefficient.to_bits() + 1));
+        let error = BundleReplay::prepare(&restored).err().unwrap();
+        assert!(error
+            .to_string()
+            .contains("does not match the result of replaying"));
+    }
+
+    #[test]
     fn test_load_problem_alias_uses_registry_dispatch() {
         let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
         let variant = BTreeMap::from([

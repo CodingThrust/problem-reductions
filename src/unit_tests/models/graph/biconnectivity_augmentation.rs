@@ -164,3 +164,40 @@ fn test_is_biconnected() {
     assert!(!is_biconnected(&SimpleGraph::path(4)));
     assert!(!is_biconnected(&SimpleGraph::new(4, vec![(0, 1), (2, 3)])));
 }
+
+#[test]
+fn test_biconnectivity_augmentation_signed_total_budget() {
+    for candidates in [vec![(0, 2, 2), (0, 3, -2)], vec![(0, 3, -2), (0, 2, 2)]] {
+        let source = BiconnectivityAugmentation::new(SimpleGraph::path(4), candidates, 0);
+        assert!(source.evaluate(&vec![true, true]).unwrap().0);
+    }
+    for n in 0..=3 {
+        let source =
+            BiconnectivityAugmentation::<_, i64>::new(SimpleGraph::complete(n), vec![], -1);
+        assert!(!source.evaluate(&vec![]).unwrap().0);
+    }
+    let source = BiconnectivityAugmentation::new(SimpleGraph::path(3), vec![(0, 2, -3)], -2);
+    assert!(source.evaluate(&vec![true]).unwrap().0);
+}
+
+#[test]
+fn test_biconnectivity_augmentation_preserves_checked_arithmetic() {
+    let source = BiconnectivityAugmentation::new(
+        SimpleGraph::path(4),
+        vec![(0, 2, i64::MAX), (0, 3, 1), (1, 3, -1)],
+        i64::MAX,
+    );
+    assert!(matches!(
+        source.evaluate(&vec![true, true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
+    let source = BiconnectivityAugmentation::new(
+        SimpleGraph::path(4),
+        vec![(0, 2, i64::MIN), (0, 3, -1)],
+        i64::MAX,
+    );
+    assert!(matches!(
+        source.evaluate(&vec![true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
+}

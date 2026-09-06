@@ -1007,12 +1007,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
 }
 
 #[test]
-fn test_find_rule_example_maximumindependentset_to_integralflowbundles() {
+fn test_find_rule_example_decisionmaximumindependentset_to_integralflowbundles() {
     let source = ProblemRef {
-        name: "MaximumIndependentSet".to_string(),
+        name: "DecisionMaximumIndependentSet".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i64".to_string()),
+            ("weight".to_string(), "One".to_string()),
         ]),
     };
     let target = ProblemRef {
@@ -1020,7 +1020,7 @@ fn test_find_rule_example_maximumindependentset_to_integralflowbundles() {
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "MaximumIndependentSet");
+    assert_eq!(example.source.problem, "DecisionMaximumIndependentSet");
     assert_eq!(example.target.problem, "IntegralFlowBundles");
 }
 

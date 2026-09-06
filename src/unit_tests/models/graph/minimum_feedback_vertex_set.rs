@@ -3,7 +3,7 @@ use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_vertex_weights() {
-    let p = MinimumFeedbackVertexSet::try_from(MinimumFeedbackVertexSetCreateSpec {
+    let p = MinimumFeedbackVertexSet::<i64>::try_from(MinimumFeedbackVertexSetCreateSpec {
         graph: DirectedGraph::new(2, vec![(0, 1)]),
         weights: None,
     })
@@ -216,4 +216,29 @@ fn test_minimum_feedback_vertex_set_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 1);
+}
+
+#[test]
+fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
+    use crate::types::One;
+    let source = MinimumFeedbackVertexSet::<One>::try_from(MinimumFeedbackVertexSetCreateSpec {
+        graph: DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        weights: None,
+    })
+    .unwrap();
+    assert_eq!(source.weights(), &[One; 3]);
+    assert!(!source.is_weighted());
+    let json = serde_json::to_value(&source).unwrap();
+    let restored: MinimumFeedbackVertexSet<One> = serde_json::from_value(json).unwrap();
+    assert_eq!(
+        restored.evaluate(&vec![true, false, false]).unwrap(),
+        Min(Some(1))
+    );
+    assert!(
+        MinimumFeedbackVertexSet::<One>::try_from(MinimumFeedbackVertexSetCreateSpec {
+            graph: DirectedGraph::new(2, vec![]),
+            weights: Some(vec![One]),
+        })
+        .is_err()
+    );
 }

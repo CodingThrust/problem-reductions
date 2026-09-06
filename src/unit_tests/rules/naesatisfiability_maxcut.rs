@@ -82,9 +82,9 @@ fn test_naesatisfiability_to_maxcut_four_literal_clause() {
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // 8 vertices, 4 variable + C(4,2)=6 clause = 10 edges
-    assert_eq!(target.num_vertices(), 8);
-    assert_eq!(target.num_edges(), 10);
+    // One auxiliary variable and two triangles: 10 vertices, 5 + 6 edges.
+    assert_eq!(target.num_vertices(), 10);
+    assert_eq!(target.num_edges(), 11);
 
     assert_satisfaction_round_trip_from_optimization_target(
         &naesat,
@@ -168,4 +168,129 @@ fn test_naesatisfiability_to_maxcut_optimal_cut_value() {
     // n=3, m=2, M=3, k1=3, k2=3
     // Expected: 3*3 + (3-1) + (3-1) = 9 + 2 + 2 = 13
     assert_eq!(cut_value, 13);
+}
+
+fn check_every_cut(source: &NAESatisfiability) {
+    use crate::rules::AggregateReductionResult;
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(source).unwrap();
+    let target = AggregateReductionResult::target_problem(&reduction);
+    let mut decoded = vec![false; 1 << source.num_vars()];
+    let mut best = i64::MIN;
+    for mask in 0..(1usize << target.num_vertices()) {
+        let cut = (0..target.num_vertices())
+            .map(|i| mask & (1 << i) != 0)
+            .collect();
+        let value = target.evaluate(&cut).unwrap();
+        best = best.max(value.0.unwrap());
+        let certificate = AggregateReductionResult::extract_value(&reduction, value).0;
+        match reduction.extract_solution(&cut) {
+            Ok(assignment) => {
+                assert!(certificate);
+                assert!(source.evaluate(&assignment).unwrap().0);
+                assert_eq!(
+                    assignment,
+                    (0..source.num_vars())
+                        .map(|i| cut[2 * i])
+                        .collect::<Vec<_>>()
+                );
+                let index = assignment
+                    .iter()
+                    .enumerate()
+                    .fold(0, |index, (i, &bit)| index | (usize::from(bit) << i));
+                decoded[index] = true;
+            }
+            Err(_) => assert!(!certificate),
+        }
+    }
+    for (mask, &has_extension) in decoded.iter().enumerate() {
+        let assignment = (0..source.num_vars())
+            .map(|i| mask & (1 << i) != 0)
+            .collect();
+        assert_eq!(has_extension, source.evaluate(&assignment).unwrap().0);
+    }
+    assert_eq!(
+        AggregateReductionResult::extract_value(&reduction, crate::types::Max(Some(best))).0,
+        decoded.iter().any(|&valid| valid)
+    );
+    assert!(!AggregateReductionResult::extract_value(&reduction, crate::types::Max(None)).0);
+    assert!(reduction
+        .extract_solution(&vec![false; target.num_vertices() + 1])
+        .is_err());
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_all_short_clauses_and_cuts() {
+    check_every_cut(&NAESatisfiability::new(0, vec![]));
+    for n in 1..=3 {
+        check_every_cut(&NAESatisfiability::new(n, vec![]));
+        let literals: Vec<_> = (1..=n as i64).flat_map(|i| [i, -i]).collect();
+        for length in 2..=4 {
+            for mut rank in 0..literals.len().pow(length) {
+                let clause = (0..length)
+                    .map(|_| {
+                        let literal = literals[rank % literals.len()];
+                        rank /= literals.len();
+                        literal
+                    })
+                    .collect();
+                check_every_cut(&NAESatisfiability::new(n, vec![CNFClause::new(clause)]));
+            }
+        }
+    }
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_long_clause_interactions() {
+    // Former clique reward tied the feasible assignment 0001 with invalid 0011.
+    let source = NAESatisfiability::new(
+        4,
+        vec![
+            CNFClause::new(vec![1, 2, 3, 4]),
+            CNFClause::new(vec![1, -2]),
+            CNFClause::new(vec![2, -3]),
+        ],
+    );
+    check_every_cut(&source);
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.feasible_cut, 26);
+    for clauses in [
+        vec![vec![1, 1, 1, 1, 1]],
+        vec![vec![1, 2, 3, 1, 2], vec![1, -2], vec![2, -3]],
+        vec![vec![1, -1, 2, -2, 3, 3]],
+        vec![vec![1, 2], vec![1, -2]],
+    ] {
+        check_every_cut(&NAESatisfiability::new(
+            3,
+            clauses.into_iter().map(CNFClause::new).collect(),
+        ));
+    }
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_numeric_limits() {
+    assert_eq!(
+        nae_maxcut_parameters(4, [4, 2, 2].into_iter()).unwrap(),
+        (10, 13, 4, 26)
+    );
+    assert_eq!(
+        nae_maxcut_parameters(0, [].into_iter()).unwrap(),
+        (0, 0, 1, 0)
+    );
+    assert!(matches!(
+        nae_maxcut_parameters(1, (0..usize::MAX).map(|_| 2)),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
+    for (n, lengths) in [
+        (usize::MAX, vec![4]),
+        (usize::MAX, vec![]),
+        (0, vec![usize::MAX]),
+        (0, vec![usize::MAX / 3, usize::MAX / 3]),
+        (2_147_483_648, vec![]),
+        (1, vec![1_431_655_768]),
+    ] {
+        assert!(matches!(
+            nae_maxcut_parameters(n, lengths.into_iter()),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
 }

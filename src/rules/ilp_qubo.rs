@@ -7,7 +7,9 @@
 //! 2. QUBO = -diag(c + 2·P·b·A) + P·A^T·A
 //!
 //! For Minimize sense, c is negated (convert to maximization).
-//! Slack variables: ceil(log2(slack_range)) bits per inequality constraint.
+//! Slack variables: ceil(log2(slack_range + 1)) bits for a nonnegative range.
+//! The custom aggregate restores the omitted constant and both objective senses;
+//! only zero-penalty configurations certify a feasible source assignment.
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP, QUBO};
 use crate::reduction;
@@ -18,6 +20,10 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 pub struct ReductionILPToQUBO {
     target: QUBO<i64>,
     num_original_vars: usize,
+    sense: ObjectiveSense,
+    penalty_constant: i64,
+    feasible_energy_lower: i64,
+    feasible_energy_upper: i64,
 }
 
 impl ReductionResult for ReductionILPToQUBO {
@@ -33,7 +39,13 @@ impl ReductionResult for ReductionILPToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).is_valid() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target QUBO configuration does not certify a feasible ILP assignment",
+            ));
+        }
 
         Ok(target_solution[..self.num_original_vars]
             .iter()
@@ -42,7 +54,32 @@ impl ReductionResult for ReductionILPToQUBO {
     }
 }
 
+impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
+    type Source = ILP<bool>;
+    type Target = QUBO<i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Extremum<i64> {
+        let objective = value
+            .0
+            .filter(|&energy| {
+                self.feasible_energy_lower <= energy && energy <= self.feasible_energy_upper
+            })
+            // The checked energy interval guarantees this sum is representable.
+            .map(|energy| energy + self.penalty_constant);
+        match self.sense {
+            ObjectiveSense::Minimize => crate::types::Extremum::minimize(objective),
+            // The strict penalty bound excludes i64::MIN from this interval.
+            ObjectiveSense::Maximize => crate::types::Extremum::maximize(objective.map(|v| -v)),
+        }
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = unavailable {
         num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
     }
@@ -125,11 +162,7 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
                 )
             })
         })?;
-        let nq = n.checked_add(total_slack).ok_or_else(|| {
-            crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
-                "counting QUBO variables",
-            )
-        })?;
+        let nq = qubo_num_variables(n, total_slack)?;
 
         // Extend A with slack columns
         let mut a_ext = vec![vec![0_i64; nq]; num_constraints];
@@ -214,6 +247,9 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
                     "computing the QUBO constraint penalty",
                 )
             })?;
+
+        let (penalty_constant, feasible_energy_lower, feasible_energy_upper) =
+            feasible_energy_range(&c_vec, &b_vec, penalty)?;
 
         // QUBO = -diag(c + 2·P·b·A) + P·A^T·A
         let mut matrix = vec![vec![0_i64; nq]; nq];
@@ -301,8 +337,55 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
             target: QUBO::from_matrix(matrix)
                 .map_err(crate::rules::ReductionError::construction::<ILP<bool>, QUBO<i64>>)?,
             num_original_vars: n,
+            sense: self.sense(),
+            penalty_constant,
+            feasible_energy_lower,
+            feasible_energy_upper,
         })
     }
+}
+
+/// Check the dense QUBO dimensions before allocating either extended matrix.
+fn qubo_num_variables(n: usize, slack: usize) -> Result<usize, crate::rules::ReductionError> {
+    let overflow = || {
+        crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
+            "counting dense QUBO entries",
+        )
+    };
+    let total = n.checked_add(slack).ok_or_else(overflow)?;
+    total.checked_mul(total).ok_or_else(overflow)?;
+    Ok(total)
+}
+
+/// Restore the omitted squared-residual constant and bound zero-penalty energies.
+/// `cost` is the maximization-oriented objective used in the QUBO expansion.
+fn feasible_energy_range(
+    cost: &[i64],
+    rhs: &[i64],
+    penalty: i64,
+) -> Result<(i64, i64, i64), crate::rules::ReductionError> {
+    let overflow = || {
+        crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
+            "encoding the QUBO feasible energy interval",
+        )
+    };
+    let constant = rhs.iter().try_fold(0_i64, |sum, &b| {
+        b.checked_mul(b)
+            .and_then(|square| square.checked_mul(penalty))
+            .and_then(|term| sum.checked_add(term))
+            .ok_or_else(overflow)
+    })?;
+    let (lower, upper) = cost.iter().try_fold((0_i64, 0_i64), |(low, high), &c| {
+        Ok::<_, crate::rules::ReductionError>((
+            low.checked_sub(c.max(0)).ok_or_else(overflow)?,
+            high.checked_sub(c.min(0)).ok_or_else(overflow)?,
+        ))
+    })?;
+    Ok((
+        constant,
+        lower.checked_sub(constant).ok_or_else(overflow)?,
+        upper.checked_sub(constant).ok_or_else(overflow)?,
+    ))
 }
 
 #[cfg(feature = "example-db")]

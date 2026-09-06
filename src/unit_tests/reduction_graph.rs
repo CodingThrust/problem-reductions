@@ -894,14 +894,15 @@ fn test_decision_minimum_dominating_set_has_both_edges() {
 }
 
 #[test]
-fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness_edge() {
+fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness_and_aggregate_edges(
+) {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
         MinMaxMulticenter<SimpleGraph, One>,
     >(ReductionMode::Witness));
-    assert!(!graph.has_direct_reduction_mode::<
+    assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
         MinMaxMulticenter<SimpleGraph, One>,
     >(ReductionMode::Aggregate));
@@ -909,6 +910,35 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
         MinMaxMulticenter<SimpleGraph, One>,
     >(ReductionMode::Turing));
+    let entries = crate::rules::registry::reduction_entries();
+    let variant = Decision::<MinimumDominatingSet<SimpleGraph, One>>::variant();
+    let edge = entries
+        .iter()
+        .find(|e| {
+            e.source_name == "DecisionMinimumDominatingSet"
+                && e.target_name == "MinMaxMulticenter"
+                && (e.source_variant_fn)() == variant
+                && (e.target_variant_fn)() == variant
+        })
+        .unwrap();
+    for (bound, witness, expected) in [
+        (1, vec![false, true, false, false, true, true], false),
+        (2, vec![false, true, true, false, true, true], true),
+    ] {
+        let source = Decision::new(
+            MinimumDominatingSet::new(SimpleGraph::path(4), vec![One; 4]),
+            bound,
+        );
+        let aggregate = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
+        assert_eq!(
+            *aggregate
+                .extract_value_from_solution_dyn(&witness)
+                .unwrap()
+                .downcast::<Or>()
+                .unwrap(),
+            Or(expected)
+        );
+    }
 }
 
 #[test]

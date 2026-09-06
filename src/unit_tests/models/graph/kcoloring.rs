@@ -242,3 +242,49 @@ fn test_kcoloring_paper_example() {
     let solver = BruteForce::new();
     assert!(solver.solve(&problem2).unwrap().is_none());
 }
+
+#[test]
+fn fixed_color_counts_survive_all_serialization_paths() {
+    fn check<K: crate::variant::KValue>() {
+        let expected = K::K.unwrap();
+        let source = KColoring::<K, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
+        let mut data = serde_json::to_value(&source).unwrap();
+        let restored: KColoring<K, SimpleGraph> = serde_json::from_value(data.clone()).unwrap();
+        assert_eq!(restored.num_colors(), expected);
+        assert_eq!(restored.graph().edges(), source.graph().edges());
+        for supplied in (0..=6).chain(std::iter::once(usize::MAX)) {
+            data["num_colors"] = serde_json::json!(supplied);
+            let restored = serde_json::from_value::<KColoring<K, SimpleGraph>>(data.clone());
+            assert_eq!(restored.is_ok(), supplied == expected);
+        }
+        data.as_object_mut().unwrap().remove("num_colors");
+        let restored: KColoring<K, SimpleGraph> = serde_json::from_value(data.clone()).unwrap();
+        assert_eq!(restored.num_colors(), expected);
+        for invalid in [
+            serde_json::Value::Null,
+            serde_json::json!(-1),
+            serde_json::json!("3"),
+        ] {
+            data["num_colors"] = invalid;
+            assert!(serde_json::from_value::<KColoring<K, SimpleGraph>>(data.clone()).is_err());
+        }
+    }
+    check::<crate::variant::K1>();
+    check::<crate::variant::K2>();
+    check::<crate::variant::K3>();
+    check::<crate::variant::K4>();
+    check::<crate::variant::K5>();
+}
+
+#[test]
+fn runtime_color_counts_keep_their_native_domain_on_deserialization() {
+    for count in [0, 1, 3, 4, usize::MAX] {
+        let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), count);
+        let data = serde_json::to_value(&source).unwrap();
+        let restored: KColoring<KN, SimpleGraph> = serde_json::from_value(data).unwrap();
+        assert_eq!(restored.num_colors(), count);
+    }
+    let data = serde_json::json!({"graph": {"num_vertices": 0, "edges": []}});
+    let restored: KColoring<KN, SimpleGraph> = serde_json::from_value(data).unwrap();
+    assert_eq!(restored.num_colors(), 0);
+}

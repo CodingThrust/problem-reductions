@@ -6360,6 +6360,24 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
     let unit_file = std::env::temp_dir().join("pred_test_inspect_exact_variant_unit.json");
     let weighted_file = std::env::temp_dir().join("pred_test_inspect_exact_variant_weighted.json");
 
+    let decision_file =
+        std::env::temp_dir().join("pred_test_inspect_exact_variant_decision_unit.json");
+    let decision_create = pred()
+        .args([
+            "create",
+            "--example",
+            "DecisionMaximumIndependentSet/One",
+            "-o",
+            decision_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        decision_create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&decision_create.stderr)
+    );
+
     let unit_create = pred()
         .args([
             "create",
@@ -6406,8 +6424,14 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
         (
             &weighted_file,
             "MIS/SimpleGraph/i64",
+            "MaximumSetPacking/i64",
             "IntegralFlowBundles",
-            "MaximumIndependentSet/KingsSubgraph/One",
+        ),
+        (
+            &decision_file,
+            "DecisionMaximumIndependentSet/SimpleGraph/One",
+            "IntegralFlowBundles",
+            "MaximumIndependentSet/SimpleGraph/i64",
         ),
     ] {
         let inspect = pred()
@@ -6454,6 +6478,7 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
 
     std::fs::remove_file(unit_file).unwrap();
     std::fs::remove_file(weighted_file).unwrap();
+    std::fs::remove_file(decision_file).unwrap();
 }
 
 #[test]

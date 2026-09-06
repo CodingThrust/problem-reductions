@@ -70,19 +70,23 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    // Build a target config that selects both root-to-set edges (indices 2 and 3).
-    // The remaining selections do not matter for extraction.
-    let mut target_config = vec![false; reduction.target_problem().num_edges()];
-    target_config[2] = true;
-    target_config[3] = true;
-    let extracted = reduction.extract_solution(&target_config).unwrap();
-    assert_eq!(extracted, vec![true, true]);
+    // The full feasible tree selects every edge except the set-clique edge.
+    let mut target_config = vec![true; reduction.target_problem().num_edges()];
+    *target_config.last_mut().unwrap() = false;
+    assert_eq!(
+        reduction.extract_solution(&target_config).unwrap(),
+        vec![true, true]
+    );
 
-    // Only s_0 selected via root edge.
-    let mut target_config = vec![false; reduction.target_problem().num_edges()];
-    target_config[2] = true;
-    let extracted = reduction.extract_solution(&target_config).unwrap();
-    assert_eq!(extracted, vec![true, false]);
+    // Root indicators alone are not a spanning-tree certificate.
+    let mut invalid = vec![false; target_config.len()];
+    invalid[2] = true;
+    invalid[3] = true;
+    assert!(reduction.extract_solution(&invalid).is_err());
+    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(reduction
+        .extract_solution(&vec![true; target_config.len()])
+        .is_err());
 }
 
 #[test]
@@ -99,5 +103,59 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     // exist here). Equivalently, the brute-force aggregate evaluates to
     // Or(false).
     assert!(BruteForce::new().solve(target).unwrap().is_none());
-    assert!(BruteForce::new().solve(target).unwrap().is_none());
+    assert!(reduction.extract_solution(&vec![]).is_err());
+}
+
+#[test]
+fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
+    for universe in [3, usize::MAX - usize::MAX % 3] {
+        let source = ExactCoverBy3Sets::new(universe, vec![]);
+        let reduction =
+            ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        assert_eq!(reduction.target_problem().num_vertices(), 2);
+        assert_eq!(reduction.target_problem().num_edges(), 0);
+        assert!(BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none());
+        assert!(reduction.extract_solution(&vec![]).is_err());
+    }
+    let source = ExactCoverBy3Sets::new(0, vec![]);
+    let reduction =
+        ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    let witness = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+    assert_eq!(witness, vec![true, true]);
+    assert_eq!(
+        reduction.extract_solution(&witness).unwrap(),
+        Vec::<bool>::new()
+    );
+}
+
+#[test]
+fn test_exactcoverby3sets_to_boundeddiameterspanningtree_duplicate_sets() {
+    let source = ExactCoverBy3Sets::new(3, vec![[0, 1, 2], [0, 1, 2]]);
+    let reduction =
+        ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    let witnesses = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
+    assert!(!witnesses.is_empty());
+    for witness in witnesses {
+        let extracted = reduction.extract_solution(&witness).unwrap();
+        assert!(source.is_valid_solution(&extracted).unwrap());
+        assert_eq!(extracted.iter().filter(|&&x| x).count(), 1);
+    }
+}
+
+#[test]
+fn test_exactcoverby3sets_to_boundeddiameterspanningtree_dimension_arithmetic() {
+    type R = ReductionX3CToBoundedDiameterSpanningTree;
+    assert_eq!(R::dimensions(0, 0).unwrap(), (3, 2, 2));
+    assert_eq!(R::dimensions(6, 4).unwrap(), (13, 24, 14));
+    assert!(R::dimensions(usize::MAX, 0).is_err());
+    assert!(R::dimensions(0, usize::MAX / 2).is_err());
+    assert!(R::dimensions(usize::MAX - 3, 0).is_err());
 }

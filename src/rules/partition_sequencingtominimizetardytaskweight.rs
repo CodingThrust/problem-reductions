@@ -22,18 +22,15 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target schedule does not certify a balanced partition",
+            ));
+        }
 
         Ok({
-            let mut seen = vec![false; self.target.num_tasks()];
-            for &task in target_solution {
-                if std::mem::replace(&mut seen[task], true) {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "target schedule contains task {task} more than once"
-                    )));
-                }
-            }
-
             let mut source_config = vec![true; self.target.num_tasks()];
             let mut completion_time = 0i64;
 
@@ -55,7 +52,24 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
     }
 }
 
+impl crate::rules::AggregateReductionResult
+    for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
+{
+    type Source = Partition;
+    type Target = SequencingToMinimizeTardyTaskWeight;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        // The source is nonempty, so the common deadline always exists.
+        crate::types::Or(value.0 == Some(self.target.deadlines()[0]))
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_tasks = "num_elements",
     })]

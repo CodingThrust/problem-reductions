@@ -5,10 +5,12 @@
 //! - Alphabet: V union {d_e : e in E}, size n + m
 //! - For each edge e = {u, v}, one subset {u, v, d_e} of size 3
 //!
-//! A valid 3-coloring corresponds to a partition into 3 groups where each
-//! edge-subset spans 3 consecutive groups with one element per group.
+//! A valid 3-coloring extends to at most three groups. Conversely, each edge
+//! triple spans three consecutive groups. After retaining only vertex groups,
+//! endpoint ranks differ by one or two, so rank modulo three gives a coloring.
+//! Empty sources map to a one-symbol YES instance; loops to a fixed NO instance.
 //!
-//! Reference: Garey & Johnson, Appendix A4.2, p.230 (Lipski 1977).
+//! Definition: Lipski, CSL Report T-67 (1978), Problem 5; see the paper for proof.
 
 use crate::models::graph::KColoring;
 use crate::models::set::TwoDimensionalConsecutiveSets;
@@ -43,14 +45,20 @@ impl ReductionResult for ReductionKColoringToTDCS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target grouping is not a consecutive-set partition",
+            ));
+        }
 
         Ok({
             // The target solution is config[symbol] = group_index.
             // Vertex symbols are indices 0..num_vertices.
-            // We need to remap the group indices to colors 0, 1, 2.
-            // The target may use any labels, so we compress the distinct
-            // group indices used by vertex symbols to 0..2.
+            // Removing dummy-only groups cannot increase the separation of
+            // edge endpoints: their distinct ranks differ by one or two.
+            // Taking these ranks modulo three therefore preserves every edge.
 
             let vertex_groups = &target_solution[..self.num_vertices];
 
@@ -71,9 +79,9 @@ impl ReductionResult for ReductionKColoringToTDCS {
 }
 
 #[reduction(
-    transform = exact {
-        alphabet_size = "num_vertices + num_edges",
-        num_subsets = "num_edges",
+    transform = upper_bound {
+        alphabet_size = "num_vertices + num_edges + 3",
+        num_subsets = "num_edges + 3",
     }
 )]
 impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
@@ -83,16 +91,25 @@ impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
         let n = self.graph().num_vertices();
         let edges: Vec<(usize, usize)> = self.graph().edges();
         let m = edges.len();
-        let alphabet_size = n + m;
-
-        // For each edge e_i = {u, v}, create subset {u, v, n + i}
-        let subsets: Vec<Vec<usize>> = edges
-            .iter()
-            .enumerate()
-            .map(|(i, &(u, v))| vec![u, v, n + i])
-            .collect();
-
-        let target = TwoDimensionalConsecutiveSets::new(alphabet_size, subsets);
+        let (alphabet_size, subsets) = if edges.iter().any(|&(u, v)| u == v) {
+            // Three symbols cannot occupy pairwise consecutive distinct groups:
+            // the first and last groups are not adjacent. This is a fixed NO.
+            (3, vec![vec![0, 1], vec![1, 2], vec![0, 2]])
+        } else {
+            // Native node and edge Vec allocation bounds make n + m fit usize.
+            let alphabet_size = n + m;
+            let subsets = edges
+                .iter()
+                .enumerate()
+                .map(|(i, &(u, v))| vec![u, v, n + i])
+                .collect();
+            // The empty graph is colorable, while the target requires a
+            // positive alphabet. One unconstrained symbol preserves YES.
+            (alphabet_size.max(1), subsets)
+        };
+        let target = TwoDimensionalConsecutiveSets::try_new(alphabet_size, subsets).map_err(
+            crate::rules::ReductionError::construction::<Self, TwoDimensionalConsecutiveSets>,
+        )?;
 
         Ok(ReductionKColoringToTDCS {
             target,

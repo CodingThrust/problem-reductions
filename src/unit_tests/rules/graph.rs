@@ -1842,9 +1842,28 @@ fn test_outgoing_reductions_from_uses_exact_variant_and_mode() {
     assert!(weighted_targets
         .iter()
         .all(|edge| edge.source_variant == weighted && edge.capabilities.witness));
-    assert!(weighted_targets
+    assert!(!weighted_targets
         .iter()
         .any(|edge| edge.target_name == "IntegralFlowBundles"));
+    for (variant, has_flow_rule) in [(&unit, true), (&weighted, false)] {
+        let decision_targets = graph.outgoing_reductions_from(
+            "DecisionMaximumIndependentSet",
+            variant,
+            ReductionMode::Witness,
+        );
+        assert_eq!(
+            decision_targets
+                .iter()
+                .any(|edge| edge.target_name == "IntegralFlowBundles"),
+            has_flow_rule
+        );
+        let optimization_queries =
+            graph.outgoing_reductions_from("MaximumIndependentSet", variant, ReductionMode::Turing);
+        assert!(optimization_queries
+            .iter()
+            .any(|edge| edge.target_name == "DecisionMaximumIndependentSet"
+                && edge.target_variant == *variant));
+    }
     assert!(!weighted_targets.iter().any(|edge| {
         edge.target_name == "MaximumIndependentSet"
             && edge.target_variant.get("graph").map(String::as_str) == Some("KingsSubgraph")

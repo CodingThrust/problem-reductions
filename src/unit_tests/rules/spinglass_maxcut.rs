@@ -45,15 +45,15 @@ fn test_solution_extraction_with_ancilla() {
     let reduction =
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
 
-    // If ancilla is 0, don't flip
+    // A false ancilla represents spin -1, so flip to normalize it to +1.
     let mc_sol = vec![false, true, false];
     let extracted = reduction.extract_solution(&mc_sol).unwrap();
-    assert_eq!(extracted, vec![-1, 1]);
+    assert_eq!(extracted, vec![1, -1]);
 
-    // If ancilla is 1, flip all
+    // A true ancilla already represents spin +1.
     let mc_sol = vec![false, true, true];
     let extracted = reduction.extract_solution(&mc_sol).unwrap();
-    assert_eq!(extracted, vec![1, -1]); // flipped and ancilla removed
+    assert_eq!(extracted, vec![-1, 1]);
 }
 
 #[test]
@@ -217,5 +217,20 @@ fn test_jl_parity_rule_spinglass_to_maxcut() {
     );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_spin_configs_set(&case["best_source"]));
+    }
+}
+
+#[test]
+fn test_spinglass_to_maxcut_fields_corpus_regression() {
+    for fields in [vec![2, 0, -3], vec![-2, 1, 0], vec![1, 2, 3]] {
+        let source =
+            SpinGlass::new(3, vec![((0, 1), 2i64), ((1, 2), -3), ((0, 2), 1)], fields).unwrap();
+        let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        // Enumerating every target optimum exercises both complementary cut sides.
+        assert_optimization_round_trip_from_optimization_target(
+            &source,
+            &reduction,
+            "SpinGlass field sign and ancilla orientation",
+        );
     }
 }

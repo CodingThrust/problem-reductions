@@ -36,12 +36,48 @@ use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
+use std::collections::HashSet;
 
 /// Result of reducing ExactCoverBy3Sets to BoundedDiameterSpanningTree.
 #[derive(Debug, Clone)]
 pub struct ReductionX3CToBoundedDiameterSpanningTree {
     target: BoundedDiameterSpanningTree<SimpleGraph, i64>,
     source_num_subsets: usize,
+}
+
+impl ReductionX3CToBoundedDiameterSpanningTree {
+    /// Counts for the incidence construction, checked before allocating it.
+    fn dimensions(
+        universe_size: usize,
+        m: usize,
+    ) -> Result<(usize, usize, i64), crate::rules::ReductionError> {
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<
+                ExactCoverBy3Sets,
+                BoundedDiameterSpanningTree<SimpleGraph, i64>,
+            >("computing bounded-diameter incidence construction dimensions")
+        };
+        let vertices = universe_size
+            .checked_add(m)
+            .and_then(|v| v.checked_add(3))
+            .ok_or_else(overflow)?;
+        let clique = match m {
+            0 => 0,
+            _ => m.checked_mul(m - 1).ok_or_else(overflow)? / 2,
+        };
+        let edges = m
+            .checked_mul(4)
+            .and_then(|v| v.checked_add(clique))
+            .and_then(|v| v.checked_add(2))
+            .ok_or_else(overflow)?;
+        let bound = (universe_size / 3)
+            .checked_mul(4)
+            .and_then(|v| v.checked_add(m))
+            .and_then(|v| v.checked_add(2))
+            .and_then(|v| i64::try_from(v).ok())
+            .ok_or_else(overflow)?;
+        Ok((vertices, edges, bound))
+    }
 }
 
 impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
@@ -62,7 +98,13 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target edge selection is not a feasible bounded-diameter spanning tree",
+            ));
+        }
 
         Ok({
             let m = self.source_num_subsets;
@@ -75,7 +117,7 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "num_subsets + universe_size + 3",
         num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
     })]
@@ -85,15 +127,26 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Se
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let m = self.num_subsets();
-        let q = self.q();
+        // Every element must occur in the collection before an exact cover can
+        // exist. Count the union without allocating an array of universe_size.
+        let covered: HashSet<_> = self.subsets().iter().flatten().copied().collect();
+        if covered.len() != universe_size {
+            // Two isolated vertices have no spanning tree. No certificate can
+            // pass validation, so the ordinary extractor is never reached.
+            return Ok(ReductionX3CToBoundedDiameterSpanningTree {
+                target: BoundedDiameterSpanningTree::new(SimpleGraph::empty(2), vec![], 1, 4),
+                source_num_subsets: m,
+            });
+        }
+        let (num_vertices, num_edges, weight_bound) =
+            ReductionX3CToBoundedDiameterSpanningTree::dimensions(universe_size, m)?;
 
         // Vertex indexing matches the docstring.
         let s_index = |i: usize| 3 + i;
         let e_index = |j: usize| 3 + m + j;
-        let num_vertices = 3 + m + universe_size;
 
-        let mut edges: Vec<(usize, usize)> = Vec::new();
-        let mut weights: Vec<i64> = Vec::new();
+        let mut edges: Vec<(usize, usize)> = Vec::with_capacity(num_edges);
+        let mut weights: Vec<i64> = Vec::with_capacity(num_edges);
 
         // Forced-center path edges (indices 0 and 1).
         edges.push((0, 1)); // (r, v_1)
@@ -130,17 +183,6 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Se
             }
         }
 
-        let weight_bound = q
-            .checked_mul(4)
-            .and_then(|value| value.checked_add(m))
-            .and_then(|value| value.checked_add(2))
-            .and_then(|value| i64::try_from(value).ok())
-            .ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<
-                    ExactCoverBy3Sets,
-                    BoundedDiameterSpanningTree<SimpleGraph, i64>,
-                >("computing the target weight bound")
-            })?;
         let diameter_bound: usize = 4;
 
         let graph = SimpleGraph::new(num_vertices, edges);

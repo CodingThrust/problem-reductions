@@ -4,7 +4,9 @@
 //! the source vertices into an edge-clique cover. The target graph contains
 //! left/right copies of the source vertices, one directed gadget per source
 //! edge, and two side-clique anchors.
-//! The source is satisfiable iff the target optimum is at most K + 2|E| + 2.
+//! The source is satisfiable iff the target optimum is at most min(K,n) + q + 2,
+//! where q counts distinct directed non-loop adjacencies. Each side includes
+//! a private vertex, so its forced clique exists even for an empty source.
 
 use crate::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use crate::reduction;
@@ -66,6 +68,7 @@ impl OrlinLayout {
             .map(|i| self.x(i))
             .collect::<Vec<_>>();
         vertices.extend((0..self.num_directed_pairs()).map(|idx| self.a(idx)));
+        vertices.push(self.z_right() + 1);
         vertices
     }
 
@@ -74,11 +77,40 @@ impl OrlinLayout {
             .map(|i| self.y(i))
             .collect::<Vec<_>>();
         vertices.extend((0..self.num_directed_pairs()).map(|idx| self.b(idx)));
+        vertices.push(self.z_right() + 2);
         vertices
     }
 
-    fn total_vertices(&self) -> usize {
-        self.z_right() + 1
+    fn dimensions(&self) -> Result<(usize, usize), crate::rules::ReductionError> {
+        let n = self.num_source_vertices;
+        let q = self.num_directed_pairs();
+        let overflow = |operation: &str| {
+            crate::rules::ReductionError::integer_overflow::<
+                PartitionIntoCliques<SimpleGraph>,
+                MinimumCoveringByCliques<SimpleGraph>,
+            >(operation)
+        };
+        // The two sides each have n+q+1 vertices, including their private
+        // vertex. These checked counts bound every subsequent layout index.
+        let side = n
+            .checked_add(q)
+            .and_then(|s| s.checked_add(1))
+            .ok_or_else(|| overflow("counting side vertices"))?;
+        let target_vertices = side
+            .checked_mul(2)
+            .and_then(|s| s.checked_add(2))
+            .ok_or_else(|| overflow("counting target vertices"))?;
+        let target_edges = side
+            .checked_mul(side)
+            .and_then(|s| s.checked_add(side))
+            .and_then(|s| s.checked_add(n))
+            .and_then(|s| q.checked_mul(4).and_then(|cross| s.checked_add(cross)))
+            .ok_or_else(|| overflow("counting target edges"))?;
+        <PartitionIntoCliques<SimpleGraph> as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            target_edges,
+            "representing every target cover value",
+        )?;
+        Ok((target_vertices, target_edges))
     }
 }
 
@@ -92,11 +124,10 @@ fn add_clique_edges(vertices: &[usize], edges: &mut Vec<(usize, usize)>) {
 
 fn target_clique_bound(
     num_cliques: i64,
-    num_edges: i64,
+    num_directed_pairs: i64,
 ) -> Result<i64, crate::rules::ReductionError> {
-    num_edges
-        .checked_mul(2)
-        .and_then(|offset| offset.checked_add(2))
+    num_directed_pairs
+        .checked_add(2)
         .and_then(|offset| num_cliques.checked_add(offset))
         .ok_or_else(|| {
             crate::rules::ReductionError::integer_overflow::<
@@ -110,7 +141,7 @@ fn target_clique_bound(
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
     target: MinimumCoveringByCliques<SimpleGraph>,
-    source_graph: SimpleGraph,
+    num_source_vertices: usize,
     source_num_cliques: usize,
     target_bound: i64,
 }
@@ -127,10 +158,16 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !Min::meets_bound(&value, &self.target_bound) {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target cover does not certify the source clique bound",
+            ));
+        }
 
         Ok({
-            let n = self.source_graph.num_vertices();
+            let n = self.num_source_vertices;
             let target_edges = self.target.graph().edges();
             let mut matching_labels = vec![None; n];
             for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
@@ -169,20 +206,9 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
                 )));
             }
 
-            let source_problem =
-                PartitionIntoCliques::new(self.source_graph.clone(), self.source_num_cliques);
-            if <PartitionIntoCliques<SimpleGraph> as crate::traits::Problem>::evaluate(
-                &source_problem,
-                &extracted,
-            )?
-            .0
-            {
-                extracted
-            } else {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target cover maps to an invalid source clique partition",
-                ));
-            }
+            // Equal matching-edge labels imply pairwise source adjacency.
+            // The target certificate leaves at most K labels for these edges.
+            extracted
         })
     }
 }
@@ -204,28 +230,31 @@ impl crate::rules::AggregateReductionResult
 
 #[reduction(
     aggregate = custom,
-    transform = exact {
-        num_vertices = "2 * num_vertices + 4 * num_edges + 2",
-        num_edges = "(num_vertices + 2 * num_edges)^2 + 2 * num_vertices + 10 * num_edges",
+    transform = upper_bound {
+        num_vertices = "2 * num_vertices + 4 * num_edges + 4",
+        num_edges = "(num_vertices + 2 * num_edges)^2 + 4 * num_vertices + 14 * num_edges + 2",
     }
 )]
 impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<SimpleGraph> {
     type Result = ReductionPartitionIntoCliquesToMinimumCoveringByCliques;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let source_bound = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
-            self.num_cliques(),
-            "converting clique bound",
-        )?;
-        let source_edges = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
-            self.num_edges(),
-            "converting edge count",
-        )?;
-        let target_bound = target_clique_bound(source_bound, source_edges)?;
+        let n = self.num_vertices();
         let layout = OrlinLayout::new(self.graph());
+        let q = layout.num_directed_pairs();
+        let (target_vertices, target_edges) = layout.dimensions()?;
+        let source_bound = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            self.num_cliques().min(n),
+            "converting effective clique bound",
+        )?;
+        let directed_pairs = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
+            q,
+            "converting gadget count",
+        )?;
+        let target_bound = target_clique_bound(source_bound, directed_pairs)?;
         let left_vertices = layout.left_vertices();
         let right_vertices = layout.right_vertices();
-        let mut edges = Vec::new();
+        let mut edges = Vec::with_capacity(target_edges);
 
         // Step 1-2: L and R are cliques.
         add_clique_edges(&left_vertices, &mut edges);
@@ -252,12 +281,12 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
             edges.push((layout.a(idx), layout.b(idx)));
         }
 
-        let target_graph = SimpleGraph::new(layout.total_vertices(), edges);
+        let target_graph = SimpleGraph::new(target_vertices, edges);
         let target = MinimumCoveringByCliques::new(target_graph);
 
         Ok(ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
             target,
-            source_graph: self.graph().clone(),
+            num_source_vertices: n,
             source_num_cliques: self.num_cliques(),
             target_bound,
         })

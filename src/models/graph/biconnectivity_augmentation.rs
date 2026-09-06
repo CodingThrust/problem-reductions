@@ -208,11 +208,11 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
                     weight.to_sum(),
                     "summing biconnectivity augmentation weights",
                 )?;
-                if total > self.budget.clone() {
-                    return Ok(None);
-                }
                 edges.insert(normalize_edge(u, v));
             }
+        }
+        if total > self.budget.clone() {
+            return Ok(None);
         }
 
         Ok(Some(SimpleGraph::new(

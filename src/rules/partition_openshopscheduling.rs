@@ -7,6 +7,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToOpenShopScheduling {
     target: OpenShopScheduling,
+    feasible_makespan: i64,
 }
 
 impl ReductionResult for ReductionPartitionToOpenShopScheduling {
@@ -21,7 +22,13 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target schedule does not certify a balanced partition",
+            ));
+        }
 
         Ok({
             let num_elements = self.target.num_jobs() - 1;
@@ -42,10 +49,6 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
                         .collect::<Result<Vec<_>, _>>()
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            if num_elements == 0 {
-                return Ok(source_config);
-            }
-
             let special_job = num_elements;
             let half_sum = self.target.processing_times()[special_job][0];
 
@@ -75,7 +78,21 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
     }
 }
 
+impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopScheduling {
+    type Source = Partition;
+    type Target = OpenShopScheduling;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(self.feasible_makespan))
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_jobs = "num_elements + 1",
         num_machines = "3",
@@ -93,9 +110,13 @@ impl ReduceTo<OpenShopScheduling> for Partition {
             self.sizes().iter().map(|&size| vec![size; 3]).collect();
         processing_times.push(vec![half_sum; 3]);
 
+        let target = OpenShopScheduling::try_new(3, processing_times)
+            .map_err(<Self as ReduceTo<OpenShopScheduling>>::target_construction)?;
+        // The validated nonnegative schedule horizon includes these three terms.
+        let feasible_makespan = 3 * half_sum;
         Ok(ReductionPartitionToOpenShopScheduling {
-            target: OpenShopScheduling::try_new(3, processing_times)
-                .map_err(<Self as ReduceTo<OpenShopScheduling>>::target_construction)?,
+            target,
+            feasible_makespan,
         })
     }
 }

@@ -4,7 +4,10 @@
 //! Theorem 6 and Section 3). The reduction has two stages:
 //!
 //! 1. **Normalize** the source 3-CNF formula:
-//!    - For each original variable `x_i`, create two normalized variables
+//!    - Compact the variables appearing in clauses, retaining the inverse map.
+//!      Repeat literals to pad nonempty short clauses to three positions.
+//!      Empty formulas and empty clauses map to fixed YES and NO targets.
+//!    - For each appearing variable `x_i`, create two normalized variables
 //!      `t_i` and `f_i`. Replace literal `x_i` by `t_i`, replace literal
 //!      `¬x_i` by `f_i`. Add exactly-one clauses
 //!      `(t_i ∨ f_i ∨ f_i)` and `(¬t_i ∨ ¬f_i ∨ ¬f_i)` so that any
@@ -53,15 +56,15 @@ use std::collections::BTreeSet;
 /// Result of reducing KSatisfiability/K3 to BicliqueCover.
 ///
 /// Carries the normalization metadata needed for solution extraction:
-/// the source variable count, the number of normalized variables, and
-/// the offset of the `H` vertex block inside the bipartite gadget.
+/// the source variable count, the inverse map of appearing variables, and
+/// the important anchor used to locate the assignment biclique.
 #[derive(Debug, Clone)]
 pub struct ReductionKSatisfiabilityToBicliqueCover {
     target: BicliqueCover,
     /// Number of variables in the source 3-CNF formula.
     source_num_vars: usize,
     /// Number of normalized variables `n = 2^ell` (a power of two and
-    /// at least `2 * source_num_vars`).
+    /// at least twice the number of appearing variables). Zero for sentinels.
     normalized_n: usize,
     /// Bipartite-local offset of the `S_1` block on the left side.
     /// Used to locate vertex `s_11^u` for B_1 identification.
@@ -69,13 +72,9 @@ pub struct ReductionKSatisfiabilityToBicliqueCover {
     /// Bipartite-local offset of the `S_1` block on the right side.
     /// Used to locate vertex `s_11^v` for B_1 identification.
     s1_right_offset: usize,
-    /// Bipartite-local offset of the `Y` block on the left side.
-    /// Used to skip free-edge bicliques during extraction.
-    y_left_offset: usize,
-    /// Bipartite-local offset of the `Y` block on the right side.
-    y_right_offset: usize,
-    /// Number of free-edge bicliques `k_f`.
-    k_f: usize,
+    /// Original zero-based indices of the variables used by the formula,
+    /// in the order of their compact normalized pairs.
+    source_variables: Vec<usize>,
 }
 
 impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
@@ -86,70 +85,44 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         &self.target
     }
 
-    /// Recover a source assignment from a BicliqueCover witness.
-    ///
-    /// 1. Ignore bicliques that cover the `Y` matching edges — these are
-    ///    the `k_f` free-edge bicliques fixed by Lemma 17.
-    /// 2. Identify `B_1` as a biclique containing both `s_11^u` and
-    ///    `s_11^v`, but no `y_r^u` or `y_r^v` (so it is an
-    ///    important-edge biclique).
-    /// 3. For each normalized variable `i`, set the normalized
-    ///    `t_i = true` iff `h_i^u ∈ B_1`.
-    /// 4. Map normalized variables back to source variables by reading
-    ///    each original `t_i`.
-    ///
+    /// Recover an assignment from any feasible cover, independently of row order.
+    /// The rank budget forces a unique row covering the first domino anchor.
+    /// Its left crown memberships give the normalized truth assignment.
+    /// Map appearing variables back to their original indices and assign false
+    /// to variables absent from the formula. Infeasible covers are rejected.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        let n = self.normalized_n;
-        let left_size = self.target.left_size();
-        let k = self.target.k();
-        // Unified-vertex helpers for the named gadget anchors.
-        let s11_u = self.s1_left_offset; // s_{1,1}^u
-        let s11_v = left_size + self.s1_right_offset; // s_{1,1}^v
-        let h_left = |i: usize| -> usize { i }; // h_i^u (i in 0..n)
-        let y_left = |r: usize| -> usize { self.y_left_offset + r };
-        let y_right = |r: usize| -> usize { left_size + self.y_right_offset + r };
-
-        // Find a biclique containing both s_11^u and s_11^v, but no
-        // Y-matching vertex. By Lemma 17, free-edge bicliques touch the
-        // Y matching; the important-edge biclique B_1 does not.
-        let mut b1_index = None;
-        for (r, biclique) in target_solution.iter().enumerate().take(k) {
-            let in_b1 = |vertex: usize| biclique[vertex];
-            if !in_b1(s11_u) || !in_b1(s11_v) {
-                continue;
-            }
-            // Reject bicliques that touch the Y matching on either side.
-            let touches_y = (0..self.k_f).any(|r_y| in_b1(y_left(r_y)) || in_b1(y_right(r_y)));
-            if touches_y {
-                continue;
-            }
-            b1_index = Some(r);
-            break;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.0.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target configuration is not a biclique cover",
+            ));
         }
+        // Variables absent from every clause may be assigned false.
+        // This also defines the inverse map for the empty-formula YES target.
+        let mut source_assignment = vec![false; self.source_num_vars];
+        if self.source_variables.is_empty() {
+            return Ok(source_assignment);
+        }
+        let s11_u = self.s1_left_offset;
+        let s11_v = self.target.left_size() + self.s1_right_offset;
+        // The Y matching and the important induced matching use the entire
+        // rank budget. Exactly one row covers this important anchor edge.
+        let b1_index = target_solution
+            .iter()
+            .position(|row| row[s11_u] && row[s11_v]);
 
-        // Read off normalized assignment: t_i = (h_i^u in B_1) for i in 0..n.
         let b1_index = b1_index.ok_or_else(|| {
             crate::rules::ExtractionError::invalid(
                 "target configuration has no important-edge biclique B_1",
             )
         })?;
-        let mut normalized_assignment = vec![false; n];
-        for (i, slot) in normalized_assignment.iter_mut().enumerate() {
-            *slot = target_solution[h_left(i)][b1_index];
-        }
-
-        // Map normalized t_i back to the source: source x_s = t_s
-        // (with s in 1..=source_num_vars). t_s sits at normalized index
-        // 2 * (s - 1).
-        let mut source_assignment = vec![false; self.source_num_vars];
-        for (s, slot) in source_assignment.iter_mut().enumerate() {
-            let t_idx = 2 * s;
-            *slot = normalized_assignment[t_idx];
+        // Pair i corresponds to source_variables[i]; its t variable is 2*i.
+        for (i, &source_index) in self.source_variables.iter().enumerate() {
+            source_assignment[source_index] = target_solution[b1_index][2 * i];
         }
         Ok(source_assignment)
     }
@@ -169,26 +142,27 @@ fn ceil_log2(m: usize) -> usize {
     bits
 }
 
-/// Build the normalized 3-CNF formula from a source formula.
+/// Normalize the appearing variables of a source formula to balanced 3-CNF.
 ///
 /// Returns `(n, normalized_clauses)` where `n` is a power of two
 /// (the normalized variable count). Normalized clauses use signed
 /// integer literals with the convention:
 ///
-/// - `t_i` is normalized variable `2*(i-1)` (0-indexed); 1-indexed literal `2i-1`.
-/// - `f_i` is normalized variable `2*(i-1) + 1` (0-indexed); 1-indexed literal `2i`.
+/// - Compact variable `i` has `t_i` at index `2*(i-1)` and `f_i` at `2*i-1`.
+/// - `source_variables` records the original zero-based index of each pair.
 ///
-/// For each source variable `i` in `1..=source_num_vars` and each padded
+/// For each appearing variable and each padded
 /// dummy variable, two exactly-one clauses are appended.
 fn normalize(
     source: &KSatisfiability<K3>,
+    source_variables: &[usize],
 ) -> Result<(usize, Vec<Vec<i64>>), crate::rules::ReductionError> {
     let overflow = |operation| {
         crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, BicliqueCover>(
             operation,
         )
     };
-    let s = source.num_vars();
+    let s = source_variables.len();
     // Padded source-variable count `s_pad` so that `2 * s_pad` is a
     // power of two.
     let s_pad = s
@@ -222,12 +196,19 @@ fn normalize(
         for &lit in &clause.literals {
             let var = usize::try_from(lit.unsigned_abs())
                 .expect("SAT construction validates literal indices against usize");
+            let compact = source_variables
+                .binary_search(&(var - 1))
+                .expect("every source literal has a collected variable")
+                + 1;
             if lit > 0 {
-                translated.push(t_lit(var)?);
+                translated.push(t_lit(compact)?);
             } else {
-                translated.push(f_lit(var)?);
+                translated.push(f_lit(compact)?);
             }
         }
+        // Nonempty short clauses are equivalent after repeating a literal.
+        // Empty clauses are handled by the fixed NO construction before here.
+        translated.resize(3, translated[0]);
         clauses.push(translated);
     }
 
@@ -250,22 +231,17 @@ fn free_edge_budget(ell: usize, m: usize) -> Option<usize> {
         .checked_add(6)
 }
 
-// Size expressions are upper bounds in terms of source counts.
-// After normalization, `n ≤ 4·num_vars` (next power of two of `2·num_vars`)
-// and `m ≤ num_clauses + n ≤ num_clauses + 4·num_vars`. With
-// `ell = log2 n ≤ 2 + log2(num_vars)` we use the coarser bound
-// `ell ≤ num_vars` and `ceil(log2 m) ≤ num_clauses + 4·num_vars`,
-// giving the polynomial bounds below. Edges are bounded by
-// `partition_size^2` which is `O((num_vars + num_clauses)^2)`.
+// With s source variables and m source clauses, the normalized counts
+// satisfy n <= 4(s+1), M <= m+4(s+1), ell <= s+1, ceil(log2 M) <= M.
+// Hence each partition is <= 31s+5m+39 and rank <= 14s+2m+22.
+// The declared coarser bounds also cover the fixed YES and NO targets.
 #[reduction(
-    transform = exact {
-        num_vertices = "32 * num_vars + 24 * num_clauses + 100",
-        num_edges = "(32 * num_vars + 24 * num_clauses + 100) * (32 * num_vars + 24 * num_clauses + 100)",
-        rank = "10 * num_vars + 4 * num_clauses + 20",
-    },
-    unavailable = {
-        left_size = "the exact target parameter is not represented by this reduction's symbolic transform",
-        right_size = "the exact target parameter is not represented by this reduction's symbolic transform",
+    transform = upper_bound {
+        left_size = "32 * num_vars + 8 * num_clauses + 48",
+        right_size = "32 * num_vars + 8 * num_clauses + 48",
+        num_vertices = "64 * num_vars + 16 * num_clauses + 96",
+        num_edges = "(32 * num_vars + 8 * num_clauses + 48)^2",
+        rank = "16 * num_vars + 4 * num_clauses + 32",
     }
 )]
 impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
@@ -274,7 +250,41 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         // ---------------- Stage 1: normalize ----------------
         let source_num_vars = self.num_vars();
-        let (n, normalized_clauses) = normalize(self)?;
+        let has_empty_clause = self
+            .clauses()
+            .iter()
+            .any(|clause| clause.literals.is_empty());
+        if has_empty_clause || self.clauses().is_empty() {
+            // The empty conjunction is YES; a conjunction with an empty
+            // disjunction is NO. Zero bicliques cover only the empty graph.
+            let size = usize::from(has_empty_clause);
+            let edges = if has_empty_clause {
+                vec![(0, 0)]
+            } else {
+                vec![]
+            };
+            return Ok(ReductionKSatisfiabilityToBicliqueCover {
+                target: BicliqueCover::new(BipartiteGraph::new(size, size, edges), 0),
+                source_num_vars,
+                normalized_n: 0,
+                s1_left_offset: 0,
+                s1_right_offset: 0,
+                source_variables: vec![],
+            });
+        }
+        let source_variables: Vec<usize> = self
+            .clauses()
+            .iter()
+            .flat_map(|clause| clause.literals.iter())
+            .map(|literal| {
+                usize::try_from(literal.unsigned_abs())
+                    .expect("source construction validates literal indices")
+                    - 1
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let (n, normalized_clauses) = normalize(self, &source_variables)?;
         let ell = ceil_log2(n).max(1); // n = 2^ell; ell >= 1
         let m = normalized_clauses.len();
         let overflow = |operation| {
@@ -496,9 +506,7 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
             normalized_n: n,
             s1_left_offset: s_offset,
             s1_right_offset: s_offset,
-            y_left_offset: y_offset,
-            y_right_offset: y_offset,
-            k_f,
+            source_variables,
         })
     }
 }
@@ -724,7 +732,7 @@ fn enumerate_free_bicliques(
 /// variable, 1 source clause. After normalization the formula has
 /// `n = 2`, `ell = 1`, `m = 3` clauses, `k_f = 14`, and rank `= 18`.
 ///
-/// The witness is a vertex-major BicliqueCover configuration with
+/// The witness is a biclique-major BicliqueCover configuration with
 /// `4` important-edge bicliques (`B_1`, `B̄_1`, `B_1^g`, `B_2^g`)
 /// followed by `14` free-edge bicliques `B_r^f ∪ {y_r^u, y_r^v}`
 /// that each absorb the matching edge `y_r^u y_r^v` and the
@@ -745,7 +753,7 @@ fn enumerate_free_bicliques(
 /// - The two guard bicliques each cover one `Q` edge and one of the
 ///   two non-selected literal edges per clause; cross-pairs are P-P
 ///   and P-Q free edges.
-#[cfg(feature = "example-db")]
+#[cfg(any(test, feature = "example-db"))]
 fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -> Vec<Vec<bool>> {
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -844,7 +852,8 @@ fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -
     }
 
     // Bicliques 4..(4+k_f): free-edge bicliques B_r^f ∪ {y_r^u, y_r^v}.
-    let (_, normalized_clauses) = normalize(source).expect("fixture normalization must succeed");
+    let (_, normalized_clauses) =
+        normalize(source, &reduction.source_variables).expect("fixture normalization must succeed");
     let free = enumerate_free_bicliques(
         n,
         m,

@@ -74,3 +74,15 @@ fn test_travelingsalesman_to_qubo_sizes() {
     let reduction4 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp4).expect("reduction should succeed");
     assert_eq!(reduction4.target_problem().num_variables(), 16);
 }
+
+#[test]
+fn test_travelingsalesman_to_qubo_weighted_corpus_regression() {
+    // Unequal tour costs expose a transposed vertex/position permutation.
+    let tsp = TravelingSalesman::new(SimpleGraph::complete(4), vec![9i64, 1, 2, 3, 4, 8]);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).unwrap();
+    crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target(
+        &tsp,
+        &reduction,
+        "weighted TSP position encoding",
+    );
+}

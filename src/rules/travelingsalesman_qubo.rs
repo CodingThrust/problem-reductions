@@ -46,7 +46,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
             let tour: Vec<usize> = (0..n)
                 .map(|position| {
                     let mut selected =
-                        (0..n).filter(|&vertex| target_solution[position * n + vertex]);
+                        (0..n).filter(|&vertex| target_solution[vertex * n + position]);
                     match (selected.next(), selected.next()) {
                         (Some(vertex), None) => Ok(vertex),
                         _ => Err(crate::rules::ExtractionError::invalid(format!(

@@ -17,7 +17,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 use std::ops::AddAssign;
 
-type BuiltSpinGlass = (SpinGlass<SimpleGraph, i64>, HashMap<String, usize>);
+type BuiltSpinGlass = (SpinGlass<SimpleGraph, i64>, HashMap<String, usize>, i64);
 
 /// A logic gadget represented as a SpinGlass problem.
 ///
@@ -214,6 +214,8 @@ pub struct ReductionCircuitToSG {
     variable_map: HashMap<String, usize>,
     /// Source variable names in order.
     source_variables: Vec<String>,
+    /// Sum of the individual gate and equality ground energies.
+    zero_penalty_energy: i64,
 }
 
 impl ReductionResult for ReductionCircuitToSG {
@@ -228,13 +230,32 @@ impl ReductionResult for ReductionCircuitToSG {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "SpinGlass energy does not meet the circuit zero-penalty threshold",
+            ));
+        }
 
         Ok(self
             .source_variables
             .iter()
             .map(|variable| target_solution[self.variable_map[variable]] == 1)
             .collect())
+    }
+}
+
+impl crate::rules::AggregateReductionResult for ReductionCircuitToSG {
+    type Source = CircuitSAT;
+    type Target = SpinGlass<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(self.zero_penalty_energy))
     }
 }
 
@@ -248,6 +269,7 @@ struct SpinGlassBuilder {
     fields: Vec<i64>,
     /// Variable name to spin index mapping.
     variable_map: HashMap<String, usize>,
+    zero_penalty_energy: i64,
 }
 
 impl SpinGlassBuilder {
@@ -257,6 +279,7 @@ impl SpinGlassBuilder {
             interactions: HashMap::new(),
             fields: Vec::new(),
             variable_map: HashMap::new(),
+            zero_penalty_energy: 0,
         }
     }
 
@@ -290,8 +313,18 @@ impl SpinGlassBuilder {
         &mut self,
         gadget: &LogicGadget<i64>,
         spin_map: &[usize],
+        ground_energy: i64,
     ) -> Result<(), crate::registry::ConstructionError> {
-        // Add interactions
+        self.zero_penalty_energy = self
+            .zero_penalty_energy
+            .checked_add(ground_energy)
+            .ok_or_else(|| {
+                crate::registry::ConstructionError::IntegerOverflow(
+                    "summing circuit gate ground energies".into(),
+                )
+            })?;
+        // Add interactions. Shared inputs may identify local spins; their
+        // diagonal terms remain in the Hamiltonian as s_i^2 = 1.
         for ((i, j), weight) in gadget.problem.interactions() {
             let global_i = spin_map[i];
             let global_j = spin_map[j];
@@ -321,7 +354,7 @@ impl SpinGlassBuilder {
         let mut interactions: Vec<((usize, usize), i64)> = self.interactions.into_iter().collect();
         interactions.sort_by_key(|((u, v), _)| (*u, *v));
         let sg = SpinGlass::new(self.num_spins, interactions, self.fields);
-        Ok((sg?, self.variable_map))
+        Ok((sg?, self.variable_map, self.zero_penalty_energy))
     }
 }
 
@@ -337,7 +370,7 @@ fn process_expression(
             let gadget: LogicGadget<i64> = if *value { set1_gadget() } else { set0_gadget() };
             let output_spin = builder.allocate_spin()?;
             let spin_map = vec![output_spin];
-            builder.add_gadget(&gadget, &spin_map)?;
+            builder.add_gadget(&gadget, &spin_map, -1)?;
             Ok(output_spin)
         }
 
@@ -346,15 +379,15 @@ fn process_expression(
             let gadget: LogicGadget<i64> = not_gadget();
             let output_spin = builder.allocate_spin()?;
             let spin_map = vec![input_spin, output_spin];
-            builder.add_gadget(&gadget, &spin_map)?;
+            builder.add_gadget(&gadget, &spin_map, -1)?;
             Ok(output_spin)
         }
 
-        BooleanOp::And(args) => process_binary_chain(args, builder, and_gadget),
+        BooleanOp::And(args) => process_binary_chain(args, builder, and_gadget, -3, true),
 
-        BooleanOp::Or(args) => process_binary_chain(args, builder, or_gadget),
+        BooleanOp::Or(args) => process_binary_chain(args, builder, or_gadget, -3, false),
 
-        BooleanOp::Xor(args) => process_binary_chain(args, builder, xor_gadget),
+        BooleanOp::Xor(args) => process_binary_chain(args, builder, xor_gadget, -4, false),
     }
 }
 
@@ -363,12 +396,15 @@ fn process_binary_chain<F>(
     args: &[BooleanExpr],
     builder: &mut SpinGlassBuilder,
     gadget_fn: F,
+    ground_energy: i64,
+    empty_value: bool,
 ) -> Result<usize, crate::registry::ConstructionError>
 where
     F: Fn() -> LogicGadget<i64>,
 {
     if args.is_empty() {
-        return Err("binary gate must have at least one argument".into());
+        // Boolean folds have an identity even when their input list is empty.
+        return process_expression(&BooleanExpr::constant(empty_value), builder);
     }
 
     if args.len() == 1 {
@@ -393,7 +429,7 @@ where
             vec![input0, input1, output_spin]
         };
 
-        builder.add_gadget(&gadget, &spin_map)?;
+        builder.add_gadget(&gadget, &spin_map, ground_energy)?;
         output_spin
     };
 
@@ -410,7 +446,7 @@ where
             vec![result_spin, next_input, output_spin]
         };
 
-        builder.add_gadget(&gadget, &spin_map)?;
+        builder.add_gadget(&gadget, &spin_map, ground_energy)?;
         result_spin = output_spin;
     }
 
@@ -426,7 +462,7 @@ fn process_assignment(
     let expr_output = process_expression(&assignment.expr, builder)?;
 
     // For each output variable, we need to constrain it to equal the expression output
-    // This is done by adding a NOT gadget constraint (with J=1) to enforce equality
+    // A ferromagnetic coupling has minimum -4 exactly when the spins agree.
     for output_name in &assignment.outputs {
         let output_spin = builder.get_or_create_variable(output_name)?;
 
@@ -434,12 +470,17 @@ fn process_assignment(
         if output_spin != expr_output {
             // Add ferromagnetic coupling to enforce s_i = s_j
             // J = -1 means aligned spins have lower energy
-            // Actually, we want to use a strong negative coupling
             let key = if output_spin < expr_output {
                 (output_spin, expr_output)
             } else {
                 (expr_output, output_spin)
             };
+            builder.zero_penalty_energy =
+                builder.zero_penalty_energy.checked_sub(4).ok_or_else(|| {
+                    crate::registry::ConstructionError::IntegerOverflow(
+                        "summing circuit equality ground energies".into(),
+                    )
+                })?;
             let entry = builder.interactions.entry(key).or_insert(0);
             *entry = entry
                 .checked_add(-4)
@@ -450,8 +491,9 @@ fn process_assignment(
 }
 
 #[reduction(
+    aggregate = custom,
     transform = upper_bound {
-        num_spins = "num_variables + 2 * num_expression_nodes",
+        num_spins = "num_variables + 3 * num_expression_nodes",
         num_interactions = "6 * num_expression_nodes + num_assignment_outputs",
     }
 )]
@@ -471,7 +513,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, i64>> for CircuitSAT {
             )?;
         }
 
-        let (target, variable_map) = builder.build().map_err(
+        let (target, variable_map, zero_penalty_energy) = builder.build().map_err(
             crate::rules::ReductionError::construction::<CircuitSAT, SpinGlass<SimpleGraph, i64>>,
         )?;
         let source_variables = self.variable_names().to_vec();
@@ -480,6 +522,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, i64>> for CircuitSAT {
             target,
             variable_map,
             source_variables,
+            zero_penalty_energy,
         })
     }
 }

@@ -65,8 +65,8 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
 #[reduction(
     transform = upper_bound {
         bit_length_a = "1",
-        bit_length_b = "64 * (4 * num_vars^3 + num_vars + 1)^2 + 6 * num_vars^3 + 5",
-        bit_length_c = "128 * (4 * num_vars^3 + num_vars + 1)^2 + 20 * num_vars^3 + 2 * num_vars + 15",
+        bit_length_b = "64 * (2 * num_clauses + num_vars + 1)^2 + 3 * num_clauses + 4",
+        bit_length_c = "128 * (2 * num_clauses + num_vars + 1)^2 + 6 * num_clauses + 9",
     }
 )]
 impl ReduceTo<QuadraticDiophantineEquations> for KSatisfiability<K3> {
@@ -92,11 +92,8 @@ fn canonical_source() -> KSatisfiability<K3> {
 
 #[cfg(any(test, feature = "example-db"))]
 fn canonical_witness() -> BigUint {
-    BigUint::parse_bytes(
-        b"1751451122102119958305507786775835374858648979796949071929887579732578264063983923970828608254544727567945005331103265320267846420581308180536461678218456421163010842022583797942541569366464959069523226763069748653830351684499364645098951736761394790343553460544021210289436100818494593367113721596780252083857888675004881955664228675079663569835052161564690932502575257394108174870151908279593037426404556490332761276593006398441245490978500647642893471046425509487910796951416870024826654351366508266859321005453091128123256128675758429165869380881549388896022325625404673271432251145796159394173120179999131480837018022329857587128653018300402",
-        10,
-    )
-    .expect("reference witness must parse")
+    BigUint::parse_bytes(b"3851422232510508672725868082377332726402809", 10)
+        .expect("canonical CRT witness must parse")
 }
 
 #[cfg(feature = "example-db")]

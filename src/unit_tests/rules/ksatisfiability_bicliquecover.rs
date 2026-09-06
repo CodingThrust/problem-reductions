@@ -19,7 +19,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::graph::BicliqueCover;
-#[cfg(feature = "example-db")]
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -110,106 +109,40 @@ fn test_ksatisfiability_to_bicliquecover_unsat_constructs() {
     assert!(target.k() > 0);
 }
 
-/// Verify that `extract_solution` reads the normalized assignment off
-/// of a hand-built `B_1` biclique. The witness here is not a valid
-/// biclique cover — only the slice corresponding to `B_1` is used by
-/// `extract_solution`, and that slice contains the expected `h_i^u`
-/// memberships.
 #[test]
-fn test_ksatisfiability_to_bicliquecover_extract_solution_reads_b1() {
+fn test_ksatisfiability_to_bicliquecover_rejects_invalid_covers() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction =
-        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
-
-    let n = reduction.normalized_n;
-    let k = target.k();
-    let left_size = target.left_size();
-    let num_vertices = target.num_vertices();
-    let s1_left = reduction.s1_left_offset; // s_{1,1}^u (bipartite-local)
-    let s1_right_unified = left_size + reduction.s1_right_offset; // s_{1,1}^v
-
-    // Use biclique slot r = 0 as B_1: contains s_11^u, s_11^v, h_0^u
-    // (i.e. t_1 == true), and no Y matching vertex.
-    let mut witness = vec![vec![false; num_vertices]; k];
-    let set = |w: &mut [Vec<bool>], vertex: usize, biclique: usize| {
-        w[biclique][vertex] = true;
-    };
-    set(&mut witness, s1_left, 0);
-    set(&mut witness, s1_right_unified, 0);
-    // h_0^u is unified vertex 0 (h_offset = 0, left partition).
-    set(&mut witness, 0, 0);
-    // Leave h_1^u (vertex 1) unset → f_1 = false in B_1.
-
-    let assignment = reduction.extract_solution(&witness).unwrap();
-    assert_eq!(assignment.len(), 1);
-    assert!(assignment[0], "expected source x_1 = true from B_1");
-
-    // Sanity: n should be 2 for this source.
-    assert_eq!(n, 2);
+    let mut sparse = vec![vec![false; target.num_vertices()]; target.k()];
+    sparse[0][reduction.s1_left_offset] = true;
+    sparse[0][target.left_size() + reduction.s1_right_offset] = true;
+    sparse[0][0] = true;
+    assert!(target.evaluate(&sparse).unwrap().0.is_none());
+    for invalid in [
+        sparse,
+        vec![],
+        vec![vec![true; target.num_vertices()]; target.k()],
+        vec![vec![false; target.num_vertices() - 1]; target.k()],
+    ] {
+        assert!(reduction.extract_solution(&invalid).is_err());
+    }
 }
 
 #[test]
-fn test_ksatisfiability_to_bicliquecover_rejects_missing_b1() {
+fn test_ksatisfiability_to_bicliquecover_extracts_every_row_rotation() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction =
-        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
-    let target_solution = vec![vec![false; target.num_vertices()]; target.k()];
-
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "target configuration has no important-edge biclique B_1"
-    );
-}
-
-/// If `B_1` is shadowed by a free-edge biclique that touches `Y`, the
-/// extractor must skip it and proceed to the next candidate. We test
-/// this by setting up two bicliques that both contain `s_11^u` and
-/// `s_11^v`: biclique 0 also contains `y_0^u` (so it is rejected) and
-/// biclique 1 is the real `B_1` containing `h_0^u`.
-#[test]
-fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
-    let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction =
-        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
-
-    let k = target.k();
-    let left_size = target.left_size();
-    let num_vertices = target.num_vertices();
-    let s1_left = reduction.s1_left_offset;
-    let s1_right_unified = left_size + reduction.s1_right_offset;
-    let y_left_0 = reduction.y_left_offset; // y_0^u (bipartite-local on left)
-
-    let mut witness = vec![vec![false; num_vertices]; k];
-    let set = |w: &mut [Vec<bool>], vertex: usize, biclique: usize| {
-        w[biclique][vertex] = true;
-    };
-
-    // Biclique 0: touches Y on the left side (y_0^u). The extractor
-    // must reject this candidate for B_1.
-    set(&mut witness, s1_left, 0);
-    set(&mut witness, s1_right_unified, 0);
-    set(&mut witness, y_left_0, 0);
-    set(&mut witness, 0, 0); // h_0^u
-
-    // Biclique 1: clean B_1 covering s_11 edges plus h_1^u (so t_1
-    // would be false). Extraction reads h_0^u from biclique 1 (false).
-    set(&mut witness, s1_left, 1);
-    set(&mut witness, s1_right_unified, 1);
-    // h_1^u is unified vertex 1.
-    set(&mut witness, 1, 1);
-
-    let assignment = reduction.extract_solution(&witness).unwrap();
-    assert_eq!(assignment.len(), 1);
-    assert!(
-        !assignment[0],
-        "B_1 was biclique true (not biclique false); h_0^u not in B_1 so x_1 = false"
-    );
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+    let mut cover = super::forward_witness_single_variable_single_clause(&source);
+    let cost = reduction.target_problem().evaluate(&cover).unwrap();
+    assert!(cost.0.is_some());
+    for _ in 0..cover.len() {
+        assert_eq!(reduction.target_problem().evaluate(&cover).unwrap(), cost);
+        let assignment = reduction.extract_solution(&cover).unwrap();
+        assert_eq!(assignment, vec![true]);
+        assert!(source.evaluate(&assignment).unwrap().0);
+        cover.rotate_left(1);
+    }
 }
 
 /// Closed-loop round-trip on the canonical small case (1 source
@@ -220,7 +153,6 @@ fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
 /// 1. The constructed witness is a valid biclique cover of the target.
 /// 2. `extract_solution` on the witness produces a satisfying source
 ///    assignment.
-#[cfg(feature = "example-db")]
 #[test]
 fn test_ksatisfiability_to_bicliquecover_closed_loop_smallest() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
@@ -269,4 +201,86 @@ fn test_ksatisfiability_to_bicliquecover_construct_two_vars_no_panic() {
     // rank = 20 + 4 + 2 = 26.
     assert_eq!(reduction.normalized_n, 4);
     assert_eq!(target.k(), 26);
+}
+
+#[test]
+fn test_ksatisfiability_to_bicliquecover_sparse_variable_inverse() {
+    // The only used variable has a high source index. Its normalized gadget
+    // equals the canonical one-variable gadget; unused variables map to false.
+    let source = KSatisfiability::<K3>::new_allow_less(7, vec![CNFClause::new(vec![7])]);
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.source_variables, vec![6]);
+    assert_eq!(reduction.normalized_n, 2);
+    let cover = super::forward_witness_single_variable_single_clause(&source);
+    let assignment = reduction.extract_solution(&cover).unwrap();
+    assert_eq!(
+        assignment,
+        vec![false, false, false, false, false, false, true]
+    );
+    assert!(source.evaluate(&assignment).unwrap().0);
+
+    // No massive assignment allocation: verify that construction depends on
+    // appearing variables rather than the declared count.
+    let largest = usize::try_from(i64::MAX).unwrap_or(usize::MAX);
+    let literal = i64::try_from(largest).unwrap();
+    let huge = KSatisfiability::<K3>::new(largest, vec![CNFClause::new(vec![literal; 3])]);
+    let huge_reduction = ReduceTo::<BicliqueCover>::reduce_to(&huge).unwrap();
+    assert_eq!(huge_reduction.source_variables, vec![largest - 1]);
+    assert_eq!(
+        huge_reduction.target_problem().graph().left_edges(),
+        reduction.target_problem().graph().left_edges()
+    );
+    assert_eq!(
+        huge_reduction.target_problem().k(),
+        reduction.target_problem().k()
+    );
+}
+
+#[test]
+fn test_ksatisfiability_to_bicliquecover_empty_conjunction_and_clause() {
+    for n in [0, 3] {
+        let yes = KSatisfiability::<K3>::new(n, vec![]);
+        let reduction = ReduceTo::<BicliqueCover>::reduce_to(&yes).unwrap();
+        assert_eq!(reduction.target_problem().num_vertices(), 0);
+        assert_eq!(reduction.extract_solution(&vec![]).unwrap(), vec![false; n]);
+        assert!(yes.evaluate(&vec![false; n]).unwrap().0);
+        let no = KSatisfiability::<K3>::new_allow_less(n, vec![CNFClause::new(vec![])]);
+        let reduction = ReduceTo::<BicliqueCover>::reduce_to(&no).unwrap();
+        assert!(reduction
+            .target_problem()
+            .evaluate(&vec![])
+            .unwrap()
+            .0
+            .is_none());
+        assert!(reduction.extract_solution(&vec![]).is_err());
+        assert!(!no.evaluate(&vec![false; n]).unwrap().0);
+    }
+}
+
+#[test]
+fn test_ksatisfiability_to_bicliquecover_normalization_preserves_short_clauses() {
+    for literals in [vec![2], vec![-2], vec![2, -5], vec![-2, 5, 5]] {
+        let source = KSatisfiability::<K3>::new_allow_less(6, vec![CNFClause::new(literals)]);
+        let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+        let (n, clauses) = super::normalize(&source, &reduction.source_variables).unwrap();
+        let normalized =
+            KSatisfiability::<K3>::new(n, clauses.into_iter().map(CNFClause::new).collect());
+        for mask in 0..64usize {
+            let assignment: Vec<bool> = (0..6).map(|i| mask & (1 << i) != 0).collect();
+            let mut expanded = vec![false; n];
+            for pair in 0..n / 2 {
+                let truth = reduction
+                    .source_variables
+                    .get(pair)
+                    .map(|&i| assignment[i])
+                    .unwrap_or(false);
+                expanded[2 * pair] = truth;
+                expanded[2 * pair + 1] = !truth;
+            }
+            assert_eq!(
+                source.evaluate(&assignment).unwrap(),
+                normalized.evaluate(&expanded).unwrap()
+            );
+        }
+    }
 }

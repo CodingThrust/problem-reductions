@@ -61,7 +61,10 @@ pub struct KColoring<K: KValue, G> {
     /// The underlying graph.
     graph: G,
     /// Runtime number of colors. Always set; for compile-time K types it equals K::K.
-    #[serde(default = "default_num_colors::<K>")]
+    #[serde(
+        default = "default_num_colors::<K>",
+        deserialize_with = "deserialize_num_colors::<K, _>"
+    )]
     num_colors: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
@@ -142,6 +145,19 @@ impl TryFrom<RuntimeKColoringCreateSpec> for KColoring<KN, SimpleGraph> {
             simple_graph_from_create(spec.graph, spec.num_vertices)?,
             spec.k,
         ))
+    }
+}
+
+// Fixed-K construction and persisted instances must describe the same problem.
+fn deserialize_num_colors<'de, K: KValue, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<usize, D::Error> {
+    let num_colors = usize::deserialize(deserializer)?;
+    match K::K {
+        Some(fixed) if num_colors != fixed => Err(serde::de::Error::custom(format!(
+            "fixed K requires {fixed} colors, got {num_colors}"
+        ))),
+        _ => Ok(num_colors),
     }
 }
 

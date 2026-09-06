@@ -1,7 +1,10 @@
-//! Reduction from KSatisfiability (3-SAT) to Quadratic Congruences.
+//! Reduction from 3-SAT to bounded quadratic congruences.
 //!
-//! This follows the Manders-Adleman construction in its doubled-coefficient
-//! form, matching the verified reference vectors for issue #553.
+//! Manders and Adleman (ERL-M615, 1976), Section 2: an odd signed-knapsack
+//! target and prime-power CRT encode the clauses. Only the actual normalized
+//! clauses need base-eight positions; widths zero through three use the same
+//! slack equation. Squaring uses twice the linear modulus, and extraction
+//! orients every sign by the distinguished odd coordinate.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -11,14 +14,16 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
 use num_bigint::{BigInt, BigUint};
-use num_traits::{One, Signed, Zero};
+#[cfg(any(test, feature = "example-db"))]
+use num_traits::Signed;
+use num_traits::{One, Zero};
 
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToQuadraticCongruences {
     target: QuadraticCongruences,
     source_num_vars: usize,
     active_to_source: Vec<usize>,
-    standard_clause_count: usize,
+    clause_count: usize,
     h: BigUint,
     prime_powers: Vec<BigUint>,
 }
@@ -35,42 +40,25 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok({
-            let mut source_assignment = vec![false; self.source_num_vars];
-            let x = target_solution;
-            if x > &self.h {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "decoded quadratic-congruence witness exceeds the construction bound",
-                ));
-            }
-
-            let h_minus_x = &self.h - x;
-            let h_plus_x = &self.h + x;
-            let mut alpha = vec![0i8; self.prime_powers.len()];
-
-            for (j, prime_power) in self.prime_powers.iter().enumerate() {
-                if (&h_minus_x % prime_power).is_zero() {
-                    alpha[j] = 1;
-                } else if (&h_plus_x % prime_power).is_zero() {
-                    alpha[j] = -1;
-                }
-            }
-
-            for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
-                let alpha_index = 2 * self.standard_clause_count + active_index + 1;
-                source_assignment[source_index] = match alpha[alpha_index] {
-                    1 => false,
-                    -1 => true,
-                    sign => return Err(crate::rules::ExtractionError::invalid(format!(
-                        "target witness encodes invalid sign {sign} for source variable {source_index}"
-                    ))),
-                };
-            }
-
-            source_assignment
-        })
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target integer does not satisfy the bounded quadratic congruence",
+            ));
+        }
+        // Validation gives 0 < x <= H. Each prime power divides exactly one
+        // of H-x and H+x. The coordinate zero sign chooses x or -x so that
+        // the odd linear target, rather than its negative, is recovered.
+        let h_minus_x = &self.h - target_solution;
+        let positive_orientation = (&h_minus_x % &self.prime_powers[0]).is_zero();
+        let mut assignment = vec![false; self.source_num_vars];
+        for (active, &original) in self.active_to_source.iter().enumerate() {
+            let coordinate = 2 * self.clause_count + active + 1;
+            let positive = (&h_minus_x % &self.prime_powers[coordinate]).is_zero();
+            assignment[original] = positive != positive_orientation;
+        }
+        Ok(assignment)
     }
 }
 
@@ -80,14 +68,11 @@ struct MandersAdlemanConstruction {
     target: QuadraticCongruences,
     source_num_vars: usize,
     active_to_source: Vec<usize>,
-    remapped_clause_set: BTreeSet<Vec<i64>>,
-    standard_clauses: Vec<Vec<i64>>,
-    standard_clause_count: usize,
-    active_var_count: usize,
+    clauses: Vec<Vec<i64>>,
     #[cfg_attr(not(test), allow(dead_code))]
-    doubled_coefficients: Vec<BigInt>,
+    coefficients: Vec<BigInt>,
     #[cfg_attr(not(test), allow(dead_code))]
-    tau_2: BigInt,
+    tau: BigInt,
     thetas: Vec<BigUint>,
     h: BigUint,
     prime_powers: Vec<BigUint>,
@@ -103,9 +88,8 @@ fn is_prime(candidate: u64) -> bool {
     if candidate.is_multiple_of(2) {
         return false;
     }
-
     let mut divisor = 3u64;
-    while divisor * divisor <= candidate {
+    while divisor <= candidate / divisor {
         if candidate.is_multiple_of(divisor) {
             return false;
         }
@@ -114,25 +98,21 @@ fn is_prime(candidate: u64) -> bool {
     true
 }
 
-fn admissible_primes(count: usize) -> Vec<u64> {
+fn admissible_primes(count: usize) -> Result<Vec<u64>, crate::rules::ReductionError> {
     let mut primes = Vec::with_capacity(count);
     let mut candidate = 13u64;
     while primes.len() < count {
         if is_prime(candidate) {
             primes.push(candidate);
         }
-        candidate += 1;
+        candidate = candidate.checked_add(1).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                QuadraticCongruences,
+            >("enumerating CRT primes")
+        })?;
     }
-    primes
-}
-
-fn pow_biguint_u64(base: u64, exp: usize) -> BigUint {
-    let mut result = BigUint::one();
-    let factor = BigUint::from(base);
-    for _ in 0..exp {
-        result *= &factor;
-    }
-    result
+    Ok(primes)
 }
 
 fn bigint_mod_to_biguint(value: &BigInt, modulus: &BigUint) -> BigUint {
@@ -140,273 +120,147 @@ fn bigint_mod_to_biguint(value: &BigInt, modulus: &BigUint) -> BigUint {
     let reduced = ((value % &modulus_bigint) + &modulus_bigint) % &modulus_bigint;
     reduced
         .to_biguint()
-        .expect("nonnegative reduced residue must fit BigUint")
-}
-
-fn modular_inverse(value: &BigUint, modulus: &BigUint) -> BigUint {
-    let mut t = BigInt::zero();
-    let mut new_t = BigInt::one();
-    let mut r = BigInt::from(modulus.clone());
-    let mut new_r = BigInt::from(value.clone() % modulus);
-
-    while !new_r.is_zero() {
-        let quotient = &r / &new_r;
-        let next_t = &t - &quotient * &new_t;
-        let next_r = &r - &quotient * &new_r;
-        t = new_t;
-        new_t = next_t;
-        r = new_r;
-        new_r = next_r;
-    }
-
-    assert_eq!(r, BigInt::one(), "value and modulus must be coprime");
-    if t.is_negative() {
-        t += BigInt::from(modulus.clone());
-    }
-    t.to_biguint().expect("inverse must be nonnegative")
+        .expect("Euclidean residue is nonnegative")
 }
 
 fn normalize_clause(clause: &[i64]) -> Option<Vec<i64>> {
-    let mut lits = BTreeSet::new();
-    for &lit in clause {
-        if lits.contains(&-lit) {
+    let mut literals = BTreeSet::new();
+    for &literal in clause {
+        if literals.contains(&-literal) {
             return None;
         }
-        lits.insert(lit);
+        literals.insert(literal);
     }
-    Some(lits.into_iter().collect())
+    Some(literals.into_iter().collect())
 }
 
-fn preprocess_formula(source: &KSatisfiability<K3>) -> (Vec<Vec<i64>>, Vec<usize>) {
-    let mut seen = BTreeSet::new();
-    let mut normalized_clauses = Vec::new();
-    let mut active_vars = BTreeSet::new();
-
-    for clause in source.clauses() {
-        let Some(normalized) = normalize_clause(&clause.literals) else {
-            continue;
-        };
-        if normalized.len() != 3 {
-            panic!(
-                "3-SAT -> QuadraticCongruences requires each non-tautological clause to use three distinct literals; got {:?}",
-                clause.literals
-            );
-        }
-
-        let distinct_vars: BTreeSet<_> = normalized
-            .iter()
-            .map(|lit| {
-                usize::try_from(lit.unsigned_abs())
-                    .expect("SAT construction validates literal indices against usize")
-            })
-            .collect();
-        if distinct_vars.len() != 3 {
-            panic!(
-                "3-SAT -> QuadraticCongruences requires each non-tautological clause to use three distinct variables; got {:?}",
-                clause.literals
-            );
-        }
-
-        if seen.insert(normalized.clone()) {
-            for &lit in &normalized {
-                active_vars.insert(
-                    usize::try_from(lit.unsigned_abs())
-                        .expect("SAT construction validates literal indices against usize"),
-                );
-            }
-            normalized_clauses.push(normalized);
-        }
-    }
-
-    (normalized_clauses, active_vars.into_iter().collect())
-}
-
-fn build_standard_clauses(num_active_vars: usize) -> (Vec<Vec<i64>>, BTreeMap<Vec<i64>, usize>) {
-    let mut clauses = Vec::new();
-    let mut index = BTreeMap::new();
-
-    if num_active_vars < 3 {
-        return (clauses, index);
-    }
-
-    for i in 1..=num_active_vars - 2 {
-        for j in i + 1..=num_active_vars - 1 {
-            for k in j + 1..=num_active_vars {
-                let i_literal =
-                    i64::try_from(i).expect("active SAT variable indices are bounded by i64");
-                let j_literal =
-                    i64::try_from(j).expect("active SAT variable indices are bounded by i64");
-                let k_literal =
-                    i64::try_from(k).expect("active SAT variable indices are bounded by i64");
-                for s1 in [1i64, -1] {
-                    for s2 in [1i64, -1] {
-                        for s3 in [1i64, -1] {
-                            let mut clause = vec![s1 * i_literal, s2 * j_literal, s3 * k_literal];
-                            clause.sort_unstable();
-                            index.insert(clause.clone(), clauses.len() + 1);
-                            clauses.push(clause);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    (clauses, index)
-}
-
-fn pow8_table(max_power: usize) -> Vec<BigUint> {
-    let mut table = Vec::with_capacity(max_power + 1);
-    table.push(BigUint::one());
-    for _ in 0..max_power {
-        let next = table.last().expect("pow8 table is nonempty") * BigUint::from(8u32);
-        table.push(next);
-    }
-    table
-}
-
-fn build_construction(source: &KSatisfiability<K3>) -> MandersAdlemanConstruction {
-    let (normalized_clauses, active_vars) = preprocess_formula(source);
-    let active_var_count = active_vars.len();
-    let var_map: BTreeMap<usize, usize> = active_vars
+fn build_construction(
+    source: &KSatisfiability<K3>,
+) -> Result<MandersAdlemanConstruction, crate::rules::ReductionError> {
+    let clauses: BTreeSet<_> = source
+        .clauses()
+        .iter()
+        .filter_map(|clause| normalize_clause(&clause.literals))
+        .collect();
+    let active_vars: Vec<_> = clauses
+        .iter()
+        .flatten()
+        .map(|literal| {
+            usize::try_from(literal.unsigned_abs()).expect("native SAT indices fit usize")
+        })
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let var_map: BTreeMap<_, _> = active_vars
         .iter()
         .enumerate()
-        .map(|(new_index, &old_index)| (old_index, new_index + 1))
+        .map(|(compact, &original)| (original, compact + 1))
         .collect();
-
-    let remapped_clauses = normalized_clauses
-        .iter()
+    let clauses: Vec<Vec<i64>> = clauses
+        .into_iter()
         .map(|clause| {
-            let mut remapped = clause
-                .iter()
-                .map(|&lit| {
-                    let var = usize::try_from(lit.unsigned_abs())
-                        .expect("SAT construction validates literal indices against usize");
-                    let new_var = *var_map
-                        .get(&var)
-                        .expect("active variable must be present in the remapping");
-                    let new_var = i64::try_from(new_var)
-                        .expect("active SAT variable indices are bounded by i64");
-                    if lit > 0 {
-                        new_var
+            clause
+                .into_iter()
+                .map(|literal| {
+                    let original = usize::try_from(literal.unsigned_abs())
+                        .expect("native SAT indices fit usize");
+                    let variable =
+                        i64::try_from(var_map[&original]).expect("compact SAT indices fit i64");
+                    if literal > 0 {
+                        variable
                     } else {
-                        -new_var
+                        -variable
                     }
                 })
-                .collect::<Vec<_>>();
-            remapped.sort_unstable();
-            remapped
+                .collect()
         })
-        .collect::<Vec<_>>();
-    let remapped_clause_set = remapped_clauses.iter().cloned().collect::<BTreeSet<_>>();
-
-    let (standard_clauses, standard_index) = build_standard_clauses(active_var_count);
-    let standard_clause_count = standard_clauses.len();
-    let aux_dimension = 2 * standard_clause_count + active_var_count;
-    let pow8 = pow8_table(standard_clause_count + 1);
-
-    let mut tau_phi = BigInt::zero();
-    for clause in &remapped_clauses {
-        if let Some(&j) = standard_index.get(clause) {
-            tau_phi -= BigInt::from(pow8[j].clone());
-        }
-    }
-
-    let mut positive_occurrences = vec![BigInt::zero(); active_var_count + 1];
-    let mut negative_occurrences = vec![BigInt::zero(); active_var_count + 1];
-    for (j, clause) in standard_clauses.iter().enumerate() {
-        let weight = BigInt::from(pow8[j + 1].clone());
-        for &lit in clause {
-            let var = usize::try_from(lit.unsigned_abs())
-                .expect("standard clause literal indices fit usize");
-            if lit > 0 {
-                positive_occurrences[var] += &weight;
+        .collect();
+    let m = clauses.len();
+    let coordinate_count = m
+        .checked_mul(2)
+        .and_then(|aux| aux.checked_add(active_vars.len()))
+        .and_then(|count| count.checked_add(1))
+        .ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                QuadraticCongruences,
+            >("counting signed-knapsack coordinates")
+        })?;
+    let mut coefficients = vec![BigInt::zero(); coordinate_count];
+    coefficients[0] = BigInt::one();
+    let mut tau = BigInt::one();
+    let mut weight = BigUint::one();
+    for (j, clause) in clauses.iter().enumerate() {
+        weight *= 8u32;
+        let half_weight = BigInt::from(&weight / 2u32);
+        coefficients[2 * j + 1] = -&half_weight;
+        coefficients[2 * j + 2] = -BigInt::from(weight.clone());
+        let width =
+            i64::try_from(clause.len()).expect("native K3 clauses have at most three literals");
+        tau += (width - 5) * &half_weight;
+        for &literal in clause {
+            let variable =
+                usize::try_from(literal.unsigned_abs()).expect("compact SAT indices fit usize");
+            if literal > 0 {
+                coefficients[2 * m + variable] += &half_weight;
             } else {
-                negative_occurrences[var] += &weight;
+                coefficients[2 * m + variable] -= &half_weight;
             }
         }
     }
-
-    let mut doubled_coefficients = vec![BigInt::zero(); aux_dimension + 1];
-    doubled_coefficients[0] = BigInt::from(2u32);
-    for k in 1..=standard_clause_count {
-        let weight = BigInt::from(pow8[k].clone());
-        doubled_coefficients[2 * k - 1] = -weight.clone();
-        doubled_coefficients[2 * k] = -(weight * BigInt::from(2u32));
-    }
-    for i in 1..=active_var_count {
-        doubled_coefficients[2 * standard_clause_count + i] =
-            &positive_occurrences[i] - &negative_occurrences[i];
-    }
-
-    let sum_coefficients = doubled_coefficients
+    // c.alpha - tau = alpha_0 - 1 + sum_j (y_j - true_literals_j + 1) 8^j.
+    // tau is odd; coefficient doubling would invalidate the square-root lemma.
+    let linear_modulus = weight * 8u32;
+    let primes = admissible_primes(coordinate_count)?;
+    let prime_powers: Vec<_> = primes
         .iter()
-        .cloned()
-        .fold(BigInt::zero(), |acc, value| acc + value);
-    let sum_negative_occurrences = negative_occurrences
-        .iter()
-        .skip(1)
-        .cloned()
-        .fold(BigInt::zero(), |acc, value| acc + value);
-    let tau_2 = BigInt::from(2u32) * tau_phi
-        + sum_coefficients
-        + BigInt::from(2u32) * sum_negative_occurrences;
-    let mod_val = BigUint::from(2u32) * pow8[standard_clause_count + 1].clone();
-
-    let primes = admissible_primes(aux_dimension + 1);
-    let prime_powers = primes
-        .iter()
-        .map(|&prime| pow_biguint_u64(prime, aux_dimension + 1))
-        .collect::<Vec<_>>();
-    let k = prime_powers
-        .iter()
-        .cloned()
-        .fold(BigUint::one(), |acc, value| acc * value);
-
-    let mut thetas = Vec::with_capacity(aux_dimension + 1);
-    for j in 0..=aux_dimension {
-        let other = &k / &prime_powers[j];
-        let lcm = &other * &mod_val;
-        let residue = bigint_mod_to_biguint(&doubled_coefficients[j], &mod_val);
-        let inverse = modular_inverse(&(other.clone() % &mod_val), &mod_val);
-        let mut theta = (&other * ((&residue * inverse) % &mod_val)) % &lcm;
+        .map(|&prime| num_traits::Pow::pow(BigUint::from(prime), coordinate_count))
+        .collect();
+    let k: BigUint = prime_powers.iter().product();
+    let mut thetas = Vec::with_capacity(coordinate_count);
+    for ((coefficient, prime_power), prime) in coefficients.iter().zip(&prime_powers).zip(&primes) {
+        let other = &k / prime_power;
+        let step = &other * &linear_modulus;
+        let residue = bigint_mod_to_biguint(coefficient, &linear_modulus);
+        let inverse = other
+            .modinv(&linear_modulus)
+            .expect("an odd prime-power product is coprime to a power of two");
+        let mut theta = &other * ((residue * inverse) % &linear_modulus);
         if theta.is_zero() {
-            theta = lcm.clone();
+            theta += &step;
         }
-        let prime = BigUint::from(primes[j]);
-        while (&theta % &prime).is_zero() {
-            theta += &lcm;
+        if (&theta % BigUint::from(*prime)).is_zero() {
+            theta += &step;
         }
         thetas.push(theta);
     }
-
-    let h = thetas
-        .iter()
-        .cloned()
-        .fold(BigUint::zero(), |acc, value| acc + value);
-    let beta = &mod_val * &k;
-    let inverse_factor = &mod_val + &k;
-    let inverse = modular_inverse(&(inverse_factor % &beta), &beta);
-    let tau_2_squared = (&tau_2 * &tau_2)
-        .to_biguint()
-        .expect("squared doubled target must be nonnegative");
-    let alpha = (&inverse * ((&k * tau_2_squared) + (&mod_val * (&h * &h)))) % &beta;
-    let target = QuadraticCongruences::new(alpha, beta, &h + BigUint::one());
-
-    MandersAdlemanConstruction {
+    let h: BigUint = thetas.iter().sum();
+    // With N=2m+l+1, 13^N > 4N*8^(m+1) for m>=1, hence 2H<K.
+    // For the empty formula N=1, theta_0=1 and K=13 give the same strict bound.
+    let square_modulus = &linear_modulus * 2u32;
+    let b = &square_modulus * &k;
+    let inverse = (&square_modulus + &k)
+        .modinv(&b)
+        .expect("the two CRT moduli are coprime");
+    let tau_squared = (&tau * &tau).to_biguint().expect("a square is nonnegative");
+    let a = (inverse * (&k * tau_squared + &square_modulus * &h * &h)) % &b;
+    let target = QuadraticCongruences::try_new(a, b, &h + BigUint::one()).map_err(
+        crate::rules::ReductionError::construction::<KSatisfiability<K3>, QuadraticCongruences>,
+    )?;
+    Ok(MandersAdlemanConstruction {
         target,
         source_num_vars: source.num_vars(),
-        active_to_source: active_vars.into_iter().map(|var| var - 1).collect(),
-        remapped_clause_set,
-        standard_clauses,
-        standard_clause_count,
-        active_var_count,
-        doubled_coefficients,
-        tau_2,
+        active_to_source: active_vars
+            .into_iter()
+            .map(|variable| variable - 1)
+            .collect(),
+        clauses,
+        coefficients,
+        tau,
         thetas,
         h,
         prime_powers,
-    }
+    })
 }
 
 #[cfg(any(test, feature = "example-db"))]
@@ -414,76 +268,41 @@ fn build_alphas(construction: &MandersAdlemanConstruction, assignment: &[bool]) 
     if assignment.len() != construction.source_num_vars {
         return None;
     }
-
-    let mut active_assignment = vec![0i8; construction.active_var_count + 1];
-    for (active_index, &source_index) in construction.active_to_source.iter().enumerate() {
-        active_assignment[active_index + 1] = i8::from(assignment[source_index]);
+    let m = construction.clauses.len();
+    let mut alphas = vec![1; construction.thetas.len()];
+    for (i, &original) in construction.active_to_source.iter().enumerate() {
+        alphas[2 * m + i + 1] = 1 - 2 * i8::from(assignment[original]);
     }
-
-    let mut alphas =
-        vec![0i8; 2 * construction.standard_clause_count + construction.active_var_count + 1];
-    alphas[0] = 1;
-
-    for i in 1..=construction.active_var_count {
-        alphas[2 * construction.standard_clause_count + i] = 1 - 2 * active_assignment[i];
-    }
-
-    for k in 1..=construction.standard_clause_count {
-        let clause = &construction.standard_clauses[k - 1];
-        let mut y = 0i8;
-        for &lit in clause {
-            let var = usize::try_from(lit.unsigned_abs())
-                .expect("standard clause literal indices fit usize");
-            if lit > 0 {
-                y += active_assignment[var];
-            } else {
-                y += 1 - active_assignment[var];
-            }
+    for (j, clause) in construction.clauses.iter().enumerate() {
+        let mut y = -1i8;
+        for &literal in clause {
+            let variable =
+                usize::try_from(literal.unsigned_abs()).expect("compact SAT indices fit usize") - 1;
+            let truth = assignment[construction.active_to_source[variable]];
+            y += i8::from(truth == (literal > 0));
         }
-        if construction.remapped_clause_set.contains(clause) {
-            y -= 1;
-        }
-
-        match 3 - 2 * y {
-            3 => {
-                alphas[2 * k - 1] = 1;
-                alphas[2 * k] = 1;
-            }
-            1 => {
-                alphas[2 * k - 1] = -1;
-                alphas[2 * k] = 1;
-            }
-            -1 => {
-                alphas[2 * k - 1] = 1;
-                alphas[2 * k] = -1;
-            }
-            -3 => {
-                alphas[2 * k - 1] = -1;
-                alphas[2 * k] = -1;
-            }
+        let (first, second) = match y {
+            0 => (1, 1),
+            1 => (-1, 1),
+            2 => (1, -1),
             _ => return None,
-        }
+        };
+        alphas[2 * j + 1] = first;
+        alphas[2 * j + 2] = second;
     }
-
     Some(alphas)
 }
 
 #[cfg(any(test, feature = "example-db"))]
 fn witness_value_from_alphas(alphas: &[i8], thetas: &[BigUint]) -> BigUint {
-    let signed_sum = alphas
+    alphas
         .iter()
         .zip(thetas)
-        .fold(BigInt::zero(), |acc, (&alpha, theta)| {
-            if alpha == 1 {
-                acc + BigInt::from(theta.clone())
-            } else {
-                acc - BigInt::from(theta.clone())
-            }
-        });
-    signed_sum
+        .map(|(&alpha, theta)| BigInt::from(alpha) * BigInt::from(theta.clone()))
+        .sum::<BigInt>()
         .abs()
         .to_biguint()
-        .expect("absolute witness must be nonnegative")
+        .expect("absolute witness is nonnegative")
 }
 
 #[cfg(any(test, feature = "example-db"))]
@@ -491,56 +310,28 @@ fn witness_config_for_assignment(
     source: &KSatisfiability<K3>,
     assignment: &[bool],
 ) -> Option<BigUint> {
-    let construction = build_construction(source);
+    let construction = build_construction(source).expect("example or test source must reduce");
     let alphas = build_alphas(&construction, assignment)?;
-    let witness = witness_value_from_alphas(&alphas, &construction.thetas);
-    (witness > BigUint::zero() && witness < *construction.target.c()).then_some(witness)
-}
-
-#[cfg(test)]
-fn exhaustive_alpha_solution(source: &KSatisfiability<K3>) -> Option<Vec<i8>> {
-    let construction = build_construction(source);
-    let n = construction.doubled_coefficients.len();
-    if n >= usize::BITS as usize {
-        return None;
-    }
-
-    for bits in 0usize..(1usize << n) {
-        let alphas = (0..n)
-            .map(|j| if (bits >> j) & 1 == 1 { 1i8 } else { -1i8 })
-            .collect::<Vec<_>>();
-        let sum = construction
-            .doubled_coefficients
-            .iter()
-            .zip(&alphas)
-            .fold(BigInt::zero(), |acc, (coefficient, &alpha)| {
-                acc + coefficient * BigInt::from(alpha)
-            });
-        if sum == construction.tau_2 {
-            return Some(alphas);
-        }
-    }
-
-    None
+    Some(witness_value_from_alphas(&alphas, &construction.thetas))
 }
 
 #[reduction(
     transform = upper_bound {
-        bit_length_a = "64 * (4 * num_vars^3 + num_vars + 1)^2 + 6 * num_vars^3 + 5",
-        bit_length_b = "64 * (4 * num_vars^3 + num_vars + 1)^2 + 6 * num_vars^3 + 5",
-        bit_length_c = "64 * (4 * num_vars^3 + num_vars + 1)^2 + 10 * num_vars^3 + num_vars + 8",
+        bit_length_a = "64 * (2 * num_clauses + num_vars + 1)^2 + 3 * num_clauses + 4",
+        bit_length_b = "64 * (2 * num_clauses + num_vars + 1)^2 + 3 * num_clauses + 4",
+        bit_length_c = "64 * (2 * num_clauses + num_vars + 1)^2 + 3 * num_clauses + 4",
     }
 )]
 impl ReduceTo<QuadraticCongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticCongruences;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let construction = build_construction(self);
+        let construction = build_construction(self)?;
         Ok(Reduction3SATToQuadraticCongruences {
             target: construction.target,
             source_num_vars: construction.source_num_vars,
             active_to_source: construction.active_to_source,
-            standard_clause_count: construction.standard_clause_count,
+            clause_count: construction.clauses.len(),
             h: construction.h,
             prime_powers: construction.prime_powers,
         })

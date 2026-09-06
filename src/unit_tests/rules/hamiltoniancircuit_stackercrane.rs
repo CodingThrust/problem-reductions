@@ -126,3 +126,72 @@ fn test_hamiltoniancircuit_to_stackercrane_prism_graph() {
         "HamiltonianCircuit -> StackerCrane (prism graph)",
     );
 }
+
+#[test]
+fn test_stackercrane_certificate_for_all_small_configurations() {
+    for n in 0..=4 {
+        let possible: Vec<_> = (0..n)
+            .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
+            .collect();
+        for mask in 0usize..(1 << possible.len()) {
+            let edges = possible
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &e)| ((mask >> i) & 1 == 1).then_some(e))
+                .collect();
+            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+            let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).unwrap();
+            let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+            // All coordinate configurations, including repeated arc indices.
+            for mut code in 0..n.pow(n as u32) {
+                let config: Vec<_> = (0..n)
+                    .map(|_| {
+                        let i = code % n;
+                        code /= n;
+                        i
+                    })
+                    .collect();
+                let expected = source.evaluate(&config).unwrap().0;
+                let value = target.evaluate(&config).unwrap();
+                assert_eq!(
+                    crate::rules::AggregateReductionResult::extract_value(&reduction, value).0,
+                    expected
+                );
+                let decoded = reduction.extract_solution(&config);
+                assert_eq!(
+                    decoded.is_ok(),
+                    expected,
+                    "n={n}, mask={mask}, config={config:?}"
+                );
+                if let Ok(order) = decoded {
+                    assert!(source.evaluate(&order).unwrap().0);
+                }
+            }
+            assert!(reduction.extract_solution(&vec![0; n + 1]).is_err());
+            if n > 0 {
+                assert!(reduction.extract_solution(&vec![n; n]).is_err());
+            }
+        }
+    }
+}
+
+#[test]
+fn test_stackercrane_checked_dimensions_and_cost_bound() {
+    use super::split_graph_dimensions;
+    assert_eq!(split_graph_dimensions(0, 0).unwrap(), (0, 0));
+    assert_eq!(split_graph_dimensions(4, 4).unwrap(), (8, 8));
+    for (n, m) in [(usize::MAX, 0), (0, usize::MAX), (usize::MAX / 2, 0)] {
+        assert!(matches!(
+            split_graph_dimensions(n, m),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+    #[cfg(target_pointer_width = "64")]
+    {
+        assert!(split_graph_dimensions(2_147_483_647, 0).is_ok());
+        assert!(matches!(
+            split_graph_dimensions(2_147_483_648, 0),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
