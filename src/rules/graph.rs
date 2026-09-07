@@ -958,25 +958,29 @@ impl ReductionGraph {
 
     /// Compute the source problem's size from a type-erased instance.
     ///
-    /// Iterates over all registered reduction entries with a matching source name
-    /// and merges their `source_size_fn` results to capture all size fields.
-    /// Different entries may reference different getter methods (e.g., one uses
-    /// `num_vertices` while another also uses `num_edges`).
-    pub fn compute_source_size(name: &str, instance: &dyn Any) -> ProblemSize {
+    /// Iterates over all registered reduction entries whose source name *and*
+    /// variant match, and merges their `source_size_fn` results to capture all
+    /// size fields. Different entries may reference different getter methods
+    /// (e.g., one uses `num_vertices` while another also uses `num_edges`).
+    /// Each `source_size_fn` downcasts to one concrete type, so entries for
+    /// other variants of the same problem must not be consulted.
+    pub fn compute_source_size(
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        instance: &dyn Any,
+    ) -> ProblemSize {
         let mut merged: Vec<(String, usize)> = Vec::new();
         let mut seen: HashSet<String> = HashSet::new();
 
         for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name == name {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    (entry.source_size_fn)(instance)
-                }));
-                if let Ok(size) = result {
-                    for (k, v) in size.components {
-                        if seen.insert(k.clone()) {
-                            merged.push((k, v));
-                        }
-                    }
+            if entry.source_name != name
+                || Self::variant_to_map(&entry.source_variant()) != *variant
+            {
+                continue;
+            }
+            for (k, v) in (entry.source_size_fn)(instance).components {
+                if seen.insert(k.clone()) {
+                    merged.push((k, v));
                 }
             }
         }
