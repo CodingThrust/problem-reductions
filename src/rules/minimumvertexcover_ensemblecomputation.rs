@@ -58,8 +58,12 @@ impl ReductionResult for ReductionVCToEC {
         })?;
         let mut cover = vec![false; self.num_vertices];
         let universe_size = self.target.universe_size();
-        for operands in target_solution.chunks_exact(2).take(meaningful_steps) {
-            let [left, right] = [operands[0], operands[1]];
+        for &[left, right] in target_solution
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .take(meaningful_steps)
+        {
             if left < universe_size && right < universe_size {
                 // Only two singleton operands can produce a two-element set.
                 // The fresh atom is largest, so min selects the original
