@@ -40,15 +40,18 @@ class DocumentationArtifacts(unittest.TestCase):
                     continue
                 self.assertTrue((page.parent / unquote(parsed.path)).exists(),
                                 f"{filename}: {target}")
-        self.assertIn("let graph = ReductionGraph::new()", (BOOK / "markdown/rust-paths.md").read_text())
+        self.assertIn("let graph = ReductionGraph::new()", (BOOK / "markdown/getting-started.md").read_text())
 
     def test_recording_contains_real_solution_and_does_not_autoplay(self):
         events = [json.loads(line) for line in (ROOT / "docs/src/static/cli-demo.cast").read_text().splitlines()]
         self.assertEqual(events[0]["version"], 2)
         output = "".join(event[2] for event in events[1:])
-        self.assertIn("Solver: ilp (via ILP)", output)
-        self.assertIn("Solver: brute-force", output)
+        self.assertEqual(output.count("Solver: ilp (via ILP)"), 2)
+        self.assertNotIn("brute-force", output)
+        self.assertNotIn("panicked", output)
         self.assertGreaterEqual(output.count("Max(2)"), 3)
+        # Command blocks are separated by a blank line.
+        self.assertEqual(output.count("\r\n\r\n\x1b[90m#"), 5)
         self.assertIn('"autoPlay": false', (ROOT / "docs/src/static/cli-demo.html").read_text())
 
     def test_demo_replays_and_matches_the_recorded_optimum(self):
@@ -65,7 +68,7 @@ class DocumentationArtifacts(unittest.TestCase):
             run("create", "MIS", "--graph", "0-1,1-2,2-3,3-4,4-0", "-o", "cycle.json")
             run("reduce", "cycle.json", "--to", "ILP", "-o", "reduced.json")
             reduced = json.loads(run("solve", "reduced.json", "--json"))
-            direct = json.loads(run("solve", "cycle.json", "--solver", "brute-force", "--json"))
+            direct = json.loads(run("solve", "cycle.json", "--json"))
             self.assertEqual(reduced["evaluation"], "Max(2)")
             self.assertEqual(direct["evaluation"], reduced["evaluation"])
             self.assertIn("Max(2)", run("evaluate", "cycle.json", "--config",
@@ -99,12 +102,14 @@ class DocumentationBrowser(unittest.TestCase):
     def visit(self, filename):
         self.page.goto(urljoin(self.base, filename))
 
-    def test_task_navigation_and_markdown(self):
+    def test_sidebar_navigation_and_markdown(self):
         self.visit("introduction.html")
-        self.page.locator("main").get_by_role("link", name="Find a solver", exact=True).click()
-        expect(self.page.locator("main h1")).to_have_text("Find a solver")
-        href = self.page.get_by_role("navigation", name="Documentation resources").get_by_role("link", name="Markdown", exact=True).get_attribute("href")
-        result = self.context.request.get(urljoin(self.page.url, href))
+        self.page.locator(".sidebar").get_by_role("link", name="Skills", exact=True).click()
+        expect(self.page.locator("main h1")).to_have_text("Skills")
+        tools = self.page.get_by_role("navigation", name="Documentation resources")
+        self.assertEqual(tools.get_by_role("link", name="GitHub", exact=False).get_attribute("href"),
+                         "https://github.com/CodingThrust/problem-reductions")
+        result = self.context.request.get(urljoin(self.page.url, "markdown/skills.md"))
         self.assertEqual(result.status, 200)
         self.assertIn(".claude/skills/find-solver/SKILL.md", result.text())
         self.assertLessEqual(self.page.locator(".docs-brand").bounding_box()["y"] + self.page.locator(".docs-brand").bounding_box()["height"],
@@ -119,16 +124,14 @@ class DocumentationBrowser(unittest.TestCase):
         self.assertGreater(results.locator("a").count(), 0)
 
     def test_copy_commands(self):
-        self.visit("cli-demo.html")
-        self.page.locator("main pre").hover()
+        self.visit("cli.html")
+        self.page.locator("main pre").first.hover()
         self.page.locator("main .clip-button").first.click()
-        self.assertIn("pred reduce cycle.json --to ILP", self.page.evaluate("navigator.clipboard.readText()"))
+        self.assertIn("cargo install problemreductions-cli", self.page.evaluate("navigator.clipboard.readText()"))
 
-    def test_old_deep_links_reach_the_new_task(self):
-        for old, title in [("cli.html#installation", "Install the CLI"),
-                           ("design.html#reduction-rules", "Reduction contracts"),
-                           ("mcp.html#walkthrough", "MCP example session")]:
-            self.visit(old)
+    def test_readme_links_resolve(self):
+        for filename, title in [("cli.html", "Quick start"), ("skills.html", "Skills"), ("design.html", "Design")]:
+            self.visit(filename)
             expect(self.page.locator("main h1")).to_have_text(title)
 
     def test_recording_loads_offline_and_plays(self):
@@ -141,13 +144,13 @@ class DocumentationBrowser(unittest.TestCase):
 
     def test_mobile_menu_and_embedded_player_fit(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
-        self.visit("cli-demo.html")
+        self.visit("cli.html")
         frame = self.page.frame_locator(".cli-cast")
         expect(frame.locator(".ap-control-bar")).to_be_visible()
         self.assertTrue(frame.locator("body").evaluate("e => e.scrollHeight <= innerHeight + 2"))
         self.assertTrue(self.page.locator("body").evaluate("e => e.scrollWidth <= innerWidth"))
         self.page.locator("#sidebar-toggle, #mdbook-sidebar-toggle").click()
-        expect(self.page.locator(".sidebar").get_by_role("link", name="Start with an agent", exact=True)).to_be_visible()
+        expect(self.page.locator(".sidebar").get_by_role("link", name="Skills", exact=True)).to_be_visible()
 
 
 if __name__ == "__main__":

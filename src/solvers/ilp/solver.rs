@@ -254,7 +254,7 @@ impl ILPSolver {
         instance: &dyn std::any::Any,
     ) -> Option<crate::rules::ReductionPath> {
         let ilp_variants = graph.variants_for("ILP");
-        let input_size = crate::rules::ReductionGraph::compute_source_size(name, instance);
+        let input_size = crate::rules::ReductionGraph::compute_source_size(name, variant, instance);
         let mut best_path: Option<crate::rules::ReductionPath> = None;
         let mut best_cost = f64::INFINITY;
 

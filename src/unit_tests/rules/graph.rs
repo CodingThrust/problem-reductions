@@ -1645,15 +1645,33 @@ fn test_compute_source_size() {
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1, 1],
     );
-    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &problem);
+    let variant =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &variant, &problem);
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
 }
 
 #[test]
+fn test_compute_source_size_only_consults_matching_variant() {
+    // Entries for other variants of the same problem must never be invoked:
+    // their size functions downcast to a different concrete type and would panic.
+    let problem = MaximumIndependentSet::<SimpleGraph, One>::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+        vec![One; 5],
+    );
+    let variant =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
+    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &variant, &problem);
+    assert_eq!(size.get("num_vertices"), Some(5));
+    assert_eq!(size.get("num_edges"), Some(5));
+}
+
+#[test]
 fn test_compute_source_size_unknown_problem() {
     let problem = 42u32;
-    let size = ReductionGraph::compute_source_size("NonExistentProblem", &problem);
+    let size =
+        ReductionGraph::compute_source_size("NonExistentProblem", &BTreeMap::new(), &problem);
     assert!(size.components.is_empty());
 }
 

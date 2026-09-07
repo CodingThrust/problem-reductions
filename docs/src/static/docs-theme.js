@@ -14,70 +14,6 @@
     });
   }
   const page = location.pathname.split("/").pop() || "introduction.html";
-  const legacy = {
-    "cli.html": {
-      installation: "install.html",
-      "ilp-backend": "install.html#optional-features",
-      "quick-start": "cli.html",
-      "global-flags": "cli-automation.html",
-      commands: "cli-catalog.html",
-      "shell-completions": "cli-completions.html",
-      "json-output": "cli-automation.html",
-      "problem-name-aliases": "cli-variants.html",
-      "pred-list--list-all-problem-types": "cli-catalog.html",
-      "pred-show--inspect-a-problem": "cli-catalog.html",
-      "pred-to--explore-incoming-neighbors": "cli-paths.html",
-      "pred-from--explore-outgoing-neighbors": "cli-paths.html",
-      "pred-path--find-a-reduction-path": "cli-paths.html",
-      "pred-export-graph--export-the-reduction-graph":
-        "cli-automation.html#registry-exports",
-      "pred-create--create-a-problem-instance": "cli-create.html",
-      "pred-evaluate--evaluate-a-configuration": "cli-inspect.html",
-      "pred-inspect--inspect-a-problem-file": "cli-inspect.html",
-      "pred-reduce--reduce-a-problem": "cli-reduce.html",
-      "pred-solve--solve-a-problem": "cli-solve.html",
-    },
-    "introduction.html": {
-      "reduction-graph": "reduction-graph.html",
-      "our-vision": "introduction.html#research-scope",
-      "call-for-contributions": "contributing.html",
-      authorship: "contributing.html#authorship-and-license",
-    },
-    "design.html": {
-      "module-architecture": "design.html#module-map",
-      "problem-model": "design-problem.html",
-      "variant-system": "design-variants.html",
-      "reduction-rules": "design-reductions.html",
-      "reduction-graph": "design-paths.html",
-      "path-finding": "design-paths.html",
-      "executable-paths": "rust-paths.html",
-      solvers: "rust-solvers.html",
-      "json-serialization": "design-serialization.html",
-      contributing: "contributing.html",
-    },
-    "getting-started.html": {
-      installation: "getting-started.html",
-      solvers: "rust-solvers.html",
-      "the-reduction-workflow": "rust-reduction.html",
-      "json-resources": "cli-automation.html#registry-exports",
-      "example-1-direct-reduction--set-packing-to-ilp": "rust-reduction.html",
-      "example-2-reduction-path-search--integer-factoring-to-spin-glass":
-        "rust-paths.html",
-    },
-    "mcp.html": {
-      setup: "mcp.html#install-with-mcp-support",
-      walkthrough: "mcp-walkthrough.html",
-      "available-tools": "mcp-tools.html",
-      "graph-query-tools": "mcp-tools.html#graph-queries",
-      "instance-tools": "mcp-tools.html#instances",
-      "available-prompts": "mcp-tools.html#prompt-templates",
-    },
-  };
-  const redirect = legacy[page]?.[location.hash.slice(1)];
-  if (redirect) {
-    location.replace(root + redirect);
-    return;
-  }
   const sidebar = document.querySelector(".sidebar");
   if (sidebar) {
     const brand = document.createElement("a");
@@ -107,14 +43,13 @@
     nav.className = "docs-tools";
     nav.setAttribute("aria-label", "Documentation resources");
     const links = [
-      ["Markdown", "markdown/" + page.replace(/\.html$/, ".md")],
-      ["All pages", "markdown/index.md"],
-      ["Open atlas ↗", "index.html#atlas"],
+      ["GitHub ↗", "https://github.com/CodingThrust/problem-reductions"],
+      ["Atlas ↗", root + "index.html#atlas"],
     ];
     for (const [label, href] of links) {
       const link = document.createElement("a");
       link.textContent = label;
-      link.href = root + href;
+      link.href = href;
       nav.append(link);
     }
     menu.prepend(nav);

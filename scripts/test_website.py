@@ -132,7 +132,7 @@ class WebsiteTests(unittest.TestCase):
         self.visit()
         self.page.locator(".docs-nav").click()
         self.assertTrue(self.page.url.endswith("/introduction.html"))
-        expect(self.page.get_by_role("heading", name="Documentation", exact=True)).to_be_visible()
+        expect(self.page.get_by_role("heading", name="Problem Reductions", exact=True)).to_be_visible()
         self.assertNotIn("{{#include", self.page.locator("body").inner_text())
 
 

@@ -191,7 +191,6 @@
     if (featuredEdge) {
       document.querySelector("#featured-result-link").href =
         ruleHref(featuredEdge);
-      document.querySelector(".graph-feature").href = ruleHref(featuredEdge);
     }
   }
 
@@ -200,7 +199,7 @@
         <div class="breadcrumbs">
           <a href="#home">Home</a><span>/</span><span>The atlas</span>
         </div>
-        <h1>Find your next <em>connection.</em></h1>
+        <h1>Find your next connection.</h1>
         <p>
           Explore ${families.length} problem families and their implemented
           reductions. Every connection has explicit variants, size bounds, and
@@ -466,9 +465,7 @@
           Implemented</span
         >
         <h1>
-          ${escape(nameOf(sourceName))}<br /><em
-            >→ ${escape(nameOf(targetName))}</em
-          >
+          ${escape(nameOf(sourceName))}<br />→ ${escape(nameOf(targetName))}
         </h1>
         <p>
           ${complement ? "Keep the graph. Complement the solution. A foundational connection between two views of the same combinatorial structure." : "An executable construction connecting two concrete problem variants, with explicit size bounds and a recoverable contract."}
@@ -639,7 +636,7 @@
       "connections",
       "main",
     ].includes(parts[0]);
-    document.title = `${baseTitle} — A new route through hard problems`;
+    document.title = baseTitle;
     if (isHome) {
       main.innerHTML = homeHTML;
       hydrateHome();
