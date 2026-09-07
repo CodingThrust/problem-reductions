@@ -2,6 +2,8 @@
 """Overlay the product website on mdBook, using its generated registry exports."""
 
 import argparse
+import ast
+from html import escape
 import json
 from pathlib import Path
 import re
@@ -10,6 +12,41 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def expression_mathml(expression):
+    """Typeset registry arithmetic with the browser's native MathML renderer."""
+    def render(node, parent_precedence=0):
+        match node:
+            case ast.Constant(value=value) if type(value) in (int, float):
+                return f"<mn>{value}</mn>"
+            case ast.Name(id=name):
+                return f'<mi mathvariant="normal">{escape(name)}</mi>'
+            case ast.BinOp(left=left, op=ast.Div(), right=right):
+                return f"<mfrac>{render(left)}{render(right)}</mfrac>"
+            case ast.BinOp(left=left, op=ast.Pow(), right=right):
+                return f"<msup>{render(left, 41)}{render(right)}</msup>"
+            case ast.BinOp(left=left, op=op, right=right):
+                symbol, precedence = {ast.Add: ("+", 10), ast.Sub: ("−", 10),
+                                      ast.Mult: ("·", 20)}[type(op)]
+                body = f"{render(left, precedence)}<mo>{symbol}</mo>{render(right, precedence + 1)}"
+            case ast.UnaryOp(op=ast.USub(), operand=operand):
+                precedence = 30
+                body = f"<mo>−</mo>{render(operand, precedence)}"
+            case ast.Call(func=ast.Name(id="sqrt"), args=[argument], keywords=[]):
+                return f"<msqrt>{render(argument)}</msqrt>"
+            case ast.Call(func=ast.Name(id="factorial"), args=[argument], keywords=[]):
+                return f"<mrow>{render(argument, 41)}<mo>!</mo></mrow>"
+            case ast.Call(func=ast.Name(id=name), args=[argument], keywords=[]) if name in ("exp", "log"):
+                return f'<mrow><mi mathvariant="normal">{name}</mi><mo>⁡</mo><mo>(</mo>{render(argument)}<mo>)</mo></mrow>'
+            case _:
+                raise ValueError(f"Unsupported registry expression: {expression}")
+        if precedence < parent_precedence:
+            body = f"<mo>(</mo>{body}<mo>)</mo>"
+        return f"<mrow>{body}</mrow>"
+
+    body = render(ast.parse(expression.replace("^", "**"), mode="eval").body)
+    return f'<math xmlns="http://www.w3.org/1998/Math/MathML" aria-label="{escape(expression, quote=True)}">{body}</math>'
 
 
 def build_markdown(output):
@@ -141,6 +178,9 @@ def build(output, graph_path, schemas_path):
         )
         site_edges.append({
             **edge,
+            "parameters": [{**parameter, "mathml": expression_mathml(parameter["formula"])
+                            if parameter["formula"] is not None else None}
+                           for parameter in edge["parameters"]],
             "source_path": source_path,
             "api_path": contract,
             "test_path": test_path if (ROOT / test_path).is_file() else None,
@@ -148,6 +188,7 @@ def build(output, graph_path, schemas_path):
     # Decision<Inner> is one generic Rust type, not a struct for every catalog name.
     site_nodes = [{
         **node,
+        "complexity_mathml": expression_mathml(node["complexity"]),
         "api_path": (
             "models/decision/struct.Decision.html"
             if node["name"].startswith("Decision") else node["doc_path"]

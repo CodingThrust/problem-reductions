@@ -353,7 +353,7 @@
             <h2>
               ${mis ? "A simple question. A rich search space." : "The problem"}
             </h2>
-            ${mis ? '<p>Given a graph G = (V, E), choose a set of vertices such that no two chosen vertices are adjacent. Maximize the total weight of the chosen vertices. With unit weights, this is the largest independent set.</p><div class="formula">maximize ∑ wᵥ xᵥ<small>subject to xᵤ + xᵥ ≤ 1 for every edge (u, v), with xᵥ ∈ {0, 1}.</small></div>' : `<p>${escape(description(name))}. The fields below define the instance accepted by the implementation. Consult the paper for its mathematical definition and the API for its full contract.</p>`}${mis && node.variant.graph === "SimpleGraph" ? demoPanel() : ""}
+            ${mis ? '<p>Given a graph G = (V, E), choose a set of vertices such that no two chosen vertices are adjacent. Maximize the total weight of the chosen vertices. With unit weights, this is the largest independent set.</p><div class="formula"><math display="block" aria-label="Maximize the sum over vertices v in V of w_v times x_v"><mrow><mo>max</mo><mspace width="0.6em"/><munder><mo>∑</mo><mrow><mi>v</mi><mo>∈</mo><mi>V</mi></mrow></munder><msub><mi>w</mi><mi>v</mi></msub><msub><mi>x</mi><mi>v</mi></msub></mrow></math><div class="formula-constraint"><math aria-label="x_u plus x_v is at most one for each edge"><mrow><msub><mi>x</mi><mi>u</mi></msub><mo>+</mo><msub><mi>x</mi><mi>v</mi></msub><mo>≤</mo><mn>1</mn><mo>,</mo><mspace width="0.5em"/><mo>∀</mo><mo>(</mo><mi>u</mi><mo>,</mo><mi>v</mi><mo>)</mo><mo>∈</mo><mi>E</mi></mrow></math></div><div class="formula-constraint"><math aria-label="x_v is zero or one for each vertex"><mrow><msub><mi>x</mi><mi>v</mi></msub><mo>∈</mo><mo>{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo>}</mo><mo>,</mo><mspace width="0.5em"/><mo>∀</mo><mi>v</mi><mo>∈</mo><mi>V</mi></mrow></math></div></div>' : `<p>${escape(description(name))}. The fields below define the instance accepted by the implementation. Consult the paper for its mathematical definition and the API for its full contract.</p>`}${mis && node.variant.graph === "SimpleGraph" ? demoPanel() : ""}
           </section>
           <section class="reading-section">
             <h2>Connections for this variant</h2>
@@ -400,7 +400,7 @@
             </div>
             <div>
               <dt>Registered complexity</dt>
-              <dd><code>${escape(node.complexity || "See API")}</code></dd>
+              <dd class="math-expression">${node.complexity_mathml}</dd>
             </div>
             <div>
               <dt>Direct connections</dt>
@@ -475,7 +475,7 @@
         <div class="reading-content">
           <section class="reading-section">
             <h2>The construction</h2>
-            ${complement ? `<p>The target uses the same graph and vertex weights. ${vcToMis ? "Solve Maximum Independent Set on that graph, then take the complement of its vertex selection to recover a minimum vertex cover." : "Solve Minimum Vertex Cover on that graph, then take the complement of its vertex selection to recover a maximum independent set."}</p><div class="formula">S ↔ V ∖ S<small>A set is independent exactly when its complement is a vertex cover.</small></div><p>For weighted instances, the two objective values sum to the total vertex weight. Maximizing the independent-set weight therefore minimizes the complementary cover weight.</p>${demoPanel()}` : `<p>This rule maps <a class="text-link" href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))}</a> to <a class="text-link" href="${problemHref(targetName, target)}">${escape(nameOf(targetName))}</a>. The implementation and paper describe the mapping, its preconditions, and solution extraction.</p><a class="button secondary" href="${sourceHref(edge)}">Read the construction <span>↗</span></a>`}
+            ${complement ? `<p>The target uses the same graph and vertex weights. ${vcToMis ? "Solve Maximum Independent Set on that graph, then take the complement of its vertex selection to recover a minimum vertex cover." : "Solve Minimum Vertex Cover on that graph, then take the complement of its vertex selection to recover a maximum independent set."}</p><div class="formula"><math display="block" aria-label="S corresponds to V minus S"><mrow><mi>S</mi><mo>↔</mo><mi>V</mi><mo>∖</mo><mi>S</mi></mrow></math><small>A set is independent exactly when its complement is a vertex cover.</small></div><p>For weighted instances, the two objective values sum to the total vertex weight. Maximizing the independent-set weight therefore minimizes the complementary cover weight.</p>${demoPanel()}` : `<p>This rule maps <a class="text-link" href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))}</a> to <a class="text-link" href="${problemHref(targetName, target)}">${escape(nameOf(targetName))}</a>. The implementation and paper describe the mapping, its preconditions, and solution extraction.</p><a class="button secondary" href="${sourceHref(edge)}">Read the construction <span>↗</span></a>`}
           </section>
           <section class="reading-section">
             <h2>What the rule guarantees</h2>
@@ -508,7 +508,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  ${edge.parameters.map((p) => `<tr><td><code>${escape(p.field)}</code></td><td>${escape(p.contract)}</td><td><code>${escape(p.formula ?? p.reason)}</code></td></tr>`).join("")}
+                  ${edge.parameters.map((p) => `<tr><td><code>${escape(p.field)}</code></td><td>${escape(p.contract)}</td><td class="math-expression">${p.mathml ?? escape(p.reason)}</td></tr>`).join("")}
                 </tbody>
               </table>
             </div>

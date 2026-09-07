@@ -910,6 +910,27 @@ pre {
   color: var(--green);
   line-height: 1.5;
   margin-block: 23px;
+  overflow-x: auto;
+}
+.formula math {
+  font-family: math;
+}
+.formula math[display="block"] {
+  margin: 0;
+  text-align: left;
+}
+.formula-constraint {
+  margin-top: 14px;
+  font-size: 18px;
+}
+.math-expression {
+  overflow-x: auto;
+  max-width: 100%;
+  padding-block: 8px;
+}
+.math-expression math {
+  font-family: math;
+  font-size: 1.05em;
 }
 .formula small {
   display: block;
