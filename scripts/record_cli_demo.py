@@ -5,7 +5,9 @@ Usage: scripts/record_cli_demo.py [--pred target/debug/pred] [-o docs/src/static
 
 Each command runs in a pseudo-terminal inside a temporary directory holding a
 `pred` symlink to the given binary. Typing is simulated; output is never
-edited. The script fails if any command exits non-zero.
+edited except that trailing blank lines are collapsed so one blank line
+separates commands. The cast is also embedded into `cli-demo.html`, the
+offline player page. The script fails if any command exits non-zero.
 """
 
 import argparse
@@ -13,6 +15,7 @@ import json
 import os
 import pty
 import random
+import re
 import shlex
 import subprocess
 import tempfile
@@ -83,18 +86,23 @@ def main():
             for char in command:
                 emit(char, TYPING_DELAY * rng.uniform(0.6, 1.6))
             emit("\r\n", 0.3)
-            emit(run_in_pty(command, work).replace("\r\n", "\n").replace("\n", "\r\n"), 0.15)
+            output = run_in_pty(command, work).replace("\r\n", "\n").rstrip("\n")
+            emit(output.replace("\n", "\r\n") + "\r\n", 0.15)
             clock += STEP_PAUSE
         emit("$ ", 0.2)
 
     header = {"version": 2, "width": WIDTH, "height": HEIGHT,
               "title": "From a graph to a verified solution",
               "env": {"TERM": "xterm-256color", "SHELL": "/bin/bash"}}
-    with args.output.open("w") as handle:
-        handle.write(json.dumps(header) + "\n")
-        for event in events:
-            handle.write(json.dumps(event) + "\n")
-    print(f"Wrote {args.output} ({len(events)} events, {clock:.1f}s)")
+    cast = "".join(json.dumps(item) + "\n" for item in [header, *events])
+    args.output.write_text(cast)
+    player = args.output.with_name("cli-demo.html")
+    html, count = re.subn(r"var castData = \".*?\";", lambda _: "var castData = " + json.dumps(cast) + ";",
+                          player.read_text(), count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f"castData not found in {player}")
+    player.write_text(html)
+    print(f"Wrote {args.output} and embedded it in {player.name} ({len(events)} events, {clock:.1f}s)")
 
 
 if __name__ == "__main__":

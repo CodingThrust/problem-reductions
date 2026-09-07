@@ -7,15 +7,12 @@
     <meta name="color-scheme" content="dark" />
     <meta
       name="description"
-      content="An executable atlas of computationally hard problems. Explore reductions, inspect the evidence, and build toward autonomous mathematical discovery."
+      content="An executable atlas of NP-hard problems and the reductions between them."
     />
-    <meta
-      property="og:title"
-      content="Problem Reductions — A new route through hard problems"
-    />
+    <meta property="og:title" content="Problem Reductions" />
     <meta
       property="og:description"
-      content="The open infrastructure for autonomous research in computational complexity."
+      content="An executable atlas of NP-hard problems and the reductions between them."
     />
     <meta property="og:type" content="website" />
     <title>Problem Reductions</title>
@@ -46,7 +43,7 @@
         <nav aria-label="Main navigation">
           <a href="#atlas" data-nav="atlas">Atlas</a>
           <a href="#research" data-nav="research">Research</a>
-          <a href="#infrastructure" data-nav="infrastructure">Infrastructure</a>
+          <a href="#infrastructure" data-nav="infrastructure">Get started</a>
           <a href="./introduction.html" class="docs-nav"
             >Docs <span aria-hidden="true">↗</span></a
           >
@@ -70,7 +67,7 @@
     <main id="main" tabindex="-1">
       <section class="hero wrap">
         <div class="hero-copy">
-          <h1>Problem<br /><em>Reductions</em></h1>
+          <h1>Problem<br />Reductions</h1>
           <p class="hero-description">
             An executable atlas of NP-hard problems<br class="desktop-break" />
             and the reductions between them.
@@ -84,32 +81,14 @@
           </div>
         </div>
         <div class="atlas-visual">
-          <div class="visual-toolbar">
-            <span class="context-label">Reduction atlas</span
-            ><span class="map-scale">Variants grouped</span>
-          </div>
           <div
             id="hero-graph"
             class="hero-graph"
             aria-label="Interactive overview of the reduction atlas"
           ></div>
-          <div class="graph-caption">
-            <span><i class="legend-dot"></i> Implemented connections</span
-            ><a href="#atlas">Open atlas <span aria-hidden="true">↗</span></a>
-          </div>
-          <a class="graph-feature" href="#featured"
-            ><span class="feature-icon" aria-hidden="true">↳</span
-            ><span
-              ><strong
-                >Vertex Cover <span aria-hidden="true">→</span> Independent
-                Set</strong
-              ></span
-            ><span aria-hidden="true">↗</span></a
-          >
         </div>
       </section>
       <section class="stats-bar wrap" aria-label="Atlas statistics">
-        <p><strong>Atlas</strong></p>
         <div>
           <strong>__PROBLEM_COUNT__</strong><span>Problem families</span>
         </div>
@@ -127,7 +106,7 @@
       <section class="section wrap" id="connections">
         <div class="section-heading">
           <div>
-            <h2>Problems and <em>reductions</em></h2>
+            <h2>Problems and reductions</h2>
           </div>
           <p>
             A different formulation can unlock a different solver. Explore the
@@ -137,8 +116,7 @@
         </div>
         <div class="problem-showcase" id="problem-showcase"></div>
         <div class="section-bottom">
-          <span>Graph theory, logic, set systems, algebra, and beyond.</span
-          ><a class="text-link" href="#atlas"
+          <a class="text-link" href="#atlas"
             >Browse all problems <span aria-hidden="true">→</span></a
           >
         </div>
@@ -147,7 +125,7 @@
         <div class="wrap">
           <div class="section-heading">
             <div>
-              <h2>Research <em>loop</em></h2>
+              <h2>Research loop</h2>
             </div>
             <div>
               <p>
@@ -203,7 +181,7 @@
       <section class="section wrap evidence-section" id="featured">
         <div class="section-heading">
           <div>
-            <h2>Example <em>reduction</em></h2>
+            <h2>Example reduction</h2>
           </div>
           <p>
             Every registered reduction has a statement and proof in the paper
@@ -212,7 +190,6 @@
         </div>
         <a class="featured-result" id="featured-result-link" href="#atlas"
           ><div class="featured-copy">
-            <span class="pill">Classical reduction · Implemented</span>
             <h3>Vertex Cover to<br />Independent Set</h3>
             <p>
               A vertex cover and an independent set are complements. A simple
@@ -228,7 +205,7 @@
       </section>
       <section class="infrastructure-section wrap" id="infrastructure">
         <div>
-          <h2>Get <em>started</em></h2>
+          <h2>Get started</h2>
           <p>
             Use the atlas from the terminal, from Rust, or through an
             agent.<br />All three share the same models and constructions.

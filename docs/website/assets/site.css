@@ -121,12 +121,6 @@ h2 {
   letter-spacing: -0.055em;
   line-height: 1.03;
 }
-h1 em,
-h2 em {
-  font-family: var(--serif);
-  font-weight: 400;
-  letter-spacing: -0.025em;
-}
 h2 {
   font-size: clamp(38px, 4.1vw, 57px);
 }
@@ -248,9 +242,6 @@ p {
   font-size: clamp(60px, 6vw, 84px);
   line-height: 0.99;
 }
-.hero h1 em {
-  color: var(--green);
-}
 .hero-description {
   margin-top: 26px;
   font-size: 15px;
@@ -302,36 +293,10 @@ p {
 .text-link:hover {
   color: #dfedce;
 }
-.hero-footnote {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 25px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.tiny-node {
-  height: 7px;
-  width: 7px;
-  border: 1px solid #96aa8b;
-  border-radius: 2px;
-}
 .atlas-visual {
   position: relative;
   min-width: 0;
-  padding: 0 0 68px;
   margin-right: -15px;
-}
-.visual-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 0;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-}
-.map-scale {
-  font-size: 11px;
 }
 .hero-graph {
   height: 427px;
@@ -396,87 +361,23 @@ p {
   font-weight: 600;
   fill: #d4eab6;
 }
-.graph-caption {
-  font-size: 9px;
-  color: var(--muted);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 0;
-  border-top: 1px solid var(--line);
-}
-.graph-caption > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.legend-dot {
-  width: 5px;
-  height: 5px;
-  background: var(--green);
-  border-radius: 50%;
-  display: inline-block;
-}
-.graph-feature {
-  position: absolute;
-  left: 11%;
-  right: 3%;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 19px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  box-shadow: 0 12px 35px #00000024;
-  transition: transform 0.2s;
-}
-.graph-feature:hover {
-  transform: translateY(-3px);
-}
-.feature-icon {
-  font-size: 25px;
-  color: var(--green);
-  width: 37px;
-  height: 37px;
-  text-align: center;
-  background: var(--pale);
-  border-radius: 4px;
-}
-.graph-feature strong {
-  font-size: 12px;
-  font-weight: 500;
-  display: block;
-}
-.graph-feature strong span {
-  margin-inline: 6px;
-  color: var(--muted);
-}
-.graph-feature > span:last-child {
-  margin-left: auto;
-}
 .stats-bar {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr 1.1fr;
+  grid-template-columns: repeat(3, 1fr) 1.1fr;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   padding-block: 27px;
   align-items: center;
-}
-.stats-bar > p {
-  font-size: 12px;
-  line-height: 1.6;
-}
-.stats-bar > p strong {
-  font-weight: 500;
-  color: var(--ink);
 }
 .stats-bar > div {
   border-left: 1px solid var(--line);
   padding-left: 32px;
   display: flex;
   flex-direction: column;
+}
+.stats-bar > div:first-child {
+  border-left: 0;
+  padding-left: 0;
 }
 .stats-bar > div strong {
   font-size: 32px;
@@ -572,7 +473,7 @@ p {
 }
 .section-bottom {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 25px;
   margin-top: 24px;
   color: var(--muted);
@@ -582,9 +483,6 @@ p {
   background: #1a3023;
   color: var(--ink);
   padding-block: 85px;
-}
-.research-section h2 em {
-  color: var(--lime);
 }
 .research-section p {
   color: #b5c5b2;
@@ -1317,19 +1215,8 @@ pre {
   .hero-description {
     font-size: 14px;
   }
-  .hero-footnote {
-    font-size: 9px;
-  }
   .hero-actions {
     gap: 18px;
-  }
-  .graph-feature {
-    left: 2%;
-    right: 0;
-    padding: 14px;
-  }
-  .graph-feature strong {
-    font-size: 10px;
   }
   .section-heading {
     gap: 50px;
@@ -1388,9 +1275,6 @@ pre {
   .hero-copy {
     max-width: 600px;
   }
-  .hero-footnote {
-    font-size: 10px;
-  }
   .atlas-visual {
     margin: 0;
     max-width: 600px;
@@ -1400,28 +1284,12 @@ pre {
   .hero-graph {
     height: 360px;
   }
-  .graph-feature {
-    left: 15%;
-    right: 0;
-  }
   .stats-bar {
     grid-template-columns: repeat(3, 1fr);
     gap: 20px 0;
   }
-  .stats-bar > p {
-    grid-column: 1/-1;
-    display: flex;
-    gap: 5px;
-  }
-  .stats-bar > p br {
-    display: none;
-  }
   .stats-bar > div {
     padding-left: 20px;
-  }
-  .stats-bar > div:nth-child(2) {
-    border: 0;
-    padding-left: 0;
   }
   .stats-bar > a {
     display: none;
@@ -1654,14 +1522,8 @@ pre {
   .hero-actions .text-link {
     font-size: 12px;
   }
-  .hero-footnote {
-    font-size: 8px;
-  }
   .hero-graph {
     height: 310px;
-  }
-  .graph-feature {
-    left: 0;
   }
   .stats-bar > div strong {
     font-size: 28px;

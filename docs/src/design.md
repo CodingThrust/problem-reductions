@@ -2,34 +2,19 @@
 
 The Rust library holds problem definitions, executable reductions, and their registry metadata. The CLI exposes that core to tools and agents.
 
-| Location | Responsibility |
-|---|---|
-| `src/models/` | Models grouped by graph, formula, set, algebraic, or miscellaneous input |
-| `src/rules/` | Reduction implementations and solution/value mappings |
-| `src/registry/` | Concrete variant metadata and dynamic dispatch |
-| `src/solvers/` | Exhaustive, ILP, specialized, and decision-search solvers |
-| `src/example_db/` | Canonical model and rule examples |
-| `src/unit_tests/` | Tests mirroring the source tree |
-| `problemreductions-cli/` | The `pred` CLI |
+Each layer depends only on the layers above it.
 
-## Module map
-
-<div id="module-graph"></div>
-<div id="mg-controls">
-  <div id="mg-legend">
-    <span class="swatch" style="background:#c8f0c8;"></span>Core
-    <span class="swatch" style="background:#c8c8f0;"></span>Models
-    <span class="swatch" style="background:#f0d8b0;"></span>Rules
-    <span class="swatch" style="background:#b0e0f0;"></span>Registry
-    <span class="swatch" style="background:#d0f0d0;"></span>Solvers
-    <span class="swatch" style="background:#e0e0e0;"></span>Utilities
-  </div>
-</div>
-<div id="mg-help">
-  Click a module to expand/collapse its public items.
-  Double-click to open rustdoc.
-</div>
-<div id="mg-tooltip"></div>
+| Location | Responsibility | Depends on |
+|---|---|---|
+| `src/traits.rs`, `src/types.rs`, `src/variant.rs`, `src/topology/` | Core: the `Problem` trait, aggregate values, variant parameters, graph types | — |
+| `src/models/` | Models grouped by graph, formula, set, algebraic, or miscellaneous input | Core |
+| `src/rules/` | Reduction implementations and solution/value mappings | Models |
+| `src/registry/` | Concrete variant metadata and dynamic dispatch | Rules |
+| `src/solvers/` | Exhaustive, ILP, specialized, and decision-search solvers | Core |
+| `src/io.rs`, `src/expr.rs` | JSON serialization and overhead expressions | Core |
+| `src/example_db/` | Canonical model and rule examples | Models, rules |
+| `src/unit_tests/` | Tests mirroring the source tree | Everything |
+| `problemreductions-cli/` | The `pred` CLI | The library |
 
 ## Problem contract
 

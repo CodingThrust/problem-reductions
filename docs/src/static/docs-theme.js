@@ -43,14 +43,13 @@
     nav.className = "docs-tools";
     nav.setAttribute("aria-label", "Documentation resources");
     const links = [
-      ["Markdown", "markdown/" + page.replace(/\.html$/, ".md")],
-      ["All pages", "markdown/index.md"],
-      ["Open atlas ↗", "index.html#atlas"],
+      ["GitHub ↗", "https://github.com/CodingThrust/problem-reductions"],
+      ["Atlas ↗", root + "index.html#atlas"],
     ];
     for (const [label, href] of links) {
       const link = document.createElement("a");
       link.textContent = label;
-      link.href = root + href;
+      link.href = href;
       nav.append(link);
     }
     menu.prepend(nav);

@@ -75,7 +75,7 @@ concept and link to `pred --help`, rustdoc, or `.claude/CLAUDE.md` instead of
 restating them.
 
 `docs/src/static/docs-theme.css` supplies the restrained dark reading theme;
-`docs-theme.js` adds the Markdown links. Native mdBook search, code copying, and
+`docs-theme.js` adds the GitHub and atlas links. Native mdBook search, code copying, and
 sidebar navigation remain available. Both mdBook 0.4.37 (deployment) and 0.5.2
 are supported.
 
@@ -86,8 +86,9 @@ agents.
 ## CLI recording
 
 `docs/src/static/cli-demo.cast` contains real PTY output from six successful
-commands against the current CLI. `cli-demo.html` embeds that cast and
-asciinema-player 3.8.0 for offline playback, with autoplay disabled. The bundled
+commands against the current CLI. `cli-demo.html` embeds a copy of that cast
+and asciinema-player 3.8.0 for offline playback, with autoplay disabled; the
+recording script refreshes both files. The bundled
 player is Apache-2.0 licensed; its license is alongside the recording.
 
 To refresh the recording after a CLI change, build the CLI and run:

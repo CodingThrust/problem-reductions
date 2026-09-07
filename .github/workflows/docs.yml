@@ -48,7 +48,6 @@ jobs:
           cargo run --example export_graph
           node scripts/generate_reduction_graph_layout.js
           cargo run --example export_schemas
-          cargo run --example export_module_graph
           cargo build -p problemreductions-cli --bin pred
           bash scripts/generate_doc_snippets.sh target/debug/pred
 

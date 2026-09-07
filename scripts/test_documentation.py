@@ -106,8 +106,10 @@ class DocumentationBrowser(unittest.TestCase):
         self.visit("introduction.html")
         self.page.locator(".sidebar").get_by_role("link", name="Skills", exact=True).click()
         expect(self.page.locator("main h1")).to_have_text("Skills")
-        href = self.page.get_by_role("navigation", name="Documentation resources").get_by_role("link", name="Markdown", exact=True).get_attribute("href")
-        result = self.context.request.get(urljoin(self.page.url, href))
+        tools = self.page.get_by_role("navigation", name="Documentation resources")
+        self.assertEqual(tools.get_by_role("link", name="GitHub", exact=False).get_attribute("href"),
+                         "https://github.com/CodingThrust/problem-reductions")
+        result = self.context.request.get(urljoin(self.page.url, "markdown/skills.md"))
         self.assertEqual(result.status, 200)
         self.assertIn(".claude/skills/find-solver/SKILL.md", result.text())
         self.assertLessEqual(self.page.locator(".docs-brand").bounding_box()["y"] + self.page.locator(".docs-brand").bounding_box()["height"],

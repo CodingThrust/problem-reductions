@@ -93,7 +93,6 @@ doc: node_modules/elkjs/package.json
 	cargo run --example export_graph
 	node scripts/generate_reduction_graph_layout.js
 	cargo run --example export_schemas
-	cargo run --example export_module_graph
 	cargo build -p problemreductions-cli --bin pred
 	bash scripts/generate_doc_snippets.sh target/debug/pred
 	mdbook build
@@ -106,7 +105,6 @@ doc: node_modules/elkjs/package.json
 website:
 	cargo run --example export_graph
 	cargo run --example export_schemas
-	cargo run --example export_module_graph
 	cargo build -p problemreductions-cli --bin pred
 	bash scripts/generate_doc_snippets.sh target/debug/pred
 	mdbook build
@@ -131,8 +129,6 @@ mdbook: node_modules/elkjs/package.json
 	@node scripts/generate_reduction_graph_layout.js 2>&1 | tail -1
 	@echo "Exporting schemas..."
 	@cargo run --example export_schemas 2>&1 | tail -1
-	@echo "Exporting module graph..."
-	@cargo run --example export_module_graph 2>&1 | tail -1
 	@echo "Generating CLI doc snippets..."
 	@cargo build -p problemreductions-cli --bin pred
 	@bash scripts/generate_doc_snippets.sh target/debug/pred
