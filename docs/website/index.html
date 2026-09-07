@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101713" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="An executable atlas of NP-hard problems and the reductions between them."
+    />
+    <meta property="og:title" content="Problem Reductions" />
+    <meta
+      property="og:description"
+      content="An executable atlas of NP-hard problems and the reductions between them."
+    />
+    <meta property="og:type" content="website" />
+    <title>Problem Reductions</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="./assets/fonts/dm-sans-regular.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
+    <link rel="stylesheet" href="./assets/site.css" />
+    <script src="./assets/atlas-data.js" defer></script>
+    <script src="./assets/site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="wordmark" href="#home" aria-label="Problem Reductions home"
+          ><img
+            class="project-logo"
+            src="./assets/logo.svg"
+            alt="100 Problem-Reductions"
+            width="372"
+            height="107"
+        /></a>
+        <nav aria-label="Main navigation">
+          <a href="#atlas" data-nav="atlas">Atlas</a>
+          <a href="#research" data-nav="research">Research</a>
+          <a href="#infrastructure" data-nav="infrastructure">Get started</a>
+          <a href="./introduction.html" class="docs-nav"
+            >Docs <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+        <button class="search-trigger" aria-label="Search the atlas">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <circle cx="10" cy="10" r="6"></circle>
+            <path d="m15 15 5 5"></path></svg
+          ><span>Search</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <section class="hero wrap">
+        <div class="hero-copy">
+          <h1>Problem<br />Reductions</h1>
+          <p class="hero-description">
+            An executable atlas of NP-hard problems<br class="desktop-break" />
+            and the reductions between them.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#atlas"
+              >Explore the atlas <span aria-hidden="true">↗</span></a
+            ><a class="text-link" href="#research"
+              >Research loop <span aria-hidden="true">→</span></a
+            >
+          </div>
+        </div>
+        <div class="atlas-visual">
+          <div
+            id="hero-graph"
+            class="hero-graph"
+            aria-label="Interactive overview of the reduction atlas"
+          ></div>
+        </div>
+      </section>
+      <section class="stats-bar wrap" aria-label="Atlas statistics">
+        <div>
+          <strong>__PROBLEM_COUNT__</strong><span>Problem families</span>
+        </div>
+        <div>
+          <strong>__VARIANT_COUNT__</strong><span>Concrete variants</span>
+        </div>
+        <div>
+          <strong>__RULE_COUNT__</strong><span>Directed reductions</span>
+        </div>
+        <a href="./reductions.pdf"
+          >Theory, constructions<br />&amp; proofs
+          <span aria-hidden="true">↗</span></a
+        >
+      </section>
+      <section class="section wrap" id="connections">
+        <div class="section-heading">
+          <div>
+            <h2>Problems and reductions</h2>
+          </div>
+          <p>
+            A different formulation can unlock a different solver. Explore the
+            connections, understand their cost, and follow the construction all
+            the way to code.
+          </p>
+        </div>
+        <div class="problem-showcase" id="problem-showcase"></div>
+        <div class="section-bottom">
+          <a class="text-link" href="#atlas"
+            >Browse all problems <span aria-hidden="true">→</span></a
+          >
+        </div>
+      </section>
+      <section class="research-section" id="research">
+        <div class="wrap">
+          <div class="section-heading">
+            <div>
+              <h2>Research loop</h2>
+            </div>
+            <div>
+              <p>
+                Our ambition is a continuous research loop: agents choose useful
+                questions, construct reductions, search for counterexamples, and
+                turn surviving ideas into reusable mathematics.
+              </p>
+            </div>
+          </div>
+          <div class="research-cycle">
+            <article>
+              <h3>Find the frontier</h3>
+              <p>
+                Identify missing solver access, costly constructions, and
+                opportunities to improve the atlas.
+              </p>
+            </article>
+            <article>
+              <h3>Build a hypothesis</h3>
+              <p>
+                Explore the literature. Propose a mapping, its assumptions, and
+                the claims it must satisfy.
+              </p>
+            </article>
+            <article>
+              <h3>Try to break it</h3>
+              <p>
+                Challenge the construction with independent implementations and
+                adversarial examples.
+              </p>
+            </article>
+            <article>
+              <h3>Grow the atlas</h3>
+              <p>
+                Review the evidence. Integrate useful results and use what was
+                learned to guide the next question.
+              </p>
+            </article>
+          </div>
+          <div class="research-note">
+            <span class="status-dot"></span>
+            <p>
+              <strong>Built today:</strong> agent-assisted implementation and
+              review workflows. <strong>Next frontier:</strong> autonomous
+              question selection and persistent experiment records.
+            </p>
+            <a href="./skills.html"
+              >Explore agent workflows <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </div>
+      </section>
+      <section class="section wrap evidence-section" id="featured">
+        <div class="section-heading">
+          <div>
+            <h2>Example reduction</h2>
+          </div>
+          <p>
+            Every registered reduction has a statement and proof in the paper
+            and executable code with solution recovery.
+          </p>
+        </div>
+        <a class="featured-result" id="featured-result-link" href="#atlas"
+          ><div class="featured-copy">
+            <h3>Vertex Cover to<br />Independent Set</h3>
+            <p>
+              A vertex cover and an independent set are complements. A simple
+              construction shows how the atlas connects definitions, solution
+              recovery, and executable code.
+            </p>
+            <span class="text-link"
+              >Examine the reduction <span aria-hidden="true">↗</span></span
+            >
+          </div>
+          <div class="complement-art" id="featured-art"></div
+        ></a>
+      </section>
+      <section class="infrastructure-section wrap" id="infrastructure">
+        <div>
+          <h2>Get started</h2>
+          <p>
+            Use the atlas from the terminal, from Rust, or through an
+            agent.<br />All three share the same models and constructions.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="./introduction.html"
+              >Read the documentation <span aria-hidden="true">↗</span></a
+            ><a class="text-link" href="./cli.html#terminal-session"
+              >Watch the CLI <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span><i></i><i></i><i></i></span
+            ><button
+              class="copy-button"
+              data-copy="cargo install problemreductions-cli"
+              aria-label="Copy installation command"
+            >
+              Copy
+            </button>
+          </div>
+          <pre><span class="terminal-comment"># Install the CLI</span>
+<span class="terminal-prompt">$</span> cargo install problemreductions-cli
+
+<span class="terminal-comment"># Explore a problem</span>
+<span class="terminal-prompt">$</span> pred show MIS
+
+<span class="terminal-comment"># Search for a route to a solver</span>
+<span class="terminal-prompt">$</span> pred path MIS ILP</pre>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <div>
+        <a class="wordmark" href="#home" aria-label="Problem Reductions home"
+          ><img
+            class="project-logo"
+            src="./assets/logo.svg"
+            alt="100 Problem-Reductions"
+            width="372"
+            height="107"
+        /></a>
+      </div>
+      <div>
+        <a href="https://github.com/CodingThrust/problem-reductions"
+          >GitHub ↗</a
+        >
+        <a href="./reductions.pdf">Paper ↗</a>
+        <a href="./introduction.html">Documentation ↗</a>
+        <span>Open source · MIT</span>
+      </div>
+    </footer>
+    <div class="toast" role="status" aria-live="polite"></div>
+    <noscript
+      ><p class="wrap">
+        Interactive exploration requires JavaScript. You can still read the
+        <a href="./introduction.html">documentation</a> and
+        <a href="./reductions.pdf">paper</a>.
+      </p></noscript
+    >
+  </body>
+</html>

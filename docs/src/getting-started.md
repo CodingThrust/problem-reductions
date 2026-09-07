@@ -1,195 +1,80 @@
-# Getting Started
-
-## What This Library Does
-
-**problem-reductions** transforms hard computational problems into forms that efficient solvers can handle. You define a problem, reduce it to another problem type (like QUBO or ILP), solve the reduced problem, and extract the solution back. The [interactive reduction graph](./introduction.html) shows all available problem types and transformations.
-
-## Installation
+# Getting started
 
 ```bash
 cargo add problemreductions
 ```
 
-## The Reduction Workflow
+The library includes the HiGHS ILP backend.
 
-The core workflow is: **create** a problem, **reduce** it to a target, **solve** the target, and **extract** the solution back.
+## Solve a small instance
 
-<div class="theme-light-only">
+```rust
+use problemreductions::prelude::*;
 
-![Reduction Workflow](static/reduction-workflow.svg)
+fn main() {
+    let problem = MaximumSetPacking::<i64>::new(vec![
+        vec![0, 1], vec![1, 2], vec![2, 3], vec![4, 5],
+    ]);
+    let solver = BruteForce::new();
+    let solution = solver.solve(&problem).unwrap().unwrap();
+    println!("{:?}: {}", solution, problem.evaluate(&solution).unwrap());
+}
+```
 
-</div>
-<div class="theme-dark-only">
+The optimal packing selects sets 0, 2, and 3: the witness is `[true, false, true, true]` and evaluates to `Max(3)`. `Problem::evaluate` scores a configuration; `BruteForce` enumerates the configuration space, so keep exhaustive examples small.
 
-![Reduction Workflow](static/reduction-workflow-dark.svg)
+## Apply a reduction
 
-</div>
+Reduce the same instance to binary ILP, solve the target, and recover the original configuration:
 
-### Example 1: Direct reduction — Set Packing to ILP
-
-Reduce Maximum Set Packing to Integer Linear Programming (ILP), solve with the
-ILP solver, and extract the solution back.
-
-#### Step 1 — Create the source problem
-
-A small set system with pairwise overlaps gives a direct binary ILP.
-
-```rust,ignore
+```rust
 use problemreductions::prelude::*;
 use problemreductions::models::algebraic::ILP;
 use problemreductions::solvers::ILPSolver;
 
-let problem = MaximumSetPacking::<i64>::new(vec![
-    vec![0, 1],
-    vec![1, 2],
-    vec![2, 3],
-    vec![4, 5],
-]);
+fn main() {
+    let problem = MaximumSetPacking::<i64>::new(vec![
+        vec![0, 1], vec![1, 2], vec![2, 3], vec![4, 5],
+    ]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    let target = reduction.target_problem();
+    assert_eq!(target.num_vars(), 4);
+    assert_eq!(target.num_constraints(), 2);
+
+    let target_solution = ILPSolver::new().solve(target).unwrap();
+    let solution = reduction.extract_solution(&target_solution).unwrap();
+    assert_eq!(solution, vec![true, false, true, true]);
+    println!("{}", problem.evaluate(&solution).unwrap()); // Max(3)
+}
 ```
 
-#### Step 2 — Reduce to ILP
+The target has one binary variable per set and a constraint for each element shared by multiple sets. `extract_solution` maps a target solution back to the source solution type. `ILPSolver::new().solve(&problem)` executes the exact variant’s registered ILP pipeline and returns its source solution.
 
-`ReduceTo` applies a single-step reduction. The result holds the target
-problem and knows how to map solutions back. The ILP formulation introduces
-binary variable x_i for each set, constraint x_i + x_j ≤ 1 for each
-overlapping pair, and maximizes the weighted sum.
+## Discover and run a path
+
+Search uses exact variants. This discovers a route from `Factoring` to `SpinGlass` and executes it:
 
 ```rust,ignore
-let reduction = ReduceTo::<ILP>::reduce_to(&problem);
-let ilp = reduction.target_problem();
-println!("ILP: {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
-```
-
-```text
-ILP: 4 variables, 2 constraints
-```
-
-#### Step 3 — Solve the ILP
-
-`ILPSolver` uses the HiGHS solver to find optimal solutions efficiently.
-For small instances you can also use `BruteForce`, but `ILPSolver` scales
-to much larger problems.
-
-```rust,ignore
-let solver = ILPSolver::new();
-let ilp_solution = solver.solve(ilp).unwrap();
-println!("ILP solution: {:?}", ilp_solution);
-```
-
-```text
-ILP solution: [1, 0, 1, 0]
-```
-
-#### Step 4 — Extract and verify
-
-`extract_solution` maps the ILP solution back to the original problem's
-configuration space.
-
-```rust,ignore
-let solution = reduction.extract_solution(&ilp_solution);
-let metric = problem.evaluate(&solution);
-println!("Packing solution: {:?} -> size {}", solution, metric);
-assert!(metric.is_valid());
-```
-
-```text
-Packing solution: [1, 0, 1, 1] -> size Max(3)
-```
-
-`ILPSolver::solve` executes the problem's registered ILP pipeline, including
-all reductions and reverse witness extraction:
-
-```rust,ignore
-let solution = ILPSolver::new()
-    .solve(&problem)
-    .unwrap();
-assert!(problem.evaluate(&solution).is_valid());
-```
-
-The registered path determines the ILP variable domain. Every path ends at an
-`ILP<V, f64>` terminal accepted by the HiGHS backend. `solve` returns
-`ILPSolveError`, which distinguishes infeasibility, timeout, unboundedness,
-missing pipelines, unsupported dynamic input, and backend failure.
-
-### Example 2: Reduction path search — integer factoring to spin glass
-
-Real-world problems often require **chaining** multiple reductions. Here we factor the integer 6 by reducing `Factoring` through the reduction graph to `SpinGlass`, through automatic reduction path search. ([full source](https://github.com/CodingThrust/problem-reductions/blob/main/examples/chained_reduction_factoring_to_spinglass.rs))
-
-Let's walk through each step.
-
-#### Step 1 — Discover the reduction path
-
-`ReductionGraph` holds every registered reduction. The example enumerates the
-witness-capable simple paths and explicitly selects the documented
-`Factoring -> CircuitSAT -> SpinGlass` route. Path discovery does not rank or
-automatically select a route.
-
-```rust,ignore
+{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:imports}}
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}
-```
-
-```text
-{{#include generated/factoring-path.txt}}
-```
-
-#### Step 2 — Create the Factoring problem
-
-`Factoring::new(target)` derives safe factor-width bounds from the target.
-`Factoring::with_factor_bits(target, m, n)` overrides them when a fixed-width
-multiplier is required. Here we factor **6** with explicit 2-bit bounds,
-returning the canonical pair **2 × 3**.
-
-```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step2}}
+
+let reduction = graph.reduce_along_path(rpath, &factoring).unwrap().unwrap();
+let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
+// Solve `target`, then call reduction.extract_solution(&target_solution).
 ```
 
-#### Step 3 — Solve with ILPSolver
+`extract_solution` walks the intermediate mappings in reverse. The full [example](https://github.com/CodingThrust/problem-reductions/blob/main/examples/chained_reduction_factoring_to_spinglass.rs) also solves factoring through a direct ILP reduction and checks that the recovered factors multiply to 6:
 
-`solve` executes the registered ILP pipeline and returns a configuration for
-the original problem — no manual extraction needed. For small instances you
-can also use `BruteForce`, but `ILPSolver` scales to much larger problems.
-
-```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step3}}
+```bash
+cargo run --example chained_reduction_factoring_to_spinglass
 ```
 
-#### Step 4 — Read and verify the factors
+## Solver contracts
 
-`read_factors` decodes the binary configuration back into the two integer
-factors.
+| API | Result | Scope |
+|---|---|---|
+| `BruteForce::solve` | `Result<Option<P::Solution>, SolveError>` | Registered finite search spaces; `None` proves infeasibility |
+| `ILPSolver::solve` | `Result<P::Solution, ILPSolveError>` | Exact variants with registered ILP pipelines |
 
-```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step4}}
-```
-
-```text
-{{#include generated/factoring-result.txt}}
-```
-
-## Solvers
-
-Three solvers are available:
-
-| Solver | Use Case | Notes |
-|--------|----------|-------|
-| [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
-| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Uses the bundled HiGHS backend |
-| **Customized backend** | Structure-exploiting | Uses problem-specific exact algorithms registered for exact problem variants |
-
-ILP support through HiGHS is part of the library and is always available.
-
-## JSON Resources
-
-The library exports machine-readable metadata useful for tooling and research:
-
-These files are generated when you build the docs locally.
-- [reduction_graph.json](reductions/reduction_graph.json) lists all problem variants and reduction edges
-- [problem_schemas.json](reductions/problem_schemas.json) lists field definitions for each problem type
-
-
-## Next Steps
-
-- Try the [CLI tool](./cli.md) to explore problems and reduction paths from your terminal
-- Explore the [interactive reduction graph](./introduction.html) to discover available reductions
-- Read the [Design](./design.md) guide for implementation details
-- Browse the [API Reference](./api.html) for full documentation
+Every successful solve returns the problem's `Solution`. Evaluate it against the source with `Problem::evaluate`, which returns `Result<P::Value, EvaluationError>`. Path discovery enumerates routes; it does not rank them or register a solver capability. See the [solver API](api/problemreductions/solvers/index.html).

@@ -1,9 +1,7 @@
-# API Reference
+# API reference
 
-<meta http-equiv="refresh" content="0; url=api/problemreductions/index.html">
+[Browse the Rust API →](api/problemreductions/index.html)
 
-Full API documentation is auto-generated from source code via `rustdoc`.
+The API is generated from Rust source with rustdoc. Start with [models](api/problemreductions/models/index.html), [reduction contracts](api/problemreductions/rules/index.html), or [solvers](api/problemreductions/solvers/index.html).
 
-**[Browse the API &rarr;](api/problemreductions/index.html)**
-
-If not redirected automatically, run `make doc` to generate the API docs.
+Run `make doc` to build the guides and API locally. For short runnable examples, see [getting started](getting-started.md).

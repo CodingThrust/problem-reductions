@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test bench mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
+.PHONY: help build test bench mcp-test fmt clippy doc mdbook website paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -23,6 +23,7 @@ help:
 	@echo "  doc          - Build mdBook documentation"
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
+	@echo "  website      - Build the research website and documentation"
 	@echo "  paper        - Generate example data and build the Typst paper (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
@@ -98,12 +99,22 @@ doc: node_modules/elkjs/package.json
 	cargo run --example export_graph
 	node scripts/generate_reduction_graph_layout.js
 	cargo run --example export_schemas
-	cargo run --example export_module_graph
-	bash scripts/generate_doc_snippets.sh target/release/pred
-	mdbook build docs
+	cargo build -p problemreductions-cli --bin pred
+	bash scripts/generate_doc_snippets.sh target/debug/pred
+	mdbook build
+	python3 scripts/build_website.py
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
-	rm -rf docs/book/api
-	cp -r target/doc docs/book/api
+	rm -rf book/api
+	cp -r target/doc book/api
+
+# Build the product website with fresh atlas data; API/PDF builds remain in doc/paper.
+website:
+	cargo run --example export_graph
+	cargo run --example export_schemas
+	cargo build -p problemreductions-cli --bin pred
+	bash scripts/generate_doc_snippets.sh target/debug/pred
+	mdbook build
+	python3 scripts/build_website.py
 
 # Generate SVG diagrams from Typst sources (light + dark themes)
 TYPST_DOC_DIAGRAMS := $(wildcard docs/src/static/*.typ)
@@ -124,14 +135,14 @@ mdbook: node_modules/elkjs/package.json
 	@node scripts/generate_reduction_graph_layout.js 2>&1 | tail -1
 	@echo "Exporting schemas..."
 	@cargo run --example export_schemas 2>&1 | tail -1
-	@echo "Exporting module graph..."
-	@cargo run --example export_module_graph 2>&1 | tail -1
 	@echo "Generating CLI doc snippets..."
-	@bash scripts/generate_doc_snippets.sh target/release/pred 2>&1 | tail -1
+	@cargo build -p problemreductions-cli --bin pred
+	@bash scripts/generate_doc_snippets.sh target/debug/pred
 	@echo "Building API docs..."
 	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps 2>&1 | tail -1
 	@echo "Building mdBook..."
 	@mdbook build
+	@python3 scripts/build_website.py
 	rm -rf book/api
 	cp -r target/doc book/api
 	@-lsof -ti:3001 | xargs kill 2>/dev/null || true

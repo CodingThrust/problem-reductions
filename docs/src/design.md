@@ -7,24 +7,17 @@ choosing numeric fields or implementing arithmetic in a model or reduction.
 
 ## Module Architecture
 
-<script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
-
-<div id="module-graph"></div>
-<div id="mg-controls">
-  <div id="mg-legend">
-    <span class="swatch" style="background:#c8f0c8;"></span>Core
-    <span class="swatch" style="background:#c8c8f0;"></span>Models
-    <span class="swatch" style="background:#f0d8b0;"></span>Rules
-    <span class="swatch" style="background:#b0e0f0;"></span>Registry
-    <span class="swatch" style="background:#d0f0d0;"></span>Solvers
-    <span class="swatch" style="background:#e0e0e0;"></span>Utilities
-  </div>
-</div>
-<div id="mg-help">
-  Click a module to expand/collapse its public items.
-  Double-click to open rustdoc.
-</div>
-<div id="mg-tooltip"></div>
+| Location | Responsibility | Depends on |
+|---|---|---|
+| `src/traits.rs`, `src/types.rs`, `src/variant.rs`, `src/topology/` | Core: the `Problem` trait, aggregate values, variant parameters, graph types | — |
+| `src/models/` | Models grouped by graph, formula, set, algebraic, or miscellaneous input | Core |
+| `src/rules/` | Reduction implementations and solution/value mappings | Models |
+| `src/registry/` | Concrete variant metadata and dynamic dispatch | Rules |
+| `src/solvers/` | Exhaustive, ILP, specialized, and decision-search solvers | Core |
+| `src/io.rs`, `src/expr.rs` | JSON serialization and overhead expressions | Core |
+| `src/example_db/` | Canonical model and rule examples | Models, rules |
+| `src/unit_tests/` | Tests mirroring the source tree | Everything |
+| `problemreductions-cli/` | The `pred` CLI | The library |
 
 ## Problem Model
 
@@ -238,10 +231,10 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
     fn target_problem(&self) -> &Self::Target { &self.target }
     fn extract_solution(
         &self,
-        target_sol: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_sol: &Vec<bool>,
+    ) -> crate::rules::ExtractionResult<Vec<bool>> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_sol)?;
-        Ok(target_sol.iter().map(|&x| 1 - x).collect())
+        Ok(target_sol.iter().map(|&x| !x).collect())
     }
 }
 ```
@@ -287,42 +280,9 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>>
     for MaximumIndependentSet<SimpleGraph, i64>
 {
     type Result = ReductionISToVC<i64>;
-    fn reduce_to(&self) -> Self::Result { /* ... */ }
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> { /* ... */ }
 }
 ```
-
-<details>
-<summary>What the <code>#[reduction]</code> macro generates</summary>
-
-The `#[reduction]` attribute expands to the original `impl` block plus an `inventory::submit!` call:
-
-```rust,ignore
-inventory::submit! {
-    ReductionEntry {
-        source_name: "MaximumIndependentSet",
-        target_name: "MinimumVertexCover",
-        source_variant_fn: || <MaximumIndependentSet<SimpleGraph, i64> as Problem>::variant(),
-        target_variant_fn: || <MinimumVertexCover<SimpleGraph, i64> as Problem>::variant(),
-        parameter_declarations_fn: || ReductionParameterDeclarations {
-            relation: Some(ParameterRelation::Exact),
-            fields: vec![
-                ("num_vertices", Expr::Var("num_vertices")),
-                ("num_edges", Expr::Var("num_edges")),
-            ],
-            unavailable: vec![],
-        },
-        module_path: module_path!(),
-        reduce_fn: |src: &dyn Any| -> Box<dyn DynReductionResult> {
-            let src = src.downcast_ref::<MaximumIndependentSet<SimpleGraph, i64>>().unwrap();
-            Box::new(ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(src))
-        },
-    }
-}
-```
-
-Each `ReductionEntry` is collected by `inventory` at link time and iterated at runtime, making every reduction discoverable by `ReductionGraph` without manual registration. The `reduce_fn` field provides a type-erased executor that enables dynamically discovered paths to chain reductions automatically.
-
-</details>
 
 ## Reduction Graph
 
@@ -363,28 +323,15 @@ MIS{KingsSubgraph,i64} -> MIS{UnitDiskGraph,i64} -> MIS{SimpleGraph,i64} -> VC{S
 
 ### Executable paths
 
-Convert a `ReductionPath` into a typed `ExecutablePath<S, T>` via `make_executable()`, then call `reduce()`:
+Execute an explicitly selected path with `ReductionGraph::reduce_along_path`:
 
 ```rust,ignore
-let paths = graph.find_all_paths_mode(
-    "Factoring", &src_var, "SpinGlass", &dst_var, ReductionMode::Witness,
-);
-let rpath = paths.iter()
-    .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
-    .expect("required route");
-
-// make_executable converts it into a typed, callable chain
-let path = graph.make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath).unwrap();
-
-// reduce() applies each step, returning a ChainedReduction
-let reduction = path.reduce(&factoring_instance);
+let reduction = graph.reduce_along_path(rpath, &factoring_instance)?.unwrap();
 let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
-let solution: Vec<usize> = reduction.extract_solution(&target_solution);
+let source_solution = reduction.extract_solution(&target_solution)?;
 ```
 
-`ExecutablePath` holds a type-erased `ReduceFn` per edge. `reduce()` applies them sequentially, producing a `ChainedReduction` that stores each intermediate result. `extract_solution` maps the final solution back through the chain in reverse order.
-
-For full type control, you can also chain `ReduceTo::reduce_to()` calls manually at each step.
+The returned `ReductionChain` stores each intermediate reduction and extracts the source solution by applying the inverse mappings in reverse order. Construction returns `ReductionError`; extraction returns `ExtractionError`.
 
 <details>
 <summary>Parameter contracts</summary>
@@ -458,4 +405,4 @@ let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 
 ## Contributing
 
-See [Call for Contributions](./introduction.md#call-for-contributions) for the recommended issue-based workflow (no coding required).
+See [Call for Contributions](./open-problems.md) for the recommended issue-based workflow (no coding required).

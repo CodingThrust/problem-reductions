@@ -1,18 +1,23 @@
 # Summary
 
-[Introduction](./introduction.md)
+[Overview](introduction.md)
 
-# User Guide
+# CLI
 
-- [CLI Tool](./cli.md)
-- [AI Agent Skills](./skills.md)
+- [Quick start](cli.md)
+- [Command reference](cli-commands.md)
+- [Reduction graph](reduction-graph.md)
 
-# Rust Library
+# Agents
 
-- [Getting Started](./getting-started.md)
-- [Design](./design.md)
-- [API Reference](./api.md)
+- [Skills](skills.md)
 
-# Reference
+# Rust library
 
-- [MCP Server](./mcp.md)
+- [Getting started](getting-started.md)
+- [API reference](api.md)
+- [Design](design.md)
+
+# Research
+
+- [Open problems](open-problems.md)
