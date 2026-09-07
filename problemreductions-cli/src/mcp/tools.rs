@@ -197,14 +197,14 @@ impl McpServer {
             "variant": variant,
             "default": is_default,
             "complexity": complexity,
+            "inputs": crate::commands::graph::construction_inputs(name, variant),
             "parameters": &parameters,
             "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
             "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
         });
-        if let Some(s) = schema {
-            if let (Some(obj), Ok(schema_val)) = (json.as_object_mut(), serde_json::to_value(s)) {
-                obj.insert("schema".to_string(), schema_val);
-            }
+        if let Some(schema) = schema {
+            json["schema"] = serde_json::to_value(schema)?;
+            json["schema"].as_object_mut().unwrap().remove("fields");
         }
 
         Ok(serde_json::to_string_pretty(&json)?)
@@ -706,6 +706,38 @@ mod tests {
     use super::McpServer;
     use crate::dispatch::ProblemJsonOutput;
     use problemreductions::models::formula::NonTautology;
+
+    #[test]
+    fn unit_decision_inputs_match_construction() {
+        let server = McpServer::new();
+        for (name, data) in [
+            (
+                "DecisionMaximumIndependentSet/One",
+                serde_json::json!({"graph":[[0,1],[1,2]],"bound":2}),
+            ),
+            (
+                "DecisionMinimumDominatingSet/One",
+                serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"bound":1}),
+            ),
+        ] {
+            let shown: serde_json::Value =
+                serde_json::from_str(&server.show_problem_inner(name).unwrap()).unwrap();
+            let inputs = shown["inputs"].as_array().unwrap();
+            assert!(inputs
+                .iter()
+                .any(|input| input["name"] == "bound" && input["type_name"] == "i64"));
+            assert!(!inputs.iter().any(|input| input["name"] == "weights"));
+            let output = server.create_problem_inner(name, &data).unwrap();
+            let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+            assert_eq!(
+                created.data["inner"]["weights"],
+                serde_json::json!([1, 1, 1])
+            );
+            let mut redundant = data;
+            redundant["weights"] = serde_json::json!([1, 1, 1]);
+            assert!(server.create_problem_inner(name, &redundant).is_err());
+        }
+    }
 
     #[test]
     fn construction_contract_create_problem_uses_typed_json_inputs() {

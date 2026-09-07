@@ -11,12 +11,17 @@ use good_lp::{
     variable, ProblemVariables, ResolutionError, Solution, SolutionStatus, SolverModel, Variable,
 };
 
-/// A failure to produce a proven-optimal ILP solution.
+/// A failure to produce an ILP solution optimal within backend numerical tolerances.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ILPSolveError {
     /// The constraints have no feasible assignment.
     #[error("the ILP is infeasible")]
     Infeasible,
+    /// A target witness did not establish the source decision threshold.
+    #[error(
+        "the ILP witness does not meet the decision threshold for {0}; the decision is unresolved"
+    )]
+    UnresolvedDecision(String),
     /// The objective is unbounded.
     #[error("the ILP objective is unbounded")]
     Unbounded,
@@ -65,6 +70,8 @@ fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> IL
 ///
 /// Registered reductions map a source problem to an `ILP<V, f64>` terminal,
 /// which this solver sends to HiGHS before extracting the source solution.
+/// Optimality and infeasibility are assessed within HiGHS numerical tolerances.
+/// Zero MIP gaps do not make floating-point solving mathematically exact.
 ///
 /// # Example
 ///
@@ -120,9 +127,7 @@ impl ILPSolver {
             .lookup(&key)
             .ilp
             .ok_or_else(|| ILPSolveError::MissingPipeline(key.label()))?;
-        pipeline
-            .solve_typed(problem, self)?
-            .ok_or(ILPSolveError::Infeasible)
+        pipeline.solve_typed(problem, self)
     }
 
     fn solve_backend<V>(&self, problem: &ILP<V, f64>) -> Result<Vec<i64>, ILPSolveError>

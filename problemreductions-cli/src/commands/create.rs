@@ -18,7 +18,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod schema_support;
 use self::schema_support::*;
-pub(crate) use self::schema_support::{create_inputs_for, InputValueKind};
+pub(crate) use self::schema_support::{
+    create_inputs_for, resolve_schema_field_type, InputValueKind,
+};
 
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.is_empty()
@@ -392,7 +394,8 @@ fn create_registered_random(
             problemreductions::registry::variant::variant_label(entry)
         )
     })?;
-    let inputs = random.inputs;
+    let inputs = (random.inputs)();
+    let inputs = inputs.as_slice();
     let data = normalize_registered_create_inputs(args, inputs, resolved_variant)
         .map_err(|error| with_registered_usage(error, canonical, inputs))?;
     let problem = (random.generate)(data)

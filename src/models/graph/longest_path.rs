@@ -49,14 +49,16 @@ pub struct LongestPath<G, W: WeightElement> {
 }
 
 macro_rules! longest_path_create_spec {
-    ($name:ident,$weight:ty) => {
+    (@lengths $spec:ident, $lengths:ident) => { $spec.$lengths };
+    (@lengths $spec:ident) => { vec![One; $spec.graph.len()] };
+    ($name:ident,$weight:ty $(, $lengths:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             #[create(codec = "edge-list")]
             graph: Vec<(usize, usize)>,
             num_vertices: Option<usize>,
-            #[create(codec = "comma-separated")]
-            edge_lengths: Vec<$weight>,
+            $(#[create(codec = "comma-separated")]
+            $lengths: Vec<$weight>,)?
             source_vertex: usize,
             target_vertex: usize,
         }
@@ -83,10 +85,11 @@ macro_rules! longest_path_create_spec {
                 if count < inferred {
                     return Err("num_vertices is too small".into());
                 }
-                if spec.edge_lengths.len() != spec.graph.len() {
+                let edge_lengths = longest_path_create_spec!(@lengths spec $(, $lengths)?);
+                if edge_lengths.len() != spec.graph.len() {
                     return Err("edge_lengths length must match graph edge count".into());
                 }
-                if spec.edge_lengths.iter().any(|v| v.to_sum() <= 0) {
+                if edge_lengths.iter().any(|v| v.to_sum() <= 0) {
                     return Err("edge lengths must be positive".into());
                 }
                 if spec.source_vertex >= count || spec.target_vertex >= count {
@@ -94,7 +97,7 @@ macro_rules! longest_path_create_spec {
                 }
                 Ok(Self {
                     graph: SimpleGraph::new(count, spec.graph),
-                    edge_lengths: spec.edge_lengths,
+                    edge_lengths,
                     source_vertex: spec.source_vertex,
                     target_vertex: spec.target_vertex,
                 })
@@ -102,7 +105,7 @@ macro_rules! longest_path_create_spec {
         }
     };
 }
-longest_path_create_spec!(LongestPathI64CreateSpec, i64);
+longest_path_create_spec!(LongestPathI64CreateSpec, i64, edge_lengths);
 longest_path_create_spec!(LongestPathOneCreateSpec, One);
 
 impl<G: Graph, W: WeightElement> LongestPath<G, W> {

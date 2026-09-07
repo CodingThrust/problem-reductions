@@ -304,7 +304,7 @@ problemreductions::inventory::submit! {
         },
         is_default: true,
         aliases: &[],
-        create_inputs: Some(AGGREGATE_SOURCE_INPUTS),
+        create_inputs: Some(|| AGGREGATE_SOURCE_INPUTS.to_vec()),
         construct_fn: |data| {
             problemreductions::registry::validate_create_inputs(AGGREGATE_SOURCE_INPUTS, &data)?;
             let problem: AggregateValueSource = serde_json::from_value(data)

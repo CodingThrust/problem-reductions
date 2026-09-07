@@ -39,7 +39,7 @@ pub struct ComparativeContainment<W = i64> {
 }
 
 macro_rules! comparative_containment_create_spec {
-    ($name:ident, $weight:ty, $one:expr) => {
+    ($name:ident, $weight:ty, $one:expr $(, $r_weights:ident, $s_weights:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             /// Size of the common universe.
@@ -50,23 +50,23 @@ macro_rules! comparative_containment_create_spec {
             /// Second set family.
             #[create(codec = "semicolon-separated")]
             s_sets: Vec<Vec<usize>>,
+            $(
             /// Positive weights for the first family; defaults to one.
             #[create(codec = "comma-separated")]
-            r_weights: Option<Vec<$weight>>,
+            $r_weights: Option<Vec<$weight>>,
+            )?
+            $(
             /// Positive weights for the second family; defaults to one.
             #[create(codec = "comma-separated")]
-            s_weights: Option<Vec<$weight>>,
+            $s_weights: Option<Vec<$weight>>,
+            )?
         }
 
         impl TryFrom<$name> for ComparativeContainment<$weight> {
             type Error = ConstructionError;
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
-                let r_weights = spec
-                    .r_weights
-                    .unwrap_or_else(|| vec![$one; spec.r_sets.len()]);
-                let s_weights = spec
-                    .s_weights
-                    .unwrap_or_else(|| vec![$one; spec.s_sets.len()]);
+                let r_weights = { $(if let Some(value) = spec.$r_weights { value } else)? { vec![$one; spec.r_sets.len()] } };
+                let s_weights = { $(if let Some(value) = spec.$s_weights { value } else)? { vec![$one; spec.s_sets.len()] } };
                 ComparativeContainment::with_weights(
                     spec.universe_size,
                     spec.r_sets,
@@ -122,8 +122,20 @@ fn validate_create_weights<W: WeightElement>(
     Ok(())
 }
 
-comparative_containment_create_spec!(ComparativeContainmentI64CreateSpec, i64, 1_i64);
-comparative_containment_create_spec!(ComparativeContainmentF64CreateSpec, f64, 1.0_f64);
+comparative_containment_create_spec!(
+    ComparativeContainmentI64CreateSpec,
+    i64,
+    1_i64,
+    r_weights,
+    s_weights
+);
+comparative_containment_create_spec!(
+    ComparativeContainmentF64CreateSpec,
+    f64,
+    1.0_f64,
+    r_weights,
+    s_weights
+);
 comparative_containment_create_spec!(ComparativeContainmentOneCreateSpec, One, One);
 
 impl<W: WeightElement> ComparativeContainment<W> {

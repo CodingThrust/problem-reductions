@@ -23,7 +23,7 @@ fn test_biclique_cover_create_spec_constructs_graph() {
     let entry = inventory::iter::<crate::registry::VariantEntry>()
         .find(|entry| entry.name == "BicliqueCover")
         .unwrap();
-    let inputs = entry.create_inputs.unwrap();
+    let inputs = entry.create_inputs.unwrap()();
     assert_eq!(
         inputs.iter().map(|input| input.name).collect::<Vec<_>>(),
         vec!["left", "right", "biedges", "k"]

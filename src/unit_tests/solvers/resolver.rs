@@ -41,7 +41,18 @@ fn decision_reductions_check_target_optimum_before_extracting_witness() {
             SolverRequest::Ilp,
             SolverRequest::Default,
         ] {
-            match solve(&problem, backend).unwrap().outcome {
+            let result = solve(&problem, backend);
+            if matches!(
+                &result,
+                Err(crate::solvers::SolveError::IlpSolve {
+                    source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
+                    ..
+                })
+            ) {
+                assert!(!expected, "{name}, {backend:?}");
+                continue;
+            }
+            match result.unwrap().outcome {
                 SolveOutcome::Optimal {
                     solution,
                     evaluation,
@@ -73,7 +84,18 @@ fn hamiltonian_ilp_matches_exhaustive_search_on_small_graphs() {
         )
         .unwrap();
         let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
-        let actual = solve(&problem, SolverRequest::Ilp).unwrap();
+        let actual = solve(&problem, SolverRequest::Ilp);
+        if matches!(
+            &actual,
+            Err(crate::solvers::SolveError::IlpSolve {
+                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
+                ..
+            })
+        ) {
+            assert!(matches!(reference.outcome, SolveOutcome::Infeasible));
+            continue;
+        }
+        let actual = actual.unwrap();
         assert_eq!(
             matches!(actual.outcome, SolveOutcome::Infeasible),
             matches!(reference.outcome, SolveOutcome::Infeasible),
@@ -130,7 +152,21 @@ fn generic_decision_ilp_compares_inner_optimum_with_bound() {
                 SolverRequest::Ilp,
                 SolverRequest::Default,
             ] {
-                let result = solve(&loaded, backend).unwrap();
+                let result = solve(&loaded, backend);
+                if bound < optimum && backend != SolverRequest::BruteForce {
+                    assert!(
+                        matches!(
+                            result,
+                            Err(crate::solvers::SolveError::IlpSolve {
+                                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
+                                ..
+                            })
+                        ),
+                        "{name}, {bound}, {backend:?}"
+                    );
+                    continue;
+                }
+                let result = result.unwrap();
                 if bound < optimum {
                     assert_eq!(
                         result.outcome,
@@ -202,7 +238,21 @@ fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
                 )
                 .unwrap();
                 let reference = solve(&loaded, SolverRequest::BruteForce).unwrap();
-                let actual = solve(&loaded, SolverRequest::Ilp).unwrap();
+                let actual = solve(&loaded, SolverRequest::Ilp);
+                if matches!(reference.outcome, SolveOutcome::Infeasible) {
+                    assert!(
+                        matches!(
+                            actual,
+                            Err(crate::solvers::SolveError::IlpSolve {
+                                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
+                                ..
+                            })
+                        ),
+                        "{name}, graph {mask}, bound {bound}"
+                    );
+                    continue;
+                }
+                let actual = actual.unwrap();
                 assert_eq!(
                     matches!(actual.outcome, SolveOutcome::Infeasible),
                     matches!(reference.outcome, SolveOutcome::Infeasible),
@@ -538,7 +588,24 @@ fn check_unit_dominating_decision(num_vertices: usize, edges: &[(usize, usize)],
     .unwrap();
     let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
     for backend in [SolverRequest::Ilp, SolverRequest::Default] {
-        let actual = solve(&problem, backend).unwrap();
+        let actual = solve(&problem, backend);
+        if matches!(reference.outcome, SolveOutcome::Infeasible) {
+            assert!(
+                matches!(
+                    actual,
+                    Err(crate::solvers::SolveError::IlpSolve {
+                        source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
+                        ..
+                    }) | Ok(crate::solvers::SolveResult {
+                        outcome: SolveOutcome::Infeasible,
+                        ..
+                    })
+                ),
+                "n={num_vertices}, edges={edges:?}, bound={bound}"
+            );
+            continue;
+        }
+        let actual = actual.unwrap();
         let SolverExecution::Ilp { reduction_path } = &actual.solver else {
             panic!("expected the registered ILP pipeline");
         };

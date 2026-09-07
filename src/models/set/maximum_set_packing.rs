@@ -230,8 +230,21 @@ where
     }
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumSetPackingOneCreateSpec {
+    /// Collection of sets over a universe.
+    subsets: Vec<Vec<usize>>,
+}
+impl TryFrom<MaximumSetPackingOneCreateSpec> for MaximumSetPacking<One> {
+    type Error = ConstructionError;
+    fn try_from(spec: MaximumSetPackingOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.subsets.len()];
+        Self::with_weights(spec.subsets, weights)
+    }
+}
+
 crate::declare_variants! {
-    default MaximumSetPacking<One> => "2^num_sets" create MaximumSetPackingCreateSpec<One>,
+    default MaximumSetPacking<One> => "2^num_sets" create MaximumSetPackingOneCreateSpec,
     MaximumSetPacking<i64> => "2^num_sets" create MaximumSetPackingCreateSpec<i64>,
     MaximumSetPacking<f64> => "2^num_sets" create MaximumSetPackingCreateSpec<f64>,
 }

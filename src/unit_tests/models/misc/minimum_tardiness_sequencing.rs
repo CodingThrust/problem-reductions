@@ -254,7 +254,6 @@ fn test_minimum_tardiness_sequencing_paper_example() {
 #[test]
 fn create_specs_default_precedences_to_empty() {
     let unit = MinimumTardinessSequencing::try_from(MinimumTardinessSequencingOneCreateSpec {
-        lengths: vec![One, One],
         deadlines: vec![1, 2],
         precedences: None,
     })
@@ -267,5 +266,11 @@ fn create_specs_default_precedences_to_empty() {
     .unwrap();
     assert!(unit.precedences().is_empty());
     assert!(weighted.precedences().is_empty());
-    assert!(!MinimumTardinessSequencingOneCreateSpec::INPUTS[2].required);
+    assert!(
+        !MinimumTardinessSequencingOneCreateSpec::inputs()
+            .iter()
+            .find(|input| input.name == "precedences")
+            .unwrap()
+            .required
+    );
 }

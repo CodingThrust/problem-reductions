@@ -1,6 +1,7 @@
 //! Exact minimum-cost circulation solver using negative-cycle cancellation.
 
 use crate::models::graph::MinimumCostCirculation;
+use crate::solvers::SolveError;
 
 struct ResidualArc {
     from: usize,
@@ -11,7 +12,7 @@ struct ResidualArc {
     forward: bool,
 }
 
-pub(crate) fn solve(problem: &MinimumCostCirculation) -> Option<Vec<usize>> {
+pub(crate) fn solve(problem: &MinimumCostCirculation) -> Result<Vec<usize>, SolveError> {
     let mut flow = vec![0_i64; problem.num_arcs()];
 
     loop {
@@ -31,7 +32,9 @@ pub(crate) fn solve(problem: &MinimumCostCirculation) -> Option<Vec<usize>> {
                 residual.push(ResidualArc {
                     from: to,
                     to: from,
-                    cost: -problem.costs()[arc],
+                    cost: problem.costs()[arc].checked_neg().ok_or_else(|| {
+                        SolveError::IntegerOverflow("negating a circulation residual cost".into())
+                    })?,
                     capacity: flow[arc],
                     original: arc,
                     forward: false,
@@ -39,7 +42,7 @@ pub(crate) fn solve(problem: &MinimumCostCirculation) -> Option<Vec<usize>> {
             }
         }
 
-        let Some(cycle) = negative_cycle(problem.num_vertices(), &residual) else {
+        let Some(cycle) = negative_cycle(problem.num_vertices(), &residual)? else {
             break;
         };
         let amount = cycle
@@ -57,10 +60,13 @@ pub(crate) fn solve(problem: &MinimumCostCirculation) -> Option<Vec<usize>> {
         }
     }
 
-    Some(flow.into_iter().map(|value| value as usize).collect())
+    Ok(flow.into_iter().map(|value| value as usize).collect())
 }
 
-fn negative_cycle(num_vertices: usize, edges: &[ResidualArc]) -> Option<Vec<usize>> {
+fn negative_cycle(
+    num_vertices: usize,
+    edges: &[ResidualArc],
+) -> Result<Option<Vec<usize>>, SolveError> {
     let mut distance = vec![0_i64; num_vertices];
     let mut predecessor = vec![None; num_vertices];
     let mut changed = None;
@@ -68,15 +74,23 @@ fn negative_cycle(num_vertices: usize, edges: &[ResidualArc]) -> Option<Vec<usiz
     for _ in 0..num_vertices {
         changed = None;
         for (index, edge) in edges.iter().enumerate() {
-            if distance[edge.to] > distance[edge.from] + edge.cost {
-                distance[edge.to] = distance[edge.from] + edge.cost;
+            let candidate = distance[edge.from].checked_add(edge.cost).ok_or_else(|| {
+                SolveError::IntegerOverflow("relaxing a circulation residual arc".into())
+            })?;
+            if distance[edge.to] > candidate {
+                distance[edge.to] = candidate;
                 predecessor[edge.to] = Some(index);
                 changed = Some(edge.to);
             }
         }
+        if changed.is_none() {
+            return Ok(None);
+        }
     }
 
-    let mut vertex = changed?;
+    let Some(mut vertex) = changed else {
+        return Ok(None);
+    };
     for _ in 0..num_vertices {
         vertex = edges[predecessor[vertex].unwrap()].from;
     }
@@ -87,7 +101,7 @@ fn negative_cycle(num_vertices: usize, edges: &[ResidualArc]) -> Option<Vec<usiz
         cycle.push(edge);
         vertex = edges[edge].from;
         if vertex == start {
-            return Some(cycle);
+            return Ok(Some(cycle));
         }
     }
 }

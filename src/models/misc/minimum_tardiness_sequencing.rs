@@ -22,7 +22,7 @@ inventory::submit! {
         category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
-        fields: MinimumTardinessSequencingOneCreateSpec::FIELDS,
+        fields: MinimumTardinessSequencingI64CreateSpec::FIELDS,
     }
 }
 
@@ -96,17 +96,26 @@ macro_rules! minimum_tardiness_create_spec {
     };
 }
 
-minimum_tardiness_create_spec!(
-    MinimumTardinessSequencingOneCreateSpec,
-    One,
-    |lengths: Vec<One>, deadlines, precedences| {
-        Ok(MinimumTardinessSequencing::new(
-            lengths.len(),
-            deadlines,
-            precedences,
-        ))
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumTardinessSequencingOneCreateSpec {
+    deadlines: Vec<i64>,
+    precedences: Option<Vec<(usize, usize)>>,
+}
+impl TryFrom<MinimumTardinessSequencingOneCreateSpec> for MinimumTardinessSequencing<One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumTardinessSequencingOneCreateSpec) -> Result<Self, Self::Error> {
+        let num_tasks = spec.deadlines.len();
+        let precedences = spec.precedences.unwrap_or_default();
+        if precedences
+            .iter()
+            .any(|&(a, b)| a >= num_tasks || b >= num_tasks)
+        {
+            return Err("precedence indices must be within the task count".into());
+        }
+        Ok(Self::new(num_tasks, spec.deadlines, precedences))
     }
-);
+}
+
 minimum_tardiness_create_spec!(
     MinimumTardinessSequencingI64CreateSpec,
     i64,

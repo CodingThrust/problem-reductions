@@ -170,7 +170,6 @@ fn create_specs_use_edge_weights_for_both_weight_variants() {
     let unit = MaxCut::try_from(MaxCutOneCreateSpec {
         graph: vec![(0, 1)],
         num_vertices: None,
-        edge_weights: None,
     })
     .unwrap();
     assert_eq!(weighted.edge_weights(), vec![1]);

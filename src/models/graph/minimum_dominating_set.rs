@@ -217,9 +217,23 @@ crate::impl_random_generate!(MinimumDominatingSet<SimpleGraph, One>, crate::rand
     Ok(MinimumDominatingSet::new(spec.graph()?, vec![One; spec.num_vertices]))
 });
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumDominatingSetOneCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+}
+
+impl TryFrom<MinimumDominatingSetOneCreateSpec> for MinimumDominatingSet<SimpleGraph, One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumDominatingSetOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_vertices()];
+        Ok(Self::new(spec.graph, weights))
+    }
+}
+
 crate::declare_variants! {
     default MinimumDominatingSet<SimpleGraph, i64> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<i64> random,
-    MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<One> random,
+    MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices" create MinimumDominatingSetOneCreateSpec random,
 }
 
 crate::register_brute_force! {
@@ -286,126 +300,9 @@ crate::register_decision_variant!(
         FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
         FieldInfo { name: "bound", type_name: "i64", description: "Decision bound (maximum allowed dominating-set cost)" },
     ],
+    additional: [MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices"],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
 );
-
-impl crate::traits::DeclaredVariant for Decision<MinimumDominatingSet<SimpleGraph, One>> {}
-
-inventory::submit! {
-    crate::registry::VariantEntry {
-        name: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::NAME,
-        variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
-        complexity: "1.4969^num_vertices",
-        complexity_eval_fn: |any| {
-            let problem = any
-                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .expect("DecisionMinimumDominatingSet complexity source type mismatch");
-            let parameters = problem.parameters();
-            1.4969_f64.powf(
-                parameters
-                    .get("num_vertices")
-                    .expect("validated complexity parameter must be present") as f64,
-            )
-        },
-        parameter_names_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::parameter_names,
-        parameter_measure_fn: |any| {
-            any.downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .expect("DecisionMinimumDominatingSet parameter type mismatch")
-                .parameters()
-        },
-        is_default: false,
-        aliases: &[],
-        create_inputs: None,
-        construct_fn: |data| {
-            let problem_type = <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::problem_type();
-            crate::registry::validate_direct_create_inputs(problem_type.fields, &data)?;
-            serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
-                .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)
-                .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))
-        },
-        random: None,
-        factory: |data| {
-            serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
-                .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)
-        },
-        serialize_fn: |any| {
-            any.downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .and_then(|problem| serde_json::to_value(problem).ok())
-        },
-    }
-}
-
-crate::register_brute_force! {
-    Decision<MinimumDominatingSet<SimpleGraph, One>> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
-}
-
-// Decision<MDS<SG, One>> → MDS<SG, One>: both witness (identity config) and aggregate (solve + compare)
-inventory::submit! {
-    crate::rules::ReductionEntry {
-        source_name: "DecisionMinimumDominatingSet",
-        target_name: "MinimumDominatingSet",
-        source_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
-        target_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
-        parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
-            relation: Some(crate::parameters::ParameterRelation::Exact),
-            fields: vec![
-                ("num_vertices", crate::expr::Expr::variable("num_vertices")),
-                ("num_edges", crate::expr::Expr::variable("num_edges")),
-            ],
-            unavailable: vec![],
-        },
-        module_path: module_path!(),
-        reduce_fn: Some(|any| {
-            let source = any
-                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .ok_or_else(crate::rules::ReductionError::source_type_mismatch::<
-                    Decision<MinimumDominatingSet<SimpleGraph, One>>,
-                    MinimumDominatingSet<SimpleGraph, One>,
-                >)?;
-            let result =
-                <Decision<MinimumDominatingSet<SimpleGraph, One>> as crate::rules::ReduceTo<
-                    MinimumDominatingSet<SimpleGraph, One>,
-                >>::reduce_to(source)?;
-            Ok(Box::new(result))
-        }),
-        reduce_aggregate_fn: Some(|any| {
-            let source = any
-                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .ok_or_else(crate::rules::ReductionError::source_type_mismatch::<
-                    Decision<MinimumDominatingSet<SimpleGraph, One>>,
-                    MinimumDominatingSet<SimpleGraph, One>,
-                >)?;
-            let result =
-                <Decision<MinimumDominatingSet<SimpleGraph, One>> as crate::rules::ReduceToAggregate<
-                    MinimumDominatingSet<SimpleGraph, One>,
-                >>::reduce_to_aggregate(source)?;
-            Ok(Box::new(result))
-        }),
-        turing: false,
-    }
-}
-
-// Reverse edge: MDS<SG, One> → Decision<MDS<SG, One>> (Turing)
-inventory::submit! {
-    crate::rules::ReductionEntry {
-        source_name: "MinimumDominatingSet",
-        target_name: "DecisionMinimumDominatingSet",
-        source_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
-        target_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
-        parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
-            relation: Some(crate::parameters::ParameterRelation::Exact),
-            fields: vec![
-                ("num_vertices", crate::expr::Expr::variable("num_vertices")),
-                ("num_edges", crate::expr::Expr::variable("num_edges")),
-            ],
-            unavailable: vec![],
-        },
-        module_path: module_path!(),
-        reduce_fn: None,
-        reduce_aggregate_fn: None,
-        turing: true,
-    }
-}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {

@@ -266,8 +266,6 @@ fn create_specs_map_weight_inputs_for_both_variants() {
     let unit = MinMaxMulticenter::try_from(MinMaxMulticenterOneCreateSpec {
         graph: vec![(0, 1)],
         num_vertices: None,
-        weights: None,
-        edge_weights: None,
         k: 1,
     })
     .unwrap();

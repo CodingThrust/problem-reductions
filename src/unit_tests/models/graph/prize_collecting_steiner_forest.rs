@@ -243,6 +243,6 @@ fn create_specs_default_prizes_and_costs_to_one() {
     assert_eq!(weighted.edge_costs(), &[1]);
     assert_eq!(floating.vertex_prizes(), &[1.0, 1.0]);
     assert_eq!(floating.edge_costs(), &[1.0]);
-    assert!(!PrizeCollectingSteinerForestI64CreateSpec::INPUTS[2].required);
-    assert!(!PrizeCollectingSteinerForestI64CreateSpec::INPUTS[3].required);
+    assert!(!PrizeCollectingSteinerForestI64CreateSpec::inputs()[2].required);
+    assert!(!PrizeCollectingSteinerForestI64CreateSpec::inputs()[3].required);
 }

@@ -215,9 +215,23 @@ crate::impl_random_generate!(MaximumClique<SimpleGraph, One>, crate::random::Sim
     Ok(MaximumClique::new(spec.graph()?, vec![One; spec.num_vertices]))
 });
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumCliqueOneCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+}
+
+impl TryFrom<MaximumCliqueOneCreateSpec> for MaximumClique<SimpleGraph, One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MaximumCliqueOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_vertices()];
+        Ok(Self::new(spec.graph, weights))
+    }
+}
+
 crate::declare_variants! {
     MaximumClique<SimpleGraph, i64> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i64> random,
-    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One> random,
+    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueOneCreateSpec random,
 }
 
 crate::register_brute_force! {

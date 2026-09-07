@@ -108,6 +108,8 @@ pub(super) fn create_schema_driven(
         )?;
 
     if let Some(inputs) = variant_entry.create_inputs {
+        let inputs = inputs();
+        let inputs = inputs.as_slice();
         let data = normalize_registered_create_inputs(args, inputs, resolved_variant)
             .map_err(|error| with_registered_usage(error, canonical, inputs))?;
         return construct_canonical(variant_entry, canonical, resolved_variant, data)
@@ -301,7 +303,7 @@ pub(crate) fn create_inputs_for(
     let mut inputs = BTreeMap::<String, (InputValueKind, String)>::new();
 
     if let Some(custom_inputs) = variant_entry.create_inputs {
-        for input in custom_inputs {
+        for input in custom_inputs() {
             let concrete_type = resolve_schema_field_type(input.type_name, resolved_variant);
             insert_create_input(
                 &mut inputs,
@@ -362,7 +364,7 @@ pub(crate) fn create_inputs_for(
             InputValueKind::Bool,
             "random generation",
         );
-        for input in random.inputs {
+        for input in (random.inputs)() {
             let concrete_type = resolve_schema_field_type(input.type_name, resolved_variant);
             insert_create_input(
                 &mut inputs,
@@ -405,7 +407,7 @@ fn input_value_kind(concrete_type: &str) -> InputValueKind {
     }
 }
 
-pub(super) fn resolve_schema_field_type(
+pub(crate) fn resolve_schema_field_type(
     type_name: &str,
     resolved_variant: &BTreeMap<String, String>,
 ) -> String {

@@ -43,7 +43,7 @@ pub struct MixedChinesePostman<W: WeightElement<Sum = i64>> {
 }
 
 macro_rules! mixed_chinese_postman_create_spec {
-    ($name:ident, $weight:ty, $one:expr) => {
+    ($name:ident, $weight:ty, $one:expr $(, $arc_weights:ident, $edge_weights:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             /// Undirected graph edges.
@@ -54,12 +54,16 @@ macro_rules! mixed_chinese_postman_create_spec {
             arcs: Vec<(usize, usize)>,
             /// Vertex count, needed to preserve isolated vertices.
             num_vertices: Option<usize>,
+            $(
             /// Directed-arc lengths; defaults to one per arc.
             #[create(codec = "comma-separated")]
-            arc_weights: Option<Vec<$weight>>,
+            $arc_weights: Option<Vec<$weight>>,
+            )?
+            $(
             /// Undirected-edge lengths; defaults to one per edge.
             #[create(codec = "comma-separated")]
-            edge_weights: Option<Vec<$weight>>,
+            $edge_weights: Option<Vec<$weight>>,
+            )?
         }
 
         impl TryFrom<$name> for MixedChinesePostman<$weight> {
@@ -98,12 +102,8 @@ macro_rules! mixed_chinese_postman_create_spec {
                         ).into());
                     }
                 }
-                let arc_weights = spec
-                    .arc_weights
-                    .unwrap_or_else(|| vec![$one; spec.arcs.len()]);
-                let edge_weights = spec
-                    .edge_weights
-                    .unwrap_or_else(|| vec![$one; spec.graph.len()]);
+                let arc_weights = { $(if let Some(value) = spec.$arc_weights { value } else)? { vec![$one; spec.arcs.len()] } };
+                let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; spec.graph.len()] } };
                 MixedChinesePostman::try_new(
                     MixedGraph::new(num_vertices, spec.arcs, spec.graph),
                     arc_weights,
@@ -114,7 +114,13 @@ macro_rules! mixed_chinese_postman_create_spec {
     };
 }
 
-mixed_chinese_postman_create_spec!(MixedChinesePostmanI64CreateSpec, i64, 1_i64);
+mixed_chinese_postman_create_spec!(
+    MixedChinesePostmanI64CreateSpec,
+    i64,
+    1_i64,
+    arc_weights,
+    edge_weights
+);
 mixed_chinese_postman_create_spec!(MixedChinesePostmanOneCreateSpec, One, One);
 
 impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {

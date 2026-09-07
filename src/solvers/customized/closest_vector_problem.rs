@@ -1,4 +1,4 @@
-//! Textbook floating-point sphere enumeration for CVP.
+//! Floating-point CVP sphere enumeration in nearest-first (Schnorr--Euchner) order.
 
 use crate::models::algebraic::{ClosestVectorProblem, ClosestVectorTarget};
 use crate::solvers::SolveError;
@@ -113,8 +113,7 @@ fn enumerate(
     best: &mut Vec<i64>,
     best_squared: &mut f64,
 ) -> Result<(), SolveError> {
-    let remaining = *best_squared - partial_squared;
-    if remaining < 0.0 {
+    if partial_squared >= *best_squared {
         return Ok(());
     }
 
@@ -126,44 +125,48 @@ fn enumerate(
             "computing a CVP enumeration center",
         )?;
     }
-    let radius = finite(
-        (remaining / norms[level]).sqrt(),
-        "computing a CVP enumeration radius",
-    )?;
-    let lower = (center - radius).ceil().to_i64().ok_or_else(|| {
-        SolveError::IntegerOverflow("converting a CVP coefficient interval endpoint".into())
-    })?;
-    let upper = (center + radius).floor().to_i64().ok_or_else(|| {
-        SolveError::IntegerOverflow("converting a CVP coefficient interval endpoint".into())
-    })?;
+    let mut candidate = center
+        .round()
+        .to_i64()
+        .ok_or_else(|| SolveError::IntegerOverflow("rounding a CVP enumeration center".into()))?;
+    let nearest = crate::types::i64_to_exact_f64(candidate)?;
+    let mut step = if center > nearest { 1_i64 } else { -1 };
 
-    crate::types::i64_to_exact_f64(lower)?;
-    crate::types::i64_to_exact_f64(upper)?;
-    for candidate in lower..=upper {
+    // Visit the nearest integer, then alternate sides in increasing distance.
+    // The first descent tries the nearest-plane candidate; every subsequent
+    // branch uses the improved incumbent rather than a fixed initial interval.
+    loop {
         coefficients[level] = candidate;
-        let candidate = crate::types::i64_to_exact_f64(candidate)?;
-        let delta = candidate - center;
+        let delta = crate::types::i64_to_exact_f64(candidate)? - center;
         let next_squared = finite(
             partial_squared + norms[level] * delta * delta,
             "computing a CVP partial distance",
         )?;
-        if level == 0 {
-            if next_squared < *best_squared {
-                *best_squared = next_squared;
-                best.clone_from_slice(coefficients);
-            }
-        } else {
-            enumerate(
-                level - 1,
-                next_squared,
-                mu,
-                norms,
-                alpha,
-                coefficients,
-                best,
-                best_squared,
-            )?;
+        if next_squared >= *best_squared {
+            break;
         }
+        if level == 0 {
+            *best_squared = next_squared;
+            best.clone_from_slice(coefficients);
+            break;
+        }
+        enumerate(
+            level - 1,
+            next_squared,
+            mu,
+            norms,
+            alpha,
+            coefficients,
+            best,
+            best_squared,
+        )?;
+        if partial_squared >= *best_squared {
+            break;
+        }
+        // Differences +1,-2,+3,... (or -1,+2,-3,...) alternate around the center.
+        // Exact f64 coefficient transport keeps these i64 updates below 2^55.
+        candidate += step;
+        step = -step - step.signum();
     }
     Ok(())
 }

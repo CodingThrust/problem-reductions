@@ -313,11 +313,13 @@ fn explicit_independent_set_variants_round_trip_through_standard_api() {
         } else {
             serde_json::json!({"positions": [[0,0],[1,0],[2,0]]})
         };
-        for explicit in [false, true] {
+        for explicit in [false, true]
+            .into_iter()
+            .filter(|&explicit| !explicit || weight != "One")
+        {
             let mut input = base.clone();
             if explicit {
                 input["weights"] = match weight {
-                    "One" => serde_json::json!([1, 1, 1]),
                     "i64" => serde_json::json!([1, 5, 2]),
                     "f64" => serde_json::json!([0.5, 2.5, 0.75]),
                     _ => unreachable!(),

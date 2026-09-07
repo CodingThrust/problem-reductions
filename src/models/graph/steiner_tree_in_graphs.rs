@@ -341,9 +341,31 @@ crate::impl_random_generate!(SteinerTreeInGraphs<SimpleGraph, i64>, crate::rando
     Ok(SteinerTreeInGraphs::new(graph, terminals, weights))
 });
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SteinerTreeInGraphsOneCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    terminals: Vec<usize>,
+}
+
+impl TryFrom<SteinerTreeInGraphsOneCreateSpec> for SteinerTreeInGraphs<SimpleGraph, One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: SteinerTreeInGraphsOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_edges()];
+        if let Some(&terminal) = spec
+            .terminals
+            .iter()
+            .find(|&&t| t >= spec.graph.num_vertices())
+        {
+            return Err(format!("terminal {terminal} is outside the graph").into());
+        }
+        Ok(Self::new(spec.graph, spec.terminals, weights))
+    }
+}
+
 crate::declare_variants! {
     default SteinerTreeInGraphs<SimpleGraph, i64> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<i64> random,
-    SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<One>,
+    SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsOneCreateSpec,
 }
 
 crate::register_brute_force! {

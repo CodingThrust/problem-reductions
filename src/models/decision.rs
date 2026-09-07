@@ -46,15 +46,6 @@ macro_rules! register_decision_variant {
         decode: $decoder:expr
         $(, $random:ident)?
     ) => {
-        impl $crate::registry::CreateSpec
-            for $crate::models::decision::DecisionCreateSpec<$inner>
-        {
-            const FIELDS: &'static [$crate::registry::FieldInfo] = &[$($field),*];
-            const INPUTS: &'static [$crate::registry::CreateInputInfo] = &[
-                $($crate::registry::CreateInputInfo::from_field($field)),*
-            ];
-        }
-
         $crate::register_decision_variant!(@declare $inner, $complexity, $decoder, [$($($additional => $additional_complexity),*)?] $(, $random)?);
 
         $crate::inventory::submit! {
@@ -72,14 +63,6 @@ macro_rules! register_decision_variant {
 
         $crate::register_decision_variant!(@edges $inner, $name);
         $($(
-            impl $crate::registry::CreateSpec
-                for $crate::models::decision::DecisionCreateSpec<$additional>
-            {
-                const FIELDS: &'static [$crate::registry::FieldInfo] =
-                    <$crate::models::decision::DecisionCreateSpec<$inner> as $crate::registry::CreateSpec>::FIELDS;
-                const INPUTS: &'static [$crate::registry::CreateInputInfo] =
-                    <$crate::models::decision::DecisionCreateSpec<$inner> as $crate::registry::CreateSpec>::INPUTS;
-            }
             $crate::register_brute_force! {
                 $crate::models::decision::Decision<$additional> decode $decoder,
             }
@@ -199,9 +182,35 @@ where
     bound: <P::Value as OptimizationValue>::Inner,
 }
 
+impl<P> crate::registry::CreateSpec for DecisionCreateSpec<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    const FIELDS: &'static [crate::registry::FieldInfo] = &[];
+
+    fn inputs() -> Vec<crate::registry::CreateInputInfo> {
+        let variant = P::variant()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let entry = crate::registry::find_variant_entry(P::NAME, &variant)
+            .expect("decision inner variant must be registered");
+        let mut inputs = entry.inputs();
+        inputs.push(crate::registry::CreateInputInfo {
+            name: "bound",
+            type_name: std::any::type_name::<<P::Value as OptimizationValue>::Inner>(),
+            description: "Decision objective bound",
+            required: true,
+            codec: crate::registry::CreateInputCodec::Scalar,
+        });
+        inputs
+    }
+}
+
 impl<'de, P> Deserialize<'de> for DecisionCreateSpec<P>
 where
-    P: Problem + DeserializeOwned,
+    P: Problem + 'static,
     P::Value: OptimizationValue,
     <P::Value as OptimizationValue>::Inner: DeserializeOwned,
 {
@@ -216,8 +225,17 @@ where
         let bound = inputs
             .remove("bound")
             .ok_or_else(|| serde::de::Error::missing_field("bound"))?;
-        let inner = serde_json::from_value(serde_json::Value::Object(inputs))
+        let variant = P::variant()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let entry = crate::registry::find_variant_entry(P::NAME, &variant)
+            .expect("decision inner variant must be registered");
+        let constructed = (entry.construct_fn)(serde_json::Value::Object(inputs))
             .map_err(serde::de::Error::custom)?;
+        let inner = *(constructed as Box<dyn std::any::Any>)
+            .downcast::<P>()
+            .expect("registered constructor must return the declared inner type");
         let bound = serde_json::from_value(bound).map_err(serde::de::Error::custom)?;
         Ok(Self { inner, bound })
     }

@@ -40,3 +40,33 @@ fn test_negative_cycle_cancellation_minimum_cost_circulation_handles_multigraph(
     let solution = solve(&problem).unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap().0, Some(-12));
 }
+
+#[test]
+fn test_circulation_overflow_propagates_through_default_solver() {
+    for (graph, costs, operation) in [
+        (
+            DirectedGraph::new(2, vec![(0, 1), (1, 0)]),
+            vec![-5_000_000_000_000_000_000, 0],
+            "relaxing a circulation residual arc",
+        ),
+        (
+            DirectedGraph::new(1, vec![(0, 0)]),
+            vec![i64::MIN],
+            "negating a circulation residual cost",
+        ),
+    ] {
+        let problem = MinimumCostCirculation::new(graph, vec![1; costs.len()], costs);
+        let reference = BruteForce::new().solve(&problem).unwrap().unwrap();
+        assert!(problem.evaluate(&reference).unwrap().is_valid());
+        let loaded = crate::registry::load_dyn(
+            MinimumCostCirculation::NAME,
+            &std::collections::BTreeMap::new(),
+            serde_json::to_value(problem).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            crate::solvers::solve(&loaded, crate::solvers::SolverRequest::Default),
+            Err(SolveError::IntegerOverflow(message)) if message == operation
+        ));
+    }
+}

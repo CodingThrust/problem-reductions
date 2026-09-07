@@ -190,9 +190,23 @@ where
     }
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumFeedbackVertexSetOneCreateSpec {
+    /// The underlying graph.
+    graph: DirectedGraph,
+}
+
+impl TryFrom<MinimumFeedbackVertexSetOneCreateSpec> for MinimumFeedbackVertexSet<One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumFeedbackVertexSetOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_vertices()];
+        Ok(Self::new(spec.graph, weights))
+    }
+}
+
 crate::declare_variants! {
     default MinimumFeedbackVertexSet<i64> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec<i64>,
-    MinimumFeedbackVertexSet<One> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec<One>,
+    MinimumFeedbackVertexSet<One> => "1.9977^num_vertices" create MinimumFeedbackVertexSetOneCreateSpec,
 }
 
 crate::register_brute_force! {

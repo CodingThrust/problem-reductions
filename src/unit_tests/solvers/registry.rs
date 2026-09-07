@@ -54,26 +54,25 @@ fn generic_decision_ilp_respects_maximization_bounds() {
     );
     for bound in [0, 1, 2] {
         let decision = Decision::new(inner.clone(), bound);
-        let result = pipeline
-            .solve(&decision, &crate::solvers::ILPSolver::new())
-            .unwrap();
-        assert_eq!(result.is_some(), bound <= 1);
-        assert_eq!(
-            result.is_some(),
-            BruteForce::new().solve(&decision).unwrap().is_some()
-        );
-        if let Some(solution) = result {
-            let solution: Vec<bool> = serde_json::from_value(solution).unwrap();
-            assert_eq!(
-                crate::traits::Problem::evaluate(&decision, &solution).unwrap(),
-                crate::types::Or(true)
-            );
+        let result = pipeline.solve(&decision, &crate::solvers::ILPSolver::new());
+        if bound > 1 {
+            assert!(matches!(
+                result,
+                Err(crate::solvers::ILPSolveError::UnresolvedDecision(_))
+            ));
+            assert!(BruteForce::new().solve(&decision).unwrap().is_none());
+            continue;
         }
+        let solution: Vec<bool> = serde_json::from_value(result.unwrap()).unwrap();
+        assert_eq!(
+            crate::traits::Problem::evaluate(&decision, &solution).unwrap(),
+            crate::types::Or(true)
+        );
     }
 }
 
 #[test]
-fn generic_decision_ilp_skips_no_witness_but_preserves_extraction_errors() {
+fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::{ExtractionError, ReductionResult};
@@ -114,12 +113,10 @@ fn generic_decision_ilp_skips_no_witness_but_preserves_extraction_errors() {
         Ok(Box::new(BrokenExtractor(source.inner().clone())))
     };
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
-    assert_eq!(
-        pipeline
-            .solve(&Decision::new(inner.clone(), 0), &ILPSolver::new())
-            .unwrap(),
-        None
-    );
+    assert!(matches!(
+        pipeline.solve(&Decision::new(inner.clone(), 0), &ILPSolver::new()),
+        Err(ILPSolveError::UnresolvedDecision(_))
+    ));
     assert!(matches!(
         pipeline.solve(&Decision::new(inner, 1), &ILPSolver::new()),
         Err(ILPSolveError::Extraction(ExtractionError::Reduction { message, .. }))

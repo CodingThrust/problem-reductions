@@ -79,7 +79,7 @@ register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| Ok(
 register_customized_solver!(
     MinimumCostCirculation,
     "negative-cycle-canceling",
-    |problem| Ok(super::minimum_cost_circulation::solve(problem))
+    |problem| super::minimum_cost_circulation::solve(problem).map(Some)
 );
 register_customized_solver!(
     MinimumIntersectionGraphBasis<SimpleGraph>,

@@ -268,8 +268,26 @@ fn is_co_k_plex_config<G: Graph>(graph: &G, config: &[bool], bound_k: usize) -> 
     true
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumCoKPlexOneCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    k: usize,
+}
+
+impl TryFrom<MaximumCoKPlexOneCreateSpec> for MaximumCoKPlex<SimpleGraph, One, KN> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MaximumCoKPlexOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_vertices()];
+        if spec.k == 0 {
+            return Err("k must be at least 1".into());
+        }
+        Ok(Self::with_k(spec.graph, weights, spec.k))
+    }
+}
+
 crate::declare_variants! {
-    default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices" create MaximumCoKPlexCreateSpec<One>,
+    default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices" create MaximumCoKPlexOneCreateSpec,
     MaximumCoKPlex<SimpleGraph, i64, KN>          => "2^num_vertices" create MaximumCoKPlexCreateSpec<i64>,
 }
 

@@ -619,13 +619,44 @@ fn test_export_stdout() {
 }
 
 #[test]
-fn test_show_includes_fields() {
+fn test_show_includes_concrete_inputs() {
     let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Fields"));
+    assert!(stdout.contains("Inputs"));
     assert!(stdout.contains("graph"));
-    assert!(stdout.contains("weights"));
+    assert!(!stdout.contains("  weights ("));
+}
+
+#[test]
+fn test_show_inputs_follow_the_selected_variant() {
+    for (spec, required_field, absent_field) in [
+        ("MVC/One", "graph", "weights"),
+        ("MVC/i64", "weights", "positions"),
+        ("MIS/KingsSubgraph/One", "positions", "graph"),
+        ("DecisionMaximumIndependentSet/One", "bound", "weights"),
+    ] {
+        let output = pred().args(["show", spec, "--json"]).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{spec}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let inputs = result["inputs"].as_array().unwrap();
+        assert!(
+            inputs.iter().any(|input| input["name"] == required_field),
+            "{spec}"
+        );
+        assert!(
+            !inputs.iter().any(|input| input["name"] == absent_field),
+            "{spec}"
+        );
+        assert!(result["schema"].get("fields").is_none());
+        assert!(inputs
+            .iter()
+            .all(|input| !input["type_name"].as_str().unwrap().contains("<W>")));
+    }
 }
 
 #[test]
@@ -2287,7 +2318,7 @@ fn test_create_comparative_containment_one_rejects_nonunit_weights() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("expected 1 for One, got 2"),
+        stderr.contains("unexpected argument '--r-weights'"),
         "stderr: {stderr}"
     );
 }
@@ -2620,8 +2651,6 @@ fn test_create_then_evaluate() {
             "MIS",
             "--graph",
             "0-1,1-2,2-3",
-            "--weights",
-            "1,1,1,1",
         ])
         .output()
         .unwrap();
@@ -4451,8 +4480,8 @@ fn test_create_no_flags_shows_help() {
         "expected '--graph' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--weights"),
-        "expected '--weights' in help output, got: {stderr}"
+        !stderr.contains("--weights"),
+        "unit weights should not appear in help output, got: {stderr}"
     );
 }
 
@@ -8179,7 +8208,7 @@ fn test_create_kings_subgraph_help() {
 #[test]
 fn test_create_geometry_graph_missing_positions() {
     let output = pred()
-        .args(["create", "MIS/KingsSubgraph", "--weights", "1,2,3"])
+        .args(["create", "MIS/KingsSubgraph/i64", "--weights", "1,2,3"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -8800,23 +8829,15 @@ fn test_create_nonunit_weights_require_weighted_variant() {
     );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("expected 1 for One, got 3"),
+        stderr.contains("unexpected argument '--weights'"),
         "stderr should reject non-unit input for the One variant: {stderr}"
     );
 }
 
 #[test]
-fn test_create_unit_weights_stays_one() {
-    // When all weights are 1, the variant should remain One.
+fn test_create_unit_weights_are_implicit() {
     let output = pred()
-        .args([
-            "create",
-            "MIS",
-            "--graph",
-            "0-1,1-2,2-3",
-            "--weights",
-            "1,1,1,1",
-        ])
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3"])
         .output()
         .unwrap();
     assert!(
@@ -8827,6 +8848,7 @@ fn test_create_unit_weights_stays_one() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["variant"]["weight"], "One");
+    assert_eq!(json["data"]["weights"], serde_json::json!([1, 1, 1, 1]));
 }
 
 #[test]

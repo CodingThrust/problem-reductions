@@ -96,34 +96,6 @@ struct SteinerTreeCreateSpec<W> {
 impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<SimpleGraph, W> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: SteinerTreeCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.edge_weights.len() != spec.graph.num_edges() {
-            return Err(format!(
-                "edge_weights has {} entries, expected {}",
-                spec.edge_weights.len(),
-                spec.graph.num_edges()
-            )
-            .into());
-        }
-        if spec.terminals.len() < 2 {
-            return Err("at least two terminals are required".to_string().into());
-        }
-        let mut distinct = spec.terminals.clone();
-        distinct.sort_unstable();
-        distinct.dedup();
-        if distinct.len() != spec.terminals.len() {
-            return Err("terminals must be distinct".to_string().into());
-        }
-        if let Some(&terminal) = spec
-            .terminals
-            .iter()
-            .find(|&&t| t >= spec.graph.num_vertices())
-        {
-            return Err(format!(
-                "terminal {terminal} is outside graph with {} vertices",
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
         Self::try_new(spec.graph, spec.edge_weights, spec.terminals).map_err(Into::into)
     }
 }
@@ -358,9 +330,24 @@ crate::impl_random_generate!(SteinerTree<SimpleGraph, i64>, crate::random::Simpl
     Ok(SteinerTree::new(graph, weights, terminals))
 });
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SteinerTreeOneCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    terminals: Vec<usize>,
+}
+
+impl TryFrom<SteinerTreeOneCreateSpec> for SteinerTree<SimpleGraph, One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: SteinerTreeOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_edges()];
+        Self::try_new(spec.graph, weights, spec.terminals).map_err(Into::into)
+    }
+}
+
 crate::declare_variants! {
     default SteinerTree<SimpleGraph, i64> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
-    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<One>,
+    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeOneCreateSpec,
 }
 
 crate::register_brute_force! {

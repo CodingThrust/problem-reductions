@@ -31,16 +31,17 @@ pub struct SolveResult {
     pub outcome: SolveOutcome,
 }
 
-/// Semantic result of a completed exact solve.
+/// Semantic result of a completed solve under the selected backend's numerical contract.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum SolveOutcome {
-    /// The exact optimum and a corresponding solution were established.
+    /// The selected backend established optimality and returned a solution.
+    /// ILP optimality is subject to backend numerical tolerances.
     Optimal {
         solution: serde_json::Value,
         evaluation: String,
     },
-    /// The solver proved that the instance has no feasible configuration.
+    /// The selected backend established infeasibility under its numerical contract.
     Infeasible,
 }
 
@@ -72,11 +73,11 @@ fn solve_ilp(
     pipeline: &CompiledIlpPipeline,
 ) -> Result<SolveResult, super::SolveError> {
     let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
-        Ok(Some(solution)) => SolveOutcome::Optimal {
+        Ok(solution) => SolveOutcome::Optimal {
             evaluation: problem.evaluate_dyn(&solution)?,
             solution,
         },
-        Ok(None) | Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
+        Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
         Err(source) => {
             return Err(super::SolveError::IlpSolve {
                 problem: problem_key(problem).label(),

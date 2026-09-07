@@ -43,6 +43,25 @@ trait Problem: Clone {
 - **Solve contract** — a successful solve always returns the problem's `Solution`; a global count or statistic without a representative solution is not a `Problem` solve.
 - **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
 
+## Construction inputs
+
+`VariantEntry::inputs()` describes the values a concrete constructor accepts.
+Models with a separate construction specification supply `CreateSpec::inputs()`;
+direct constructors use their declared fields. CLI creation, MCP creation, and
+`pred show` use this contract. Model-level
+catalog fields describe the model family; they are not a concrete variant's input
+schema. `show` exposes concrete `inputs` in JSON and labels them **Inputs** in text.
+
+Unit-valued data are implicit in `One` variants. For example, `MVC/One` accepts a
+graph, while `MVC/i64` also accepts vertex weights. Constructors derive unit-vector
+lengths from the graph, set family, or task deadlines. Internal `Vec<One>` storage
+and persisted instance JSON remain independent of construction inputs. Supplying
+an undeclared weight or length input is an error, even when every value is one.
+
+`Decision<P>` composes the registered inputs of `P` with an objective `bound` and
+calls `P`'s registered constructor before wrapping the result. It does not repeat
+the inner input schema or deserialize construction inputs as persisted model JSON.
+
 ## Numeric types and arithmetic
 
 Numeric formats are selected by semantic role:
@@ -391,6 +410,19 @@ proved infeasibility, and `Err` reports an operational failure.
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
 | **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved by HiGHS via `good_lp`. |
+
+ILP results are optimal or infeasible according to HiGHS numerical tolerances;
+zero MIP gaps do not imply mathematical exactness. Integer extraction rounds
+variable assignments, validates the original constraints, and recomputes the
+source objective with checked integer arithmetic. Floating-point objective
+comparisons in numerical regression tests use an explicit acceptance policy
+in source units (absolute and relative tolerances of `1e-7` for the QUBO solver
+regression), separate from the `1e-6` variable-rounding tolerance. This test
+policy is not a universal bound on backend objective error.
+
+When an ILP target witness misses a source decision threshold, the solver
+returns `ILPSolveError::UnresolvedDecision`, not infeasibility: the witness
+alone cannot prove that no qualifying source solution exists.
 
 ## JSON Serialization
 

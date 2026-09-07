@@ -277,12 +277,13 @@ fn test_decision_mis_unit_registration_and_construction() {
         defaults[0].variant(),
         vec![("graph", "SimpleGraph"), ("weight", "i64")]
     );
-    assert_eq!(
-        DecisionCreateSpec::<Unit>::FIELDS,
-        DecisionCreateSpec::<Weighted>::FIELDS
-    );
-    assert_eq!(DecisionCreateSpec::<Unit>::INPUTS.len(), 3);
-    let data = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"weights":[1,1,1],"bound":2});
+    assert!(!DecisionCreateSpec::<Unit>::inputs()
+        .iter()
+        .any(|input| input.name == "weights"));
+    assert!(DecisionCreateSpec::<Weighted>::inputs()
+        .iter()
+        .any(|input| input.name == "weights"));
+    let data = serde_json::json!({"graph":[[0,1],[1,2]],"bound":2});
     let spec: DecisionCreateSpec<Unit> = serde_json::from_value(data.clone()).unwrap();
     let decision: Decision<Unit> = spec.into();
     assert_eq!(decision.evaluate(&vec![true, false, true]), Ok(Or(true)));
@@ -295,7 +296,7 @@ fn test_decision_mis_unit_registration_and_construction() {
         decision.parameters()
     );
     let mut invalid = data;
-    invalid["weights"][0] = serde_json::json!(2);
+    invalid["weights"] = serde_json::json!([1, 1, 1]);
     assert!(serde_json::from_value::<DecisionCreateSpec<Unit>>(invalid).is_err());
 }
 

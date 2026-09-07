@@ -152,13 +152,14 @@ impl SimpleGraphRandomSpec {
 macro_rules! impl_random_generate {
     ($target:ty, $spec:ty, |$input:ident| $body:block) => {
         impl $crate::registry::RandomGenerate for $target {
-            const INPUTS: &'static [$crate::registry::CreateInputInfo] =
-                <$spec as $crate::registry::CreateSpec>::INPUTS;
+            fn inputs() -> Vec<$crate::registry::CreateInputInfo> {
+                <$spec as $crate::registry::CreateSpec>::inputs()
+            }
 
             fn generate(
                 data: serde_json::Value,
             ) -> Result<Self, $crate::registry::ConstructionError> {
-                $crate::registry::validate_create_inputs(Self::INPUTS, &data)?;
+                $crate::registry::validate_create_inputs(&Self::inputs(), &data)?;
                 let $input: $spec = <$spec as $crate::registry::CreateSpec>::deserialize_inputs(
                     data,
                 )

@@ -414,6 +414,23 @@ pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputCon
     )
 }
 
+pub(crate) fn construction_inputs(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+) -> Vec<serde_json::Value> {
+    problemreductions::registry::find_variant_entry(name, variant)
+        .expect("resolved variant must be registered")
+        .inputs()
+        .iter()
+        .map(|input| {
+            let mut value = serde_json::json!(input);
+            value["type_name"] =
+                crate::commands::create::resolve_schema_field_type(input.type_name, variant).into();
+            value
+        })
+        .collect()
+}
+
 pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
     let resolved = resolve_problem_ref(problem, &graph)?;
@@ -424,6 +441,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let is_default = default_variant.as_ref() == Some(variant);
     let schemas = collect_schemas();
     let schema = schemas.iter().find(|s| s.name == *name);
+    let inputs = construction_inputs(name, variant);
     let parameters = graph.parameter_names(name);
     let outgoing: Vec<_> = graph
         .outgoing_reductions(name)
@@ -452,18 +470,24 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
                     big_o_of(&Expr::parse(complexity))
                 ));
             }
-            if let Some(schema) = schema {
+            text.push_str(&format!(
+                "\n{}\n",
+                crate::output::fmt_section(&format!("Inputs ({}):", inputs.len()))
+            ));
+            for input in &inputs {
                 text.push_str(&format!(
-                    "\n{}\n",
-                    crate::output::fmt_section(&format!("Fields ({}):", schema.fields.len()))
+                    "  {} ({})",
+                    input["name"].as_str().unwrap(),
+                    input["type_name"].as_str().unwrap()
                 ));
-                for field in &schema.fields {
-                    text.push_str(&format!("  {} ({})", field.name, field.type_name));
-                    if !field.description.is_empty() {
-                        text.push_str(&format!(" -- {}", field.description));
-                    }
-                    text.push('\n');
+                if !input["required"].as_bool().unwrap() {
+                    text.push_str(" [optional]");
                 }
+                let description = input["description"].as_str().unwrap();
+                if !description.is_empty() {
+                    text.push_str(&format!(" -- {description}"));
+                }
+                text.push('\n');
             }
             if !parameters.is_empty() {
                 text.push_str(&format!(
@@ -526,12 +550,14 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
                 } else {
                     big_o_of(&Expr::parse(complexity))
                 },
+                "inputs": inputs,
                 "parameters": parameters,
                 "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
                 "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
             });
             if let Some(schema) = schema {
                 json["schema"] = serde_json::to_value(schema)?;
+                json["schema"].as_object_mut().unwrap().remove("fields");
             }
             Ok(json)
         },

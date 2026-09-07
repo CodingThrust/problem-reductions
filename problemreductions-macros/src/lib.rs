@@ -130,9 +130,9 @@ fn generate_create_spec(input: &DeriveInput) -> syn::Result<TokenStream2> {
             const FIELDS: &'static [crate::registry::FieldInfo] = &[
                 #(#field_entries),*
             ];
-            const INPUTS: &'static [crate::registry::CreateInputInfo] = &[
-                #(#input_entries),*
-            ];
+            fn inputs() -> Vec<crate::registry::CreateInputInfo> {
+                vec![#(#input_entries),*]
+            }
 
             fn deserialize_inputs(
                 mut data: serde_json::Value,
@@ -890,10 +890,10 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
         let construction_fields = if let Some(create_spec) = create_spec {
             quote! {
-                create_inputs: Some(<#create_spec as crate::registry::CreateSpec>::INPUTS),
+                create_inputs: Some(<#create_spec as crate::registry::CreateSpec>::inputs),
                 construct_fn: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
                     crate::registry::validate_create_inputs(
-                        <#create_spec as crate::registry::CreateSpec>::INPUTS,
+                        &<#create_spec as crate::registry::CreateSpec>::inputs(),
                         &data,
                     )?;
                     let spec: #create_spec = <#create_spec as crate::registry::CreateSpec>::deserialize_inputs(data)
@@ -919,7 +919,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let random_registration = if random {
             quote! {
                 Some(crate::registry::RandomRegistration {
-                    inputs: <#ty as crate::registry::RandomGenerate>::INPUTS,
+                    inputs: <#ty as crate::registry::RandomGenerate>::inputs,
                     generate: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
                         Ok(Box::new(<#ty as crate::registry::RandomGenerate>::generate(data)?))
                     },

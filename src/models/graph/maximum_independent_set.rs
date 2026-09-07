@@ -24,7 +24,7 @@ inventory::submit! {
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum weight independent set in a graph",
-        fields: MaximumIndependentSetSimpleOneCreateSpec::FIELDS,
+        fields: MaximumIndependentSetSimpleI64CreateSpec::FIELDS,
     }
 }
 
@@ -67,14 +67,16 @@ pub struct MaximumIndependentSet<G, W> {
 }
 
 macro_rules! simple_mis_spec {
-    ($name:ident,$weight:ty,$one:expr) => {
+    ($name:ident,$weight:ty,$one:expr $(, $weights:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             #[create(codec = "edge-list")]
             graph: Vec<(usize, usize)>,
             num_vertices: Option<usize>,
+            $(
             #[create(codec = "comma-separated")]
-            weights: Option<Vec<$weight>>,
+            $weights: Option<Vec<$weight>>,
+            )?
         }
         impl TryFrom<$name> for MaximumIndependentSet<SimpleGraph, $weight> {
             type Error = crate::registry::ConstructionError;
@@ -99,7 +101,7 @@ macro_rules! simple_mis_spec {
                 if count < inferred {
                     return Err("num_vertices is too small".into());
                 }
-                let weights = spec.weights.unwrap_or_else(|| vec![$one; count]);
+                let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; count] } };
                 if weights.len() != count {
                     return Err("weights length must match num_vertices".into());
                 }
@@ -112,23 +114,33 @@ macro_rules! simple_mis_spec {
     };
 }
 simple_mis_spec!(MaximumIndependentSetSimpleOneCreateSpec, One, One);
-simple_mis_spec!(MaximumIndependentSetSimpleI64CreateSpec, i64, 1_i64);
-simple_mis_spec!(MaximumIndependentSetSimpleF64CreateSpec, f64, 1_f64);
+simple_mis_spec!(
+    MaximumIndependentSetSimpleI64CreateSpec,
+    i64,
+    1_i64,
+    weights
+);
+simple_mis_spec!(
+    MaximumIndependentSetSimpleF64CreateSpec,
+    f64,
+    1_f64,
+    weights
+);
 
 macro_rules! grid_mis_spec {
-    ($name:ident,$graph:ty,$weight:ty,$one:expr) => {
+    ($name:ident,$graph:ty,$weight:ty,$one:expr $(, $weights:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             positions: Vec<(i64, i64)>,
+            $(
             #[create(codec = "comma-separated")]
-            weights: Option<Vec<$weight>>,
+            $weights: Option<Vec<$weight>>,
+            )?
         }
         impl TryFrom<$name> for MaximumIndependentSet<$graph, $weight> {
             type Error = crate::registry::ConstructionError;
             fn try_from(spec: $name) -> Result<Self, crate::registry::ConstructionError> {
-                let weights = spec
-                    .weights
-                    .unwrap_or_else(|| vec![$one; spec.positions.len()]);
+                let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; spec.positions.len()] } };
                 if weights.len() != spec.positions.len() {
                     return Err("weights length must match positions length".into());
                 }
@@ -150,31 +162,33 @@ grid_mis_spec!(
     MaximumIndependentSetKingsI64CreateSpec,
     KingsSubgraph,
     i64,
-    1_i64
+    1_i64,
+    weights
 );
 grid_mis_spec!(
     MaximumIndependentSetTriangularI64CreateSpec,
     TriangularSubgraph,
     i64,
-    1_i64
+    1_i64,
+    weights
 );
 
 macro_rules! unit_disk_mis_spec {
-    ($name:ident,$weight:ty,$one:expr) => {
+    ($name:ident,$weight:ty,$one:expr $(, $weights:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             positions: Vec<(f64, f64)>,
             radius: Option<f64>,
+            $(
             #[create(codec = "comma-separated")]
-            weights: Option<Vec<$weight>>,
+            $weights: Option<Vec<$weight>>,
+            )?
         }
         impl TryFrom<$name> for MaximumIndependentSet<UnitDiskGraph, $weight> {
             type Error = ConstructionError;
             fn try_from(spec: $name) -> Result<Self, ConstructionError> {
                 let radius = spec.radius.unwrap_or(1.0);
-                let weights = spec
-                    .weights
-                    .unwrap_or_else(|| vec![$one; spec.positions.len()]);
+                let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; spec.positions.len()] } };
                 if weights.len() != spec.positions.len() {
                     return Err(ConstructionError::Conversion(
                         "weights length must match positions length".into(),
@@ -189,7 +203,12 @@ macro_rules! unit_disk_mis_spec {
     };
 }
 unit_disk_mis_spec!(MaximumIndependentSetUnitDiskOneCreateSpec, One, One);
-unit_disk_mis_spec!(MaximumIndependentSetUnitDiskI64CreateSpec, i64, 1_i64);
+unit_disk_mis_spec!(
+    MaximumIndependentSetUnitDiskI64CreateSpec,
+    i64,
+    1_i64,
+    weights
+);
 
 impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     /// Create an Independent Set problem from a graph with given weights.

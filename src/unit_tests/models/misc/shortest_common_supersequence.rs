@@ -18,7 +18,7 @@ fn test_shortestcommonsupersequence_create_spec_derives_stored_fields() {
     let entry = inventory::iter::<crate::registry::VariantEntry>()
         .find(|entry| entry.name == "ShortestCommonSupersequence")
         .unwrap();
-    let inputs = entry.create_inputs.unwrap();
+    let inputs = entry.create_inputs.unwrap()();
     assert_eq!(inputs.len(), 1);
     assert_eq!(inputs[0].name, "strings");
     assert_eq!(

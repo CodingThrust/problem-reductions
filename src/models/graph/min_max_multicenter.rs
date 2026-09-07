@@ -66,16 +66,20 @@ pub struct MinMaxMulticenter<G, W: WeightElement> {
 }
 
 macro_rules! min_max_multicenter_create_spec {
-    ($name:ident, $weight:ty, $one:expr) => {
+    ($name:ident, $weight:ty, $one:expr $(, $weights:ident, $edge_weights:ident)?) => {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             #[create(codec = "edge-list")]
             graph: Vec<(usize, usize)>,
             num_vertices: Option<usize>,
+            $(
             #[create(codec = "comma-separated")]
-            weights: Option<Vec<$weight>>,
+            $weights: Option<Vec<$weight>>,
+            )?
+            $(
             #[create(codec = "comma-separated")]
-            edge_weights: Option<Vec<$weight>>,
+            $edge_weights: Option<Vec<$weight>>,
+            )?
             k: usize,
         }
 
@@ -84,9 +88,7 @@ macro_rules! min_max_multicenter_create_spec {
 
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
-                let vertex_weights = spec
-                    .weights
-                    .unwrap_or_else(|| vec![$one; graph.num_vertices()]);
+                let vertex_weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; graph.num_vertices()] } };
                 if vertex_weights.len() != graph.num_vertices() {
                     return Err(format!(
                         "weights has length {}, expected {}",
@@ -95,9 +97,7 @@ macro_rules! min_max_multicenter_create_spec {
                     )
                     .into());
                 }
-                let edge_lengths = spec
-                    .edge_weights
-                    .unwrap_or_else(|| vec![$one; graph.num_edges()]);
+                let edge_lengths = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; graph.num_edges()] } };
                 if edge_lengths.len() != graph.num_edges() {
                     return Err(format!(
                         "edge_weights has length {}, expected {}",
@@ -128,7 +128,13 @@ macro_rules! min_max_multicenter_create_spec {
     };
 }
 
-min_max_multicenter_create_spec!(MinMaxMulticenterI64CreateSpec, i64, 1);
+min_max_multicenter_create_spec!(
+    MinMaxMulticenterI64CreateSpec,
+    i64,
+    1,
+    weights,
+    edge_weights
+);
 min_max_multicenter_create_spec!(MinMaxMulticenterOneCreateSpec, One, One);
 
 fn simple_graph_from_create(

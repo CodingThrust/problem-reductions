@@ -242,5 +242,5 @@ fn create_spec_defaults_precedences_to_empty() {
     })
     .unwrap();
     assert!(problem.precedences().is_empty());
-    assert!(!PreemptiveSchedulingCreateSpec::INPUTS[2].required);
+    assert!(!PreemptiveSchedulingCreateSpec::inputs()[2].required);
 }

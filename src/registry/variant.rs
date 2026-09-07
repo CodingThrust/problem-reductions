@@ -10,7 +10,7 @@ use crate::registry::FieldInfo;
 ///
 /// `Auto` asks a frontend to choose the codec from `type_name`. The explicit
 /// variants are for Rust types whose compact external syntax is ambiguous.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
 pub enum CreateInputCodec {
     /// Infer the transport syntax from the Rust value type.
     #[default]
@@ -38,7 +38,7 @@ pub enum CreateInputCodec {
 }
 
 /// A user-facing input accepted when constructing a problem instance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct CreateInputInfo {
     /// Input name in snake_case. Frontends may render it in their native style.
     pub name: &'static str,
@@ -65,12 +65,12 @@ impl CreateInputInfo {
     }
 }
 
-/// Static construction-input metadata generated from a typed create spec.
+/// Construction-input metadata generated from a typed create spec.
 pub trait CreateSpec {
     /// Construction-facing field metadata used by the problem catalog.
     const FIELDS: &'static [FieldInfo];
-    /// Inputs accepted by this construction spec.
-    const INPUTS: &'static [CreateInputInfo];
+    /// Inputs accepted by this specification, including composed decision inputs.
+    fn inputs() -> Vec<CreateInputInfo>;
 
     /// Deserialize normalized construction inputs into the typed specification.
     fn deserialize_inputs(data: serde_json::Value) -> Result<Self, serde_json::Error>
@@ -147,7 +147,7 @@ pub type ConstructProblemFn =
 #[derive(Clone, Copy)]
 pub struct RandomRegistration {
     /// Inputs accepted by the generator.
-    pub inputs: &'static [CreateInputInfo],
+    pub inputs: fn() -> Vec<CreateInputInfo>,
     /// Generate a concrete problem from normalized inputs.
     pub generate: ConstructProblemFn,
 }
@@ -155,7 +155,7 @@ pub struct RandomRegistration {
 /// A concrete problem type that can generate itself from typed random inputs.
 pub trait RandomGenerate: DynProblem + Sized {
     /// Inputs accepted by this model's random generator.
-    const INPUTS: &'static [CreateInputInfo];
+    fn inputs() -> Vec<CreateInputInfo>;
 
     /// Generate a concrete problem from normalized random inputs.
     fn generate(data: serde_json::Value) -> Result<Self, ConstructionError>;
@@ -245,7 +245,7 @@ pub struct VariantEntry {
     pub aliases: &'static [&'static str],
     /// Custom construction inputs. `None` means the catalog schema fields are
     /// also the construction inputs through the direct path.
-    pub create_inputs: Option<&'static [CreateInputInfo]>,
+    pub create_inputs: Option<fn() -> Vec<CreateInputInfo>>,
     /// Construct a validated concrete problem from normalized construction data.
     pub construct_fn: ConstructProblemFn,
     /// Model-owned random generator for this exact variant.
@@ -257,6 +257,20 @@ pub struct VariantEntry {
 }
 
 impl VariantEntry {
+    /// Inputs accepted by this concrete variant's constructor.
+    pub fn inputs(&self) -> Vec<CreateInputInfo> {
+        match self.create_inputs {
+            Some(inputs) => inputs(),
+            None => super::find_problem_type(self.name)
+                .expect("registered variant must have a problem schema")
+                .fields
+                .iter()
+                .cloned()
+                .map(CreateInputInfo::from_field)
+                .collect(),
+        }
+    }
+
     /// Get the variant by calling the function.
     pub fn variant(&self) -> Vec<(&'static str, &'static str)> {
         (self.variant_fn)()

@@ -207,9 +207,23 @@ crate::impl_random_generate!(MinimumVertexCover<SimpleGraph, One>, crate::random
     Ok(MinimumVertexCover::new(spec.graph()?, vec![One; spec.num_vertices]))
 });
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumVertexCoverOneCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+}
+
+impl TryFrom<MinimumVertexCoverOneCreateSpec> for MinimumVertexCover<SimpleGraph, One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumVertexCoverOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_vertices()];
+        Ok(Self::new(spec.graph, weights))
+    }
+}
+
 crate::declare_variants! {
     default MinimumVertexCover<SimpleGraph, i64> => "1.1996^num_vertices" create MinimumVertexCoverCreateSpec<i64> random,
-    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices" create MinimumVertexCoverCreateSpec<One> random,
+    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices" create MinimumVertexCoverOneCreateSpec random,
 }
 
 crate::register_brute_force! {

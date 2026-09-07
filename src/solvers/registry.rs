@@ -123,9 +123,9 @@ impl CompiledIlpPipeline {
             Box<dyn Any>,
             Option<&dyn DynReductionResult>,
         ) -> Result<R, super::ILPSolveError>,
-    ) -> Result<Option<R>, super::ILPSolveError> {
+    ) -> Result<R, super::ILPSolveError> {
         if self.reducers.is_empty() {
-            return finish(Box::new(solver.solve_dyn(source)?), None).map(Some);
+            return finish(Box::new(solver.solve_dyn(source)?), None);
         }
 
         let mut reductions: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -151,23 +151,25 @@ impl CompiledIlpPipeline {
                     reductions[index - 1].target_problem_any()
                 };
                 let aggregate = reduce(input)?;
-                // Downstream reductions have recovered an optimal target witness.
-                // Its aggregate may still prove that the source decision is NO.
+                // A numerical target optimum can establish YES through a source witness,
+                // but a missed threshold alone cannot establish NO.
                 let value = aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
                 if value.downcast_ref::<crate::types::Or>() == Some(&crate::types::Or(false)) {
-                    return Ok(None);
+                    return Err(super::ILPSolveError::UnresolvedDecision(
+                        self.path[index].label(),
+                    ));
                 }
             }
             source_solution = step.extract_solution_dyn(source_solution.as_ref())?;
         }
-        finish(source_solution, Some(reductions[0].as_ref())).map(Some)
+        finish(source_solution, Some(reductions[0].as_ref()))
     }
 
     pub(crate) fn solve(
         &self,
         source: &dyn Any,
         solver: &super::ILPSolver,
-    ) -> Result<Option<serde_json::Value>, super::ILPSolveError> {
+    ) -> Result<serde_json::Value, super::ILPSolveError> {
         self.solve_with(source, solver, |solution, first_reduction| {
             if let Some(reduction) = first_reduction {
                 return reduction
@@ -187,7 +189,7 @@ impl CompiledIlpPipeline {
         &self,
         source: &dyn Any,
         solver: &super::ILPSolver,
-    ) -> Result<Option<S>, super::ILPSolveError> {
+    ) -> Result<S, super::ILPSolveError> {
         self.solve_with(source, solver, |solution, _| {
             solution
                 .downcast::<S>()
