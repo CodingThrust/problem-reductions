@@ -34,28 +34,34 @@ impl ReductionResult for ReductionQAPToILP {
     }
 
     /// Extract: for each facility i, output the unique location p with x_{i,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let loc = self.num_locations;
-        (0..self.num_facilities)
-            .map(|i| {
-                (0..loc)
-                    .find(|&p| target_solution[i * loc + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_facilities,
+            self.num_locations,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_facilities * num_locations + num_facilities^2 * num_locations^2",
         num_constraints = "num_facilities + num_locations + 3 * num_facilities^2 * num_locations^2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for QuadraticAssignment {
     type Result = ReductionQAPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_facilities();
         let loc = self.num_locations();
         let cost = self.cost_matrix();
@@ -98,19 +104,25 @@ impl ReduceTo<ILP<bool>> for QuadraticAssignment {
         // Objective: minimize sum_{i!=j,p,q} C[i][j] * D[p][q] * z_{(i,p),(j,q)}
         let mut objective = Vec::new();
         for (z_seq, &(i, p, j, q)) in z_pairs.iter().enumerate() {
-            let coeff = cost[i][j] as f64 * dist[p][q] as f64;
-            if coeff != 0.0 {
+            let coefficient = cost[i][j].checked_mul(dist[p][q]).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<QuadraticAssignment, ILP<bool>>(
+                    "multiplying a quadratic-assignment cost by a distance",
+                )
+            })?;
+            let coeff = coefficient;
+            if coeff != 0 {
                 objective.push((z_idx(z_seq), coeff));
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionQAPToILP {
+        Ok(ReductionQAPToILP {
             target,
             num_facilities: n,
             num_locations: loc,
-        }
+        })
     }
 }
 

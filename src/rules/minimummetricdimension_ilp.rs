@@ -38,21 +38,29 @@ impl ReductionResult for ReductionMDToILP {
     ///
     /// Since the mapping is 1:1 (each vertex maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices * (num_vertices - 1) / 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
     type Result = ReductionMDToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
 
         // Precompute all-pairs shortest paths via BFS from each vertex
@@ -63,20 +71,21 @@ impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
         let mut constraints = Vec::new();
         for u in 0..n {
             for v in (u + 1)..n {
-                let terms: Vec<(usize, f64)> = (0..n)
+                let terms: Vec<(usize, i64)> = (0..n)
                     .filter(|&w| all_dists[w][u] != all_dists[w][v])
-                    .map(|w| (w, 1.0))
+                    .map(|w| (w, 1))
                     .collect();
-                constraints.push(LinearConstraint::ge(terms, 1.0));
+                constraints.push(LinearConstraint::ge(terms, 1));
             }
         }
 
         // Objective: minimize Σ z_v (unit weights)
-        let objective: Vec<(usize, f64)> = (0..n).map(|v| (v, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|v| (v, 1)).collect();
 
-        let target = ILP::new(n, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(n, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMDToILP { target }
+        Ok(ReductionMDToILP { target })
     }
 }
 

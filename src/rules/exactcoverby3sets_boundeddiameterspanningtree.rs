@@ -36,17 +36,53 @@ use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
+use std::collections::HashSet;
 
 /// Result of reducing ExactCoverBy3Sets to BoundedDiameterSpanningTree.
 #[derive(Debug, Clone)]
 pub struct ReductionX3CToBoundedDiameterSpanningTree {
-    target: BoundedDiameterSpanningTree<SimpleGraph, i32>,
+    target: BoundedDiameterSpanningTree<SimpleGraph, i64>,
     source_num_subsets: usize,
+}
+
+impl ReductionX3CToBoundedDiameterSpanningTree {
+    /// Counts for the incidence construction, checked before allocating it.
+    fn dimensions(
+        universe_size: usize,
+        m: usize,
+    ) -> Result<(usize, usize, i64), crate::rules::ReductionError> {
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<
+                ExactCoverBy3Sets,
+                BoundedDiameterSpanningTree<SimpleGraph, i64>,
+            >("computing bounded-diameter incidence construction dimensions")
+        };
+        let vertices = universe_size
+            .checked_add(m)
+            .and_then(|v| v.checked_add(3))
+            .ok_or_else(overflow)?;
+        let clique = match m {
+            0 => 0,
+            _ => m.checked_mul(m - 1).ok_or_else(overflow)? / 2,
+        };
+        let edges = m
+            .checked_mul(4)
+            .and_then(|v| v.checked_add(clique))
+            .and_then(|v| v.checked_add(2))
+            .ok_or_else(overflow)?;
+        let bound = (universe_size / 3)
+            .checked_mul(4)
+            .and_then(|v| v.checked_add(m))
+            .and_then(|v| v.checked_add(2))
+            .and_then(|v| i64::try_from(v).ok())
+            .ok_or_else(overflow)?;
+        Ok((vertices, edges, bound))
+    }
 }
 
 impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     type Source = ExactCoverBy3Sets;
-    type Target = BoundedDiameterSpanningTree<SimpleGraph, i32>;
+    type Target = BoundedDiameterSpanningTree<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -58,44 +94,59 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     /// 2..2+m (right after the forced-center path edges). For a YES-instance,
     /// the optimal target witness selects exactly q of these edges, which
     /// correspond to the q chosen subsets.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let m = self.source_num_subsets;
-        let root_to_set_offset = 2;
-        (0..m)
-            .map(|i| {
-                usize::from(
-                    target_solution
-                        .get(root_to_set_offset + i)
-                        .copied()
-                        .unwrap_or(0)
-                        == 1,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target edge selection is not a feasible bounded-diameter spanning tree",
+            ));
+        }
+
+        Ok({
+            let m = self.source_num_subsets;
+            let root_to_set_offset = 2;
+            (0..m)
+                .map(|i| target_solution[root_to_set_offset + i])
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_subsets + universe_size + 3",
-    num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
-    weight_bound = "4 * universe_size / 3 + num_subsets + 2",
-    diameter_bound = "4",
-})]
-impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Sets {
+#[reduction(
+    transform = upper_bound {
+        num_vertices = "num_subsets + universe_size + 3",
+        num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
+    })]
+impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToBoundedDiameterSpanningTree;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let m = self.num_subsets();
-        let q = self.q();
+        // Every element must occur in the collection before an exact cover can
+        // exist. Count the union without allocating an array of universe_size.
+        let covered: HashSet<_> = self.subsets().iter().flatten().copied().collect();
+        if covered.len() != universe_size {
+            // Two isolated vertices have no spanning tree. No certificate can
+            // pass validation, so the ordinary extractor is never reached.
+            return Ok(ReductionX3CToBoundedDiameterSpanningTree {
+                target: BoundedDiameterSpanningTree::new(SimpleGraph::empty(2), vec![], 1, 4),
+                source_num_subsets: m,
+            });
+        }
+        let (num_vertices, num_edges, weight_bound) =
+            ReductionX3CToBoundedDiameterSpanningTree::dimensions(universe_size, m)?;
 
         // Vertex indexing matches the docstring.
         let s_index = |i: usize| 3 + i;
         let e_index = |j: usize| 3 + m + j;
-        let num_vertices = 3 + m + universe_size;
 
-        let mut edges: Vec<(usize, usize)> = Vec::new();
-        let mut weights: Vec<i32> = Vec::new();
+        let mut edges: Vec<(usize, usize)> = Vec::with_capacity(num_edges);
+        let mut weights: Vec<i64> = Vec::with_capacity(num_edges);
 
         // Forced-center path edges (indices 0 and 1).
         edges.push((0, 1)); // (r, v_1)
@@ -132,16 +183,15 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
             }
         }
 
-        let weight_bound: i32 = (4 * q + m + 2) as i32;
         let diameter_bound: usize = 4;
 
         let graph = SimpleGraph::new(num_vertices, edges);
         let target = BoundedDiameterSpanningTree::new(graph, weights, weight_bound, diameter_bound);
 
-        ReductionX3CToBoundedDiameterSpanningTree {
+        Ok(ReductionX3CToBoundedDiameterSpanningTree {
             target,
             source_num_subsets: m,
-        }
+        })
     }
 }
 
@@ -158,7 +208,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
 
             // Source: select both subsets.
-            let source_config = vec![1, 1];
+            let source_config = vec![true, true];
 
             // Target spanning tree (n = 11, n-1 = 10 edges):
             //   (r,v1)=idx 0, (v1,v2)=idx 1, (r,s0)=idx 2, (r,s1)=idx 3,
@@ -170,16 +220,20 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   edge order = forced(2) + root-to-set(m=2) + set-to-element(6) + clique(1)
             //              = indices 0..1, 2..3, 4..9, 10
             // Select every edge except the clique edge.
-            let target_config = vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0];
+            let target_config = vec![
+                true, true, true, true, true, true, true, true, true, true, false,
+            ];
 
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                BoundedDiameterSpanningTree<SimpleGraph, i32>,
+                BoundedDiameterSpanningTree<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

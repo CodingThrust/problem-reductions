@@ -19,7 +19,7 @@ pub struct ModelExampleSpec {
     /// The concrete problem instance (type-erased).
     pub instance: Box<dyn DynProblem>,
     /// One known optimal configuration.
-    pub optimal_config: Vec<usize>,
+    pub optimal_config: serde_json::Value,
     /// The optimal value as a serializable JSON value.
     pub optimal_value: serde_json::Value,
 }
@@ -58,7 +58,7 @@ where
     T: Problem + Serialize,
     <S as ReduceTo<T>>::Result: ReductionResult<Source = S, Target = T>,
 {
-    let reduction = source.reduce_to();
+    let reduction = source.reduce_to().expect("reduction should succeed");
     let target = reduction.target_problem();
     assemble_rule_example(&source, target, vec![solution])
 }
@@ -68,26 +68,52 @@ where
 /// This is the standard pattern for canonical ILP rule examples: reduce once,
 /// solve the ILP, extract the source config, and build the example — avoiding
 /// the double `reduce_to()` that would occur with `rule_example_with_witness`.
-#[cfg(feature = "ilp-solver")]
 pub fn rule_example_via_ilp<S, V>(source: S) -> RuleExample
 where
     S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V>>,
     V: crate::models::algebraic::VariableDomain,
     <S as ReduceTo<crate::models::algebraic::ILP<V>>>::Result:
         ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V>>,
+    S::Solution: Serialize,
+{
+    rule_example_via_typed_ilp::<S, V, i64>(source)
+}
+
+/// Float-coefficient counterpart of [`rule_example_via_ilp`].
+pub fn rule_example_via_float_ilp<S, V>(source: S) -> RuleExample
+where
+    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V, f64>>,
+    V: crate::models::algebraic::VariableDomain,
+    <S as ReduceTo<crate::models::algebraic::ILP<V, f64>>>::Result:
+        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V, f64>>,
+    S::Solution: Serialize,
+{
+    rule_example_via_typed_ilp::<S, V, f64>(source)
+}
+
+fn rule_example_via_typed_ilp<S, V, C>(source: S) -> RuleExample
+where
+    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V, C>>,
+    V: crate::models::algebraic::VariableDomain,
+    C: crate::models::algebraic::ILPCoefficient + Serialize,
+    <S as ReduceTo<crate::models::algebraic::ILP<V, C>>>::Result:
+        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V, C>>,
+    S::Solution: Serialize,
 {
     use crate::export::SolutionPair;
-    let reduction = source.reduce_to();
+    let reduction = source.reduce_to().expect("reduction should succeed");
     let ilp_solution = crate::solvers::ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("canonical example must be ILP-solvable");
-    let source_config = reduction.extract_solution(&ilp_solution);
+    let source_config = reduction.extract_solution(&ilp_solution).unwrap();
     assemble_rule_example(
         &source,
         reduction.target_problem(),
         vec![SolutionPair {
-            source_config,
-            target_config: ilp_solution,
+            source_config: serde_json::to_value(source_config)
+                .expect("source solution serialization must succeed"),
+            target_config: serde_json::to_value(ilp_solution)
+                .expect("target solution serialization must succeed"),
         }],
     )
 }

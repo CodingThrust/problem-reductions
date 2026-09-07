@@ -6,13 +6,12 @@
 //! characters from `w`).
 //!
 //! The configuration uses a fixed-length representation of `max_length`
-//! symbols from `{0, ..., alphabet_size}`, where `alphabet_size` serves as a
-//! padding/end symbol. The effective supersequence is the prefix before the
-//! first padding symbol. `max_length` equals the sum of all input string
-//! lengths (the worst case where no overlap exists). This problem is NP-hard
-//! (Maier, 1978).
+//! optional symbols. `None` serves as padding/end marker, and the effective
+//! supersequence is the prefix before the first `None`. `max_length` equals
+//! the sum of all input string lengths (the worst case where no overlap
+//! exists). This problem is NP-hard (Maier, 1978).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -23,13 +22,10 @@ inventory::submit! {
         display_name: "Shortest Common Supersequence",
         aliases: &["SCS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a shortest common supersequence for a set of strings",
-        fields: &[
-            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
-            FieldInfo { name: "strings", type_name: "Vec<Vec<usize>>", description: "Input strings over the alphabet {0, ..., alphabet_size-1}" },
-            FieldInfo { name: "max_length", type_name: "usize", description: "Maximum possible supersequence length (sum of all string lengths)" },
-        ],
+        fields: ShortestCommonSupersequenceCreateSpec::FIELDS,
     }
 }
 
@@ -41,21 +37,21 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// The configuration is a vector of length `max_length`, where each entry is a
-/// symbol in `{0, ..., alphabet_size}`. The value `alphabet_size` acts as a
-/// padding/end symbol. The effective supersequence is the prefix of
-/// non-padding symbols. Padding must be contiguous at the end.
+/// The configuration is a vector of length `max_length`, where each entry is
+/// either a symbol in `{0, ..., alphabet_size - 1}` or `None` as padding. The
+/// effective supersequence is the prefix of symbols before the first padding
+/// value. Padding must be contiguous at the end.
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::misc::ShortestCommonSupersequence;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {0, 1}, strings [0,1] and [1,0]
 /// let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +59,48 @@ pub struct ShortestCommonSupersequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ShortestCommonSupersequenceCreateSpec {
+    /// Input strings; the alphabet and maximum length are inferred from them.
+    #[create(codec = "semicolon-separated")]
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ShortestCommonSupersequenceCreateSpec> for ShortestCommonSupersequence {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: ShortestCommonSupersequenceCreateSpec) -> Result<Self, Self::Error> {
+        if spec.strings.is_empty() {
+            return Err("must have at least one string".to_string().into());
+        }
+
+        let alphabet_size = spec
+            .strings
+            .iter()
+            .flatten()
+            .copied()
+            .max()
+            .map(|symbol| {
+                symbol
+                    .checked_add(1)
+                    .ok_or_else(|| "alphabet size overflows usize".to_string())
+            })
+            .transpose()?
+            .unwrap_or(0);
+        let max_length = spec.strings.iter().try_fold(0_usize, |total, string| {
+            total
+                .checked_add(string.len())
+                .ok_or_else(|| "maximum supersequence length overflows usize".to_string())
+        })?;
+
+        Ok(Self {
+            alphabet_size,
+            strings: spec.strings,
+            max_length,
+        })
+    }
 }
 
 impl ShortestCommonSupersequence {
@@ -133,53 +171,84 @@ fn is_subsequence(needle: &[usize], haystack: &[usize]) -> bool {
 
 impl Problem for ShortestCommonSupersequence {
     const NAME: &'static str = "ShortestCommonSupersequence";
-    type Value = Min<usize>;
+    type Solution = Vec<Option<usize>>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("alphabet_size", alphabet_size),
+        ("max_length", max_length),
+        ("total_length", total_length),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size + 1; self.max_length]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         if config.len() != self.max_length {
-            return Min(None);
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "supersequence representation length does not match the bound".into(),
+            ));
         }
-
-        let pad = self.alphabet_size;
-
-        // Find effective length = index of first padding symbol
-        let effective_length = config
+        if config
             .iter()
-            .position(|&v| v == pad)
-            .unwrap_or(self.max_length);
+            .any(|symbol| symbol.is_some_and(|value| value >= self.alphabet_size))
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "supersequence contains an out-of-range symbol".into(),
+            ));
+        }
+        let config = config
+            .iter()
+            .map(|symbol| symbol.unwrap_or(self.alphabet_size))
+            .collect::<Vec<_>>();
+        Ok({
+            let pad = self.alphabet_size;
 
-        // Verify all positions after first padding are also padding (no interleaved padding)
-        for &v in &config[effective_length..] {
-            if v != pad {
-                return Min(None);
+            // Find effective length = index of first padding symbol
+            let effective_length = config
+                .iter()
+                .position(|&v| v == pad)
+                .unwrap_or(self.max_length);
+
+            // Verify all positions after first padding are also padding (no interleaved padding)
+            for &v in &config[effective_length..] {
+                if v != pad {
+                    return Ok(Min(None));
+                }
             }
-        }
 
-        // Check all symbols in the prefix are valid (0..alphabet_size)
-        let prefix = &config[..effective_length];
-        if prefix.iter().any(|&v| v >= self.alphabet_size) {
-            return Min(None);
-        }
+            let prefix = &config[..effective_length];
 
-        // Check every input string is a subsequence of the prefix
-        if !self.strings.iter().all(|s| is_subsequence(s, prefix)) {
-            return Min(None);
-        }
+            // Check every input string is a subsequence of the prefix
+            if !self.strings.iter().all(|s| is_subsequence(s, prefix)) {
+                return Ok(Min(None));
+            }
 
-        Min(Some(effective_length))
+            Min(Some(i64::try_from(effective_length).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting supersequence length to i64".into(),
+                )
+            })?))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for ShortestCommonSupersequence {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.alphabet_size + 1; self.max_length]
     }
 }
 
 crate::declare_variants! {
-    default ShortestCommonSupersequence => "(alphabet_size + 1) ^ max_length",
+    default ShortestCommonSupersequence => "(alphabet_size + 1) ^ max_length" create ShortestCommonSupersequenceCreateSpec,
+}
+
+crate::register_brute_force! {
+    ShortestCommonSupersequence decode |problem: &ShortestCommonSupersequence, indices: Vec<usize>| indices.into_iter().map(|value| (value != problem.alphabet_size()).then_some(value)).collect(),
 }
 
 #[cfg(feature = "example-db")]
@@ -193,7 +262,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
             vec![vec![0, 1], vec![1, 0]],
         )),
-        optimal_config: vec![0, 1, 0, 2],
+        optimal_config: serde_json::json!(vec![Some(0), Some(1), Some(0), None]),
         optimal_value: serde_json::json!(3),
     }]
 }

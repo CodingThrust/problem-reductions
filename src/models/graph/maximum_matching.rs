@@ -3,7 +3,7 @@
 //! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, WeightElement};
@@ -18,14 +18,12 @@ inventory::submit! {
         aliases: &["MaxMatching"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum weight matching in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
-        ],
+        fields: MaximumMatchingCreateSpec::FIELDS,
     }
 }
 
@@ -37,25 +35,25 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`, `UnitDiskGraph`)
-/// * `W` - The weight type (e.g., `i32`, `f64`, `One`)
+/// * `W` - The weight type (e.g., `i64`, `f64`, `One`)
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::graph::MaximumMatching;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph 0-1-2
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-/// let problem = MaximumMatching::<_, i32>::unit_weights(graph);
+/// let problem = MaximumMatching::<_, i64>::unit_weights(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximum matching has 1 edge
 /// for sol in &solutions {
-///     assert_eq!(sol.iter().sum::<usize>(), 1);
+///     assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +62,66 @@ pub struct MaximumMatching<G, W> {
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumMatchingCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i64>>,
+}
+
+impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: MaximumMatchingCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let edge_weights = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if edge_weights.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                edge_weights.len(),
+                graph.num_edges()
+            )
+            .into());
+        }
+        Ok(Self::new(graph, edge_weights))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        )
+        .into());
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
@@ -87,9 +145,9 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     /// Create a MaximumMatching problem with unit weights.
     pub fn unit_weights(graph: G) -> Self
     where
-        W: From<i32>,
+        W: WeightElement,
     {
-        let edge_weights = vec![W::from(1); graph.num_edges()];
+        let edge_weights = vec![W::unit(); graph.num_edges()];
         Self {
             graph,
             edge_weights,
@@ -127,16 +185,16 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     }
 
     /// Check if a configuration is a valid matching.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         self.is_valid_matching(config)
     }
 
     /// Check if a configuration is a valid matching (internal).
-    fn is_valid_matching(&self, config: &[usize]) -> bool {
+    fn is_valid_matching(&self, config: &[bool]) -> bool {
         let mut vertex_used = vec![false; self.graph.num_vertices()];
 
         for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
+            if selected {
                 if let Some((u, v)) = self.edge_endpoints(idx) {
                     if vertex_used[u] || vertex_used[v] {
                         return false;
@@ -187,45 +245,78 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumMatching";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !self.is_valid_matching(config) {
-            return Max(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.to_sum();
+        Ok({
+            if !self.is_valid_matching(config) {
+                return Ok(Max(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected {
+                    if let Some(w) = self.edge_weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing selected matching-edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Max(Some(total))
+            Max(Some(total))
+        })
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MaximumMatching<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
+crate::impl_random_generate!(MaximumMatching<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let weights = vec![1; graph.num_edges()];
+    Ok(MaximumMatching::new(graph, weights))
+});
+
 crate::declare_variants! {
-    default MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
+    default MaximumMatching<SimpleGraph, i64> => "num_vertices^3" create MaximumMatchingCreateSpec random,
+}
+
+crate::register_brute_force! {
+    MaximumMatching<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_matching_simplegraph_i32",
-        instance: Box::new(MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(
+        id: "maximum_matching_simplegraph",
+        instance: Box::new(MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
             5,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
-        optimal_config: vec![1, 0, 0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, false, true, false]),
         optimal_value: serde_json::json!(2),
     }]
 }

@@ -61,11 +61,12 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 9 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
 | 10 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
 | 11 | Variant registration exists | `Grep("declare_variants!|VariantEntry", file)` |
-| 12 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
-| 13 | CLI `create` support | Schema-driven: verify each `ProblemSchemaEntry` field has a matching CLI flag in `CreateArgs` (field `snake_case` → flag `kebab-case`). Check `flag_map()` includes the flag. If the field type is unusual, verify `parse_field_value()` handles it. |
+| 12 | Alias registration | If aliases are claimed, verify problem aliases are in `ProblemSchemaEntry.aliases` and variant aliases are in `declare_variants!`; no frontend alias branch |
+| 13 | CLI `create` support | Run `pred create <problem-spec> --help` for the concrete variant. Verify its flags and types come from the registered construction inputs (`ProblemSchemaEntry.fields` or the model-local `CreateSpec`), with a reusable codec for any unusual transport syntax. |
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
+| 17 | Numeric and error contracts | Derive the expected boundary representation from the mathematical definition, then compare schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic`. Verify construction paths return `ConstructionError`, `evaluate()` returns `EvaluationError`, and no public model path returns `Result<_, String>`. |
 
 ### Rule Checklist
 
@@ -81,16 +82,17 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 6 | Test file exists | `Glob("src/unit_tests/rules/{R}.rs")` |
 | 7 | Closed-loop test present | `Grep("fn test_.*closed_loop\|fn test_.*to_.*basic", test_file)` |
 | 8 | Registered in `rules/mod.rs` | `Grep("mod {R}", "src/rules/mod.rs")` |
-| 9 | Canonical rule example registered | `Grep("{S}|{T}|{R}", "src/example_db/rule_builders.rs")` |
+| 9 | Canonical rule example registered | `Grep("canonical_rule_example_specs", rule file)` and verify it is included by `src/rules/mod.rs` |
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
+| 12 | Extraction contract | Direct decoders call `validate_target_solution()`, enforce rule-specific structure, and test malformed cases; the helper does not establish feasibility or optimality. Composed extractors may delegate. |
+| 13 | Numeric and error contracts | Compare source/target boundary types, size arithmetic, coefficients, bounds, auxiliary IDs, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic`. Verify public reduction paths return `ReductionError`, preserve target `ConstructionError` as its construction cause, and never stringify or silently handle either failure. |
 
 ## Step 2b: Blacklisted File Check
 
 Scan the PR's changed files for auto-generated files that must never be committed:
 - `docs/src/reductions/reduction_graph.json`
 - `docs/src/reductions/problem_schemas.json`
-- `src/example_db/fixtures/examples.json` (legacy path, deleted on main)
 - `docs/paper/data/examples.json` (current output path, gitignored)
 
 If any of these files appear in the diff, report **FAIL — blacklisted auto-generated file committed**. These files are rebuilt by CI/`make doc`/`make paper` and must not be in PRs.
@@ -111,12 +113,14 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 2. **`dims()` correctness** — Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
 3. **Size getter consistency** — Do inherent getter methods (e.g., `num_vertices()`, `num_edges()`) match names used in overhead expressions?
 4. **Weight handling** — Are weights managed via inherent methods, not traits?
+5. **Numeric safety** — Are element and total types distinct where required, do serde and constructors enforce the same range, and are overflow and non-finite values rejected explicitly?
 
 ### For Rules:
-1. **`extract_solution` correctness** — Does it correctly invert the reduction? Does the returned solution have the right length (source dimensions)?
+1. **`extract_solution` correctness** — Does it implement the mathematical inverse? Is every branch either a defined mathematical case or an `ExtractionError`, with no defaulting, truncation, clamping, panic, or recovery?
 2. **Overhead accuracy** — Does `overhead = { field = "expr" }` reflect the actual size relationship?
 3. **Example quality** — Is it tutorial-style? Does the JSON export include both source and target data?
 4. **Paper quality** — Is the reduction-rule statement precise? Is the proof sketch sound?
+5. **Numeric safety** — Are target sizes and auxiliary IDs checked before construction, with no unchecked narrowing or exact-to-`f64` shortcut?
 
 ## Step 5: Issue Compliance Review
 

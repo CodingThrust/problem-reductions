@@ -17,10 +17,11 @@ inventory::submit! {
         display_name: "Maximum Likelihood Ranking",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a ranking minimizing total pairwise disagreement cost",
         fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<i32>>", description: "Antisymmetric comparison matrix A (a_ij + a_ji = c, a_ii = 0)" },
+            FieldInfo { name: "matrix", type_name: "Vec<Vec<i64>>", description: "Antisymmetric comparison matrix A (a_ij + a_ji = c, a_ii = 0)" },
         ],
     }
 }
@@ -40,7 +41,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MaximumLikelihoodRanking;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![0, 4, 3, 5],
@@ -50,12 +51,12 @@ inventory::submit! {
 /// ];
 /// let problem = MaximumLikelihoodRanking::new(matrix);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaximumLikelihoodRanking {
-    matrix: Vec<Vec<i32>>,
+    matrix: Vec<Vec<i64>>,
 }
 
 impl MaximumLikelihoodRanking {
@@ -65,7 +66,7 @@ impl MaximumLikelihoodRanking {
     /// Panics if the matrix is not square, if any diagonal element is nonzero,
     /// or if the pairwise sums `a_ij + a_ji` are not the same constant for
     /// all `i != j`.
-    pub fn new(matrix: Vec<Vec<i32>>) -> Self {
+    pub fn new(matrix: Vec<Vec<i64>>) -> Self {
         let n = matrix.len();
         for (i, row) in matrix.iter().enumerate() {
             assert_eq!(
@@ -100,7 +101,7 @@ impl MaximumLikelihoodRanking {
     }
 
     /// Returns the comparison matrix.
-    pub fn matrix(&self) -> &Vec<Vec<i32>> {
+    pub fn matrix(&self) -> &Vec<Vec<i64>> {
         &self.matrix
     }
 
@@ -110,7 +111,7 @@ impl MaximumLikelihoodRanking {
     }
 
     /// Returns the constant pairwise comparison count `c`.
-    pub fn comparison_count(&self) -> i32 {
+    pub fn comparison_count(&self) -> i64 {
         if self.matrix.len() < 2 {
             0
         } else {
@@ -121,52 +122,78 @@ impl MaximumLikelihoodRanking {
 
 impl Problem for MaximumLikelihoodRanking {
     const NAME: &'static str = "MaximumLikelihoodRanking";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_parameters![("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.num_items();
-        vec![n; n]
-    }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_items();
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let n = self.num_items();
-
-        // Validate config length
-        if config.len() != n {
-            return Min(None);
-        }
-
-        // Validate permutation: all values must be distinct and in 0..n
-        let mut seen = vec![false; n];
-        for &rank in config {
-            if rank >= n || seen[rank] {
-                return Min(None);
+            // Validate config length
+            if config.len() != n {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "ranking length does not match the number of alternatives".into(),
+                ));
             }
-            seen[rank] = true;
-        }
 
-        // config[item] = rank position of item
-        // Disagreement cost: for all pairs of items (a, b) where a is
-        // ranked AFTER b (config[a] > config[b]), add matrix[a][b].
-        let mut cost: i64 = 0;
-        for a in 0..n {
-            for b in 0..n {
-                if a != b && config[a] > config[b] {
-                    cost += self.matrix[a][b] as i64;
+            if config.iter().any(|&rank| rank >= n) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "ranking contains an out-of-range position".into(),
+                ));
+            }
+
+            // Validate permutation: all values must be distinct and in 0..n
+            let mut seen = vec![false; n];
+            for &rank in config {
+                if rank >= n || seen[rank] {
+                    return Ok(Min(None));
+                }
+                seen[rank] = true;
+            }
+
+            // config[item] = rank position of item
+            // Disagreement cost: for all pairs of items (a, b) where a is
+            // ranked AFTER b (config[a] > config[b]), add matrix[a][b].
+            let mut cost: i64 = 0;
+            for a in 0..n {
+                for b in 0..n {
+                    if a != b && config[a] > config[b] {
+                        cost = cost.checked_add(self.matrix[a][b]).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing ranking disagreement costs".into(),
+                            )
+                        })?;
+                    }
                 }
             }
-        }
 
-        Min(Some(cost))
+            Min(Some(cost))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MaximumLikelihoodRanking {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.num_items();
+        vec![n; n]
     }
 }
 
 crate::declare_variants! {
     default MaximumLikelihoodRanking => "num_items * num_items * 2^num_items",
+}
+
+crate::register_brute_force! {
+    MaximumLikelihoodRanking,
 }
 
 #[cfg(feature = "example-db")]
@@ -186,7 +213,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_likelihood_ranking",
         instance: Box::new(MaximumLikelihoodRanking::new(matrix)),
-        optimal_config: vec![0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
         optimal_value: serde_json::json!(7),
     }]
 }

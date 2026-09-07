@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Build the YES instance (foldable):
@@ -58,7 +59,7 @@ fn test_conjunctive_query_foldability_creation() {
     let problem = yes_instance();
     // dims = [domain_size + num_distinguished + num_undistinguished; num_undistinguished]
     //       = [0 + 1 + 3; 3] = [4, 4, 4]
-    assert_eq!(problem.dims(), vec![4, 4, 4]);
+    assert_eq!(problem.dimensions(), vec![4, 4, 4]);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(
         <ConjunctiveQueryFoldability as Problem>::NAME,
@@ -80,33 +81,33 @@ fn test_conjunctive_query_foldability_yes_instance() {
     // config [3, 3, 3]: σ(U0→U2, U1→U2, U2→U2) = σ maps everything to `a`
     // Substituted Q1: R(x,a) ∧ R(a,a) ∧ R(a,x) ∧ R(a,a)
     // As a set: {R(x,a), R(a,a), R(a,x)} == Q2 ✓
-    assert!(problem.evaluate(&[3, 3, 3]));
+    assert!(problem.evaluate(&vec![3, 3, 3]).unwrap());
 
     // config [0, 0, 0]: σ maps all undistinguished vars to Distinguished(0) = x
     // Substituted Q1: R(x,x) ∧ R(x,x) ∧ R(x,x) ∧ R(x,x) = {R(x,x)}
     // Q2 = {R(x,a), R(a,a), R(a,x)} ≠ {R(x,x)} ✗
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&vec![0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_conjunctive_query_foldability_no_instance() {
     let problem = no_instance();
     // No substitution σ on {U0, U1, U2} maps the triangle into a 2-cycle
-    let result = BruteForce::new().find_witness(&problem);
+    let result = BruteForce::new().solve(&problem).unwrap();
     assert_eq!(result, None);
 }
 
 #[test]
 fn test_conjunctive_query_foldability_solver() {
     let problem = yes_instance();
-    let result = BruteForce::new().find_witness(&problem);
+    let result = BruteForce::new().solve(&problem).unwrap();
     assert!(
         result.is_some(),
         "YES instance must have a satisfying config"
     );
     let config = result.unwrap();
     assert!(
-        problem.evaluate(&config),
+        problem.evaluate(&config).unwrap(),
         "returned config must evaluate to true"
     );
 }
@@ -116,7 +117,7 @@ fn test_conjunctive_query_foldability_serialization() {
     let problem = yes_instance();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ConjunctiveQueryFoldability = serde_json::from_value(json).unwrap();
-    assert_eq!(restored.dims(), problem.dims());
+    assert_eq!(restored.dimensions(), problem.dimensions());
     assert_eq!(restored.domain_size(), problem.domain_size());
     assert_eq!(restored.num_distinguished(), problem.num_distinguished());
     assert_eq!(
@@ -127,8 +128,8 @@ fn test_conjunctive_query_foldability_serialization() {
     assert_eq!(restored.num_conjuncts_q2(), problem.num_conjuncts_q2());
     assert_eq!(restored.relation_arities(), problem.relation_arities());
     // Verify the restored instance produces the same evaluation results
-    assert!(restored.evaluate(&[3, 3, 3]));
-    assert!(!restored.evaluate(&[0, 0, 0]));
+    assert!(restored.evaluate(&vec![3, 3, 3]).unwrap());
+    assert!(!restored.evaluate(&vec![0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -136,12 +137,12 @@ fn test_conjunctive_query_foldability_paper_example() {
     let problem = yes_instance();
 
     // The known satisfying config σ(all→a) = [3, 3, 3]
-    assert!(problem.evaluate(&[3, 3, 3]));
+    assert!(problem.evaluate(&vec![3, 3, 3]).unwrap());
 
     // Enumerate all satisfying configs.
     // U(2) (= a) does not appear in Q1, so σ(U2) is a free choice (4 values).
     // Only σ(U0)=3 and σ(U1)=3 are required; σ(U2) can be anything in 0..4.
-    let all = BruteForce::new().find_all_witnesses(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert_eq!(
         all.len(),
         4,
@@ -173,11 +174,11 @@ fn test_conjunctive_query_foldability_with_constants() {
         ],
     );
     // dims = [1+1+1; 1] = [3]
-    assert_eq!(problem.dims(), vec![3]);
+    assert_eq!(problem.dimensions(), vec![3]);
     // σ(u→x): index for X(0) = domain_size + 0 = 1
-    assert!(problem.evaluate(&[1]));
+    assert!(problem.evaluate(&vec![1]).unwrap());
     // σ(u→c0): index for C(0) = 0 → R(c0, c0) ∧ R(c0, x) ≠ Q2
-    assert!(!problem.evaluate(&[0]));
+    assert!(!problem.evaluate(&vec![0]).unwrap());
 }
 
 #[test]
@@ -197,15 +198,24 @@ fn test_conjunctive_query_foldability_getters() {
 #[test]
 fn test_conjunctive_query_foldability_evaluate_wrong_length() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[3, 3])); // too short
-    assert!(!problem.evaluate(&[3, 3, 3, 3])); // too long
+    assert!(matches!(
+        problem.evaluate(&vec![3, 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![3, 3, 3, 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_conjunctive_query_foldability_evaluate_out_of_range() {
     let problem = yes_instance();
     // range = 0 + 1 + 3 = 4, so value 4 is out of range
-    assert!(!problem.evaluate(&[4, 3, 3]));
+    assert!(matches!(
+        problem.evaluate(&vec![4, 3, 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -276,8 +286,8 @@ fn test_conjunctive_query_foldability_no_undistinguished() {
         vec![(0, vec![X(0), X(0)])],
         vec![(0, vec![X(0), X(0)])],
     );
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
@@ -292,7 +302,7 @@ fn test_conjunctive_query_foldability_no_undistinguished_not_equal() {
         vec![(0, vec![X(0), X(1)])],
         vec![(0, vec![X(1), X(0)])],
     );
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]

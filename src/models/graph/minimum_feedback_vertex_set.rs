@@ -3,10 +3,10 @@
 //! The Feedback Vertex Set problem asks for a minimum weight subset of vertices
 //! whose removal makes the directed graph acyclic (a DAG).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
-use crate::types::{Min, WeightElement};
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -16,14 +16,12 @@ inventory::submit! {
         display_name: "Minimum Feedback Vertex Set",
         aliases: &["FVS"],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight feedback vertex set in a directed graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MinimumFeedbackVertexSetCreateSpec::<i64>::FIELDS,
     }
 }
 
@@ -39,14 +37,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumFeedbackVertexSet;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple 3-cycle: 0 → 1 → 2 → 0
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
 /// let problem = MinimumFeedbackVertexSet::new(graph, vec![1; 3]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Any single vertex breaks the cycle
 /// assert_eq!(solutions.len(), 3);
@@ -57,6 +55,27 @@ pub struct MinimumFeedbackVertexSet<W> {
     graph: DirectedGraph,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumFeedbackVertexSetCreateSpec<W> {
+    /// The directed graph.
+    graph: DirectedGraph,
+    /// Vertex weights; defaults to one per vertex.
+    weights: Option<Vec<W>>,
+}
+impl<W: WeightElement> TryFrom<MinimumFeedbackVertexSetCreateSpec<W>>
+    for MinimumFeedbackVertexSet<W>
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumFeedbackVertexSetCreateSpec<W>) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_vertices();
+        let weights = spec.weights.unwrap_or_else(|| vec![W::unit(); count]);
+        if weights.len() != count {
+            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
+        }
+        Ok(Self::new(spec.graph, weights))
+    }
 }
 
 impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
@@ -122,55 +141,105 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumFeedbackVertexSet";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_vertices() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "vertex-selection length does not match the graph".into(),
+                ));
+            }
+            // keep[v] = true if vertex v is NOT selected for removal
+            let keep: Vec<bool> = config.iter().map(|&removed| !removed).collect();
+            let subgraph = self.graph.induced_subgraph(&keep);
+            if !subgraph.is_dag() {
+                return Ok(Min(None));
+            }
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected feedback-vertex weights",
+                    )?;
+                }
+            }
+            Min(Some(total))
+        })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for MinimumFeedbackVertexSet<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if config.len() != self.graph.num_vertices() {
-            return Min(None);
-        }
-        // keep[v] = true if vertex v is NOT selected for removal
-        let keep: Vec<bool> = config.iter().map(|&c| c == 0).collect();
-        let subgraph = self.graph.induced_subgraph(&keep);
-        if !subgraph.is_dag() {
-            return Min(None);
-        }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
-            }
-        }
-        Min(Some(total))
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumFeedbackVertexSetOneCreateSpec {
+    /// The underlying graph.
+    graph: DirectedGraph,
+}
+
+impl TryFrom<MinimumFeedbackVertexSetOneCreateSpec> for MinimumFeedbackVertexSet<One> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumFeedbackVertexSetOneCreateSpec) -> Result<Self, Self::Error> {
+        let weights = vec![One; spec.graph.num_vertices()];
+        Ok(Self::new(spec.graph, weights))
     }
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
+    default MinimumFeedbackVertexSet<i64> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec<i64>,
+    MinimumFeedbackVertexSet<One> => "1.9977^num_vertices" create MinimumFeedbackVertexSetOneCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumFeedbackVertexSet<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MinimumFeedbackVertexSet<One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::DirectedGraph;
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_feedback_vertex_set_i32",
-        instance: Box::new(MinimumFeedbackVertexSet::new(
-            DirectedGraph::new(
-                5,
-                vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
-            ),
-            vec![1i32; 5],
-        )),
-        optimal_config: vec![1, 0, 0, 0, 0],
-        optimal_value: serde_json::json!(1),
-    }]
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "minimum_feedback_vertex_set",
+            instance: Box::new(MinimumFeedbackVertexSet::new(
+                DirectedGraph::new(
+                    5,
+                    vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
+                ),
+                vec![1i64; 5],
+            )),
+            optimal_config: serde_json::json!(vec![true, false, false, false, false]),
+            optimal_value: serde_json::json!(1),
+        },
+        crate::example_db::specs::ModelExampleSpec {
+            id: "minimum_feedback_vertex_set_unit",
+            instance: Box::new(MinimumFeedbackVertexSet::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+                vec![One; 3],
+            )),
+            optimal_config: serde_json::json!(vec![true, false, false]),
+            optimal_value: serde_json::json!(1),
+        },
+    ]
 }
 
 /// Check if a set of vertices is a feedback vertex set (removing them makes the graph a DAG).

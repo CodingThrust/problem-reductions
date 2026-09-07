@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -57,7 +58,7 @@ fn test_minimum_cost_maximum_flow_creation() {
     assert_eq!(problem.sink(), 3);
     assert_eq!(problem.capacities(), &[2, 1, 1, 1, 2]);
     assert_eq!(problem.costs(), &[1, 0, 0, 1, 2]);
-    assert_eq!(problem.dims(), vec![3, 2, 2, 2, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 2, 2, 2, 3]);
     assert_eq!(
         <MinimumCostMaximumFlow as Problem>::NAME,
         "MinimumCostMaximumFlow"
@@ -67,10 +68,10 @@ fn test_minimum_cost_maximum_flow_creation() {
 #[test]
 fn test_minimum_cost_maximum_flow_evaluate_optimal() {
     let problem = canonical_instance();
-    let config = vec![2_usize, 1, 1, 1, 2];
-    assert_eq!(problem.flow_value(&config), 3);
-    assert_eq!(problem.total_cost(&config), 7);
-    let value = problem.evaluate(&config);
+    let config = vec![2, 1, 1, 1, 2];
+    assert_eq!(problem.flow_value(&config).unwrap(), 3);
+    assert_eq!(problem.total_cost(&config).unwrap(), 7);
+    let value = problem.evaluate(&config).unwrap();
     match value {
         Min(Some(v)) => {
             // bound = sum(capacities) = 7, value = 3, cost = 7,
@@ -91,13 +92,13 @@ fn test_minimum_cost_maximum_flow_evaluate_suboptimal() {
     //   plus (1,2) carries 1, but that needs balance... try [1,1,1,0,2]:
     //   balance 0 = -2, balance 1 = 1 - 1 - 0 = 0, balance 2 = 1+1-2=0,
     //   balance 3 = 0 + 2 = 2. So value = 2, cost = 1+0+0+0+4 = 5.
-    let suboptimal = vec![1_usize, 1, 1, 0, 2];
-    assert!(problem.is_feasible(&suboptimal));
-    assert_eq!(problem.flow_value(&suboptimal), 2);
-    assert_eq!(problem.total_cost(&suboptimal), 5);
-    let optimal = vec![2_usize, 1, 1, 1, 2];
-    let opt_v = problem.evaluate(&optimal);
-    let sub_v = problem.evaluate(&suboptimal);
+    let suboptimal = vec![1, 1, 1, 0, 2];
+    assert!(problem.is_feasible(&suboptimal).unwrap());
+    assert_eq!(problem.flow_value(&suboptimal).unwrap(), 2);
+    assert_eq!(problem.total_cost(&suboptimal).unwrap(), 5);
+    let optimal = vec![2, 1, 1, 1, 2];
+    let opt_v = problem.evaluate(&optimal).unwrap();
+    let sub_v = problem.evaluate(&suboptimal).unwrap();
     // Lower (better) scalar score wins under Min.
     assert!(matches!(opt_v, Min(Some(_))));
     assert!(matches!(sub_v, Min(Some(_))));
@@ -111,24 +112,33 @@ fn test_minimum_cost_maximum_flow_evaluate_suboptimal() {
 fn test_minimum_cost_maximum_flow_evaluate_infeasible_capacity() {
     let problem = canonical_instance();
     // Arc 0 has capacity 2, but f(0) = 3 violates it.
-    let config = vec![3_usize, 1, 1, 1, 2];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    let config = vec![3, 1, 1, 1, 2];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_cost_maximum_flow_evaluate_infeasible_conservation() {
     let problem = canonical_instance();
     // Vertex 1: in = 2, out = 0+1 = 1; violates conservation at v=1.
-    let config = vec![2_usize, 0, 0, 1, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    let config = vec![2, 0, 0, 1, 0];
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_cost_maximum_flow_evaluate_wrong_config_length() {
     let problem = canonical_instance();
-    assert_eq!(problem.evaluate(&[0; 4]), Min(None));
-    assert_eq!(problem.evaluate(&[0; 6]), Min(None));
-    assert_eq!(problem.evaluate(&[]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -136,10 +146,11 @@ fn test_minimum_cost_maximum_flow_solver_canonical() {
     let problem = canonical_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("canonical instance must be feasible");
-    assert_eq!(problem.flow_value(&witness), 3);
-    assert_eq!(problem.total_cost(&witness), 7);
+    assert_eq!(problem.flow_value(&witness).unwrap(), 3);
+    assert_eq!(problem.total_cost(&witness).unwrap(), 7);
 }
 
 #[test]
@@ -150,10 +161,11 @@ fn test_minimum_cost_maximum_flow_lex_tiebreaker() {
     let problem = lex_tiebreaker_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("lex instance must be feasible");
-    assert_eq!(problem.flow_value(&witness), 1);
-    assert_eq!(problem.total_cost(&witness), 1);
+    assert_eq!(problem.flow_value(&witness).unwrap(), 1);
+    assert_eq!(problem.total_cost(&witness).unwrap(), 1);
     // The cheaper path uses arcs 0 (0->1), 1 (1->2), and 3 (2->4).
     assert_eq!(witness, vec![1, 1, 0, 1, 0]);
 }
@@ -171,7 +183,19 @@ fn test_minimum_cost_maximum_flow_serialization() {
     assert_eq!(deserialized.costs(), &[1, 0, 0, 1, 2]);
     // Optimal config evaluates identically after roundtrip.
     assert_eq!(
-        deserialized.evaluate(&[2, 1, 1, 1, 2]),
-        problem.evaluate(&[2, 1, 1, 1, 2])
+        deserialized.evaluate(&vec![2, 1, 1, 1, 2]).unwrap(),
+        problem.evaluate(&vec![2, 1, 1, 1, 2]).unwrap()
     );
+}
+
+#[test]
+fn deserialization_rejects_negative_costs() {
+    let value = serde_json::json!({
+        "graph": {"num_vertices": 2, "arcs": [[0, 1]]},
+        "source": 0,
+        "sink": 1,
+        "capacities": [1],
+        "costs": [-1]
+    });
+    assert!(serde_json::from_value::<MinimumCostMaximumFlow>(value).is_err());
 }

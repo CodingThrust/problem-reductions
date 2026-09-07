@@ -24,21 +24,27 @@ impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|row| row[0]).collect())
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_subsets + universe_size + 1",
-    num_arcs = "3 * num_subsets + universe_size",
-    num_inputs = "num_subsets",
-    num_outputs = "1",
-})]
+#[reduction(
+    transform = exact {
+        num_vertices = "num_subsets + universe_size + 1",
+        num_arcs = "3 * num_subsets + universe_size",
+        num_inputs = "num_subsets",
+        num_outputs = "1",
+    })]
 impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumFaultDetectionTestSet;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_inputs = self.num_subsets();
         let element_offset = num_inputs;
         let output = element_offset + self.universe_size();
@@ -53,14 +59,14 @@ impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
             arcs.push((element_offset + element, output));
         }
 
-        ReductionXC3SToMinimumFaultDetectionTestSet {
+        Ok(ReductionXC3SToMinimumFaultDetectionTestSet {
             target: MinimumFaultDetectionTestSet::new(
                 output + 1,
                 arcs,
                 (0..num_inputs).collect(),
                 vec![output],
             ),
-        }
+        })
     }
 }
 
@@ -75,8 +81,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumFaultDetectionTestSet>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 0],
-                    target_config: vec![1, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, false]),
+                    target_config: serde_json::json!(vec![vec![true], vec![true], vec![false]]),
                 },
             )
         },

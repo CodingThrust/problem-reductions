@@ -24,12 +24,12 @@ Before any implementation, collect all required information. If called from `iss
 
 | # | Item | Description | Example |
 |---|------|-------------|---------|
-| 1 | **Source problem** | The problem being reduced FROM (must already exist) | `MinimumVertexCover<SimpleGraph, i32>` |
-| 2 | **Target problem** | The problem being reduced TO (must already exist) | `MaximumIndependentSet<SimpleGraph, i32>` |
+| 1 | **Source problem** | The problem being reduced FROM (must already exist) | `MinimumVertexCover<SimpleGraph, i64>` |
+| 2 | **Target problem** | The problem being reduced TO (must already exist) | `MaximumIndependentSet<SimpleGraph, i64>` |
 | 3 | **Reduction algorithm** | How to transform source instance to target | "Copy graph and weights; IS on same graph as VC" |
 | 4 | **Solution extraction** | How to map target solution back to source | "Complement: `1 - x` for each variable" |
 | 5 | **Correctness argument** | Why the reduction preserves optimality | "S is independent set iff V\S is vertex cover" |
-| 6 | **Size overhead** | How target size relates to source size | `num_vertices = "num_vertices", num_edges = "num_edges"` |
+| 6 | **Parameter transform** | How target size relates to source size | `num_vertices = "num_vertices", num_edges = "num_edges"` |
 | 7 | **Concrete example** | A small worked-out instance (tutorial style, clear intuition) | "Triangle graph: VC={0,1} -> IS={2}" |
 | 8 | **Solving strategy** | How to solve the target problem | "BruteForce, or existing ILP reduction" |
 | 9 | **Reference** | Paper, textbook, or URL for the reduction | URL or citation |
@@ -55,6 +55,28 @@ grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
 - Any pair involving `And` or `Sum` on the target side
 
 If incompatible, STOP and comment on the issue explaining the type mismatch and options. Do NOT proceed.
+
+## Numeric Safety Gate
+
+Read `docs/src/design.md#numeric-types-and-arithmetic`. Derive implementation
+types, supported ranges, and checked conversions from the mathematical source,
+target, and reduction algorithm. Use `usize` for in-memory indices, collection
+lengths, and brute-force dimensions; `u64` for registered problem size
+parameters; `i64` for signed mathematical integers; `bool` for Boolean data;
+and finite `f64` for real or rational data. Another format needs mathematical
+or target-schema justification; there is no `i32` boundary format.
+Temporary reduction calculations are outside this format contract, but fields
+written into the target must use the target model's format.
+
+Ask the contributor only when a mathematical domain or constraint is ambiguous;
+do not ask them to choose Rust types. Do not use `as` for range/sign changes.
+Check target-size arithmetic and auxiliary identifiers before constructing the
+target, verify serde/CLI uses the same ranges, and add focused boundary tests.
+The public reduction returns `ReductionError`: preserve a target constructor's
+`ConstructionError` as `ReductionError::Construction`, and report reduction
+arithmetic directly as the corresponding `ReductionError`; do not stringify or
+silently handle either error. Convert model-derived `i64` values to `f64` only
+through `i64_to_exact_f64`.
 
 ## Reference Implementations
 
@@ -106,12 +128,18 @@ impl ReductionResult for ReductionXToY {
     type Source = SourceType;
     type Target = TargetType;
     fn target_problem(&self) -> &Self::Target { &self.target }
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Map target solution back to source solution
-        // If Step 1 ran: translate the verified Python extract_solution() logic
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let source_solution = /* translate the verified mathematical mapping exactly */;
+        Ok(source_solution)
     }
 }
 ```
+
+Every direct extractor must call `validate_target_solution()` once before decoding. It checks only length and value domains, not feasibility, optimality, or rule-specific structure; reject malformed structure with `ExtractionError`.
 
 **ReduceTo with `#[reduction]` macro** (overhead is **required**):
 ```rust
@@ -156,6 +184,8 @@ Additional recommended tests:
 - Edge cases (empty graph, single vertex, etc.)
 - Weight preservation (if applicable)
 
+Test every malformed representation distinguished by the decoder (for example, zero or multiple one-hot selections, or duplicate permutation entries). The canonical example supplies shared wrong-length and out-of-domain tests.
+
 For aggregate-only reductions, replace the closed-loop witness test with value-chain tests:
 - Solve the target with `Solver::solve()`
 - Map the aggregate value back with `extract_value()`
@@ -163,9 +193,9 @@ For aggregate-only reductions, replace the closed-loop witness test with value-c
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
-## Step 5: Add canonical example to example_db
+## Step 5: Add canonical example
 
-Add a builder function in `src/example_db/rule_builders.rs` that constructs a small, canonical instance for this reduction. Follow the existing patterns in that file. Register the builder in `build_rule_examples()`.
+Define `canonical_rule_example_specs()` in the rule module and include it from `src/rules/mod.rs::canonical_rule_example_specs()`. This enrolls the rule in shared round-trip, wrong-length, and out-of-domain extraction tests.
 
 ## Step 6: Document in paper (MANDATORY — DO NOT SKIP)
 
@@ -231,11 +261,11 @@ Checklist: notation self-contained, complexity cited, overhead consistent, examp
 ```bash
 cargo run --example export_graph    # Generate reduction_graph.json for docs/paper builds
 cargo run --example export_schemas  # Generate problem schemas for docs/paper builds
-make regenerate-fixtures            # Regenerate example_db/fixtures/examples.json (slow, needs ILP)
+cargo run --features "example-db" --example export_examples
 make test clippy                    # Must pass
 ```
 
-`make regenerate-fixtures` is required so the paper can load the new rule's example data from `src/example_db/fixtures/examples.json`. Without it, the `reduction-rule` entry in Step 6 will reference missing fixture data.
+`export_examples` refreshes the gitignored `docs/paper/data/examples.json` used by the paper.
 
 Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
@@ -249,7 +279,9 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 
 ## CLI Impact
 
-Adding a witness-preserving reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
+Adding a witness-preserving reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`ProblemSchemaEntry` and `declare_variants!`), including any aliases and `pred create` construction contract (see `add-model` skill).
+
+`ExtractionError` already propagates through `pred extract` and bundle `pred solve`; add a rule-specific CLI test only when the CLI surface changes.
 
 Aggregate-only reductions currently have a narrower CLI surface:
 - `pred solve <problem.json>` can still compute direct aggregate values for aggregate-only problems
@@ -261,7 +293,7 @@ Aggregate-only reductions currently have a narrower CLI surface:
 - Rule file: `src/rules/<sourcelower>_<targetlower>.rs` -- no underscores within a problem name
   - e.g., `maximumindependentset_qubo.rs`, `minimumvertexcover_maximumindependentset.rs`
 - Test file: `src/unit_tests/rules/<sourcelower>_<targetlower>.rs`
-- Canonical example: builder function in `src/example_db/rule_builders.rs`
+- Canonical example: `canonical_rule_example_specs()` in the rule module, included from `src/rules/mod.rs`
 
 ## Common Mistakes
 
@@ -272,9 +304,10 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Wrong overhead expression | Must accurately reflect the size relationship |
 | Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
-| Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
+| Permissive extraction | Validate first, then map exactly or return `ExtractionError` |
+| Not adding a canonical example | Add the rule-local spec and include it from `src/rules/mod.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
-| Skipping Step 5 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
-| Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |
+| Skipping Step 6 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
+| Source/target model not fully registered | Both problems must already have `ProblemSchemaEntry`, `declare_variants!`, registry aliases as needed, and a construction contract -- use `add-model` skill first |
 | Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
 | Skipping verification for complex reductions | Verification is default for a reason — `--no-verify` is for trivial identity/complement reductions only |

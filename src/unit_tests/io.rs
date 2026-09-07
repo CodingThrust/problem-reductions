@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[test]
 fn test_to_json() {
     let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
     let json = to_json(&problem);
     assert!(json.is_ok());
     let json = json.unwrap();
@@ -17,16 +17,16 @@ fn test_to_json() {
 #[test]
 fn test_from_json() {
     let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
     let json = to_json(&problem).unwrap();
-    let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
+    let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json).unwrap();
     assert_eq!(restored.graph().num_vertices(), 3);
     assert_eq!(restored.graph().num_edges(), 2);
 }
 
 #[test]
 fn test_json_compact() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
     let compact = to_json_compact(&problem).unwrap();
     let pretty = to_json(&problem).unwrap();
     // Compact should be shorter
@@ -37,7 +37,7 @@ fn test_json_compact() {
 fn test_file_roundtrip() {
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -50,7 +50,7 @@ fn test_file_roundtrip() {
     write_problem(&problem, path, FileFormat::Json).unwrap();
 
     // Read back
-    let restored: MaximumIndependentSet<SimpleGraph, i32> =
+    let restored: MaximumIndependentSet<SimpleGraph, i64> =
         read_problem(path, FileFormat::Json).unwrap();
     assert_eq!(restored.graph().num_vertices(), 4);
     assert_eq!(restored.graph().num_edges(), 3);
@@ -93,6 +93,6 @@ fn test_read_write_file() {
 
 #[test]
 fn test_invalid_json() {
-    let result: Result<MaximumIndependentSet<SimpleGraph, i32>> = from_json("not valid json");
+    let result: Result<MaximumIndependentSet<SimpleGraph, i64>> = from_json("not valid json");
     assert!(result.is_err());
 }

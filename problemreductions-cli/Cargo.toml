@@ -5,6 +5,7 @@ edition = "2021"
 description = "CLI tool for exploring NP-hard problem reductions"
 license = "MIT"
 repository = "https://github.com/CodingThrust/problem-reductions"
+default-run = "pred"
 
 [[bin]]
 name = "pred"
@@ -15,16 +16,12 @@ name = "pred-sym"
 path = "src/bin/pred_sym.rs"
 
 [features]
-default = ["highs"]
-all = ["highs", "mcp"]
-highs = ["problemreductions/ilp-highs"]
+all = ["mcp"]
 mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subscriber"]
-cplex = ["problemreductions/ilp-cplex"]
-lp-solvers = ["problemreductions/ilp-lp-solvers"]
 
 [dependencies]
-problemreductions = { version = "0.6.0", path = "..", default-features = false, features = ["example-db"] }
-clap = { version = "4", features = ["derive"] }
+problemreductions = { version = "0.6.0", path = "..", features = ["example-db"] }
+clap = { version = "4", features = ["derive", "string"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

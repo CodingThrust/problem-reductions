@@ -1,14 +1,8 @@
-//! Reduction from Decision Optimal Linear Arrangement to Consecutive Ones
-//! Matrix Augmentation.
-//!
-//! Establishes NP-completeness of CONSECUTIVE ONES MATRIX AUGMENTATION
-//! (Garey & Johnson SR16) via transformation from OPTIMAL LINEAR ARRANGEMENT
-//! (GT42). Given `Decision<OptimalLinearArrangement>(G, k)`, the edge-vertex
-//! incidence matrix `A` of `G` has rows = edges and columns = vertices. A
-//! column permutation is exactly a vertex ordering `f`; making each edge row
-//! consecutive costs `|f(u) - f(v)| - 1` flips, so the total augmentation cost
-//! equals `(total edge length) - |E|`. Hence the source is YES iff
-//! `ConsecutiveOnesMatrixAugmentation(A, k - |E|)` is YES.
+//! Incidence-matrix reduction from decision linear arrangement to consecutive
+//! ones augmentation (Booth, 1975, Theorem 4.19, with the matrix transposed).
+//! For every ordering, augmentation cost equals total edge length minus the
+//! number of non-loop edges. Loops contribute zero to both costs; parallel
+//! edges contribute separately.
 
 use crate::models::algebraic::ConsecutiveOnesMatrixAugmentation;
 use crate::models::decision::Decision;
@@ -17,24 +11,11 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Which construction branch produced the target instance.
-#[derive(Debug, Clone)]
-enum ConstructionKind {
-    /// Edgeless source (`m = 0`): always-YES `[[false]]` sentinel.
-    /// Carries the source vertex count to reconstruct an identity arrangement.
-    EdgelessYes { num_vertices: usize },
-    /// `k < m`: genuine-NO 3x3 cyclic-overlap sentinel.
-    FixedNo { num_vertices: usize },
-    /// Generic incidence-matrix construction (`m >= 1`, `k >= m`).
-    Incidence { num_vertices: usize },
-}
-
-/// Result of reducing `Decision<OptimalLinearArrangement<SimpleGraph>>` to
-/// `ConsecutiveOnesMatrixAugmentation`.
+/// The target incidence matrix, or a fixed infeasible matrix when the source
+/// bound is below the universal lower bound on arrangement length.
 #[derive(Debug, Clone)]
 pub struct ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
     target: ConsecutiveOnesMatrixAugmentation,
-    construction: ConstructionKind,
 }
 
 impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
@@ -45,58 +26,32 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match &self.construction {
-            // No edges: any arrangement has total length 0 <= k, so emit the
-            // identity arrangement f(v) = v over all source vertices.
-            ConstructionKind::EdgelessYes { num_vertices } => (0..*num_vertices).collect(),
-            // Genuine NO: there is no valid arrangement; return a sentinel
-            // (identity) so the source decision evaluates correctly (NO).
-            ConstructionKind::FixedNo { num_vertices } => (0..*num_vertices).collect(),
-            ConstructionKind::Incidence { num_vertices } => {
-                // The C1MA witness is a column permutation: `config[position] = col`.
-                // Columns correspond to vertices, so this places vertex `col` at
-                // `position`. The OLA arrangement is `f(vertex) = position`, i.e.
-                // the inverse permutation.
-                let n = *num_vertices;
-                if target_solution.len() != n {
-                    return (0..n).collect();
-                }
-                let mut arrangement = vec![0usize; n];
-                let mut seen = vec![false; n];
-                for (position, &vertex) in target_solution.iter().enumerate() {
-                    if vertex >= n || seen[vertex] {
-                        // Not a valid permutation; fall back to identity.
-                        return (0..n).collect();
-                    }
-                    seen[vertex] = true;
-                    arrangement[vertex] = position;
-                }
-                arrangement
-            }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target column order is not a satisfying augmentation certificate",
+            ));
         }
+        // Validation establishes a permutation within the augmentation budget.
+        // The NO sentinel has no such certificate; all remaining columns are
+        // source vertices, including the empty permutation for an empty graph.
+        let mut arrangement = vec![0; target_solution.len()];
+        for (position, &vertex) in target_solution.iter().enumerate() {
+            arrangement[vertex] = position;
+        }
+        Ok(arrangement)
     }
 }
 
-/// The fixed 3x3 cyclic-overlap NO sentinel: under every column permutation at
-/// least one row's two 1's straddle a 0, so the minimum augmentation cost is
-/// `1 > 0`.
-fn no_sentinel() -> ConsecutiveOnesMatrixAugmentation {
-    ConsecutiveOnesMatrixAugmentation::new(
-        vec![
-            vec![true, true, false],
-            vec![false, true, true],
-            vec![true, false, true],
-        ],
-        0,
-    )
-}
-
 #[reduction(
-    overhead = {
-        num_rows = "num_edges",
-        num_cols = "num_vertices",
-        bound = "k - num_edges",
+    transform = upper_bound {
+        num_rows = "num_edges + 3",
+        num_cols = "num_vertices + 3",
     }
 )]
 impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
@@ -104,43 +59,43 @@ impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
 {
     type Result = ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let m = self.num_edges();
-        let k = self.k();
-
-        // Edgeless graph: total edge length is 0 for every arrangement, so the
-        // source decision is YES for any bound. Emit a 1x1 all-zero matrix
-        // (already C1P at cost 0 <= bound) to keep num_cols >= 1.
-        if m == 0 {
-            return ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-                target: ConsecutiveOnesMatrixAugmentation::new(vec![vec![false]], k as i64),
-                construction: ConstructionKind::EdgelessYes { num_vertices: n },
-            };
-        }
-
-        // Negative target bound (k < m): every arrangement costs at least m
-        // (each edge contributes >= 1), so the source decision is NO. Route to
-        // the fixed genuine-NO sentinel.
-        if k < m {
-            return ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-                target: no_sentinel(),
-                construction: ConstructionKind::FixedNo { num_vertices: n },
-            };
-        }
-
-        // Generic case: edge-vertex incidence matrix, rows = edges, cols = vertices.
-        let mut matrix = vec![vec![false; n]; m];
-        for (edge_idx, (u, v)) in self.inner().graph().edges().into_iter().enumerate() {
-            matrix[edge_idx][u] = true;
-            matrix[edge_idx][v] = true;
-        }
-        let bound = (k - m) as i64;
-
-        ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-            target: ConsecutiveOnesMatrixAugmentation::new(matrix, bound),
-            construction: ConstructionKind::Incidence { num_vertices: n },
-        }
+        let edges = self.inner().graph().edges();
+        let non_loops = <Self as ReduceTo<ConsecutiveOnesMatrixAugmentation>>::exact_i64(
+            edges.iter().filter(|(u, v)| u != v).count(),
+            "converting the number of non-loop edges to i64",
+        )?;
+        let k = *self.bound();
+        let (matrix, bound) = if k < non_loops {
+            // Every non-loop edge has length at least one. The three pairs of
+            // columns cannot all be adjacent, so this matrix is genuinely NO.
+            (
+                vec![
+                    vec![true, true, false],
+                    vec![false, true, true],
+                    vec![true, false, true],
+                ],
+                0,
+            )
+        } else {
+            // A zero row preserves the vertex columns when there are no edges.
+            // An empty graph is represented by one empty row, with no columns.
+            let mut matrix = vec![vec![false; n]; edges.len().max(1)];
+            for (row, (u, v)) in edges.into_iter().enumerate() {
+                matrix[row][u] = true;
+                matrix[row][v] = true;
+            }
+            // 0 <= non_loops <= k <= i64::MAX, so subtraction is exact.
+            (matrix, k - non_loops)
+        };
+        Ok(
+            ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                target: ConsecutiveOnesMatrixAugmentation::try_new(matrix, bound).map_err(
+                    <Self as ReduceTo<ConsecutiveOnesMatrixAugmentation>>::target_construction,
+                )?,
+            },
+        )
     }
 }
 
@@ -163,7 +118,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 )),
                 11,
             );
-            let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source);
+            let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
+                .expect("reduction should succeed");
             // Source arrangement f(v) = v <=> target column permutation = identity.
             let source_config = vec![0, 1, 2, 3, 4, 5];
             let target_config = vec![0, 1, 2, 3, 4, 5];
@@ -171,8 +127,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

@@ -6,7 +6,7 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 /// Build the canonical 5-vertex, 3-terminal example from issue #185.
-fn canonical_instance() -> MinimumMultiwayCut<SimpleGraph, i32> {
+fn canonical_instance() -> MinimumMultiwayCut<SimpleGraph, i64> {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5])
 }
@@ -14,36 +14,38 @@ fn canonical_instance() -> MinimumMultiwayCut<SimpleGraph, i32> {
 #[test]
 fn test_reduction_creates_valid_ilp() {
     let problem = canonical_instance();
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let k = 3;
     let n = 5;
     let m = 6;
     // kn + m = 21 variables
-    assert_eq!(ilp.num_vars, k * n + m);
+    assert_eq!(ilp.num_vars(), k * n + m);
     // n + 2km + k^2 = 5 + 36 + 9 = 50 constraints
-    assert_eq!(ilp.constraints.len(), n + 2 * k * m + k * k);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), n + 2 * k * m + k * k);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
 fn test_minimummultiwaycut_to_ilp_closed_loop() {
     let problem = canonical_instance();
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
     // Solve original with brute force
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_obj = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_obj = problem.evaluate(&extracted);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     // Optimal cut cost is 8
     assert_eq!(bf_obj, Min(Some(8)));
@@ -58,14 +60,15 @@ fn test_triangle_with_3_terminals() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 1, 2], vec![1, 2, 3]);
 
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    let obj = problem.evaluate(&extracted);
+    let obj = problem.evaluate(&extracted).unwrap();
     assert_eq!(obj, Min(Some(6)));
 }
 
@@ -76,21 +79,23 @@ fn test_two_terminals() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1, 2]);
 
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    let obj = problem.evaluate(&extracted);
+    let obj = problem.evaluate(&extracted).unwrap();
     assert_eq!(obj, Min(Some(1)));
 }
 
 #[test]
 fn test_solution_extraction() {
     let problem = canonical_instance();
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let k = 3;
     let n = 5;
@@ -100,7 +105,7 @@ fn test_solution_extraction() {
     // Manually construct an ILP solution representing the optimal partition:
     // V_0 = {0}, V_1 = {1, 2, 3}, V_2 = {4}
     // Cut edges: (0,1)=idx 0, (3,4)=idx 3, (0,4)=idx 4
-    let mut ilp_solution = vec![0usize; num_vars];
+    let mut ilp_solution = vec![0_i64; num_vars];
 
     // y_{0,v}: component 0 assignments (indices 0..5)
     ilp_solution[0] = 1; // y_{0,0} = 1 (vertex 0 in component 0)
@@ -118,29 +123,30 @@ fn test_solution_extraction() {
     ilp_solution[15 + 3] = 1; // edge (3,4) cut
     ilp_solution[15 + 4] = 1; // edge (0,4) cut
 
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(extracted, vec![1, 0, 0, 1, 1, 0]);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(extracted, vec![true, false, false, true, true, false]);
 
-    let obj = problem.evaluate(&extracted);
+    let obj = problem.evaluate(&extracted).unwrap();
     assert_eq!(obj, Min(Some(8)));
 }
 
 #[test]
-fn test_solve_reduced() {
+fn test_solve_via_ilp_pipeline() {
     let problem = canonical_instance();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced(&problem)
-        .expect("solve_reduced should work");
+        .solve(&problem)
+        .expect("ILP pipeline should solve the problem");
 
-    assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), Min(Some(8)));
+    assert!(problem.evaluate(&solution).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(8)));
 }
 
 #[test]
 fn test_minimummultiwaycut_to_ilp_bf_vs_ilp() {
     let problem = canonical_instance();
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

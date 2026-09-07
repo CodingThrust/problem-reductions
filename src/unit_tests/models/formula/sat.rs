@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
@@ -67,9 +68,9 @@ fn test_count_satisfied() {
         ],
     );
 
-    assert_eq!(problem.count_satisfied(&[true, true]), 2); // x1, x2 satisfied
-    assert_eq!(problem.count_satisfied(&[false, false]), 1); // Only last
-    assert_eq!(problem.count_satisfied(&[true, false]), 2); // x1 and last
+    assert_eq!(problem.count_satisfied(&[true, true]).unwrap(), 2); // x1, x2 satisfied
+    assert_eq!(problem.count_satisfied(&[false, false]).unwrap(), 1); // Only last
+    assert_eq!(problem.count_satisfied(&[true, false]).unwrap(), 2); // x1 and last
 }
 
 #[test]
@@ -89,7 +90,7 @@ fn test_is_satisfying_assignment() {
 fn test_empty_formula() {
     let problem = Satisfiability::new(2, vec![]);
     // Empty formula is trivially satisfied
-    assert!(problem.evaluate(&[0, 0]));
+    assert!(problem.evaluate(&vec![false, false]).unwrap());
 }
 
 #[test]
@@ -97,20 +98,20 @@ fn test_empty_formula_zero_vars_solver() {
     let problem = Satisfiability::new(0, vec![]);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_witness(&problem), Some(vec![]));
+    assert_eq!(solver.solve(&problem).unwrap(), Some(vec![]));
     assert_eq!(
-        solver.find_all_witnesses(&problem),
-        vec![Vec::<usize>::new()]
+        solver.find_all_witnesses(&problem).unwrap(),
+        vec![Vec::<bool>::new()]
     );
 }
 
 #[test]
 fn test_zero_vars_unsat_solver() {
-    let problem = Satisfiability::new(0, vec![CNFClause::new(vec![1])]);
+    let problem = Satisfiability::new(0, vec![CNFClause::new(vec![])]);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_witness(&problem), None);
-    assert!(solver.find_all_witnesses(&problem).is_empty());
+    assert_eq!(solver.solve(&problem).unwrap(), None);
+    assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
 #[test]
@@ -119,9 +120,9 @@ fn test_single_literal_clauses() {
     let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![1, 0]); // x1=T, x2=F
+    assert_eq!(solutions[0], vec![true, false]); // x1=T, x2=F
 }
 
 #[test]
@@ -176,8 +177,8 @@ fn test_jl_parity_evaluation() {
         let problem = Satisfiability::new(num_vars, clauses);
         let num_clauses = instance["instance"]["clauses"].as_array().unwrap().len();
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
-            let rust_result = problem.evaluate(&config);
+            let config = jl_parse_bool_config(&eval["config"]);
+            let rust_result = problem.evaluate(&config).unwrap();
             let jl_size = eval["size"].as_u64().unwrap() as usize;
             let jl_all_satisfied = jl_size == num_clauses;
             assert_eq!(
@@ -186,10 +187,10 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let rust_best = BruteForce::new().find_all_witnesses(&problem);
-        let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
+        let rust_best = BruteForce::new().find_all_witnesses(&problem).unwrap();
+        let rust_best_set: HashSet<Vec<bool>> = rust_best.into_iter().collect();
         if !rust_best_set.is_empty() {
-            let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+            let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
             assert_eq!(rust_best_set, jl_best, "SAT best solutions mismatch");
         }
     }
@@ -203,9 +204,9 @@ fn test_is_valid_solution() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
     // Valid: x1=F, x2=T, x3=T → (T) AND (T) = T
-    assert!(problem.is_valid_solution(&[0, 1, 1]));
+    assert!(problem.is_valid_solution(&[false, true, true]).unwrap());
     // Invalid: x1=T, x2=F, x3=F → (T) AND (F) = F
-    assert!(!problem.is_valid_solution(&[1, 0, 0]));
+    assert!(!problem.is_valid_solution(&[true, false, false]).unwrap());
 }
 
 #[test]
@@ -220,9 +221,9 @@ fn test_sat_paper_example() {
         ],
     );
     // (1,0,1) → x1=T, x2=F, x3=T
-    assert!(problem.evaluate(&[1, 0, 1]));
+    assert!(problem.evaluate(&vec![true, false, true]).unwrap());
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
 }

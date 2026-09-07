@@ -2,9 +2,10 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -12,13 +13,11 @@ inventory::submit! {
         name: "QUBO",
         display_name: "QUBO",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "f64", &["f64"])],
+        dimensions: &[VariantDimension::new("weight", "i64", &["i64", "f64"])],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Minimize quadratic unconstrained binary objective",
-        fields: &[
-            FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<W>>", description: "Upper-triangular Q matrix" },
-        ],
+        fields: QuboCreateSpec::<i64>::FIELDS,
     }
 }
 
@@ -33,27 +32,31 @@ inventory::submit! {
 /// representing linear terms and off-diagonal elements representing
 /// quadratic interactions.
 ///
+/// `QUBO<i64>` is the default exact-integer variant. `QUBO<f64>` stores
+/// finite floating-point coefficients. An explicit variant reduction converts
+/// exactly representable integer coefficients to `f64`.
+///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::algebraic::QUBO;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Q matrix: minimize x0 - 2*x1 + x0*x1
 /// // Q = [[1, 1], [0, -2]]
 /// let problem = QUBO::from_matrix(vec![
-///     vec![1.0, 1.0],
-///     vec![0.0, -2.0],
-/// ]);
+///     vec![1, 1],
+///     vec![0, -2],
+/// ]).unwrap();
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Optimal is x = [0, 1] with value -2
-/// assert!(solutions.contains(&vec![0, 1]));
+/// assert!(solutions.contains(&vec![false, true]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QUBO<W = f64> {
+pub struct QUBO<W = i64> {
     /// Number of variables.
     num_vars: usize,
     /// Q matrix stored as upper triangular (row-major).
@@ -61,14 +64,43 @@ pub struct QUBO<W = f64> {
     matrix: Vec<Vec<W>>,
 }
 
-impl<W: Clone + Default> QUBO<W> {
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct QuboCreateSpec<W> {
+    /// Q matrix; the number of variables is its row count.
+    #[create(codec = "semicolon-separated")]
+    matrix: Vec<Vec<W>>,
+}
+
+impl<W: WeightElement> TryFrom<QuboCreateSpec<W>> for QUBO<W> {
+    type Error = ConstructionError;
+
+    fn try_from(spec: QuboCreateSpec<W>) -> Result<Self, Self::Error> {
+        Self::from_matrix(spec.matrix)
+    }
+}
+
+impl<W: WeightElement> QUBO<W> {
     /// Create a QUBO problem from a full matrix.
     ///
     /// The matrix should be square. Only the upper triangular part
     /// (including diagonal) is used.
-    pub fn from_matrix(matrix: Vec<Vec<W>>) -> Self {
+    pub fn from_matrix(matrix: Vec<Vec<W>>) -> Result<Self, ConstructionError> {
         let num_vars = matrix.len();
-        Self { num_vars, matrix }
+        if let Some((row, actual)) = matrix
+            .iter()
+            .enumerate()
+            .find_map(|(row, values)| (values.len() != num_vars).then_some((row, values.len())))
+        {
+            return Err(ConstructionError::Conversion(format!(
+                "QUBO matrix row {row} has length {actual}, expected {num_vars}"
+            )));
+        }
+        for (row, values) in matrix.iter().enumerate() {
+            for (column, value) in values.iter().enumerate() {
+                value.validate_element(&format!("QUBO coefficient at ({row}, {column})"))?;
+            }
+        }
+        Ok(Self { num_vars, matrix })
     }
 
     /// Create a QUBO from linear and quadratic terms.
@@ -76,12 +108,12 @@ impl<W: Clone + Default> QUBO<W> {
     /// # Arguments
     /// * `linear` - Linear coefficients (diagonal of Q)
     /// * `quadratic` - Quadratic coefficients as ((i, j), value) for i < j
-    pub fn new(linear: Vec<W>, quadratic: Vec<((usize, usize), W)>) -> Self
-    where
-        W: num_traits::Zero,
-    {
+    pub fn new(
+        linear: Vec<W>,
+        quadratic: Vec<((usize, usize), W)>,
+    ) -> Result<Self, ConstructionError> {
         let num_vars = linear.len();
-        let mut matrix = vec![vec![W::zero(); num_vars]; num_vars];
+        let mut matrix = vec![vec![W::default(); num_vars]; num_vars];
 
         // Set diagonal (linear terms)
         for (i, val) in linear.into_iter().enumerate() {
@@ -90,6 +122,11 @@ impl<W: Clone + Default> QUBO<W> {
 
         // Set off-diagonal (quadratic terms)
         for ((i, j), val) in quadratic {
+            if i >= num_vars || j >= num_vars {
+                return Err(ConstructionError::Conversion(format!(
+                    "QUBO quadratic index ({i}, {j}) is outside 0..{num_vars}"
+                )));
+            }
             if i < j {
                 matrix[i][j] = val;
             } else {
@@ -97,9 +134,11 @@ impl<W: Clone + Default> QUBO<W> {
             }
         }
 
-        Self { num_vars, matrix }
+        Self::from_matrix(matrix)
     }
+}
 
+impl<W> QUBO<W> {
     /// Get the number of variables.
     pub fn num_vars(&self) -> usize {
         self.num_vars
@@ -116,56 +155,52 @@ impl<W: Clone + Default> QUBO<W> {
     }
 }
 
-impl<W> QUBO<W>
+impl<W> Problem for QUBO<W>
 where
-    W: Clone + num_traits::Zero + std::ops::AddAssign + std::ops::Mul<Output = W>,
+    W: WeightElement + crate::variant::VariantParam,
 {
-    /// Evaluate the QUBO objective for a configuration.
-    pub fn evaluate(&self, config: &[usize]) -> W {
-        let mut value = W::zero();
+    const NAME: &'static str = "QUBO";
+    type Solution = Vec<bool>;
+    type Value = Min<W::Sum>;
+
+    crate::problem_parameters![("num_vars", num_vars),];
+
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if solution.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                format!(
+                    "solution has {} variables, expected {}",
+                    solution.len(),
+                    self.num_vars
+                ),
+            ));
+        }
+        let mut value = W::Sum::zero();
 
         for i in 0..self.num_vars {
-            let x_i = config.get(i).copied().unwrap_or(0);
-            if x_i == 0 {
+            if !solution[i] {
                 continue;
             }
 
-            for j in i..self.num_vars {
-                let x_j = config.get(j).copied().unwrap_or(0);
-                if x_j == 0 {
+            for (j, &selected) in solution.iter().enumerate().skip(i) {
+                if !selected {
                     continue;
                 }
 
                 if let Some(q_ij) = self.matrix.get(i).and_then(|row| row.get(j)) {
-                    value += q_ij.clone();
+                    value = W::checked_add_to_sum(
+                        value,
+                        q_ij.to_sum(),
+                        "summing selected QUBO coefficients",
+                    )?;
                 }
             }
         }
 
-        value
-    }
-}
-
-impl<W> Problem for QUBO<W>
-where
-    W: WeightElement
-        + crate::variant::VariantParam
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>,
-{
-    const NAME: &'static str = "QUBO";
-    type Value = Min<W::Sum>;
-
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        Min(Some(self.evaluate(config).to_sum()))
+        Ok(Min(Some(value)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -173,21 +208,34 @@ where
     }
 }
 
+impl<W> crate::solvers::BruteForceProblem for QUBO<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default QUBO<f64> => "2^num_vars",
+    default QUBO<i64> => "2^num_vars" create QuboCreateSpec<i64>,
+    QUBO<f64> => "2^num_vars" create QuboCreateSpec<f64>,
+}
+
+crate::register_brute_force! {
+    QUBO<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    QUBO<f64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "qubo_f64",
-        instance: Box::new(QUBO::from_matrix(vec![
-            vec![-1.0, 2.0, 0.0],
-            vec![0.0, -1.0, 2.0],
-            vec![0.0, 0.0, -1.0],
-        ])),
-        optimal_config: vec![1, 0, 1],
-        optimal_value: serde_json::json!(-2.0),
+        id: "qubo",
+        instance: Box::new(
+            QUBO::from_matrix(vec![vec![-1, 2, 0], vec![0, -1, 2], vec![0, 0, -1]]).unwrap(),
+        ),
+        optimal_config: serde_json::json!(vec![true, false, true]),
+        optimal_value: serde_json::json!(-2),
     }]
 }
 

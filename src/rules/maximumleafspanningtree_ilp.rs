@@ -27,38 +27,52 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing MaximumLeafSpanningTree to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMaximumLeafSpanningTreeToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
     type Source = MaximumLeafSpanningTree<SimpleGraph>;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First m variables are edge selectors
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // First m variables are edge selectors
+            target_solution[..self.num_edges]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "3 * num_edges + num_vertices",
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
+impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
     type Result = ReductionMaximumLeafSpanningTreeToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let edges = self.graph().edges();
         let root = 0usize;
+        let n_i64 = Self::exact_i64(n, "encoding the spanning-tree order")?;
 
         let num_vars = 3 * m + n;
         // Variable indices
@@ -69,8 +83,8 @@ impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
         let mut constraints = Vec::new();
 
         // 1. Tree cardinality: sum(y_e) = n - 1
-        let terms: Vec<(usize, f64)> = (0..m).map(|e| (edge_var(e), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, (n - 1) as f64));
+        let terms: Vec<(usize, i64)> = (0..m).map(|e| (edge_var(e), 1)).collect();
+        constraints.push(LinearConstraint::eq(terms, n_i64 - 1));
 
         // 2. Flow conservation
         // Build incidence: for each vertex, which edges are incident and which direction
@@ -81,24 +95,24 @@ impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
                 // flow_var(e, 1) is flow from v to u
                 if v == vertex {
                     // inflow from edge direction u->v
-                    terms.push((flow_var(edge_idx, 0), 1.0));
+                    terms.push((flow_var(edge_idx, 0), 1));
                     // outflow from edge direction v->u
-                    terms.push((flow_var(edge_idx, 1), -1.0));
+                    terms.push((flow_var(edge_idx, 1), -1));
                 }
                 if u == vertex {
                     // outflow from edge direction u->v
-                    terms.push((flow_var(edge_idx, 0), -1.0));
+                    terms.push((flow_var(edge_idx, 0), -1));
                     // inflow from edge direction v->u
-                    terms.push((flow_var(edge_idx, 1), 1.0));
+                    terms.push((flow_var(edge_idx, 1), 1));
                 }
             }
 
             let rhs = if vertex == root {
                 // Root sends n-1 units out => net inflow = -(n-1)
-                -((n - 1) as f64)
+                1 - n_i64
             } else {
                 // Each non-root vertex receives exactly 1 unit
-                1.0
+                1
             };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
@@ -107,11 +121,11 @@ impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
         for edge_idx in 0..m {
             constraints.push(LinearConstraint::le(
                 vec![
-                    (flow_var(edge_idx, 0), 1.0),
-                    (flow_var(edge_idx, 1), 1.0),
-                    (edge_var(edge_idx), -((n - 1) as f64)),
+                    (flow_var(edge_idx, 0), 1),
+                    (flow_var(edge_idx, 1), 1),
+                    (edge_var(edge_idx), 1 - n_i64),
                 ],
-                0.0,
+                0,
             ));
         }
 
@@ -126,28 +140,29 @@ impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
         }
 
         for (v, inc) in incident.iter().enumerate() {
-            let mut terms: Vec<(usize, f64)> = inc.iter().map(|&e| (edge_var(e), 1.0)).collect();
-            terms.push((leaf_var(v), (n - 2) as f64));
-            constraints.push(LinearConstraint::le(terms, (n - 1) as f64));
+            let mut terms: Vec<(usize, i64)> = inc.iter().map(|&e| (edge_var(e), 1)).collect();
+            terms.push((leaf_var(v), n_i64 - 2));
+            constraints.push(LinearConstraint::le(terms, n_i64 - 1));
         }
 
         // 5. Variable bounds: y_e <= 1, z_v <= 1
         for e in 0..m {
-            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1)], 1));
         }
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(leaf_var(v), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(leaf_var(v), 1)], 1));
         }
 
         // Objective: maximize sum(z_v)
-        let objective: Vec<(usize, f64)> = (0..n).map(|v| (leaf_var(v), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|v| (leaf_var(v), 1)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMaximumLeafSpanningTreeToILP {
+        Ok(ReductionMaximumLeafSpanningTreeToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 
@@ -160,7 +175,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 4,
                 vec![(0, 1), (1, 2), (2, 3), (0, 2)],
             ));
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

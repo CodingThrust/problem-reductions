@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn issue_yes_instance() -> GroupingBySwapping {
@@ -22,7 +23,7 @@ fn test_grouping_by_swapping_basic() {
     assert_eq!(problem.budget(), 5);
     assert_eq!(problem.string_len(), 6);
     assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dims(), vec![6; 5]);
+    assert_eq!(problem.dimensions(), vec![6; 5]);
     assert_eq!(<GroupingBySwapping as Problem>::NAME, "GroupingBySwapping");
     assert_eq!(<GroupingBySwapping as Problem>::variant(), vec![]);
 
@@ -34,12 +35,12 @@ fn test_grouping_by_swapping_basic() {
 #[test]
 fn test_grouping_by_swapping_evaluate_issue_yes() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&[2, 1, 3, 5, 5]));
+    assert!(problem.evaluate(&vec![2, 1, 3, 5, 5]).unwrap());
     assert_eq!(
         problem.apply_swap_program(&[2, 1, 3, 5, 5]),
         Some(vec![0, 0, 1, 1, 2, 2])
     );
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]));
+    assert!(!problem.evaluate(&vec![0, 1, 2, 3, 4]).unwrap());
     assert!(!problem.is_grouped(&[0, 1, 0]));
     assert!(problem.is_grouped(&[0, 0, 1, 1, 2, 2]));
 }
@@ -47,8 +48,14 @@ fn test_grouping_by_swapping_evaluate_issue_yes() {
 #[test]
 fn test_grouping_by_swapping_rejects_wrong_length_and_out_of_range_swaps() {
     let problem = issue_yes_instance();
-    assert!(!problem.evaluate(&[2, 1, 3, 5]));
-    assert!(!problem.evaluate(&[2, 1, 3, 5, 6]));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 1, 3, 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 1, 3, 5, 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert_eq!(problem.apply_swap_program(&[2, 1, 3, 5]), None);
     assert_eq!(problem.apply_swap_program(&[2, 1, 3, 5, 6]), None);
 }
@@ -60,29 +67,32 @@ fn test_grouping_by_swapping_bruteforce_yes_and_no() {
     let solver = BruteForce::new();
 
     let satisfying = solver
-        .find_witness(&yes_problem)
+        .solve(&yes_problem)
+        .unwrap()
         .expect("expected a satisfying 3-swap sequence");
-    assert!(yes_problem.evaluate(&satisfying));
+    assert!(yes_problem.evaluate(&satisfying).unwrap());
     assert!(solver
         .find_all_witnesses(&yes_problem)
+        .unwrap()
         .iter()
         .any(|config| config == &vec![2, 1, 3]));
 
-    assert!(solver.find_witness(&no_problem).is_none());
-    assert!(solver.find_all_witnesses(&no_problem).is_empty());
+    assert!(solver.solve(&no_problem).unwrap().is_none());
+    assert!(solver.find_all_witnesses(&no_problem).unwrap().is_empty());
 }
 
 #[test]
 fn test_grouping_by_swapping_paper_example() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&[2, 1, 3, 5, 5]));
+    assert!(problem.evaluate(&vec![2, 1, 3, 5, 5]).unwrap());
 
     let solver = BruteForce::new();
     assert!(solver
         .find_all_witnesses(&problem)
+        .unwrap()
         .iter()
         .any(|config| config == &vec![2, 1, 3, 5, 5]));
-    assert!(solver.find_witness(&issue_two_swap_instance()).is_none());
+    assert!(solver.solve(&issue_two_swap_instance()).unwrap().is_none());
 }
 
 #[test]
@@ -105,4 +115,35 @@ fn test_grouping_by_swapping_symbol_out_of_range_panics() {
 #[should_panic(expected = "budget must be 0 when string is empty")]
 fn test_grouping_by_swapping_empty_string_requires_zero_budget() {
     GroupingBySwapping::new(0, vec![], 1);
+}
+
+#[test]
+fn test_grouping_by_swapping_create_spec_derives_alphabet_and_renames_bound() {
+    let problem = GroupingBySwapping::try_from(GroupingBySwappingCreateSpec {
+        alphabet_size: None,
+        string: vec![0, 2, 1],
+        bound: 4,
+    })
+    .unwrap();
+
+    assert_eq!(problem.alphabet_size(), 3);
+    assert_eq!(problem.budget(), 4);
+    assert_eq!(
+        GroupingBySwappingCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["alphabet_size", "string", "bound"]
+    );
+}
+
+#[test]
+fn test_grouping_by_swapping_create_spec_rejects_nonzero_bound_for_empty_string() {
+    let result = GroupingBySwapping::try_from(GroupingBySwappingCreateSpec {
+        alphabet_size: None,
+        string: vec![],
+        bound: 1,
+    });
+
+    assert!(result.is_err());
 }

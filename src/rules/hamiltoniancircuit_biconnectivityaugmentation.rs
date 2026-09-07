@@ -2,7 +2,10 @@
 //!
 //! Based on the Eswaran & Tarjan (1976) approach:
 //!
-//! Given a Hamiltonian Circuit instance G = (V, E) with n vertices, construct a
+//! For n < 3, the source has no circuit: output three isolated vertices with
+//! no candidate edges and budget zero, a fixed infeasible target.
+//!
+//! Given a Hamiltonian Circuit instance G = (V, E) with n >= 3 vertices, construct a
 //! BiconnectivityAugmentation instance as follows:
 //!
 //! 1. Start with an edgeless graph on n vertices.
@@ -29,7 +32,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// vertex pairs for solution extraction.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToBiconnectivityAugmentation {
-    target: BiconnectivityAugmentation<SimpleGraph, i32>,
+    target: BiconnectivityAugmentation<SimpleGraph, i64>,
     /// Number of vertices in the original graph.
     num_vertices: usize,
     /// Potential edges as (u, v) pairs, in the same order as the target's potential_weights.
@@ -38,73 +41,101 @@ pub struct ReductionHamiltonianCircuitToBiconnectivityAugmentation {
 
 impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = BiconnectivityAugmentation<SimpleGraph, i32>;
+    type Target = BiconnectivityAugmentation<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        if n < 3 {
-            return vec![0; n];
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target augmentation is infeasible",
+            ));
         }
 
-        // Collect selected edges (those with config value 1)
-        let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
-        for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
-            if i < target_solution.len() && target_solution[i] == 1 {
-                adj[u].push(v);
-                adj[v].push(u);
+        Ok({
+            let n = self.num_vertices;
+            if n < 3 {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "a Hamiltonian circuit requires at least three vertices",
+                ));
             }
-        }
 
-        // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
-        if adj.iter().any(|neighbors| neighbors.len() != 2) {
-            return vec![0; n];
-        }
+            // Collect selected edges (those with config value 1)
+            let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
+            for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
+                if target_solution[i] {
+                    adj[u].push(v);
+                    adj[v].push(u);
+                }
+            }
 
-        // Walk the cycle starting from vertex 0
-        let mut circuit = Vec::with_capacity(n);
-        circuit.push(0);
-        let mut prev = 0;
-        let mut current = adj[0][0];
-        while current != 0 {
-            circuit.push(current);
-            let next = if adj[current][0] == prev {
-                adj[current][1]
+            // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
+            if adj.iter().any(|neighbors| neighbors.len() != 2) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected edges do not give every source vertex degree two",
+                ));
+            }
+
+            // Walk the cycle starting from vertex 0
+            let mut circuit = Vec::with_capacity(n);
+            circuit.push(0);
+            let mut prev = 0;
+            let mut current = adj[0][0];
+            while current != 0 {
+                circuit.push(current);
+                let next = if adj[current][0] == prev {
+                    adj[current][1]
+                } else {
+                    adj[current][0]
+                };
+                prev = current;
+                current = next;
+
+                // Safety: if we've visited more than n vertices, something is wrong
+                if circuit.len() > n {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected edges revisit a source vertex",
+                    ));
+                }
+            }
+
+            if circuit.len() == n {
+                circuit
             } else {
-                adj[current][0]
-            };
-            prev = current;
-            current = next;
-
-            // Safety: if we've visited more than n vertices, something is wrong
-            if circuit.len() > n {
-                return vec![0; n];
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected edges do not form a spanning circuit",
+                ));
             }
-        }
-
-        if circuit.len() == n {
-            circuit
-        } else {
-            vec![0; n]
-        }
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "num_vertices",
+    transform = upper_bound {
+        num_vertices = "num_vertices + 3",
         num_edges = "0",
         num_potential_edges = "num_vertices * (num_vertices - 1) / 2",
     }
 )]
-impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToBiconnectivityAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
+        if n < 3 {
+            return Ok(ReductionHamiltonianCircuitToBiconnectivityAugmentation {
+                target: BiconnectivityAugmentation::new(SimpleGraph::empty(3), vec![], 0),
+                num_vertices: n,
+                potential_edges: vec![],
+            });
+        }
         let graph = self.graph();
 
         // Edgeless initial graph
@@ -122,15 +153,20 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i32>> for HamiltonianCircu
         }
 
         // Budget = n (exactly enough for n weight-1 edges)
-        let budget = n as i32;
+        let budget = i64::try_from(n).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                HamiltonianCircuit<SimpleGraph>,
+                BiconnectivityAugmentation<SimpleGraph, i64>,
+            >("converting the vertex count to the target budget")
+        })?;
 
         let target = BiconnectivityAugmentation::new(initial_graph, potential_weights, budget);
 
-        ReductionHamiltonianCircuitToBiconnectivityAugmentation {
+        Ok(ReductionHamiltonianCircuitToBiconnectivityAugmentation {
             target,
             num_vertices: n,
             potential_edges,
-        }
+        })
     }
 }
 
@@ -150,12 +186,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Config: [1, 0, 1, 1, 0, 1]
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                BiconnectivityAugmentation<SimpleGraph, i32>,
+                BiconnectivityAugmentation<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
-                    target_config: vec![1, 0, 1, 1, 0, 1],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
+                    target_config: serde_json::json!(vec![true, false, true, true, false, true]),
                 },
             )
         },

@@ -4,16 +4,14 @@ use crate::rules::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
-fn edge_config(graph: &SimpleGraph, selected_edges: &[(usize, usize)]) -> Vec<usize> {
+fn edge_config(graph: &SimpleGraph, selected_edges: &[(usize, usize)]) -> Vec<bool> {
     graph
         .edges()
         .into_iter()
         .map(|(u, v)| {
-            usize::from(
-                selected_edges
-                    .iter()
-                    .any(|&(a, b)| (a == u && b == v) || (a == v && b == u)),
-            )
+            selected_edges
+                .iter()
+                .any(|&(a, b)| (a == u && b == v) || (a == v && b == u))
         })
         .collect()
 }
@@ -21,7 +19,8 @@ fn edge_config(graph: &SimpleGraph, selected_edges: &[(usize, usize)]) -> Vec<us
 #[test]
 fn test_hamiltonianpath_to_degreeconstrainedspanningtree_structure() {
     let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]));
-    let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph(), source.graph());
@@ -33,7 +32,8 @@ fn test_hamiltonianpath_to_degreeconstrainedspanningtree_structure() {
 #[test]
 fn test_hamiltonianpath_to_degreeconstrainedspanningtree_closed_loop() {
     let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]));
-    let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -45,14 +45,15 @@ fn test_hamiltonianpath_to_degreeconstrainedspanningtree_closed_loop() {
 #[test]
 fn test_hamiltonianpath_to_degreeconstrainedspanningtree_extract_solution_reconstructs_order() {
     let source = HamiltonianPath::new(SimpleGraph::path(4));
-    let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target_solution = edge_config(
         reduction.target_problem().graph(),
         &[(0, 1), (1, 2), (2, 3)],
     );
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, vec![0, 1, 2, 3]);
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }

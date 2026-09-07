@@ -11,15 +11,15 @@ use crate::topology::{Graph, SimpleGraph};
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
 
-fn triangle_source() -> MinimumVertexCover<SimpleGraph, i32> {
+fn triangle_source() -> MinimumVertexCover<SimpleGraph, i64> {
     // Triangle: 0-1-2-0, unit weights; MVC = 2
     MinimumVertexCover::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     )
 }
 
-fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i32> {
+fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i64> {
     // Path: 0-1-2-3-4, varied weights
     MinimumVertexCover::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
@@ -30,7 +30,8 @@ fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i32> {
 #[test]
 fn test_minimumvertexcover_to_minimumfeedbackarcset_closed_loop() {
     let source = triangle_source();
-    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -42,7 +43,8 @@ fn test_minimumvertexcover_to_minimumfeedbackarcset_closed_loop() {
 #[test]
 fn test_minimumvertexcover_to_minimumfeedbackarcset_weighted_closed_loop() {
     let source = weighted_path_source();
-    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -54,7 +56,8 @@ fn test_minimumvertexcover_to_minimumfeedbackarcset_weighted_closed_loop() {
 #[test]
 fn test_reduction_structure() {
     let source = triangle_source();
-    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 3 vertices → 6 vertices in target (v^in, v^out for each)
@@ -72,7 +75,8 @@ fn test_reduction_structure() {
 #[test]
 fn test_internal_arcs_layout() {
     let source = triangle_source();
-    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let arcs = target.graph().arcs();
     let n = source.graph().num_vertices();
@@ -86,10 +90,11 @@ fn test_internal_arcs_layout() {
 #[test]
 fn test_weight_assignment() {
     let source = weighted_path_source();
-    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let n = source.graph().num_vertices();
-    let big_m: i32 = 1 + source.weights().iter().sum::<i32>();
+    let big_m: i64 = 1 + source.weights().iter().sum::<i64>();
 
     // Internal arc weights match source vertex weights
     for v in 0..n {
@@ -104,12 +109,13 @@ fn test_weight_assignment() {
 #[test]
 fn test_solution_extraction() {
     let source = triangle_source();
-    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i32>>::reduce_to(&source);
+    let reduction: ReductionVCToFAS = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Target has 9 arcs; first 3 are internal. Extract should take first 3.
-    let target_config = vec![1, 1, 0, 0, 0, 0, 0, 0, 0];
-    let source_config = reduction.extract_solution(&target_config);
-    assert_eq!(source_config, vec![1, 1, 0]);
+    let target_config = vec![true, true, false, false, false, false, false, false, false];
+    let source_config = reduction.extract_solution(&target_config).unwrap();
+    assert_eq!(source_config, vec![true, true, false]);
 }
 
 #[cfg(feature = "example-db")]
@@ -125,16 +131,18 @@ fn test_canonical_rule_example_spec_builds() {
     assert_eq!(example.target.problem, "MinimumFeedbackArcSet");
     assert_eq!(example.solutions.len(), 1);
 
-    let source: MinimumVertexCover<SimpleGraph, i32> =
+    let source: MinimumVertexCover<SimpleGraph, i64> =
         serde_json::from_value(example.source.instance.clone())
             .expect("source example deserializes");
-    let target: MinimumFeedbackArcSet<i32> =
+    let target: MinimumFeedbackArcSet<i64> =
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
     let solution = &example.solutions[0];
+    let source_config: Vec<bool> = serde_json::from_value(solution.source_config.clone()).unwrap();
+    let target_config: Vec<bool> = serde_json::from_value(solution.target_config.clone()).unwrap();
 
-    let source_metric = source.evaluate(&solution.source_config);
-    let target_metric = target.evaluate(&solution.target_config);
+    let source_metric = source.evaluate(&source_config).unwrap();
+    let target_metric = target.evaluate(&target_config).unwrap();
     assert!(
         source_metric.is_valid(),
         "source witness should be feasible"
@@ -145,12 +153,14 @@ fn test_canonical_rule_example_spec_builds() {
     );
 
     let best_source = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
+        .unwrap()
         .expect("source example should have an optimum");
     let best_target = BruteForce::new()
-        .find_witness(&target)
+        .solve(&target)
+        .unwrap()
         .expect("target example should have an optimum");
 
-    assert_eq!(source_metric, source.evaluate(&best_source));
-    assert_eq!(target_metric, target.evaluate(&best_target));
+    assert_eq!(source_metric, source.evaluate(&best_source).unwrap());
+    assert_eq!(target_metric, target.evaluate(&best_target).unwrap());
 }

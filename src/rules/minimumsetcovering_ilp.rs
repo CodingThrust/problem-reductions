@@ -22,7 +22,7 @@ pub struct ReductionSCToILP {
 }
 
 impl ReductionResult for ReductionSCToILP {
-    type Source = MinimumSetCovering<i32>;
+    type Source = MinimumSetCovering<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -33,21 +33,29 @@ impl ReductionResult for ReductionSCToILP {
     ///
     /// Since the mapping is 1:1 (each set maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_sets",
         num_constraints = "universe_size",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
+impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
     type Result = ReductionSCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_sets();
 
         // Constraints: For each element e, sum_{j: e in set_j} x_j >= 1
@@ -55,29 +63,30 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
         let constraints: Vec<LinearConstraint> = (0..self.universe_size())
             .map(|element| {
                 // Find all sets containing this element
-                let terms: Vec<(usize, f64)> = self
+                let terms: Vec<(usize, i64)> = self
                     .sets()
                     .iter()
                     .enumerate()
                     .filter(|(_, set)| set.contains(&element))
-                    .map(|(j, _)| (j, 1.0))
+                    .map(|(j, _)| (j, 1))
                     .collect();
 
-                LinearConstraint::ge(terms, 1.0)
+                LinearConstraint::ge(terms, 1)
             })
             .collect();
 
         // Objective: minimize sum of w_i * x_i (weighted sum of selected sets)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights_ref()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
+            .map(|(set, &weight)| (set, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionSCToILP { target }
+        Ok(ReductionSCToILP { target })
     }
 }
 

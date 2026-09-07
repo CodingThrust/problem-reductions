@@ -10,8 +10,9 @@ fn test_minimumvertexcover_to_minimumsetcovering_closed_loop() {
     // Vertex 1 covers edges 0 and 1
     // Vertex 2 covers edge 1
     let vc_problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
+        .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
 
     // Check the sets are constructed correctly
@@ -32,9 +33,10 @@ fn test_vc_to_sc_triangle() {
     // Edge indices: (0,1)->0, (1,2)->1, (0,2)->2
     let vc_problem = MinimumVertexCover::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     );
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
+    let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
+        .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
 
     assert_eq!(sc_problem.universe_size(), 3);
@@ -52,7 +54,8 @@ fn test_vc_to_sc_weighted() {
     // Weighted problem: weights should be preserved
     let vc_problem =
         MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 1, 10]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
+    let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
+        .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
 
     // Weights should be preserved - access via weights_ref method on the problem
@@ -60,19 +63,20 @@ fn test_vc_to_sc_weighted() {
 
     // Solve both ways
     let solver = BruteForce::new();
-    let vc_solutions = solver.find_all_witnesses(&vc_problem);
-    let sc_solutions = solver.find_all_witnesses(sc_problem);
+    let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
+    let sc_solutions = solver.find_all_witnesses(sc_problem).unwrap();
 
     // Both should select vertex 1 (weight 1)
-    assert_eq!(vc_solutions[0], vec![0, 1, 0]);
-    assert_eq!(sc_solutions[0], vec![0, 1, 0]);
+    assert_eq!(vc_solutions[0], vec![false, true, false]);
+    assert_eq!(sc_solutions[0], vec![false, true, false]);
 }
 
 #[test]
 fn test_vc_to_sc_empty_graph() {
     // Graph with no edges
-    let vc_problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
+    let vc_problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
+        .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
 
     assert_eq!(sc_problem.universe_size(), 0);
@@ -90,9 +94,10 @@ fn test_vc_to_sc_star_graph() {
     // Edges: (0,1), (0,2), (0,3)
     let vc_problem = MinimumVertexCover::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
+    let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
+        .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
 
     // Vertex 0 should cover all 3 edges
@@ -104,8 +109,8 @@ fn test_vc_to_sc_star_graph() {
 
     // Minimum cover should be just vertex 0
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&vc_problem);
-    assert_eq!(solutions[0], vec![1, 0, 0, 0]);
+    let solutions = solver.find_all_witnesses(&vc_problem).unwrap();
+    assert_eq!(solutions[0], vec![true, false, false, false]);
 }
 
 #[test]
@@ -120,18 +125,23 @@ fn test_jl_parity_vc_to_setcovering() {
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source = MinimumVertexCover::new(
         SimpleGraph::new(nv, jl_parse_edges(inst)),
-        jl_parse_i32_vec(&inst["weights"]),
+        jl_parse_i64_vec(&inst["weights"]),
     );
-    let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
+    let result =
+        ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity VC->SetCovering",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -147,17 +157,22 @@ fn test_jl_parity_rule_vc_to_setcovering() {
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source = MinimumVertexCover::new(
         SimpleGraph::new(nv, jl_parse_edges(inst)),
-        jl_parse_i32_vec(&inst["weights"]),
+        jl_parse_i64_vec(&inst["weights"]),
     );
-    let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
+    let result =
+        ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity rule VC->SetCovering",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }

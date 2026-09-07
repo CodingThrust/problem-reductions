@@ -1,0 +1,17 @@
+[package]
+name = "problemreductions-expr"
+version = "0.6.0"
+edition = "2021"
+description = "Lossless symbolic expressions for problemreductions"
+license = "MIT"
+repository = "https://github.com/CodingThrust/problem-reductions"
+
+[dependencies]
+num-bigint = { version = "0.4", features = ["serde"] }
+num-rational = { version = "0.4", features = ["serde"] }
+num-traits = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"

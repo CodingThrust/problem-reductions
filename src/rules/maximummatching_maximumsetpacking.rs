@@ -30,21 +30,26 @@ where
     }
 
     /// Solutions map directly: edge i in MaximumMatching = set i in MaximumSetPacking.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_sets = "num_edges",
         universe_size = "num_vertices",
     }
 )]
-impl ReduceTo<MaximumSetPacking<i32>> for MaximumMatching<SimpleGraph, i32> {
-    type Result = ReductionMatchingToSP<SimpleGraph, i32>;
+impl ReduceTo<MaximumSetPacking<i64>> for MaximumMatching<SimpleGraph, i64> {
+    type Result = ReductionMatchingToSP<SimpleGraph, i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.edges();
 
         // For each edge, create a set containing its two endpoint vertices
@@ -53,12 +58,17 @@ impl ReduceTo<MaximumSetPacking<i32>> for MaximumMatching<SimpleGraph, i32> {
         // Preserve weights from edges
         let weights = self.weights();
 
-        let target = MaximumSetPacking::with_weights(sets, weights);
+        let target = MaximumSetPacking::with_weights(sets, weights).map_err(|cause| {
+            crate::rules::ReductionError::construction::<
+                MaximumMatching<SimpleGraph, i64>,
+                MaximumSetPacking<i64>,
+            >(cause)
+        })?;
 
-        ReductionMatchingToSP {
+        Ok(ReductionMatchingToSP {
             target,
             _marker: std::marker::PhantomData,
-        }
+        })
     }
 }
 
@@ -72,11 +82,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();
             let source = MaximumMatching::unit_weights(SimpleGraph::new(n, edges));
-            crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+                    source_config: serde_json::json!(vec![
+                        false, false, true, true, false, false, false, true, false, false, false,
+                        false, true, false, true
+                    ]),
+                    target_config: serde_json::json!(vec![
+                        false, false, true, true, false, false, false, true, false, false, false,
+                        false, true, false, true
+                    ]),
                 },
             )
         },

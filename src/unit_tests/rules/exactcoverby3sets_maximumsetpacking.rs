@@ -11,7 +11,8 @@ fn test_exactcoverby3sets_to_maximumsetpacking_closed_loop() {
         6,
         vec![[0, 1, 2], [0, 1, 3], [3, 4, 5], [2, 4, 5], [1, 3, 5]],
     );
-    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -26,7 +27,8 @@ fn test_exactcoverby3sets_to_maximumsetpacking_structure() {
         6,
         vec![[0, 1, 2], [0, 1, 3], [3, 4, 5], [2, 4, 5], [1, 3, 5]],
     );
-    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Same number of sets as source subsets
@@ -51,33 +53,37 @@ fn test_exactcoverby3sets_to_maximumsetpacking_unsatisfiable() {
     // Universe {0,1,2,3,4,5} but subsets cannot form an exact cover:
     // all subsets share element 0
     let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]);
-    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Best packing can only select one set (since all share element 0)
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("Should have an optimal solution");
-    assert_eq!(target.evaluate(&best), Max(Some(1)));
+    assert_eq!(target.evaluate(&best).unwrap(), Max(Some(1)));
 
     // q = 2, but packing value is 1 < 2, so no exact cover exists
-    let extracted = reduction.extract_solution(&best);
-    assert!(!source.evaluate(&extracted));
+    let extracted = reduction.extract_solution(&best).unwrap();
+    assert!(!source.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_exactcoverby3sets_to_maximumsetpacking_optimal_value() {
     // Satisfiable instance: S0={0,1,2}, S1={3,4,5} form an exact cover
     let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
-    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("Should have an optimal solution");
     // Maximum packing: S0 + S1 = 2 disjoint sets = q
-    assert_eq!(target.evaluate(&best), Max(Some(2)));
+    assert_eq!(target.evaluate(&best).unwrap(), Max(Some(2)));
 
-    let extracted = reduction.extract_solution(&best);
-    assert!(source.evaluate(&extracted));
+    let extracted = reduction.extract_solution(&best).unwrap();
+    assert!(source.evaluate(&extracted).unwrap());
 }

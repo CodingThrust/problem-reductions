@@ -24,21 +24,32 @@ impl ReductionResult for ReductionPaintShopToILP {
     }
 
     /// Extract first-occurrence color bits (x_i) from ILP solution.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_cars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_cars]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_cars + 2 * num_sequence",
         num_constraints = "num_sequence + 2 * num_sequence",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for PaintShop {
     type Result = ReductionPaintShopToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let nc = self.num_cars();
         let seq_len = self.sequence_len();
 
@@ -52,33 +63,24 @@ impl ReduceTo<ILP<bool>> for PaintShop {
 
         let mut constraints = Vec::new();
 
-        // Determine car index and is_first for each position.
-        // With config all-zero: first occ gets color 0, second occ gets color 1.
-        let base = self.get_coloring(&vec![0; nc]);
-
-        // For each car i, find its positions by flipping x_i.
-        for i in 0..nc {
-            let mut config = vec![0; nc];
-            config[i] = 1;
-            let flipped = self.get_coloring(&config);
-
-            for p in 0..seq_len {
-                if flipped[p] != base[p] {
-                    // Position p belongs to car i
-                    if base[p] == 0 {
-                        // First occurrence: k_p = x_i
-                        constraints.push(LinearConstraint::eq(
-                            vec![(k_offset + p, 1.0), (i, -1.0)],
-                            0.0,
-                        ));
-                    } else {
-                        // Second occurrence: k_p = 1 - x_i  =>  k_p + x_i = 1
-                        constraints.push(LinearConstraint::eq(
-                            vec![(k_offset + p, 1.0), (i, 1.0)],
-                            1.0,
-                        ));
-                    }
-                }
+        for (position, (&car, &is_first)) in self
+            .sequence_indices()
+            .iter()
+            .zip(self.is_first())
+            .enumerate()
+        {
+            if is_first {
+                // First occurrence: k_p = x_i
+                constraints.push(LinearConstraint::eq(
+                    vec![(k_offset + position, 1), (car, -1)],
+                    0,
+                ));
+            } else {
+                // Second occurrence: k_p = 1 - x_i  =>  k_p + x_i = 1
+                constraints.push(LinearConstraint::eq(
+                    vec![(k_offset + position, 1), (car, 1)],
+                    1,
+                ));
             }
         }
 
@@ -86,32 +88,25 @@ impl ReduceTo<ILP<bool>> for PaintShop {
         for p in 1..seq_len {
             // c_p >= k_p - k_{p-1}
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (c_offset + p, 1.0),
-                    (k_offset + p, -1.0),
-                    (k_offset + p - 1, 1.0),
-                ],
-                0.0,
+                vec![(c_offset + p, 1), (k_offset + p, -1), (k_offset + p - 1, 1)],
+                0,
             ));
             // c_p >= k_{p-1} - k_p
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (c_offset + p, 1.0),
-                    (k_offset + p - 1, -1.0),
-                    (k_offset + p, 1.0),
-                ],
-                0.0,
+                vec![(c_offset + p, 1), (k_offset + p - 1, -1), (k_offset + p, 1)],
+                0,
             ));
         }
 
         // Objective: minimize Σ c_p for p in 1..seq_len
-        let objective: Vec<(usize, f64)> = (1..seq_len).map(|p| (c_offset + p, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (1..seq_len).map(|p| (c_offset + p, 1)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionPaintShopToILP {
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
+        Ok(ReductionPaintShopToILP {
             target,
             num_cars: nc,
-        }
+        })
     }
 }
 
@@ -123,19 +118,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Sequence: A, B, A, C, B, C => 3 cars
             let source = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
-            let reduction: ReductionPaintShopToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionPaintShopToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -1,7 +1,7 @@
 //! Reduction from ExactCoverBy3Sets to MaximumSetPacking.
 //!
 //! Given an X3C instance with universe X (|X| = 3q) and collection C of
-//! 3-element subsets, construct a MaximumSetPacking<One> instance where each
+//! 3-element subsets, construct a `MaximumSetPacking<One>` instance where each
 //! triple becomes a variable-length set with unit weight. An exact cover
 //! of q disjoint triples corresponds to a maximum packing of value q.
 
@@ -29,27 +29,37 @@ impl ReductionResult for ReductionXC3SToMaximumSetPacking {
     /// The configuration is identity (same binary selection vector).
     /// A packing of q disjoint 3-sets over a 3q-element universe is necessarily
     /// an exact cover, so no additional checking is needed.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_sets = "num_subsets",
-})]
+#[reduction(
+    transform = exact {
+        num_sets = "num_subsets",
+    },
+    unavailable = {
+        universe_size = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<MaximumSetPacking<One>> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMaximumSetPacking;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let sets: Vec<Vec<usize>> = self
             .subsets()
             .iter()
             .map(|triple| triple.to_vec())
             .collect();
 
-        ReductionXC3SToMaximumSetPacking {
+        Ok(ReductionXC3SToMaximumSetPacking {
             target: MaximumSetPacking::<One>::new(sets),
-        }
+        })
     }
 }
 
@@ -69,8 +79,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<One>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 0, 0],
-                    target_config: vec![1, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, false, true, false, false]),
+                    target_config: serde_json::json!(vec![true, false, true, false, false]),
                 },
             )
         },

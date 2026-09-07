@@ -25,7 +25,7 @@ pub struct ReductionDSToILP {
 }
 
 impl ReductionResult for ReductionDSToILP {
-    type Source = MinimumDominatingSet<SimpleGraph, i32>;
+    type Source = MinimumDominatingSet<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -36,21 +36,29 @@ impl ReductionResult for ReductionDSToILP {
     ///
     /// Since the mapping is 1:1 (each vertex maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {
     type Result = ReductionDSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_vertices();
 
         // Constraints: For each vertex v, x_v + sum_{u in N(v)} x_u >= 1
@@ -58,25 +66,26 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
         let constraints: Vec<LinearConstraint> = (0..num_vars)
             .map(|v| {
                 // Build terms: x_v with coefficient 1, plus each neighbor with coefficient 1
-                let mut terms: Vec<(usize, f64)> = vec![(v, 1.0)];
+                let mut terms: Vec<(usize, i64)> = vec![(v, 1)];
                 for neighbor in self.neighbors(v) {
-                    terms.push((neighbor, 1.0));
+                    terms.push((neighbor, 1));
                 }
-                LinearConstraint::ge(terms, 1.0)
+                LinearConstraint::ge(terms, 1)
             })
             .collect();
 
         // Objective: minimize sum of w_i * x_i (weighted sum of selected vertices)
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
+            .map(|(vertex, &weight)| (vertex, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionDSToILP { target }
+        Ok(ReductionDSToILP { target })
     }
 }
 
@@ -86,7 +95,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumdominatingset_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();
-            let source = MinimumDominatingSet::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
+            let source = MinimumDominatingSet::new(SimpleGraph::new(n, edges), vec![1i64; 10]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

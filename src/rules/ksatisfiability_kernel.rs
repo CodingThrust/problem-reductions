@@ -1,7 +1,9 @@
 //! Reduction from 3-SAT to Kernel.
 //!
 //! This is Chvatal's 1973 construction using variable digons and clause
-//! 3-cycles with arcs to literal vertices.
+//! 3-cycles with arcs to literal vertices. Appearing variables are compacted
+//! with an inverse map; native clauses of length zero through three keep
+//! their original occurrence arcs, including the empty clause's kernel-free cycle.
 
 use crate::models::formula::KSatisfiability;
 use crate::models::graph::Kernel;
@@ -9,12 +11,14 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::DirectedGraph;
 use crate::variant::K3;
+use std::collections::BTreeSet;
 
 /// Result of reducing 3-SAT to Kernel.
 #[derive(Debug, Clone)]
 pub struct Reduction3SatToKernel {
     target: Kernel,
     source_num_vars: usize,
+    source_variables: Vec<usize>,
 }
 
 impl ReductionResult for Reduction3SatToKernel {
@@ -25,24 +29,27 @@ impl ReductionResult for Reduction3SatToKernel {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|i| usize::from(target_solution.get(2 * i).copied().unwrap_or(0) == 1))
-            .collect()
-    }
-}
-
-fn literal_vertex(literal: i32) -> usize {
-    let variable = literal.unsigned_abs() as usize - 1;
-    if literal > 0 {
-        2 * variable
-    } else {
-        2 * variable + 1
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target vertex selection is not a kernel",
+            ));
+        }
+        let mut assignment = vec![false; self.source_num_vars];
+        for (compact, &original) in self.source_variables.iter().enumerate() {
+            assignment[original] = target_solution[2 * compact];
+        }
+        Ok(assignment)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_arcs = "2 * num_vars + 6 * num_clauses",
     }
@@ -50,10 +57,35 @@ fn literal_vertex(literal: i32) -> usize {
 impl ReduceTo<Kernel> for KSatisfiability<K3> {
     type Result = Reduction3SatToKernel;
 
-    fn reduce_to(&self) -> Self::Result {
-        let num_vars = self.num_vars();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let source_variables: Vec<_> = self
+            .clauses()
+            .iter()
+            .flat_map(|clause| clause.literals.iter())
+            .map(|literal| {
+                usize::try_from(literal.unsigned_abs()).expect("native SAT indices fit usize") - 1
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let num_vars = source_variables.len();
         let num_clauses = self.num_clauses();
-        let mut arcs = Vec::with_capacity(2 * num_vars + 6 * num_clauses);
+        let overflow =
+            |operation| crate::rules::ReductionError::integer_overflow::<Self, Kernel>(operation);
+        let variable_vertices = num_vars
+            .checked_mul(2)
+            .ok_or_else(|| overflow("counting variable vertices"))?;
+        let clause_vertices = num_clauses
+            .checked_mul(3)
+            .ok_or_else(|| overflow("counting clause vertices"))?;
+        let num_vertices = variable_vertices
+            .checked_add(clause_vertices)
+            .ok_or_else(|| overflow("counting target vertices"))?;
+        let arc_capacity = num_clauses
+            .checked_mul(6)
+            .and_then(|clause_arcs| variable_vertices.checked_add(clause_arcs))
+            .ok_or_else(|| overflow("counting target arcs"))?;
+        let mut arcs = Vec::with_capacity(arc_capacity);
 
         for variable in 0..num_vars {
             let positive = 2 * variable;
@@ -69,14 +101,22 @@ impl ReduceTo<Kernel> for KSatisfiability<K3> {
             arcs.push((clause_base + 2, clause_base));
 
             for (literal_index, &literal) in clause.literals.iter().enumerate() {
-                arcs.push((clause_base + literal_index, literal_vertex(literal)));
+                let original = usize::try_from(literal.unsigned_abs())
+                    .expect("native SAT indices fit usize")
+                    - 1;
+                let compact = source_variables
+                    .binary_search(&original)
+                    .expect("all appearing variables were collected");
+                let literal_vertex = 2 * compact + usize::from(literal < 0);
+                arcs.push((clause_base + literal_index, literal_vertex));
             }
         }
 
-        Reduction3SatToKernel {
-            target: Kernel::new(DirectedGraph::new(2 * num_vars + 3 * num_clauses, arcs)),
-            source_num_vars: num_vars,
-        }
+        Ok(Reduction3SatToKernel {
+            target: Kernel::new(DirectedGraph::new(num_vertices, arcs)),
+            source_num_vars: self.num_vars(),
+            source_variables,
+        })
     }
 }
 
@@ -97,8 +137,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     ],
                 ),
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, false, true, false, true, false, false, false, false, false, true,
+                        false
+                    ]),
                 },
             )
         },

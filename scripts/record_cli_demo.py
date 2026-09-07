@@ -28,11 +28,12 @@ STEP_PAUSE = 2.5
 
 # (comment, command) pairs, run in order.
 STEPS = [
-    ("Discover a route to an available solver", "./pred path MIS ILP"),
+    ("Discover a route to an available solver", "./pred path MIS ILP --json -o paths.json"),
+    ("Select the first returned route", "python3 -c 'import json; json.dump(json.load(open(\"paths.json\"))[\"paths\"][0], open(\"path.json\", \"w\"))'"),
     ("Create a five-vertex cycle", "./pred create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o cycle.json"),
-    ("Transform the instance and preserve the way back", "./pred reduce cycle.json --to ILP -o reduced.json"),
+    ("Transform the instance and preserve the way back", "./pred reduce cycle.json --via path.json -o reduced.json"),
     ("Solve the target and recover a source solution", "./pred solve reduced.json"),
-    ("Check an independent set of size two", "./pred evaluate cycle.json --config 1,0,1,0,0"),
+    ("Check an independent set of size two", "./pred evaluate cycle.json --config '[true,false,true,false,false]'"),
     ("Solve the original instance with the default solver", "./pred solve cycle.json"),
 ]
 

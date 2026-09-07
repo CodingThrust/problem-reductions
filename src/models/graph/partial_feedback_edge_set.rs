@@ -3,7 +3,7 @@
 //! The Partial Feedback Edge Set problem asks whether removing at most `K`
 //! edges can hit every cycle of length at most `L`.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -18,13 +18,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Remove at most K edges so that every cycle of length at most L is hit",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "budget", type_name: "usize", description: "Maximum number K of edges that may be removed" },
-            FieldInfo { name: "max_cycle_length", type_name: "usize", description: "Cycle length bound L; every cycle with length at most L must be hit" },
-        ],
+        fields: PartialFeedbackEdgeSetCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +41,23 @@ pub struct PartialFeedbackEdgeSet<G> {
     graph: G,
     budget: usize,
     max_cycle_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PartialFeedbackEdgeSetCreateSpec {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Maximum number K of edges that may be removed.
+    budget: usize,
+    /// Cycle length bound L.
+    max_cycle_length: usize,
+}
+
+impl TryFrom<PartialFeedbackEdgeSetCreateSpec> for PartialFeedbackEdgeSet<SimpleGraph> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: PartialFeedbackEdgeSetCreateSpec) -> Result<Self, Self::Error> {
+        Ok(Self::new(spec.graph, spec.budget, spec.max_cycle_length))
+    }
 }
 
 impl<G: Graph> PartialFeedbackEdgeSet<G> {
@@ -82,17 +96,17 @@ impl<G: Graph> PartialFeedbackEdgeSet<G> {
     }
 
     /// Check whether a configuration is a satisfying partial feedback edge set.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_edges() || config.iter().any(|&value| value > 1) {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
+        if config.len() != self.num_edges() {
             return false;
         }
 
-        let removed_edges = config.iter().filter(|&&value| value == 1).count();
+        let removed_edges = config.iter().filter(|&&removed| removed).count();
         if removed_edges > self.budget {
             return false;
         }
 
-        let kept_edges: Vec<bool> = config.iter().map(|&value| value == 0).collect();
+        let kept_edges: Vec<bool> = config.iter().map(|&removed| !removed).collect();
         !has_cycle_with_length_at_most(&self.graph, &kept_edges, self.max_cycle_length)
     }
 }
@@ -102,18 +116,39 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "PartialFeedbackEdgeSet";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_vertices", num_vertices),
+        ("num_edges", num_edges),
+        ("max_cycle_length", max_cycle_length),
+        ("budget", budget),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_valid_solution(config)))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+impl<G> crate::solvers::BruteForceProblem for PartialFeedbackEdgeSet<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_edges()]
     }
 }
 
@@ -218,16 +253,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         .into_iter()
         .map(|(u, v)| normalize_edge(u, v))
         .collect();
-    let optimal_config = graph
+    let optimal_config: Vec<bool> = graph
         .edges()
         .into_iter()
-        .map(|(u, v)| usize::from(chosen.contains(&normalize_edge(u, v))))
+        .map(|(u, v)| chosen.contains(&normalize_edge(u, v)))
         .collect();
 
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partial_feedback_edge_set_simplegraph",
         instance: Box::new(PartialFeedbackEdgeSet::new(graph, 3, 4)),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }
@@ -242,7 +278,11 @@ fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
 }
 
 crate::declare_variants! {
-    default PartialFeedbackEdgeSet<SimpleGraph> => "2^num_edges",
+    default PartialFeedbackEdgeSet<SimpleGraph> => "2^num_edges" create PartialFeedbackEdgeSetCreateSpec,
+}
+
+crate::register_brute_force! {
+    PartialFeedbackEdgeSet<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

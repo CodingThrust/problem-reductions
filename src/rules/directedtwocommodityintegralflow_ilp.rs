@@ -1,4 +1,4 @@
-//! Reduction from DirectedTwoCommodityIntegralFlow to ILP<i32>.
+//! Reduction from DirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 //!
 //! One non-negative integer variable per (commodity, arc):
 //!   f1_a = a             for a in 0..num_arcs  (commodity 1 flow on arc a)
@@ -17,41 +17,49 @@ use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing DirectedTwoCommodityIntegralFlow to ILP<i32>.
+/// Result of reducing DirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `f1_a` at index a for a in 0..num_arcs (commodity 1)
 /// - `f2_a` at index num_arcs + a for a in 0..num_arcs (commodity 2)
 #[derive(Debug, Clone)]
 pub struct ReductionD2CIFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_arcs: usize,
 }
 
 impl ReductionResult for ReductionD2CIFToILP {
     type Source = DirectedTwoCommodityIntegralFlow;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
     /// Extract flow solution: all 2*|A| variables directly encode the flow.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..2 * self.num_arcs].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..2 * self.num_arcs])
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "2 * num_arcs",
         num_constraints = "num_arcs + 2 * num_vertices + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
+impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
     type Result = ReductionD2CIFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
         let n = self.num_vertices();
@@ -65,17 +73,17 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
         // 1. Joint capacity: f1_a + f2_a ≤ cap[a]
         for a in 0..m {
             constraints.push(LinearConstraint::le(
-                vec![(f1(a), 1.0), (f2(a), 1.0)],
-                self.capacities()[a] as f64,
+                vec![(f1(a), 1), (f2(a), 1)],
+                self.capacities()[a],
             ));
         }
 
         // 2. Flow conservation away from each commodity's own source and sink
         for vertex in 0..n {
             // Commodity 1: Σ_in f1 - Σ_out f1 = 0
-            let mut terms_c1: Option<Vec<(usize, f64)>> = None;
+            let mut terms_c1: Option<Vec<(usize, i64)>> = None;
             // Commodity 2: Σ_in f2 - Σ_out f2 = 0
-            let mut terms_c2: Option<Vec<(usize, f64)>> = None;
+            let mut terms_c2: Option<Vec<(usize, i64)>> = None;
 
             if vertex != self.source_1() && vertex != self.sink_1() {
                 terms_c1 = Some(Vec::new());
@@ -88,64 +96,59 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
                 if vertex == u {
                     // Arc leaves vertex: outgoing
                     if let Some(terms) = &mut terms_c1 {
-                        terms.push((f1(a), -1.0));
+                        terms.push((f1(a), -1));
                     }
                     if let Some(terms) = &mut terms_c2 {
-                        terms.push((f2(a), -1.0));
+                        terms.push((f2(a), -1));
                     }
                 } else if vertex == v {
                     // Arc enters vertex: incoming
                     if let Some(terms) = &mut terms_c1 {
-                        terms.push((f1(a), 1.0));
+                        terms.push((f1(a), 1));
                     }
                     if let Some(terms) = &mut terms_c2 {
-                        terms.push((f2(a), 1.0));
+                        terms.push((f2(a), 1));
                     }
                 }
             }
 
             if let Some(terms_c1) = terms_c1.filter(|terms| !terms.is_empty()) {
-                constraints.push(LinearConstraint::eq(terms_c1, 0.0));
+                constraints.push(LinearConstraint::eq(terms_c1, 0));
             }
             if let Some(terms_c2) = terms_c2.filter(|terms| !terms.is_empty()) {
-                constraints.push(LinearConstraint::eq(terms_c2, 0.0));
+                constraints.push(LinearConstraint::eq(terms_c2, 0));
             }
         }
 
         // 3. Net flow into sink_1 ≥ requirement_1
         let sink_1 = self.sink_1();
-        let mut sink1_terms: Vec<(usize, f64)> = Vec::new();
+        let mut sink1_terms: Vec<(usize, i64)> = Vec::new();
         for (a, &(u, v)) in arcs.iter().enumerate() {
             if v == sink_1 {
-                sink1_terms.push((f1(a), 1.0));
+                sink1_terms.push((f1(a), 1));
             } else if u == sink_1 {
-                sink1_terms.push((f1(a), -1.0));
+                sink1_terms.push((f1(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink1_terms,
-            self.requirement_1() as f64,
-        ));
+        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1()));
 
         // Net flow into sink_2 ≥ requirement_2
         let sink_2 = self.sink_2();
-        let mut sink2_terms: Vec<(usize, f64)> = Vec::new();
+        let mut sink2_terms: Vec<(usize, i64)> = Vec::new();
         for (a, &(u, v)) in arcs.iter().enumerate() {
             if v == sink_2 {
-                sink2_terms.push((f2(a), 1.0));
+                sink2_terms.push((f2(a), 1));
             } else if u == sink_2 {
-                sink2_terms.push((f2(a), -1.0));
+                sink2_terms.push((f2(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink2_terms,
-            self.requirement_2() as f64,
-        ));
+        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
 
-        ReductionD2CIFToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+        Ok(ReductionD2CIFToILP {
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -181,7 +184,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

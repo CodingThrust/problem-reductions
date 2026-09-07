@@ -26,20 +26,26 @@ impl ReductionResult for ReductionQUBOToSG {
     }
 
     /// Solution maps directly (same binary encoding).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&spin| spin == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_spins = "num_vars",
-    }
+        num_interactions = "num_vars^2",
+    },
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
     type Result = ReductionQUBOToSG;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let matrix = self.matrix();
 
@@ -81,40 +87,58 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
             }
         }
 
-        let target = SpinGlass::<SimpleGraph, f64>::new(n, interactions, onsite);
+        let target = SpinGlass::<SimpleGraph, f64>::new(n, interactions, onsite).map_err(
+            |cause| {
+                crate::rules::ReductionError::construction::<
+                    QUBO<f64>,
+                    SpinGlass<SimpleGraph, f64>,
+                >(cause)
+            },
+        )?;
 
-        ReductionQUBOToSG { target }
+        Ok(ReductionQUBOToSG { target })
     }
 }
 
 /// Result of reducing SpinGlass to QUBO.
 #[derive(Debug, Clone)]
-pub struct ReductionSGToQUBO {
-    target: QUBO<f64>,
+pub struct ReductionSGToQUBO<W = f64> {
+    target: QUBO<W>,
 }
 
-impl ReductionResult for ReductionSGToQUBO {
-    type Source = SpinGlass<SimpleGraph, f64>;
-    type Target = QUBO<f64>;
+impl<W> ReductionResult for ReductionSGToQUBO<W>
+where
+    W: crate::types::WeightElement + crate::types::NumericSize + crate::variant::VariantParam,
+{
+    type Source = SpinGlass<SimpleGraph, W>;
+    type Target = QUBO<W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution
+            .iter()
+            .map(|&bit| if bit { 1 } else { -1 })
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_spins",
     }
 )]
 impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
-    type Result = ReductionSGToQUBO;
+    type Result = ReductionSGToQUBO<f64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_spins();
         let mut matrix = vec![vec![0.0; n]; n];
 
@@ -140,9 +164,69 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
             matrix[i][i] += 2.0 * h;
         }
 
-        let target = QUBO::from_matrix(matrix);
+        let target = QUBO::from_matrix(matrix).map_err(|message| {
+            crate::rules::ReductionError::construction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>(
+                message,
+            )
+        })?;
 
-        ReductionSGToQUBO { target }
+        Ok(ReductionSGToQUBO { target })
+    }
+}
+
+#[reduction(
+    transform = exact {
+        num_vars = "num_spins",
+    }
+)]
+impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
+    type Result = ReductionSGToQUBO<i64>;
+
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let n = self.num_spins();
+        let mut matrix = vec![vec![0_i64; n]; n];
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<SpinGlass<SimpleGraph, i64>, QUBO<i64>>(
+                operation,
+            )
+        };
+
+        for ((i, j), coupling) in self.interactions() {
+            let interaction = coupling
+                .checked_mul(4)
+                .ok_or_else(|| overflow("scaling a spin-glass interaction"))?;
+            matrix[i][j] = matrix[i][j]
+                .checked_add(interaction)
+                .ok_or_else(|| overflow("summing QUBO interaction coefficients"))?;
+            let diagonal = coupling
+                .checked_mul(2)
+                .ok_or_else(|| overflow("scaling a spin-glass diagonal contribution"))?;
+            matrix[i][i] = matrix[i][i]
+                .checked_sub(diagonal)
+                .ok_or_else(|| overflow("summing QUBO diagonal coefficients"))?;
+            matrix[j][j] = matrix[j][j]
+                .checked_sub(diagonal)
+                .ok_or_else(|| overflow("summing QUBO diagonal coefficients"))?;
+        }
+
+        for (i, &field) in self.fields().iter().enumerate() {
+            let diagonal = field
+                .checked_mul(2)
+                .ok_or_else(|| overflow("scaling a spin-glass field"))?;
+            matrix[i][i] = matrix[i][i]
+                .checked_add(diagonal)
+                .ok_or_else(|| overflow("summing QUBO diagonal coefficients"))?;
+        }
+
+        Ok(ReductionSGToQUBO {
+            target:
+                QUBO::from_matrix(matrix).map_err(
+                    crate::rules::ReductionError::construction::<
+                        SpinGlass<SimpleGraph, i64>,
+                        QUBO<i64>,
+                    >,
+                )?,
+        })
     }
 }
 
@@ -163,12 +247,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     let (i, j) = if u < v { (u, v) } else { (v, u) };
                     matrix[i][j] = if idx % 2 == 0 { 2.0 } else { -1.5 };
                 }
-                let source = QUBO::from_matrix(matrix);
+                let source = QUBO::from_matrix(matrix).unwrap();
                 crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, f64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
-                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        source_config: serde_json::json!(vec![
+                            true, false, true, true, true, false, true, false, false, true
+                        ]),
+                        target_config: serde_json::json!(vec![1, -1, 1, 1, 1, -1, 1, -1, -1, 1]),
                     },
                 )
             },
@@ -182,12 +268,28 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .enumerate()
                     .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1.0 } else { -1.0 }))
                     .collect();
-                let source = SpinGlass::new(n, couplings, vec![0.0; n]);
+                let source = SpinGlass::new(n, couplings, vec![0.0; n]).unwrap();
                 crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
-                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        source_config: serde_json::json!(vec![1, -1, 1, 1, 1, -1, 1, -1, -1, 1]),
+                        target_config: serde_json::json!(vec![
+                            true, false, true, true, true, false, true, false, false, true
+                        ]),
+                    },
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "integer_spinglass_to_qubo",
+            build: || {
+                let source =
+                    SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), 1)], vec![0, 0]).unwrap();
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
+                    source,
+                    SolutionPair {
+                        source_config: serde_json::json!([1, -1]),
+                        target_config: serde_json::json!([true, false]),
                     },
                 )
             },

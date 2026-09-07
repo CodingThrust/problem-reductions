@@ -3,7 +3,7 @@
 //! The Traveling Salesman problem asks for a minimum-weight cycle
 //! that visits every vertex exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -17,14 +17,12 @@ inventory::submit! {
         aliases: &["TSP"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
-        ],
+        fields: TravelingSalesmanCreateSpec::FIELDS,
     }
 }
 
@@ -48,13 +46,73 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`)
-/// * `W` - The weight type for edges (e.g., `i32`, `f64`)
+/// * `W` - The weight type for edges (e.g., `i64`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TravelingSalesman<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct TravelingSalesmanCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i64>>,
+}
+
+impl TryFrom<TravelingSalesmanCreateSpec> for TravelingSalesman<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: TravelingSalesmanCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let edge_weights = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if edge_weights.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                edge_weights.len(),
+                graph.num_edges()
+            )
+            .into());
+        }
+        Ok(Self::new(graph, edge_weights))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        )
+        .into());
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
@@ -74,9 +132,9 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     /// Create a TravelingSalesman problem with unit weights.
     pub fn unit_weights(graph: G) -> Self
     where
-        W: From<i32>,
+        W: WeightElement,
     {
-        let edge_weights = vec![W::from(1); graph.num_edges()];
+        let edge_weights = vec![W::unit(); graph.num_edges()];
         Self {
             graph,
             edge_weights,
@@ -118,17 +176,17 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     }
 
     /// Check if a configuration is a valid Hamiltonian cycle.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         self.is_valid_hamiltonian_cycle(config)
     }
 
     /// Check if a configuration forms a valid Hamiltonian cycle.
-    fn is_valid_hamiltonian_cycle(&self, config: &[usize]) -> bool {
+    fn is_valid_hamiltonian_cycle(&self, config: &[bool]) -> bool {
         if config.len() != self.graph.num_edges() {
             return false;
         }
-        let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
-        is_hamiltonian_cycle(&self.graph, &selected)
+        let selected = config;
+        is_hamiltonian_cycle(&self.graph, selected)
     }
 }
 
@@ -150,29 +208,52 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "TravelingSalesman";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !self.is_valid_hamiltonian_cycle(config) {
-            return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
         }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.to_sum();
+        Ok({
+            if !self.is_valid_hamiltonian_cycle(config) {
+                return Ok(Min(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected {
+                    if let Some(w) = self.edge_weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing traveling salesman edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Min(Some(total))
+            Min(Some(total))
+        })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for TravelingSalesman<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
@@ -249,18 +330,28 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "traveling_salesman_simplegraph_i32",
+        id: "traveling_salesman_simplegraph",
         instance: Box::new(TravelingSalesman::new(
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
             vec![1, 3, 2, 2, 3, 1],
         )),
-        optimal_config: vec![1, 0, 1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }
 
+crate::impl_random_generate!(TravelingSalesman<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let weights = vec![1; graph.num_edges()];
+    Ok(TravelingSalesman::new(graph, weights))
+});
+
 crate::declare_variants! {
-    default TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
+    default TravelingSalesman<SimpleGraph, i64> => "2^num_vertices" create TravelingSalesmanCreateSpec random,
+}
+
+crate::register_brute_force! {
+    TravelingSalesman<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

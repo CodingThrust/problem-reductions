@@ -22,22 +22,35 @@ impl ReductionResult for ReductionCOSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Output the selection bits s_c (first num_cols variables)
-        target_solution[..self.num_cols].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Output the selection bits s_c (first num_cols variables)
+            target_solution[..self.num_cols]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
-        num_constraints = "1 + num_cols + bound + num_rows * bound + 2 * num_rows + num_rows + 3 * num_rows * bound + 4 * num_rows * bound",
+        num_constraints = "2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
     type Result = ReductionCOSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
         let k = self.bound() as usize;
@@ -62,66 +75,64 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
         let mut constraints = Vec::new();
 
         // sum_c s_c = K
-        let s_terms: Vec<(usize, f64)> = (0..n).map(|c| (s_off + c, 1.0)).collect();
-        constraints.push(LinearConstraint::eq(s_terms, k as f64));
+        let s_terms: Vec<(usize, i64)> = (0..n).map(|c| (s_off + c, 1)).collect();
+        constraints.push(LinearConstraint::eq(
+            s_terms,
+            <Self as ReduceTo<ILP<bool>>>::exact_i64(k, "encoding the selected column count")?,
+        ));
 
         // sum_p x_{c,p} = s_c for all c
         for c in 0..n {
-            let mut terms: Vec<(usize, f64)> = (0..k).map(|p| (x_off + c * k + p, 1.0)).collect();
-            terms.push((s_off + c, -1.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            let mut terms: Vec<(usize, i64)> = (0..k).map(|p| (x_off + c * k + p, 1)).collect();
+            terms.push((s_off + c, -1));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // sum_c x_{c,p} = 1 for all p in {0, ..., K-1}
         for p in 0..k {
-            let terms: Vec<(usize, f64)> = (0..n).map(|c| (x_off + c * k + p, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|c| (x_off + c * k + p, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // a_{r,p} = sum_c A_{r,c} * x_{c,p}
         for r in 0..m {
             for p in 0..k {
                 let a_idx = a_off + r * k + p;
-                let mut terms = vec![(a_idx, 1.0)];
+                let mut terms = vec![(a_idx, 1)];
                 for c in 0..n {
                     if self.matrix()[r][c] {
-                        terms.push((x_off + c * k + p, -1.0));
+                        terms.push((x_off + c * k + p, -1));
                     }
                 }
-                constraints.push(LinearConstraint::eq(terms, 0.0));
+                constraints.push(LinearConstraint::eq(terms, 0));
             }
         }
 
         // C1P interval constraints on the K-position permuted submatrix
         for r in 0..m {
-            // beta_r = 1 if row r has at least one 1 in the original matrix
-            // (among any column, not just selected ones — the ILP will determine)
-            // We use beta_r = 1 for rows that have any 1, to allow intervals
-            let beta_r: f64 = if self.matrix()[r].iter().any(|&v| v) {
-                1.0
-            } else {
-                0.0
-            };
+            // A row has either no interval (all selected entries are zero), or
+            // exactly one pair of left and right boundaries. Existing a <= h
+            // constraints force the latter whenever a selected entry is one.
+            let l_terms: Vec<(usize, i64)> = (0..k).map(|p| (l_off + r * k + p, 1)).collect();
+            constraints.push(LinearConstraint::le(l_terms.clone(), 1));
 
-            // sum_p l_{r,p} = beta_r
-            let l_terms: Vec<(usize, f64)> = (0..k).map(|p| (l_off + r * k + p, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(l_terms, beta_r));
+            let u_terms: Vec<(usize, i64)> = (0..k).map(|p| (u_off + r * k + p, 1)).collect();
+            let mut boundary_count_terms = l_terms;
+            boundary_count_terms.extend(u_terms.into_iter().map(|(index, _)| (index, -1)));
+            constraints.push(LinearConstraint::eq(boundary_count_terms, 0));
 
-            // sum_p u_{r,p} = beta_r
-            let u_terms: Vec<(usize, f64)> = (0..k).map(|p| (u_off + r * k + p, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(u_terms, beta_r));
-
-            // sum_p p*l_{r,p} <= sum_p p*u_{r,p} + (K-1)*(1 - beta_r)
+            // The left boundary cannot occur after the right boundary
             if k > 0 {
                 let mut order_terms = Vec::new();
                 for p in 0..k {
-                    order_terms.push((l_off + r * k + p, p as f64));
-                    order_terms.push((u_off + r * k + p, -(p as f64)));
+                    let p_i64 = <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                        p,
+                        "encoding a selected-column position",
+                    )?;
+                    order_terms.push((l_off + r * k + p, p_i64));
+                    order_terms.push((u_off + r * k + p, -p_i64));
                 }
-                constraints.push(LinearConstraint::le(
-                    order_terms,
-                    (k as f64 - 1.0).max(0.0) * (1.0 - beta_r),
-                ));
+                constraints.push(LinearConstraint::le(order_terms, 0));
             }
 
             for p in 0..k {
@@ -130,44 +141,44 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
                 let f_idx = f_off + r * k + p;
 
                 // h_{r,p} <= sum_{q=0}^{p} l_{r,q}
-                let mut h_le_l = vec![(h_idx, 1.0)];
+                let mut h_le_l = vec![(h_idx, 1)];
                 for q in 0..=p {
-                    h_le_l.push((l_off + r * k + q, -1.0));
+                    h_le_l.push((l_off + r * k + q, -1));
                 }
-                constraints.push(LinearConstraint::le(h_le_l, 0.0));
+                constraints.push(LinearConstraint::le(h_le_l, 0));
 
                 // h_{r,p} <= sum_{q=p}^{K-1} u_{r,q}
-                let mut h_le_u = vec![(h_idx, 1.0)];
+                let mut h_le_u = vec![(h_idx, 1)];
                 for q in p..k {
-                    h_le_u.push((u_off + r * k + q, -1.0));
+                    h_le_u.push((u_off + r * k + q, -1));
                 }
-                constraints.push(LinearConstraint::le(h_le_u, 0.0));
+                constraints.push(LinearConstraint::le(h_le_u, 0));
 
                 // h_{r,p} >= sum_{q=0}^{p} l_{r,q} + sum_{q=p}^{K-1} u_{r,q} - 1
-                let mut h_ge_terms = vec![(h_idx, 1.0)];
+                let mut h_ge_terms = vec![(h_idx, 1)];
                 for q in 0..=p {
-                    h_ge_terms.push((l_off + r * k + q, -1.0));
+                    h_ge_terms.push((l_off + r * k + q, -1));
                 }
                 for q in p..k {
-                    h_ge_terms.push((u_off + r * k + q, -1.0));
+                    h_ge_terms.push((u_off + r * k + q, -1));
                 }
-                constraints.push(LinearConstraint::ge(h_ge_terms, -1.0));
+                constraints.push(LinearConstraint::ge(h_ge_terms, -1));
 
                 // a_{r,p} <= h_{r,p}  — every 1 must be inside the interval
-                constraints.push(LinearConstraint::le(vec![(a_idx, 1.0), (h_idx, -1.0)], 0.0));
+                constraints.push(LinearConstraint::le(vec![(a_idx, 1), (h_idx, -1)], 0));
 
                 // For C1P (no augmentation): the interval must exactly cover the 1s
                 // h_{r,p} <= a_{r,p} + f_{r,p} — position inside interval but 0 costs a flip
                 constraints.push(LinearConstraint::le(
-                    vec![(h_idx, 1.0), (a_idx, -1.0), (f_idx, -1.0)],
-                    0.0,
+                    vec![(h_idx, 1), (a_idx, -1), (f_idx, -1)],
+                    0,
                 ));
 
                 // f_{r,p} <= h_{r,p}
-                constraints.push(LinearConstraint::le(vec![(f_idx, 1.0), (h_idx, -1.0)], 0.0));
+                constraints.push(LinearConstraint::le(vec![(f_idx, 1), (h_idx, -1)], 0));
 
                 // f_{r,p} + a_{r,p} <= 1
-                constraints.push(LinearConstraint::le(vec![(f_idx, 1.0), (a_idx, 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(f_idx, 1), (a_idx, 1)], 1));
             }
         }
 
@@ -176,18 +187,19 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
         let mut flip_terms = Vec::new();
         for r in 0..m {
             for p in 0..k {
-                flip_terms.push((f_off + r * k + p, 1.0));
+                flip_terms.push((f_off + r * k + p, 1));
             }
         }
         if !flip_terms.is_empty() {
-            constraints.push(LinearConstraint::eq(flip_terms, 0.0));
+            constraints.push(LinearConstraint::eq(flip_terms, 0));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionCOSToILP {
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionCOSToILP {
             target,
             num_cols: n,
-        }
+        })
     }
 }
 
@@ -206,17 +218,19 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 3,
             );
-            let reduction: ReductionCOSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionCOSToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let ilp_solver = crate::solvers::ILPSolver::new();
             let target_config = ilp_solver
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&target_config);
+            let extracted = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: extracted,
-                    target_config,
+                    source_config: serde_json::json!(extracted),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

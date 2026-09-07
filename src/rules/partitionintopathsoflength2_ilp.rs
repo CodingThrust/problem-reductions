@@ -19,6 +19,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::PartitionIntoPathsOfLength2;
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
@@ -43,31 +44,34 @@ impl ReductionResult for ReductionPIPL2ToILP {
     }
 
     /// Extract solution: for each vertex v, find the unique group g where x_{v,g} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_groups = self.num_groups;
-        (0..self.num_vertices)
-            .map(|v| {
-                (0..num_groups)
-                    .find(|&g| {
-                        let idx = v * num_groups + g;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_groups,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices^2 + num_edges * num_vertices",
         num_constraints = "num_vertices^2 + num_edges * num_vertices + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     type Result = ReductionPIPL2ToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let q = self.num_groups();
         let edges: Vec<(usize, usize)> = self.graph().edges();
@@ -78,14 +82,14 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
 
         // Assignment constraints: for each vertex v, Σ_g x_{v,g} = 1
         for v in 0..num_vertices {
-            let terms: Vec<(usize, f64)> = (0..q).map(|g| (v * q + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|g| (v * q + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Group size constraints: for each group g, Σ_v x_{v,g} = 3
         for g in 0..q {
-            let terms: Vec<(usize, f64)> = (0..num_vertices).map(|v| (v * q + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 3.0));
+            let terms: Vec<(usize, i64)> = (0..num_vertices).map(|v| (v * q + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 3));
         }
 
         // McCormick linearization: y_{e,g} = x_{u,g} * x_{v,g} for each edge e=(u,v) and group g
@@ -96,33 +100,26 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
                 let xu = u * q + g;
                 let xv = v * q + g;
 
-                // y ≤ x_{u,g}
-                constraints.push(LinearConstraint::le(vec![(y, 1.0), (xu, -1.0)], 0.0));
-                // y ≤ x_{v,g}
-                constraints.push(LinearConstraint::le(vec![(y, 1.0), (xv, -1.0)], 0.0));
-                // y ≥ x_{u,g} + x_{v,g} - 1  →  -y + x_{u,g} + x_{v,g} ≤ 1
-                constraints.push(LinearConstraint::le(
-                    vec![(y, -1.0), (xu, 1.0), (xv, 1.0)],
-                    1.0,
-                ));
+                constraints.extend(mccormick_product(y, xu, xv));
             }
         }
 
         // At-least-2-edges constraint: for each group g, Σ_e y_{e,g} ≥ 2
         for g in 0..q {
-            let terms: Vec<(usize, f64)> = (0..num_edges)
-                .map(|e| (num_vertices * q + e * q + g, 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_edges)
+                .map(|e| (num_vertices * q + e * q + g, 1))
                 .collect();
-            constraints.push(LinearConstraint::ge(terms, 2.0));
+            constraints.push(LinearConstraint::ge(terms, 2));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionPIPL2ToILP {
+        Ok(ReductionPIPL2ToILP {
             target,
             num_vertices,
             num_groups: q,
-        }
+        })
     }
 }
 

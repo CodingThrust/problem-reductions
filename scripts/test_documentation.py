@@ -46,12 +46,12 @@ class DocumentationArtifacts(unittest.TestCase):
         events = [json.loads(line) for line in (ROOT / "docs/src/static/cli-demo.cast").read_text().splitlines()]
         self.assertEqual(events[0]["version"], 2)
         output = "".join(event[2] for event in events[1:])
-        self.assertEqual(output.count("Solver: ilp (via ILP)"), 2)
+        self.assertEqual(output.count("Solver: ilp"), 2)
         self.assertNotIn("brute-force", output)
         self.assertNotIn("panicked", output)
         self.assertGreaterEqual(output.count("Max(2)"), 3)
         # Command blocks are separated by a blank line.
-        self.assertEqual(output.count("\r\n\r\n\x1b[90m#"), 5)
+        self.assertEqual(output.count("\r\n\r\n\x1b[90m#"), 6)
         self.assertIn('"autoPlay": false', (ROOT / "docs/src/static/cli-demo.html").read_text())
 
     def test_demo_replays_and_matches_the_recorded_optimum(self):
@@ -64,15 +64,16 @@ class DocumentationArtifacts(unittest.TestCase):
                                         text=True, timeout=4)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return result.stdout
-            run("path", "MIS", "ILP")
+            paths = json.loads(run("path", "MIS", "ILP", "--json"))["paths"]
+            (Path(work) / "path.json").write_text(json.dumps(paths[0]))
             run("create", "MIS", "--graph", "0-1,1-2,2-3,3-4,4-0", "-o", "cycle.json")
-            run("reduce", "cycle.json", "--to", "ILP", "-o", "reduced.json")
+            run("reduce", "cycle.json", "--via", "path.json", "-o", "reduced.json")
             reduced = json.loads(run("solve", "reduced.json", "--json"))
             direct = json.loads(run("solve", "cycle.json", "--json"))
             self.assertEqual(reduced["evaluation"], "Max(2)")
             self.assertEqual(direct["evaluation"], reduced["evaluation"])
             self.assertIn("Max(2)", run("evaluate", "cycle.json", "--config",
-                                       ",".join(map(str, reduced["solution"]))))
+                                       json.dumps(reduced["solution"])))
 
 
 class DocumentationBrowser(unittest.TestCase):

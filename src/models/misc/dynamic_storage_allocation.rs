@@ -5,7 +5,7 @@
 //! address such that every item fits within [0, D-1] and no two
 //! time-overlapping items share memory addresses.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -17,19 +17,13 @@ inventory::submit! {
         display_name: "Dynamic Storage Allocation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign starting addresses for items with time intervals and sizes within bounded memory",
         fields: &[
             FieldInfo { name: "items", type_name: "Vec<(usize, usize, usize)>", description: "Items as (arrival, departure, size) tuples" },
             FieldInfo { name: "memory_size", type_name: "usize", description: "Total memory size D" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "DynamicStorageAllocation",
-        fields: &["num_items", "memory_size"],
     }
 }
 
@@ -45,33 +39,43 @@ pub struct DynamicStorageAllocation {
 }
 
 impl DynamicStorageAllocation {
-    fn validate_inputs(items: &[(usize, usize, usize)], memory_size: usize) -> Result<(), String> {
+    fn validate_inputs(
+        items: &[(usize, usize, usize)],
+        memory_size: usize,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if items.is_empty() {
-            return Err("DynamicStorageAllocation requires at least one item".to_string());
+            return Err("DynamicStorageAllocation requires at least one item"
+                .to_string()
+                .into());
         }
         if memory_size == 0 {
-            return Err("DynamicStorageAllocation requires a positive memory_size".to_string());
+            return Err("DynamicStorageAllocation requires a positive memory_size"
+                .to_string()
+                .into());
         }
         for (i, &(arrival, departure, size)) in items.iter().enumerate() {
             if size == 0 {
-                return Err(format!("Item {i} has zero size; all sizes must be >= 1"));
+                return Err(format!("Item {i} has zero size; all sizes must be >= 1").into());
             }
             if departure <= arrival {
                 return Err(format!(
                     "Item {i} has departure ({departure}) <= arrival ({arrival}); departure must be strictly greater"
-                ));
+                ).into());
             }
             if size > memory_size {
                 return Err(format!(
                     "Item {i} has size ({size}) > memory_size ({memory_size}); every item must fit in memory"
-                ));
+                ).into());
             }
         }
         Ok(())
     }
 
     /// Try to create a new `DynamicStorageAllocation` instance.
-    pub fn try_new(items: Vec<(usize, usize, usize)>, memory_size: usize) -> Result<Self, String> {
+    pub fn try_new(
+        items: Vec<(usize, usize, usize)>,
+        memory_size: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&items, memory_size)?;
         Ok(Self { items, memory_size })
     }
@@ -119,56 +123,69 @@ impl<'de> Deserialize<'de> for DynamicStorageAllocation {
 
 impl Problem for DynamicStorageAllocation {
     const NAME: &'static str = "DynamicStorageAllocation";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_parameters![("memory_size", memory_size), ("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                if config.len() != self.num_items() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "allocation length does not match the number of items".into(),
+                    ));
+                }
+
+                // Check each item fits within memory
+                for (i, &(_, _, size)) in self.items.iter().enumerate() {
+                    let start = config[i];
+                    if start + size > self.memory_size {
+                        return Ok(Or(false));
+                    }
+                }
+
+                // Check all pairs of time-overlapping items for memory non-overlap
+                for (i, &(r_i, d_i, s_i)) in self.items.iter().enumerate() {
+                    let sigma_i = config[i];
+                    for (j, &(r_j, d_j, s_j)) in self.items.iter().enumerate().skip(i + 1) {
+                        // Time overlap: r_i < d_j AND r_j < d_i
+                        if r_i < d_j && r_j < d_i {
+                            let sigma_j = config[j];
+                            // Memory overlap: NOT (sigma_i + s_i <= sigma_j OR sigma_j + s_j <= sigma_i)
+                            let no_memory_overlap =
+                                sigma_i + s_i <= sigma_j || sigma_j + s_j <= sigma_i;
+                            if !no_memory_overlap {
+                                return Ok(Or(false));
+                            }
+                        }
+                    }
+                }
+                true
+            })
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for DynamicStorageAllocation {
+    fn dimensions(&self) -> Vec<usize> {
         self.items
             .iter()
             .map(|&(_, _, s)| self.memory_size - s + 1)
             .collect()
     }
-
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            if config.len() != self.num_items() {
-                return Or(false);
-            }
-
-            // Check each item fits within memory
-            for (i, &(_, _, size)) in self.items.iter().enumerate() {
-                let start = config[i];
-                if start + size > self.memory_size {
-                    return Or(false);
-                }
-            }
-
-            // Check all pairs of time-overlapping items for memory non-overlap
-            for (i, &(r_i, d_i, s_i)) in self.items.iter().enumerate() {
-                let sigma_i = config[i];
-                for (j, &(r_j, d_j, s_j)) in self.items.iter().enumerate().skip(i + 1) {
-                    // Time overlap: r_i < d_j AND r_j < d_i
-                    if r_i < d_j && r_j < d_i {
-                        let sigma_j = config[j];
-                        // Memory overlap: NOT (sigma_i + s_i <= sigma_j OR sigma_j + s_j <= sigma_i)
-                        let no_memory_overlap =
-                            sigma_i + s_i <= sigma_j || sigma_j + s_j <= sigma_i;
-                        if !no_memory_overlap {
-                            return Or(false);
-                        }
-                    }
-                }
-            }
-            true
-        })
-    }
 }
 
 crate::declare_variants! {
     default DynamicStorageAllocation => "(memory_size + 1)^num_items",
+}
+
+crate::register_brute_force! {
+    DynamicStorageAllocation,
 }
 
 #[cfg(feature = "example-db")]
@@ -179,7 +196,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 3, 2), (0, 2, 3), (1, 4, 1), (2, 5, 3), (3, 5, 2)],
             6,
         )),
-        optimal_config: vec![0, 2, 5, 2, 0],
+        optimal_config: serde_json::json!(vec![0, 2, 5, 2, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -8,8 +8,7 @@ use crate::topology::smallgraph;
 #[test]
 fn test_mapping_result_grid_size() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     let (rows, cols) = result.grid_dimensions;
     assert!(rows > 0, "Grid should have positive rows");
     assert!(cols > 0, "Grid should have positive cols");
@@ -18,16 +17,14 @@ fn test_mapping_result_grid_size() {
 #[test]
 fn test_mapping_result_num_original_vertices() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     assert_eq!(result.num_original_vertices(), 3);
 }
 
 #[test]
 fn test_mapping_result_format_config() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     let (rows, cols) = result.grid_dimensions;
     let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
 
@@ -45,8 +42,7 @@ fn test_mapping_result_format_config() {
 #[test]
 fn test_mapping_result_format_config_with_selected() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     let (rows, cols) = result.grid_dimensions;
     let mut config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
 
@@ -66,8 +62,7 @@ fn test_mapping_result_format_config_with_selected() {
 #[test]
 fn test_mapping_result_format_config_flat() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     let num_nodes = result.positions.len();
     let config: Vec<usize> = vec![0; num_nodes];
 
@@ -81,8 +76,7 @@ fn test_mapping_result_format_config_flat() {
 #[test]
 fn test_mapping_result_display() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     let display = format!("{}", result);
     assert!(!display.is_empty(), "Display should not be empty");
 }
@@ -92,8 +86,7 @@ fn test_mapping_result_display() {
 #[test]
 fn test_weighted_mapping_result_grid_size() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_weighted(3, &edges);
-
+    let result = ksg::map_weighted(3, &edges).unwrap();
     let (rows, cols) = result.grid_dimensions;
     assert!(rows > 0, "Grid should have positive rows");
     assert!(cols > 0, "Grid should have positive cols");
@@ -102,16 +95,14 @@ fn test_weighted_mapping_result_grid_size() {
 #[test]
 fn test_weighted_mapping_result_num_original_vertices() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_weighted(3, &edges);
-
+    let result = ksg::map_weighted(3, &edges).unwrap();
     assert_eq!(result.num_original_vertices(), 3);
 }
 
 #[test]
 fn test_weighted_mapping_result_format_config() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_weighted(2, &edges);
-
+    let result = ksg::map_weighted(2, &edges).unwrap();
     let (rows, cols) = result.grid_dimensions;
     let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
 
@@ -126,47 +117,75 @@ fn test_weighted_mapping_result_format_config() {
 
 #[test]
 fn test_unapply_gadgets_empty_tape() {
-    use crate::rules::unitdiskmapping::ksg::unapply_gadgets;
+    use crate::rules::unitdiskmapping::ksg::mapping::unapply_gadgets;
 
     let tape = vec![];
     let mut config: Vec<Vec<usize>> = vec![vec![0; 5]; 5];
 
-    unapply_gadgets(&tape, &mut config);
+    unapply_gadgets(&tape, &mut config).unwrap();
     // Should not crash with empty tape
 }
 
 #[test]
 fn test_unapply_weighted_gadgets_empty_tape() {
-    use crate::rules::unitdiskmapping::ksg::unapply_weighted_gadgets;
+    use crate::rules::unitdiskmapping::ksg::mapping::unapply_weighted_gadgets;
 
     let tape = vec![];
     let mut config: Vec<Vec<usize>> = vec![vec![0; 5]; 5];
 
-    unapply_weighted_gadgets(&tape, &mut config);
+    unapply_weighted_gadgets(&tape, &mut config).unwrap();
     // Should not crash with empty tape
+}
+
+#[test]
+fn test_unapply_gadgets_rejects_unknown_tape_entry() {
+    use crate::rules::unitdiskmapping::ksg::mapping::unapply_gadgets;
+    use crate::rules::unitdiskmapping::ksg::KsgTapeEntry;
+
+    let tape = vec![KsgTapeEntry {
+        pattern_idx: 999,
+        row: 0,
+        col: 0,
+    }];
+    let mut config = vec![vec![0; 5]; 5];
+
+    assert!(unapply_gadgets(&tape, &mut config).is_err());
+}
+
+#[test]
+fn test_unapply_weighted_gadgets_rejects_unknown_tape_entry() {
+    use crate::rules::unitdiskmapping::ksg::mapping::unapply_weighted_gadgets;
+    use crate::rules::unitdiskmapping::ksg::WeightedKsgTapeEntry;
+
+    let tape = vec![WeightedKsgTapeEntry {
+        pattern_idx: 999,
+        row: 0,
+        col: 0,
+    }];
+    let mut config = vec![vec![0; 5]; 5];
+
+    assert!(unapply_weighted_gadgets(&tape, &mut config).is_err());
 }
 
 #[test]
 fn test_map_config_back_unweighted() {
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let num_nodes = result.positions.len();
     let config: Vec<usize> = vec![0; num_nodes];
 
-    let original_config = result.map_config_back(&config);
+    let original_config = result.map_config_back(&config).unwrap();
     assert_eq!(original_config.len(), n);
 }
 
 #[test]
 fn test_map_config_back_weighted() {
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = ksg::map_weighted(n, &edges);
-
+    let result = ksg::map_weighted(n, &edges).unwrap();
     let num_nodes = result.positions.len();
     let config: Vec<usize> = vec![0; num_nodes];
 
-    let original_config = result.map_config_back(&config);
+    let original_config = result.map_config_back(&config).unwrap();
     assert_eq!(original_config.len(), n);
 }
 
@@ -180,16 +199,14 @@ fn test_full_pipeline_diamond_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     // Solve MIS on the grid graph
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
     // Map config back to original graph
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     // Verify result is a valid independent set
     assert!(
         is_independent_set(&edges, &original_config),
@@ -202,14 +219,12 @@ fn test_full_pipeline_bull_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Bull: mapped back config should be a valid independent set"
@@ -221,14 +236,12 @@ fn test_full_pipeline_house_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = smallgraph("house").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "House: mapped back config should be a valid independent set"
@@ -240,14 +253,12 @@ fn test_full_pipeline_petersen_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = smallgraph("petersen").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Petersen: mapped back config should be a valid independent set"
@@ -259,19 +270,17 @@ fn test_full_pipeline_weighted_diamond() {
     use super::common::{is_independent_set, solve_weighted_mis_config};
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = ksg::map_weighted(n, &edges);
-
+    let result = ksg::map_weighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
 
     // Get weights from the mapping result
-    let weights: Vec<i32> = (0..num_grid)
+    let weights: Vec<i64> = (0..num_grid)
         .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
 
     let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Weighted diamond: mapped back config should be a valid independent set"
@@ -283,18 +292,16 @@ fn test_full_pipeline_weighted_bull() {
     use super::common::{is_independent_set, solve_weighted_mis_config};
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = ksg::map_weighted(n, &edges);
-
+    let result = ksg::map_weighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
 
-    let weights: Vec<i32> = (0..num_grid)
+    let weights: Vec<i64> = (0..num_grid)
         .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
 
     let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Weighted bull: mapped back config should be a valid independent set"
@@ -308,8 +315,7 @@ fn test_mis_size_preserved_diamond() {
     use super::common::solve_mis;
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     // Get original MIS size
     let original_mis = solve_mis(n, &edges);
 
@@ -318,9 +324,9 @@ fn test_mis_size_preserved_diamond() {
     let grid_mis = solve_mis(result.positions.len(), &grid_edges);
 
     // Verify the formula: grid_mis = original_mis + overhead
-    let expected_grid_mis = original_mis as i32 + result.mis_overhead;
+    let expected_grid_mis = original_mis as i64 + result.mis_overhead;
     assert_eq!(
-        grid_mis as i32, expected_grid_mis,
+        grid_mis as i64, expected_grid_mis,
         "Grid MIS {} should equal original {} + overhead {} = {}",
         grid_mis, original_mis, result.mis_overhead, expected_grid_mis
     );
@@ -331,14 +337,13 @@ fn test_mis_size_preserved_bull() {
     use super::common::solve_mis;
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let original_mis = solve_mis(n, &edges);
     let grid_edges = result.edges();
     let grid_mis = solve_mis(result.positions.len(), &grid_edges);
 
-    let expected_grid_mis = original_mis as i32 + result.mis_overhead;
-    assert_eq!(grid_mis as i32, expected_grid_mis);
+    let expected_grid_mis = original_mis as i64 + result.mis_overhead;
+    assert_eq!(grid_mis as i64, expected_grid_mis);
 }
 
 #[test]
@@ -346,14 +351,13 @@ fn test_mis_size_preserved_house() {
     use super::common::solve_mis;
 
     let (n, edges) = smallgraph("house").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let original_mis = solve_mis(n, &edges);
     let grid_edges = result.edges();
     let grid_mis = solve_mis(result.positions.len(), &grid_edges);
 
-    let expected_grid_mis = original_mis as i32 + result.mis_overhead;
-    assert_eq!(grid_mis as i32, expected_grid_mis);
+    let expected_grid_mis = original_mis as i64 + result.mis_overhead;
+    assert_eq!(grid_mis as i64, expected_grid_mis);
 }
 
 // === Triangular Full Pipeline Tests ===
@@ -364,18 +368,16 @@ fn test_full_pipeline_triangular_diamond() {
     use crate::rules::unitdiskmapping::triangular;
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
 
-    let weights: Vec<i32> = (0..num_grid)
+    let weights: Vec<i64> = (0..num_grid)
         .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
 
     let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Triangular diamond: mapped back config should be a valid independent set"
@@ -388,18 +390,16 @@ fn test_full_pipeline_triangular_bull() {
     use crate::rules::unitdiskmapping::triangular;
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
 
-    let weights: Vec<i32> = (0..num_grid)
+    let weights: Vec<i64> = (0..num_grid)
         .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
 
     let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Triangular bull: mapped back config should be a valid independent set"
@@ -412,18 +412,16 @@ fn test_full_pipeline_triangular_house() {
     use crate::rules::unitdiskmapping::triangular;
 
     let (n, edges) = smallgraph("house").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
 
-    let weights: Vec<i32> = (0..num_grid)
+    let weights: Vec<i64> = (0..num_grid)
         .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
 
     let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Triangular house: mapped back config should be a valid independent set"
@@ -502,16 +500,14 @@ fn test_extracted_mis_equals_original() {
     use super::common::{solve_mis, solve_mis_config};
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     // Solve MIS on grid
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
     // Map back
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     // Count selected vertices
     let extracted_count = original_config.iter().filter(|&&x| x > 0).count();
     let original_mis = solve_mis(n, &edges);
@@ -528,13 +524,12 @@ fn test_extracted_mis_equals_original_bull() {
     use super::common::{solve_mis, solve_mis_config};
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
-    let original_config = result.map_config_back(&grid_config);
+    let original_config = result.map_config_back(&grid_config).unwrap();
     let extracted_count = original_config.iter().filter(|&&x| x > 0).count();
     let original_mis = solve_mis(n, &edges);
 
@@ -546,8 +541,7 @@ fn test_extracted_mis_equals_original_bull() {
 #[test]
 fn test_grid_graph_format_display() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     let formatted = format!("{}", result);
     assert!(!formatted.is_empty());
 }
@@ -555,8 +549,7 @@ fn test_grid_graph_format_display() {
 #[test]
 fn test_grid_graph_format_with_some_config() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     let num_nodes = result.positions.len();
     let config: Vec<usize> = vec![1; num_nodes];
 
@@ -572,12 +565,11 @@ fn test_all_standard_graphs_unapply() {
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
-        let result = ksg::map_unweighted(n, &edges);
-
+        let result = ksg::map_unweighted(n, &edges).unwrap();
         let num_nodes = result.positions.len();
         let config: Vec<usize> = vec![0; num_nodes];
 
-        let original = result.map_config_back(&config);
+        let original = result.map_config_back(&config).unwrap();
         assert_eq!(
             original.len(),
             n,
@@ -593,12 +585,11 @@ fn test_all_standard_graphs_weighted_unapply() {
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
-        let result = ksg::map_weighted(n, &edges);
-
+        let result = ksg::map_weighted(n, &edges).unwrap();
         let num_nodes = result.positions.len();
         let config: Vec<usize> = vec![0; num_nodes];
 
-        let original = result.map_config_back(&config);
+        let original = result.map_config_back(&config).unwrap();
         assert_eq!(
             original.len(),
             n,
@@ -645,8 +636,7 @@ fn test_interface_k23_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = k23_graph();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     // Check MIS size preservation: mis_overhead + original_mis = mapped_mis
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
@@ -664,7 +654,7 @@ fn test_interface_k23_unweighted() {
     );
 
     // Check map_config_back produces valid IS
-    let mapped_back = result.map_config_back(&grid_config);
+    let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
         "K23: mapped back config should be independent set"
@@ -681,8 +671,7 @@ fn test_interface_empty_graph_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = empty_graph();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     // For empty graph, all vertices can be selected
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
@@ -699,7 +688,7 @@ fn test_interface_empty_graph_unweighted() {
     );
 
     // Check map_config_back
-    let mapped_back = result.map_config_back(&grid_config);
+    let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
         "Empty graph: mapped back config should be independent set"
@@ -716,8 +705,7 @@ fn test_interface_path_graph_unweighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = path_graph();
-    let result = ksg::map_unweighted(n, &edges);
-
+    let result = ksg::map_unweighted(n, &edges).unwrap();
     // Check MIS size preservation
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
@@ -736,7 +724,7 @@ fn test_interface_path_graph_unweighted() {
     );
 
     // Check map_config_back
-    let mapped_back = result.map_config_back(&grid_config);
+    let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
         "Path graph: mapped back config should be independent set"
@@ -748,15 +736,14 @@ fn test_interface_k23_weighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = k23_graph();
-    let result = ksg::map_weighted(n, &edges);
-
+    let result = ksg::map_weighted(n, &edges).unwrap();
     // Check MIS size preservation
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
     // Check map_config_back produces valid IS
-    let mapped_back = result.map_config_back(&grid_config);
+    let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
         "K23 weighted: mapped back config should be independent set"
@@ -768,14 +755,13 @@ fn test_interface_empty_graph_weighted() {
     use super::common::is_independent_set;
 
     let (n, edges) = empty_graph();
-    let result = ksg::map_weighted(n, &edges);
-
+    let result = ksg::map_weighted(n, &edges).unwrap();
     // For empty graph with weighted mapping
     let num_grid = result.positions.len();
     // All zeros config is always valid
     let grid_config: Vec<usize> = vec![0; num_grid];
 
-    let mapped_back = result.map_config_back(&grid_config);
+    let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
         "Empty graph weighted: mapped back config should be independent set"
@@ -787,14 +773,13 @@ fn test_interface_path_graph_weighted() {
     use super::common::{is_independent_set, solve_mis_config};
 
     let (n, edges) = path_graph();
-    let result = ksg::map_weighted(n, &edges);
-
+    let result = ksg::map_weighted(n, &edges).unwrap();
     // Check map_config_back
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
-    let mapped_back = result.map_config_back(&grid_config);
+    let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
         "Path graph weighted: mapped back config should be independent set"

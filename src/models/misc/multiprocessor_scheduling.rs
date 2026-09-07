@@ -4,7 +4,7 @@
 //! can be assigned to identical processors such that no processor's
 //! total load exceeds a given deadline.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,13 +14,10 @@ inventory::submit! {
         display_name: "Multiprocessor Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign tasks to processors so that no processor's load exceeds a deadline",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time l(t) for each task" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-            FieldInfo { name: "deadline", type_name: "u64", description: "Global deadline D" },
-        ],
+        fields: MultiprocessorSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -44,23 +41,42 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MultiprocessorScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 5 tasks with lengths [4, 5, 3, 2, 6], 2 processors, deadline 10
 /// let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MultiprocessorScheduling {
     /// Processing time for each task.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
     /// Number of identical processors.
     #[serde(deserialize_with = "positive_usize::deserialize")]
     num_processors: usize,
     /// Global deadline.
-    deadline: u64,
+    deadline: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MultiprocessorSchedulingCreateSpec {
+    /// Processing time for each task.
+    lengths: Vec<i64>,
+    /// Number of identical processors.
+    num_processors: usize,
+    /// Global deadline.
+    deadline: i64,
+}
+impl TryFrom<MultiprocessorSchedulingCreateSpec> for MultiprocessorScheduling {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MultiprocessorSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_processors == 0 {
+            return Err("num_processors must be positive".to_string().into());
+        }
+        Ok(Self::new(spec.lengths, spec.num_processors, spec.deadline))
+    }
 }
 
 impl MultiprocessorScheduling {
@@ -68,8 +84,13 @@ impl MultiprocessorScheduling {
     ///
     /// # Panics
     /// Panics if `num_processors` is zero.
-    pub fn new(lengths: Vec<u64>, num_processors: usize, deadline: u64) -> Self {
+    pub fn new(lengths: Vec<i64>, num_processors: usize, deadline: i64) -> Self {
         assert!(num_processors > 0, "num_processors must be positive");
+        assert!(
+            lengths.iter().all(|&length| length >= 0),
+            "task lengths must be nonnegative"
+        );
+        assert!(deadline >= 0, "deadline must be nonnegative");
         Self {
             lengths,
             num_processors,
@@ -78,7 +99,7 @@ impl MultiprocessorScheduling {
     }
 
     /// Returns the processing times for each task.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
@@ -88,7 +109,7 @@ impl MultiprocessorScheduling {
     }
 
     /// Returns the deadline.
-    pub fn deadline(&self) -> u64 {
+    pub fn deadline(&self) -> i64 {
         self.deadline
     }
 
@@ -98,43 +119,68 @@ impl MultiprocessorScheduling {
     }
 
     /// Returns the total processing time of all tasks.
-    pub fn total_length(&self) -> u64 {
+    pub fn total_length(&self) -> i64 {
         self.lengths.iter().sum()
     }
 }
 
 impl Problem for MultiprocessorScheduling {
     const NAME: &'static str = "MultiprocessorScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_processors", num_processors), ("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_processors; self.num_tasks()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_tasks() {
-                return crate::types::Or(false);
-            }
-            let m = self.num_processors;
-            if config.iter().any(|&p| p >= m) {
-                return crate::types::Or(false);
-            }
-            let mut loads = vec![0u64; m];
-            for (i, &processor) in config.iter().enumerate() {
-                loads[processor] += self.lengths[i];
-            }
-            loads.iter().all(|&load| load <= self.deadline)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_tasks() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "processor assignment length does not match the tasks".into(),
+                    ));
+                }
+                let m = self.num_processors;
+                if config.iter().any(|&processor| processor >= m) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "assignment contains an out-of-range processor".into(),
+                    ));
+                }
+                let mut loads = vec![0i64; m];
+                for (i, &processor) in config.iter().enumerate() {
+                    loads[processor] =
+                        loads[processor]
+                            .checked_add(self.lengths[i])
+                            .ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "summing multiprocessor load".into(),
+                                )
+                            })?;
+                }
+                loads.iter().all(|&load| load <= self.deadline)
+            })
         })
     }
 }
 
+impl crate::solvers::BruteForceProblem for MultiprocessorScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_processors; self.num_tasks()]
+    }
+}
+
 crate::declare_variants! {
-    default MultiprocessorScheduling => "2^num_tasks",
+    default MultiprocessorScheduling => "2^num_tasks" create MultiprocessorSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    MultiprocessorScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -142,7 +188,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiprocessor_scheduling",
         instance: Box::new(MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10)),
-        optimal_config: vec![0, 1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -34,68 +34,76 @@ impl ReductionResult for ReductionCAToILP {
     }
 
     /// Extract solution: for each link l, find the unique capacity c where x_{l,c} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_capacities = self.num_capacities;
-        (0..self.num_links)
-            .map(|l| {
-                (0..num_capacities)
-                    .find(|&c| target_solution[l * num_capacities + c] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_links,
+            self.num_capacities,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_links = self.num_links();
         let num_capacities = self.num_capacities();
         let num_vars = num_links * num_capacities;
+        let delay = self.delay();
+        let cost = self.cost();
+        let delay_budget = self.delay_budget();
 
         let mut constraints = Vec::with_capacity(num_links + 1);
 
         // Assignment constraints: for each link l, Σ_c x_{l,c} = 1
         for l in 0..num_links {
-            let terms: Vec<(usize, f64)> = (0..num_capacities)
-                .map(|c| (l * num_capacities + c, 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_capacities)
+                .map(|c| (l * num_capacities + c, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Delay budget constraint: Σ_{l,c} delay[l][c] * x_{l,c} ≤ delay_budget
-        let delay_terms: Vec<(usize, f64)> = (0..num_links)
-            .flat_map(|l| {
-                (0..num_capacities)
-                    .map(move |c| (l * num_capacities + c, self.delay()[l][c] as f64))
-            })
-            .collect();
-        constraints.push(LinearConstraint::le(
-            delay_terms,
-            self.delay_budget() as f64,
-        ));
+        let mut delay_terms = Vec::with_capacity(num_vars);
+        for (link, row) in delay.iter().enumerate() {
+            for (capacity, &value) in row.iter().enumerate() {
+                delay_terms.push((link * num_capacities + capacity, value));
+            }
+        }
+        constraints.push(LinearConstraint::le(delay_terms, delay_budget));
 
         // Objective: minimize total cost
-        let objective: Vec<(usize, f64)> = (0..num_links)
-            .flat_map(|l| {
-                (0..num_capacities).map(move |c| (l * num_capacities + c, self.cost()[l][c] as f64))
-            })
-            .collect();
+        let mut objective = Vec::with_capacity(num_vars);
+        for (link, row) in cost.iter().enumerate() {
+            for (capacity, &value) in row.iter().enumerate() {
+                objective.push((link * num_capacities + capacity, value));
+            }
+        }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionCAToILP {
+        Ok(ReductionCAToILP {
             target,
             num_links,
             num_capacities,
-        }
+        })
     }
 }
 

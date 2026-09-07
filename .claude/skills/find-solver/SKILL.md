@@ -86,9 +86,9 @@ Use `AskUserQuestion` for each question. Format options as **(a)**/**(b)**/**(c)
 
 1. **Web search** the clarified problem description together with terms like "NP-hard", "computational complexity", or "reduction" to find formal problem names and known relationships in the literature. Use `WebSearch` tool.
 
-2. **Run `pred list`** to get the full catalog of available models. Copy-paste the full output into your response.
+2. **Search the catalog** with `pred list <formal-name-or-keyword>`. Use `pred list --json` when exhaustive machine-readable discovery is needed. Do not paste the full catalog into the response.
 
-3. **Cross-reference** the web search results against the `pred list` catalog. For each candidate model that exists in the library (3-5 max), present a table:
+3. **Cross-reference** the web search results against the catalog. For each candidate model that exists in the library (3-5 max), present a table:
 
 | # | Model | Why it might match | Caveat |
 |---|-------|--------------------|--------|

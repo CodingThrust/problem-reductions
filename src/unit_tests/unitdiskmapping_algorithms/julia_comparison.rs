@@ -5,7 +5,7 @@
 //! - Weighted (square lattice with weights)
 //! - Triangular (triangular lattice with weights)
 
-use crate::rules::unitdiskmapping::{ksg, triangular};
+use crate::rules::unitdiskmapping::{ksg, triangular, MappingResult};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;
@@ -23,7 +23,7 @@ struct JuliaTrace {
     num_grid_nodes: usize,
     #[serde(default)]
     num_grid_nodes_before_simplifiers: usize,
-    mis_overhead: i32,
+    mis_overhead: i64,
     #[serde(default)]
     original_mis_size: f64,
     #[serde(default)]
@@ -40,32 +40,32 @@ struct JuliaTrace {
 
 /// Grid node in compact format: [row, col, weight]
 #[derive(Debug, Deserialize)]
-#[serde(from = "(i32, i32, i32)")]
+#[serde(from = "(i64, i64, i64)")]
 #[allow(dead_code)]
 struct CompactGridNode {
-    row: i32,
-    col: i32,
-    weight: i32,
+    row: i64,
+    col: i64,
+    weight: i64,
 }
 
-impl From<(i32, i32, i32)> for CompactGridNode {
-    fn from((row, col, weight): (i32, i32, i32)) -> Self {
+impl From<(i64, i64, i64)> for CompactGridNode {
+    fn from((row, col, weight): (i64, i64, i64)) -> Self {
         Self { row, col, weight }
     }
 }
 
 /// Grid node with state in compact format: [row, col, state]
 #[derive(Debug, Deserialize)]
-#[serde(from = "(i32, i32, String)")]
+#[serde(from = "(i64, i64, String)")]
 #[allow(dead_code)]
 struct CompactGridNodeWithState {
-    row: i32,
-    col: i32,
+    row: i64,
+    col: i64,
     state: String,
 }
 
-impl From<(i32, i32, String)> for CompactGridNodeWithState {
-    fn from((row, col, state): (i32, i32, String)) -> Self {
+impl From<(i64, i64, String)> for CompactGridNodeWithState {
+    fn from((row, col, state): (i64, i64, String)) -> Self {
         Self { row, col, state }
     }
 }
@@ -80,22 +80,22 @@ struct CopyLineInfo {
     vstop: usize,
     hstop: usize,
     /// Compact locations format: [[row, col], ...]
-    locs: Vec<(i32, i32)>,
+    locs: Vec<(i64, i64)>,
 }
 
 /// Tape entry in compact format: [row, col, gadget_type, index]
 #[derive(Debug, Deserialize)]
-#[serde(from = "(i32, i32, String, usize)")]
+#[serde(from = "(i64, i64, String, usize)")]
 #[allow(dead_code)]
 struct CompactTapeEntry {
-    row: i32,
-    col: i32,
+    row: i64,
+    col: i64,
     gadget_type: String,
     index: usize,
 }
 
-impl From<(i32, i32, String, usize)> for CompactTapeEntry {
-    fn from((row, col, gadget_type, index): (i32, i32, String, usize)) -> Self {
+impl From<(i64, i64, String, usize)> for CompactTapeEntry {
+    fn from((row, col, gadget_type, index): (i64, i64, String, usize)) -> Self {
         Self {
             row,
             col,
@@ -116,6 +116,24 @@ fn get_graph_edges(julia: &JuliaTrace) -> Vec<(usize, usize)> {
     julia.edges.iter().map(|(u, v)| (u - 1, v - 1)).collect()
 }
 
+fn julia_grid_nodes(julia: &JuliaTrace) -> HashSet<(i64, i64, i64)> {
+    julia
+        .grid_nodes
+        .iter()
+        .map(|node| (node.row - 1, node.col - 1, node.weight))
+        .collect()
+}
+
+fn rust_grid_nodes<T>(result: &MappingResult<T>) -> HashSet<(i64, i64, i64)> {
+    result
+        .positions
+        .iter()
+        .copied()
+        .zip(result.node_weights.iter().copied())
+        .map(|((row, col), weight)| (row, col, weight))
+        .collect()
+}
+
 /// Compare Rust and Julia for square lattice (UnWeighted mode)
 fn compare_square_unweighted(name: &str) {
     let julia = load_julia_trace(name, "unweighted");
@@ -124,21 +142,20 @@ fn compare_square_unweighted(name: &str) {
 
     // Use Julia's vertex order to ensure consistent mapping
     let vertex_order = get_vertex_order(&julia);
-    let rust_result = ksg::map_unweighted_with_order(num_vertices, &edges, &vertex_order);
-
+    let rust_result = ksg::map_unweighted_with_order(num_vertices, &edges, &vertex_order).unwrap();
     // Collect Rust grid nodes from copyline_locations (0-indexed)
-    let rust_nodes: HashSet<(i32, i32)> = rust_result
+    let rust_nodes: HashSet<(i64, i64)> = rust_result
         .lines
         .iter()
         .flat_map(|line| {
             line.copyline_locations(rust_result.padding, rust_result.spacing)
                 .into_iter()
-                .map(|(row, col, _)| (row as i32, col as i32))
+                .map(|(row, col, _)| (row as i64, col as i64))
         })
         .collect();
 
     // Collect Julia copyline nodes (convert from 1-indexed to 0-indexed)
-    let julia_nodes: HashSet<(i32, i32)> = julia
+    let julia_nodes: HashSet<(i64, i64)> = julia
         .copy_lines
         .iter()
         .flat_map(|cl| cl.locs.iter().map(|(row, col)| (row - 1, col - 1)))
@@ -180,13 +197,51 @@ fn compare_square_unweighted(name: &str) {
         "{} square: Node positions don't match",
         name
     );
+    assert_eq!(
+        julia_grid_nodes(&julia),
+        rust_grid_nodes(&rust_result),
+        "{} square: final mapped nodes don't match",
+        name
+    );
+}
+
+fn compare_square_weighted(name: &str) {
+    let julia = load_julia_trace(name, "weighted");
+    let edges = get_graph_edges(&julia);
+    let vertex_order = get_vertex_order(&julia);
+    let rust_result =
+        ksg::map_weighted_with_order(julia.num_vertices, &edges, &vertex_order).unwrap();
+
+    compare_copy_lines(&julia.copy_lines, &rust_result.lines);
+    assert_eq!(
+        julia.grid_size, rust_result.grid_dimensions,
+        "{} weighted square: grid size mismatch",
+        name
+    );
+    assert_eq!(
+        julia.mis_overhead, rust_result.mis_overhead,
+        "{} weighted square: MIS overhead mismatch",
+        name
+    );
+    assert_eq!(
+        julia.tape.len(),
+        rust_result.tape.len(),
+        "{} weighted square: tape length mismatch",
+        name
+    );
+    assert_eq!(
+        julia_grid_nodes(&julia),
+        rust_grid_nodes(&rust_result),
+        "{} weighted square: final mapped nodes don't match",
+        name
+    );
 }
 
 /// Get MIS overhead for a Julia gadget type string (triangular/weighted mode)
 /// Values from Julia's UnitDiskMapping/src/triangular.jl lines 401-413
 /// For simplifiers: Julia uses mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
 #[allow(clippy::if_same_then_else)]
-fn julia_gadget_overhead(gadget_type: &str) -> i32 {
+fn julia_gadget_overhead(gadget_type: &str) -> i64 {
     // Order matters - check more specific patterns first
     // Some gadget types have the same overhead but must be checked in order
     if gadget_type.contains("TriCross{true") {
@@ -225,7 +280,7 @@ fn julia_gadget_overhead(gadget_type: &str) -> i32 {
 /// Get MIS overhead for a Rust triangular gadget index (triangular/weighted mode)
 /// Must match Julia's values from triangular.jl
 /// For simplifiers: Julia uses mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
-fn rust_triangular_gadget_overhead(idx: usize) -> i32 {
+fn rust_triangular_gadget_overhead(idx: usize) -> i64 {
     match idx {
         0 => 3,                  // TriCross<false>
         1 => 1,                  // TriCross<true>
@@ -249,11 +304,11 @@ fn rust_triangular_gadget_overhead(idx: usize) -> i32 {
 fn copyline_overhead_triangular(
     line: &crate::rules::unitdiskmapping::CopyLine,
     spacing: usize,
-) -> i32 {
-    let s = spacing as i32;
-    let vertical_up = (line.hslot as i32 - line.vstart as i32) * s;
-    let vertical_down = (line.vstop as i32 - line.hslot as i32) * s;
-    let horizontal = ((line.hstop as i32 - line.vslot as i32) * s - 2).max(0);
+) -> i64 {
+    let s = spacing as i64;
+    let vertical_up = (line.hslot as i64 - line.vstart as i64) * s;
+    let vertical_down = (line.vstop as i64 - line.hslot as i64) * s;
+    let horizontal = ((line.hstop as i64 - line.vslot as i64) * s - 2).max(0);
     vertical_up + vertical_down + horizontal
 }
 
@@ -272,21 +327,21 @@ fn compare_triangular(name: &str) {
 
     // Extract Julia's vertex order from copy_lines
     let vertex_order = get_vertex_order(&julia);
-    let rust_result = triangular::map_weighted_with_order(num_vertices, &edges, &vertex_order);
-
+    let rust_result =
+        triangular::map_weighted_with_order(num_vertices, &edges, &vertex_order).unwrap();
     // Collect Rust grid nodes from copyline_locations_triangular (0-indexed)
-    let rust_nodes: HashSet<(i32, i32)> = rust_result
+    let rust_nodes: HashSet<(i64, i64)> = rust_result
         .lines
         .iter()
         .flat_map(|line| {
             line.copyline_locations_triangular(rust_result.padding, rust_result.spacing)
                 .into_iter()
-                .map(|(row, col, _)| (row as i32, col as i32))
+                .map(|(row, col, _)| (row as i64, col as i64))
         })
         .collect();
 
     // Collect Julia copyline nodes (convert from 1-indexed to 0-indexed)
-    let julia_nodes: HashSet<(i32, i32)> = julia
+    let julia_nodes: HashSet<(i64, i64)> = julia
         .copy_lines
         .iter()
         .flat_map(|cl| cl.locs.iter().map(|(row, col)| (row - 1, col - 1)))
@@ -305,31 +360,31 @@ fn compare_triangular(name: &str) {
     compare_copy_lines(&julia.copy_lines, &rust_result.lines);
 
     // Calculate and compare MIS overhead breakdown
-    let julia_copyline_overhead: i32 = julia
+    let julia_copyline_overhead: i64 = julia
         .copy_lines
         .iter()
         .map(|cl| {
-            let s = 6i32;
-            let vert_up = (cl.hslot as i32 - cl.vstart as i32) * s;
-            let vert_down = (cl.vstop as i32 - cl.hslot as i32) * s;
-            let horiz = ((cl.hstop as i32 - cl.vslot as i32) * s - 2).max(0);
+            let s = 6i64;
+            let vert_up = (cl.hslot as i64 - cl.vstart as i64) * s;
+            let vert_down = (cl.vstop as i64 - cl.hslot as i64) * s;
+            let horiz = ((cl.hstop as i64 - cl.vslot as i64) * s - 2).max(0);
             vert_up + vert_down + horiz
         })
         .sum();
 
-    let rust_copyline_overhead: i32 = rust_result
+    let rust_copyline_overhead: i64 = rust_result
         .lines
         .iter()
         .map(|l| copyline_overhead_triangular(l, rust_result.spacing))
         .sum();
 
-    let julia_gadget_overhead_total: i32 = julia
+    let julia_gadget_overhead_total: i64 = julia
         .tape
         .iter()
         .map(|e| julia_gadget_overhead(&e.gadget_type))
         .sum();
 
-    let rust_gadget_overhead_total: i32 = rust_result
+    let rust_gadget_overhead_total: i64 = rust_result
         .tape
         .iter()
         .map(|e| rust_triangular_gadget_overhead(e.pattern_idx))
@@ -362,7 +417,7 @@ fn compare_triangular(name: &str) {
         let j_oh = julia_gadget_overhead(&jt.gadget_type);
         if let Some(rt) = rust_result.tape.get(i) {
             let r_oh = rust_triangular_gadget_overhead(rt.pattern_idx);
-            let pos_match = jt.row == rt.row as i32 && jt.col == rt.col as i32;
+            let pos_match = jt.row - 1 == rt.row as i64 && jt.col - 1 == rt.col as i64;
             println!(
                 "  {:2}. Julia: {} at ({},{}) oh={} | Rust: idx={} at ({},{}) oh={} [{}]",
                 i + 1,
@@ -411,6 +466,20 @@ fn compare_triangular(name: &str) {
         julia.tape.len(),
         rust_result.tape.len()
     );
+    for (julia_entry, rust_entry) in julia.tape.iter().zip(&rust_result.tape) {
+        assert_eq!(
+            (julia_entry.row - 1, julia_entry.col - 1),
+            (rust_entry.row as i64, rust_entry.col as i64),
+            "{} triangular: tape position mismatch",
+            name
+        );
+        assert_eq!(
+            julia_gadget_overhead(&julia_entry.gadget_type),
+            rust_triangular_gadget_overhead(rust_entry.pattern_idx),
+            "{} triangular: tape gadget overhead mismatch",
+            name
+        );
+    }
     assert_eq!(
         julia.mis_overhead, rust_result.mis_overhead,
         "{} triangular: MIS overhead mismatch (Julia={}, Rust={})",
@@ -429,14 +498,20 @@ fn compare_triangular(name: &str) {
         "{} triangular: Node positions don't match",
         name
     );
+    assert_eq!(
+        julia_grid_nodes(&julia),
+        rust_grid_nodes(&rust_result),
+        "{} triangular: final mapped nodes don't match",
+        name
+    );
 }
 
 fn print_comparison(
     julia: &JuliaTrace,
     rust_size: &(usize, usize),
-    rust_overhead: i32,
-    julia_nodes: &HashSet<(i32, i32)>,
-    rust_nodes: &HashSet<(i32, i32)>,
+    rust_overhead: i64,
+    julia_nodes: &HashSet<(i64, i64)>,
+    rust_nodes: &HashSet<(i64, i64)>,
 ) {
     println!(
         "Julia: {} vertices, {} edges",
@@ -534,6 +609,26 @@ fn test_square_unweighted_petersen() {
     compare_square_unweighted("petersen");
 }
 
+#[test]
+fn test_square_weighted_bull() {
+    compare_square_weighted("bull");
+}
+
+#[test]
+fn test_square_weighted_diamond() {
+    compare_square_weighted("diamond");
+}
+
+#[test]
+fn test_square_weighted_house() {
+    compare_square_weighted("house");
+}
+
+#[test]
+fn test_square_weighted_petersen() {
+    compare_square_weighted("petersen");
+}
+
 // ============================================================================
 // Connected Cell Tests - Verify connect() marks cells correctly
 // ============================================================================
@@ -549,7 +644,7 @@ fn compare_connected_cells(name: &str) {
     let num_vertices = julia.num_vertices;
 
     // Get Julia's Connected cell positions (convert 1-indexed to 0-indexed)
-    let julia_connected: HashSet<(i32, i32)> = julia
+    let julia_connected: HashSet<(i64, i64)> = julia
         .grid_nodes_copylines_only
         .iter()
         .filter(|n| n.state == "C")
@@ -558,8 +653,7 @@ fn compare_connected_cells(name: &str) {
 
     // Run Rust mapping with Julia's vertex order
     let vertex_order = get_vertex_order(&julia);
-    let rust_result = ksg::map_unweighted_with_order(num_vertices, &edges, &vertex_order);
-
+    let rust_result = ksg::map_unweighted_with_order(num_vertices, &edges, &vertex_order).unwrap();
     // Re-create the grid with connections to check Connected cell positions
     let mut grid = crate::rules::unitdiskmapping::MappingGrid::with_padding(
         rust_result.grid_dimensions.0,
@@ -572,7 +666,7 @@ fn compare_connected_cells(name: &str) {
     for line in &rust_result.lines {
         for (row, col, weight) in line.copyline_locations(rust_result.padding, rust_result.spacing)
         {
-            grid.add_node(row, col, weight as i32);
+            grid.add_node(row, col, weight as i64);
         }
     }
 
@@ -597,13 +691,13 @@ fn compare_connected_cells(name: &str) {
     }
 
     // Collect Rust's Connected cell positions
-    let rust_connected: HashSet<(i32, i32)> = {
+    let rust_connected: HashSet<(i64, i64)> = {
         let (rows, cols) = grid.size();
         let mut connected = HashSet::new();
         for r in 0..rows {
             for c in 0..cols {
                 if let Some(CellState::Connected { .. }) = grid.get(r, c) {
-                    connected.insert((r as i32, c as i32));
+                    connected.insert((r as i64, c as i64));
                 }
             }
         }

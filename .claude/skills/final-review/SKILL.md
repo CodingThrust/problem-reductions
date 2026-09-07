@@ -168,12 +168,12 @@ Use `AskUserQuestion` with your recommendation:
 
 Scan the PR diff for dangerous actions:
 
-- **Blacklisted files**: If the diff touches `docs/src/reductions/reduction_graph.json`, `docs/src/reductions/problem_schemas.json`, or `src/example_db/fixtures/examples.json` (legacy, no longer exists), **block merge**. These files are auto-generated and must not be committed in PRs — they are rebuilt by CI/`make doc`/`make paper`. Flag immediately and recommend OnHold.
+- **Blacklisted files**: If the diff touches `docs/src/reductions/reduction_graph.json` or `docs/src/reductions/problem_schemas.json`, **block merge**. These files are auto-generated and must not be committed in PRs — they are rebuilt by CI/`make doc`/`make paper`. Flag immediately and recommend OnHold.
 - **Removed features**: Any existing model, rule, test, or example deleted?
 - **Unrelated changes**: Files modified that don't belong to this PR (e.g., changes to unrelated models/rules, CI config, Cargo.toml dependency changes not needed for this PR)
 - **Force push indicators**: Any sign of history rewriting
 - **Broad modifications**: Changes to core traits, macros, or shared infrastructure that could affect other features
-- **No committed `examples.json`**: The example database is generated on demand by `make paper` (via `export_examples`). PRs should not commit `src/example_db/fixtures/examples.json` (legacy path, deleted) or `docs/paper/data/examples.json` (current output path) — both are gitignored build artifacts.
+- **No committed `examples.json`**: The example database is generated on demand by `make paper` (via `export_examples`). Do not commit the gitignored `docs/paper/data/examples.json` build artifact.
 
 Report findings with fix options for each concern:
 

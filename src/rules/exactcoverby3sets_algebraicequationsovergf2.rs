@@ -18,18 +18,24 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_sets",
+#[reduction(transform = upper_bound {
+    num_variables = "num_sets",
+    num_equations = "universe_size + 9 * num_sets^2",
 })]
 impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
     type Result = ReductionX3CToAlgebraicEquationsOverGF2;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut sets_per_element = vec![Vec::new(); self.universe_size()];
         for (set_index, set) in self.sets().iter().enumerate() {
             for &element in set {
@@ -53,10 +59,13 @@ impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
             }
         }
 
-        ReductionX3CToAlgebraicEquationsOverGF2 {
-            target: AlgebraicEquationsOverGF2::new(self.num_sets(), equations)
-                .expect("reduction produces valid equations"),
-        }
+        let target = AlgebraicEquationsOverGF2::new(self.num_sets(), equations).map_err(
+            crate::rules::ReductionError::construction::<
+                ExactCoverBy3Sets,
+                AlgebraicEquationsOverGF2,
+            >,
+        )?;
+        Ok(ReductionX3CToAlgebraicEquationsOverGF2 { target })
     }
 }
 
@@ -70,8 +79,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, AlgebraicEquationsOverGF2>(
                 ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]),
                 SolutionPair {
-                    source_config: vec![1, 1, 0],
-                    target_config: vec![1, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, false]),
+                    target_config: serde_json::json!(vec![true, true, false]),
                 },
             )
         },

@@ -1,4 +1,24 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_validates_matrix_shape() {
+    let problem = FeasibleBasisExtension::try_from(FeasibleBasisExtensionCreateSpec {
+        matrix: vec![vec![1, 0]],
+        rhs: vec![1],
+        required_columns: vec![],
+    })
+    .unwrap();
+    assert_eq!(problem.num_columns(), 2);
+    assert!(
+        FeasibleBasisExtension::try_from(FeasibleBasisExtensionCreateSpec {
+            matrix: vec![vec![1], vec![1]],
+            rhs: vec![1, 1],
+            required_columns: vec![]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
@@ -21,7 +41,7 @@ fn test_feasible_basis_extension_creation() {
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_columns(), 6);
     assert_eq!(problem.num_required(), 2);
-    assert_eq!(problem.dims(), vec![2; 4]); // 6 - 2 = 4 free columns
+    assert_eq!(problem.dimensions(), vec![2; 4]); // 6 - 2 = 4 free columns
     assert_eq!(
         <FeasibleBasisExtension as Problem>::NAME,
         "FeasibleBasisExtension"
@@ -35,7 +55,7 @@ fn test_feasible_basis_extension_evaluate_satisfying() {
     // Free columns are [2, 3, 4, 5]. Select col 2 (index 0 in free list).
     // B = {0, 1, 2}. A_B = I_3. x = (7, 5, 3) but actually A_B = [[1,0,1],[0,1,0],[0,0,1]]
     // A_B^{-1} a_bar: solve [[1,0,1],[0,1,0],[0,0,1]] x = [7,5,3] => x = (4, 5, 3) >= 0
-    assert!(problem.evaluate(&[1, 0, 0, 0]));
+    assert!(problem.evaluate(&vec![true, false, false, false]).unwrap());
 }
 
 #[test]
@@ -43,7 +63,7 @@ fn test_feasible_basis_extension_evaluate_satisfying_col3() {
     let problem = issue_example();
     // Select col 3 (index 1 in free list). B = {0, 1, 3}.
     // A_B = [[1,0,2],[0,1,1],[0,0,1]]. Solve: x = (1, 2, 3) >= 0
-    assert!(problem.evaluate(&[0, 1, 0, 0]));
+    assert!(problem.evaluate(&vec![false, true, false, false]).unwrap());
 }
 
 #[test]
@@ -51,7 +71,7 @@ fn test_feasible_basis_extension_evaluate_singular() {
     let problem = issue_example();
     // Select col 4 (index 2 in free list). B = {0, 1, 4}.
     // A_B = [[1,0,-1],[0,1,1],[0,0,0]] => singular
-    assert!(!problem.evaluate(&[0, 0, 1, 0]));
+    assert!(!problem.evaluate(&vec![false, false, true, false]).unwrap());
 }
 
 #[test]
@@ -59,28 +79,38 @@ fn test_feasible_basis_extension_evaluate_infeasible_negative() {
     let problem = issue_example();
     // Select col 5 (index 3 in free list). B = {0, 1, 5}.
     // A_B = [[1,0,0],[0,1,2],[0,0,1]]. Solve: x = (7, -1, 3). x_1 = -1 < 0
-    assert!(!problem.evaluate(&[0, 0, 0, 1]));
+    assert!(!problem.evaluate(&vec![false, false, false, true]).unwrap());
 }
 
 #[test]
 fn test_feasible_basis_extension_evaluate_wrong_count() {
     let problem = issue_example();
     // Need exactly 1 column selected (m - |S| = 3 - 2 = 1)
-    assert!(!problem.evaluate(&[1, 1, 0, 0])); // too many
-    assert!(!problem.evaluate(&[0, 0, 0, 0])); // too few
+    assert!(!problem.evaluate(&vec![true, true, false, false]).unwrap()); // too many
+    assert!(!problem.evaluate(&vec![false, false, false, false]).unwrap()); // too few
 }
 
 #[test]
 fn test_feasible_basis_extension_evaluate_wrong_config_length() {
     let problem = issue_example();
-    assert!(!problem.evaluate(&[1, 0])); // too short
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0])); // too long
+    assert!(matches!(
+        problem.evaluate(&vec![true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, false, false, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_feasible_basis_extension_evaluate_invalid_variable_value() {
     let problem = issue_example();
-    assert!(!problem.evaluate(&[2, 0, 0, 0]));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([2, false, false, false])
+    )
+    .is_err());
 }
 
 #[test]
@@ -88,20 +118,21 @@ fn test_feasible_basis_extension_brute_force() {
     let problem = issue_example();
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_feasible_basis_extension_brute_force_all() {
     let problem = issue_example();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // From the issue: B={0,1,2} and B={0,1,3} are feasible, so 2 solutions
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -116,7 +147,7 @@ fn test_feasible_basis_extension_unsatisfiable() {
     let problem =
         FeasibleBasisExtension::new(vec![vec![1, 1, 1], vec![1, 1, 1]], vec![1, 1], vec![]);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -145,12 +176,12 @@ fn test_feasible_basis_extension_serialization() {
 fn test_feasible_basis_extension_paper_example() {
     let problem = issue_example();
     // Verify B={0,1,2} is satisfying (config [1,0,0,0])
-    assert!(problem.evaluate(&[1, 0, 0, 0]));
+    assert!(problem.evaluate(&vec![true, false, false, false]).unwrap());
     // Verify B={0,1,3} is satisfying (config [0,1,0,0])
-    assert!(problem.evaluate(&[0, 1, 0, 0]));
+    assert!(problem.evaluate(&vec![false, true, false, false]).unwrap());
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 2);
 }
 

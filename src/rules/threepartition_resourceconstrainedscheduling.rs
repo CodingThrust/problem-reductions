@@ -38,32 +38,55 @@ impl ReductionResult for ReductionThreePartitionToRCS {
 
     /// Solution extraction: identity mapping.
     /// ThreePartition config (group index 0..m-1) maps directly to time slot assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    transform = exact {
+        num_tasks = "num_elements",
+    },
+    unavailable = {
+        deadline = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_resources = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ResourceConstrainedScheduling> for ThreePartition {
     type Result = ReductionThreePartitionToRCS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_groups();
         let bound = self.bound();
+        let deadline = i64::try_from(m).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                ThreePartition,
+                ResourceConstrainedScheduling,
+            >("converting the number of groups to a scheduling deadline")
+        })?;
 
         // Each element becomes a task with resource requirement = element size
-        let resource_requirements: Vec<Vec<u64>> = self.sizes().iter().map(|&s| vec![s]).collect();
+        let resource_requirements: Vec<Vec<i64>> = self.sizes().iter().map(|&s| vec![s]).collect();
 
-        ReductionThreePartitionToRCS {
+        Ok(ReductionThreePartitionToRCS {
             target: ResourceConstrainedScheduling::new(
                 3,           // 3 processors
                 vec![bound], // 1 resource with bound B
                 resource_requirements,
-                m as u64, // deadline = m time slots
-            ),
-        }
+                deadline,
+            )
+            .map_err(|error| {
+                crate::rules::ReductionError::construction::<
+                    ThreePartition,
+                    ResourceConstrainedScheduling,
+                >(error)
+            })?,
+        })
     }
 }
 
@@ -80,8 +103,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ResourceConstrainedScheduling>(
                 ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15),
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 1, 1, 1],
+                    source_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
+                    target_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
                 },
             )
         },

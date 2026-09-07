@@ -5,7 +5,7 @@
 //! DAG, each group's total vertex weight is bounded, and the total
 //! inter-partition arc cost is bounded.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -19,24 +19,12 @@ inventory::submit! {
         display_name: "Acyclic Partition",
         aliases: &[],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Partition a directed graph into bounded-weight groups with an acyclic quotient graph and bounded inter-partition cost",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "vertex_weights", type_name: "Vec<W>", description: "Vertex weights w(v) for each vertex v in V" },
-            FieldInfo { name: "arc_costs", type_name: "Vec<W>", description: "Arc costs c(a) for each arc a in A, matching graph.arcs() order" },
-            FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Maximum total vertex weight B for each partition" },
-            FieldInfo { name: "cost_bound", type_name: "W::Sum", description: "Maximum total inter-partition arc cost K" },
-        ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "AcyclicPartition",
-        fields: &["num_vertices", "num_arcs"],
+        fields: AcyclicPartitionCreateSpec::FIELDS,
     }
 }
 
@@ -48,6 +36,72 @@ pub struct AcyclicPartition<W: WeightElement> {
     arc_costs: Vec<W>,
     weight_bound: W::Sum,
     cost_bound: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct AcyclicPartitionCreateSpec {
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    weights: Option<Vec<i64>>,
+    #[create(name = "arc_costs", codec = "comma-separated")]
+    arc_weights: Option<Vec<i64>>,
+    weight_bound: i64,
+    cost_bound: i64,
+}
+
+impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i64> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: AcyclicPartitionCreateSpec) -> Result<Self, Self::Error> {
+        if spec.arcs.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty arc list"
+                .to_string()
+                .into());
+        }
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let num_vertices = spec.num_vertices.unwrap_or(inferred);
+        if num_vertices < inferred {
+            return Err(format!(
+                "num_vertices {num_vertices} is too small for arc endpoints; need at least {inferred}"
+            ).into());
+        }
+        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let vertex_weights = spec.weights.unwrap_or_else(|| vec![1; num_vertices]);
+        if vertex_weights.len() != num_vertices {
+            return Err(format!(
+                "weights has length {}, expected {num_vertices}",
+                vertex_weights.len()
+            )
+            .into());
+        }
+        let arc_costs = spec
+            .arc_weights
+            .unwrap_or_else(|| vec![1; graph.num_arcs()]);
+        if arc_costs.len() != graph.num_arcs() {
+            return Err(format!(
+                "arc_weights has length {}, expected {}",
+                arc_costs.len(),
+                graph.num_arcs()
+            )
+            .into());
+        }
+        Ok(Self::new(
+            graph,
+            vertex_weights,
+            arc_costs,
+            spec.weight_bound,
+            spec.cost_bound,
+        ))
+    }
 }
 
 impl<W: WeightElement> AcyclicPartition<W> {
@@ -139,7 +193,10 @@ impl<W: WeightElement> AcyclicPartition<W> {
     }
 
     /// Check whether a configuration is a valid solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         is_valid_acyclic_partition(
             &self.graph,
             &self.vertex_weights,
@@ -156,27 +213,51 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "AcyclicPartition";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.graph.num_vertices(); self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            is_valid_acyclic_partition(
-                &self.graph,
-                &self.vertex_weights,
-                &self.arc_costs,
-                &self.weight_bound,
-                &self.cost_bound,
-                config,
-            )
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&part| part >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment contains an out-of-range part".into(),
+            ));
+        }
+        Ok({
+            crate::types::Or({
+                is_valid_acyclic_partition(
+                    &self.graph,
+                    &self.vertex_weights,
+                    &self.arc_costs,
+                    &self.weight_bound,
+                    &self.cost_bound,
+                    config,
+                )?
+            })
         })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for AcyclicPartition<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 }
 
@@ -187,25 +268,29 @@ fn is_valid_acyclic_partition<W: WeightElement>(
     weight_bound: &W::Sum,
     cost_bound: &W::Sum,
     config: &[usize],
-) -> bool {
+) -> Result<bool, crate::traits::EvaluationError> {
     let num_vertices = graph.num_vertices();
     if config.len() != num_vertices {
-        return false;
+        return Ok(false);
     }
     if vertex_weights.len() != num_vertices || arc_costs.len() != graph.num_arcs() {
-        return false;
+        return Ok(false);
     }
     if config.iter().any(|&label| label >= num_vertices) {
-        return false;
+        return Ok(false);
     }
 
     let mut partition_weights = vec![W::Sum::zero(); num_vertices];
     let mut used_labels = vec![false; num_vertices];
     for (vertex, &label) in config.iter().enumerate() {
         used_labels[label] = true;
-        partition_weights[label] += vertex_weights[vertex].to_sum();
+        partition_weights[label] = W::checked_add_to_sum(
+            partition_weights[label].clone(),
+            vertex_weights[vertex].to_sum(),
+            "summing acyclic partition vertex weights",
+        )?;
         if partition_weights[label] > *weight_bound {
-            return false;
+            return Ok(false);
         }
     }
 
@@ -226,24 +311,32 @@ fn is_valid_acyclic_partition<W: WeightElement>(
         if source_label == target_label {
             continue;
         }
-        total_cost += cost.to_sum();
+        total_cost = W::checked_add_to_sum(
+            total_cost,
+            cost.to_sum(),
+            "summing acyclic partition arc costs",
+        )?;
         if total_cost > *cost_bound {
-            return false;
+            return Ok(false);
         }
         quotient_arcs.insert((dense_label[source_label], dense_label[target_label]));
     }
 
-    DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag()
+    Ok(DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
 }
 
 crate::declare_variants! {
-    default AcyclicPartition<i32> => "num_vertices^num_vertices",
+    default AcyclicPartition<i64> => "num_vertices^num_vertices" create AcyclicPartitionCreateSpec,
+}
+
+crate::register_brute_force! {
+    AcyclicPartition<i64>,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "acyclic_partition_i32",
+        id: "acyclic_partition",
         instance: Box::new(AcyclicPartition::new(
             DirectedGraph::new(
                 6,
@@ -263,7 +356,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             5,
         )),
-        optimal_config: vec![0, 1, 0, 2, 2, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 0, 2, 2, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

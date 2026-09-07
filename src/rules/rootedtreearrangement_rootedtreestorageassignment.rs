@@ -36,19 +36,26 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
     /// The target config is a parent array defining a rooted tree on X = V.
     /// The source config is [parent_array | identity_mapping] since X = V
     /// means the mapping f is the identity.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        // target_solution is the parent array of the rooted tree on X = V
-        // Source config = [parent_array, identity_mapping]
-        let mut source_config = target_solution.to_vec();
-        // Append identity mapping: f(v) = v for all v
-        source_config.extend(0..n);
-        source_config
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_vertices;
+            // target_solution is the parent array of the rooted tree on X = V
+            // Source config = [parent_array, identity_mapping]
+            let mut source_config = target_solution.to_vec();
+            // Append identity mapping: f(v) = v for all v
+            source_config.extend(0..n);
+            source_config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         universe_size = "num_vertices",
         num_subsets = "num_edges",
     }
@@ -56,7 +63,7 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
 impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph> {
     type Result = ReductionRootedTreeArrangementToRootedTreeStorageAssignment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
         let num_edges = edges.len();
@@ -68,6 +75,12 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
         // is infeasible (each edge contributes at least 1 to the arrangement
         // cost). In that case, return a fixed gadget instance that is
         // guaranteed infeasible for the target problem as well.
+        let num_edges = i64::try_from(num_edges).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                RootedTreeArrangement<SimpleGraph>,
+                RootedTreeStorageAssignment,
+            >("converting the number of edges to i64")
+        })?;
         let bound = match self.bound().checked_sub(num_edges) {
             Some(b) => b,
             None => {
@@ -80,19 +93,23 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
                 let gadget_subsets = vec![vec![0, 1], vec![1, 2], vec![0, 2]];
                 let target = RootedTreeStorageAssignment::new(gadget_n, gadget_subsets, 0);
 
-                return ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
-                    target,
-                    num_vertices: gadget_n,
-                };
+                return Ok(
+                    ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
+                        target,
+                        num_vertices: gadget_n,
+                    },
+                );
             }
         };
 
         let target = RootedTreeStorageAssignment::new(n, subsets, bound);
 
-        ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
-            target,
-            num_vertices: n,
-        }
+        Ok(
+            ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
+                target,
+                num_vertices: n,
+            },
+        )
     }
 }
 
@@ -116,8 +133,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, RootedTreeStorageAssignment>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

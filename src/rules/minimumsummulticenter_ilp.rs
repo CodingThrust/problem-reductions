@@ -34,15 +34,23 @@ pub struct ReductionMSMCToILP {
 }
 
 impl ReductionResult for ReductionMSMCToILP {
-    type Source = MinimumSumMulticenter<SimpleGraph, i32>;
+    type Source = MinimumSumMulticenter<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -51,13 +59,13 @@ impl ReductionResult for ReductionMSMCToILP {
 /// Returns a vector of length `n`; unreachable vertices remain `None`.
 fn weighted_distances_msmc(
     graph: &SimpleGraph,
-    edge_lengths: &[i32],
+    edge_lengths: &[i64],
     source: usize,
     n: usize,
 ) -> Vec<Option<i64>> {
     let mut adj: Vec<Vec<(usize, i64)>> = vec![Vec::new(); n];
     for (idx, &(u, v)) in graph.edges().iter().enumerate() {
-        let len = i64::from(edge_lengths[idx]);
+        let len = edge_lengths[idx];
         adj[u].push((v, len));
         adj[v].push((u, len));
     }
@@ -110,17 +118,20 @@ fn weighted_distances_msmc(
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices + num_vertices^2",
         num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
     type Result = ReductionMSMCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let k = self.k();
+        let k = Self::exact_i64(self.k(), "encoding the number of centers")?;
         let vertex_weights = self.vertex_weights();
         let edge_lengths = self.edge_lengths();
 
@@ -138,13 +149,13 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
         let mut constraints = Vec::with_capacity(n * n + 2 * n + 1);
 
         // Cardinality constraint: Σ_j x_j = k
-        let center_terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(center_terms, k as f64));
+        let center_terms: Vec<(usize, i64)> = (0..n).map(|j| (x_var(j), 1)).collect();
+        constraints.push(LinearConstraint::eq(center_terms, k));
 
         // Assignment constraints: ∀i: Σ_j y_{i,j} = 1
         for i in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (y_var(i, j), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (y_var(i, j), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Assignment link constraints:
@@ -153,34 +164,42 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
             for (j, distance) in distances.iter().enumerate() {
                 if distance.is_some() {
                     constraints.push(LinearConstraint::le(
-                        vec![(y_var(i, j), 1.0), (x_var(j), -1.0)],
-                        0.0,
+                        vec![(y_var(i, j), 1), (x_var(j), -1)],
+                        0,
                     ));
                 } else {
-                    constraints.push(LinearConstraint::eq(vec![(y_var(i, j), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(y_var(i, j), 1)], 0));
                 }
             }
         }
 
         // Objective: Minimize Σ_{i,j} w_i · d(i,j) · y_{i,j}
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for (i, &w) in vertex_weights.iter().enumerate() {
-            let w_i = w as f64;
             for (j, distance) in all_dist[i].iter().enumerate() {
                 if let Some(distance) = distance {
-                    let coeff = w_i * *distance as f64;
-                    if coeff != 0.0 {
+                    let weighted_distance = w.checked_mul(*distance).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            MinimumSumMulticenter<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(
+                            "multiplying a vertex weight by a shortest-path distance"
+                        )
+                    })?;
+                    let coeff = weighted_distance;
+                    if coeff != 0 {
                         objective.push((y_var(i, j), coeff));
                     }
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionMSMCToILP {
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionMSMCToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -193,8 +212,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Optimal center is vertex 1 with total distance 1+0+1 = 2.
             let source = MinimumSumMulticenter::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-                vec![1i32; 3],
-                vec![1i32; 2],
+                vec![1i64; 3],
+                vec![1i64; 2],
                 1,
             );
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)

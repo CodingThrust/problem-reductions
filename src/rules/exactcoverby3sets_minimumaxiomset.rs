@@ -29,23 +29,31 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
     /// For YES-instances, every optimal target witness of value q consists only of
     /// q set-sentences, which form an exact cover. For NO-instances, the extracted
     /// vector may be non-satisfying, which is expected for an `Or -> Min` rule.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let set_offset = self.source_universe_size;
-        (0..self.source_num_subsets)
-            .map(|j| usize::from(target_solution.get(set_offset + j).copied().unwrap_or(0) > 0))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let set_offset = self.source_universe_size;
+            (0..self.source_num_subsets)
+                .map(|j| target_solution[set_offset + j])
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_sentences = "universe_size + num_subsets",
-    num_true_sentences = "universe_size + num_subsets",
-    num_implications = "4 * num_subsets",
-})]
+#[reduction(
+    transform = exact {
+        num_sentences = "universe_size + num_subsets",
+        num_true_sentences = "universe_size + num_subsets",
+        num_implications = "4 * num_subsets",
+    })]
 impl ReduceTo<MinimumAxiomSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumAxiomSet;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let num_subsets = self.num_subsets();
         let num_sentences = universe_size + num_subsets;
@@ -62,11 +70,11 @@ impl ReduceTo<MinimumAxiomSet> for ExactCoverBy3Sets {
         let target =
             MinimumAxiomSet::new(num_sentences, (0..num_sentences).collect(), implications);
 
-        ReductionXC3SToMinimumAxiomSet {
+        Ok(ReductionXC3SToMinimumAxiomSet {
             target,
             source_universe_size: universe_size,
             source_num_subsets: num_subsets,
-        }
+        })
     }
 }
 
@@ -84,8 +92,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumAxiomSet>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1],
-                    target_config: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+                    source_config: serde_json::json!(vec![false, false, false, true, true]),
+                    target_config: serde_json::json!(vec![
+                        false, false, false, false, false, false, false, false, false, true, true
+                    ]),
                 },
             )
         },

@@ -15,7 +15,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_closed_loop() {
         ],
     );
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -28,7 +29,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_closed_loop() {
 fn test_ksatisfiability_to_oneinthreesatisfiability_structure_single_clause() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vars(), 11);
@@ -51,7 +53,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_structure_single_clause() {
 fn test_ksatisfiability_to_oneinthreesatisfiability_structure_negated_clause() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vars(), 11);
@@ -80,24 +83,119 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_unsatisfiable() {
         ],
     );
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&source).is_none());
-    assert!(solver.find_witness(target).is_none());
+    assert!(solver.solve(&source).unwrap().is_none());
+    assert!(solver.solve(target).unwrap().is_none());
 }
 
 #[test]
 fn test_ksatisfiability_to_oneinthreesatisfiability_extract_solution() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let target_solution = vec![0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0];
-    assert!(target.evaluate(&target_solution).0);
+    let target_solution = vec![
+        false, false, true, false, true, false, false, false, true, true, false,
+    ];
+    assert!(target.evaluate(&target_solution).unwrap().0);
 
-    let extracted = reduction.extract_solution(&target_solution);
-    assert_eq!(extracted, vec![0, 0, 1]);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert_eq!(extracted, vec![false, false, true]);
+    assert!(source.evaluate(&extracted).unwrap().0);
+}
+
+#[test]
+fn test_oneinthree_native_empty_short_and_sparse_clauses() {
+    for (num_vars, formula) in [
+        (0, vec![]),
+        (3, vec![]),
+        (0, vec![vec![]]),
+        (3, vec![vec![]]),
+        (5, vec![vec![5]]),
+        (5, vec![vec![-5]]),
+        (5, vec![vec![5, -2]]),
+        (5, vec![vec![5, -5, 2]]),
+    ] {
+        let source = KSatisfiability::<K3>::try_new_allow_less(
+            num_vars,
+            formula.iter().cloned().map(CNFClause::new).collect(),
+        )
+        .unwrap();
+        let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        let appearing: std::collections::BTreeSet<_> = formula
+            .iter()
+            .flatten()
+            .map(|l| l.unsigned_abs() as usize - 1)
+            .collect();
+        assert_eq!(target.num_vars(), appearing.len() + 2 + 6 * formula.len());
+        assert_eq!(target.num_clauses(), 1 + 5 * formula.len());
+        let source_exists = BruteForce::new().solve(&source).unwrap().is_some();
+        let mut target_exists = false;
+        for mask in 0..(1usize << target.num_vars()) {
+            let config = (0..target.num_vars())
+                .map(|v| mask & (1 << v) != 0)
+                .collect();
+            if target.evaluate(&config).unwrap().0 {
+                target_exists = true;
+                let extracted = reduction.extract_solution(&config).unwrap();
+                assert_eq!(extracted.len(), num_vars);
+                assert!(source.evaluate(&extracted).unwrap().0);
+                for (v, &value) in extracted.iter().enumerate() {
+                    if !appearing.contains(&v) {
+                        assert!(!value);
+                    }
+                }
+            }
+        }
+        assert_eq!(source_exists, target_exists);
+    }
+}
+
+#[test]
+fn test_oneinthree_all_literal_truth_patterns_and_auxiliary_assignments() {
+    let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
+    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    let mut extensions = [0usize; 8];
+    for mask in 0..(1usize << target.num_vars()) {
+        let config = (0..target.num_vars())
+            .map(|v| mask & (1 << v) != 0)
+            .collect();
+        if target.evaluate(&config).unwrap().0 {
+            extensions[mask & 7] += 1;
+            let extracted = reduction.extract_solution(&config).unwrap();
+            assert!(source.evaluate(&extracted).unwrap().0);
+        }
+    }
+    assert_eq!(extensions, [0, 1, 1, 1, 1, 1, 1, 1]);
+}
+
+#[test]
+fn test_oneinthree_rejects_infeasible_target_assignments() {
+    let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1; 3])]);
+    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).unwrap();
+    for config in [vec![], vec![false; 9], vec![true; 9], vec![false; 10]] {
+        assert!(reduction.extract_solution(&config).is_err());
+    }
+}
+
+#[test]
+fn test_oneinthree_huge_sparse_source_uses_compact_allocator() {
+    let largest = usize::try_from(i64::MAX).unwrap_or(usize::MAX);
+    let literal = i64::try_from(largest).unwrap();
+    let source = KSatisfiability::<K3>::new(largest, vec![CNFClause::new(vec![literal; 3])]);
+    let compact = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1; 3])]);
+    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).unwrap();
+    let other = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&compact).unwrap();
+    assert_eq!(reduction.target_problem().num_vars(), 9);
+    assert_eq!(
+        reduction.target_problem().clauses(),
+        other.target_problem().clauses()
+    );
 }

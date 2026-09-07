@@ -117,7 +117,7 @@ Right after the user picks model or rule, **study at least one existing case** i
    If no keyword match, just read the most recent closed model issue to see the template conventions.
 
 3. **Note internally** (do not dump raw output to the user):
-   - What fields / size fields the similar problem has
+   - What fields / parameters the similar problem has
    - How the issue defines variables, schema, complexity
    - What level of mathematical detail is expected in examples
    - How the "Reduction Rule Crossref" section is structured
@@ -176,7 +176,7 @@ Right after the user picks model or rule, **study at least one existing case** i
 
 3. **Note internally**:
    - How the reduction algorithm is structured (numbered steps, symbol definitions)
-   - How the size overhead table is formatted (field names, formulas)
+   - How the parameter transform table is formatted (field names, formulas)
    - How the example is worked through (source → construction → target → solution)
    - What references and validation methods are used
 
@@ -567,8 +567,8 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
    ```
    If the user asks for more or less detail, revise and re-present.
 
-4. **Size overhead** — Compute overhead from the algorithm using the target's size fields from `pred show <target> --json`. Present the overhead table and ask for confirmation:
-   > "Based on the algorithm, the size overhead is: [table]. Does this look correct?"
+4. **Parameter transform** — Compute overhead from the algorithm using the target's parameters from `pred show <target> --json`. Present the overhead table and ask for confirmation:
+   > "Based on the algorithm, the parameter transform is: [table]. Does this look correct?"
 
 5. **Example** — Generate **at least 3** candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`. **3 options is the minimum — never fewer.** Always include a "Generate new batch" escape hatch:
 
@@ -830,7 +830,7 @@ Print all issue URLs when done.
 - **Don't skip confirmation for textbook reductions.** Even if SubsetSum → Knapsack is in Garey & Johnson, still present each brainstorming step with pre-filled answers for the user to confirm or revise. Never jump straight to the draft.
 - **Don't rebuild `pred` unnecessarily.** Use `command -v pred` to check if it's installed before running `make cli` (which takes >1 minute).
 - **Don't ask all questions at once.** One `AskUserQuestion` call per message.
-- **Don't use programming jargon.** Say "list of weights" not "Vec<W>". Say "graph" not "SimpleGraph". Say "integer" not "i32".
+- **Don't use programming jargon.** Say "list of weights" not "Vec<W>". Say "graph" not "SimpleGraph". Say "integer" not "i64".
 - **Don't skip the reduction crossref.** An orphan model will be rejected.
 - **Don't file without user approval.** Always show the draft first.
 - **Don't implement anything.** The output is issues, not code.

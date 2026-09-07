@@ -15,10 +15,6 @@ use crate::types::One;
 #[derive(Debug, Clone)]
 pub struct ReductionHPBTVToLP {
     target: LongestPath<SimpleGraph, One>,
-    /// Cached edge list from the graph, indexed by edge position.
-    edges: Vec<(usize, usize)>,
-    source_vertex: usize,
-    num_vertices: usize,
 }
 
 impl ReductionResult for ReductionHPBTVToLP {
@@ -33,55 +29,75 @@ impl ReductionResult for ReductionHPBTVToLP {
     ///
     /// The target solution is a binary vector over edges. We walk the selected
     /// edges from the source vertex to reconstruct the vertex ordering.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target path does not certify a Hamiltonian source-target path",
+            ));
+        }
 
-        // Build adjacency from selected edges
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for (idx, &selected) in target_solution.iter().enumerate() {
-            if selected == 1 {
-                let (u, v) = self.edges[idx];
-                adj[u].push(v);
-                adj[v].push(u);
+        let mut adjacency = vec![Vec::new(); self.target.num_vertices()];
+        for (&selected, (u, v)) in target_solution.iter().zip(self.target.graph().edges()) {
+            if selected {
+                adjacency[u].push(v);
+                adjacency[v].push(u);
             }
         }
 
-        // Walk the path from source
-        let mut path = Vec::with_capacity(n);
-        let mut current = self.source_vertex;
-        let mut prev = usize::MAX; // sentinel for "no previous"
+        // Target feasibility guarantees a single simple path with these endpoints.
+        // Its certified n-1 edges visit every vertex; walking away from the
+        // previous vertex terminates at the target without repetitions.
+        let mut current = self.target.source_vertex();
+        let mut previous = None;
+        let mut path = Vec::with_capacity(self.target.num_vertices());
         path.push(current);
-
-        while path.len() < n {
-            let next = adj[current]
-                .iter()
-                .find(|&&neighbor| neighbor != prev)
-                .copied();
-            match next {
-                Some(next_vertex) => {
-                    prev = current;
-                    current = next_vertex;
-                    path.push(current);
-                }
-                None => break,
-            }
+        while let Some(&next) = adjacency[current]
+            .iter()
+            .find(|&&neighbor| Some(neighbor) != previous)
+        {
+            previous = Some(current);
+            current = next;
+            path.push(current);
         }
-
-        path
+        Ok(path)
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_vertices",
-    num_edges = "num_edges",
-})]
+impl crate::rules::AggregateReductionResult for ReductionHPBTVToLP {
+    type Source = HamiltonianPathBetweenTwoVertices<SimpleGraph>;
+    type Target = LongestPath<SimpleGraph, One>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Max<i64>) -> crate::types::Or {
+        // The source requires distinct valid endpoints, hence at least two vertices.
+        crate::types::Or(
+            value.0.is_some_and(|length| {
+                usize::try_from(length) == Ok(self.target.num_vertices() - 1)
+            }),
+        )
+    }
+}
+
+#[reduction(
+    aggregate = custom,
+    transform = exact {
+        num_vertices = "num_vertices",
+        num_edges = "num_edges",
+    })]
 impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertices<SimpleGraph> {
     type Result = ReductionHPBTVToLP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph().clone();
         let num_edges = graph.num_edges();
-        let edges = graph.edges();
         let edge_lengths = vec![One; num_edges];
 
         let target = LongestPath::new(
@@ -91,12 +107,7 @@ impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertic
             self.target_vertex(),
         );
 
-        ReductionHPBTVToLP {
-            target,
-            edges,
-            source_vertex: self.source_vertex(),
-            num_vertices: self.num_vertices(),
-        }
+        Ok(ReductionHPBTVToLP { target })
     }
 }
 
@@ -116,8 +127,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, LongestPath<SimpleGraph, One>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3, 4],
-                    target_config: vec![1, 1, 1, 1],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3, 4]),
+                    target_config: serde_json::json!(vec![true, true, true, true]),
                 },
             )
         },

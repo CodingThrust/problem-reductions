@@ -16,13 +16,14 @@ inventory::submit! {
         display_name: "Sequencing with Deadlines and Set-Up Times",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether all tasks can be scheduled on a single machine by their deadlines given compiler-switch setup penalties",
         fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time for each task" },
-            FieldInfo { name: "deadlines", type_name: "Vec<u64>", description: "Deadline d(t) for each task" },
+            FieldInfo { name: "lengths", type_name: "Vec<i64>", description: "Processing time for each task" },
+            FieldInfo { name: "deadlines", type_name: "Vec<i64>", description: "Deadline d(t) for each task" },
             FieldInfo { name: "compilers", type_name: "Vec<usize>", description: "Compiler index k(t) for each task" },
-            FieldInfo { name: "setup_times", type_name: "Vec<u64>", description: "Setup time s(c) charged when switching to compiler c" },
+            FieldInfo { name: "setup_times", type_name: "Vec<i64>", description: "Setup time s(c) charged when switching to compiler c" },
         ],
     }
 }
@@ -43,42 +44,47 @@ inventory::submit! {
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]
 pub struct SequencingWithDeadlinesAndSetUpTimes {
-    lengths: Vec<u64>,
-    deadlines: Vec<u64>,
+    lengths: Vec<i64>,
+    deadlines: Vec<i64>,
     compilers: Vec<usize>,
-    setup_times: Vec<u64>,
+    setup_times: Vec<i64>,
 }
 
 #[derive(Deserialize)]
 struct SequencingWithDeadlinesAndSetUpTimesSerde {
-    lengths: Vec<u64>,
-    deadlines: Vec<u64>,
+    lengths: Vec<i64>,
+    deadlines: Vec<i64>,
     compilers: Vec<usize>,
-    setup_times: Vec<u64>,
+    setup_times: Vec<i64>,
 }
 
 impl SequencingWithDeadlinesAndSetUpTimes {
     fn validate(
-        lengths: &[u64],
-        deadlines: &[u64],
+        lengths: &[i64],
+        deadlines: &[i64],
         compilers: &[usize],
-        setup_times: &[u64],
-    ) -> Result<(), String> {
+        setup_times: &[i64],
+    ) -> Result<(), crate::registry::ConstructionError> {
         if lengths.len() != deadlines.len() {
-            return Err("lengths length must equal deadlines length".to_string());
+            return Err("lengths length must equal deadlines length"
+                .to_string()
+                .into());
         }
         if lengths.len() != compilers.len() {
-            return Err("lengths length must equal compilers length".to_string());
+            return Err("lengths length must equal compilers length"
+                .to_string()
+                .into());
         }
         if lengths.contains(&0) {
-            return Err("task lengths must be positive".to_string());
+            return Err("task lengths must be positive".to_string().into());
         }
         let num_compilers = setup_times.len();
         for &c in compilers {
             if c >= num_compilers {
                 return Err(format!(
                     "compiler index {c} is out of range for setup_times of length {num_compilers}"
-                ));
+                )
+                .into());
             }
         }
         Ok(())
@@ -90,10 +96,10 @@ impl SequencingWithDeadlinesAndSetUpTimes {
     ///
     /// Panics if the input vectors are inconsistent or contain invalid values.
     pub fn new(
-        lengths: Vec<u64>,
-        deadlines: Vec<u64>,
+        lengths: Vec<i64>,
+        deadlines: Vec<i64>,
         compilers: Vec<usize>,
-        setup_times: Vec<u64>,
+        setup_times: Vec<i64>,
     ) -> Self {
         Self::validate(&lengths, &deadlines, &compilers, &setup_times)
             .unwrap_or_else(|err| panic!("{err}"));
@@ -116,12 +122,12 @@ impl SequencingWithDeadlinesAndSetUpTimes {
     }
 
     /// Returns the processing times.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
     /// Returns the task deadlines.
-    pub fn deadlines(&self) -> &[u64] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
@@ -131,15 +137,18 @@ impl SequencingWithDeadlinesAndSetUpTimes {
     }
 
     /// Returns the per-compiler setup times.
-    pub fn setup_times(&self) -> &[u64] {
+    pub fn setup_times(&self) -> &[i64] {
         &self.setup_times
     }
 
     /// Check whether a schedule meets all deadlines.
     ///
     /// Returns `true` iff every task in the schedule completes by its deadline.
-    fn all_deadlines_met(&self, schedule: &[usize]) -> bool {
-        let mut elapsed: u64 = 0;
+    fn all_deadlines_met(
+        &self,
+        schedule: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        let mut elapsed: i64 = 0;
         let mut prev_compiler: Option<usize> = None;
         for &task in schedule {
             // Add setup time if the compiler switches.
@@ -147,23 +156,29 @@ impl SequencingWithDeadlinesAndSetUpTimes {
                 if prev != self.compilers[task] {
                     elapsed = elapsed
                         .checked_add(self.setup_times[self.compilers[task]])
-                        .expect("elapsed time overflowed u64");
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "adding sequencing setup time".to_string(),
+                            )
+                        })?;
                 }
             }
-            elapsed = elapsed
-                .checked_add(self.lengths[task])
-                .expect("elapsed time overflowed u64");
+            elapsed = elapsed.checked_add(self.lengths[task]).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "adding sequencing task length".to_string(),
+                )
+            })?;
             if elapsed > self.deadlines[task] {
-                return false;
+                return Ok(false);
             }
             prev_compiler = Some(self.compilers[task]);
         }
-        true
+        Ok(true)
     }
 }
 
 impl TryFrom<SequencingWithDeadlinesAndSetUpTimesSerde> for SequencingWithDeadlinesAndSetUpTimes {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: SequencingWithDeadlinesAndSetUpTimesSerde) -> Result<Self, Self::Error> {
         Self::validate(
@@ -193,28 +208,49 @@ impl<'de> Deserialize<'de> for SequencingWithDeadlinesAndSetUpTimes {
 
 impl Problem for SequencingWithDeadlinesAndSetUpTimes {
     const NAME: &'static str = "SequencingWithDeadlinesAndSetUpTimes";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_parameters![("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
+        Ok({
+            let Some(schedule) = super::decode_permutation(config, n) else {
+                return Ok(Or(false));
+            };
+            Or(self.all_deadlines_met(&schedule)?)
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SequencingWithDeadlinesAndSetUpTimes {
+    fn dimensions(&self) -> Vec<usize> {
         let n = self.num_tasks();
         vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Or {
-        let n = self.num_tasks();
-        let Some(schedule) = super::decode_permutation(config, n) else {
-            return Or(false);
-        };
-        Or(self.all_deadlines_met(&schedule))
     }
 }
 
 crate::declare_variants! {
     default SequencingWithDeadlinesAndSetUpTimes => "factorial(num_tasks)",
+}
+
+crate::register_brute_force! {
+    SequencingWithDeadlinesAndSetUpTimes,
 }
 
 #[cfg(feature = "example-db")]
@@ -235,7 +271,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 0, 1, 0],
             vec![1, 2],
         )),
-        optimal_config: vec![2, 0, 4, 1, 3],
+        optimal_config: serde_json::json!(vec![2, 0, 4, 1, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

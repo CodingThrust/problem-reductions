@@ -11,7 +11,7 @@
 //! are allowed when `k` takes those values, with objective value 0 because no
 //! pair of selected vertices is induced.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, WeightElement};
@@ -23,21 +23,11 @@ inventory::submit! {
         name: "MaximumEdgeWeightedKClique",
         display_name: "Maximum Edge-Weighted k-Clique",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        dimensions: &[VariantDimension::new("weight", "i64", &["i64", "f64"])],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Select exactly k pairwise-adjacent vertices maximizing the total weight of induced clique edges",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights in graph edge order" },
-            FieldInfo { name: "k", type_name: "usize", description: "Required clique size" },
-        ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MaximumEdgeWeightedKClique",
-        fields: &["num_vertices", "num_edges"],
+        fields: MaximumEdgeWeightedKCliqueCreateSpec::<i64>::FIELDS,
     }
 }
 
@@ -50,7 +40,7 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `W` - Edge weight type (e.g., `i32`, `f64`). The graph is fixed to
+/// * `W` - Edge weight type (e.g., `i64`, `f64`). The graph is fixed to
 ///   [`SimpleGraph`] in the current registered variants.
 ///
 /// # Example
@@ -59,15 +49,16 @@ inventory::submit! {
 /// use problemreductions::models::graph::MaximumEdgeWeightedKClique;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::types::Max;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Problem};
 ///
 /// // Graph from issue #1020: 4 vertices, triangles {0,1,2} and {0,1,3}.
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]);
-/// let weights = vec![5_i32, 4, -1, 1, 0];
-/// let problem = MaximumEdgeWeightedKClique::new(graph, weights, 3);
-/// assert_eq!(BruteForce::new().solve(&problem), Max(Some(8)));
+/// let weights = vec![5_i64, 4, -1, 1, 0];
+/// let problem = MaximumEdgeWeightedKClique::new(graph, weights, 3).unwrap();
+/// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(8)));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumEdgeWeightedKClique<W: WeightElement> {
     /// The underlying graph.
     graph: SimpleGraph,
@@ -77,29 +68,76 @@ pub struct MaximumEdgeWeightedKClique<W: WeightElement> {
     k: usize,
 }
 
+#[derive(Deserialize)]
+struct MaximumEdgeWeightedKCliqueData<W> {
+    graph: SimpleGraph,
+    edge_weights: Vec<W>,
+    k: usize,
+}
+
+impl<'de, W> Deserialize<'de> for MaximumEdgeWeightedKClique<W>
+where
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let data = MaximumEdgeWeightedKCliqueData::deserialize(deserializer)?;
+        Self::new(data.graph, data.edge_weights, data.k).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumEdgeWeightedKCliqueCreateSpec<W> {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    /// Edge weights; defaults to one per edge.
+    edge_weights: Option<Vec<W>>,
+    /// Required clique size.
+    k: usize,
+}
+impl<W> TryFrom<MaximumEdgeWeightedKCliqueCreateSpec<W>> for MaximumEdgeWeightedKClique<W>
+where
+    W: WeightElement,
+{
+    type Error = ConstructionError;
+    fn try_from(spec: MaximumEdgeWeightedKCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_edges();
+        let edge_weights = spec
+            .edge_weights
+            .unwrap_or_else(|| (0..count).map(|_| W::unit()).collect());
+        Self::new(spec.graph, edge_weights, spec.k)
+    }
+}
+
 impl<W: WeightElement> MaximumEdgeWeightedKClique<W> {
     /// Create a new MaximumEdgeWeightedKClique instance.
     ///
-    /// # Panics
-    /// Panics if `edge_weights.len()` does not match `graph.num_edges()`, or
-    /// if `k > graph.num_vertices()`.
-    pub fn new(graph: SimpleGraph, edge_weights: Vec<W>, k: usize) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match graph num_edges"
-        );
-        assert!(
-            k <= graph.num_vertices(),
-            "k = {} must be <= num_vertices = {}",
-            k,
-            graph.num_vertices()
-        );
-        Self {
+    pub fn new(
+        graph: SimpleGraph,
+        edge_weights: Vec<W>,
+        k: usize,
+    ) -> Result<Self, ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err(ConstructionError::Conversion(
+                "edge_weights length must match graph num_edges".into(),
+            ));
+        }
+        for (index, weight) in edge_weights.iter().enumerate() {
+            weight.validate_element(&format!("edge weight at index {index}"))?;
+        }
+        if k > graph.num_vertices() {
+            return Err(ConstructionError::Conversion(format!(
+                "k = {k} must be <= num_vertices = {}",
+                graph.num_vertices()
+            )));
+        }
+        Ok(Self {
             graph,
             edge_weights,
             k,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -128,7 +166,7 @@ impl<W: WeightElement> MaximumEdgeWeightedKClique<W> {
     }
 
     /// Check whether the selected vertices form a clique of size exactly `k`.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_k_clique_config(&self.graph, config, self.k)
     }
 }
@@ -138,35 +176,57 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumEdgeWeightedKClique";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_k_clique_config(&self.graph, config, self.k) {
-            return Max(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
         }
-        // Sum weights of edges whose both endpoints are selected.
-        let mut total = W::Sum::zero();
-        for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
-            if config.get(*u).copied().unwrap_or(0) == 1
-                && config.get(*v).copied().unwrap_or(0) == 1
-            {
-                total += weight.to_sum();
+        Ok({
+            if !is_k_clique_config(&self.graph, config, self.k) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            // Sum weights of edges whose both endpoints are selected.
+            let mut total = W::Sum::zero();
+            for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
+                if config.get(*u).copied().unwrap_or(false)
+                    && config.get(*v).copied().unwrap_or(false)
+                {
+                    total = W::checked_add_to_sum(
+                        total,
+                        weight.to_sum(),
+                        "summing selected clique-edge weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for MaximumEdgeWeightedKClique<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
 /// Check whether `config` selects exactly `k` vertices that form a clique.
-fn is_k_clique_config(graph: &SimpleGraph, config: &[usize], k: usize) -> bool {
+fn is_k_clique_config(graph: &SimpleGraph, config: &[bool], k: usize) -> bool {
     let n = graph.num_vertices();
     if config.len() != n {
         return false;
@@ -174,7 +234,7 @@ fn is_k_clique_config(graph: &SimpleGraph, config: &[usize], k: usize) -> bool {
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v == 1)
+        .filter(|(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
     if selected.len() != k {
@@ -191,20 +251,28 @@ fn is_k_clique_config(graph: &SimpleGraph, config: &[usize], k: usize) -> bool {
 }
 
 crate::declare_variants! {
-    default MaximumEdgeWeightedKClique<i32> => "2^num_vertices",
-    MaximumEdgeWeightedKClique<f64>         => "2^num_vertices",
+    default MaximumEdgeWeightedKClique<i64> => "2^num_vertices" create MaximumEdgeWeightedKCliqueCreateSpec<i64>,
+    MaximumEdgeWeightedKClique<f64>         => "2^num_vertices" create MaximumEdgeWeightedKCliqueCreateSpec<f64>,
+}
+
+crate::register_brute_force! {
+    MaximumEdgeWeightedKClique<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumEdgeWeightedKClique<f64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_edge_weighted_k_clique_simplegraph_i32",
-        instance: Box::new(MaximumEdgeWeightedKClique::<i32>::new(
-            SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
-            vec![5, 4, -1, 1, 0],
-            3,
-        )),
-        optimal_config: vec![1, 1, 1, 0],
+        id: "maximum_edge_weighted_k_clique_simplegraph",
+        instance: Box::new(
+            MaximumEdgeWeightedKClique::<i64>::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+                vec![5, 4, -1, 1, 0],
+                3,
+            )
+            .unwrap(),
+        ),
+        optimal_config: serde_json::json!(vec![true, true, true, false]),
         optimal_value: serde_json::json!(8),
     }]
 }

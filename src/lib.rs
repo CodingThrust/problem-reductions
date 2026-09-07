@@ -12,7 +12,7 @@
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
 //! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
 //! | [`traits`] | Core traits — [`Problem`] |
-//! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemSize`], [`WeightElement`] |
+//! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemParameters`], [`WeightElement`] |
 //! | [`variant`] | Variant parameter system for problem type parameterization |
 //!
 //! Use [`prelude`] for convenient imports.
@@ -20,15 +20,19 @@
 extern crate self as problemreductions;
 
 pub(crate) mod big_o;
-pub(crate) mod canonical;
 pub mod config;
 pub mod error;
 #[cfg(feature = "example-db")]
 pub mod example_db;
 pub mod export;
-pub(crate) mod expr;
+pub mod expr;
+// Growth is an explicit terminal projection for complexity display. Exact and certified
+// parameter propagation never re-enters this domain.
+pub mod growth;
 pub mod io;
 pub mod models;
+pub mod parameters;
+pub mod random;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
@@ -93,46 +97,53 @@ pub mod prelude {
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack,
         MaximumSetPacking, MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering,
         PrimeAttributeName, RootedTreeStorageAssignment, SetBasis, SetSplitting,
-        ThreeMatroidIntersection,
     };
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
-    pub use crate::solvers::{BruteForce, Solver};
+    pub use crate::solvers::BruteForce;
     pub use crate::traits::Problem;
 
     // Types
     pub use crate::error::{ProblemError, Result};
     pub use crate::types::{
-        And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemSize, Sum, Unweighted,
+        And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemParameters, Sum,
     };
 }
 
 // Re-export commonly used items at crate root
 pub use big_o::big_o_normal_form;
-pub use canonical::canonical_form;
 pub use error::{ProblemError, Result};
-pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
+pub use expr::{
+    evaluate_approximate, ApproximationError, AsymptoticAnalysisError, Expr, ParseError,
+};
+pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
-pub use solvers::{BruteForce, Solver};
+pub use solvers::BruteForce;
 pub use traits::Problem;
 pub use types::{
-    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, Unweighted,
+    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemParameters, Sum,
     WeightElement,
 };
 
 // Re-export proc macros for reduction registration and variant declaration
-pub use problemreductions_macros::{declare_variants, reduction};
+pub use problemreductions_macros::{declare_variants, reduction, register_brute_force, CreateSpec};
 
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
 pub use inventory;
 
+#[cfg(all(test, feature = "example-db"))]
+#[path = "unit_tests/symbolic_parameter_contracts.rs"]
+mod symbolic_parameter_contracts;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
 #[cfg(test)]
 #[path = "unit_tests/prelude.rs"]
 mod test_prelude;
+#[cfg(test)]
+#[path = "unit_tests/problem_parameters.rs"]
+mod test_problem_parameters;
 #[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;

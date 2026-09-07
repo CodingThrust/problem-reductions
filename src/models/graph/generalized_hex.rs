@@ -7,7 +7,7 @@ use std::collections::{HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::VariantParam;
@@ -20,13 +20,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether Player 1 has a forced blue path between two terminals",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "source", type_name: "usize", description: "The source terminal s" },
-            FieldInfo { name: "target", type_name: "usize", description: "The target terminal t" },
-        ],
+        fields: GeneralizedHexCreateSpec::FIELDS,
     }
 }
 
@@ -41,6 +38,42 @@ pub struct GeneralizedHex<G> {
     graph: G,
     source: usize,
     target: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct GeneralizedHexCreateSpec {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// The source terminal s.
+    source: usize,
+    /// The target terminal t.
+    sink: usize,
+}
+
+impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: GeneralizedHexCreateSpec) -> Result<Self, Self::Error> {
+        let num_vertices = spec.graph.num_vertices();
+        if spec.source >= num_vertices {
+            return Err(format!(
+                "source {} is outside graph with {num_vertices} vertices",
+                spec.source
+            )
+            .into());
+        }
+        if spec.sink >= num_vertices {
+            return Err(format!(
+                "sink {} is outside graph with {num_vertices} vertices",
+                spec.sink
+            )
+            .into());
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".to_string().into());
+        }
+        Ok(Self::new(spec.graph, spec.source, spec.sink))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -239,32 +272,59 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "GeneralizedHex";
+    type Solution = ();
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_vertices", num_vertices),
+        ("num_edges", num_edges),
+        ("num_playable_vertices", num_playable_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if !config.is_empty() {
-                return crate::types::Or(false);
-            }
-            let playable_vertices = self.playable_vertices();
-            let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
-            let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
-            let mut memo = HashMap::new();
-            self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
+    fn evaluate(
+        &self,
+        _solution: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let playable_vertices = self.playable_vertices();
+                let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
+                let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
+                let mut memo = HashMap::new();
+                self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
+            })
         })
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for GeneralizedHex<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![]
+    }
+}
+
+crate::impl_random_generate!(
+    GeneralizedHex<SimpleGraph>,
+    crate::random::EndpointRandomSpec,
+    |spec| {
+        let (source, sink) = spec.endpoints()?;
+        Ok(GeneralizedHex::new(spec.graph()?, source, sink))
+    }
+);
+
 crate::declare_variants! {
-    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices",
+    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices" create GeneralizedHexCreateSpec random,
+}
+
+crate::register_brute_force! {
+    GeneralizedHex<SimpleGraph> decode |_, _| (),
 }
 
 #[cfg(feature = "example-db")]
@@ -279,7 +339,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             0,
             5,
         )),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),
     }]
 }

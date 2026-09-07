@@ -39,7 +39,8 @@ fn truncated_instance() -> MaximumCommonEdgeSubgraph {
 #[test]
 fn test_maximumcommonedgesubgraph_to_ilp_structure() {
     let source = matched_paths();
-    let reduction: ReductionMCESToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionMCESToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n1 = 3, n2 = 3 → 9 x-variables. Label-compatible arc pairs: (a,0)<->(b,0)
@@ -47,25 +48,26 @@ fn test_maximumcommonedgesubgraph_to_ilp_structure() {
     // incompatible, so y_pairs = 2.
     let num_x = 9;
     let num_y = 2;
-    assert_eq!(ilp.num_vars, num_x + num_y);
+    assert_eq!(ilp.num_vars(), num_x + num_y);
     // 3 row + 3 column + 3 McCormick constraints per y pair.
-    assert_eq!(ilp.constraints.len(), 3 + 3 + 3 * num_y);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.constraints().len(), 3 + 3 + 3 * num_y);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective is sum of y variables only.
-    assert_eq!(ilp.objective, vec![(num_x, 1.0), (num_x + 1, 1.0)]);
+    assert_eq!(ilp.objective(), vec![(num_x, 1), (num_x + 1, 1)]);
 }
 
 #[test]
 fn test_maximumcommonedgesubgraph_to_ilp_closed_loop() {
     let source = matched_paths();
-    let reduction: ReductionMCESToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionMCESToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("matched paths ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
-    assert_eq!(source.evaluate(&extracted), Max(Some(2)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(2)));
     // Optimal mapping preserves both arcs by aligning 0->0, 1->1, 2->2.
     assert_eq!(extracted, vec![0, 1, 2]);
 }
@@ -73,28 +75,30 @@ fn test_maximumcommonedgesubgraph_to_ilp_closed_loop() {
 #[test]
 fn test_maximumcommonedgesubgraph_to_ilp_bf_vs_ilp() {
     let source = matched_paths();
-    let reduction: ReductionMCESToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionMCESToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
 fn test_maximumcommonedgesubgraph_to_ilp_truncated_target() {
     let source = truncated_instance();
-    let reduction: ReductionMCESToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionMCESToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n1=3, n2=2 → 6 x-vars; only the label-0 arc has a match, so 1 y-var.
-    assert_eq!(ilp.num_vars, 6 + 1);
+    assert_eq!(ilp.num_vars(), 6 + 1);
     // 3 row + 2 column + 3 McCormick.
-    assert_eq!(ilp.constraints.len(), 3 + 2 + 3);
+    assert_eq!(ilp.constraints().len(), 3 + 2 + 3);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("truncated ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
-    assert_eq!(source.evaluate(&extracted), Max(Some(1)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));
 }
 
 #[test]
@@ -105,19 +109,20 @@ fn test_maximumcommonedgesubgraph_to_ilp_empty_graphs() {
         LabelledDigraph::new(2, vec![]),
         LabelledDigraph::new(2, vec![]),
     );
-    let reduction: ReductionMCESToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionMCESToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 2 * 2);
-    assert_eq!(ilp.constraints.len(), 2 + 2);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 2 * 2);
+    assert_eq!(ilp.constraints().len(), 2 + 2);
+    assert!(ilp.objective().is_empty());
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("empty-arc ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(source.is_valid_solution(&extracted));
-    assert_eq!(source.evaluate(&extracted), Max(Some(0)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -128,13 +133,14 @@ fn test_maximumcommonedgesubgraph_to_ilp_self_loop() {
         LabelledDigraph::new(1, vec![LabelledArc::new(0, 3, 0)]),
         LabelledDigraph::new(2, vec![LabelledArc::new(1, 3, 1)]),
     );
-    let reduction: ReductionMCESToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionMCESToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("self-loop ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
-    assert_eq!(source.evaluate(&extracted), Max(Some(1)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));
     assert_eq!(extracted, vec![1]);
 }

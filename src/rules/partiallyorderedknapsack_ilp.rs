@@ -21,48 +21,54 @@ impl ReductionResult for ReductionPOKToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_items",
         num_constraints = "num_precedences + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
     type Result = ReductionPOKToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_items();
         let mut constraints = Vec::new();
+        let weights = self.weights();
+        let values = self.values();
+        let capacity = self.capacity();
 
         // Capacity constraint: Σ w_i·x_i ≤ capacity
-        let cap_terms: Vec<(usize, f64)> = self
-            .weights()
+        let cap_terms: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
+            .map(|(item, &weight)| (item, weight))
             .collect();
-        constraints.push(LinearConstraint::le(cap_terms, self.capacity() as f64));
+        constraints.push(LinearConstraint::le(cap_terms, capacity));
 
         // Precedence constraints: ∀ (a,b): x_b - x_a ≤ 0
         for &(a, b) in self.precedences() {
-            constraints.push(LinearConstraint::le(vec![(b, 1.0), (a, -1.0)], 0.0));
+            constraints.push(LinearConstraint::le(vec![(b, 1), (a, -1)], 0));
         }
 
         // Objective: Maximize Σ v_i·x_i
-        let objective: Vec<(usize, f64)> = self
-            .values()
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (i, v as f64))
-            .collect();
+        let objective = values.iter().copied().enumerate().collect();
 
-        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize);
-        ReductionPOKToILP { target }
+        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionPOKToILP { target })
     }
 }
 

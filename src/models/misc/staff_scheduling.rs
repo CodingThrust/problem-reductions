@@ -4,7 +4,7 @@
 //! worker budget, determine whether workers can be assigned to schedules so that
 //! all requirements are met without exceeding the budget.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,14 +14,10 @@ inventory::submit! {
         display_name: "Staff Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign workers to schedule patterns to satisfy per-period staffing requirements within a worker budget",
-        fields: &[
-            FieldInfo { name: "shifts_per_schedule", type_name: "usize", description: "Required number of active periods in each schedule pattern" },
-            FieldInfo { name: "schedules", type_name: "Vec<Vec<bool>>", description: "Binary schedule patterns available to workers" },
-            FieldInfo { name: "requirements", type_name: "Vec<u64>", description: "Minimum staffing requirement for each period" },
-            FieldInfo { name: "num_workers", type_name: "u64", description: "Maximum number of workers available" },
-        ],
+        fields: StaffSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -34,8 +30,60 @@ inventory::submit! {
 pub struct StaffScheduling {
     shifts_per_schedule: usize,
     schedules: Vec<Vec<bool>>,
-    requirements: Vec<u64>,
-    num_workers: u64,
+    requirements: Vec<i64>,
+    num_workers: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct StaffSchedulingCreateSpec {
+    /// Required number of active periods in each schedule pattern.
+    k: usize,
+    /// Binary schedule patterns available to workers.
+    schedules: Vec<Vec<bool>>,
+    /// Minimum staffing requirement for each period.
+    requirements: Vec<i64>,
+    /// Maximum number of workers available.
+    num_workers: i64,
+}
+
+impl TryFrom<StaffSchedulingCreateSpec> for StaffScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: StaffSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        if usize::try_from(spec.num_workers)
+            .ok()
+            .and_then(|workers| workers.checked_add(1))
+            .is_none()
+        {
+            return Err("num_workers must be nonnegative and encodable by dims()"
+                .to_string()
+                .into());
+        }
+        for (schedule_index, schedule) in spec.schedules.iter().enumerate() {
+            if schedule.len() != spec.requirements.len() {
+                return Err(format!(
+                    "schedules[{schedule_index}] has {} periods, expected {}",
+                    schedule.len(),
+                    spec.requirements.len()
+                )
+                .into());
+            }
+            let active_periods = schedule.iter().filter(|&&active| active).count();
+            if active_periods != spec.k {
+                return Err(format!(
+                    "schedules[{schedule_index}] has {active_periods} active periods, expected {}",
+                    spec.k
+                )
+                .into());
+            }
+        }
+        Ok(Self::new(
+            spec.k,
+            spec.schedules,
+            spec.requirements,
+            spec.num_workers,
+        ))
+    }
 }
 
 impl StaffScheduling {
@@ -50,12 +98,15 @@ impl StaffScheduling {
     pub fn new(
         shifts_per_schedule: usize,
         schedules: Vec<Vec<bool>>,
-        requirements: Vec<u64>,
-        num_workers: u64,
+        requirements: Vec<i64>,
+        num_workers: i64,
     ) -> Self {
         assert!(
-            num_workers < usize::MAX as u64,
-            "num_workers must fit in usize so dims() can encode 0..=num_workers"
+            usize::try_from(num_workers)
+                .ok()
+                .and_then(|workers| workers.checked_add(1))
+                .is_some(),
+            "num_workers must be nonnegative and encodable by dims()"
         );
 
         let num_periods = requirements.len();
@@ -100,12 +151,12 @@ impl StaffScheduling {
     }
 
     /// Get the staffing requirements.
-    pub fn requirements(&self) -> &[u64] {
+    pub fn requirements(&self) -> &[i64] {
         &self.requirements
     }
 
     /// Get the worker budget.
-    pub fn num_workers(&self) -> u64 {
+    pub fn num_workers(&self) -> i64 {
         self.num_workers
     }
 
@@ -115,55 +166,86 @@ impl StaffScheduling {
     }
 
     fn worker_limit(&self) -> usize {
-        self.num_workers as usize
+        usize::try_from(self.num_workers)
+            .expect("validated nonnegative worker count must fit usize")
     }
 
     fn worker_counts_valid(&self, config: &[usize]) -> bool {
         config.iter().all(|&count| count <= self.worker_limit())
     }
 
-    fn within_budget(&self, config: &[usize]) -> bool {
-        config.iter().map(|&count| count as u128).sum::<u128>() <= self.num_workers as u128
+    fn within_budget(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
+        let total = config.iter().try_fold(0_i64, |total, &count| {
+            let count = i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting assigned worker count to i64".into(),
+                )
+            })?;
+            total.checked_add(count).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing assigned worker counts".into(),
+                )
+            })
+        })?;
+        Ok(total <= self.num_workers)
     }
 
-    fn meets_requirements(&self, config: &[usize]) -> bool {
-        let mut coverage = vec![0u128; self.num_periods()];
+    fn meets_requirements(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
+        let mut coverage = vec![0_i64; self.num_periods()];
 
         for (count, schedule) in config.iter().zip(&self.schedules) {
             if *count == 0 {
                 continue;
             }
-            let count = *count as u128;
+            let count = i64::try_from(*count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting scheduled worker count to i64".into(),
+                )
+            })?;
             for (period, active) in schedule.iter().enumerate() {
                 if *active {
-                    coverage[period] += count;
+                    coverage[period] = coverage[period].checked_add(count).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing staffing coverage".into(),
+                        )
+                    })?;
                 }
             }
         }
 
-        coverage
+        Ok(coverage
             .iter()
             .zip(&self.requirements)
-            .all(|(covered, required)| *covered >= *required as u128)
+            .all(|(covered, required)| covered >= required))
     }
 }
 
 impl Problem for StaffScheduling {
     const NAME: &'static str = "StaffScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.worker_limit() + 1; self.num_schedules()]
-    }
+    crate::problem_parameters![
+        ("num_periods", num_periods),
+        ("num_schedules", num_schedules),
+        ("num_workers", num_workers),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_schedules() {
-                return crate::types::Or(false);
-            }
-            self.worker_counts_valid(config)
-                && self.within_budget(config)
-                && self.meets_requirements(config)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_schedules() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "staffing vector length does not match the schedules".into(),
+                    ));
+                }
+                self.worker_counts_valid(config)
+                    && self.within_budget(config)?
+                    && self.meets_requirements(config)?
+            })
         })
     }
 
@@ -172,8 +254,18 @@ impl Problem for StaffScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for StaffScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.worker_limit() + 1; self.num_schedules()]
+    }
+}
+
 crate::declare_variants! {
-    default StaffScheduling => "(num_workers + 1)^num_schedules",
+    default StaffScheduling => "(num_workers + 1)^num_schedules" create StaffSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    StaffScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -192,7 +284,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 2, 2, 3, 3, 2, 1],
             4,
         )),
-        optimal_config: vec![1, 1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![1, 1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

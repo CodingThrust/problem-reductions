@@ -1,25 +1,42 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 include!("../../jl_helpers.rs");
 
 #[test]
+fn test_maximum_set_packing_create_spec_uses_subsets_input() {
+    assert_eq!(
+        MaximumSetPackingCreateSpec::<i64>::FIELDS[0].name,
+        "subsets"
+    );
+    let problem = MaximumSetPacking::try_from(MaximumSetPackingCreateSpec {
+        subsets: vec![vec![0], vec![1]],
+        weights: vec![2, 3],
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![0], vec![1]]);
+    assert_eq!(problem.weights_ref(), &[2, 3]);
+}
+
+#[test]
 fn test_set_packing_creation() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
+    let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
     assert_eq!(problem.num_sets(), 3);
     assert_eq!(problem.num_variables(), 3);
 }
 
 #[test]
 fn test_set_packing_with_weights() {
-    let problem = MaximumSetPacking::with_weights(vec![vec![0, 1], vec![2, 3]], vec![5, 10]);
+    let problem =
+        MaximumSetPacking::with_weights(vec![vec![0, 1], vec![2, 3]], vec![5, 10]).unwrap();
     assert_eq!(problem.weights_ref(), &vec![5, 10]);
 }
 
 #[test]
 fn test_sets_overlap() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
+    let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
 
     assert!(problem.sets_overlap(0, 1)); // Share element 1
     assert!(!problem.sets_overlap(0, 2)); // No overlap
@@ -28,7 +45,7 @@ fn test_sets_overlap() {
 
 #[test]
 fn test_overlapping_pairs() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
     let pairs = problem.overlapping_pairs();
     assert_eq!(pairs.len(), 2);
@@ -48,14 +65,14 @@ fn test_is_set_packing_function() {
 
 #[test]
 fn test_empty_sets() {
-    let problem = MaximumSetPacking::<i32>::new(vec![]);
+    let problem = MaximumSetPacking::<i64>::new(vec![]);
     // Empty packing is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), Max(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
 fn test_get_set() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3]]);
+    let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![2, 3]]);
     assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
     assert_eq!(problem.get_set(1), Some(&vec![2, 3]));
     assert_eq!(problem.get_set(2), None);
@@ -68,21 +85,21 @@ fn test_relationship_to_independent_set() {
     use crate::topology::SimpleGraph;
 
     let sets = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]];
-    let sp_problem = MaximumSetPacking::<i32>::new(sets.clone());
+    let sp_problem = MaximumSetPacking::<i64>::new(sets.clone());
 
     // Build intersection graph
     let edges = sp_problem.overlapping_pairs();
     let n = sets.len();
-    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; n]);
+    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);
 
     let solver = BruteForce::new();
 
-    let sp_solutions = solver.find_all_witnesses(&sp_problem);
-    let is_solutions = solver.find_all_witnesses(&is_problem);
+    let sp_solutions = solver.find_all_witnesses(&sp_problem).unwrap();
+    let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
 
     // Should have same optimal value
-    let sp_size: usize = sp_solutions[0].iter().sum();
-    let is_size: usize = is_solutions[0].iter().sum();
+    let sp_size: usize = sp_solutions[0].iter().filter(|&&selected| selected).count();
+    let is_size: usize = is_solutions[0].iter().filter(|&&selected| selected).count();
     assert_eq!(sp_size, is_size);
 }
 
@@ -98,15 +115,15 @@ fn test_jl_parity_evaluation() {
         serde_json::from_str(include_str!("../../../../tests/data/jl/setpacking.json")).unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let sets = jl_parse_sets(&instance["instance"]["sets"]);
-        let weights = jl_parse_i32_vec(&instance["instance"]["weights"]);
+        let weights = jl_parse_i64_vec(&instance["instance"]["weights"]);
         let problem = if weights.iter().all(|&w| w == 1) {
-            MaximumSetPacking::<i32>::new(sets)
+            MaximumSetPacking::<i64>::new(sets)
         } else {
-            MaximumSetPacking::with_weights(sets, weights)
+            MaximumSetPacking::with_weights(sets, weights).unwrap()
         };
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config);
+            let config = jl_parse_bool_config(&eval["config"]);
+            let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
                 result.is_valid(),
@@ -115,7 +132,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,
@@ -124,9 +141,9 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_witnesses(&problem);
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SetPacking best solutions mismatch");
     }
 }
@@ -134,24 +151,24 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Sets: {0,1}, {1,2}, {3,4}
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
+    let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
     // Valid: select sets 0 and 2 (disjoint: {0,1} and {3,4})
-    assert!(problem.is_valid_solution(&[1, 0, 1]));
+    assert!(problem.is_valid_solution(&[true, false, true]));
     // Invalid: select sets 0 and 1 (share element 1)
-    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+    assert!(!problem.is_valid_solution(&[true, true, false]));
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     // Sets: {0,1}, {2,3}, {4,5} — universe is {0..6}
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
+    let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
     assert_eq!(problem.num_sets(), 3);
     assert_eq!(problem.universe_size(), 6);
 }
 
 #[test]
 fn test_universe_size_empty() {
-    let problem = MaximumSetPacking::<i32>::new(vec![]);
+    let problem = MaximumSetPacking::<i64>::new(vec![]);
     assert_eq!(problem.universe_size(), 0);
 }
 
@@ -159,13 +176,18 @@ fn test_universe_size_empty() {
 fn test_setpacking_paper_example() {
     // Paper: U={0..5}, sets {0,1},{1,2},{2,3},{3,4}, max packing {S_0,S_2}
     let problem =
-        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
-    let config = vec![1, 0, 1, 0]; // {S_0, S_2}
-    let result = problem.evaluate(&config);
+        MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
+    let config = vec![true, false, true, false]; // {S_0, S_2}
+    let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best).unwrap(), 2);
+    let best = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+
+#[test]
+fn test_maximum_set_packing_rejects_non_finite_weight() {
+    assert!(MaximumSetPacking::with_weights(vec![vec![0]], vec![f64::NEG_INFINITY]).is_err());
 }

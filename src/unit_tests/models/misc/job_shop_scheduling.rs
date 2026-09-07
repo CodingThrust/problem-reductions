@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -26,14 +27,17 @@ fn test_job_shop_scheduling_creation_and_dims() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(problem.num_tasks(), 12);
-    assert_eq!(problem.dims(), vec![6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1]);
+    assert_eq!(
+        problem.dimensions(),
+        vec![6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1]
+    );
 }
 
 #[test]
 fn test_job_shop_scheduling_evaluate_issue_example() {
     let problem = issue_example();
     let config = vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(19)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(19)));
 }
 
 #[test]
@@ -61,14 +65,20 @@ fn test_job_shop_scheduling_paper_example_schedule() {
 fn test_job_shop_scheduling_rejects_cyclic_machine_orders() {
     let problem = small_two_job_instance();
     let config = vec![1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_job_shop_scheduling_invalid_config_and_serialization() {
     let problem = small_two_job_instance();
-    assert_eq!(problem.evaluate(&[2, 0, 0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 
     let json = serde_json::to_value(&problem).unwrap();
     let restored: JobShopScheduling = serde_json::from_value(json).unwrap();
@@ -86,8 +96,42 @@ fn test_job_shop_scheduling_problem_name_and_variant() {
 fn test_job_shop_scheduling_brute_force_solver_small_instance() {
     let problem = small_two_job_instance();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &problem);
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(2)));
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Min(Some(2)));
+    let witness = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(2)));
+}
+
+#[test]
+fn test_job_shop_scheduling_create_spec_derives_processor_count() {
+    let problem = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![vec![(0, 2), (2, 1)]],
+        num_processors: None,
+    })
+    .unwrap();
+
+    assert_eq!(problem.num_processors(), 3);
+    assert_eq!(
+        JobShopSchedulingCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["jobs", "num_processors"]
+    );
+}
+
+#[test]
+fn test_job_shop_scheduling_create_spec_rejects_invalid_jobs() {
+    let empty = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![],
+        num_processors: None,
+    });
+    assert!(empty.is_err());
+
+    let repeated_processor = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![vec![(0, 1), (0, 2)]],
+        num_processors: Some(1),
+    });
+    assert!(repeated_processor.is_err());
 }

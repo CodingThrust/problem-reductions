@@ -12,7 +12,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i32> {
+fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i64> {
     MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![4, 1, 3])
 }
 
@@ -20,7 +20,7 @@ fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i32> {
 fn test_minimumvertexcover_to_minimumweightandorgraph_closed_loop() {
     let source = issue_example_source();
     let reduction: ReductionVCToAndOrGraph =
-        ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source);
+        ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -33,7 +33,7 @@ fn test_minimumvertexcover_to_minimumweightandorgraph_closed_loop() {
 fn test_reduction_structure() {
     let source = issue_example_source();
     let reduction: ReductionVCToAndOrGraph =
-        ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source);
+        ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 9);
@@ -74,14 +74,20 @@ fn test_reduction_structure() {
 fn test_weighted_vertices_are_charged_on_sink_arcs() {
     let source = weighted_path_source();
     let reduction: ReductionVCToAndOrGraph =
-        ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source);
+        ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let target_solution = vec![1, 1, 0, 1, 1, 0, 0, 1, 0];
-    assert_eq!(source.evaluate(&[0, 1, 0]), Min(Some(1)));
-    assert_eq!(target.evaluate(&target_solution), Min(Some(5)));
+    let target_solution = vec![true, true, false, true, true, false, false, true, false];
+    assert_eq!(
+        source.evaluate(&vec![false, true, false]).unwrap(),
+        Min(Some(1))
+    );
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(5)));
     assert_eq!(target.arc_weights(), &[1, 1, 1, 1, 1, 1, 4, 1, 3]);
-    assert_eq!(reduction.extract_solution(&target_solution), vec![0, 1, 0]);
+    assert_eq!(
+        reduction.extract_solution(&target_solution).unwrap(),
+        vec![false, true, false]
+    );
 }
 
 #[cfg(feature = "example-db")]
@@ -97,29 +103,33 @@ fn test_canonical_rule_example_spec_builds() {
     assert_eq!(example.target.problem, "MinimumWeightAndOrGraph");
     assert_eq!(example.solutions.len(), 1);
 
-    let source: MinimumVertexCover<SimpleGraph, i32> =
+    let source: MinimumVertexCover<SimpleGraph, i64> =
         serde_json::from_value(example.source.instance.clone())
             .expect("source example deserializes");
     let target: MinimumWeightAndOrGraph = serde_json::from_value(example.target.instance.clone())
         .expect("target example deserializes");
     let solution = &example.solutions[0];
+    let source_config: Vec<bool> = serde_json::from_value(solution.source_config.clone()).unwrap();
+    let target_config: Vec<bool> = serde_json::from_value(solution.target_config.clone()).unwrap();
 
-    assert_eq!(source.evaluate(&solution.source_config), Min(Some(1)));
-    assert_eq!(target.evaluate(&solution.target_config), Min(Some(5)));
+    assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(1)));
+    assert_eq!(target.evaluate(&target_config).unwrap(), Min(Some(5)));
 
     let best_source = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
+        .unwrap()
         .expect("source example should have an optimum");
     let best_target = BruteForce::new()
-        .find_witness(&target)
+        .solve(&target)
+        .unwrap()
         .expect("target example should have an optimum");
 
     assert_eq!(
-        source.evaluate(&solution.source_config),
-        source.evaluate(&best_source)
+        source.evaluate(&source_config).unwrap(),
+        source.evaluate(&best_source).unwrap()
     );
     assert_eq!(
-        target.evaluate(&solution.target_config),
-        target.evaluate(&best_target)
+        target.evaluate(&target_config).unwrap(),
+        target.evaluate(&best_target).unwrap()
     );
 }

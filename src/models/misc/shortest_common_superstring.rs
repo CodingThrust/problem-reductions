@@ -7,11 +7,10 @@
 //! `ShortestCommonSupersequence`.
 //!
 //! The configuration uses a fixed-length representation of `max_length`
-//! symbols from `{0, ..., alphabet_size}`, where `alphabet_size` serves as a
-//! padding/end symbol. The effective superstring is the prefix before the
-//! first padding symbol. `max_length` equals the sum of all input string
-//! lengths (the worst case where no overlap exists). This problem is
-//! NP-complete (Maier and Storer, 1977).
+//! optional symbols. `None` serves as padding/end marker, and the effective
+//! superstring is the prefix before the first `None`. `max_length` equals the
+//! sum of all input string lengths (the worst case where no overlap exists).
+//! This problem is NP-complete (Maier and Storer, 1977).
 //!
 //! Reference: Garey & Johnson, *Computers and Intractability*, problem SR9
 //! (P157).
@@ -27,6 +26,7 @@ inventory::submit! {
         display_name: "Shortest Common Superstring",
         aliases: &["SCSS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a shortest string that contains every input string as a contiguous substring",
         fields: &[
@@ -45,21 +45,21 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// The configuration is a vector of length `max_length`, where each entry is a
-/// symbol in `{0, ..., alphabet_size}`. The value `alphabet_size` acts as a
-/// padding/end symbol. The effective superstring is the prefix of
-/// non-padding symbols. Padding must be contiguous at the end.
+/// The configuration is a vector of length `max_length`, where each entry is
+/// either a symbol in `{0, ..., alphabet_size - 1}` or `None` as padding. The
+/// effective superstring is the prefix of symbols before the first padding
+/// value. Padding must be contiguous at the end.
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::misc::ShortestCommonSuperstring;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {0, 1}, strings [0,1] and [1,0]
 /// let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,53 +134,85 @@ fn is_substring(needle: &[usize], haystack: &[usize]) -> bool {
 
 impl Problem for ShortestCommonSuperstring {
     const NAME: &'static str = "ShortestCommonSuperstring";
-    type Value = Min<usize>;
+    type Solution = Vec<Option<usize>>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("alphabet_size", alphabet_size),
+        ("num_strings", num_strings),
+        ("max_length", max_length),
+        ("total_length", total_length),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size + 1; self.max_length]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         if config.len() != self.max_length {
-            return Min(None);
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "superstring representation length does not match the bound".into(),
+            ));
         }
-
-        let pad = self.alphabet_size;
-
-        // Find effective length = index of first padding symbol
-        let effective_length = config
+        if config
             .iter()
-            .position(|&v| v == pad)
-            .unwrap_or(self.max_length);
+            .any(|symbol| symbol.is_some_and(|value| value >= self.alphabet_size))
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "superstring contains an out-of-range symbol".into(),
+            ));
+        }
+        let config = config
+            .iter()
+            .map(|symbol| symbol.unwrap_or(self.alphabet_size))
+            .collect::<Vec<_>>();
+        Ok({
+            let pad = self.alphabet_size;
 
-        // Verify all positions after first padding are also padding (no interleaved padding)
-        for &v in &config[effective_length..] {
-            if v != pad {
-                return Min(None);
+            // Find effective length = index of first padding symbol
+            let effective_length = config
+                .iter()
+                .position(|&v| v == pad)
+                .unwrap_or(self.max_length);
+
+            // Verify all positions after first padding are also padding (no interleaved padding)
+            for &v in &config[effective_length..] {
+                if v != pad {
+                    return Ok(Min(None));
+                }
             }
-        }
 
-        // Check all symbols in the prefix are valid (0..alphabet_size)
-        let prefix = &config[..effective_length];
-        if prefix.iter().any(|&v| v >= self.alphabet_size) {
-            return Min(None);
-        }
+            let prefix = &config[..effective_length];
 
-        // Check every input string appears as a contiguous substring of the prefix
-        if !self.strings.iter().all(|s| is_substring(s, prefix)) {
-            return Min(None);
-        }
+            // Check every input string appears as a contiguous substring of the prefix
+            if !self.strings.iter().all(|s| is_substring(s, prefix)) {
+                return Ok(Min(None));
+            }
 
-        Min(Some(effective_length))
+            Min(Some(i64::try_from(effective_length).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting superstring length to i64".into(),
+                )
+            })?))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for ShortestCommonSuperstring {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.alphabet_size + 1; self.max_length]
     }
 }
 
 crate::declare_variants! {
     default ShortestCommonSuperstring => "num_strings ^ 2 * 2 ^ num_strings",
+}
+
+crate::register_brute_force! {
+    ShortestCommonSuperstring decode |problem: &ShortestCommonSuperstring, indices: Vec<usize>| indices.into_iter().map(|value| (value != problem.alphabet_size()).then_some(value)).collect(),
 }
 
 #[cfg(feature = "example-db")]
@@ -195,7 +227,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
             vec![vec![0, 1], vec![1, 0]],
         )),
-        optimal_config: vec![0, 1, 0, 2],
+        optimal_config: serde_json::json!(vec![Some(0), Some(1), Some(0), None]),
         optimal_value: serde_json::json!(3),
     }]
 }

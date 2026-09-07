@@ -15,12 +15,13 @@ inventory::submit! {
         display_name: "Clustering",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition elements into at most K clusters where all intra-cluster distances are at most B",
         fields: &[
-            FieldInfo { name: "distances", type_name: "Vec<Vec<u64>>", description: "Symmetric distance matrix with zero diagonal" },
+            FieldInfo { name: "distances", type_name: "Vec<Vec<i64>>", description: "Symmetric distance matrix with zero diagonal" },
             FieldInfo { name: "num_clusters", type_name: "usize", description: "Maximum number of clusters K" },
-            FieldInfo { name: "diameter_bound", type_name: "u64", description: "Maximum allowed intra-cluster pairwise distance B" },
+            FieldInfo { name: "diameter_bound", type_name: "i64", description: "Maximum allowed intra-cluster pairwise distance B" },
         ],
     }
 }
@@ -43,7 +44,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::Clustering;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 elements, 2 clusters, diameter bound 1
 /// let distances = vec![
@@ -54,17 +55,17 @@ inventory::submit! {
 /// ];
 /// let problem = Clustering::new(distances, 2, 1);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Clustering {
     /// Symmetric distance matrix with zero diagonal.
-    distances: Vec<Vec<u64>>,
+    distances: Vec<Vec<i64>>,
     /// Maximum number of clusters K.
     num_clusters: usize,
     /// Maximum allowed intra-cluster pairwise distance B.
-    diameter_bound: u64,
+    diameter_bound: i64,
 }
 
 impl Clustering {
@@ -78,7 +79,7 @@ impl Clustering {
     /// - `distances` is not symmetric
     /// - diagonal entries are not zero
     /// - `num_clusters` is zero
-    pub fn new(distances: Vec<Vec<u64>>, num_clusters: usize, diameter_bound: u64) -> Self {
+    pub fn new(distances: Vec<Vec<i64>>, num_clusters: usize, diameter_bound: i64) -> Self {
         let n = distances.len();
         assert!(n > 0, "Clustering requires at least one element");
         assert!(num_clusters > 0, "num_clusters must be at least 1");
@@ -111,7 +112,7 @@ impl Clustering {
     }
 
     /// Returns the distance matrix.
-    pub fn distances(&self) -> &[Vec<u64>] {
+    pub fn distances(&self) -> &[Vec<i64>] {
         &self.distances
     }
 
@@ -126,7 +127,7 @@ impl Clustering {
     }
 
     /// Returns the diameter bound B.
-    pub fn diameter_bound(&self) -> u64 {
+    pub fn diameter_bound(&self) -> i64 {
         self.diameter_bound
     }
 
@@ -160,23 +161,48 @@ impl Clustering {
 
 impl Problem for Clustering {
     const NAME: &'static str = "Clustering";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_clusters", num_clusters),
+        ("num_elements", num_elements),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_clusters; self.num_elements()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_elements() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "cluster assignment length does not match the elements".into(),
+            ));
+        }
+        if config.iter().any(|&cluster| cluster >= self.num_clusters) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "cluster assignment contains an out-of-range cluster".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_valid_partition(config)))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_partition(config))
+impl crate::solvers::BruteForceProblem for Clustering {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_clusters; self.num_elements()]
     }
 }
 
 crate::declare_variants! {
     default Clustering => "num_clusters^num_elements",
+}
+
+crate::register_brute_force! {
+    Clustering,
 }
 
 #[cfg(feature = "example-db")]
@@ -195,7 +221,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "clustering",
         instance: Box::new(Clustering::new(distances, 2, 1)),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

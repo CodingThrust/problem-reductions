@@ -11,32 +11,40 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing IntegralFlowHomologousArcs to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionIFHAToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
 }
 
 impl ReductionResult for ReductionIFHAToILP {
     type Source = IntegralFlowHomologousArcs;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::decode_usize_values(target_solution)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_arcs",
-        num_constraints = "num_arcs + num_vertices - 2 + 1",
+        num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for IntegralFlowHomologousArcs {
+impl ReduceTo<ILP<i64>> for IntegralFlowHomologousArcs {
     type Result = ReductionIFHAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let num_arcs = self.num_arcs();
         let num_vertices = self.num_vertices();
@@ -44,7 +52,7 @@ impl ReduceTo<ILP<i32>> for IntegralFlowHomologousArcs {
 
         // Capacity: f_a <= c_a for each arc
         for (arc_idx, &capacity) in self.capacities().iter().enumerate() {
-            constraints.push(LinearConstraint::le(vec![(arc_idx, 1.0)], capacity as f64));
+            constraints.push(LinearConstraint::le(vec![(arc_idx, 1)], capacity));
         }
 
         // Conservation: sum_{a in delta^-(v)} f_a = sum_{a in delta^+(v)} f_a
@@ -56,35 +64,36 @@ impl ReduceTo<ILP<i32>> for IntegralFlowHomologousArcs {
             let mut terms = Vec::new();
             for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
                 if v == vertex {
-                    terms.push((arc_idx, 1.0)); // incoming
+                    terms.push((arc_idx, 1)); // incoming
                 }
                 if u == vertex {
-                    terms.push((arc_idx, -1.0)); // outgoing
+                    terms.push((arc_idx, -1)); // outgoing
                 }
             }
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Homologous equality: f_a = f_b for each pair (a, b)
         for &(a, b) in self.homologous_pairs() {
-            constraints.push(LinearConstraint::eq(vec![(a, 1.0), (b, -1.0)], 0.0));
+            constraints.push(LinearConstraint::eq(vec![(a, 1), (b, -1)], 0));
         }
 
         // Sink inflow requirement: sum_{a in delta^-(t)} f_a - sum_{a in delta^+(t)} f_a >= R
         let mut sink_terms = Vec::new();
         for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
             if v == self.sink() {
-                sink_terms.push((arc_idx, 1.0)); // incoming
+                sink_terms.push((arc_idx, 1)); // incoming
             }
             if u == self.sink() {
-                sink_terms.push((arc_idx, -1.0)); // outgoing
+                sink_terms.push((arc_idx, -1)); // outgoing
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement() as f64));
+        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
 
-        ReductionIFHAToILP {
-            target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize),
-        }
+        Ok(ReductionIFHAToILP {
+            target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
+        })
     }
 }
 
@@ -103,7 +112,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![(0, 1)],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

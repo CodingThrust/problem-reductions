@@ -7,7 +7,7 @@
 use crate::models::misc::{Partition, SubsetSum};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use num_bigint::BigUint;
+use num_bigint::{BigUint, ToBigUint};
 
 /// Result of reducing Partition to SubsetSum.
 #[derive(Debug, Clone)]
@@ -26,29 +26,35 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_n {
-            // Normal case: same elements, same binary vector.
-            target_solution.to_vec()
-        } else {
-            // Odd-sum case: target is trivially infeasible (0 elements).
-            // Return all-zero config for the source (which also won't satisfy it).
-            vec![0; self.source_n]
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        if target_solution.len() != self.source_n {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} subset-selection values, got {}",
+                self.source_n,
+                target_solution.len()
+            )));
         }
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_elements",
-})]
+#[reduction(
+    transform = exact {
+        num_elements = "num_elements",
+    })]
 impl ReduceTo<SubsetSum> for Partition {
     type Result = ReductionPartitionToSubsetSum;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let total = self.total_sum();
         let source_n = self.num_elements();
 
-        if !total.is_multiple_of(2) {
+        Ok(if total % 2 != 0 {
             // Odd total sum: no balanced partition exists.
             // Return a trivially infeasible SubsetSum: no elements, target = 1.
             ReductionPartitionToSubsetSum {
@@ -56,13 +62,22 @@ impl ReduceTo<SubsetSum> for Partition {
                 source_n,
             }
         } else {
-            let sizes: Vec<BigUint> = self.sizes().iter().map(|&s| BigUint::from(s)).collect();
-            let target_val = BigUint::from(total / 2);
+            let sizes: Vec<BigUint> = self
+                .sizes()
+                .iter()
+                .map(|&size| {
+                    size.to_biguint()
+                        .expect("validated nonnegative Partition size")
+                })
+                .collect();
+            let target_val = (total / 2)
+                .to_biguint()
+                .expect("validated nonnegative Partition total");
             ReductionPartitionToSubsetSum {
                 target: SubsetSum::new_unchecked(sizes, target_val),
                 source_n,
             }
-        }
+        })
     }
 }
 
@@ -74,10 +89,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_subsetsum",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, SubsetSum>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0, 0],
-                    target_config: vec![1, 0, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, false, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, false, false]),
                 },
             )
         },

@@ -1,4 +1,4 @@
-//! Reduction from MinimumEdgeCostFlow to ILP<i32>.
+//! Reduction from MinimumEdgeCostFlow to `ILP<i64>`.
 //!
 //! Variables (2m total):
 //!   f_a  (a = 0..m-1)  — integer flow on arc a, domain {0, ..., c(a)}
@@ -23,41 +23,49 @@ use crate::models::graph::MinimumEdgeCostFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing MinimumEdgeCostFlow to ILP<i32>.
+/// Result of reducing MinimumEdgeCostFlow to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `f_a` at index a for a in 0..num_edges (flow on arc a)
 /// - `y_a` at index num_edges + a for a in 0..num_edges (binary indicator)
 #[derive(Debug, Clone)]
 pub struct ReductionMECFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMECFToILP {
     type Source = MinimumEdgeCostFlow;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
     /// Extract flow solution: first m variables are the flow values.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_edges])
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "2 * num_edges",
         num_constraints = "2 * num_edges + num_vertices - 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
+impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
     type Result = ReductionMECFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
         let n = self.num_vertices();
@@ -71,14 +79,14 @@ impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
         // 1. Linking: f_a - c(a) * y_a ≤ 0  (forces y_a = 1 when f_a > 0)
         for a in 0..m {
             constraints.push(LinearConstraint::le(
-                vec![(f(a), 1.0), (y(a), -(self.capacities()[a] as f64))],
-                0.0,
+                vec![(f(a), 1), (y(a), -self.capacities()[a])],
+                0,
             ));
         }
 
         // 2. Binary bound: y_a ≤ 1
         for a in 0..m {
-            constraints.push(LinearConstraint::le(vec![(y(a), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(y(a), 1)], 1));
         }
 
         // 3. Flow conservation at non-terminal vertices
@@ -87,43 +95,40 @@ impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
                 continue;
             }
 
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for (a, &(u, v)) in arcs.iter().enumerate() {
                 if vertex == u {
-                    terms.push((f(a), -1.0)); // outgoing
+                    terms.push((f(a), -1)); // outgoing
                 } else if vertex == v {
-                    terms.push((f(a), 1.0)); // incoming
+                    terms.push((f(a), 1)); // incoming
                 }
             }
 
             if !terms.is_empty() {
-                constraints.push(LinearConstraint::eq(terms, 0.0));
+                constraints.push(LinearConstraint::eq(terms, 0));
             }
         }
 
         // 4. Flow requirement: net flow into sink ≥ R
         let sink = self.sink();
-        let mut sink_terms: Vec<(usize, f64)> = Vec::new();
+        let mut sink_terms: Vec<(usize, i64)> = Vec::new();
         for (a, &(u, v)) in arcs.iter().enumerate() {
             if v == sink {
-                sink_terms.push((f(a), 1.0));
+                sink_terms.push((f(a), 1));
             } else if u == sink {
-                sink_terms.push((f(a), -1.0));
+                sink_terms.push((f(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink_terms,
-            self.required_flow() as f64,
-        ));
+        constraints.push(LinearConstraint::ge(sink_terms, self.required_flow()));
 
         // Objective: minimize Σ p(a) · y_a
-        let objective: Vec<(usize, f64)> =
-            (0..m).map(|a| (y(a), self.prices()[a] as f64)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|a| (y(a), self.prices()[a])).collect();
 
-        ReductionMECFToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+        Ok(ReductionMECFToILP {
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_edges: m,
-        }
+        })
     }
 }
 
@@ -142,7 +147,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 4,
                 3,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

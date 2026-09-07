@@ -8,7 +8,8 @@
 //! - weighted.rs - tests for weighted mode
 //! - mapping_result.rs - tests for MappingResult utility methods
 
-mod common;
+mod alpha_tensor;
+pub(crate) mod common;
 mod copyline;
 mod gadgets;
 mod gadgets_ground_truth;
@@ -17,3 +18,4 @@ mod map_graph;
 mod mapping_result;
 mod triangular;
 mod weighted;
+mod weighted_gadget;

@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Minimum Register Sufficiency for Loops",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign registers to loop variables minimizing register count, no two conflicting variables share a register",
         fields: &[
@@ -47,7 +48,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumRegisterSufficiencyForLoops;
-/// use problemreductions::{Problem, Solver, BruteForce, Min};
+/// use problemreductions::{Problem, BruteForce, Min};
 ///
 /// // 3 variables on a loop of length 6, all pairs conflict
 /// let problem = MinimumRegisterSufficiencyForLoops::new(
@@ -55,9 +56,9 @@ inventory::submit! {
 ///     vec![(0, 3), (2, 3), (4, 3)],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
-/// let val = problem.evaluate(&solution.unwrap());
+/// let val = problem.evaluate(&solution.unwrap()).unwrap();
 /// assert_eq!(val, Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -153,52 +154,76 @@ impl MinimumRegisterSufficiencyForLoops {
 
 impl Problem for MinimumRegisterSufficiencyForLoops {
     const NAME: &'static str = "MinimumRegisterSufficiencyForLoops";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("loop_length", loop_length),
+        ("num_variables", num_variables),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.variables.len();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.variables.len();
-        if config.len() != n {
-            return Min(None);
-        }
-        // Check all register indices are in valid range
-        if config.iter().any(|&r| r >= n) {
-            return Min(None);
-        }
-
-        // Check for conflicts: no two overlapping variables share a register
-        for i in 0..n {
-            for j in (i + 1)..n {
-                if config[i] == config[j] {
-                    let (s1, l1) = self.variables[i];
-                    let (s2, l2) = self.variables[j];
-                    if Self::arcs_overlap(s1, l1, s2, l2, self.loop_length) {
-                        return Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.variables.len();
+            if config.len() != n {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "register assignment length does not match the variables".into(),
+                ));
+            }
+            // Check all register indices are in valid range
+            if config.iter().any(|&register| register >= n) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "register assignment contains an out-of-range register".into(),
+                ));
+            }
+            // Check for conflicts: no two overlapping variables share a register
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    if config[i] == config[j] {
+                        let (s1, l1) = self.variables[i];
+                        let (s2, l2) = self.variables[j];
+                        if Self::arcs_overlap(s1, l1, s2, l2, self.loop_length) {
+                            return Ok(Min(None));
+                        }
                     }
                 }
             }
-        }
 
-        // Count distinct registers used
-        let mut used = vec![false; n];
-        for &r in config {
-            used[r] = true;
-        }
-        let count = used.iter().filter(|&&u| u).count();
-        Min(Some(count))
+            // Count distinct registers used
+            let mut used = vec![false; n];
+            for &r in config {
+                used[r] = true;
+            }
+            let count = used.iter().filter(|&&u| u).count();
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting register count to i64".into(),
+                )
+            })?))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumRegisterSufficiencyForLoops {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.variables.len();
+        vec![n; n]
     }
 }
 
 crate::declare_variants! {
     default MinimumRegisterSufficiencyForLoops => "num_variables ^ num_variables",
+}
+
+crate::register_brute_force! {
+    MinimumRegisterSufficiencyForLoops,
 }
 
 #[cfg(feature = "example-db")]
@@ -211,7 +236,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
             vec![(0, 3), (2, 3), (4, 3)],
         )),
-        optimal_config: vec![0, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 2]),
         optimal_value: serde_json::json!(3),
     }]
 }

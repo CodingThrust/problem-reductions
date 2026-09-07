@@ -60,36 +60,41 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
     /// For every source edge `(u, v)`, the edge is *kept* iff some chosen
     /// cluster `S` (i.e. with `x_S = 1`) contains both `u` and `v`; otherwise
     /// it is deleted (`config[e] = 1`).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Map every vertex to the (unique, for a feasible ILP solution) chosen
-        // cluster id. For partial/infeasible target assignments we fall back to
-        // `None`, which forces the corresponding source edges to be marked
-        // deleted -- preserving feasibility of `is_valid_solution` is the
-        // caller's responsibility, not ours.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let mut cluster_of: Vec<Option<usize>> = vec![None; vertex_count(&self.clusters)];
         for (c, cluster) in self.clusters.iter().enumerate() {
-            if target_solution.get(c).copied().unwrap_or(0) == 1 {
+            if target_solution[c] == 1 {
                 for &v in cluster {
+                    if cluster_of[v].is_some() {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "vertex {v} belongs to multiple selected clusters"
+                        )));
+                    }
                     cluster_of[v] = Some(c);
                 }
+            } else if target_solution[c] != 0 {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "cluster selection {c} is not binary"
+                )));
             }
         }
 
-        self.edges
+        if let Some(vertex) = cluster_of.iter().position(Option::is_none) {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "vertex {vertex} has no selected cluster"
+            )));
+        }
+
+        Ok(self
+            .edges
             .iter()
-            .map(|&(u, v)| {
-                debug_assert!(
-                    cluster_of[u].is_some() && cluster_of[v].is_some(),
-                    "extract_solution invariant violated: edge ({}, {}) has endpoint(s) with no cluster assignment; a well-formed ILP witness assigns every vertex to exactly one selected cluster",
-                    u,
-                    v
-                );
-                match (cluster_of[u], cluster_of[v]) {
-                    (Some(cu), Some(cv)) if cu == cv => 0,
-                    _ => 1,
-                }
-            })
-            .collect()
+            .map(|&(u, v)| cluster_of[u] != cluster_of[v])
+            .collect())
     }
 }
 
@@ -146,15 +151,18 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "2^num_vertices",
+    transform = exact {
         num_constraints = "num_vertices",
-    }
+    },
+    unavailable = {
+        num_vars = "the feasible-cluster count depends on graph structure, and its 2^num_vertices upper bound requires a variable exponent unsupported by the size-transform evaluator",
+            num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+}
 )]
 impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
     type Result = ReductionHighlyConnectedDeletionToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let n = graph.num_vertices();
         let clusters = enumerate_feasible_clusters(graph);
@@ -166,34 +174,44 @@ impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
         // small graphs we use in tests.
         let mut constraints: Vec<LinearConstraint> = Vec::with_capacity(n);
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = clusters
+            let terms: Vec<(usize, i64)> = clusters
                 .iter()
                 .enumerate()
                 .filter_map(|(c, cluster)| {
                     if cluster.binary_search(&v).is_ok() {
-                        Some((c, 1.0))
+                        Some((c, 1))
                     } else {
                         None
                     }
                 })
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Objective: maximize sum_S |E(G[S])| * x_S.
-        let objective: Vec<(usize, f64)> = clusters
+        let objective: Vec<(usize, i64)> = clusters
             .iter()
             .enumerate()
-            .map(|(c, cluster)| (c, induced_edge_count(graph, cluster) as f64))
-            .collect();
+            .map(|(c, cluster)| {
+                i64::try_from(induced_edge_count(graph, cluster))
+                    .map(|count| (c, count))
+                    .map_err(|_| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            HighlyConnectedDeletion<SimpleGraph>,
+                            ILP<bool>,
+                        >("encoding an induced edge count")
+                    })
+            })
+            .collect::<Result<_, _>>()?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
-        ReductionHighlyConnectedDeletionToILP {
+        Ok(ReductionHighlyConnectedDeletionToILP {
             target,
             clusters,
             edges: graph.edges(),
-        }
+        })
     }
 }
 

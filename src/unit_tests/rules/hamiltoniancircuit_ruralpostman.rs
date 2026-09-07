@@ -18,7 +18,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_closed_loop() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -30,7 +31,8 @@ fn test_hamiltoniancircuit_to_ruralpostman_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_closed_loop_cycle4() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -42,7 +44,8 @@ fn test_hamiltoniancircuit_to_ruralpostman_closed_loop_cycle4() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_structure() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 3 vertices -> 6 vertices
@@ -62,7 +65,8 @@ fn test_hamiltoniancircuit_to_ruralpostman_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_structure_cycle4() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 4 vertices -> 8 vertices
@@ -77,13 +81,15 @@ fn test_hamiltoniancircuit_to_ruralpostman_structure_cycle4() {
 fn test_hamiltoniancircuit_to_ruralpostman_optimal_cost() {
     // Triangle has a Hamiltonian circuit, so optimal RPP cost should be 2n = 6
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("should find a solution");
 
-    let metric = target.evaluate(&best);
+    let metric = target.evaluate(&best).unwrap();
     assert_eq!(metric, Min(Some(6)), "optimal cost should be 2n=6");
 }
 
@@ -93,22 +99,23 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
     let n = source.num_vertices();
     assert_eq!(n, 4);
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify source has no Hamiltonian circuit
-    let source_witness = BruteForce::new().find_witness(&source);
+    let source_witness = BruteForce::new().solve(&source).unwrap();
     assert!(source_witness.is_none(), "star graph should have no HC");
 
     // The RPP optimal cost should exceed 2n = 8
-    let best = BruteForce::new().find_witness(target);
+    let best = BruteForce::new().solve(target).unwrap();
     if let Some(config) = best {
-        let metric = target.evaluate(&config);
+        let metric = target.evaluate(&config).unwrap();
         assert!(
             metric.is_valid(),
             "best RPP solution should be a valid circuit"
         );
-        let two_n = 2 * n as i32;
+        let two_n = 2 * i64::try_from(n).unwrap();
         assert!(
             metric.unwrap() > two_n,
             "non-Hamiltonian source should give RPP cost > 2n={two_n}, got {}",
@@ -120,21 +127,23 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("should find a solution");
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert_eq!(
         extracted.len(),
         3,
         "extracted solution should have 3 vertices"
     );
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution should be a valid Hamiltonian circuit"
     );
 }

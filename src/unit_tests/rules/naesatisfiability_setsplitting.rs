@@ -18,7 +18,7 @@ fn rule_example_problem() -> NAESatisfiability {
 #[test]
 fn test_naesatisfiability_to_setsplitting_closed_loop() {
     let source = rule_example_problem();
-    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source);
+    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -30,7 +30,7 @@ fn test_naesatisfiability_to_setsplitting_closed_loop() {
 #[test]
 fn test_naesatisfiability_to_setsplitting_structure() {
     let source = rule_example_problem();
-    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source);
+    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.universe_size(), 6);
@@ -50,24 +50,26 @@ fn test_naesatisfiability_to_setsplitting_structure() {
 #[test]
 fn test_naesatisfiability_to_setsplitting_extract_solution_uses_positive_literals() {
     let source = rule_example_problem();
-    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source);
+    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1, 0]),
-        vec![1, 0, 1]
+        reduction
+            .extract_solution(&vec![true, false, true, false, true, false])
+            .unwrap(),
+        vec![true, false, true]
     );
 }
 
 #[test]
 fn test_naesatisfiability_to_setsplitting_target_witness_extracts_to_satisfying_assignment() {
     let source = rule_example_problem();
-    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source);
+    let reduction = ReduceTo::<SetSplitting>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    let target_solution = solver.find_witness(reduction.target_problem()).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let target_solution = solver.solve(reduction.target_problem()).unwrap().unwrap();
+    let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
-    assert!(source.evaluate(&source_solution));
+    assert!(source.evaluate(&source_solution).unwrap());
 }
 
 #[cfg(feature = "example-db")]
@@ -82,6 +84,9 @@ fn test_naesatisfiability_to_setsplitting_canonical_example_spec() {
     assert_eq!(example.solutions.len(), 1);
 
     let pair = &example.solutions[0];
-    assert_eq!(pair.source_config, vec![1, 1, 1]);
-    assert_eq!(pair.target_config, vec![1, 1, 1, 0, 0, 0]);
+    assert_eq!(pair.source_config, serde_json::json!([true, true, true]));
+    assert_eq!(
+        pair.target_config,
+        serde_json::json!([true, true, true, false, false, false])
+    );
 }

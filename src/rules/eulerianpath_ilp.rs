@@ -28,7 +28,7 @@ use crate::models::graph::EulerianPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing EulerianPath to `ILP<i32>`.
+/// Result of reducing EulerianPath to `ILP<i64>`.
 ///
 /// Variable layout (all in the non-negative integer domain, with explicit
 /// upper bounds enforcing the intended `0/1` and `0..m-1` ranges):
@@ -42,7 +42,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// where `p = pairs.len()` is the number of compatible ordered pairs.
 #[derive(Debug, Clone)]
 pub struct ReductionEulerianPathToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     /// Compatible ordered pairs `(a, b)` in the order their `y_{a,b}` variables
     /// appear in the ILP, for `m > 0`. Empty when `m = 0`.
     pairs: Vec<(usize, usize)>,
@@ -58,9 +58,9 @@ impl ReductionEulerianPathToILP {
 
 impl ReductionResult for ReductionEulerianPathToILP {
     type Source = EulerianPath;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -68,67 +68,59 @@ impl ReductionResult for ReductionEulerianPathToILP {
     ///
     /// Reads the unique active start arc (`s_a = 1`) and walks the active
     /// successor relation (`y_{a,b} = 1`) one step at a time, producing an arc
-    /// permutation of length `m`. If the assignment is malformed (no start,
-    /// no successor mid-walk, or revisits an arc) we fall back to the identity
-    /// ordering `0..m` in release builds; debug builds trip a
-    /// `debug_assert!` to surface the caller bug. Callers must independently
-    /// check feasibility on the source side via
-    /// `EulerianPath::is_valid_solution`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let m = self.num_arcs;
-        if m == 0 {
-            return Vec::new();
-        }
-        let fallback: Vec<usize> = (0..m).collect();
+    /// permutation of length `m`. Malformed assignments return an extraction
+    /// error instead of fabricating an ordering.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Find the unique active start arc.
-        let mut current = match (0..m)
-            .find(|&a| target_solution.get(self.s_idx(a)).copied().unwrap_or(0) == 1)
-        {
-            Some(a) => a,
-            None => {
-                debug_assert!(
-                    false,
-                    "EulerianPath -> ILP extract_solution: malformed assignment, no active start arc (expected exactly one s_a = 1)",
-                );
-                return fallback;
+        Ok({
+            let m = self.num_arcs;
+            if m == 0 {
+                return Ok(Vec::new());
             }
-        };
 
-        // Walk the active successor relation, recording each visited arc.
-        let mut order = Vec::with_capacity(m);
-        let mut visited = vec![false; m];
-        order.push(current);
-        visited[current] = true;
-
-        for _ in 1..m {
-            let next = self
-                .pairs
-                .iter()
-                .enumerate()
-                .find(|&(k, &(a, _))| {
-                    a == current && target_solution.get(k).copied().unwrap_or(0) == 1
-                })
-                .map(|(_, &(_, b))| b);
-
-            match next {
-                Some(b) if !visited[b] => {
-                    order.push(b);
-                    visited[b] = true;
-                    current = b;
+            // Find the unique active start arc.
+            let mut current = match (0..m).find(|&a| target_solution[self.s_idx(a)] == 1) {
+                Some(a) => a,
+                None => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "ILP witness has no active Eulerian-path start arc",
+                    ));
                 }
-                _ => {
-                    debug_assert!(
-                        false,
-                        "EulerianPath -> ILP extract_solution: malformed assignment at arc {} (expected exactly one active successor y_{{{},b}} = 1 leading to an unvisited arc)",
-                        current,
-                        current,
-                    );
-                    return fallback;
+            };
+
+            // Walk the active successor relation, recording each visited arc.
+            let mut order = Vec::with_capacity(m);
+            let mut visited = vec![false; m];
+            order.push(current);
+            visited[current] = true;
+
+            for _ in 1..m {
+                let next = self
+                    .pairs
+                    .iter()
+                    .enumerate()
+                    .find(|&(k, &(a, _))| a == current && target_solution[k] == 1)
+                    .map(|(_, &(_, b))| b);
+
+                match next {
+                    Some(b) if !visited[b] => {
+                        order.push(b);
+                        visited[b] = true;
+                        current = b;
+                    }
+                    _ => {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "ILP witness has no unvisited successor for arc {current}",
+                        )));
+                    }
                 }
             }
-        }
-        order
+            order
+        })
     }
 }
 
@@ -148,26 +140,30 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "3 * num_arcs + num_arcs * num_arcs",
         num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for EulerianPath {
+impl ReduceTo<ILP<i64>> for EulerianPath {
     type Result = ReductionEulerianPathToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
 
         // Empty-arc instance: vacuously feasible empty ILP.
         if m == 0 {
-            let target = ILP::new(0, Vec::new(), Vec::new(), ObjectiveSense::Minimize);
-            return ReductionEulerianPathToILP {
+            let target = ILP::new(0, Vec::new(), Vec::new(), ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
+            return Ok(ReductionEulerianPathToILP {
                 target,
                 pairs: Vec::new(),
                 num_arcs: 0,
-            };
+            });
         }
 
         let pairs = compatible_pairs(&arcs);
@@ -194,56 +190,55 @@ impl ReduceTo<ILP<i32>> for EulerianPath {
 
         // (1) Predecessor equality: s_a + sum_{(b,a) in P} y_{b,a} = 1.
         // (2) Successor equality:   e_a + sum_{(a,b) in P} y_{a,b} = 1.
+        let m_i64 = Self::exact_i64(m, "encoding the arc order")?;
         for a in 0..m {
-            let mut pred_terms: Vec<(usize, f64)> = vec![(s_idx(a), 1.0)];
+            let mut pred_terms: Vec<(usize, i64)> = vec![(s_idx(a), 1)];
             for &k in &incoming[a] {
-                pred_terms.push((y_idx(k), 1.0));
+                pred_terms.push((y_idx(k), 1));
             }
-            constraints.push(LinearConstraint::eq(pred_terms, 1.0));
+            constraints.push(LinearConstraint::eq(pred_terms, 1));
 
-            let mut succ_terms: Vec<(usize, f64)> = vec![(e_idx(a), 1.0)];
+            let mut succ_terms: Vec<(usize, i64)> = vec![(e_idx(a), 1)];
             for &k in &outgoing[a] {
-                succ_terms.push((y_idx(k), 1.0));
+                succ_terms.push((y_idx(k), 1));
             }
-            constraints.push(LinearConstraint::eq(succ_terms, 1.0));
+            constraints.push(LinearConstraint::eq(succ_terms, 1));
         }
 
         // (3) Binary upper bounds on start / end variables, and position
         //     upper bound on `u_a`.
         for a in 0..m {
-            constraints.push(LinearConstraint::le(vec![(s_idx(a), 1.0)], 1.0));
-            constraints.push(LinearConstraint::le(vec![(e_idx(a), 1.0)], 1.0));
-            constraints.push(LinearConstraint::le(
-                vec![(u_idx(a), 1.0)],
-                (m as f64) - 1.0,
-            ));
+            constraints.push(LinearConstraint::le(vec![(s_idx(a), 1)], 1));
+            constraints.push(LinearConstraint::le(vec![(e_idx(a), 1)], 1));
+            constraints.push(LinearConstraint::le(vec![(u_idx(a), 1)], m_i64 - 1));
         }
 
         // (4) Binary upper bounds on successor variables.
         // (5) Order consistency (MTZ): u_b >= u_a + 1 - m * (1 - y_{a,b})
         //     i.e.  u_a - u_b + m * y_{a,b} <= m - 1.
         for (k, &(a, b)) in pairs.iter().enumerate() {
-            constraints.push(LinearConstraint::le(vec![(y_idx(k), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(y_idx(k), 1)], 1));
             constraints.push(LinearConstraint::le(
-                vec![(u_idx(a), 1.0), (u_idx(b), -1.0), (y_idx(k), m as f64)],
-                (m as f64) - 1.0,
+                vec![(u_idx(a), 1), (u_idx(b), -1), (y_idx(k), m_i64)],
+                m_i64 - 1,
             ));
         }
 
         // (6) Unique start: sum_a s_a = 1.
         // (7) Unique end:   sum_a e_a = 1.
-        let start_sum: Vec<(usize, f64)> = (0..m).map(|a| (s_idx(a), 1.0)).collect();
-        let end_sum: Vec<(usize, f64)> = (0..m).map(|a| (e_idx(a), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(start_sum, 1.0));
-        constraints.push(LinearConstraint::eq(end_sum, 1.0));
+        let start_sum: Vec<(usize, i64)> = (0..m).map(|a| (s_idx(a), 1)).collect();
+        let end_sum: Vec<(usize, i64)> = (0..m).map(|a| (e_idx(a), 1)).collect();
+        constraints.push(LinearConstraint::eq(start_sum, 1));
+        constraints.push(LinearConstraint::eq(end_sum, 1));
 
-        let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionEulerianPathToILP {
+        Ok(ReductionEulerianPathToILP {
             target,
             pairs,
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -258,7 +253,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
             let source =
                 EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]));
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

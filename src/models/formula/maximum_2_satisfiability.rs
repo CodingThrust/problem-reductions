@@ -9,7 +9,7 @@ use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
 
-use super::CNFClause;
+use super::{sat::validate_cnf_literals, CNFClause};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Maximum 2-Satisfiability",
         aliases: &["MAX2SAT"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Maximize the number of satisfied 2-literal clauses",
         fields: &[
@@ -36,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::formula::{Maximum2Satisfiability, CNFClause};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = Maximum2Satisfiability::new(
 ///     3,
@@ -48,9 +49,10 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
+/// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "Maximum2SatisfiabilityDef")]
 pub struct Maximum2Satisfiability {
     /// Number of Boolean variables.
     num_vars: usize,
@@ -64,15 +66,21 @@ impl Maximum2Satisfiability {
     /// # Panics
     /// Panics if any clause does not have exactly 2 literals.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a new MAX-2-SAT problem after validating its clauses.
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        validate_cnf_literals(num_vars, &clauses)?;
         for (i, clause) in clauses.iter().enumerate() {
-            assert!(
-                clause.len() == 2,
-                "Clause {} has {} literals, expected 2",
-                i,
-                clause.len()
-            );
+            if clause.len() != 2 {
+                return Err(format!("Clause {i} has {} literals, expected 2", clause.len()).into());
+            }
         }
-        Self { num_vars, clauses }
+        Ok(Self { num_vars, clauses })
     }
 
     /// Get the number of variables.
@@ -91,25 +99,40 @@ impl Maximum2Satisfiability {
     }
 
     /// Count satisfied clauses for an assignment.
-    pub fn count_satisfied(&self, assignment: &[bool]) -> usize {
-        self.clauses
+    pub fn count_satisfied(
+        &self,
+        assignment: &[bool],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let count = self
+            .clauses
             .iter()
             .filter(|c| c.is_satisfied(assignment))
-            .count()
+            .count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting satisfied-clause count to i64".into(),
+            )
+        })
     }
 }
 
 impl Problem for Maximum2Satisfiability {
     const NAME: &'static str = "Maximum2Satisfiability";
-    type Value = Max<usize>;
+    type Solution = Vec<bool>;
+    type Value = Max<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_parameters![("num_clauses", num_clauses), ("num_vars", num_vars),];
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        let assignment = super::config_to_assignment(config);
-        Max(Some(self.count_satisfied(&assignment)))
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(Max(Some(self.count_satisfied(config)?)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -117,8 +140,32 @@ impl Problem for Maximum2Satisfiability {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Maximum2Satisfiability {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default Maximum2Satisfiability => "2^(0.7905 * num_variables)",
+    default Maximum2Satisfiability => "2^(0.7905 * num_vars)",
+}
+
+crate::register_brute_force! {
+    Maximum2Satisfiability decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
+#[derive(Deserialize)]
+struct Maximum2SatisfiabilityDef {
+    num_vars: usize,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<Maximum2SatisfiabilityDef> for Maximum2Satisfiability {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(value: Maximum2SatisfiabilityDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.clauses)
+    }
 }
 
 #[cfg(feature = "example-db")]
@@ -137,7 +184,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![3, 4]),
             ],
         )),
-        optimal_config: vec![1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }

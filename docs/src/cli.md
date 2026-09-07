@@ -7,7 +7,7 @@ cargo install problemreductions-cli
 pred --version
 ```
 
-Rust and a native build toolchain are required. The default ILP backend is HiGHS; the `cplex` and `lp-solvers` features enable separately installed backends listed in the [CLI manifest](https://github.com/CodingThrust/problem-reductions/blob/main/problemreductions-cli/Cargo.toml).
+Rust and a native build toolchain are required. ILP solving uses the bundled HiGHS backend.
 
 The published crate may lag behind the catalog on this site. To build the current checkout:
 
@@ -22,10 +22,10 @@ cargo install --path problemreductions-cli
 ```bash
 pred create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o cycle.json
 pred solve cycle.json
-pred evaluate cycle.json --config 1,0,1,0,0
+pred evaluate cycle.json --config '[true,false,true,false,false]'
 ```
 
-`MIS` is Maximum Independent Set: select as many pairwise non-adjacent vertices as possible. The graph is a cycle on five vertices. `solve` discovers a route to ILP, solves the target, and maps the solution back, reporting `Max(2)` with a configuration such as `[1, 0, 1, 0, 0]`. `evaluate` scores a configuration of your own against the same instance. Several optimal configurations exist, so the solver's choice may differ from yours.
+`MIS` is Maximum Independent Set: select as many pairwise non-adjacent vertices as possible. The graph is a cycle on five vertices. `solve` executes the registered ILP pipeline and maps the solution back, reporting `Max(2)` with a configuration such as `[true, false, true, false, false]`. `evaluate` scores a configuration of your own against the same instance. Several optimal configurations exist, so the solver's choice may differ from yours.
 
 ## Terminal session
 
@@ -36,18 +36,13 @@ A recording of the real CLI: discover a route, transform the instance, solve, an
 [Open the player](static/cli-demo.html) · [Download the cast](static/cli-demo.cast)
 
 ```bash
-pred path MIS ILP
+pred path MIS ILP --json -o paths.json
+python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json
 pred create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o cycle.json
-pred reduce cycle.json --to ILP -o reduced.json
+pred reduce cycle.json --via path.json -o reduced.json
 pred solve reduced.json
-pred evaluate cycle.json --config 1,0,1,0,0
+pred evaluate cycle.json --config '[true,false,true,false,false]'
 pred solve cycle.json
 ```
 
-The route passes through Maximum Set Packing and a weight cast before reaching binary ILP. `reduced.json` keeps the source instance and the path, so solving the bundle recovers a source solution. The final command solves the original file directly and discovers the same route on its own.
-
-| Check | Recorded result |
-|---|---|
-| Solve the reduction bundle | `Max(2)`, configuration `[1, 0, 1, 0, 0]` |
-| Evaluate that configuration on the source | `Max(2)` |
-| Solve the original instance directly | `Max(2)`, solver `ilp (via ILP)` |
+`path.json` contains one explicitly selected route from the returned path set. `reduced.json` keeps the source instance and that route, so solving the bundle recovers a source solution. The final command solves the original file through its registered ILP pipeline. Both solves and the independent evaluation return `Max(2)`; optimal solutions may differ.

@@ -4,7 +4,7 @@
 //! subsets of X, determine if C contains an exact cover -- a subcollection of
 //! q disjoint triples covering every element exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -15,12 +15,10 @@ inventory::submit! {
         display_name: "Exact Cover by 3-Sets",
         aliases: &["X3C"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if a collection of 3-element subsets contains an exact cover",
-        fields: &[
-            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of universe X (must be divisible by 3)" },
-            FieldInfo { name: "subsets", type_name: "Vec<[usize; 3]>", description: "Collection C of 3-element subsets of X" },
-        ],
+        fields: ExactCoverBy3SetsCreateSpec::FIELDS,
     }
 }
 
@@ -37,7 +35,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::ExactCoverBy3Sets;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Universe: {0, 1, 2, 3, 4, 5} (q = 2)
 /// // Subsets: S0={0,1,2}, S1={3,4,5}, S2={0,3,4}
@@ -47,11 +45,11 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // S0 and S1 form an exact cover
 /// assert_eq!(solutions.len(), 1);
-/// assert!(problem.evaluate(&solutions[0]));
+/// assert!(problem.evaluate(&solutions[0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExactCoverBy3Sets {
@@ -59,6 +57,40 @@ pub struct ExactCoverBy3Sets {
     universe_size: usize,
     /// Collection of 3-element subsets, each represented as a sorted triple of elements.
     subsets: Vec<[usize; 3]>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ExactCoverBy3SetsCreateSpec {
+    universe_size: usize,
+    #[create(codec = "semicolon-separated")]
+    subsets: Vec<[usize; 3]>,
+}
+
+impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(mut spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
+        if !spec.universe_size.is_multiple_of(3) {
+            return Err("universe_size must be divisible by 3".into());
+        }
+        for (index, subset) in spec.subsets.iter_mut().enumerate() {
+            if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
+                return Err(format!("subset {index} contains duplicate elements").into());
+            }
+            if let Some(&element) = subset
+                .iter()
+                .find(|&&element| element >= spec.universe_size)
+            {
+                return Err(
+                    format!("subset {index} contains out-of-range element {element}").into(),
+                );
+            }
+            subset.sort();
+        }
+        Ok(Self {
+            universe_size: spec.universe_size,
+            subsets: spec.subsets,
+        })
+    }
 }
 
 impl ExactCoverBy3Sets {
@@ -141,15 +173,39 @@ impl ExactCoverBy3Sets {
     ///
     /// A valid exact cover selects exactly q = universe_size/3 subsets
     /// that are pairwise disjoint and whose union equals the universe.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        if config.len() != self.subsets.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "subset-selection length does not match the instance".into(),
+            ));
+        }
+
+        let q = self.universe_size / 3;
+        if config.iter().filter(|&&selected| selected).count() != q {
+            return Ok(false);
+        }
+
+        let mut covered = HashSet::with_capacity(self.universe_size);
+        for (subset, &selected) in self.subsets.iter().zip(config) {
+            if selected {
+                for &element in subset {
+                    if !covered.insert(element) {
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+        Ok(covered.len() == self.universe_size)
     }
 
     /// Get the elements covered by the selected subsets.
-    pub fn covered_elements(&self, config: &[usize]) -> HashSet<usize> {
+    pub fn covered_elements(&self, config: &[bool]) -> HashSet<usize> {
         let mut covered = HashSet::new();
         for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
+            if selected {
                 if let Some(subset) = self.subsets.get(i) {
                     covered.extend(subset.iter().copied());
                 }
@@ -161,44 +217,20 @@ impl ExactCoverBy3Sets {
 
 impl Problem for ExactCoverBy3Sets {
     const NAME: &'static str = "ExactCoverBy3Sets";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.subsets.len()]
-    }
+    crate::problem_parameters![
+        ("num_sets", num_sets),
+        ("num_subsets", num_subsets),
+        ("universe_size", universe_size),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.subsets.len() || config.iter().any(|&value| value > 1) {
-                return crate::types::Or(false);
-            }
-
-            let q = self.universe_size / 3;
-
-            // Count selected subsets
-            let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
-            if selected_count != q {
-                return crate::types::Or(false);
-            }
-
-            // Check that selected subsets are pairwise disjoint and cover everything
-            let mut covered = HashSet::with_capacity(self.universe_size);
-            for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
-                    if let Some(subset) = self.subsets.get(i) {
-                        for &elem in subset {
-                            if !covered.insert(elem) {
-                                // Element already covered -- not disjoint
-                                return crate::types::Or(false);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Check all elements are covered
-            covered.len() == self.universe_size
-        })
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -206,8 +238,18 @@ impl Problem for ExactCoverBy3Sets {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ExactCoverBy3Sets {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.subsets.len()]
+    }
+}
+
 crate::declare_variants! {
-    default ExactCoverBy3Sets => "2^universe_size",
+    default ExactCoverBy3Sets => "2^universe_size" create ExactCoverBy3SetsCreateSpec,
+}
+
+crate::register_brute_force! {
+    ExactCoverBy3Sets decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -226,7 +268,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 [2, 5, 8],
             ],
         )),
-        optimal_config: vec![1, 0, 1, 0, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, false, true, false, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

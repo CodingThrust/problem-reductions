@@ -40,13 +40,16 @@ pub(crate) mod sparse_matrix_compression;
 
 pub use algebraic_equations_over_gf2::AlgebraicEquationsOverGF2;
 pub use bmf::BMF;
-pub use closest_vector_problem::{ClosestVectorProblem, VarBounds};
+pub use closest_vector_problem::{ClosestVectorProblem, ClosestVectorTarget};
 pub use consecutive_block_minimization::ConsecutiveBlockMinimization;
 pub use consecutive_ones_matrix_augmentation::ConsecutiveOnesMatrixAugmentation;
 pub use consecutive_ones_submatrix::ConsecutiveOnesSubmatrix;
 pub use equilibrium_point::EquilibriumPoint;
 pub use feasible_basis_extension::FeasibleBasisExtension;
-pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
+pub use ilp::{
+    Comparison, ILPCoefficient, IntegerVariable, LinearConstraint, ObjectiveSense, VariableDomain,
+    ILP,
+};
 pub use minimum_matrix_cover::MinimumMatrixCover;
 pub use minimum_matrix_domination::MinimumMatrixDomination;
 pub use minimum_weight_decoding::MinimumWeightDecoding;

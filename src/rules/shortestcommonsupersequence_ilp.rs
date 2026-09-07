@@ -27,29 +27,37 @@ impl ReductionResult for ReductionSCSToILP {
 
     /// At each position p, output the unique symbol a with x_{p,a} = 1.
     /// Uses alphabet_size + 1 symbols (last = padding).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let b = self.max_length;
-        let k = self.alphabet_size + 1; // includes padding symbol
-        (0..b)
-            .map(|p| {
-                (0..k)
-                    .find(|&a| target_solution[p * k + a] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.max_length,
+            self.alphabet_size + 1,
+            0,
+        )?
+        .into_iter()
+        .map(|symbol| (symbol < self.alphabet_size).then_some(symbol))
+        .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
         num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let b = self.max_length();
         let alpha = self.alphabet_size();
         let k = alpha + 1; // alphabet + padding symbol
@@ -78,14 +86,14 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
 
         // 1. One-hot symbol at each position: Σ_a x_{p,a} = 1  ∀ p
         for p in 0..b {
-            let terms: Vec<(usize, f64)> = (0..k).map(|a| (p * k + a, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|a| (p * k + a, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Each character matched to exactly one position: Σ_p m_{gc,p} = 1
         for gc in 0..total_chars {
-            let terms: Vec<(usize, f64)> = (0..b).map(|p| (m_offset + gc * b + p, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..b).map(|p| (m_offset + gc * b + p, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 3. Symbol consistency: m_{gc,p} <= x_{p,a} where a is the symbol at gc
@@ -95,8 +103,8 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
                 for p in 0..b {
                     // m_{gc,p} <= x_{p,sym}
                     constraints.push(LinearConstraint::le(
-                        vec![(m_offset + gc * b + p, 1.0), (p * k + sym, -1.0)],
-                        0.0,
+                        vec![(m_offset + gc * b + p, 1), (p * k + sym, -1)],
+                        0,
                     ));
                 }
             }
@@ -112,10 +120,11 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
                 let gc_next = char_offsets[s_idx] + j + 1;
                 let mut terms = Vec::new();
                 for p in 0..b {
-                    terms.push((m_offset + gc_next * b + p, p as f64));
-                    terms.push((m_offset + gc_j * b + p, -(p as f64)));
+                    let p_i64 = Self::exact_i64(p, "encoding a sequence position")?;
+                    terms.push((m_offset + gc_next * b + p, p_i64));
+                    terms.push((m_offset + gc_j * b + p, -p_i64));
                 }
-                constraints.push(LinearConstraint::ge(terms, 1.0));
+                constraints.push(LinearConstraint::ge(terms, 1));
             }
         }
 
@@ -123,19 +132,20 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
         //    x_{p,pad} <= x_{p+1,pad}  for p in 0..b-1
         for p in 0..b.saturating_sub(1) {
             constraints.push(LinearConstraint::le(
-                vec![(p * k + pad, 1.0), ((p + 1) * k + pad, -1.0)],
-                0.0,
+                vec![(p * k + pad, 1), ((p + 1) * k + pad, -1)],
+                0,
             ));
         }
 
         // Objective: minimize non-padding positions = maximize padding positions
-        let objective: Vec<(usize, f64)> = (0..b).map(|p| (p * k + pad, 1.0)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
-        ReductionSCSToILP {
+        let objective: Vec<(usize, i64)> = (0..b).map(|p| (p * k + pad, 1)).collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionSCSToILP {
             target,
             max_length: b,
             alphabet_size: alpha,
-        }
+        })
     }
 }
 
@@ -147,19 +157,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Alphabet {0,1}, strings [0,1] and [1,0]
             let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
-            let reduction: ReductionSCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionSCSToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -22,28 +22,36 @@ pub struct ReductionSPToILP {
 }
 
 impl ReductionResult for ReductionSPToILP {
-    type Source = MaximumSetPacking<i32>;
+    type Source = MaximumSetPacking<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_sets",
         num_constraints = "universe_size",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
+impl ReduceTo<ILP<bool>> for MaximumSetPacking<i64> {
     type Result = ReductionSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_sets();
 
         // Build element-to-sets mapping, then create one constraint per element
@@ -59,21 +67,22 @@ impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
             .into_iter()
             .filter(|sets| sets.len() > 1)
             .map(|sets| {
-                let terms: Vec<(usize, f64)> = sets.into_iter().map(|i| (i, 1.0)).collect();
-                LinearConstraint::le(terms, 1.0)
+                let terms: Vec<(usize, i64)> = sets.into_iter().map(|i| (i, 1)).collect();
+                LinearConstraint::le(terms, 1)
             })
             .collect();
 
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights_ref()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
+            .map(|(set, &weight)| (set, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionSPToILP { target }
+        Ok(ReductionSPToILP { target })
     }
 }
 

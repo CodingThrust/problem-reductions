@@ -22,28 +22,34 @@ impl ReductionResult for ReductionSMCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // For each row r, output the unique zero-based shift g with x_{r,g} = 1
-        (0..self.num_rows)
-            .map(|r| {
-                (0..self.bound_k)
-                    .find(|&g| target_solution[r * self.bound_k + g] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_rows,
+            self.bound_k,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_rows * bound_k",
         num_constraints = "num_rows + num_rows * num_rows * bound_k * bound_k",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
     type Result = ReductionSMCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
         let k = self.bound_k();
@@ -56,8 +62,8 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
 
         // Each row assigned exactly one shift
         for r in 0..m {
-            let terms: Vec<(usize, f64)> = (0..k).map(|g| (r * k + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|g| (r * k + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Collision constraints:
@@ -85,8 +91,8 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
                                 continue;
                             }
                             constraints.push(LinearConstraint::le(
-                                vec![(r * k + g, 1.0), (s * k + h, 1.0)],
-                                1.0,
+                                vec![(r * k + g, 1), (s * k + h, 1)],
+                                1,
                             ));
                         }
                     }
@@ -94,12 +100,13 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionSMCToILP {
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionSMCToILP {
             target,
             num_rows: m,
             bound_k: k,
-        }
+        })
     }
 }
 
@@ -118,17 +125,19 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 2,
             );
-            let reduction: ReductionSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionSMCToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let ilp_solver = crate::solvers::ILPSolver::new();
             let target_config = ilp_solver
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&target_config);
+            let extracted = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: extracted,
-                    target_config,
+                    source_config: serde_json::json!(extracted),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

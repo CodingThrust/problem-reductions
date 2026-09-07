@@ -4,7 +4,7 @@
 //! whether there exists a permutation of the columns and at most K zero-to-one
 //! augmentations such that every row has consecutive 1s.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Consecutive Ones Matrix Augmentation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Augment a binary matrix with at most K zero-to-one flips so some column permutation has the consecutive ones property",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m x n binary matrix A" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on zero-to-one augmentations" },
-        ],
+        fields: ConsecutiveOnesMatrixAugmentationCreateSpec::FIELDS,
     }
 }
 
@@ -29,18 +27,37 @@ pub struct ConsecutiveOnesMatrixAugmentation {
     bound: i64,
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConsecutiveOnesMatrixAugmentationCreateSpec {
+    /// m x n binary matrix A.
+    matrix: Vec<Vec<bool>>,
+    /// Upper bound K on zero-to-one augmentations.
+    bound: i64,
+}
+impl TryFrom<ConsecutiveOnesMatrixAugmentationCreateSpec> for ConsecutiveOnesMatrixAugmentation {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: ConsecutiveOnesMatrixAugmentationCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.matrix, spec.bound)
+    }
+}
+
 impl ConsecutiveOnesMatrixAugmentation {
     pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
         Self::try_new(matrix, bound).unwrap_or_else(|err| panic!("{err}"))
     }
 
-    pub fn try_new(matrix: Vec<Vec<bool>>, bound: i64) -> Result<Self, String> {
+    pub fn try_new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_cols = matrix.first().map_or(0, Vec::len);
         if matrix.iter().any(|row| row.len() != num_cols) {
-            return Err("all matrix rows must have the same length".to_string());
+            return Err("all matrix rows must have the same length"
+                .to_string()
+                .into());
         }
         if bound < 0 {
-            return Err("bound must be nonnegative".to_string());
+            return Err("bound must be nonnegative".to_string().into());
         }
         Ok(Self { matrix, bound })
     }
@@ -95,49 +112,78 @@ impl ConsecutiveOnesMatrixAugmentation {
         }
     }
 
-    fn total_augmentation_cost(&self, config: &[usize]) -> Option<usize> {
+    fn total_augmentation_cost(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<usize>, crate::traits::EvaluationError> {
         if !self.validate_permutation(config) {
-            return None;
+            return Ok(None);
         }
 
         let mut total = 0usize;
         for row in &self.matrix {
-            total += Self::row_augmentation_cost(row, config);
+            total = total
+                .checked_add(Self::row_augmentation_cost(row, config))
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing consecutive-ones matrix augmentation costs".to_string(),
+                    )
+                })?;
             if total > self.bound as usize {
-                return Some(total);
+                return Ok(Some(total));
             }
         }
 
-        Some(total)
+        Ok(Some(total))
     }
 }
 
 impl Problem for ConsecutiveOnesMatrixAugmentation {
     const NAME: &'static str = "ConsecutiveOnesMatrixAugmentation";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_cols(); self.num_cols()]
-    }
+    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            self.total_augmentation_cost(config)
-                .is_some_and(|cost| cost <= self.bound as usize)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_cols() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering length does not match the matrix".into(),
+            ));
+        }
+        if config.iter().any(|&column| column >= self.num_cols()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering contains an out-of-range column".into(),
+            ));
+        }
+        Ok({
+            crate::types::Or({
+                self.total_augmentation_cost(config)?
+                    .is_some_and(|cost| cost <= self.bound as usize)
+            })
         })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+}
 
-    fn num_variables(&self) -> usize {
-        self.num_cols()
+impl crate::solvers::BruteForceProblem for ConsecutiveOnesMatrixAugmentation {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_cols(); self.num_cols()]
     }
 }
 
 crate::declare_variants! {
-    default ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols",
+    default ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols" create ConsecutiveOnesMatrixAugmentationCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConsecutiveOnesMatrixAugmentation,
 }
 
 #[cfg(feature = "example-db")]
@@ -153,7 +199,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![0, 1, 4, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 4, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

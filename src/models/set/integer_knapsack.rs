@@ -3,7 +3,9 @@
 //! The Integer Knapsack problem generalizes the 0-1 Knapsack by allowing
 //! each item to be selected with a non-negative integer multiplicity.
 
+use crate::registry::ConstructionError;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -14,6 +16,7 @@ inventory::submit! {
         display_name: "Integer Knapsack",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Select items with integer multiplicities to maximize total value subject to capacity constraint",
         fields: &[
@@ -40,11 +43,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::IntegerKnapsack;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
-/// let problem = IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15);
+/// let problem = IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -58,32 +61,16 @@ pub struct IntegerKnapsack {
 impl IntegerKnapsack {
     /// Create a new IntegerKnapsack instance.
     ///
-    /// # Panics
-    /// Panics if `sizes` and `values` have different lengths, or if any
-    /// size or value is not positive, or if capacity is negative.
-    pub fn new(sizes: Vec<i64>, values: Vec<i64>, capacity: i64) -> Self {
-        assert_eq!(
-            sizes.len(),
-            values.len(),
-            "sizes and values must have the same length"
-        );
-        assert!(
-            sizes.iter().all(|&s| s > 0),
-            "IntegerKnapsack sizes must be positive"
-        );
-        assert!(
-            values.iter().all(|&v| v > 0),
-            "IntegerKnapsack values must be positive"
-        );
-        assert!(
-            capacity >= 0,
-            "IntegerKnapsack capacity must be nonnegative"
-        );
-        Self {
+    pub fn new(
+        sizes: Vec<i64>,
+        values: Vec<i64>,
+        capacity: i64,
+    ) -> Result<Self, ConstructionError> {
+        Self::try_from(RawIntegerKnapsack {
             sizes,
             values,
             capacity,
-        }
+        })
     }
 
     /// Returns the item sizes.
@@ -109,46 +96,102 @@ impl IntegerKnapsack {
 
 impl Problem for IntegerKnapsack {
     const NAME: &'static str = "IntegerKnapsack";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
+
+    crate::problem_parameters![("capacity", capacity), ("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_items() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "multiplicity-vector length does not match the items".into(),
+                ));
+            }
+            let dims = self.dimensions();
+            if config
+                .iter()
+                .zip(&dims)
+                .any(|(&count, &dimension)| count >= dimension)
+            {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "multiplicity vector contains an out-of-range count".into(),
+                ));
+            }
+            let total_size = config
+                .iter()
+                .enumerate()
+                .try_fold(0_i64, |total, (i, &c)| {
+                    let count = i64::try_from(c).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting knapsack item count to i64".into(),
+                        )
+                    })?;
+                    let contribution = count.checked_mul(self.sizes[i]).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "multiplying knapsack item count by size".into(),
+                        )
+                    })?;
+                    total.checked_add(contribution).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing knapsack item sizes".into(),
+                        )
+                    })
+                })?;
+            if total_size > self.capacity {
+                return Ok(Max(None));
+            }
+            let total_value = config
+                .iter()
+                .enumerate()
+                .try_fold(0_i64, |total, (i, &c)| {
+                    let count = i64::try_from(c).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting knapsack item count to i64".into(),
+                        )
+                    })?;
+                    let contribution = count.checked_mul(self.values[i]).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "multiplying knapsack item count by value".into(),
+                        )
+                    })?;
+                    total.checked_add(contribution).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing knapsack item values".into(),
+                        )
+                    })
+                })?;
+            Max(Some(total_value))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for IntegerKnapsack {
+    fn dimensions(&self) -> Vec<usize> {
         self.sizes
             .iter()
-            .map(|&s| (self.capacity / s + 1) as usize)
+            .map(|&s| {
+                let dimension = i128::from(self.capacity) / i128::from(s) + 1;
+                usize::try_from(dimension)
+                    .expect("validated integer-knapsack dimension must fit usize")
+            })
             .collect()
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        if config.len() != self.num_items() {
-            return Max(None);
-        }
-        let dims = self.dims();
-        if config.iter().zip(dims.iter()).any(|(&c, &d)| c >= d) {
-            return Max(None);
-        }
-        let total_size: i64 = config
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| c as i64 * self.sizes[i])
-            .sum();
-        if total_size > self.capacity {
-            return Max(None);
-        }
-        let total_value: i64 = config
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| c as i64 * self.values[i])
-            .sum();
-        Max(Some(total_value))
     }
 }
 
 crate::declare_variants! {
     default IntegerKnapsack => "(capacity + 1)^num_items",
+}
+
+crate::register_brute_force! {
+    IntegerKnapsack,
 }
 
 /// Raw representation for serde deserialization with full validation.
@@ -170,27 +213,40 @@ impl From<IntegerKnapsack> for RawIntegerKnapsack {
 }
 
 impl TryFrom<RawIntegerKnapsack> for IntegerKnapsack {
-    type Error = String;
+    type Error = ConstructionError;
 
-    fn try_from(raw: RawIntegerKnapsack) -> Result<Self, String> {
+    fn try_from(raw: RawIntegerKnapsack) -> Result<Self, Self::Error> {
         if raw.sizes.len() != raw.values.len() {
-            return Err(format!(
+            return Err(ConstructionError::Conversion(format!(
                 "sizes and values must have the same length, got {} and {}",
                 raw.sizes.len(),
                 raw.values.len()
-            ));
+            )));
         }
         if let Some(&s) = raw.sizes.iter().find(|&&s| s <= 0) {
-            return Err(format!("expected positive sizes, got {s}"));
+            return Err(ConstructionError::Conversion(format!(
+                "expected positive sizes, got {s}"
+            )));
         }
         if let Some(&v) = raw.values.iter().find(|&&v| v <= 0) {
-            return Err(format!("expected positive values, got {v}"));
+            return Err(ConstructionError::Conversion(format!(
+                "expected positive values, got {v}"
+            )));
         }
         if raw.capacity < 0 {
-            return Err(format!(
+            return Err(ConstructionError::Conversion(format!(
                 "expected nonnegative capacity, got {}",
                 raw.capacity
-            ));
+            )));
+        }
+        for &size in &raw.sizes {
+            let dimension = i128::from(raw.capacity) / i128::from(size) + 1;
+            usize::try_from(dimension).map_err(|_| {
+                ConstructionError::IntegerOverflow(format!(
+                    "knapsack dimension for capacity {} and item size {size} does not fit usize",
+                    raw.capacity
+                ))
+            })?;
         }
         Ok(IntegerKnapsack {
             sizes: raw.sizes,
@@ -216,12 +272,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Optimal: c=(0,0,1,5,0) → total_size=5+10=15, total_value=7+15=22
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integer-knapsack",
-        instance: Box::new(IntegerKnapsack::new(
-            vec![3, 4, 5, 2, 7],
-            vec![4, 5, 7, 3, 9],
-            15,
-        )),
-        optimal_config: vec![0, 0, 1, 5, 0],
+        instance: Box::new(
+            IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15).unwrap(),
+        ),
+        optimal_config: serde_json::json!(vec![0, 0, 1, 5, 0]),
         optimal_value: serde_json::json!(22),
     }]
 }

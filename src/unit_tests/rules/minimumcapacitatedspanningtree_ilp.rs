@@ -8,7 +8,7 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 /// Small instance: 4 vertices, 5 edges.
-fn small_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
+fn small_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     MinimumCapacitatedSpanningTree::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
         vec![2, 3, 1, 1, 2], // edge weights
@@ -19,7 +19,7 @@ fn small_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
 }
 
 /// Canonical instance from issue #901: 5 vertices, 8 edges.
-fn canonical_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
+fn canonical_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     MinimumCapacitatedSpanningTree::new(
         SimpleGraph::new(
             5,
@@ -45,66 +45,66 @@ fn canonical_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
 fn test_reduction_creates_expected_ilp_shape() {
     let problem = small_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // m=5: num_vars = 3*5 = 15
-    assert_eq!(ilp.num_vars, 15);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    // m=5: num_vars = 5*5 = 25
+    assert_eq!(ilp.num_vars(), 25);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
 fn test_minimumcapacitatedspanningtree_to_ilp_closed_loop() {
     let problem = small_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let best_source = bf.find_all_witnesses(&problem);
+    let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    let bf_value = problem.evaluate(&best_source[0]);
-    let ilp_value = problem.evaluate(&extracted);
+    let bf_value = problem.evaluate(&best_source[0]).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
     assert_eq!(ilp_value, bf_value);
-    assert!(problem.is_valid_solution(&extracted));
+    assert!(problem.is_valid_solution(&extracted).unwrap());
 }
 
 #[test]
 fn test_minimumcapacitatedspanningtree_to_ilp_canonical_closed_loop() {
     let problem = canonical_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let best_source = bf.find_all_witnesses(&problem);
+    let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(problem.evaluate(&best_source[0]), Min(Some(5)));
-    assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
-    assert!(problem.is_valid_solution(&extracted));
+    assert_eq!(problem.evaluate(&best_source[0]).unwrap(), Min(Some(5)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(5)));
+    assert!(problem.is_valid_solution(&extracted).unwrap());
 }
 
 #[test]
 fn test_solution_extraction_reads_edge_selector_prefix() {
     let problem = small_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
-    // 15 variables total, first 5 are edge selectors
-    let mut target_solution = vec![0; 15];
+    // 25 variables total, first 5 are edge selectors
+    let mut target_solution = vec![0; 25];
     target_solution[0] = 1; // edge (0,1)
     target_solution[1] = 1; // edge (0,2)
     target_solution[3] = 1; // edge (1,3)
 
     assert_eq!(
-        reduction.extract_solution(&target_solution),
-        vec![1, 1, 0, 1, 0]
+        reduction.extract_solution(&target_solution).unwrap(),
+        vec![true, true, false, true, false]
     );
 }
 
@@ -112,7 +112,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 fn test_minimumcapacitatedspanningtree_to_ilp_bf_vs_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -128,12 +128,12 @@ fn test_minimumcapacitatedspanningtree_to_ilp_star_tree() {
         1, // capacity = 1 forces star tree
     );
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(3)));
-    assert!(problem.is_valid_solution(&extracted));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));
+    assert!(problem.is_valid_solution(&extracted).unwrap());
 }
 
 #[test]
@@ -148,10 +148,24 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
         3,
     );
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(6)));
-    assert!(problem.is_valid_solution(&extracted));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(6)));
+    assert!(problem.is_valid_solution(&extracted).unwrap());
+}
+
+#[test]
+fn test_zero_requirement_vertex_still_must_be_connected() {
+    let problem = MinimumCapacitatedSpanningTree::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 3)]),
+        vec![1, 1, 1],
+        0,
+        vec![0, 1, 0, 1],
+        2,
+    );
+    let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }

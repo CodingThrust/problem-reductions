@@ -1,4 +1,18 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_defaults_task_weights() {
+    let p = SequencingToMinimizeTardyTaskWeight::try_from(
+        SequencingToMinimizeTardyTaskWeightCreateSpec {
+            lengths: vec![1, 2],
+            weights: None,
+            deadlines: vec![1, 3],
+        },
+    )
+    .unwrap();
+    assert_eq!(p.weights(), &[1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -15,7 +29,7 @@ fn test_sequencing_to_minimize_tardy_task_weight_basic() {
     assert_eq!(problem.lengths(), &[3, 2, 4, 1, 2]);
     assert_eq!(problem.weights(), &[5, 3, 7, 2, 4]);
     assert_eq!(problem.deadlines(), &[6, 4, 10, 2, 8]);
-    assert_eq!(problem.dims(), vec![5, 5, 5, 5, 5]);
+    assert_eq!(problem.dimensions(), vec![5, 5, 5, 5, 5]);
     assert_eq!(
         <SequencingToMinimizeTardyTaskWeight as Problem>::NAME,
         "SequencingToMinimizeTardyTaskWeight"
@@ -41,7 +55,10 @@ fn test_sequencing_to_minimize_tardy_task_weight_evaluate_issue_example() {
     // t2: completes at 6+4=10, deadline=10, on time
     // t1: completes at 10+2=12, deadline=4, TARDY weight=3
     // Total = 3
-    assert_eq!(problem.evaluate(&[3, 0, 4, 2, 1]), Min(Some(3)));
+    assert_eq!(
+        problem.evaluate(&vec![3, 0, 4, 2, 1]).unwrap(),
+        Min(Some(3))
+    );
 }
 
 #[test]
@@ -49,8 +66,8 @@ fn test_sequencing_to_minimize_tardy_task_weight_evaluate_all_on_time() {
     // Single task with generous deadline
     let problem = SequencingToMinimizeTardyTaskWeight::new(vec![2, 3], vec![5, 4], vec![10, 10]);
     // Both orders: no task is tardy
-    assert_eq!(problem.evaluate(&[0, 1]), Min(Some(0)));
-    assert_eq!(problem.evaluate(&[1, 0]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![1, 0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -59,7 +76,7 @@ fn test_sequencing_to_minimize_tardy_task_weight_evaluate_all_tardy() {
     let problem =
         SequencingToMinimizeTardyTaskWeight::new(vec![3, 3, 3], vec![1, 2, 3], vec![2, 2, 2]);
     // [0,1,2]: t0 completes 3>2 tardy(1), t1 completes 6>2 tardy(2), t2 completes 9>2 tardy(3) = 6
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Min(Some(6)));
+    assert_eq!(problem.evaluate(&vec![0, 1, 2]).unwrap(), Min(Some(6)));
 }
 
 #[test]
@@ -68,12 +85,21 @@ fn test_sequencing_to_minimize_tardy_task_weight_evaluate_invalid_config() {
         SequencingToMinimizeTardyTaskWeight::new(vec![2, 3, 1], vec![1, 2, 3], vec![5, 6, 7]);
 
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 0]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Not a permutation (duplicate)
-    assert_eq!(problem.evaluate(&[0, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&vec![0, 0, 1]).unwrap(), Min(None));
     // Out of range
-    assert_eq!(problem.evaluate(&[0, 1, 3]), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -83,9 +109,10 @@ fn test_sequencing_to_minimize_tardy_task_weight_brute_force_small() {
         SequencingToMinimizeTardyTaskWeight::new(vec![3, 2, 1], vec![4, 2, 3], vec![4, 3, 6]);
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let value = problem.evaluate(&solution);
+    let value = problem.evaluate(&solution).unwrap();
     assert!(value.is_valid());
 
     // Check it's truly optimal by brute-forcing all permutations
@@ -99,7 +126,7 @@ fn test_sequencing_to_minimize_tardy_task_weight_brute_force_small() {
     ];
     let best = permutations
         .iter()
-        .filter_map(|perm| problem.evaluate(perm).0)
+        .filter_map(|perm| problem.evaluate(perm).unwrap().0)
         .min()
         .unwrap();
     assert_eq!(value, Min(Some(best)));
@@ -113,13 +140,14 @@ fn test_sequencing_to_minimize_tardy_task_weight_paper_example() {
         vec![6, 4, 10, 2, 8],
     );
     let expected_config = vec![3, 0, 4, 2, 1];
-    assert_eq!(problem.evaluate(&expected_config), Min(Some(3)));
+    assert_eq!(problem.evaluate(&expected_config).unwrap(), Min(Some(3)));
 
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert_eq!(problem.evaluate(&solution), Min(Some(3)));
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(3)));
 }
 
 #[test]
@@ -159,24 +187,24 @@ fn test_sequencing_to_minimize_tardy_task_weight_deserialization_rejects_zero_we
 #[test]
 fn test_sequencing_to_minimize_tardy_task_weight_single_task() {
     let problem = SequencingToMinimizeTardyTaskWeight::new(vec![3], vec![2], vec![5]);
-    assert_eq!(problem.dims(), vec![1]);
+    assert_eq!(problem.dimensions(), vec![1]);
     // completes at 3, deadline 5, on time
-    assert_eq!(problem.evaluate(&[0]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
 fn test_sequencing_to_minimize_tardy_task_weight_single_task_tardy() {
     let problem = SequencingToMinimizeTardyTaskWeight::new(vec![3], vec![2], vec![2]);
     // completes at 3, deadline 2, tardy, weight 2
-    assert_eq!(problem.evaluate(&[0]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_sequencing_to_minimize_tardy_task_weight_empty() {
     let problem = SequencingToMinimizeTardyTaskWeight::new(vec![], vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]

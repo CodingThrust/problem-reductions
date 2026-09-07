@@ -31,81 +31,110 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
-fn build_constraints(graph: &SimpleGraph, bound_k: usize) -> Vec<LinearConstraint> {
+fn build_constraints(graph: &SimpleGraph, bound_k: usize) -> Result<Vec<LinearConstraint>, ()> {
     (0..graph.num_vertices())
         .map(|v| {
-            let degree = graph.degree(v) as f64;
-            let mut terms: Vec<(usize, f64)> =
-                graph.neighbors(v).into_iter().map(|u| (u, 1.0)).collect();
-            if degree > 0.0 {
+            let degree = i64::try_from(graph.degree(v)).map_err(|_| ())?;
+            let bound_k = i64::try_from(bound_k).map_err(|_| ())?;
+            let mut terms: Vec<(usize, i64)> =
+                graph.neighbors(v).into_iter().map(|u| (u, 1)).collect();
+            if degree > 0 {
                 terms.push((v, degree));
             }
-            LinearConstraint::le(terms, degree + (bound_k - 1) as f64)
+            let rhs = degree
+                .checked_add(bound_k)
+                .and_then(|value| value.checked_sub(1))
+                .ok_or(())?;
+            Ok(LinearConstraint::le(terms, rhs))
         })
         .collect()
 }
 
 fn reduce_cokplex_to_ilp<W>(
     src: &MaximumCoKPlex<SimpleGraph, W, KN>,
-    objective: Vec<(usize, f64)>,
-) -> ReductionCoKPlexToILP<W>
+    constraints: Vec<LinearConstraint>,
+    objective: Vec<(usize, i64)>,
+) -> Result<ReductionCoKPlexToILP<W>, crate::registry::ConstructionError>
 where
     W: WeightElement + VariantParam,
 {
     let target = ILP::new(
         src.num_vertices(),
-        build_constraints(src.graph(), src.bound_k()),
+        constraints,
         objective,
         ObjectiveSense::Maximize,
-    );
-    ReductionCoKPlexToILP {
+    )?;
+    Ok(ReductionCoKPlexToILP {
         target,
         _marker: PhantomData,
-    }
+    })
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i32, KN> {
-    type Result = ReductionCoKPlexToILP<i32>;
+impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i64, KN> {
+    type Result = ReductionCoKPlexToILP<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
-        let objective: Vec<(usize, f64)> = self
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(v, &weight)| (v, weight as f64))
+            .map(|(vertex, &weight)| (vertex, weight))
             .collect();
-        reduce_cokplex_to_ilp(self, objective)
+        let constraints = build_constraints(self.graph(), self.bound_k()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                MaximumCoKPlex<SimpleGraph, i64, KN>,
+                ILP<bool>,
+            >("encoding a degree or co-k-plex bound")
+        })?;
+        reduce_cokplex_to_ilp(self, constraints, objective).map_err(Self::target_construction)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
     type Result = ReductionCoKPlexToILP<One>;
 
-    fn reduce_to(&self) -> Self::Result {
-        let objective: Vec<(usize, f64)> = self
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(v, _)| (v, 1.0))
+            .map(|(v, _)| (v, 1))
             .collect();
-        reduce_cokplex_to_ilp(self, objective)
+        let constraints = build_constraints(self.graph(), self.bound_k()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                MaximumCoKPlex<SimpleGraph, One, KN>,
+                ILP<bool>,
+            >("encoding a degree or co-k-plex bound")
+        })?;
+        reduce_cokplex_to_ilp(self, constraints, objective).map_err(Self::target_construction)
     }
 }
 
@@ -113,9 +142,9 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumcokplex_i32_to_ilp",
+            id: "weighted_maximumcokplex_to_ilp",
             build: || {
-                let source = MaximumCoKPlex::<_, i32, KN>::with_k(
+                let source = MaximumCoKPlex::<_, i64, KN>::with_k(
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
                     vec![5, 1, 4, 1, 3],
                     2,
@@ -124,7 +153,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumcokplex_one_to_ilp",
+            id: "cardinality_maximumcokplex_to_ilp",
             build: || {
                 let source = MaximumCoKPlex::<_, One, KN>::with_k(
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),

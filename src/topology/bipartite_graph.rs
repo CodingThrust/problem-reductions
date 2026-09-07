@@ -1,6 +1,6 @@
 //! Bipartite graph with explicit left/right partitions.
 
-use super::graph::{Graph, SimpleGraph};
+use super::graph::Graph;
 use serde::{Deserialize, Serialize};
 
 /// Bipartite graph with explicit left/right partitions.
@@ -136,8 +136,7 @@ impl Graph for BipartiteGraph {
 }
 
 use crate::impl_variant_param;
-impl_variant_param!(BipartiteGraph, "graph", parent: SimpleGraph,
-    cast: |g| SimpleGraph::new(g.num_vertices(), g.edges()));
+impl_variant_param!(BipartiteGraph, "graph");
 
 #[cfg(test)]
 #[path = "../unit_tests/topology/bipartite_graph.rs"]

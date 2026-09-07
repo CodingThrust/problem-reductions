@@ -1,20 +1,20 @@
 # Skills
 
-Example generation now goes through the example catalog and checked-in fixture DB.
+Example generation goes through the example catalog and generated paper data.
 When a workflow needs a paper/example instance, prefer the catalog path over ad hoc `examples/reduction_*.rs` binaries:
 
-- use `src/example_db/fixtures/examples.json` directly for paper/example data
-- use `make regenerate-fixtures` when canonical examples change
+- use `docs/paper/data/examples.json` directly for paper/example data
+- run `cargo run --features "example-db" --example export_examples` when canonical examples change
 - use `pred create --example <PROBLEM_SPEC>` to materialize a canonical model example as normal problem JSON
 - use `pred create --example <SOURCE_SPEC> --to <TARGET_SPEC>` to materialize a canonical rule example as normal problem JSON
 - when adding new example coverage, register a catalog entry instead of creating a new standalone reduction example file
 
 Post-refactor extension points:
 
-- new model load/serialize/brute-force dispatch comes from `declare_variants!` in the model file, with explicit `opt` or `sat` markers and an optional `default`
+- new model load/serialize/brute-force dispatch comes from `declare_variants!` in the model file, with an optional `default`
 - alias resolution lives in `problemreductions-cli/src/problem_name.rs`
 - `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
-- canonical examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
+- model examples live in `src/example_db/model_builders.rs`; rule examples live beside their rules and are collected by `src/rules/mod.rs`
 
 - [issue-to-pr] — Convert a GitHub issue into a PR with an implementation plan
 - [add-model] — Add a new problem model to the codebase

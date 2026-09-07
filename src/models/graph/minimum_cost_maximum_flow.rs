@@ -15,9 +15,8 @@
 //! # Integral-flow restriction
 //!
 //! The mathematical CellRouter formulation in issue #1029 uses
-//! continuous flows `f: A -> R_{>= 0}`, but the [`Problem`] trait
-//! requires a discrete configuration space via [`Problem::dims`].
-//! Following the same precedent as
+//! continuous flows `f: A -> R_{>= 0}`, but this model's registered reference
+//! solver uses a finite Cartesian space. Following the same precedent as
 //! [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) (see
 //! `src/models/graph/minimum_edge_cost_flow.rs`), we therefore restrict
 //! to **integer** flows: each variable `f(a)` ranges over
@@ -40,7 +39,7 @@
 //! ties by `cost(f)`. The optimum is always non-negative, and a smaller
 //! score is strictly better in the lex order.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -51,6 +50,7 @@ inventory::submit! {
         display_name: "Minimum-Cost Maximum-Flow",
         aliases: &["MCMF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow that lexicographically maximizes value then minimizes total arc cost",
         fields: &[
@@ -60,13 +60,6 @@ inventory::submit! {
             FieldInfo { name: "capacities", type_name: "Vec<i64>", description: "Arc capacity c(a) in graph arc order (non-negative)" },
             FieldInfo { name: "costs", type_name: "Vec<i64>", description: "Arc cost cost(a) in graph arc order (non-negative)" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MinimumCostMaximumFlow",
-        fields: &["num_vertices", "num_arcs"],
     }
 }
 
@@ -82,7 +75,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumCostMaximumFlow;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Diamond network from the canonical example.
 /// let graph = DirectedGraph::new(4, vec![
@@ -95,12 +88,12 @@ inventory::submit! {
 ///     vec![1, 0, 0, 1, 2], // costs
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// // Optimal flow has value 3 and cost 7.
-/// assert_eq!(problem.flow_value(&witness), 3);
-/// assert_eq!(problem.total_cost(&witness), 7);
+/// assert_eq!(problem.flow_value(&witness).unwrap(), 3);
+/// assert_eq!(problem.total_cost(&witness).unwrap(), 7);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumCostMaximumFlow {
     /// The directed graph G = (V, A).
     graph: DirectedGraph,
@@ -112,6 +105,40 @@ pub struct MinimumCostMaximumFlow {
     capacities: Vec<i64>,
     /// Cost cost(a) for each arc.
     costs: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCostMaximumFlowSerde {
+    graph: DirectedGraph,
+    source: usize,
+    sink: usize,
+    capacities: Vec<i64>,
+    costs: Vec<i64>,
+}
+
+impl TryFrom<MinimumCostMaximumFlowSerde> for MinimumCostMaximumFlow {
+    type Error = ConstructionError;
+
+    fn try_from(value: MinimumCostMaximumFlowSerde) -> Result<Self, Self::Error> {
+        Self::try_new(
+            value.graph,
+            value.source,
+            value.sink,
+            value.capacities,
+            value.costs,
+        )
+    }
+}
+
+impl<'de> Deserialize<'de> for MinimumCostMaximumFlow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        MinimumCostMaximumFlowSerde::deserialize(deserializer)?
+            .try_into()
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 impl MinimumCostMaximumFlow {
@@ -134,36 +161,55 @@ impl MinimumCostMaximumFlow {
         capacities: Vec<i64>,
         costs: Vec<i64>,
     ) -> Self {
+        Self::try_new(graph, source, sink, capacities, costs)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        source: usize,
+        sink: usize,
+        capacities: Vec<i64>,
+        costs: Vec<i64>,
+    ) -> Result<Self, ConstructionError> {
         let n = graph.num_vertices();
         let m = graph.num_arcs();
-        assert_eq!(
-            capacities.len(),
-            m,
-            "capacities length ({}) must match num_arcs ({m})",
-            capacities.len()
-        );
-        assert_eq!(
-            costs.len(),
-            m,
-            "costs length ({}) must match num_arcs ({m})",
-            costs.len()
-        );
-        assert!(source < n, "source ({source}) >= num_vertices ({n})");
-        assert!(sink < n, "sink ({sink}) >= num_vertices ({n})");
-        assert_ne!(source, sink, "source and sink must be distinct");
-        for (i, &c) in capacities.iter().enumerate() {
-            assert!(c >= 0, "capacity[{i}] = {c} is negative");
+        if capacities.len() != m {
+            return Err(format!(
+                "capacities length ({}) must match num_arcs ({m})",
+                capacities.len()
+            )
+            .into());
         }
-        for (i, &c) in costs.iter().enumerate() {
-            assert!(c >= 0, "cost[{i}] = {c} is negative");
+        if costs.len() != m {
+            return Err(format!("costs length ({}) must match num_arcs ({m})", costs.len()).into());
         }
-        Self {
+        if source >= n {
+            return Err(format!("source ({source}) >= num_vertices ({n})").into());
+        }
+        if sink >= n {
+            return Err(format!("sink ({sink}) >= num_vertices ({n})").into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if let Some((index, capacity)) = capacities
+            .iter()
+            .enumerate()
+            .find(|(_, capacity)| **capacity < 0)
+        {
+            return Err(format!("capacity[{index}] = {capacity} is negative").into());
+        }
+        if let Some((index, cost)) = costs.iter().enumerate().find(|(_, cost)| **cost < 0) {
+            return Err(format!("cost[{index}] = {cost} is negative").into());
+        }
+        Ok(Self {
             graph,
             source,
             sink,
             capacities,
             costs,
-        }
+        })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -207,96 +253,181 @@ impl MinimumCostMaximumFlow {
     /// 1. `config.len() == num_arcs`,
     /// 2. each `0 <= f(a) <= c(a)`, and
     /// 3. flow is conserved at every non-terminal vertex.
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         let m = self.graph.num_arcs();
         if config.len() != m {
-            return false;
+            return Ok(false);
         }
         // (1) Capacity constraints
         for (flow, cap) in config.iter().zip(self.capacities.iter()) {
-            if (*flow as i64) > *cap {
-                return false;
+            let flow = i64::try_from(*flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting maximum-flow configuration value".to_string(),
+                )
+            })?;
+            if flow > *cap {
+                return Ok(false);
             }
         }
         // (2) Flow conservation at non-terminal vertices
         let n = self.graph.num_vertices();
         let mut balance = vec![0_i64; n];
         for (a, &(u, v)) in self.graph.arcs().iter().enumerate() {
-            let flow = config[a] as i64;
-            balance[u] -= flow;
-            balance[v] += flow;
+            let flow = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting maximum-flow configuration value".to_string(),
+                )
+            })?;
+            balance[u] = balance[u].checked_sub(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing maximum-flow vertex balance".to_string(),
+                )
+            })?;
+            balance[v] = balance[v].checked_add(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing maximum-flow vertex balance".to_string(),
+                )
+            })?;
         }
         for (v, &bal) in balance.iter().enumerate() {
             if v != self.source && v != self.sink && bal != 0 {
-                return false;
+                return Ok(false);
             }
         }
-        true
+        Ok(true)
     }
 
     /// Compute the flow value `|f|` = net outflow from the source for a
     /// feasible configuration. Result is meaningless if `config` is not
     /// feasible.
-    pub fn flow_value(&self, config: &[usize]) -> i64 {
+    pub fn flow_value(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
         let mut net_out: i64 = 0;
         for (a, &(u, v)) in self.graph.arcs().iter().enumerate() {
-            let f = config[a] as i64;
+            let f = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting maximum-flow configuration value".to_string(),
+                )
+            })?;
             if u == self.source {
-                net_out += f;
+                net_out = net_out.checked_add(f).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing maximum-flow value".to_string(),
+                    )
+                })?;
             }
             if v == self.source {
-                net_out -= f;
+                net_out = net_out.checked_sub(f).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing maximum-flow value".to_string(),
+                    )
+                })?;
             }
         }
-        net_out
+        Ok(net_out)
     }
 
     /// Compute the total cost `sum_a cost(a) * f(a)` of a flow.
-    pub fn total_cost(&self, config: &[usize]) -> i64 {
-        config
-            .iter()
-            .zip(self.costs.iter())
-            .map(|(&f, &c)| (f as i64) * c)
-            .sum()
+    pub fn total_cost(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
+        let mut total = 0_i64;
+        for (&flow, &cost) in config.iter().zip(self.costs.iter()) {
+            let flow = i64::try_from(flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting maximum-flow configuration value".to_string(),
+                )
+            })?;
+            let term = flow.checked_mul(cost).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying maximum-flow arc cost".to_string(),
+                )
+            })?;
+            total = total.checked_add(term).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing maximum-flow costs".to_string(),
+                )
+            })?;
+        }
+        Ok(total)
     }
 
     /// Upper bound on the integral flow value: `sum_a c(a)` (a trivial
     /// but valid bound, since `|f|` is bounded by the total capacity).
-    fn max_possible_flow(&self) -> i64 {
-        self.capacities.iter().sum()
+    fn max_possible_flow(&self) -> Result<i64, crate::traits::EvaluationError> {
+        self.capacities.iter().try_fold(0_i64, |total, &capacity| {
+            total.checked_add(capacity).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing maximum-flow capacities".to_string(),
+                )
+            })
+        })
     }
 
     /// Strict upper bound on any feasible cost, used as the
     /// lex-multiplier `M` so that the scalar `score = M * (B - |f|)
     /// + cost(f)` orders by `(max |f|, min cost(f))`.
-    fn cost_multiplier(&self) -> i64 {
-        self.capacities
-            .iter()
-            .zip(self.costs.iter())
-            .map(|(&c, &k)| c * k)
-            .sum::<i64>()
-            + 1
+    fn cost_multiplier(&self) -> Result<i64, crate::traits::EvaluationError> {
+        let mut total = 0_i64;
+        for (&capacity, &cost) in self.capacities.iter().zip(self.costs.iter()) {
+            let term = capacity.checked_mul(cost).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying maximum-flow capacity by cost".to_string(),
+                )
+            })?;
+            total = total.checked_add(term).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing maximum-flow cost bounds".to_string(),
+                )
+            })?;
+        }
+        total.checked_add(1).ok_or_else(|| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "forming maximum-flow cost multiplier".to_string(),
+            )
+        })
     }
 }
 
 impl Problem for MinimumCostMaximumFlow {
     const NAME: &'static str = "MinimumCostMaximumFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
-    }
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Min<i64> {
-        if !self.is_feasible(config) {
-            return crate::types::Min(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
         }
-        let m = self.cost_multiplier();
-        let value = self.flow_value(config);
-        let cost = self.total_cost(config);
-        let bound = self.max_possible_flow();
-        // score = M * (max_possible_flow - |f|) + cost(f)
-        crate::types::Min(Some(m * (bound - value) + cost))
+        Ok({
+            if !self.is_feasible(config)? {
+                return Ok(crate::types::Min(None));
+            }
+            let m = self.cost_multiplier()?;
+            let value = self.flow_value(config)?;
+            let cost = self.total_cost(config)?;
+            let bound = self.max_possible_flow()?;
+            // score = M * (max_possible_flow - |f|) + cost(f)
+            let remaining = bound.checked_sub(value).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing maximum-flow objective gap".to_string(),
+                )
+            })?;
+            let penalty = m.checked_mul(remaining).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying maximum-flow objective penalty".to_string(),
+                )
+            })?;
+            let score = penalty.checked_add(cost).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing maximum-flow objective".to_string(),
+                )
+            })?;
+            crate::types::Min(Some(score))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -304,8 +435,18 @@ impl Problem for MinimumCostMaximumFlow {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumCostMaximumFlow {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
+    }
+}
+
 crate::declare_variants! {
     default MinimumCostMaximumFlow => "(num_vertices + num_arcs)^6",
+}
+
+crate::register_brute_force! {
+    MinimumCostMaximumFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -323,8 +464,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     //   - 1 unit on 0->2->3        via arcs 1,4 (cost 0 + 2 = 2)
     // Arc flows sum to f = [2, 1, 1, 1, 2]: value = 3,
     // cost = 2*1 + 1*0 + 1*0 + 1*1 + 2*2 = 7.
-    let optimal_config = vec![2_usize, 1, 1, 1, 2];
-    let optimal_value = problem.evaluate(&optimal_config);
+    let optimal_config = vec![2, 1, 1, 1, 2];
+    let optimal_value = problem
+        .evaluate(&optimal_config)
+        .expect("canonical example evaluation must succeed");
     let scalar = match optimal_value {
         crate::types::Min(Some(v)) => v,
         crate::types::Min(None) => panic!("canonical example must be feasible"),
@@ -332,7 +475,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_cost_maximum_flow",
         instance: Box::new(problem),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(scalar),
     }]
 }

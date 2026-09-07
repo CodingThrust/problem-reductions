@@ -28,22 +28,28 @@ impl ReductionResult for ReductionPartitionToCPI {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_coefficients = "num_elements",
-})]
+#[reduction(
+    transform = exact {
+        num_coefficients = "num_elements",
+    })]
 impl ReduceTo<CosineProductIntegration> for Partition {
     type Result = ReductionPartitionToCPI;
 
-    fn reduce_to(&self) -> Self::Result {
-        let coefficients: Vec<i64> = self.sizes().iter().map(|&s| s as i64).collect();
-        ReductionPartitionToCPI {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let coefficients = self.sizes().to_vec();
+        Ok(ReductionPartitionToCPI {
             target: CosineProductIntegration::new(coefficients),
-        }
+        })
     }
 }
 
@@ -61,10 +67,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Wait: config [1,0,0,1,0,0] means elements 0,3 in subset 1.
             // For CPI: bit 1 means −a_i. So −3+1+1−2+2+1 = 0. Yes!
             crate::example_db::specs::rule_example_with_witness::<_, CosineProductIntegration>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0, 0],
-                    target_config: vec![1, 0, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, false, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, false, false]),
                 },
             )
         },

@@ -12,7 +12,8 @@ fn test_kclique_to_subgraphisomorphism_closed_loop() {
         SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
         3,
     );
-    let reduction = ReduceTo::<SubgraphIsomorphism>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<SubgraphIsomorphism>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Host graph should match the source graph
@@ -36,7 +37,8 @@ fn test_kclique_to_subgraphisomorphism_complete_graph() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         3,
     );
-    let reduction = ReduceTo::<SubgraphIsomorphism>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<SubgraphIsomorphism>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_host_vertices(), 4);
@@ -46,18 +48,19 @@ fn test_kclique_to_subgraphisomorphism_complete_graph() {
 
     // Solve the target and extract back to source
     let bf = BruteForce::new();
-    let witness = bf.find_witness(target).expect("K4 should contain K3");
-    let extracted = reduction.extract_solution(&witness);
-    assert_eq!(source.evaluate(&extracted), Or(true));
+    let witness = bf.solve(target).unwrap().expect("K4 should contain K3");
+    let extracted = reduction.extract_solution(&witness).unwrap();
+    assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     // Exactly 3 vertices should be selected
-    assert_eq!(extracted.iter().sum::<usize>(), 3);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 3);
 }
 
 #[test]
 fn test_kclique_to_subgraphisomorphism_no_clique() {
     // Path graph: 0-1-2-3, k=3 -> no 3-clique exists
     let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 3);
-    let reduction = ReduceTo::<SubgraphIsomorphism>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<SubgraphIsomorphism>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_host_vertices(), 4);
@@ -67,11 +70,11 @@ fn test_kclique_to_subgraphisomorphism_no_clique() {
 
     // No subgraph isomorphism should exist
     let bf = BruteForce::new();
-    let witness = bf.find_witness(target);
+    let witness = bf.solve(target).unwrap();
     assert!(witness.is_none(), "path graph should not contain K3");
 
     // Also verify brute force on source agrees
-    let source_witness = bf.find_witness(&source);
+    let source_witness = bf.solve(&source).unwrap();
     assert!(source_witness.is_none());
 }
 
@@ -79,7 +82,8 @@ fn test_kclique_to_subgraphisomorphism_no_clique() {
 fn test_kclique_to_subgraphisomorphism_k_equals_1() {
     // Any non-empty graph has a 1-clique (single vertex)
     let source = KClique::new(SimpleGraph::new(3, vec![(0, 1)]), 1);
-    let reduction = ReduceTo::<SubgraphIsomorphism>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<SubgraphIsomorphism>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Pattern is K_1: 1 vertex, 0 edges
@@ -88,18 +92,20 @@ fn test_kclique_to_subgraphisomorphism_k_equals_1() {
 
     let bf = BruteForce::new();
     let witness = bf
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("should find a single vertex");
-    let extracted = reduction.extract_solution(&witness);
-    assert_eq!(source.evaluate(&extracted), Or(true));
-    assert_eq!(extracted.iter().sum::<usize>(), 1);
+    let extracted = reduction.extract_solution(&witness).unwrap();
+    assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 1);
 }
 
 #[test]
 fn test_kclique_to_subgraphisomorphism_k_equals_2() {
     // k=2 means we need an edge
     let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), 2);
-    let reduction = ReduceTo::<SubgraphIsomorphism>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<SubgraphIsomorphism>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Pattern is K_2: 2 vertices, 1 edge
@@ -108,9 +114,10 @@ fn test_kclique_to_subgraphisomorphism_k_equals_2() {
 
     let bf = BruteForce::new();
     let witness = bf
-        .find_witness(target)
+        .solve(target)
+        .unwrap()
         .expect("graph has edges, so K2 exists");
-    let extracted = reduction.extract_solution(&witness);
-    assert_eq!(source.evaluate(&extracted), Or(true));
-    assert_eq!(extracted.iter().sum::<usize>(), 2);
+    let extracted = reduction.extract_solution(&witness).unwrap();
+    assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 2);
 }

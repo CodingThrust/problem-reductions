@@ -6,7 +6,7 @@
 //! each containing one element from X and one from Y, such that the
 //! multiset of pair sums {s(x_i) + s(y_{π(i)})} equals the target multiset.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -18,6 +18,7 @@ inventory::submit! {
         display_name: "Numerical Matching with Target Sums",
         aliases: &["NMTS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition X∪Y into m pairs (one from X, one from Y) with pair sums matching targets",
         fields: &[
@@ -25,13 +26,6 @@ inventory::submit! {
             FieldInfo { name: "sizes_y", type_name: "Vec<i64>", description: "Integer sizes for each element of Y" },
             FieldInfo { name: "targets", type_name: "Vec<i64>", description: "Target sums for each pair" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "NumericalMatchingWithTargetSums",
-        fields: &["num_pairs"],
     }
 }
 
@@ -43,23 +37,27 @@ pub struct NumericalMatchingWithTargetSums {
 }
 
 impl NumericalMatchingWithTargetSums {
-    fn validate_inputs(sizes_x: &[i64], sizes_y: &[i64], targets: &[i64]) -> Result<(), String> {
+    fn validate_inputs(
+        sizes_x: &[i64],
+        sizes_y: &[i64],
+        targets: &[i64],
+    ) -> Result<(), crate::registry::ConstructionError> {
         let m = sizes_x.len();
         if m == 0 {
             return Err(
-                "NumericalMatchingWithTargetSums requires at least one element per set".to_string(),
+                "NumericalMatchingWithTargetSums requires at least one element per set".into(),
             );
         }
         if sizes_y.len() != m {
             return Err(
                 "NumericalMatchingWithTargetSums requires sizes_x and sizes_y to have the same length"
-                    .to_string(),
+                    .into(),
             );
         }
         if targets.len() != m {
             return Err(
                 "NumericalMatchingWithTargetSums requires targets to have the same length as sizes_x"
-                    .to_string(),
+                    .into(),
             );
         }
         Ok(())
@@ -69,7 +67,7 @@ impl NumericalMatchingWithTargetSums {
         sizes_x: Vec<i64>,
         sizes_y: Vec<i64>,
         targets: Vec<i64>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&sizes_x, &sizes_y, &targets)?;
         Ok(Self {
             sizes_x,
@@ -127,47 +125,66 @@ impl<'de> Deserialize<'de> for NumericalMatchingWithTargetSums {
 
 impl Problem for NumericalMatchingWithTargetSums {
     const NAME: &'static str = "NumericalMatchingWithTargetSums";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_parameters![("num_pairs", num_pairs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                let m = self.num_pairs();
+                if config.len() != m {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "matching permutation length does not match the instance".into(),
+                    ));
+                }
+
+                if config.iter().any(|&index| index >= m) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "matching permutation contains an out-of-range index".into(),
+                    ));
+                }
+
+                // Check config is valid permutation of 0..m
+                let mut used = vec![false; m];
+                for &idx in config {
+                    if idx >= m || used[idx] {
+                        return Ok(Or(false));
+                    }
+                    used[idx] = true;
+                }
+
+                // Compute pair sums and compare multisets
+                let mut pair_sums: Vec<i64> = (0..m)
+                    .map(|i| self.sizes_x[i] + self.sizes_y[config[i]])
+                    .collect();
+                let mut sorted_targets = self.targets.clone();
+                pair_sums.sort();
+                sorted_targets.sort();
+                pair_sums == sorted_targets
+            })
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for NumericalMatchingWithTargetSums {
+    fn dimensions(&self) -> Vec<usize> {
         let m = self.num_pairs();
         vec![m; m]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            let m = self.num_pairs();
-            if config.len() != m {
-                return Or(false);
-            }
-
-            // Check config is valid permutation of 0..m
-            let mut used = vec![false; m];
-            for &idx in config {
-                if idx >= m || used[idx] {
-                    return Or(false);
-                }
-                used[idx] = true;
-            }
-
-            // Compute pair sums and compare multisets
-            let mut pair_sums: Vec<i64> = (0..m)
-                .map(|i| self.sizes_x[i] + self.sizes_y[config[i]])
-                .collect();
-            let mut sorted_targets = self.targets.clone();
-            pair_sums.sort();
-            sorted_targets.sort();
-            pair_sums == sorted_targets
-        })
     }
 }
 
 crate::declare_variants! {
     default NumericalMatchingWithTargetSums => "2^num_pairs",
+}
+
+crate::register_brute_force! {
+    NumericalMatchingWithTargetSums,
 }
 
 #[cfg(feature = "example-db")]
@@ -179,7 +196,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 5, 3],
             vec![3, 7, 12],
         )),
-        optimal_config: vec![0, 2, 1],
+        optimal_config: serde_json::json!(vec![0, 2, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

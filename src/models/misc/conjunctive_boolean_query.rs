@@ -10,7 +10,7 @@
 //! the domain. The query is satisfiable iff there exists an assignment to the
 //! variables such that every conjunct's resolved tuple belongs to its relation.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -20,14 +20,10 @@ inventory::submit! {
         display_name: "Conjunctive Boolean Query",
         aliases: &["CBQ"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Evaluate a conjunctive Boolean query over a relational database",
-        fields: &[
-            FieldInfo { name: "domain_size", type_name: "usize", description: "Size of the finite domain D" },
-            FieldInfo { name: "relations", type_name: "Vec<Relation>", description: "Collection of relations R" },
-            FieldInfo { name: "num_variables", type_name: "usize", description: "Number of existentially quantified variables" },
-            FieldInfo { name: "conjuncts", type_name: "Vec<(usize, Vec<QueryArg>)>", description: "Query conjuncts: (relation_index, arguments)" },
-        ],
+        fields: ConjunctiveBooleanQueryCreateSpec::FIELDS,
     }
 }
 
@@ -66,7 +62,7 @@ pub enum QueryArg {
 ///
 /// ```
 /// use problemreductions::models::misc::{ConjunctiveBooleanQuery, CbqRelation, QueryArg};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let relations = vec![
 ///     CbqRelation { arity: 2, tuples: vec![vec![0, 3], vec![1, 3]] },
@@ -76,7 +72,7 @@ pub enum QueryArg {
 /// ];
 /// let problem = ConjunctiveBooleanQuery::new(6, relations, 1, conjuncts);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -85,6 +81,90 @@ pub struct ConjunctiveBooleanQuery {
     relations: Vec<Relation>,
     num_variables: usize,
     conjuncts: Vec<(usize, Vec<QueryArg>)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConjunctiveBooleanQueryCreateSpec {
+    /// Size of the finite domain.
+    domain_size: usize,
+    /// Relations evaluated by the query.
+    #[create(codec = "json")]
+    relations: Vec<Relation>,
+    /// Query atoms; the number of variables is inferred from their arguments.
+    #[create(codec = "json")]
+    conjuncts: Vec<(usize, Vec<QueryArg>)>,
+}
+
+impl TryFrom<ConjunctiveBooleanQueryCreateSpec> for ConjunctiveBooleanQuery {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: ConjunctiveBooleanQueryCreateSpec) -> Result<Self, Self::Error> {
+        let mut num_variables = 0_usize;
+        for (_, args) in &spec.conjuncts {
+            for arg in args {
+                if let QueryArg::Variable(variable) = arg {
+                    let count = variable
+                        .checked_add(1)
+                        .ok_or_else(|| "number of query variables overflows usize".to_string())?;
+                    num_variables = num_variables.max(count);
+                }
+            }
+        }
+
+        for (relation_index, relation) in spec.relations.iter().enumerate() {
+            for (tuple_index, tuple) in relation.tuples.iter().enumerate() {
+                if tuple.len() != relation.arity {
+                    return Err(format!(
+                        "relation {relation_index} tuple {tuple_index} has length {}, expected arity {}",
+                        tuple.len(),
+                        relation.arity
+                    ).into());
+                }
+                for (entry_index, &value) in tuple.iter().enumerate() {
+                    if value >= spec.domain_size {
+                        return Err(format!(
+                            "relation {relation_index} tuple {tuple_index} entry {entry_index} is {value}, must be less than domain size {}",
+                            spec.domain_size
+                        ).into());
+                    }
+                }
+            }
+        }
+
+        for (conjunct_index, (relation_index, args)) in spec.conjuncts.iter().enumerate() {
+            let relation = spec.relations.get(*relation_index).ok_or_else(|| {
+                format!(
+                    "conjunct {conjunct_index} relation index {relation_index} is out of range for {} relations",
+                    spec.relations.len()
+                )
+            })?;
+            if args.len() != relation.arity {
+                return Err(format!(
+                    "conjunct {conjunct_index} has {} arguments, expected arity {}",
+                    args.len(),
+                    relation.arity
+                )
+                .into());
+            }
+            for (argument_index, arg) in args.iter().enumerate() {
+                if let QueryArg::Constant(value) = arg {
+                    if *value >= spec.domain_size {
+                        return Err(format!(
+                            "conjunct {conjunct_index} argument {argument_index} constant {value} must be less than domain size {}",
+                            spec.domain_size
+                        ).into());
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            domain_size: spec.domain_size,
+            relations: spec.relations,
+            num_variables,
+            conjuncts: spec.conjuncts,
+        })
+    }
 }
 
 impl ConjunctiveBooleanQuery {
@@ -191,40 +271,63 @@ impl ConjunctiveBooleanQuery {
 
 impl Problem for ConjunctiveBooleanQuery {
     const NAME: &'static str = "ConjunctiveBooleanQuery";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("domain_size", domain_size),
+        ("num_conjuncts", num_conjuncts),
+        ("num_relations", num_relations),
+        ("num_variables", num_variables),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.domain_size; self.num_variables]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_variables {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= self.domain_size) {
-                return crate::types::Or(false);
-            }
-            self.conjuncts.iter().all(|(rel_idx, args)| {
-                let tuple: Vec<usize> = args
-                    .iter()
-                    .map(|arg| match arg {
-                        QueryArg::Variable(i) => config[*i],
-                        QueryArg::Constant(c) => *c,
-                    })
-                    .collect();
-                self.relations[*rel_idx].tuples.contains(&tuple)
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_variables {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "variable assignment length does not match the query".into(),
+                    ));
+                }
+                if config.iter().any(|&v| v >= self.domain_size) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "variable assignment contains an out-of-range domain value".into(),
+                    ));
+                }
+                self.conjuncts.iter().all(|(rel_idx, args)| {
+                    let tuple: Vec<usize> = args
+                        .iter()
+                        .map(|arg| match arg {
+                            QueryArg::Variable(i) => config[*i],
+                            QueryArg::Constant(c) => *c,
+                        })
+                        .collect();
+                    self.relations[*rel_idx].tuples.contains(&tuple)
+                })
             })
         })
     }
 }
 
+impl crate::solvers::BruteForceProblem for ConjunctiveBooleanQuery {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.domain_size; self.num_variables]
+    }
+}
+
 crate::declare_variants! {
-    default ConjunctiveBooleanQuery => "domain_size ^ num_variables",
+    default ConjunctiveBooleanQuery => "domain_size ^ num_variables" create ConjunctiveBooleanQueryCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConjunctiveBooleanQuery,
 }
 
 #[cfg(feature = "example-db")]
@@ -259,7 +362,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ),
             ],
         )),
-        optimal_config: vec![0, 1],
+        optimal_config: serde_json::json!(vec![0, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

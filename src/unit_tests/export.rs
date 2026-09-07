@@ -15,31 +15,31 @@ fn test_variant_to_map_single() {
 
 #[test]
 fn test_variant_to_map_multiple() {
-    let map = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
+    let map = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
     assert_eq!(map.len(), 2);
     assert_eq!(map["graph"], "SimpleGraph");
-    assert_eq!(map["weight"], "i32");
+    assert_eq!(map["weight"], "i64");
 }
 
 #[test]
-fn test_lookup_overhead_known_reduction() {
+fn test_lookup_parameter_contract_known_reduction() {
     // IS -> VC is a known registered reduction
-    let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
-    let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
-    let result = lookup_overhead(
+    let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
+    let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
+    let result = lookup_parameter_contract(
         "MaximumIndependentSet",
         &source_variant,
         "MinimumVertexCover",
         &target_variant,
     );
-    assert!(result.is_some());
+    assert!(result.unwrap().is_some());
 }
 
 #[test]
-fn test_lookup_overhead_unknown_reduction() {
+fn test_lookup_parameter_contract_unknown_reduction() {
     let empty = variant_to_map(vec![]);
-    let result = lookup_overhead("NonExistent", &empty, "AlsoNonExistent", &empty);
-    assert!(result.is_none());
+    let result = lookup_parameter_contract("NonExistent", &empty, "AlsoNonExistent", &empty);
+    assert!(result.unwrap().is_none());
 }
 
 fn sample_example_db() -> ExampleDb {
@@ -48,7 +48,7 @@ fn sample_example_db() -> ExampleDb {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
             instance: serde_json::json!({"n": 5}),
-            optimal_config: vec![],
+            optimal_config: serde_json::json!([]),
             optimal_value: serde_json::json!(null),
         }],
         rules: vec![RuleExample {
@@ -59,7 +59,7 @@ fn sample_example_db() -> ExampleDb {
             },
             target: ProblemSide {
                 problem: "TargetProblem".to_string(),
-                variant: variant_to_map(vec![("weight", "i32")]),
+                variant: variant_to_map(vec![("weight", "i64")]),
                 instance: serde_json::json!({"m": 4}),
             },
             solutions: vec![],
@@ -117,13 +117,13 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
     let mut db = sample_example_db();
     // Add richer data so the one-line-per-entry format is meaningful
     db.models[0].instance = serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]});
-    db.models[0].optimal_config = vec![1, 0, 1];
+    db.models[0].optimal_config = serde_json::json!([1, 0, 1]);
     db.models[0].optimal_value = serde_json::json!(2);
     db.rules[0].source.instance = serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]});
     db.rules[0].target.instance = serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]});
     db.rules[0].solutions = vec![SolutionPair {
-        source_config: vec![1, 0, 1],
-        target_config: vec![0, 1, 1, 0],
+        source_config: serde_json::json!(vec![1, 0, 1]),
+        target_config: serde_json::json!(vec![0, 1, 1, 0]),
     }];
     write_example_db_to(&dir, &db);
 
@@ -151,7 +151,7 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
 }
 
 #[test]
-fn rule_example_serialization_omits_overhead() {
+fn rule_example_serialization_omits_reduction_metadata() {
     let example = RuleExample {
         source: ProblemSide {
             problem: "A".to_string(),
@@ -177,7 +177,7 @@ fn rule_example_serialization_omits_overhead() {
 fn test_problem_side_serialization() {
     let side = ProblemSide {
         problem: "MaximumIndependentSet".to_string(),
-        variant: variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
+        variant: variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]),
         instance: serde_json::json!({"num_vertices": 4, "edges": [[0, 1], [1, 2]]}),
     };
     let json = serde_json::to_value(&side).unwrap();
@@ -192,12 +192,12 @@ fn test_problem_side_serialization() {
 fn export_variant_to_map_normalizes_empty_graph() {
     // When a variant has an empty graph value, variant_to_map should normalize
     // it to "SimpleGraph" for consistency with the reduction graph convention.
-    let map = variant_to_map(vec![("graph", ""), ("weight", "i32")]);
+    let map = variant_to_map(vec![("graph", ""), ("weight", "i64")]);
     assert_eq!(
         map["graph"], "SimpleGraph",
         "variant_to_map should normalize empty graph to SimpleGraph"
     );
-    assert_eq!(map["weight"], "i32");
+    assert_eq!(map["weight"], "i64");
 }
 
 #[test]
@@ -226,13 +226,13 @@ fn problem_side_from_typed_problem() {
 fn model_example_new() {
     let example = ModelExample::new(
         "MaximumIndependentSet",
-        variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
+        variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]),
         serde_json::json!({"num_vertices": 3, "edges": [[0, 1], [1, 2]]}),
-        vec![1, 0, 1],
+        serde_json::json!([1, 0, 1]),
         serde_json::json!(2),
     );
     assert_eq!(example.problem, "MaximumIndependentSet");
-    assert_eq!(example.optimal_config, vec![1, 0, 1]);
+    assert_eq!(example.optimal_config, serde_json::json!([1, 0, 1]));
     assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(example.instance.is_object());
 }
@@ -243,7 +243,7 @@ fn model_example_problem_ref() {
         problem: "TestProblem".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({}),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!([]),
         optimal_value: serde_json::json!(null),
     };
     let pref = example.problem_ref();
@@ -285,7 +285,7 @@ fn write_model_example_to_creates_json_file() {
         problem: "TestModel".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({"n": 3}),
-        optimal_config: vec![1, 0, 1],
+        optimal_config: serde_json::json!(vec![1, 0, 1]),
         optimal_value: serde_json::json!(2),
     };
     write_model_example_to(&dir, "test_model", &example);
@@ -298,10 +298,13 @@ fn write_model_example_to_creates_json_file() {
 }
 
 #[test]
-fn lookup_overhead_rejects_target_variant_mismatch() {
-    let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
-    // MIS<SG,i32> -> QUBO<f64> exists, but not MIS<SG,i32> -> QUBO<i32>
-    let wrong_target = variant_to_map(vec![("weight", "i32")]);
-    let result = lookup_overhead("MaximumIndependentSet", &source, "QUBO", &wrong_target);
-    assert!(result.is_none(), "Should reject wrong target variant");
+fn lookup_parameter_contract_rejects_target_variant_mismatch() {
+    let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
+    // MIS<SG,i64> -> QUBO<f64> exists, but not MIS<SG,i64> -> QUBO<i64>
+    let wrong_target = variant_to_map(vec![("weight", "i64")]);
+    let result = lookup_parameter_contract("MaximumIndependentSet", &source, "QUBO", &wrong_target);
+    assert!(
+        result.unwrap().is_none(),
+        "Should reject wrong target variant"
+    );
 }

@@ -30,42 +30,44 @@ impl ReductionResult for ReductionSubsetSumToPartition {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let source_bits = &target_solution[..self.source_len];
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        match self.padding_relation {
-            PaddingRelation::None => source_bits.to_vec(),
-            PaddingRelation::SameSide => {
-                let padding_is_selected = target_solution[self.source_len] == 1;
-                source_bits
-                    .iter()
-                    .map(|&bit| if padding_is_selected { bit } else { 1 - bit })
-                    .collect()
+        Ok({
+            let source_bits = &target_solution[..self.source_len];
+
+            match self.padding_relation {
+                PaddingRelation::None => source_bits.to_vec(),
+                PaddingRelation::SameSide => {
+                    let padding_is_selected = target_solution[self.source_len];
+                    source_bits
+                        .iter()
+                        .map(|&bit| if padding_is_selected { bit } else { !bit })
+                        .collect()
+                }
+                PaddingRelation::OppositeSide => {
+                    let padding_is_selected = target_solution[self.source_len];
+                    source_bits
+                        .iter()
+                        .map(|&bit| if padding_is_selected { !bit } else { bit })
+                        .collect()
+                }
             }
-            PaddingRelation::OppositeSide => {
-                let padding_is_selected = target_solution[self.source_len] == 1;
-                source_bits
-                    .iter()
-                    .map(|&bit| if padding_is_selected { 1 - bit } else { bit })
-                    .collect()
-            }
-        }
+        })
     }
 }
 
-fn biguint_to_u64(value: &BigUint) -> u64 {
-    value
-        .to_u64()
-        .expect("SubsetSum -> Partition requires all sizes and padding to fit in u64")
-}
-
-#[reduction(overhead = {
-    num_elements = "num_elements + 1",
-})]
+#[reduction(
+    transform = exact {
+        num_elements = "num_elements + 1",
+    })]
 impl ReduceTo<Partition> for SubsetSum {
     type Result = ReductionSubsetSumToPartition;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let total: BigUint = self.sizes().iter().cloned().sum();
         let double_target = self.target() * 2u32;
         let relation = total.cmp(&double_target);
@@ -75,18 +77,27 @@ impl ReduceTo<Partition> for SubsetSum {
             Ordering::Less => PaddingRelation::OppositeSide,
         };
 
-        let mut sizes: Vec<u64> = self.sizes().iter().map(biguint_to_u64).collect();
+        let convert = |value: &BigUint| {
+            value.to_i64().ok_or_else(|| {
+                crate::rules::ReductionError::invalid_target::<SubsetSum, Partition>(
+                    "a source size or derived padding does not fit the Partition i64 domain",
+                )
+            })
+        };
+        let mut sizes: Vec<i64> = self.sizes().iter().map(convert).collect::<Result<_, _>>()?;
         match relation {
             Ordering::Equal => {}
-            Ordering::Greater => sizes.push(biguint_to_u64(&(total - double_target))),
-            Ordering::Less => sizes.push(biguint_to_u64(&(double_target - total))),
+            Ordering::Greater => sizes.push(convert(&(total - double_target))?),
+            Ordering::Less => sizes.push(convert(&(double_target - total))?),
         }
 
-        ReductionSubsetSumToPartition {
-            target: Partition::new(sizes),
+        Ok(ReductionSubsetSumToPartition {
+            target: Partition::new(sizes).map_err(|error| {
+                crate::rules::ReductionError::construction::<SubsetSum, Partition>(error)
+            })?,
             source_len: self.num_elements(),
             padding_relation,
-        }
+        })
     }
 }
 
@@ -100,8 +111,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, Partition>(
                 SubsetSum::new(vec![1u32, 5, 6, 8], 11u32),
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![false, true, true, false, false]),
                 },
             )
         },

@@ -18,6 +18,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum number of cliques covering all edges",
         fields: &[
@@ -44,15 +45,15 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumCoveringByCliques;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle: 3 edges can be covered by 1 clique
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 /// let problem = MinimumCoveringByCliques::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&solution);
+/// let solution = solver.solve(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&solution).unwrap();
 /// assert_eq!(value, problemreductions::types::Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,33 +129,64 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumCoveringByCliques";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.graph.num_edges(); self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.graph.num_edges() {
-            return Min(None);
-        }
-        if self.graph.num_edges() == 0 {
-            return Min(Some(0));
-        }
-        if !self.is_valid_cover(config) {
-            return Min(None);
-        }
-        let distinct_groups: HashSet<usize> = config.iter().copied().collect();
-        Min(Some(distinct_groups.len()))
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_edges() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "edge-group assignment length does not match the graph edges".into(),
+                ));
+            }
+            if self.graph.num_edges() == 0 {
+                return Ok(Min(Some(0)));
+            }
+            if !self.is_valid_cover(config) {
+                return Ok(Min(None));
+            }
+            let distinct_groups: HashSet<usize> = config.iter().copied().collect();
+            Min(Some(i64::try_from(distinct_groups.len()).map_err(
+                |_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting clique-cover size to i64".into(),
+                    )
+                },
+            )?))
+        })
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for MinimumCoveringByCliques<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.graph.num_edges(); self.graph.num_edges()]
+    }
+}
+
+crate::impl_random_generate!(
+    MinimumCoveringByCliques<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MinimumCoveringByCliques::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MinimumCoveringByCliques<SimpleGraph> => "2^num_edges",
+    default MinimumCoveringByCliques<SimpleGraph> => "2^num_edges" random,
+}
+
+crate::register_brute_force! {
+    MinimumCoveringByCliques<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -183,7 +215,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (5, 3),
             ],
         ))),
-        optimal_config: vec![0, 0, 1, 1, 0, 2, 2, 3, 3],
+        optimal_config: serde_json::json!(vec![0, 0, 1, 1, 0, 2, 2, 3, 3]),
         optimal_value: serde_json::json!(4),
     }]
 }

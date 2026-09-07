@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Minimum Code Generation (Parallel Assignments)",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find an ordering of parallel assignments minimizing backward dependencies",
         fields: &[
@@ -36,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumCodeGenerationParallelAssignments;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 variables, 4 assignments:
 /// // A_0: a <- op(b, c)   -> (0, [1, 2])
@@ -51,7 +52,7 @@ inventory::submit! {
 /// ];
 /// let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,61 +103,90 @@ impl MinimumCodeGenerationParallelAssignments {
 
 impl Problem for MinimumCodeGenerationParallelAssignments {
     const NAME: &'static str = "MinimumCodeGenerationParallelAssignments";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("num_variables", num_variables),
+        ("num_assignments", num_assignments),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let m = self.num_assignments();
-        vec![m; m]
-    }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let m = self.num_assignments();
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let m = self.num_assignments();
-
-        // Validate config length
-        if config.len() != m {
-            return Min(None);
-        }
-
-        // Validate permutation: all values must be distinct and in 0..m
-        let mut seen = vec![false; m];
-        for &pos in config {
-            if pos >= m || seen[pos] {
-                return Min(None);
+            // Validate config length
+            if config.len() != m {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment length does not match the internal nodes".into(),
+                ));
             }
-            seen[pos] = true;
-        }
 
-        // config[i] = position of assignment i in execution order
-        // Build execution order: order[pos] = assignment index
-        let mut order = vec![0usize; m];
-        for (assignment_idx, &pos) in config.iter().enumerate() {
-            order[pos] = assignment_idx;
-        }
+            if config.iter().any(|&position| position >= m) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment contains an out-of-range execution position".into(),
+                ));
+            }
 
-        // Count backward dependencies: for each pair (i, j) where i < j
-        // (i executes before j), check if the target variable of order[i]
-        // is in the read set of order[j]
-        let mut count = 0usize;
-        for (i, &earlier) in order.iter().enumerate() {
-            let (target_var, _) = &self.assignments[earlier];
-            for &later in &order[(i + 1)..] {
-                let (_, read_vars) = &self.assignments[later];
-                if read_vars.contains(target_var) {
-                    count += 1;
+            // Validate permutation: all values must be distinct and in 0..m
+            let mut seen = vec![false; m];
+            for &pos in config {
+                if seen[pos] {
+                    return Ok(Min(None));
+                }
+                seen[pos] = true;
+            }
+
+            // config[i] = position of assignment i in execution order
+            // Build execution order: order[pos] = assignment index
+            let mut order = vec![0usize; m];
+            for (assignment_idx, &pos) in config.iter().enumerate() {
+                order[pos] = assignment_idx;
+            }
+
+            // Count backward dependencies: for each pair (i, j) where i < j
+            // (i executes before j), check if the target variable of order[i]
+            // is in the read set of order[j]
+            let mut count = 0usize;
+            for (i, &earlier) in order.iter().enumerate() {
+                let (target_var, _) = &self.assignments[earlier];
+                for &later in &order[(i + 1)..] {
+                    let (_, read_vars) = &self.assignments[later];
+                    if read_vars.contains(target_var) {
+                        count += 1;
+                    }
                 }
             }
-        }
 
-        Min(Some(count))
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting parallel instruction count to i64".into(),
+                )
+            })?))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumCodeGenerationParallelAssignments {
+    fn dimensions(&self) -> Vec<usize> {
+        let m = self.num_assignments();
+        vec![m; m]
     }
 }
 
 crate::declare_variants! {
     default MinimumCodeGenerationParallelAssignments => "2^num_assignments",
+}
+
+crate::register_brute_force! {
+    MinimumCodeGenerationParallelAssignments,
 }
 
 #[cfg(feature = "example-db")]
@@ -180,7 +210,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             4,
             assignments,
         )),
-        optimal_config: vec![0, 3, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 3, 1, 2]),
         optimal_value: serde_json::json!(2),
     }]
 }

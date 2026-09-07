@@ -32,47 +32,69 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let schedule = crate::models::misc::decode_lehmer(target_solution, self.target.num_tasks())
-            .expect("target solution must be a valid Lehmer code");
-        let mut arrangement = vec![0usize; self.num_vertices];
-        let mut next_position = 0usize;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        for task in schedule {
-            if task < self.num_vertices {
-                arrangement[task] = next_position;
-                next_position += 1;
+        Ok({
+            let mut arrangement = vec![0usize; self.num_vertices];
+            let mut next_position = 0usize;
+
+            for &task in target_solution {
+                if task < self.num_vertices {
+                    arrangement[task] = next_position;
+                    next_position += 1;
+                }
             }
-        }
 
-        arrangement
+            arrangement
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_vertices + num_edges",
-})]
+#[reduction(
+    transform = exact {
+        num_tasks = "num_vertices + num_edges",
+    },
+    unavailable = {
+        num_precedences = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
     for OptimalLinearArrangement<SimpleGraph>
 {
     type Result = ReductionOLAToSequencingToMinimizeWeightedCompletionTime;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let num_vertices = graph.num_vertices();
         let edges = graph.edges();
         let max_degree = (0..num_vertices)
             .map(|v| graph.degree(v))
             .max()
-            .unwrap_or(0) as u64;
+            .unwrap_or(0);
+        let max_degree = i64::try_from(max_degree).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                OptimalLinearArrangement<SimpleGraph>,
+                SequencingToMinimizeWeightedCompletionTime,
+            >("converting the maximum degree to i64")
+        })?;
 
         let mut lengths = Vec::with_capacity(num_vertices + edges.len());
         let mut weights = Vec::with_capacity(num_vertices + edges.len());
         let mut precedences = Vec::with_capacity(2 * edges.len());
 
         for vertex in 0..num_vertices {
+            let degree = i64::try_from(graph.degree(vertex)).map_err(|_| {
+                crate::rules::ReductionError::integer_overflow::<
+                    OptimalLinearArrangement<SimpleGraph>,
+                    SequencingToMinimizeWeightedCompletionTime,
+                >("converting a vertex degree to i64")
+            })?;
             lengths.push(1);
-            weights.push(max_degree - graph.degree(vertex) as u64);
+            weights.push(max_degree - degree);
         }
 
         for (edge_index, &(u, v)) in edges.iter().enumerate() {
@@ -83,10 +105,10 @@ impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
             precedences.push((v, edge_task));
         }
 
-        ReductionOLAToSequencingToMinimizeWeightedCompletionTime {
+        Ok(ReductionOLAToSequencingToMinimizeWeightedCompletionTime {
             target: SequencingToMinimizeWeightedCompletionTime::new(lengths, weights, precedences),
             num_vertices,
-        }
+        })
     }
 }
 
@@ -102,17 +124,21 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source =
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
             let reduction =
-                ReduceTo::<SequencingToMinimizeWeightedCompletionTime>::reduce_to(&source);
+                ReduceTo::<SequencingToMinimizeWeightedCompletionTime>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let target_config = BruteForce::new()
-                .find_witness(reduction.target_problem())
+                .solve(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
                 .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

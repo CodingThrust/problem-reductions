@@ -1,6 +1,20 @@
 use super::*;
 use crate::registry::find_variant_entry;
 use std::collections::BTreeMap;
+use std::str::FromStr;
+
+#[test]
+fn problem_category_parses_only_declared_values() {
+    for category in ProblemCategory::ALL {
+        assert_eq!(ProblemCategory::from_str(category.as_str()), Ok(category));
+    }
+    assert_eq!(
+        ProblemCategory::from_str("unknown")
+            .unwrap_err()
+            .to_string(),
+        "unknown problem category `unknown`; expected one of: algebraic, formula, graph, misc, set"
+    );
+}
 
 #[test]
 fn test_collect_schemas_returns_all_problems() {
@@ -70,15 +84,17 @@ fn test_schema_json_serialization() {
     let json = serde_json::to_string(&schemas).expect("Schemas should serialize to JSON");
     assert!(json.contains("MaximumIndependentSet"));
     assert!(json.contains("graph"));
+    assert!(json.contains("\"category\":\"graph\""));
 }
 
 #[test]
 fn test_field_info_json_fields() {
     let schemas = collect_schemas();
     let sg = schemas.iter().find(|s| s.name == "SpinGlass").unwrap();
-    assert_eq!(sg.fields.len(), 3);
+    assert_eq!(sg.fields.len(), 4);
     let field_names: Vec<&str> = sg.fields.iter().map(|f| f.name.as_str()).collect();
     assert!(field_names.contains(&"graph"));
+    assert!(field_names.contains(&"num_vertices"));
     assert!(field_names.contains(&"couplings"));
     assert!(field_names.contains(&"fields"));
     for f in &sg.fields {
@@ -116,7 +132,7 @@ fn test_decision_problem_schema_entries_registered() {
 fn test_decision_problem_variants_registered() {
     let simple_weighted_variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
-        ("weight".to_string(), "i32".to_string()),
+        ("weight".to_string(), "i64".to_string()),
     ]);
 
     assert!(

@@ -289,13 +289,39 @@ pub fn remove_order(
 ///
 /// # Returns
 /// A vector of CopyLine structures, one per vertex (indexed by vertex id).
+///
+/// # Errors
+/// Returns [`ReductionError`](super::ReductionError) when the vertex order is not a
+/// permutation of all vertices or an edge endpoint is outside the graph.
 pub fn create_copylines(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> Vec<CopyLine> {
+) -> Result<Vec<CopyLine>, super::ReductionError> {
     if num_vertices == 0 {
-        return Vec::new();
+        return Ok(Vec::new());
+    }
+    if vertex_order.len() != num_vertices {
+        return Err(super::mapping_invalid(
+            "vertex_order must contain every vertex exactly once",
+        ));
+    }
+    let mut seen = vec![false; num_vertices];
+    for &vertex in vertex_order {
+        if vertex >= num_vertices || seen[vertex] {
+            return Err(super::mapping_invalid(
+                "vertex_order must contain every vertex exactly once",
+            ));
+        }
+        seen[vertex] = true;
+    }
+    if edges
+        .iter()
+        .any(|&(u, v)| u >= num_vertices || v >= num_vertices)
+    {
+        return Err(super::mapping_invalid(
+            "edge endpoints must be valid vertices",
+        ));
     }
 
     // Build adjacency set for edge lookup
@@ -381,7 +407,7 @@ pub fn create_copylines(
         );
     }
 
-    copylines
+    Ok(copylines)
 }
 
 /// Calculate the MIS (Maximum Independent Set) overhead for a copy line.
@@ -402,10 +428,15 @@ pub fn create_copylines(
 ///
 /// For unweighted mapping, the overhead is `length(locs) / 2` where locs
 /// are the dense copyline locations. This matches Julia's UnitDiskMapping.jl.
-pub fn mis_overhead_copyline(line: &CopyLine, spacing: usize, padding: usize) -> usize {
+pub fn mis_overhead_copyline(
+    line: &CopyLine,
+    spacing: usize,
+    padding: usize,
+) -> Result<i64, super::ReductionError> {
     let locs = line.copyline_locations(padding, spacing);
     // Julia asserts length(locs) % 2 == 1, then returns length(locs) ÷ 2
-    locs.len() / 2
+    i64::try_from(locs.len() / 2)
+        .map_err(|_| super::mapping_integer_overflow("converting copy-line MIS overhead to i64"))
 }
 
 /// Generate weighted locations for a copy line in triangular mode.
@@ -413,7 +444,7 @@ pub fn mis_overhead_copyline(line: &CopyLine, spacing: usize, padding: usize) ->
 ///
 /// Returns (locations, weights) where:
 /// - locations: Vec of (row, col) positions
-/// - weights: Vec of i32 weights (typically 2 for regular nodes, 1 for turn points)
+/// - weights: Vec of i64 weights (typically 2 for regular nodes, 1 for turn points)
 ///
 /// The sequence of nodes forms a chain-like structure with the center node at the end.
 /// Nodes with weight=1 mark "break points" in the chain where the next node connects
@@ -429,7 +460,7 @@ pub fn mis_overhead_copyline(line: &CopyLine, spacing: usize, padding: usize) ->
 pub fn copyline_weighted_locations_triangular(
     line: &CopyLine,
     spacing: usize,
-) -> (Vec<(usize, usize)>, Vec<i32>) {
+) -> (Vec<(usize, usize)>, Vec<i64>) {
     let mut locs = Vec::new();
     let mut weights = Vec::new();
     let mut nline = 0usize;
@@ -494,7 +525,7 @@ pub fn copyline_weighted_locations_triangular(
     // This is the "hub" node that the chain wraps around to
     let center_row = locs.len();
     locs.push((center_row, 0));
-    weights.push(nline.max(1) as i32);
+    weights.push(i64::try_from(nline.max(1)).expect("a copy line has at most three segments"));
 
     (locs, weights)
 }
@@ -514,15 +545,33 @@ pub fn copyline_weighted_locations_triangular(
 /// - Horizontal segment from vslot to hstop: max((hstop - vslot) * s - 2, 0)
 ///
 /// For spacing=6 (our default), use s=spacing to match the node density.
-pub fn mis_overhead_copyline_triangular(line: &CopyLine, spacing: usize) -> i32 {
+pub fn mis_overhead_copyline_triangular(
+    line: &CopyLine,
+    spacing: usize,
+) -> Result<i64, super::ReductionError> {
     // Use spacing directly as the factor
-    let s: i32 = spacing as i32;
+    let s = i64::try_from(spacing).map_err(|_| {
+        super::mapping_integer_overflow("converting triangular copy-line spacing to i64")
+    })?;
+    let segment = |end: usize, start: usize| {
+        end.checked_sub(start)
+            .and_then(|length| i64::try_from(length).ok())
+            .and_then(|length| length.checked_mul(s))
+            .ok_or(super::mapping_integer_overflow(
+                "computing triangular copy-line overhead",
+            ))
+    };
+    let vertical_up = segment(line.hslot, line.vstart)?;
+    let vertical_down = segment(line.vstop, line.hslot)?;
+    let horizontal = segment(line.hstop, line.vslot)?;
+    let horizontal = if horizontal >= 2 { horizontal - 2 } else { 0 };
 
-    let vertical_up = (line.hslot as i32 - line.vstart as i32) * s;
-    let vertical_down = (line.vstop as i32 - line.hslot as i32) * s;
-    let horizontal = ((line.hstop as i32 - line.vslot as i32) * s - 2).max(0);
-
-    vertical_up + vertical_down + horizontal
+    vertical_up
+        .checked_add(vertical_down)
+        .and_then(|total| total.checked_add(horizontal))
+        .ok_or(super::mapping_integer_overflow(
+            "summing triangular copy-line overhead",
+        ))
 }
 
 #[cfg(test)]

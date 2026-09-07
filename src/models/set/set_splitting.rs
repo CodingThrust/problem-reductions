@@ -13,6 +13,7 @@ inventory::submit! {
         display_name: "Set Splitting",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Partition a universe into two parts so that every subset is non-monochromatic",
         fields: &[
@@ -34,7 +35,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::SetSplitting;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Universe {0,1,2,3,4,5}, subsets that all must be split
 /// let problem = SetSplitting::new(6, vec![
@@ -45,7 +46,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,21 +99,26 @@ impl SetSplitting {
     }
 
     /// Create a new Set Splitting problem, returning an error instead of panicking.
-    pub fn try_new(universe_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
+    pub fn try_new(
+        universe_size: usize,
+        subsets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (i, subset) in subsets.iter().enumerate() {
             if subset.len() < 2 {
                 return Err(format!(
                     "Subset {} has {} element(s), expected at least 2",
                     i,
                     subset.len()
-                ));
+                )
+                .into());
             }
             for &elem in subset {
                 if elem >= universe_size {
                     return Err(format!(
                         "Subset {} contains element {} which is outside universe of size {}",
                         i, elem, universe_size
-                    ));
+                    )
+                    .into());
                 }
             }
         }
@@ -164,25 +170,38 @@ impl SetSplitting {
     }
 
     /// Check if a coloring (config) splits all subsets.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        if config.len() != self.universe_size {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the universe".into(),
+            ));
+        }
+        Ok(self.subsets.iter().all(|subset| {
+            let has_zero = subset.iter().any(|&element| !config[element]);
+            let has_one = subset.iter().any(|&element| config[element]);
+            has_zero && has_one
+        }))
     }
 }
 
 impl Problem for SetSplitting {
     const NAME: &'static str = "SetSplitting";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.universe_size]
-    }
+    crate::problem_parameters![
+        ("num_subsets", num_subsets),
+        ("universe_size", universe_size),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.subsets.iter().all(|subset| {
-            let has_zero = subset.iter().any(|&e| config[e] == 0);
-            let has_one = subset.iter().any(|&e| config[e] == 1);
-            has_zero && has_one
-        }))
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -190,8 +209,18 @@ impl Problem for SetSplitting {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SetSplitting {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.universe_size]
+    }
+}
+
 crate::declare_variants! {
     default SetSplitting => "2^universe_size",
+}
+
+crate::register_brute_force! {
+    SetSplitting decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -201,7 +230,7 @@ struct SetSplittingDef {
 }
 
 impl TryFrom<SetSplittingDef> for SetSplitting {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: SetSplittingDef) -> Result<Self, Self::Error> {
         Self::try_new(value.universe_size, value.subsets)
@@ -218,7 +247,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // config[i]=0 means element i in S1, config[i]=1 means element i in S2
         // S1={1,3,4}, S2={0,2,5} → config [1,0,1,0,0,1]
-        optimal_config: vec![1, 0, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

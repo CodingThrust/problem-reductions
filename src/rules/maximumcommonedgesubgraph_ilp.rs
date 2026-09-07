@@ -43,29 +43,42 @@ impl ReductionResult for ReductionMCESToILP {
     /// Extract: for each source vertex `u`, output the unique target vertex
     /// `p` with `x_(u,p) = 1`, or the sentinel `n2` ("bottom") when no
     /// mapping variable is selected.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n1 = self.num_vertices_1;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n2 = self.num_vertices_2;
-        (0..n1)
-            .map(|u| {
-                (0..n2)
-                    .find(|&p| target_solution[u * n2 + p] == 1)
-                    .unwrap_or(n2)
+        (0..self.num_vertices_1)
+            .map(|vertex| {
+                let mut selected =
+                    (0..n2).filter(|&mapped| target_solution[vertex * n2 + mapped] == 1);
+                match (selected.next(), selected.next()) {
+                    (Some(mapped), None) => Ok(mapped),
+                    (None, _) => Ok(n2),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "source vertex {vertex} maps to multiple target vertices"
+                    ))),
+                }
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2",
         num_constraints = "num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
     type Result = ReductionMCESToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n1 = self.num_vertices_1();
         let n2 = self.num_vertices_2();
         let arcs_1 = self.graph_1().arcs();
@@ -93,14 +106,14 @@ impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
 
         // Row constraints: each source vertex maps to at most one target.
         for u in 0..n1 {
-            let terms: Vec<(usize, f64)> = (0..n2).map(|p| (x_idx(u, p), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n2).map(|p| (x_idx(u, p), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Column constraints: each target vertex receives at most one source.
         for p in 0..n2 {
-            let terms: Vec<(usize, f64)> = (0..n1).map(|u| (x_idx(u, p), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n1).map(|u| (x_idx(u, p), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Linking constraints: y_(a,b) = x_(u,p) AND x_(v,q) via McCormick.
@@ -115,15 +128,16 @@ impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
         }
 
         // Objective: maximize the number of preserved labelled arcs.
-        let objective: Vec<(usize, f64)> = (0..num_y).map(|seq| (y_idx(seq), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..num_y).map(|seq| (y_idx(seq), 1)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
-        ReductionMCESToILP {
+        Ok(ReductionMCESToILP {
             target,
             num_vertices_1: n1,
             num_vertices_2: n2,
-        }
+        })
     }
 }
 

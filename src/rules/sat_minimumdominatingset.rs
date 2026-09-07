@@ -1,7 +1,7 @@
 //! Reduction from Satisfiability (SAT) to MinimumDominatingSet.
 //!
 //! The reduction follows this construction:
-//! 1. For each variable x_i, create a "variable gadget" with 3 vertices:
+//! 1. For each occurring variable x_i, create a "variable gadget" with 3 vertices:
 //!    - Vertex for positive literal x_i
 //!    - Vertex for negative literal NOT x_i
 //!    - A dummy vertex
@@ -9,10 +9,10 @@
 //! 2. For each clause C_j, create a clause vertex.
 //! 3. Connect each clause vertex to the literal vertices that appear in that clause.
 //!
-//! A dominating set of size = num_variables corresponds to a satisfying assignment:
+//! A dominating set of size = number of occurring variables corresponds to a satisfying assignment:
 //! - Selecting the positive literal vertex means the variable is true
 //! - Selecting the negative literal vertex means the variable is false
-//! - Selecting the dummy vertex means the variable can be either (unused in any clause)
+//! - Selecting the dummy vertex means the variable may be assigned either value
 
 use crate::models::formula::Satisfiability;
 use crate::models::graph::MinimumDominatingSet;
@@ -20,6 +20,8 @@ use crate::reduction;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
+use crate::types::{Min, Or};
+use std::collections::BTreeMap;
 
 /// Result of reducing Satisfiability to MinimumDominatingSet.
 ///
@@ -30,16 +32,20 @@ use crate::topology::SimpleGraph;
 #[derive(Debug, Clone)]
 pub struct ReductionSATToDS {
     /// The target MinimumDominatingSet problem.
-    target: MinimumDominatingSet<SimpleGraph, i32>,
+    target: MinimumDominatingSet<SimpleGraph, i64>,
     /// The number of variables in the source SAT problem.
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
+    /// Original variable indices mapped to dense triangle indices.
+    variables: BTreeMap<usize, usize>,
+    /// Exact minimum size certifying satisfiability.
+    target_size: i64,
 }
 
 impl ReductionResult for ReductionSATToDS {
     type Source = Satisfiability;
-    type Target = MinimumDominatingSet<SimpleGraph, i32>;
+    type Target = MinimumDominatingSet<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -47,59 +53,75 @@ impl ReductionResult for ReductionSATToDS {
 
     /// Extract a SAT solution from a MinimumDominatingSet solution.
     ///
-    /// The dominating set solution encodes variable assignments:
-    /// - For each variable x_i (0-indexed), vertices are at positions 3*i, 3*i+1, 3*i+2
-    ///   - 3*i: positive literal x_i (selecting means x_i = true)
-    ///   - 3*i+1: negative literal NOT x_i (selecting means x_i = false)
-    ///   - 3*i+2: dummy vertex (selecting means x_i can be either)
-    ///
-    /// If more than num_literals vertices are selected, the solution is invalid
-    /// and we return a default assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let selected_count: usize = target_solution.iter().sum();
-
-        // If more vertices selected than variables, not a minimal dominating set
-        // corresponding to a satisfying assignment
-        if selected_count > self.num_literals {
-            // Return default assignment (all false)
-            return vec![0; self.num_literals];
+    /// Validate a dominating set of exactly one vertex per occurring variable.
+    /// Each dense triangle starts with its positive literal; selecting it sets
+    /// that original variable true. Negative, dummy and absent variables decode
+    /// to false. The finite size certificate proves every clause is dominated
+    /// by a selected literal and no clause vertex is selected.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
+        if !certificate.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target dominating set does not certify satisfiability",
+            ));
         }
 
-        let mut assignment = vec![0usize; self.num_literals];
-
-        for (i, &value) in target_solution.iter().enumerate() {
-            if value == 1 {
-                // Only consider variable gadget vertices (first 3*num_literals vertices)
-                if i >= 3 * self.num_literals {
-                    continue; // Skip clause vertices
-                }
-
-                let var_index = i / 3;
-                let vertex_type = i % 3;
-
-                match vertex_type {
-                    0 => {
-                        // Positive literal selected: x_i = true
-                        assignment[var_index] = 1;
-                    }
-                    1 => {
-                        // Negative literal selected: x_i = false
-                        assignment[var_index] = 0;
-                    }
-                    2 => {
-                        // Dummy vertex selected: variable is unconstrained
-                        // Default to false (already 0), but could be anything
-                    }
-                    _ => unreachable!(),
-                }
-            }
+        let mut assignment = vec![false; self.num_literals];
+        for (&variable, &gadget) in &self.variables {
+            assignment[variable] = target_solution[3 * gadget];
         }
 
-        assignment
+        Ok(assignment)
+    }
+}
+
+impl crate::rules::AggregateReductionResult for ReductionSATToDS {
+    type Source = Satisfiability;
+    type Target = MinimumDominatingSet<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Min<i64>) -> Or {
+        Or(target_value == Min(Some(self.target_size)))
     }
 }
 
 impl ReductionSATToDS {
+    /// Compute the graph dimensions and exact certificate before allocation.
+    fn target_dimensions(
+        num_variables: usize,
+        num_clauses: usize,
+    ) -> Result<(usize, i64), crate::rules::ReductionError> {
+        let num_vertices = num_variables
+            .checked_mul(3)
+            .and_then(|base| base.checked_add(num_clauses))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    Satisfiability,
+                    MinimumDominatingSet<SimpleGraph, i64>,
+                >("counting dominating-set vertices")
+            })?;
+        // All vertices may be selected, so every count up to this total must
+        // fit the target objective, not only the optimum certificate.
+        <Satisfiability as ReduceTo<MinimumDominatingSet<SimpleGraph, i64>>>::exact_i64(
+            num_vertices,
+            "representing all dominating-set weights",
+        )?;
+        let target_size =
+            <Satisfiability as ReduceTo<MinimumDominatingSet<SimpleGraph, i64>>>::exact_i64(
+                num_variables,
+                "representing the satisfying dominating-set cardinality",
+            )?;
+        Ok((num_vertices, target_size))
+    }
+
     /// Get the number of literals (variables) in the source SAT problem.
     pub fn num_literals(&self) -> usize {
         self.num_literals
@@ -112,20 +134,31 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    overhead = {
+    aggregate = custom,
+    transform = upper_bound {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
     }
 )]
-impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
+impl ReduceTo<MinimumDominatingSet<SimpleGraph, i64>> for Satisfiability {
     type Result = ReductionSATToDS;
 
-    fn reduce_to(&self) -> Self::Result {
-        let num_variables = self.num_vars();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        // Absent variables are free in SAT and need no target gadget. Keep
+        // original indices for extraction, and assign dense indices in order.
+        let mut variables: BTreeMap<usize, usize> = self
+            .clauses()
+            .iter()
+            .flat_map(|clause| &clause.literals)
+            .map(|&literal| (BoolVar::from_literal(literal).name, 0))
+            .collect();
+        for (index, gadget) in variables.values_mut().enumerate() {
+            *gadget = index;
+        }
+        let num_variables = variables.len();
         let num_clauses = self.num_clauses();
-
-        // Total vertices: 3 per variable (for variable gadget) + 1 per clause
-        let num_vertices = 3 * num_variables + num_clauses;
+        let (num_vertices, target_size) =
+            ReductionSATToDS::target_dimensions(num_variables, num_clauses)?;
 
         let mut edges: Vec<(usize, usize)> = Vec::new();
 
@@ -150,28 +183,25 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
 
             for &lit in &clause.literals {
                 let var = BoolVar::from_literal(lit);
-                // var.name is 0-indexed
-                // If positive literal, connect to vertex 3*var.name
-                // If negative literal, connect to vertex 3*var.name + 1
-                let literal_vertex = if var.neg {
-                    3 * var.name + 1
-                } else {
-                    3 * var.name
-                };
+                // The literal's original index is present in the map because
+                // the map was collected from these same validated clauses.
+                let literal_vertex = 3 * variables[&var.name] + usize::from(var.neg);
                 edges.push((literal_vertex, clause_vertex));
             }
         }
 
         let target = MinimumDominatingSet::new(
             SimpleGraph::new(num_vertices, edges),
-            vec![1i32; num_vertices],
+            vec![1i64; num_vertices],
         );
 
-        ReductionSATToDS {
+        Ok(ReductionSATToDS {
             target,
-            num_literals: num_variables,
+            num_literals: self.num_vars(),
             num_clauses,
-        }
+            variables,
+            target_size,
+        })
     }
 }
 
@@ -197,14 +227,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumDominatingSet<SimpleGraph, i32>,
+                MinimumDominatingSet<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 1, 1],
-                    target_config: vec![
-                        1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    ],
+                    source_config: serde_json::json!(vec![true, false, true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, false, true, false, true, false, false, true, false,
+                        false, true, false, false, false, false, false, false, false, false, false
+                    ]),
                 },
             )
         },

@@ -102,7 +102,7 @@ Read the "Reduction Algorithm" section and flag as **Fail** if:
 
 - **Variable substitution only:** The mapping is a 1-to-1 relabeling (e.g., `x_i → 1 - x_i` for complement problems). A valid reduction must construct new constraints, objectives, or graph structure.
 - **Subtype coercion:** The reduction merely casts to a more general type within an existing variant hierarchy (e.g., UnitDiskGraph → SimpleGraph) with no structural change to the problem instance.
-- **Same-problem identity:** Reducing between variants of the same problem with no insight (e.g., `MIS<SimpleGraph, One>` → `MIS<SimpleGraph, i32>` by setting all weights to 1).
+- **Same-problem identity:** Reducing between variants of the same problem with no insight (e.g., `MIS<SimpleGraph, One>` → `MIS<SimpleGraph, i64>` by setting all weights to 1).
 - **Insufficient detail:** The algorithm is a hand-wave ("map variables accordingly", "follows from the definition") — not a step-by-step procedure a programmer could implement. This is also a **Fail**.
 
 If the construction involves gadgets, penalty terms, auxiliary variables, or non-trivial structural transformation → **Pass**.

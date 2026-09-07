@@ -1,4 +1,4 @@
-//! Reduction from ResourceConstrainedScheduling to ILP<bool>.
+//! Reduction from ResourceConstrainedScheduling to `ILP<bool>`.
 //!
 //! Time-indexed binary formulation: x_{j,t} = 1 iff task j runs in slot t.
 //! Each task in exactly one slot; processor capacity and resource bounds
@@ -9,7 +9,7 @@ use crate::models::misc::ResourceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing ResourceConstrainedScheduling to ILP<bool>.
+/// Result of reducing ResourceConstrainedScheduling to `ILP<bool>`.
 ///
 /// Variable layout: x_{j,t} at index `j * D + t`
 /// for j in 0..n, t in 0..D.
@@ -29,66 +29,81 @@ impl ReductionResult for ReductionRCSToILP {
     }
 
     /// Extract: for each task j, find the unique slot t with x_{j,t} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let d = self.deadline;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..d)
-                    .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.deadline,
+            0,
+        )
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * deadline",
-    num_constraints = "num_tasks + deadline + num_resources * deadline",
-})]
+#[reduction(
+    transform = exact {
+        num_vars = "num_tasks * deadline",
+        num_constraints = "num_tasks + deadline + num_resources * deadline",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
-        let d = self.deadline() as usize;
+        let d =
+            usize::try_from(self.deadline()).map_err(|_| {
+                crate::rules::ReductionError::invalid_target::<
+                    ResourceConstrainedScheduling,
+                    ILP<bool>,
+                >("deadline does not fit the structural usize domain")
+            })?;
         let r = self.num_resources();
-        let m = self.num_processors();
+        let resource_requirements = self.resource_requirements();
+        let resource_bounds = self.resource_bounds();
         let num_vars = n * d;
 
         let var = |j: usize, t: usize| -> usize { j * d + t };
+        let processor_count =
+            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
 
         let mut constraints = Vec::new();
 
         // 1. Each task in exactly one slot: Σ_t x_{j,t} = 1 for all j
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..d).map(|t| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..d).map(|t| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Processor capacity: Σ_j x_{j,t} <= m for each time slot t
         for t in 0..d {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, m as f64));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, processor_count));
         }
 
         // 3. Resource bounds: Σ_j r_{j,q} * x_{j,t} <= B_q for all q, t
         for q in 0..r {
             for t in 0..d {
-                let terms: Vec<(usize, f64)> = (0..n)
-                    .map(|j| (var(j, t), self.resource_requirements()[j][q] as f64))
+                let terms: Vec<(usize, i64)> = (0..n)
+                    .map(|j| (var(j, t), resource_requirements[j][q]))
                     .collect();
-                constraints.push(LinearConstraint::le(
-                    terms,
-                    self.resource_bounds()[q] as f64,
-                ));
+                constraints.push(LinearConstraint::le(terms, resource_bounds[q]));
             }
         }
 
-        ReductionRCSToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+        Ok(ReductionRCSToILP {
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
             deadline: d,
-        }
+        })
     }
 }
 
@@ -103,7 +118,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![20],
                 vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
                 2,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

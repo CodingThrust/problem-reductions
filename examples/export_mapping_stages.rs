@@ -20,9 +20,9 @@ use std::fs;
 
 #[derive(Serialize)]
 struct GridNodeExport {
-    row: i32,
-    col: i32,
-    weight: i32,
+    row: i64,
+    col: i64,
+    weight: i64,
     state: String, // "O" = Occupied, "D" = Doubled, "C" = Connected
 }
 
@@ -39,8 +39,8 @@ struct CopyLineExport {
 
 #[derive(Serialize)]
 struct LocationExport {
-    row: i32,
-    col: i32,
+    row: i64,
+    col: i64,
 }
 
 #[derive(Serialize)]
@@ -50,7 +50,7 @@ struct TapeEntryExport {
     gadget_idx: usize,
     row: usize,
     col: usize,
-    overhead: i32,
+    overhead: i64,
 }
 
 #[derive(Serialize)]
@@ -75,10 +75,10 @@ struct MappingExport {
     stages: Vec<StageExport>,
     crossing_tape: Vec<TapeEntryExport>,
     simplifier_tape: Vec<TapeEntryExport>,
-    copyline_overhead: i32,
-    crossing_overhead: i32,
-    simplifier_overhead: i32,
-    total_overhead: i32,
+    copyline_overhead: i64,
+    crossing_overhead: i64,
+    simplifier_overhead: i64,
+    total_overhead: i64,
 }
 
 fn gadget_name(idx: usize) -> String {
@@ -119,8 +119,8 @@ fn extract_grid_nodes(grid: &MappingGrid) -> Vec<GridNodeExport> {
                         CellState::Empty => ".",
                     };
                     nodes.push(GridNodeExport {
-                        row: r as i32, // 0-indexed - DO NOT change!
-                        col: c as i32, // 0-indexed - DO NOT change!
+                        row: r as i64, // 0-indexed - DO NOT change!
+                        col: c as i64, // 0-indexed - DO NOT change!
                         weight: cell.weight(),
                         state: state.to_string(),
                     });
@@ -158,7 +158,7 @@ fn crossat_triangular(
 }
 
 fn get_vertex_order_from_julia(graph_name: &str) -> Option<Vec<usize>> {
-    let path = format!("tests/julia/{}_triangular_trace.json", graph_name);
+    let path = format!("tests/data/{}_triangular_trace.json", graph_name);
     if let Ok(content) = fs::read_to_string(&path) {
         if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(copy_lines) = data["copy_lines"].as_array() {
@@ -229,7 +229,7 @@ fn export_triangular(
     let spacing = triangular::SPACING;
     let padding = triangular::PADDING;
 
-    let copylines = create_copylines(n, edges, vertex_order);
+    let copylines = create_copylines(n, edges, vertex_order).unwrap();
 
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
     let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
@@ -239,7 +239,7 @@ fn export_triangular(
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
     for line in &copylines {
         for (row, col, weight) in line.copyline_locations_triangular(padding, spacing) {
-            grid.add_node(row, col, weight as i32);
+            grid.add_node(row, col, weight as i64);
         }
     }
     let stage1_nodes = extract_grid_nodes(&grid);
@@ -276,17 +276,23 @@ fn export_triangular(
     let simplifier_tape = triangular::apply_simplifier_gadgets(&mut grid, 10);
     let stage4_nodes = extract_grid_nodes(&grid);
 
-    let copyline_overhead: i32 = copylines
+    let copyline_overhead: i64 = copylines
         .iter()
-        .map(|line| mis_overhead_copyline_triangular(line, spacing))
+        .map(|line| mis_overhead_copyline_triangular(line, spacing).unwrap())
         .sum();
-    let crossing_overhead: i32 = crossing_tape
+    let crossing_overhead: i64 = crossing_tape
         .iter()
-        .map(triangular::tape_entry_mis_overhead)
+        .map(|entry| {
+            triangular::tape_entry_mis_overhead(entry)
+                .expect("generated triangular crossing tape must contain known gadgets")
+        })
         .sum();
-    let simplifier_overhead: i32 = simplifier_tape
+    let simplifier_overhead: i64 = simplifier_tape
         .iter()
-        .map(triangular::tape_entry_mis_overhead)
+        .map(|entry| {
+            triangular::tape_entry_mis_overhead(entry)
+                .expect("generated triangular simplifier tape must contain known gadgets")
+        })
         .sum();
 
     let copy_lines_export = export_copylines_triangular(&copylines, padding, spacing);
@@ -325,7 +331,7 @@ fn export_square(
     let spacing = ksg::SPACING;
     let padding = ksg::PADDING;
 
-    let copylines = create_copylines(n, edges, vertex_order);
+    let copylines = create_copylines(n, edges, vertex_order).unwrap();
 
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
     let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
@@ -375,14 +381,23 @@ fn export_square(
     let simplifier_tape = ksg::apply_simplifier_gadgets(&mut grid, 2);
     let stage4_nodes = extract_grid_nodes(&grid);
 
-    let copyline_overhead: i32 = copylines
+    let copyline_overhead: i64 = copylines
         .iter()
-        .map(|line| mis_overhead_copyline(line, spacing, padding) as i32)
+        .map(|line| mis_overhead_copyline(line, spacing, padding).unwrap())
         .sum();
-    let crossing_overhead: i32 = crossing_tape.iter().map(ksg::tape_entry_mis_overhead).sum();
-    let simplifier_overhead: i32 = simplifier_tape
+    let crossing_overhead: i64 = crossing_tape
         .iter()
-        .map(ksg::tape_entry_mis_overhead)
+        .map(|entry| {
+            ksg::tape_entry_mis_overhead(entry)
+                .expect("generated KSG crossing tape must contain known gadgets")
+        })
+        .sum();
+    let simplifier_overhead: i64 = simplifier_tape
+        .iter()
+        .map(|entry| {
+            ksg::tape_entry_mis_overhead(entry)
+                .expect("generated KSG simplifier tape must contain known gadgets")
+        })
         .sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
@@ -421,7 +436,7 @@ fn export_weighted(
     let spacing = ksg::SPACING;
     let padding = ksg::PADDING;
 
-    let copylines = create_copylines(n, edges, vertex_order);
+    let copylines = create_copylines(n, edges, vertex_order).unwrap();
 
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
     let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
@@ -431,7 +446,7 @@ fn export_weighted(
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
     for line in &copylines {
         for (row, col, weight) in line.copyline_locations(padding, spacing) {
-            grid.add_node(row, col, weight as i32); // Use actual weights from copyline (1 at endpoints, 2 elsewhere)
+            grid.add_node(row, col, weight as i64); // Use actual weights from copyline (1 at endpoints, 2 elsewhere)
         }
     }
     let stage1_nodes = extract_grid_nodes(&grid);
@@ -469,17 +484,23 @@ fn export_weighted(
     let stage4_nodes = extract_grid_nodes(&grid);
 
     // Weighted mode: overhead = unweighted_overhead * 2
-    let copyline_overhead: i32 = copylines
+    let copyline_overhead: i64 = copylines
         .iter()
-        .map(|line| mis_overhead_copyline(line, spacing, padding) as i32 * 2)
+        .map(|line| mis_overhead_copyline(line, spacing, padding).unwrap() * 2)
         .sum();
-    let crossing_overhead: i32 = crossing_tape
+    let crossing_overhead: i64 = crossing_tape
         .iter()
-        .map(ksg::weighted_tape_entry_mis_overhead)
+        .map(|entry| {
+            ksg::weighted_tape_entry_mis_overhead(entry)
+                .expect("generated weighted KSG crossing tape must contain known gadgets")
+        })
         .sum();
-    let simplifier_overhead: i32 = simplifier_tape
+    let simplifier_overhead: i64 = simplifier_tape
         .iter()
-        .map(ksg::weighted_tape_entry_mis_overhead)
+        .map(|entry| {
+            ksg::weighted_tape_entry_mis_overhead(entry)
+                .expect("generated weighted KSG simplifier tape must contain known gadgets")
+        })
         .sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
@@ -555,8 +576,8 @@ fn export_copylines_triangular(
                 locations: locs
                     .iter()
                     .map(|(r, c, _)| LocationExport {
-                        row: *r as i32, // 0-indexed - DO NOT change!
-                        col: *c as i32, // 0-indexed - DO NOT change!
+                        row: *r as i64, // 0-indexed - DO NOT change!
+                        col: *c as i64, // 0-indexed - DO NOT change!
                     })
                     .collect(),
             }
@@ -584,8 +605,8 @@ fn export_copylines_square(
                 locations: locs
                     .iter()
                     .map(|(r, c, _)| LocationExport {
-                        row: *r as i32, // 0-indexed - DO NOT change!
-                        col: *c as i32, // 0-indexed - DO NOT change!
+                        row: *r as i64, // 0-indexed - DO NOT change!
+                        col: *c as i64, // 0-indexed - DO NOT change!
                     })
                     .collect(),
             }
@@ -606,7 +627,8 @@ fn export_triangular_tape(
             gadget_idx: e.gadget_idx,
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
-            overhead: triangular::tape_entry_mis_overhead(e),
+            overhead: triangular::tape_entry_mis_overhead(e)
+                .expect("generated triangular tape must contain known gadgets"),
         })
         .collect()
 }
@@ -621,7 +643,8 @@ fn export_square_tape(tape: &[ksg::KsgTapeEntry], offset: usize) -> Vec<TapeEntr
             gadget_idx: e.pattern_idx,
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
-            overhead: ksg::tape_entry_mis_overhead(e),
+            overhead: ksg::tape_entry_mis_overhead(e)
+                .expect("generated KSG tape must contain known gadgets"),
         })
         .collect()
 }
@@ -639,7 +662,8 @@ fn export_weighted_square_tape(
             gadget_idx: e.pattern_idx,
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
-            overhead: ksg::weighted_tape_entry_mis_overhead(e),
+            overhead: ksg::weighted_tape_entry_mis_overhead(e)
+                .expect("generated weighted KSG tape must contain known gadgets"),
         })
         .collect()
 }
@@ -662,9 +686,9 @@ fn create_export(
     stage4: Vec<GridNodeExport>,
     crossing_tape: Vec<TapeEntryExport>,
     simplifier_tape: Vec<TapeEntryExport>,
-    copyline_overhead: i32,
-    crossing_overhead: i32,
-    simplifier_overhead: i32,
+    copyline_overhead: i64,
+    crossing_overhead: i64,
+    simplifier_overhead: i64,
 ) -> MappingExport {
     let mut export = MappingExport {
         graph_name: graph_name.to_string(),

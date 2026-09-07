@@ -10,7 +10,8 @@ fn test_sat_to_3sat_exact_size() {
     // Clause already has 3 literals - should remain unchanged
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     assert_eq!(ksat.num_vars(), 3);
@@ -24,7 +25,8 @@ fn test_sat_to_3sat_padding() {
     // (a v b) becomes (a v b v x) AND (a v b v -x)
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // Should have 2 clauses (positive and negative ancilla)
@@ -41,7 +43,8 @@ fn test_sat_to_3sat_splitting() {
     // (a v b v c v d) becomes (a v b v x) AND (-x v c v d)
     let sat = Satisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // Should have 2 clauses after splitting
@@ -71,7 +74,8 @@ fn test_sat_to_3sat_large_clause() {
     // (a v b v c v d v e) -> (a v b v x1) AND (-x1 v c v x2) AND (-x2 v d v e)
     let sat = Satisfiability::new(5, vec![CNFClause::new(vec![1, 2, 3, 4, 5])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // Should have 3 clauses after splitting
@@ -88,7 +92,8 @@ fn test_sat_to_3sat_single_literal() {
     // (a) becomes (a v x v y) where we pad twice
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // With recursive padding: (a) -> (a v x) AND (a v -x)
@@ -114,14 +119,15 @@ fn test_sat_to_ksat_closed_loop() {
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // Solve both problems - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
-    let sat_solutions = solver.find_all_witnesses(&sat);
-    let ksat_solutions = solver.find_all_witnesses(ksat);
+    let sat_solutions = solver.find_all_witnesses(&sat).unwrap();
+    let ksat_solutions = solver.find_all_witnesses(ksat).unwrap();
 
     // If SAT is satisfiable, K-SAT should be too
     let sat_satisfiable = !sat_solutions.is_empty();
@@ -143,20 +149,21 @@ fn test_sat_to_ksat_closed_loop() {
 fn test_sat_to_3sat_solution_extraction() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // Solve K-SAT - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
-    let ksat_solutions = solver.find_all_witnesses(ksat);
+    let ksat_solutions = solver.find_all_witnesses(ksat).unwrap();
 
     // Extract and verify solutions
     for ksat_sol in &ksat_solutions {
-        let sat_sol = reduction.extract_solution(ksat_sol);
+        let sat_sol = reduction.extract_solution(ksat_sol).unwrap();
         // Should only have original 2 variables
         assert_eq!(sat_sol.len(), 2);
         // Should satisfy original problem
-        assert!(sat.evaluate(&sat_sol));
+        assert!(sat.evaluate(&sat_sol).unwrap());
     }
 }
 
@@ -170,7 +177,7 @@ fn test_3sat_to_sat() {
         ],
     );
 
-    let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat);
+    let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat).expect("reduction should succeed");
     let sat = reduction.target_problem();
 
     assert_eq!(sat.num_vars(), 3);
@@ -185,11 +192,11 @@ fn test_3sat_to_sat() {
 fn test_3sat_to_sat_solution_extraction() {
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat);
+    let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat).expect("reduction should succeed");
 
-    let sol = vec![1, 0, 1];
-    let extracted = reduction.extract_solution(&sol);
-    assert_eq!(extracted, vec![1, 0, 1]);
+    let sol = vec![true, false, true];
+    let extracted = reduction.extract_solution(&sol).unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
 }
 
 #[test]
@@ -201,19 +208,20 @@ fn test_roundtrip_sat_3sat_sat() {
     );
 
     // SAT -> 3-SAT
-    let to_ksat = ReduceTo::<KSatisfiability<K3>>::reduce_to(&original_sat);
+    let to_ksat = ReduceTo::<KSatisfiability<K3>>::reduce_to(&original_sat)
+        .expect("reduction should succeed");
     let ksat = to_ksat.target_problem();
 
     // 3-SAT -> SAT
-    let to_sat = ReduceTo::<Satisfiability>::reduce_to(ksat);
+    let to_sat = ReduceTo::<Satisfiability>::reduce_to(ksat).expect("reduction should succeed");
     let final_sat = to_sat.target_problem();
 
     // Solve all three - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
-    let orig_solutions = solver.find_all_witnesses(&original_sat);
-    let ksat_solutions = solver.find_all_witnesses(ksat);
-    let final_solutions = solver.find_all_witnesses(final_sat);
+    let orig_solutions = solver.find_all_witnesses(&original_sat).unwrap();
+    let ksat_solutions = solver.find_all_witnesses(ksat).unwrap();
+    let final_solutions = solver.find_all_witnesses(final_sat).unwrap();
 
     // All should be satisfiable (have at least one solution)
     assert!(!orig_solutions.is_empty());
@@ -233,7 +241,8 @@ fn test_sat_to_3sat_mixed_clause_types() {
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // All clauses should have exactly 3 literals
@@ -244,21 +253,23 @@ fn test_sat_to_3sat_mixed_clause_types() {
 
 #[test]
 fn test_ksat_structure() {
-    let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3, 4])]);
+    let sat = Satisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // K-SAT should preserve original variables plus auxiliary vars
     // A 4-literal clause requires 1 auxiliary variable for Tseitin
-    assert_eq!(ksat.num_vars(), 3 + 1); // Original vars + 1 auxiliary for Tseitin
+    assert_eq!(ksat.num_vars(), 4 + 1); // Original vars + 1 auxiliary for Tseitin
 }
 
 #[test]
 fn test_empty_sat_to_3sat() {
     let sat = Satisfiability::new(3, vec![]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     assert_eq!(ksat.num_clauses(), 0);
@@ -278,7 +289,8 @@ fn test_mixed_clause_sizes() {
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     // All clauses should have exactly 3 literals
@@ -299,12 +311,17 @@ fn test_unsatisfiable_formula() {
     // (x) AND (-x) is unsatisfiable
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
-    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
+    let reduction =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let best_target = solver.find_all_witnesses(ksat);
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&sat).into_iter().collect();
+    let best_target = solver.find_all_witnesses(ksat).unwrap();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&sat)
+        .unwrap()
+        .into_iter()
+        .collect();
 
     // Both should be empty (unsatisfiable)
     assert!(best_source.is_empty());
@@ -322,16 +339,21 @@ fn test_jl_parity_sat_to_ksat() {
     let inst = &sat_data["instances"][0]["instance"];
     let (num_vars, clauses) = jl_parse_sat_clauses(inst);
     let source = Satisfiability::new(num_vars, clauses);
-    let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
+    let result =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "JL parity SAT->KSat",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -346,16 +368,20 @@ fn test_jl_parity_ksat_to_sat() {
     let inst = &ksat_data["instances"][0]["instance"];
     let (num_vars, clauses) = jl_parse_sat_clauses(inst);
     let source = KSatisfiability::<K3>::new(num_vars, clauses);
-    let result = ReduceTo::<Satisfiability>::reduce_to(&source);
+    let result = ReduceTo::<Satisfiability>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "JL parity KSat->SAT",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -370,15 +396,20 @@ fn test_jl_parity_rule_sat_to_ksat() {
     let inst = &jl_find_instance_by_label(&sat_data, "rule_3sat_multi")["instance"];
     let (num_vars, clauses) = jl_parse_sat_clauses(inst);
     let source = Satisfiability::new(num_vars, clauses);
-    let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
+    let result =
+        ReduceTo::<KSatisfiability<K3>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "JL parity rule SAT->KSat",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }

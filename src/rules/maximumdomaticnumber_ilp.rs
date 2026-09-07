@@ -36,39 +36,49 @@ impl ReductionResult for ReductionDomaticNumberToILP {
     /// Extract solution from ILP back to MaximumDomaticNumber.
     ///
     /// For each vertex v, find the set index i where x_{v,i} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let mut config = vec![0; n];
-        for v in 0..n {
-            for i in 0..n {
-                if target_solution[v * n + i] == 1 {
-                    config[v] = i;
-                    break;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.n;
+            let mut config = vec![0; n];
+            for v in 0..n {
+                for i in 0..n {
+                    if target_solution[v * n + i] == 1 {
+                        config[v] = i;
+                        break;
+                    }
                 }
             }
-        }
-        config
+            config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices * num_vertices + num_vertices",
         num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
     type Result = ReductionDomaticNumberToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let num_vars = n * n + n;
         let mut constraints = Vec::new();
 
         // Partition constraints: for each vertex v, Σ_i x_{v,i} = 1
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|i| (v * n + i, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|i| (v * n + i, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Domination constraints: for each v, i: x_{v,i} + Σ_{u ∈ N(v)} x_{u,i} >= y_i
@@ -76,13 +86,13 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
         for v in 0..n {
             let neighbors = self.graph().neighbors(v);
             for i in 0..n {
-                let mut terms: Vec<(usize, f64)> = vec![(v * n + i, 1.0)];
+                let mut terms: Vec<(usize, i64)> = vec![(v * n + i, 1)];
                 for &u in &neighbors {
-                    terms.push((u * n + i, 1.0));
+                    terms.push((u * n + i, 1));
                 }
                 // -y_i
-                terms.push((n * n + i, -1.0));
-                constraints.push(LinearConstraint::ge(terms, 0.0));
+                terms.push((n * n + i, -1));
+                constraints.push(LinearConstraint::ge(terms, 0));
             }
         }
 
@@ -92,18 +102,19 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
         for v in 0..n {
             for i in 0..n {
                 constraints.push(LinearConstraint::le(
-                    vec![(v * n + i, 1.0), (n * n + i, -1.0)],
-                    0.0,
+                    vec![(v * n + i, 1), (n * n + i, -1)],
+                    0,
                 ));
             }
         }
 
         // Objective: maximize Σ y_i
-        let objective: Vec<(usize, f64)> = (0..n).map(|i| (n * n + i, 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..n).map(|i| (n * n + i, 1)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
-        ReductionDomaticNumberToILP { target, n }
+        Ok(ReductionDomaticNumberToILP { target, n })
     }
 }
 

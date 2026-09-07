@@ -3,13 +3,13 @@
 //! Self-contained gadget: given a KColoring instance `(G, q)` with `n = |V|`
 //! and `m = |E|`, build a bipartite graph `H = (L, R, F)` with `2n` left
 //! vertices and `2n` right vertices, and ask for a biclique cover of `H`
-//! using `n + q` sub-bicliques. The construction is designed so that
+//! using `n + min(q, n)` sub-bicliques. The construction is designed so that
 //! exactly `n` of the bicliques are forced to cover guard-anchor edges,
 //! leaving at most `q` bicliques to cover the `n` diagonal edges
 //! `(a_v, b_v)`. These remaining bicliques behave as color classes: two
 //! source vertices may share one only when they are nonadjacent in `G`.
 //!
-//! See issue #1058 for the full proof sketch.
+//! The paper contains the full proof, including native loops and repeated edges.
 //!
 //! ## Vertex layout
 //!
@@ -68,73 +68,91 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
     /// cover yields at most `q` such distinct bicliques, so the result is a
     /// proper `q`-coloring of the source.
     ///
-    /// If the witness is invalid (e.g. some diagonal edge is uncovered),
-    /// the extracted entry for `v` falls back to color `0`. Validation
-    /// downstream is the responsibility of `source.is_valid_solution`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        let k = self.target.k();
-        let left_size = 2 * n;
-
-        // For each source vertex v, find the first biclique r that contains
-        // both a_v (unified index v) and b_v (unified index left_size + v).
-        let mut diagonal_biclique = vec![None; n];
-        for (v, slot) in diagonal_biclique.iter_mut().enumerate() {
-            let a_v = v;
-            let b_v = left_size + v;
-            for r in 0..k {
-                let a_idx = a_v * k + r;
-                let b_idx = b_v * k + r;
-                if target_solution.get(a_idx).copied().unwrap_or(0) == 1
-                    && target_solution.get(b_idx).copied().unwrap_or(0) == 1
-                {
-                    *slot = Some(r);
-                    break;
-                }
-            }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.0.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target configuration is not a biclique cover",
+            ));
         }
 
-        // Compact distinct biclique indices into colors 0..q-1 in first-seen order.
-        let mut color_of_biclique: std::collections::HashMap<usize, usize> =
-            std::collections::HashMap::new();
-        let mut coloring = vec![0usize; n];
-        for (v, slot) in diagonal_biclique.iter().enumerate() {
-            if let Some(r) = *slot {
+        Ok({
+            let n = self.num_vertices;
+            let k = self.target.k();
+            let left_size = 2 * n;
+
+            // For each source vertex v, find the first biclique r that contains
+            // both a_v (unified index v) and b_v (unified index left_size + v).
+            let mut diagonal_biclique = Vec::with_capacity(n);
+            for v in 0..n {
+                let a_v = v;
+                let b_v = left_size + v;
+                let biclique = (0..k)
+                    .find(|&r| target_solution[r][a_v] && target_solution[r][b_v])
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target cover leaves diagonal gadget edge {v} uncovered"
+                        ))
+                    })?;
+                diagonal_biclique.push(biclique);
+            }
+
+            // Compact distinct biclique indices into colors 0..q-1 in first-seen order.
+            let mut color_of_biclique: std::collections::HashMap<usize, usize> =
+                std::collections::HashMap::new();
+            let mut coloring = Vec::with_capacity(n);
+            for biclique in diagonal_biclique {
                 let next_color = color_of_biclique.len();
-                let color = *color_of_biclique.entry(r).or_insert(next_color);
-                // Clamp into [0, q-1]: if the witness exceeds q distinct
-                // diagonal bicliques (which a valid cover never does) keep
-                // the entry in range so the downstream validator can
-                // simply reject it as an improper coloring.
-                coloring[v] = if self.num_colors == 0 {
-                    0
-                } else {
-                    color.min(self.num_colors - 1)
-                };
+                let color = *color_of_biclique.entry(biclique).or_insert(next_color);
+                if color >= self.num_colors {
+                    return Err(crate::rules::ExtractionError::invalid(format!(
+                        "target cover uses more than {} diagonal bicliques",
+                        self.num_colors
+                    )));
+                }
+                coloring.push(color);
             }
-        }
-        coloring
+            coloring
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "4 * num_vertices",
-        num_edges = "2 * num_vertices * (num_vertices - 1) - 4 * num_edges + 3 * num_vertices",
-        rank = "num_vertices + num_colors",
+    transform = upper_bound {
+        left_size = "2 * num_vertices + 1",
+        num_vertices = "4 * num_vertices + 2",
+        num_edges = "2 * num_vertices^2 + num_vertices + 1",
+        rank = "2 * num_vertices",
+        right_size = "2 * num_vertices + 1",
     }
 )]
 impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToBicliqueCover;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
-        let q = self.num_colors();
+        // Relabeling the used colors preserves feasibility with at most n colors.
+        // Native node storage bounds make 4*n and n+min(q,n) fit usize.
+        let q = self.num_colors().min(n);
+        let native_edges = self.graph().edges();
+        if native_edges.iter().any(|&(u, v)| u == v) {
+            // A loop cannot be properly colored. A single edge cannot be
+            // covered with zero bicliques, giving a fixed NO instance.
+            return Ok(ReductionKColoringToBicliqueCover {
+                target: BicliqueCover::new(BipartiteGraph::new(1, 1, vec![(0, 0)]), 0),
+                num_vertices: n,
+                num_colors: q,
+            });
+        }
 
         // Build the set of source edges as an undirected lookup so the
-        // construction can skip endpoints {u,v} in E in O(1).
+        // construction can test endpoints {u,v} in E in O(log m).
         let mut source_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
-        for (u, v) in self.graph().edges() {
+        for (u, v) in native_edges {
             let (a, b) = if u <= v { (u, v) } else { (v, u) };
             source_edges.insert((a, b));
         }
@@ -195,11 +213,11 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
         let right_size = 2 * n;
         let target = BicliqueCover::new(BipartiteGraph::new(left_size, right_size, edges), n + q);
 
-        ReductionKColoringToBicliqueCover {
+        Ok(ReductionKColoringToBicliqueCover {
             target,
             num_vertices: n,
             num_colors: q,
-        }
+        })
     }
 }
 
@@ -217,8 +235,8 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 /// C_color = ({a_v : v in C}, {b_v : v in C}).
 /// ```
 ///
-/// Returns a vertex-major BicliqueCover configuration of length
-/// `4n * (n + q)` (i.e. `num_vertices * rank`).
+/// Returns one membership row per biclique. Each row has one Boolean entry
+/// per target vertex.
 ///
 /// `coloring[v]` must be in `0..q`. The order of color bicliques is the
 /// order of first appearance of each color along `0..n`, so unused colors
@@ -227,16 +245,16 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 pub(crate) fn forward_witness(
     source: &KColoring<KN, SimpleGraph>,
     coloring: &[usize],
-) -> Vec<usize> {
+) -> Vec<Vec<bool>> {
     let n = source.graph().num_vertices();
-    let q = source.num_colors();
+    let q = source.num_colors().min(n);
     let k = n + q;
     let left_size = 2 * n;
     let num_vertices = 4 * n;
-    let mut config = vec![0usize; num_vertices * k];
+    let mut config = vec![vec![false; num_vertices]; k];
 
-    let set_member = |config: &mut Vec<usize>, vertex: usize, biclique: usize| {
-        config[vertex * k + biclique] = 1;
+    let set_member = |config: &mut Vec<Vec<bool>>, vertex: usize, biclique: usize| {
+        config[biclique][vertex] = true;
     };
 
     // Edge-membership lookup for source edges (undirected).
@@ -300,8 +318,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,
                 SolutionPair {
-                    source_config: coloring,
-                    target_config,
+                    source_config: serde_json::json!(coloring),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

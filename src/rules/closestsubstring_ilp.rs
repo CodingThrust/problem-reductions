@@ -36,7 +36,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing ClosestSubstring to ILP.
 ///
-/// Variable layout (`ILP<i32>`, all non-negative):
+/// Variable layout (`ILP<i64>`, all non-negative):
 /// - `x_{r, a}` at index `r * alphabet_size + a` for `r in [0, ell)` and
 ///   `a in [0, q)`, forced into `{0, 1}` by the assignment constraints.
 /// - `y_{i, p}` at index `q * ell + window_offsets[i] + p` for input string
@@ -46,7 +46,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 ///   integer in `[0, ell]`.
 #[derive(Debug, Clone)]
 pub struct ReductionClosestSubstringToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     alphabet_size: usize,
     substring_length: usize,
     /// Prefix sums of per-string window counts: `window_offsets[i]` is the
@@ -58,9 +58,9 @@ pub struct ReductionClosestSubstringToILP {
 
 impl ReductionResult for ReductionClosestSubstringToILP {
     type Source = ClosestSubstring;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -70,53 +70,67 @@ impl ReductionResult for ReductionClosestSubstringToILP {
     /// first `ell` entries are the center symbols, the remaining `n` entries
     /// are per-string window starts. For each center position `r`, we pick the
     /// unique alphabet symbol `a` with `x_{r, a} = 1`; for each input string
-    /// `s_i`, we pick the unique window start `p` with `y_{i, p} = 1`. When no
-    /// indicator is set to 1 in some block (which only happens on partial /
-    /// infeasible ILP solutions), we fall back to 0 so the returned vector
-    /// still has the expected shape.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    /// `s_i`, we pick the unique window start `p` with `y_{i, p} = 1`.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let q = self.alphabet_size;
         let ell = self.substring_length;
         let y_base = q * ell;
-
         let mut out = Vec::with_capacity(ell + self.window_counts.len());
 
-        // Center symbols.
-        for r in 0..ell {
-            let symbol = (0..q)
-                .find(|&a| target_solution.get(r * q + a).copied().unwrap_or(0) == 1)
-                .unwrap_or(0);
-            out.push(symbol);
+        for position in 0..ell {
+            let block = &target_solution[position * q..(position + 1) * q];
+            out.push(decode_one_hot(block, "center position", position)?);
+        }
+        for (string, &window_count) in self.window_counts.iter().enumerate() {
+            let start = y_base + self.window_offsets[string];
+            out.push(decode_one_hot(
+                &target_solution[start..start + window_count],
+                "string window",
+                string,
+            )?);
         }
 
-        // Window starts.
-        for (i, &w_i) in self.window_counts.iter().enumerate() {
-            let start = (0..w_i)
-                .find(|&p| {
-                    target_solution
-                        .get(y_base + self.window_offsets[i] + p)
-                        .copied()
-                        .unwrap_or(0)
-                        == 1
-                })
-                .unwrap_or(0);
-            out.push(start);
-        }
-
-        out
+        Ok(out)
     }
 }
 
+fn decode_one_hot(
+    block: &[i64],
+    block_name: &str,
+    block_index: usize,
+) -> crate::rules::ExtractionResult<usize> {
+    let mut selected = block.iter().enumerate().filter(|(_, value)| **value == 1);
+    let index = selected.next().map(|(index, _)| index).ok_or_else(|| {
+        crate::rules::ExtractionError::invalid(format!(
+            "{block_name} {block_index} has no selected value"
+        ))
+    })?;
+    if selected.next().is_some() || block.iter().any(|&value| value > 1) {
+        return Err(crate::rules::ExtractionError::invalid(format!(
+            "{block_name} {block_index} is not one-hot"
+        )));
+    }
+    Ok(index)
+}
+
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "alphabet_size * substring_length + total_num_windows + 1",
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for ClosestSubstring {
+impl ReduceTo<ILP<i64>> for ClosestSubstring {
     type Result = ReductionClosestSubstringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let q = self.alphabet_size();
         let ell = self.substring_length();
         let strings = self.strings();
@@ -138,31 +152,32 @@ impl ReduceTo<ILP<i32>> for ClosestSubstring {
         let y_idx = |i: usize, p: usize| -> usize { y_base + window_offsets[i] + p };
         let r_idx = y_base + total_windows;
         let num_vars = r_idx + 1;
+        let ell_i64 = Self::exact_i64(ell, "encoding the substring length")?;
 
         let mut constraints: Vec<LinearConstraint> =
             Vec::with_capacity(ell + n + total_windows + 1);
 
         // Assignment constraints: exactly one symbol per center position.
-        // Together with the non-negativity built into ILP<i32>, this also
+        // Together with the non-negativity built into `ILP<i64>`, this also
         // forces every x_{r, a} to lie in {0, 1}.
         for r in 0..ell {
-            let terms: Vec<(usize, f64)> = (0..q).map(|a| (x_idx(r, a), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|a| (x_idx(r, a), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Tight upper bound on R: the worst-case Hamming distance over a
         // length-ell window is at most ell. Added as a single-term `<=`
         // constraint so the solver's bound-tightening pass (which scans for
         // exactly this pattern) picks it up. Without this, R defaults to the
-        // full i32 domain, which severely degrades HiGHS performance even on
+        // full i64 domain, which severely degrades HiGHS performance even on
         // tiny instances.
-        constraints.push(LinearConstraint::le(vec![(r_idx, 1.0)], ell as f64));
+        constraints.push(LinearConstraint::le(vec![(r_idx, 1)], ell_i64));
 
         // Window-choice constraints: exactly one window per input string.
         // Combined with non-negativity, this forces every y_{i, p} in {0, 1}.
         for (i, &w_i) in window_counts.iter().enumerate() {
-            let terms: Vec<(usize, f64)> = (0..w_i).map(|p| (y_idx(i, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..w_i).map(|p| (y_idx(i, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Conditional radius constraints: for every (input string, window
@@ -172,28 +187,29 @@ impl ReduceTo<ILP<i32>> for ClosestSubstring {
         //   automatically satisfied because R >= 0.
         for (i, s) in strings.iter().enumerate() {
             for p in 0..window_counts[i] {
-                let mut terms: Vec<(usize, f64)> = Vec::with_capacity(ell + 2);
-                terms.push((r_idx, 1.0));
+                let mut terms: Vec<(usize, i64)> = Vec::with_capacity(ell + 2);
+                terms.push((r_idx, 1));
                 for r in 0..ell {
-                    terms.push((x_idx(r, s[p + r]), 1.0));
+                    terms.push((x_idx(r, s[p + r]), 1));
                 }
-                terms.push((y_idx(i, p), -(ell as f64)));
-                constraints.push(LinearConstraint::ge(terms, 0.0));
+                terms.push((y_idx(i, p), -ell_i64));
+                constraints.push(LinearConstraint::ge(terms, 0));
             }
         }
 
         // Objective: minimize R.
-        let objective = vec![(r_idx, 1.0)];
+        let objective = vec![(r_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionClosestSubstringToILP {
+        Ok(ReductionClosestSubstringToILP {
             target,
             alphabet_size: q,
             substring_length: ell,
             window_offsets,
             window_counts,
-        }
+        })
     }
 }
 
@@ -214,8 +230,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![1, 1, 0, 0, 1],
                 ],
                 3,
-            );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            )
+            .unwrap();
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

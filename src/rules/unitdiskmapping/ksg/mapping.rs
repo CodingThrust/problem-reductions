@@ -17,6 +17,8 @@ use super::gadgets_weighted::{
     weighted_tape_entry_mis_overhead, WeightedKsgPattern, WeightedKsgTapeEntry,
 };
 use super::{PADDING, SPACING};
+use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
+use crate::rules::ReductionError;
 use crate::topology::{Graph, KingsSubgraph, TriangularSubgraph};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -35,9 +37,9 @@ pub enum GridKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MappingResult<T = KsgTapeEntry> {
     /// Integer grid positions (row, col) for each node.
-    pub positions: Vec<(i32, i32)>,
+    pub positions: Vec<(i64, i64)>,
     /// Weight of each node.
-    pub node_weights: Vec<i32>,
+    pub node_weights: Vec<i64>,
     /// Grid dimensions (rows, cols).
     pub grid_dimensions: (usize, usize),
     /// The kind of grid lattice.
@@ -49,7 +51,7 @@ pub struct MappingResult<T = KsgTapeEntry> {
     /// Spacing used.
     pub spacing: usize,
     /// MIS overhead from the mapping.
-    pub mis_overhead: i32,
+    pub mis_overhead: i64,
     /// Tape entries recording gadget applications (for unapply during solution extraction).
     pub tape: Vec<T>,
     /// Doubled cells (where two copy lines overlap) for map_config_back.
@@ -94,7 +96,7 @@ impl<T> MappingResult<T> {
         let (rows, cols) = self.grid_dimensions;
 
         // Build position to node index map
-        let mut pos_to_node: HashMap<(i32, i32), usize> = HashMap::new();
+        let mut pos_to_node: HashMap<(i64, i64), usize> = HashMap::new();
         for (idx, &(r, c)) in self.positions.iter().enumerate() {
             pos_to_node.insert((r, c), idx);
         }
@@ -102,6 +104,7 @@ impl<T> MappingResult<T> {
         let mut lines = Vec::new();
 
         for r in 0..rows {
+            let row = i64::try_from(r).expect("mapping grid rows are validated against i64");
             let mut line = String::new();
             for c in 0..cols {
                 let is_selected = config
@@ -110,7 +113,9 @@ impl<T> MappingResult<T> {
                     .copied()
                     .unwrap_or(0)
                     > 0;
-                let has_node = pos_to_node.contains_key(&(r as i32, c as i32));
+                let column =
+                    i64::try_from(c).expect("mapping grid columns are validated against i64");
+                let has_node = pos_to_node.contains_key(&(row, column));
 
                 let s = if has_node {
                     if is_selected {
@@ -166,16 +171,18 @@ impl<T> MappingResult<T> {
 
         let (rows, cols) = self.grid_dimensions;
 
-        let mut pos_to_idx: HashMap<(i32, i32), usize> = HashMap::new();
+        let mut pos_to_idx: HashMap<(i64, i64), usize> = HashMap::new();
         for (idx, &(r, c)) in self.positions.iter().enumerate() {
             pos_to_idx.insert((r, c), idx);
         }
 
         let mut lines = Vec::new();
 
-        for r in 0..rows as i32 {
+        for r in 0..rows {
+            let r = i64::try_from(r).expect("mapping grid rows are validated against i64");
             let mut line = String::new();
-            for c in 0..cols as i32 {
+            for c in 0..cols {
+                let c = i64::try_from(c).expect("mapping grid columns are validated against i64");
                 let s = if let Some(&idx) = pos_to_idx.get(&(r, c)) {
                     if let Some(cfg) = config {
                         if cfg.get(idx).copied().unwrap_or(0) > 0 {
@@ -219,21 +226,42 @@ impl MappingResult<KsgTapeEntry> {
     ///
     /// # Returns
     /// A vector where `result[v]` is 1 if vertex `v` is selected, 0 otherwise.
-    pub fn map_config_back(&self, grid_config: &[usize]) -> Vec<usize> {
+    pub fn map_config_back(
+        &self,
+        grid_config: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        self.map_config_back_internal(grid_config)
+            .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
+    }
+
+    fn map_config_back_internal(
+        &self,
+        grid_config: &[usize],
+    ) -> Result<Vec<usize>, ReductionError> {
+        if grid_config.len() != self.positions.len() {
+            return Err(mapping_invalid(
+                "grid configuration length must match the mapped vertex count",
+            ));
+        }
         // Step 1: Convert flat config to 2D matrix
         let (rows, cols) = self.grid_dimensions;
         let mut config_2d = vec![vec![0usize; cols]; rows];
 
         for (idx, &(row, col)) in self.positions.iter().enumerate() {
-            let row = row as usize;
-            let col = col as usize;
-            if row < rows && col < cols {
-                config_2d[row][col] = grid_config.get(idx).copied().unwrap_or(0);
+            let row = usize::try_from(row)
+                .map_err(|_| mapping_invalid("mapping result contains a negative grid row"))?;
+            let col = usize::try_from(col)
+                .map_err(|_| mapping_invalid("mapping result contains a negative grid column"))?;
+            if row >= rows || col >= cols {
+                return Err(mapping_invalid(
+                    "mapping result contains a position outside its grid dimensions",
+                ));
             }
+            config_2d[row][col] = grid_config[idx];
         }
 
         // Step 2: Unapply gadgets in reverse order
-        unapply_gadgets(&self.tape, &mut config_2d);
+        unapply_gadgets(&self.tape, &mut config_2d)?;
 
         // Step 3: Extract vertex configs from copylines
         map_config_copyback(
@@ -244,50 +272,46 @@ impl MappingResult<KsgTapeEntry> {
             &self.doubled_cells,
         )
     }
-
-    /// Map a configuration back from grid to original graph using center locations.
-    pub fn map_config_back_via_centers(&self, grid_config: &[usize]) -> Vec<usize> {
-        // Build a position to node index map
-        let mut pos_to_idx: HashMap<(usize, usize), usize> = HashMap::new();
-        for (idx, &(row, col)) in self.positions.iter().enumerate() {
-            if let (Ok(row), Ok(col)) = (usize::try_from(row), usize::try_from(col)) {
-                pos_to_idx.insert((row, col), idx);
-            }
-        }
-
-        // Get traced center locations (after gadget transformations)
-        let centers = trace_centers(self);
-        let num_vertices = centers.len();
-        let mut result = vec![0usize; num_vertices];
-
-        // Read config at each center location
-        for (vertex, &(row, col)) in centers.iter().enumerate() {
-            if let Some(&node_idx) = pos_to_idx.get(&(row, col)) {
-                result[vertex] = grid_config.get(node_idx).copied().unwrap_or(0);
-            }
-        }
-
-        result
-    }
 }
 
 impl MappingResult<WeightedKsgTapeEntry> {
     /// Map a configuration back from grid to original graph (weighted version).
-    pub fn map_config_back(&self, grid_config: &[usize]) -> Vec<usize> {
+    pub fn map_config_back(
+        &self,
+        grid_config: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        self.map_config_back_internal(grid_config)
+            .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
+    }
+
+    fn map_config_back_internal(
+        &self,
+        grid_config: &[usize],
+    ) -> Result<Vec<usize>, ReductionError> {
+        if grid_config.len() != self.positions.len() {
+            return Err(mapping_invalid(
+                "grid configuration length must match the mapped vertex count",
+            ));
+        }
         // Step 1: Convert flat config to 2D matrix
         let (rows, cols) = self.grid_dimensions;
         let mut config_2d = vec![vec![0usize; cols]; rows];
 
         for (idx, &(row, col)) in self.positions.iter().enumerate() {
-            let row = row as usize;
-            let col = col as usize;
-            if row < rows && col < cols {
-                config_2d[row][col] = grid_config.get(idx).copied().unwrap_or(0);
+            let row = usize::try_from(row)
+                .map_err(|_| mapping_invalid("mapping result contains a negative grid row"))?;
+            let col = usize::try_from(col)
+                .map_err(|_| mapping_invalid("mapping result contains a negative grid column"))?;
+            if row >= rows || col >= cols {
+                return Err(mapping_invalid(
+                    "mapping result contains a position outside its grid dimensions",
+                ));
             }
+            config_2d[row][col] = grid_config[idx];
         }
 
         // Step 2: Unapply gadgets in reverse order
-        unapply_weighted_gadgets(&self.tape, &mut config_2d);
+        unapply_weighted_gadgets(&self.tape, &mut config_2d)?;
 
         // Step 3: Extract vertex configs from copylines
         map_config_copyback(
@@ -312,153 +336,121 @@ impl<T> fmt::Display for MappingResult<T> {
 /// - For doubled cells: count 1 if value is 2, or if value is 1 and both neighbors are 0
 /// - For regular cells: just add the value
 /// - Result is `count - (len(locs) / 2)`
-pub fn map_config_copyback(
+pub(crate) fn map_config_copyback(
     lines: &[CopyLine],
     padding: usize,
     spacing: usize,
     config: &[Vec<usize>],
     doubled_cells: &HashSet<(usize, usize)>,
-) -> Vec<usize> {
+) -> Result<Vec<usize>, ReductionError> {
     let mut result = vec![0usize; lines.len()];
 
     for line in lines {
         let locs = line.copyline_locations(padding, spacing);
         let n = locs.len();
-        let mut count = 0i32;
+        let mut count = 0i64;
 
         for (iloc, &(row, col, weight)) in locs.iter().enumerate() {
             let ci = config
                 .get(row)
                 .and_then(|r| r.get(col))
                 .copied()
-                .unwrap_or(0);
+                .ok_or(mapping_invalid(
+                    "copy line lies outside the configuration grid",
+                ))?;
 
             // Check if this cell is doubled in the grid (two copylines overlap here)
             if doubled_cells.contains(&(row, col)) {
                 // Doubled cell - handle specially
                 if ci == 2 {
-                    count += 1;
+                    count = count
+                        .checked_add(1)
+                        .ok_or(mapping_integer_overflow("summing copy-back values"))?;
                 } else if ci == 1 {
                     // Check if both neighbors are 0
-                    let prev_zero = if iloc > 0 {
-                        let (pr, pc, _) = locs[iloc - 1];
-                        config.get(pr).and_then(|r| r.get(pc)).copied().unwrap_or(0) == 0
-                    } else {
-                        true
-                    };
-                    let next_zero = if iloc + 1 < n {
-                        let (nr, nc, _) = locs[iloc + 1];
-                        config.get(nr).and_then(|r| r.get(nc)).copied().unwrap_or(0) == 0
-                    } else {
-                        true
-                    };
+                    let prev_zero =
+                        if iloc > 0 {
+                            let (pr, pc, _) = locs[iloc - 1];
+                            config.get(pr).and_then(|r| r.get(pc)).copied().ok_or(
+                                mapping_invalid(
+                                    "copy-line neighbor lies outside the configuration grid",
+                                ),
+                            )? == 0
+                        } else {
+                            true
+                        };
+                    let next_zero =
+                        if iloc + 1 < n {
+                            let (nr, nc, _) = locs[iloc + 1];
+                            config.get(nr).and_then(|r| r.get(nc)).copied().ok_or(
+                                mapping_invalid(
+                                    "copy-line neighbor lies outside the configuration grid",
+                                ),
+                            )? == 0
+                        } else {
+                            true
+                        };
                     if prev_zero && next_zero {
-                        count += 1;
+                        count = count
+                            .checked_add(1)
+                            .ok_or(mapping_integer_overflow("summing copy-back values"))?;
                     }
                 }
                 // ci == 0: count += 0 (nothing)
             } else if weight >= 1 {
                 // Regular non-empty cell
-                count += ci as i32;
+                let value = i64::try_from(ci)
+                    .map_err(|_| mapping_integer_overflow("converting a copy-back value to i64"))?;
+                count = count
+                    .checked_add(value)
+                    .ok_or(mapping_integer_overflow("summing copy-back values"))?;
             }
             // weight == 0 or empty: skip
         }
 
         // Subtract overhead: MIS overhead for copyline is len/2
-        let overhead = (n / 2) as i32;
+        let overhead = i64::try_from(n / 2)
+            .map_err(|_| mapping_integer_overflow("converting copy-back overhead to i64"))?;
         // Result is count - overhead, clamped to non-negative
-        result[line.vertex] = (count - overhead).max(0) as usize;
+        let adjusted = count
+            .checked_sub(overhead)
+            .ok_or(mapping_integer_overflow("subtracting copy-back overhead"))?;
+        let adjusted = adjusted.max(0);
+        result[line.vertex] = usize::try_from(adjusted)
+            .map_err(|_| mapping_integer_overflow("converting a copy-back result to usize"))?;
     }
 
-    result
+    Ok(result)
 }
 
 /// Unapply gadgets from tape in reverse order, converting mapped configs to source configs.
-pub fn unapply_gadgets(tape: &[KsgTapeEntry], config: &mut [Vec<usize>]) {
+pub(crate) fn unapply_gadgets(
+    tape: &[KsgTapeEntry],
+    config: &mut [Vec<usize>],
+) -> Result<(), ReductionError> {
     // Iterate tape in REVERSE order
     for entry in tape.iter().rev() {
-        if let Some(pattern) = KsgPattern::from_tape_idx(entry.pattern_idx) {
-            pattern.map_config_back(entry.row, entry.col, config);
-        }
+        let pattern = KsgPattern::from_tape_idx(entry.pattern_idx).ok_or(mapping_invalid(
+            "tape contains an unknown unweighted KSG gadget index",
+        ))?;
+        pattern.map_config_back(entry.row, entry.col, config)?;
     }
+    Ok(())
 }
 
 /// Unapply weighted gadgets from tape in reverse order.
-pub fn unapply_weighted_gadgets(tape: &[WeightedKsgTapeEntry], config: &mut [Vec<usize>]) {
+pub(crate) fn unapply_weighted_gadgets(
+    tape: &[WeightedKsgTapeEntry],
+    config: &mut [Vec<usize>],
+) -> Result<(), ReductionError> {
     // Iterate tape in REVERSE order
     for entry in tape.iter().rev() {
-        if let Some(pattern) = WeightedKsgPattern::from_tape_idx(entry.pattern_idx) {
-            pattern.map_config_back(entry.row, entry.col, config);
-        }
+        let pattern = WeightedKsgPattern::from_tape_idx(entry.pattern_idx).ok_or(
+            mapping_invalid("tape contains an unknown weighted KSG gadget index"),
+        )?;
+        pattern.map_config_back(entry.row, entry.col, config)?;
     }
-}
-
-/// Trace center locations through KSG square lattice gadget transformations.
-///
-/// Returns traced center locations sorted by vertex index.
-pub fn trace_centers(result: &MappingResult<KsgTapeEntry>) -> Vec<(usize, usize)> {
-    // Initial center locations with (0, 1) offset
-    let mut centers: Vec<(usize, usize)> = result
-        .lines
-        .iter()
-        .map(|line| {
-            let (row, col) = line.center_location(result.padding, result.spacing);
-            (row, col + 1) // Add (0, 1) offset
-        })
-        .collect();
-
-    // Apply gadget transformations from tape
-    for entry in &result.tape {
-        let pattern_idx = entry.pattern_idx;
-        let gi = entry.row;
-        let gj = entry.col;
-
-        // Get gadget size and center mapping
-        // pattern_idx < 100: crossing gadgets (don't move centers)
-        // pattern_idx >= 100: simplifier gadgets (DanglingLeg with rotations)
-        if pattern_idx >= 100 {
-            // DanglingLeg variants
-            let simplifier_idx = pattern_idx - 100;
-            let (m, n, source_center, mapped_center) = match simplifier_idx {
-                0 => (4, 3, (2, 2), (4, 2)), // DanglingLeg (no rotation)
-                1 => (3, 4, (2, 2), (2, 4)), // Rotated 90 clockwise
-                2 => (4, 3, (3, 2), (1, 2)), // Rotated 180
-                3 => (3, 4, (2, 3), (2, 1)), // Rotated 270
-                4 => (4, 3, (2, 2), (4, 2)), // Reflected X (same as original for vertical)
-                5 => (4, 3, (2, 2), (4, 2)), // Reflected Y (same as original for vertical)
-                _ => continue,
-            };
-
-            // Check each center and apply transformation if within gadget bounds
-            for center in centers.iter_mut() {
-                let (ci, cj) = *center;
-
-                // Check if center is within gadget bounds (1-indexed)
-                if ci >= gi && ci < gi + m && cj >= gj && cj < gj + n {
-                    // Local coordinates (1-indexed)
-                    let local_i = ci - gi + 1;
-                    let local_j = cj - gj + 1;
-
-                    // Check if this matches the source center
-                    if local_i == source_center.0 && local_j == source_center.1 {
-                        // Move to mapped center
-                        *center = (gi + mapped_center.0 - 1, gj + mapped_center.1 - 1);
-                    }
-                }
-            }
-        }
-        // Crossing gadgets (pattern_idx < 100) don't move centers
-    }
-
-    // Sort by vertex index and return
-    let mut indexed: Vec<_> = result
-        .lines
-        .iter()
-        .enumerate()
-        .map(|(idx, line)| (line.vertex, centers[idx]))
-        .collect();
-    indexed.sort_by_key(|(v, _)| *v);
-    indexed.into_iter().map(|(_, c)| c).collect()
+    Ok(())
 }
 
 /// Internal function that creates both the mapping grid and copylines.
@@ -466,25 +458,37 @@ fn embed_graph_internal(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> Option<(MappingGrid, Vec<CopyLine>)> {
+) -> Result<(MappingGrid, Vec<CopyLine>), ReductionError> {
     if num_vertices == 0 {
-        return None;
+        return Err(mapping_invalid("num_vertices must be positive"));
     }
 
-    let copylines = create_copylines(num_vertices, edges, vertex_order);
+    let copylines = create_copylines(num_vertices, edges, vertex_order)?;
 
     // Calculate grid dimensions
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
 
-    let rows = max_hslot * SPACING + 2 + 2 * PADDING;
-    let cols = (num_vertices - 1) * SPACING + 2 + 2 * PADDING;
+    let padding_twice = PADDING
+        .checked_mul(2)
+        .ok_or(mapping_integer_overflow("computing grid padding"))?;
+    let extent = |slots: usize| {
+        slots
+            .checked_mul(SPACING)
+            .and_then(|value| value.checked_add(2))
+            .and_then(|value| value.checked_add(padding_twice))
+            .ok_or(mapping_integer_overflow("computing grid dimensions"))
+    };
+    let rows = extent(max_hslot)?;
+    let cols = extent(num_vertices - 1)?;
 
     let mut grid = MappingGrid::with_padding(rows, cols, SPACING, PADDING);
 
     // Add copy line nodes using dense locations (all cells along the L-shape)
     for line in &copylines {
         for (row, col, weight) in line.copyline_locations(PADDING, SPACING) {
-            grid.add_node(row, col, weight as i32);
+            let weight = i64::try_from(weight)
+                .map_err(|_| mapping_integer_overflow("converting a grid weight to i64"))?;
+            grid.add_node(row, col, weight);
         }
     }
 
@@ -511,19 +515,20 @@ fn embed_graph_internal(
         }
     }
 
-    Some((grid, copylines))
+    Ok((grid, copylines))
 }
 
 /// Embed a graph into a mapping grid.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if any edge vertex is not found in `vertex_order`.
-pub fn embed_graph(
+/// Returns [`ReductionError`] if the vertex order, graph, or generated dimensions are invalid.
+#[cfg(test)]
+pub(crate) fn embed_graph(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> Option<MappingGrid> {
+) -> Result<MappingGrid, ReductionError> {
     embed_graph_internal(num_vertices, edges, vertex_order).map(|(grid, _)| grid)
 }
 
@@ -537,7 +542,7 @@ pub fn embed_graph(
 pub fn map_unweighted(
     num_vertices: usize,
     edges: &[(usize, usize)],
-) -> MappingResult<KsgTapeEntry> {
+) -> Result<MappingResult<KsgTapeEntry>, ReductionError> {
     map_unweighted_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
@@ -551,7 +556,7 @@ pub fn map_unweighted_with_method(
     num_vertices: usize,
     edges: &[(usize, usize)],
     method: PathDecompositionMethod,
-) -> MappingResult<KsgTapeEntry> {
+) -> Result<MappingResult<KsgTapeEntry>, ReductionError> {
     let layout = pathwidth(num_vertices, edges, method);
     let vertex_order = vertex_order_from_layout(&layout);
     map_unweighted_with_order(num_vertices, edges, &vertex_order)
@@ -559,16 +564,15 @@ pub fn map_unweighted_with_method(
 
 /// Map a graph with a specific vertex ordering (unweighted).
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if `num_vertices == 0`.
+/// Returns [`ReductionError`] if the vertex order, graph, or generated dimensions are invalid.
 pub fn map_unweighted_with_order(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> MappingResult<KsgTapeEntry> {
-    let (mut grid, copylines) = embed_graph_internal(num_vertices, edges, vertex_order)
-        .expect("Failed to embed graph: num_vertices must be > 0");
+) -> Result<MappingResult<KsgTapeEntry>, ReductionError> {
+    let (mut grid, copylines) = embed_graph_internal(num_vertices, edges, vertex_order)?;
 
     // Extract doubled cells BEFORE applying gadgets
     let doubled_cells = grid.doubled_cells();
@@ -584,37 +588,52 @@ pub fn map_unweighted_with_order(
     tape.extend(simplifier_tape);
 
     // Calculate MIS overhead from copylines
-    let copyline_overhead: i32 = copylines
-        .iter()
-        .map(|line| mis_overhead_copyline(line, SPACING, PADDING) as i32)
-        .sum();
+    let copyline_overhead = copylines.iter().try_fold(0_i64, |total, line| {
+        total
+            .checked_add(mis_overhead_copyline(line, SPACING, PADDING)?)
+            .ok_or(mapping_integer_overflow("summing copy-line MIS overhead"))
+    })?;
 
     // Add MIS overhead from gadgets
-    let gadget_overhead: i32 = tape.iter().map(tape_entry_mis_overhead).sum();
-    let mis_overhead = copyline_overhead + gadget_overhead;
+    let gadget_overhead = tape.iter().try_fold(0_i64, |total, entry| {
+        total
+            .checked_add(tape_entry_mis_overhead(entry)?)
+            .ok_or(mapping_integer_overflow("summing gadget MIS overhead"))
+    })?;
+    let mis_overhead = copyline_overhead
+        .checked_add(gadget_overhead)
+        .ok_or(mapping_integer_overflow("computing total MIS overhead"))?;
 
-    // Assert all doubled/connected cells have been resolved by gadgets.
-    // Matches Julia's `GridGraph()` check: "This mapping is not done yet!"
-    debug_assert!(
-        !grid.has_unresolved_cells(),
-        "Mapping is not done: doubled or connected cells remain after gadget application"
-    );
+    if grid.has_unresolved_cells() {
+        return Err(mapping_invalid(
+            "mapping left doubled or connected cells unresolved",
+        ));
+    }
 
     // Extract positions from occupied cells.
     // In unweighted mode, all node weights are 1 — matching Julia's behavior where
     // `node(::Type{<:UnWeightedNode}, i, j, w) = Node(i, j)` ignores the weight parameter.
-    let positions: Vec<(i32, i32)> = grid
+    let positions: Vec<(i64, i64)> = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
                 .filter(|cell| cell.weight() > 0)
-                .map(|_| (row as i32, col as i32))
+                .map(|_| {
+                    Ok((
+                        i64::try_from(row).map_err(|_| {
+                            mapping_integer_overflow("converting a grid row to i64")
+                        })?,
+                        i64::try_from(col).map_err(|_| {
+                            mapping_integer_overflow("converting a grid column to i64")
+                        })?,
+                    ))
+                })
         })
-        .collect();
-    let node_weights = vec![1i32; positions.len()];
+        .collect::<Result<_, ReductionError>>()?;
+    let node_weights = vec![1i64; positions.len()];
 
-    MappingResult {
+    Ok(MappingResult {
         positions,
         node_weights,
         grid_dimensions: grid.size(),
@@ -625,7 +644,7 @@ pub fn map_unweighted_with_order(
         mis_overhead,
         tape,
         doubled_cells,
-    }
+    })
 }
 
 // ============================================================================
@@ -639,7 +658,7 @@ pub fn map_unweighted_with_order(
 pub fn map_weighted(
     num_vertices: usize,
     edges: &[(usize, usize)],
-) -> MappingResult<WeightedKsgTapeEntry> {
+) -> Result<MappingResult<WeightedKsgTapeEntry>, ReductionError> {
     map_weighted_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
@@ -653,7 +672,7 @@ pub fn map_weighted_with_method(
     num_vertices: usize,
     edges: &[(usize, usize)],
     method: PathDecompositionMethod,
-) -> MappingResult<WeightedKsgTapeEntry> {
+) -> Result<MappingResult<WeightedKsgTapeEntry>, ReductionError> {
     let layout = pathwidth(num_vertices, edges, method);
     let vertex_order = vertex_order_from_layout(&layout);
     map_weighted_with_order(num_vertices, edges, &vertex_order)
@@ -661,16 +680,15 @@ pub fn map_weighted_with_method(
 
 /// Map a graph with a specific vertex ordering (weighted).
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if `num_vertices == 0`.
+/// Returns [`ReductionError`] if the vertex order, graph, or generated dimensions are invalid.
 pub fn map_weighted_with_order(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> MappingResult<WeightedKsgTapeEntry> {
-    let (mut grid, copylines) = embed_graph_internal(num_vertices, edges, vertex_order)
-        .expect("Failed to embed graph: num_vertices must be > 0");
+) -> Result<MappingResult<WeightedKsgTapeEntry>, ReductionError> {
+    let (mut grid, copylines) = embed_graph_internal(num_vertices, edges, vertex_order)?;
 
     // Extract doubled cells BEFORE applying gadgets
     let doubled_cells = grid.doubled_cells();
@@ -686,33 +704,62 @@ pub fn map_weighted_with_order(
     tape.extend(simplifier_tape);
 
     // Calculate MIS overhead from copylines (weighted: multiply by 2)
-    let copyline_overhead: i32 = copylines
-        .iter()
-        .map(|line| mis_overhead_copyline(line, SPACING, PADDING) as i32 * 2)
-        .sum();
+    let copyline_overhead = copylines.iter().try_fold(0_i64, |total, line| {
+        let overhead = mis_overhead_copyline(line, SPACING, PADDING)?;
+        let overhead = overhead.checked_mul(2).ok_or(mapping_integer_overflow(
+            "doubling weighted copy-line MIS overhead",
+        ))?;
+        total.checked_add(overhead).ok_or(mapping_integer_overflow(
+            "summing weighted copy-line MIS overhead",
+        ))
+    })?;
 
     // Add MIS overhead from weighted gadgets
-    let gadget_overhead: i32 = tape.iter().map(weighted_tape_entry_mis_overhead).sum();
-    let mis_overhead = copyline_overhead + gadget_overhead;
+    let gadget_overhead = tape.iter().try_fold(0_i64, |total, entry| {
+        total
+            .checked_add(weighted_tape_entry_mis_overhead(entry)?)
+            .ok_or(mapping_integer_overflow(
+                "summing weighted gadget MIS overhead",
+            ))
+    })?;
+    let mis_overhead =
+        copyline_overhead
+            .checked_add(gadget_overhead)
+            .ok_or(mapping_integer_overflow(
+                "computing total weighted MIS overhead",
+            ))?;
 
-    // Assert all doubled/connected cells have been resolved by gadgets.
-    debug_assert!(
-        !grid.has_unresolved_cells(),
-        "Mapping is not done: doubled or connected cells remain after gadget application"
-    );
+    if grid.has_unresolved_cells() {
+        return Err(mapping_invalid(
+            "weighted mapping left doubled or connected cells unresolved",
+        ));
+    }
 
     // Extract positions and weights from occupied cells
-    let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid
+    let positions_and_weights = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
-                .map(|cell| ((row as i32, col as i32), cell.weight()))
+                .filter(|cell| cell.weight() > 0)
+                .map(|cell| {
+                    Ok((
+                        (
+                            i64::try_from(row).map_err(|_| {
+                                mapping_integer_overflow("converting a grid row to i64")
+                            })?,
+                            i64::try_from(col).map_err(|_| {
+                                mapping_integer_overflow("converting a grid column to i64")
+                            })?,
+                        ),
+                        cell.weight(),
+                    ))
+                })
         })
-        .filter(|&(_, w)| w > 0)
-        .unzip();
+        .collect::<Result<Vec<_>, ReductionError>>()?;
+    let (positions, node_weights): (Vec<_>, Vec<_>) = positions_and_weights.into_iter().unzip();
 
-    MappingResult {
+    Ok(MappingResult {
         positions,
         node_weights,
         grid_dimensions: grid.size(),
@@ -723,7 +770,7 @@ pub fn map_weighted_with_order(
         mis_overhead,
         tape,
         doubled_cells,
-    }
+    })
 }
 
 #[cfg(test)]

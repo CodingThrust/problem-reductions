@@ -25,18 +25,17 @@ impl ReductionResult for ReductionNAESATToSetSplitting {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        assert!(
-            target_solution.len() >= self.num_source_variables,
-            "SetSplitting solution has {} variables but source requires {}",
-            target_solution.len(),
-            self.num_source_variables,
-        );
-        target_solution[..self.num_source_variables].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_source_variables].to_vec())
     }
 }
 
-fn literal_element_index(lit: i32, num_vars: usize) -> usize {
+fn literal_element_index(lit: i64, num_vars: usize) -> usize {
     let var_index = lit.unsigned_abs() as usize - 1;
     if lit > 0 {
         var_index
@@ -46,7 +45,7 @@ fn literal_element_index(lit: i32, num_vars: usize) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         universe_size = "2 * num_vars",
         num_subsets = "num_vars + num_clauses",
     }
@@ -54,7 +53,7 @@ fn literal_element_index(lit: i32, num_vars: usize) -> usize {
 impl ReduceTo<SetSplitting> for NAESatisfiability {
     type Result = ReductionNAESATToSetSplitting;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let mut subsets = Vec::with_capacity(num_vars + self.num_clauses());
 
@@ -72,10 +71,10 @@ impl ReduceTo<SetSplitting> for NAESatisfiability {
             );
         }
 
-        ReductionNAESATToSetSplitting {
+        Ok(ReductionNAESATToSetSplitting {
             target: SetSplitting::new(2 * num_vars, subsets),
             num_source_variables: num_vars,
-        }
+        })
     }
 }
 
@@ -96,8 +95,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     ],
                 ),
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![1, 1, 1, 0, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![true, true, true, false, false, false]),
                 },
             )
         },

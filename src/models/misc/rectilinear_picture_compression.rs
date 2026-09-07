@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Rectilinear Picture Compression",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Cover all 1-entries of a binary matrix with at most K axis-aligned all-1 rectangles",
         fields: &[
@@ -45,7 +46,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::RectilinearPictureCompression;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![true, true, false, false],
@@ -55,7 +56,7 @@ inventory::submit! {
 /// ];
 /// let problem = RectilinearPictureCompression::new(matrix, 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -234,62 +235,79 @@ impl RectilinearPictureCompression {
 
 impl Problem for RectilinearPictureCompression {
     const NAME: &'static str = "RectilinearPictureCompression";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.maximal_rects.len()]
-    }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let rects = &self.maximal_rects;
+                if config.len() != rects.len() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "rectangle-selection length does not match the maximal rectangles".into(),
+                    ));
+                }
+                // Count selected rectangles.
+                let selected_count = config.iter().filter(|&&selected| selected).count();
+                let selected_count = i64::try_from(selected_count).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting selected-rectangle count to i64".into(),
+                    )
+                })?;
+                if selected_count > self.bound {
+                    return Ok(crate::types::Or(false));
+                }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let rects = &self.maximal_rects;
-            if config.len() != rects.len() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-
-            // Count selected rectangles.
-            let selected_count: usize = config.iter().sum();
-            if (selected_count as i64) > self.bound {
-                return crate::types::Or(false);
-            }
-
-            // Check that all 1-entries are covered.
-            let m = self.num_rows();
-            let n = self.num_cols();
-            let mut covered = vec![vec![false; n]; m];
-            for (i, &x) in config.iter().enumerate() {
-                if x == 1 {
-                    let (r1, c1, r2, c2) = rects[i];
-                    for row in &mut covered[r1..=r2] {
-                        for cell in &mut row[c1..=c2] {
-                            *cell = true;
+                // Check that all 1-entries are covered.
+                let m = self.num_rows();
+                let n = self.num_cols();
+                let mut covered = vec![vec![false; n]; m];
+                for (i, &x) in config.iter().enumerate() {
+                    if x {
+                        let (r1, c1, r2, c2) = rects[i];
+                        for row in &mut covered[r1..=r2] {
+                            for cell in &mut row[c1..=c2] {
+                                *cell = true;
+                            }
                         }
                     }
                 }
-            }
 
-            for (row_m, row_c) in self.matrix.iter().zip(covered.iter()) {
-                for (&entry, &cov) in row_m.iter().zip(row_c.iter()) {
-                    if entry && !cov {
-                        return crate::types::Or(false);
+                for (row_m, row_c) in self.matrix.iter().zip(covered.iter()) {
+                    for (&entry, &cov) in row_m.iter().zip(row_c.iter()) {
+                        if entry && !cov {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for RectilinearPictureCompression {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.maximal_rects.len()]
     }
 }
 
 crate::declare_variants! {
     default RectilinearPictureCompression => "2^(num_rows * num_cols)",
+}
+
+crate::register_brute_force! {
+    RectilinearPictureCompression decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -308,7 +326,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![1, 1],
+        optimal_config: serde_json::json!(vec![true, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

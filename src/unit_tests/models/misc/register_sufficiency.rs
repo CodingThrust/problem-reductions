@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -34,7 +35,7 @@ fn test_register_sufficiency_basic() {
             (6, 5)
         ]
     );
-    assert_eq!(problem.dims(), vec![7; 7]);
+    assert_eq!(problem.dimensions(), vec![7; 7]);
     assert_eq!(
         <RegisterSufficiency as Problem>::NAME,
         "RegisterSufficiency"
@@ -62,10 +63,10 @@ fn test_register_sufficiency_evaluate_valid() {
     // Order: v0,v1,v2,v3,v5,v4,v6 (0-indexed)
     // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
     let config = vec![0, 1, 2, 3, 5, 4, 6];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     // Verify register count
-    let max_reg = problem.simulate_registers(&config).unwrap();
+    let max_reg = problem.simulate_registers(&config).unwrap().unwrap();
     assert_eq!(max_reg, 3);
 }
 
@@ -73,12 +74,21 @@ fn test_register_sufficiency_evaluate_valid() {
 fn test_register_sufficiency_evaluate_invalid_permutation() {
     let problem = RegisterSufficiency::new(4, vec![(2, 0), (3, 0), (3, 1)], 2);
     // Not a permutation: position 0 used twice
-    assert!(!problem.evaluate(&[0, 0, 1, 2]));
+    assert!(!problem.evaluate(&vec![0, 0, 1, 2]).unwrap());
     // Wrong length
-    assert!(!problem.evaluate(&[0, 1, 2]));
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 3, 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Position out of range
-    assert!(!problem.evaluate(&[0, 1, 2, 4]));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -86,7 +96,7 @@ fn test_register_sufficiency_evaluate_invalid_dependency() {
     // v2 depends on v0, v3 depends on v0 and v1
     let problem = RegisterSufficiency::new(4, vec![(2, 0), (3, 0), (3, 1)], 4);
     // v2 at position 0, v0 at position 1 -> v2 evaluated before its dependency v0
-    assert!(!problem.evaluate(&[1, 2, 0, 3]));
+    assert!(!problem.evaluate(&vec![1, 2, 0, 3]).unwrap());
 }
 
 #[test]
@@ -108,7 +118,7 @@ fn test_register_sufficiency_evaluate_exceeds_bound() {
     );
     // Same valid ordering but K=2 is too small
     let config = vec![0, 1, 2, 3, 5, 4, 6];
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -117,19 +127,20 @@ fn test_register_sufficiency_brute_force() {
     let problem = RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2);
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_register_sufficiency_brute_force_all() {
     let problem = RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -141,7 +152,7 @@ fn test_register_sufficiency_unsatisfiable() {
     // With K=1, impossible
     let problem = RegisterSufficiency::new(4, vec![(1, 0), (2, 1), (3, 2), (3, 0)], 1);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -172,17 +183,17 @@ fn test_register_sufficiency_serialization() {
 fn test_register_sufficiency_empty() {
     let problem = RegisterSufficiency::new(0, vec![], 0);
     assert_eq!(problem.num_vertices(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
 fn test_register_sufficiency_single_vertex() {
     let problem = RegisterSufficiency::new(1, vec![], 1);
-    assert!(problem.evaluate(&[0]));
+    assert!(problem.evaluate(&vec![0]).unwrap());
     // K=0 should fail (vertex needs one register)
     let problem_k0 = RegisterSufficiency::new(1, vec![], 0);
-    assert!(!problem_k0.evaluate(&[0]));
+    assert!(!problem_k0.evaluate(&vec![0]).unwrap());
 }
 
 #[test]
@@ -207,8 +218,8 @@ fn test_register_sufficiency_paper_example() {
     // = v0,v1,v2,v3,v5,v4,v6 (0-indexed)
     // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
     let config = vec![0, 1, 2, 3, 5, 4, 6];
-    assert!(problem.evaluate(&config));
-    assert_eq!(problem.simulate_registers(&config).unwrap(), 3);
+    assert!(problem.evaluate(&config).unwrap());
+    assert_eq!(problem.simulate_registers(&config).unwrap(), Some(3));
 
     // Verify K=2 is impossible using brute force
     let problem_k2 = RegisterSufficiency::new(
@@ -226,5 +237,5 @@ fn test_register_sufficiency_paper_example() {
         2,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem_k2).is_none());
+    assert!(solver.solve(&problem_k2).unwrap().is_none());
 }

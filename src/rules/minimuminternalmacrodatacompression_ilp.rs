@@ -95,73 +95,83 @@ impl ReductionResult for ReductionIMDCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.layout.n;
-        let k = self.alphabet_size;
-        let eos = k; // end-of-string marker
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // First pass: collect segments and build source-to-compressed-position map.
-        // source_to_c_pos[i] = compressed position that covers source position i.
-        let mut source_to_c_pos = vec![0usize; n];
-        let mut segments: Vec<(usize, usize, Option<usize>)> = Vec::new(); // (source_start, len, ref_source_pos)
-        let mut c_pos = 0;
-        let mut pos = 0;
+        Ok({
+            let n = self.layout.n;
+            let k = self.alphabet_size;
+            let eos = k; // end-of-string marker
 
-        while pos < n {
-            if target_solution[self.layout.lit_var(pos)] == 1 {
-                source_to_c_pos[pos] = c_pos;
-                segments.push((pos, 1, None));
-                c_pos += 1;
-                pos += 1;
-                continue;
-            }
-            let mut found = false;
-            for (idx, &(i, l, r)) in self.layout.ptr_triples.iter().enumerate() {
-                if i == pos && target_solution[self.layout.ptr_offset + idx] == 1 {
-                    for offset in 0..l {
-                        source_to_c_pos[pos + offset] = c_pos;
-                    }
-                    segments.push((pos, l, Some(r)));
+            // First pass: collect segments and build source-to-compressed-position map.
+            // source_to_c_pos[i] = compressed position that covers source position i.
+            let mut source_to_c_pos = vec![0usize; n];
+            let mut segments: Vec<(usize, usize, Option<usize>)> = Vec::new(); // (source_start, len, ref_source_pos)
+            let mut c_pos = 0;
+            let mut pos = 0;
+
+            while pos < n {
+                if target_solution[self.layout.lit_var(pos)] == 1 {
+                    source_to_c_pos[pos] = c_pos;
+                    segments.push((pos, 1, None));
                     c_pos += 1;
-                    pos += l;
-                    found = true;
-                    break;
+                    pos += 1;
+                    continue;
+                }
+                let mut found = false;
+                for (idx, &(i, l, r)) in self.layout.ptr_triples.iter().enumerate() {
+                    if i == pos && target_solution[self.layout.ptr_offset + idx] == 1 {
+                        for offset in 0..l {
+                            source_to_c_pos[pos + offset] = c_pos;
+                        }
+                        segments.push((pos, l, Some(r)));
+                        c_pos += 1;
+                        pos += l;
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    pos += 1;
                 }
             }
-            if !found {
-                pos += 1;
-            }
-        }
 
-        // Second pass: build config using source_to_c_pos for pointer references
-        let mut config = vec![eos; n];
-        for (idx, &(src_start, _len, ref_pos)) in segments.iter().enumerate() {
-            match ref_pos {
-                None => {
-                    config[idx] = self.source_string[src_start];
-                }
-                Some(r) => {
-                    // Pointer references source position r, which is at
-                    // compressed position source_to_c_pos[r]
-                    config[idx] = k + 1 + source_to_c_pos[r];
+            // Second pass: build config using source_to_c_pos for pointer references
+            let mut config = vec![eos; n];
+            for (idx, &(src_start, _len, ref_pos)) in segments.iter().enumerate() {
+                match ref_pos {
+                    None => {
+                        config[idx] = self.source_string[src_start];
+                    }
+                    Some(r) => {
+                        // Pointer references source position r, which is at
+                        // compressed position source_to_c_pos[r]
+                        config[idx] = k + 1 + source_to_c_pos[r];
+                    }
                 }
             }
-        }
 
-        config
+            config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "string_len + string_len ^ 3",
         num_constraints = "string_len + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
     type Result = ReductionIMDCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.string_len();
         let k = self.alphabet_size();
         let h = self.pointer_cost();
@@ -170,13 +180,14 @@ impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
         // Handle empty string
         if n == 0 {
             let layout = VarLayout::new(0, s);
-            let target = ILP::new(0, vec![], vec![], ObjectiveSense::Minimize);
-            return ReductionIMDCToILP {
+            let target = ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
+            return Ok(ReductionIMDCToILP {
                 target,
                 layout,
                 source_string: vec![],
                 alphabet_size: k,
-            };
+            });
         }
 
         let layout = VarLayout::new(n, s);
@@ -192,34 +203,34 @@ impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
         // At node j (1..n-1): sum of incoming = sum of outgoing
         // At node n: sum of incoming = 1
 
-        let segment_terms = |i: usize, l: usize| -> Vec<(usize, f64)> {
+        let segment_terms = |i: usize, l: usize| -> Vec<(usize, i64)> {
             let mut terms = Vec::new();
             if l == 1 {
-                terms.push((layout.lit_var(i), 1.0));
+                terms.push((layout.lit_var(i), 1));
             }
             // All ptr variables for segment (i, l, *)
             for (idx, &(pi, pl, _)) in layout.ptr_triples.iter().enumerate() {
                 if pi == i && pl == l {
-                    terms.push((layout.ptr_offset + idx, 1.0));
+                    terms.push((layout.ptr_offset + idx, 1));
                 }
             }
             terms
         };
 
         for node in 0..=n {
-            let mut all_terms: Vec<(usize, f64)> = Vec::new();
+            let mut all_terms: Vec<(usize, i64)> = Vec::new();
 
             if node == 0 {
                 for l in 1..=n {
                     all_terms.extend(segment_terms(0, l));
                 }
-                constraints.push(LinearConstraint::eq(all_terms, 1.0));
+                constraints.push(LinearConstraint::eq(all_terms, 1));
             } else if node == n {
                 for j in 0..n {
                     let l = n - j;
                     all_terms.extend(segment_terms(j, l));
                 }
-                constraints.push(LinearConstraint::eq(all_terms, 1.0));
+                constraints.push(LinearConstraint::eq(all_terms, 1));
             } else {
                 let mut incoming = Vec::new();
                 for j in 0..node {
@@ -236,7 +247,7 @@ impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
                 for (var, coef) in outgoing {
                     all_terms.push((var, -coef));
                 }
-                constraints.push(LinearConstraint::eq(all_terms, 0.0));
+                constraints.push(LinearConstraint::eq(all_terms, 0));
             }
         }
 
@@ -250,22 +261,23 @@ impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
         // Since each literal contributes 1 to |C| and each pointer contributes
         // 1 to |C| plus (h-1) to the pointer penalty:
         // cost = |C| + (h-1)*pointers = (lits + ptrs) + (h-1)*ptrs = lits + h*ptrs
-        let mut objective: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, i64)> = Vec::new();
         for i in 0..n {
-            objective.push((layout.lit_var(i), 1.0));
+            objective.push((layout.lit_var(i), 1));
         }
         for (idx, _) in layout.ptr_triples.iter().enumerate() {
-            objective.push((layout.ptr_offset + idx, h as f64));
+            objective.push((layout.ptr_offset + idx, h));
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionIMDCToILP {
+        Ok(ReductionIMDCToILP {
             target,
             layout,
             source_string: s.to_vec(),
             alphabet_size: k,
-        }
+        })
     }
 }
 
@@ -280,20 +292,23 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimuminternalmacrodatacompression_to_ilp",
         build: || {
             let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let layout = &reduction.layout;
 
-            let mut target_config = vec![0usize; layout.total_vars];
+            let mut target_config = vec![0_i64; layout.total_vars];
             target_config[layout.lit_var(0)] = 1;
             target_config[layout.lit_var(1)] = 1;
 
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
 
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Minimum Fault Detection Test Set",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum set of input-output paths covering all internal DAG vertices",
         fields: &[
@@ -44,7 +45,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumFaultDetectionTestSet;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = MinimumFaultDetectionTestSet::new(
 ///     7,
@@ -53,9 +54,8 @@ inventory::submit! {
 ///     vec![5, 6],
 /// );
 /// let solver = BruteForce::new();
-/// use problemreductions::solvers::Solver as _;
-/// let optimal = solver.solve(&problem);
-/// assert_eq!(optimal, problemreductions::types::Min(Some(2)));
+/// let solution = solver.solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), problemreductions::types::Min(Some(2)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct MinimumFaultDetectionTestSet {
@@ -269,61 +269,83 @@ impl MinimumFaultDetectionTestSet {
 
 impl Problem for MinimumFaultDetectionTestSet {
     const NAME: &'static str = "MinimumFaultDetectionTestSet";
-    type Value = Min<usize>;
+    type Solution = Vec<Vec<bool>>;
+    type Value = Min<i64>;
+
+    crate::problem_parameters![
+        ("num_arcs", num_arcs),
+        ("num_inputs", num_inputs),
+        ("num_outputs", num_outputs),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.inputs.len() * self.outputs.len()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let num_pairs = self.inputs.len() * self.outputs.len();
-        if config.len() != num_pairs {
-            return Min(None);
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if solution.len() != self.inputs.len()
+            || solution.iter().any(|row| row.len() != self.outputs.len())
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "fault-test matrix dimensions do not match the instance".into(),
+            ));
         }
-        if config.iter().any(|&c| c > 1) {
-            return Min(None);
-        }
-
-        let mut boundary = vec![false; self.num_vertices];
-        for &input in &self.inputs {
-            boundary[input] = true;
-        }
-        for &output in &self.outputs {
-            boundary[output] = true;
-        }
-        let required_internal_vertices =
-            boundary.iter().filter(|&&is_boundary| !is_boundary).count();
-
-        // Collect union of internal vertices covered by the selected pairs.
-        let mut covered: HashSet<usize> = HashSet::new();
-        let mut count = 0usize;
-        for (idx, &sel) in config.iter().enumerate() {
-            if sel == 1 {
-                count += 1;
-                covered.extend(
-                    self.coverage[idx]
-                        .iter()
-                        .copied()
-                        .filter(|&vertex| !boundary[vertex]),
-                );
+        Ok({
+            let mut boundary = vec![false; self.num_vertices];
+            for &input in &self.inputs {
+                boundary[input] = true;
             }
-        }
+            for &output in &self.outputs {
+                boundary[output] = true;
+            }
+            let required_internal_vertices =
+                boundary.iter().filter(|&&is_boundary| !is_boundary).count();
 
-        // Check all internal vertices are covered.
-        if covered.len() == required_internal_vertices {
-            Min(Some(count))
-        } else {
-            Min(None)
-        }
+            // Collect union of internal vertices covered by the selected pairs.
+            let mut covered: HashSet<usize> = HashSet::new();
+            let mut count = 0usize;
+            for (idx, &selected) in solution.iter().flatten().enumerate() {
+                if selected {
+                    count += 1;
+                    covered.extend(
+                        self.coverage[idx]
+                            .iter()
+                            .copied()
+                            .filter(|&vertex| !boundary[vertex]),
+                    );
+                }
+            }
+
+            // Check all internal vertices are covered.
+            if covered.len() == required_internal_vertices {
+                Min(Some(i64::try_from(count).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting test-set size to i64".into(),
+                    )
+                })?))
+            } else {
+                Min(None)
+            }
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumFaultDetectionTestSet {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.inputs.len() * self.outputs.len()]
     }
 }
 
 crate::declare_variants! {
     default MinimumFaultDetectionTestSet => "2^(num_inputs * num_outputs)",
+}
+
+crate::register_brute_force! {
+    MinimumFaultDetectionTestSet decode |problem: &MinimumFaultDetectionTestSet, indices: Vec<usize>| if problem.num_outputs() == 0 { vec![Vec::new(); problem.num_inputs()] } else { indices.chunks(problem.num_outputs()).map(crate::config::config_to_bits).collect() },
 }
 
 #[cfg(feature = "example-db")]
@@ -350,7 +372,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1],
             vec![5, 6],
         )),
-        optimal_config: vec![1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![vec![true, false], vec![false, true]]),
         optimal_value: serde_json::json!(2),
     }]
 }

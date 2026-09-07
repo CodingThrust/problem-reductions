@@ -1,7 +1,20 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
+
+#[test]
+fn create_spec_uses_sink_input() {
+    assert_eq!(GeneralizedHexCreateSpec::FIELDS[2].name, "sink");
+    let problem = GeneralizedHex::try_from(GeneralizedHexCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        source: 0,
+        sink: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.target(), 1);
+}
 
 fn issue_example() -> GeneralizedHex<SimpleGraph> {
     GeneralizedHex::new(
@@ -44,31 +57,28 @@ fn test_generalized_hex_creation_and_getters() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.num_playable_vertices(), 4);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
     assert_eq!(problem.graph().num_vertices(), 6);
 }
 
 #[test]
 fn test_generalized_hex_forced_win_on_bottleneck_example() {
     let problem = winning_example();
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&()).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_detects_losing_position() {
     let problem = GeneralizedHex::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 0, 3);
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&()).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_solver_returns_empty_config_for_win() {
     let problem = winning_example();
     let solver = BruteForce::new();
-    assert_eq!(solver.find_witness(&problem), Some(vec![]));
-    assert_eq!(
-        solver.find_all_witnesses(&problem),
-        Vec::<Vec<usize>>::from([vec![]])
-    );
+    assert_eq!(solver.solve(&problem).unwrap(), Some(()));
+    assert_eq!(solver.find_all_witnesses(&problem).unwrap(), vec![()]);
 }
 
 #[test]
@@ -86,20 +96,20 @@ fn test_generalized_hex_serialization_round_trip() {
     let decoded: GeneralizedHex<SimpleGraph> = serde_json::from_str(&json).unwrap();
     assert_eq!(decoded.source(), 0);
     assert_eq!(decoded.target(), 5);
-    assert!(decoded.evaluate(&[]));
+    assert!(decoded.evaluate(&()).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_issue_example_is_losing_under_optimal_play() {
     let problem = issue_example();
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&()).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_paper_example() {
     let problem = winning_example();
-    assert!(problem.evaluate(&[]));
-    assert_eq!(BruteForce::new().find_witness(&problem), Some(vec![]));
+    assert!(problem.evaluate(&()).unwrap());
+    assert_eq!(BruteForce::new().solve(&problem).unwrap(), Some(()));
 }
 
 #[test]

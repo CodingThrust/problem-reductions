@@ -3,14 +3,14 @@
 //! Given a graph G = (V, E), construct an EnsembleComputation instance where:
 //! - Universe A = V ∪ {a₀} (fresh element a₀ at index |V|)
 //! - Collection C = {{a₀, u, v} : {u,v} ∈ E}
-//! - Budget = |V| + |E| (search space bound; the optimal value encodes K*)
+//! - Budget = max(1, |V| + |E|) (positive search-space bound)
 //!
-//! The minimum sequence length is K* + |E|, where K* is the minimum vertex
+//! For loopless simple graphs, the minimum sequence length is K* + |E|, where K* is the minimum vertex
 //! cover size. This follows from the Garey & Johnson proof (PO9): each cover
 //! vertex contributes one {a₀} ∪ {v} operation, and each edge contributes
 //! one {u} ∪ z_k operation.
 //!
-//! Reference: Garey & Johnson, *Computers and Intractability*, Appendix Problem PO9.
+//! Reference: Garey & Johnson, *Computers and Intractability*, Theorem 3.6, pp. 66–68 (also Appendix PO9).
 
 use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::EnsembleComputation;
@@ -35,73 +35,89 @@ impl ReductionResult for ReductionVCToEC {
         &self.target
     }
 
-    /// Extract a vertex cover from an EnsembleComputation witness.
-    ///
-    /// The GJ proof shows that any minimum-length sequence can be normalized
-    /// so that only two forms of operations appear:
-    /// - z_i = {a₀} ∪ {v}  — vertex v is in the cover
-    /// - z_j = {u} ∪ z_k   — edge {u, v_r} is covered by v_r
-    ///
-    /// We collect all vertices that appear as singleton operands (index < |V|)
-    /// in the meaningful steps only (before all required subsets are covered).
-    /// Padding steps beyond the coverage point are ignored.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        use crate::traits::Problem;
-        use crate::types::Min;
-
-        let meaningful_steps = match self.target.evaluate(target_solution) {
-            Min(Some(n)) => n,
-            _ => return vec![0; self.num_vertices],
+    /// Extract one vertex per pair-producing operation in the evaluated prefix.
+    /// Every required triple uses an earlier pair. The chosen endpoint covers
+    /// its edge. An L-step program yields at most L minus the number of
+    /// distinct required triples; loops instead require endpoint pairs.
+    /// This applies to arbitrary programs, without a normal-form assumption.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let crate::types::Min(Some(length)) = value else {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target configuration does not encode a valid ensemble computation",
+            ));
         };
-        let mut cover = vec![0usize; self.num_vertices];
-
-        for step in 0..meaningful_steps {
-            let left = target_solution[2 * step];
-            let right = target_solution[2 * step + 1];
-
-            if left < self.num_vertices {
-                cover[left] = 1;
-            }
-            if right < self.num_vertices {
-                cover[right] = 1;
+        let meaningful_steps = usize::try_from(length).map_err(|_| {
+            crate::rules::ExtractionError::invalid(
+                "ensemble operation count cannot be represented as usize",
+            )
+        })?;
+        let mut cover = vec![false; self.num_vertices];
+        let universe_size = self.target.universe_size();
+        for &[left, right] in target_solution
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .take(meaningful_steps)
+        {
+            if left < universe_size && right < universe_size {
+                // Only two singleton operands can produce a two-element set.
+                // The fresh atom is largest, so min selects the original
+                // vertex in {a0,v}, or an endpoint of an edge-pair {u,v}.
+                cover[left.min(right)] = true;
             }
         }
-
-        cover
+        Ok(cover)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         universe_size = "num_vertices + 1",
         num_subsets = "num_edges",
+        budget = "num_vertices + num_edges + 1",
     }
 )]
 impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToEC;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.graph().num_vertices();
         let edges = self.graph().edges();
         let num_edges = edges.len();
         let a0 = num_vertices; // fresh element index
 
         // Universe A = V ∪ {a₀}, size = |V| + 1
-        let universe_size = num_vertices + 1;
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, EnsembleComputation>(
+                "computing ensemble universe, budget, or operand dimensions",
+            )
+        };
+        let universe_size = num_vertices.checked_add(1).ok_or_else(overflow)?;
 
         // Collection C: for each edge {u, v}, add subset {a₀, u, v}
         let subsets: Vec<Vec<usize>> = edges.iter().map(|&(u, v)| vec![a0, u, v]).collect();
 
         // Budget bounds the search space; the optimal sequence length
         // is K* + |E| where K* is the minimum vertex cover size.
-        let budget = num_vertices + num_edges;
+        let budget = num_vertices
+            .checked_add(num_edges)
+            .ok_or_else(overflow)?
+            .max(1);
+        universe_size.checked_add(budget).ok_or_else(overflow)?;
+        budget.checked_mul(2).ok_or_else(overflow)?;
 
-        let target = EnsembleComputation::new(universe_size, subsets, budget);
+        let target = EnsembleComputation::try_new(universe_size, subsets, budget)
+            .map_err(crate::rules::ReductionError::construction::<Self, EnsembleComputation>)?;
 
-        ReductionVCToEC {
+        Ok(ReductionVCToEC {
             target,
             num_vertices,
-        }
+        })
     }
 }
 
@@ -128,17 +144,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1, 3, // step 1: {1} ∪ z₀
                 2, 1, // step 2: padding
             ];
-            // Extraction picks up vertices 0 (step 0) and 1 (step 1) from the
-            // 2 meaningful steps. Step 2 is padding and is ignored.
-            // Cover {0,1} is valid (though not minimum — the optimal witness
-            // is found by BruteForce, giving cover {0} or {1}).
-            let source_config = vec![1, 1];
+            // Only step 0 produces a pair; step 1 produces the required
+            // triple, and step 2 is padding. Extraction returns minimum {0}.
+            let source_config = vec![true, false];
 
             crate::example_db::specs::rule_example_with_witness::<_, EnsembleComputation>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

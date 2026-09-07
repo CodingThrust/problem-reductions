@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Cosine Product Integration",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Decide whether a balanced sign assignment exists for a sequence of integer frequencies",
         fields: &[
@@ -45,12 +46,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::CosineProductIntegration;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // coefficients [2, 3, 5]: sign assignment (+2, +3, -5) = 0
 /// let problem = CosineProductIntegration::new(vec![2, 3, 5]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,39 +86,54 @@ impl CosineProductIntegration {
 
 impl Problem for CosineProductIntegration {
     const NAME: &'static str = "CosineProductIntegration";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_coefficients", num_coefficients),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_coefficients()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_coefficients() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-            let signed_sum: i128 = self
-                .coefficients
-                .iter()
-                .zip(config.iter())
-                .map(|(&a, &bit)| {
-                    let val = a as i128;
-                    if bit == 0 {
-                        val
-                    } else {
-                        -val
-                    }
-                })
-                .sum();
-            signed_sum == 0
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_coefficients() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "sign-selection length does not match the coefficients".into(),
+                    ));
+                }
+                let signed_sum = self.coefficients.iter().zip(config.iter()).try_fold(
+                    0_i64,
+                    |total, (&coefficient, &bit)| {
+                        let term = if !bit {
+                            coefficient
+                        } else {
+                            coefficient.checked_neg().ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "negating cosine-product coefficient".into(),
+                                )
+                            })?
+                        };
+                        total.checked_add(term).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing signed cosine-product coefficients".into(),
+                            )
+                        })
+                    },
+                )?;
+                signed_sum == 0
+            })
         })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for CosineProductIntegration {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_coefficients()]
     }
 }
 
@@ -125,12 +141,16 @@ crate::declare_variants! {
     default CosineProductIntegration => "2^(num_coefficients / 2)",
 }
 
+crate::register_brute_force! {
+    CosineProductIntegration decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "cosine_product_integration",
         instance: Box::new(CosineProductIntegration::new(vec![2, 3, 5])),
-        optimal_config: vec![0, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

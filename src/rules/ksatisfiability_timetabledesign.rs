@@ -23,9 +23,8 @@
 use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-#[cfg(any(test, feature = "example-db"))]
-use crate::traits::Problem;
 use crate::variant::K3;
 use std::collections::VecDeque;
 
@@ -111,7 +110,7 @@ struct ReductionLayout {
     num_periods: usize,
     craftsman_avail: Vec<Vec<bool>>,
     task_avail: Vec<Vec<bool>>,
-    requirements: Vec<Vec<u64>>,
+    requirements: Vec<Vec<i64>>,
     pure_assignments: Vec<Option<usize>>,
     transformed_to_original: Vec<usize>,
     normalized_clauses: Vec<CNFClause>,
@@ -127,14 +126,14 @@ pub struct Reduction3SATToTimetableDesign {
     layout: ReductionLayout,
 }
 
-fn literal_var_index(literal: i32) -> usize {
-    literal.unsigned_abs() as usize - 1
+fn literal_var_index(literal: i64) -> usize {
+    usize::try_from(literal.unsigned_abs()).expect("SAT literal magnitude must fit usize") - 1
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn evaluate_clause(clause: &CNFClause, assignment: &[usize]) -> bool {
+fn evaluate_clause(clause: &CNFClause, assignment: &[bool]) -> bool {
     clause.literals.iter().any(|&literal| {
-        let value = assignment[literal_var_index(literal)] == 1;
+        let value = assignment[literal_var_index(literal)];
         if literal > 0 {
             value
         } else {
@@ -203,7 +202,11 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
     let (mut clauses, pure_assignments) = eliminate_pure_literals(source);
     let source_num_vars = source.num_vars();
     let mut transformed_to_original = Vec::new();
-    let mut next_var = source_num_vars + 1;
+    let mut variables = SatVariableAllocator::new(
+        "KSatisfiability -> TimetableDesign normalization",
+        source_num_vars,
+    )
+    .unwrap_or_else(|message| panic!("{message}"));
 
     for original_var in 1..=source_num_vars {
         let mut occurrences = Vec::new();
@@ -220,41 +223,38 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
         }
 
         if occurrences.len() <= 3 {
-            let replacement = next_var;
-            next_var += 1;
+            let replacement = variables
+                .allocate()
+                .unwrap_or_else(|message| panic!("{message}"));
             transformed_to_original.push(original_var - 1);
             for (clause_idx, lit_idx, is_positive) in occurrences {
                 clauses[clause_idx].literals[lit_idx] = if is_positive {
-                    replacement as i32
+                    replacement
                 } else {
-                    -(replacement as i32)
+                    -replacement
                 };
             }
             continue;
         }
 
-        let replacements: Vec<usize> = (0..occurrences.len())
-            .map(|_| {
-                let id = next_var;
-                next_var += 1;
-                transformed_to_original.push(original_var - 1);
-                id
-            })
-            .collect();
+        let replacements = variables
+            .allocate_many(occurrences.len())
+            .unwrap_or_else(|message| panic!("{message}"));
+        transformed_to_original.extend(std::iter::repeat_n(original_var - 1, replacements.len()));
 
         for ((clause_idx, lit_idx, is_positive), replacement) in
             occurrences.into_iter().zip(replacements.iter().copied())
         {
             clauses[clause_idx].literals[lit_idx] = if is_positive {
-                replacement as i32
+                replacement
             } else {
-                -(replacement as i32)
+                -replacement
             };
         }
 
         for idx in 0..replacements.len() {
-            let current = replacements[idx] as i32;
-            let next = replacements[(idx + 1) % replacements.len()] as i32;
+            let current = replacements[idx];
+            let next = replacements[(idx + 1) % replacements.len()];
             clauses.push(CNFClause::new(vec![current, -next]));
         }
     }
@@ -262,13 +262,16 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
     for clause in &mut clauses {
         for literal in &mut clause.literals {
             let sign = if *literal < 0 { -1 } else { 1 };
-            let temp_var = literal.unsigned_abs() as usize;
+            let temp_var = usize::try_from(literal.unsigned_abs())
+                .expect("SAT literal magnitude must fit usize");
             debug_assert!(
                 temp_var > source_num_vars,
                 "all residual literals should have been replaced by transformed variables"
             );
             let compact_var = temp_var - source_num_vars;
-            *literal = sign * compact_var as i32;
+            *literal = sign
+                * i64::try_from(compact_var)
+                    .expect("checked normalized SAT variable count fits i64");
         }
     }
 
@@ -311,7 +314,7 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
 #[cfg(any(test, feature = "example-db"))]
 fn choose_clause_edge_color(
     clause: &CNFClause,
-    assignment: &[usize],
+    assignment: &[bool],
     colors: &[usize],
 ) -> Option<usize> {
     clause
@@ -319,7 +322,7 @@ fn choose_clause_edge_color(
         .iter()
         .zip(colors.iter().copied())
         .find_map(|(&literal, color)| {
-            let value = assignment[literal_var_index(literal)] == 1;
+            let value = assignment[literal_var_index(literal)];
             let satisfied = if literal > 0 { value } else { !value };
             satisfied.then_some(color)
         })
@@ -372,14 +375,9 @@ fn add_direct_clause_edge(
     EdgeEncoding::Direct { edge, allowed }
 }
 
-fn core_edge_color(
-    solution: &[usize],
-    pair: (usize, usize),
-    num_tasks: usize,
-    num_periods: usize,
-) -> usize {
+fn core_edge_color(solution: &[Vec<Vec<bool>>], pair: (usize, usize), num_periods: usize) -> usize {
     (0..num_periods)
-        .find(|&period| solution[((pair.0 * num_tasks) + pair.1) * num_periods + period] == 1)
+        .find(|&period| solution[pair.0][pair.1][period])
         .expect("each required pair should be scheduled exactly once")
 }
 
@@ -605,7 +603,7 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
 
     let mut craftsman_avail = vec![vec![true; num_periods]; num_craftsmen];
     let mut task_avail = vec![vec![true; num_periods]; num_tasks];
-    let mut requirements = vec![vec![0u64; num_tasks]; num_craftsmen];
+    let mut requirements = vec![vec![0i64; num_tasks]; num_craftsmen];
     let mut edge_pairs = vec![(usize::MAX, usize::MAX); graph.edges.len()];
 
     for (edge_idx, &(u, v)) in graph.edges.iter().enumerate() {
@@ -658,7 +656,7 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
 
 impl Reduction3SATToTimetableDesign {
     #[cfg(any(test, feature = "example-db"))]
-    fn construct_target_solution(&self, source_assignment: &[usize]) -> Option<Vec<usize>> {
+    fn construct_target_solution(&self, source_assignment: &[bool]) -> Option<Vec<Vec<Vec<bool>>>> {
         if source_assignment.len() != self.layout.source_num_vars {
             return None;
         }
@@ -667,12 +665,12 @@ impl Reduction3SATToTimetableDesign {
             .pure_assignments
             .iter()
             .enumerate()
-            .any(|(var, fixed)| fixed.is_some_and(|value| source_assignment[var] != value))
+            .any(|(var, fixed)| fixed.is_some_and(|value| source_assignment[var] != (value == 1)))
         {
             return None;
         }
 
-        let transformed_assignment: Vec<usize> = self
+        let transformed_assignment: Vec<bool> = self
             .layout
             .transformed_to_original
             .iter()
@@ -691,7 +689,7 @@ impl Reduction3SATToTimetableDesign {
         let mut colors = vec![None; self.layout.edge_pairs.len()];
 
         for (transformed_var, encoding) in self.layout.variable_encodings.iter().enumerate() {
-            let choose_first = transformed_assignment[transformed_var] == 1;
+            let choose_first = transformed_assignment[transformed_var];
             for edge in [
                 &encoding.ab,
                 &encoding.bc,
@@ -725,12 +723,13 @@ impl Reduction3SATToTimetableDesign {
 
         let num_tasks = self.target.num_tasks();
         let num_periods = self.target.num_periods();
-        let mut config = vec![0usize; self.target.dims().len()];
+        let mut config =
+            vec![vec![vec![false; num_periods]; num_tasks]; self.target.num_craftsmen()];
 
         for (edge_idx, color) in colors.into_iter().enumerate() {
             let (craft, task) = self.layout.edge_pairs[edge_idx];
             let color = color.expect("all core edges should be colored");
-            config[((craft * num_tasks) + task) * num_periods + color] = 1;
+            config[craft][task][color] = true;
         }
 
         Some(config)
@@ -745,51 +744,59 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_tasks = self.target.num_tasks();
-        let num_periods = self.target.num_periods();
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let mut transformed_assignment = vec![0usize; self.layout.transformed_to_original.len()];
-        for (index, encoding) in self.layout.variable_encodings.iter().enumerate() {
-            let vb_pair = match &encoding.vb {
-                EdgeEncoding::Direct { edge, .. } => self.layout.edge_pairs[*edge],
-                EdgeEncoding::TwoList { left_outer, .. } => self.layout.edge_pairs[*left_outer],
-            };
-            let vb_color = core_edge_color(target_solution, vb_pair, num_tasks, num_periods);
-            transformed_assignment[index] = usize::from(vb_color == encoding.neg2);
-        }
+        Ok({
+            let num_periods = self.target.num_periods();
 
-        let mut source_assignment = vec![0usize; self.layout.source_num_vars];
-        for (var, fixed) in self.layout.pure_assignments.iter().copied().enumerate() {
-            if let Some(value) = fixed {
-                source_assignment[var] = value;
+            let mut transformed_assignment = vec![false; self.layout.transformed_to_original.len()];
+            for (index, encoding) in self.layout.variable_encodings.iter().enumerate() {
+                let vb_pair = match &encoding.vb {
+                    EdgeEncoding::Direct { edge, .. } => self.layout.edge_pairs[*edge],
+                    EdgeEncoding::TwoList { left_outer, .. } => self.layout.edge_pairs[*left_outer],
+                };
+                let vb_color = core_edge_color(target_solution, vb_pair, num_periods);
+                transformed_assignment[index] = vb_color == encoding.neg2;
             }
-        }
 
-        let mut seen_transformed = vec![false; self.layout.source_num_vars];
-        for (value, &original_var) in transformed_assignment
-            .iter()
-            .zip(self.layout.transformed_to_original.iter())
-        {
-            if !seen_transformed[original_var] {
-                source_assignment[original_var] = *value;
-                seen_transformed[original_var] = true;
+            let mut source_assignment = vec![false; self.layout.source_num_vars];
+            for (var, fixed) in self.layout.pure_assignments.iter().copied().enumerate() {
+                if let Some(value) = fixed {
+                    source_assignment[var] = value == 1;
+                }
             }
-        }
 
-        source_assignment
+            let mut seen_transformed = vec![false; self.layout.source_num_vars];
+            for (value, &original_var) in transformed_assignment
+                .iter()
+                .zip(self.layout.transformed_to_original.iter())
+            {
+                if !seen_transformed[original_var] {
+                    source_assignment[original_var] = *value;
+                    seen_transformed[original_var] = true;
+                }
+            }
+
+            source_assignment
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_periods = "4 * num_literals",
-    num_craftsmen = "24 * num_literals + 1",
-    num_tasks = "24 * num_literals + 1",
-})]
+#[reduction(
+    transform = upper_bound {
+        num_periods = "4 * num_literals",
+        num_craftsmen = "24 * num_literals + 1",
+        num_tasks = "24 * num_literals + 1",
+    }
+)]
 impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
     type Result = Reduction3SATToTimetableDesign;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let layout = build_layout(self);
         let target = TimetableDesign::new(
             layout.num_periods,
@@ -800,7 +807,7 @@ impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
             layout.requirements.clone(),
         );
 
-        Reduction3SATToTimetableDesign { target, layout }
+        Ok(Reduction3SATToTimetableDesign { target, layout })
     }
 }
 
@@ -808,10 +815,11 @@ impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
 #[allow(dead_code)]
 pub(super) fn construct_timetable_from_assignment(
     target: &TimetableDesign,
-    assignment: &[usize],
+    assignment: &[bool],
     source: &KSatisfiability<K3>,
-) -> Option<Vec<usize>> {
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(source);
+) -> Option<Vec<Vec<Vec<bool>>>> {
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(source).expect("reduction should succeed");
     if reduction.target_problem().num_periods() != target.num_periods()
         || reduction.target_problem().num_craftsmen() != target.num_craftsmen()
         || reduction.target_problem().num_tasks() != target.num_tasks()
@@ -839,8 +847,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, -2, -3]),
                 ],
             );
-            let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
-            let source_config = vec![1, 0, 0];
+            let reduction =
+                ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
+            let source_config = vec![true, false, false];
             let target_config = reduction
                 .construct_target_solution(&source_config)
                 .expect("canonical satisfying assignment should lift to timetable");
@@ -848,8 +857,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, TimetableDesign>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

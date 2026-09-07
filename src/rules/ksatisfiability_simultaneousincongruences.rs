@@ -6,7 +6,6 @@
 
 use std::collections::BTreeMap;
 
-use crate::models::algebraic::simultaneous_incongruences::MAX_LCM;
 use crate::models::algebraic::SimultaneousIncongruences;
 use crate::models::formula::{ksat::first_n_odd_primes, CNFClause, KSatisfiability};
 use crate::reduction;
@@ -27,16 +26,27 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let x = target_solution.first().copied().unwrap_or(0) as u64;
-        self.variable_primes
-            .iter()
-            .map(|&prime| if x % prime == 1 { 1 } else { 0 })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let x = u64::try_from(*target_solution).map_err(|_| {
+                crate::rules::ExtractionError::invalid(
+                    "target value cannot be represented in the CRT implementation domain",
+                )
+            })?;
+            self.variable_primes
+                .iter()
+                .map(|&prime| x % prime == 1)
+                .collect()
+        })
     }
 }
 
-fn falsifying_residue(literal: i32) -> u64 {
+fn falsifying_residue(literal: i64) -> u64 {
     if literal > 0 {
         2
     } else {
@@ -44,7 +54,7 @@ fn falsifying_residue(literal: i32) -> u64 {
     }
 }
 
-fn modular_inverse(value: u64, modulus: u64) -> u64 {
+fn modular_inverse(value: u64, modulus: u64) -> Option<u64> {
     let mut t = 0i128;
     let mut new_t = 1i128;
     let mut r = modulus as i128;
@@ -56,38 +66,48 @@ fn modular_inverse(value: u64, modulus: u64) -> u64 {
         (r, new_r) = (new_r, r - quotient * new_r);
     }
 
-    assert_eq!(r, 1, "value and modulus must be coprime");
+    if r != 1 {
+        return None;
+    }
     if t < 0 {
         t += modulus as i128;
     }
-    t as u64
+    Some(t as u64)
 }
 
-fn crt_residue(congruences: &[(u64, u64)]) -> (u64, u64) {
-    let modulus = congruences.iter().fold(1u64, |product, &(m, _)| {
-        product
-            .checked_mul(m)
-            .expect("CRT modulus product overflow")
-    });
+fn crt_residue(congruences: &[(u64, u64)]) -> Result<(u64, u64), &'static str> {
+    let modulus = congruences
+        .iter()
+        .try_fold(1u64, |product, &(m, _)| product.checked_mul(m))
+        .ok_or("CRT modulus product overflow")?;
 
     let residue = congruences
         .iter()
-        .fold(0u128, |acc, &(modulus_i, residue_i)| {
+        .try_fold(0u128, |acc, &(modulus_i, residue_i)| {
             let partial = modulus / modulus_i;
-            let inverse = modular_inverse(partial % modulus_i, modulus_i);
-            acc + residue_i as u128 * partial as u128 * inverse as u128
-        })
+            let inverse = modular_inverse(partial % modulus_i, modulus_i)
+                .ok_or("CRT moduli must be pairwise coprime")?;
+            let term = u128::from(residue_i)
+                .checked_mul(u128::from(partial))
+                .and_then(|value| value.checked_mul(u128::from(inverse)))
+                .ok_or("CRT residue term overflow")?;
+            acc.checked_add(term).ok_or("CRT residue sum overflow")
+        })?
         % modulus as u128;
 
-    (residue as u64, modulus)
+    Ok((residue as u64, modulus))
 }
 
-fn clause_bad_residue(clause: &CNFClause, variable_primes: &[u64]) -> (u64, u64) {
+fn clause_bad_residue(
+    clause: &CNFClause,
+    variable_primes: &[u64],
+) -> Result<(u64, u64), &'static str> {
     let mut residue_by_var = BTreeMap::new();
     let mut contradictory_var = None;
 
     for &literal in &clause.literals {
-        let var_index = literal.unsigned_abs() as usize - 1;
+        let var_index =
+            usize::try_from(literal.unsigned_abs()).map_err(|_| "literal index exceeds usize")? - 1;
         let residue = falsifying_residue(literal);
 
         match residue_by_var.insert(var_index, residue) {
@@ -105,7 +125,9 @@ fn clause_bad_residue(clause: &CNFClause, variable_primes: &[u64]) -> (u64, u64)
 
     if let Some(var_index) = contradictory_var {
         for &literal in &clause.literals {
-            let candidate = literal.unsigned_abs() as usize - 1;
+            let candidate = usize::try_from(literal.unsigned_abs())
+                .map_err(|_| "literal index exceeds usize")?
+                - 1;
             if candidate != var_index {
                 residue_by_var
                     .entry(candidate)
@@ -117,45 +139,55 @@ fn clause_bad_residue(clause: &CNFClause, variable_primes: &[u64]) -> (u64, u64)
     let congruences = residue_by_var
         .into_iter()
         .map(|(var_index, residue)| {
-            (
-                *variable_primes
-                    .get(var_index)
-                    .expect("clause variable index must be within num_vars"),
-                residue,
-            )
+            variable_primes
+                .get(var_index)
+                .copied()
+                .map(|prime| (prime, residue))
+                .ok_or("clause variable index exceeds num_vars")
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
 
     crt_residue(&congruences)
 }
 
-fn ensure_prime_product_within_lcm_cap(variable_primes: &[u64]) {
+fn ensure_prime_product_fits_target(
+    variable_primes: &[u64],
+) -> Result<(), crate::registry::ConstructionError> {
     let mut product = 1u128;
     for &prime in variable_primes {
-        product = product.checked_mul(prime as u128).unwrap_or_else(|| {
-            panic!(
-                "3-SAT -> SimultaneousIncongruences requires the variable-prime product to fit within the target model's LCM cap ({MAX_LCM}); num_vars={} overflows while multiplying primes",
+        product = product.checked_mul(prime as u128).ok_or_else(|| {
+            format!(
+                "variable-prime product overflows for {} variables",
                 variable_primes.len()
             )
-        });
-        if product > MAX_LCM {
-            panic!(
-                "3-SAT -> SimultaneousIncongruences requires the variable-prime product to fit within the target model's LCM cap ({MAX_LCM}); num_vars={} yields prime product {product}",
+        })?;
+        if product > i64::MAX as u128 {
+            return Err(format!(
+                "variable-prime product {product} for {} variables exceeds the target i64 domain",
                 variable_primes.len()
-            );
+            )
+            .into());
         }
     }
+    Ok(())
 }
 
-#[reduction(overhead = {
-    num_pairs = "simultaneous_incongruences_num_incongruences",
-})]
+#[reduction(
+    transform = unavailable {
+        num_pairs = "the number of residue pairs depends on the first num_vars odd primes and is not expressible in the size-expression language",
+    }
+)]
 impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToSimultaneousIncongruences;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let variable_primes = first_n_odd_primes(self.num_vars());
-        ensure_prime_product_within_lcm_cap(&variable_primes);
+        ensure_prime_product_fits_target(&variable_primes).map_err(|message| {
+            crate::rules::ReductionError::invalid_target::<
+                KSatisfiability<K3>,
+                SimultaneousIncongruences,
+            >(message.to_string())
+        })?;
 
         let mut pairs = Vec::new();
 
@@ -170,7 +202,13 @@ impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {
         }
 
         for clause in self.clauses() {
-            let (bad_residue, clause_modulus) = clause_bad_residue(clause, &variable_primes);
+            let (bad_residue, clause_modulus) = clause_bad_residue(clause, &variable_primes)
+                .map_err(|message| {
+                    crate::rules::ReductionError::invalid_target::<
+                        KSatisfiability<K3>,
+                        SimultaneousIncongruences,
+                    >(message)
+                })?;
             // The model requires a >= 1. Use modulus instead of 0 since
             // modulus % modulus = 0, achieving the same incongruence.
             let a = if bad_residue == 0 {
@@ -181,11 +219,31 @@ impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {
             pairs.push((a, clause_modulus));
         }
 
-        Reduction3SATToSimultaneousIncongruences {
-            target: SimultaneousIncongruences::new(pairs)
-                .expect("reduction produces valid incongruences"),
+        let pairs = pairs
+            .into_iter()
+            .map(|(residue, modulus)| {
+                Ok((
+                    i64::try_from(residue).map_err(|_| "residue exceeds i64")?,
+                    i64::try_from(modulus).map_err(|_| "modulus exceeds i64")?,
+                ))
+            })
+            .collect::<Result<Vec<_>, &str>>()
+            .map_err(|message| {
+                crate::rules::ReductionError::invalid_target::<
+                    KSatisfiability<K3>,
+                    SimultaneousIncongruences,
+                >(message)
+            })?;
+        let target = SimultaneousIncongruences::new(pairs).map_err(|message| {
+            crate::rules::ReductionError::construction::<
+                KSatisfiability<K3>,
+                SimultaneousIncongruences,
+            >(message)
+        })?;
+        Ok(Reduction3SATToSimultaneousIncongruences {
+            target,
             variable_primes,
-        }
+        })
     }
 }
 
@@ -206,8 +264,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, SimultaneousIncongruences>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1],
-                    target_config: vec![1],
+                    source_config: serde_json::json!(vec![true, true]),
+                    target_config: serde_json::json!(1),
                 },
             )
         },

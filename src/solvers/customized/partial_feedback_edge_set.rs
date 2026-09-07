@@ -8,7 +8,7 @@ use crate::topology::{Graph, SimpleGraph};
 
 /// Find a witness (binary edge-removal vector) for PartialFeedbackEdgeSet,
 /// or None if no solution exists within budget.
-pub(crate) fn find_witness(problem: &PartialFeedbackEdgeSet<SimpleGraph>) -> Option<Vec<usize>> {
+pub(crate) fn solve(problem: &PartialFeedbackEdgeSet<SimpleGraph>) -> Option<Vec<bool>> {
     let graph = problem.graph();
     let n = graph.num_vertices();
     let edges = graph.edges();
@@ -18,7 +18,7 @@ pub(crate) fn find_witness(problem: &PartialFeedbackEdgeSet<SimpleGraph>) -> Opt
 
     if max_cycle_len < 3 || n < 3 {
         // No cycles possible
-        return Some(vec![0; m]);
+        return Some(vec![false; m]);
     }
 
     // Build adjacency list with edge indices
@@ -33,7 +33,7 @@ pub(crate) fn find_witness(problem: &PartialFeedbackEdgeSet<SimpleGraph>) -> Opt
     let cycles = enumerate_short_cycles(n, &adj, max_cycle_len);
 
     if cycles.is_empty() {
-        return Some(vec![0; m]);
+        return Some(vec![false; m]);
     }
 
     // Branch-and-bound: find a set of at most `budget` edges that hits all cycles.
@@ -42,7 +42,7 @@ pub(crate) fn find_witness(problem: &PartialFeedbackEdgeSet<SimpleGraph>) -> Opt
 
     hitting_set_search(&cycles, budget, m, &mut removed, 0, 0, &mut best);
 
-    best.map(|rem| rem.iter().map(|&v| if v { 1 } else { 0 }).collect())
+    best
 }
 
 /// Enumerate all simple cycles of length <= max_len.

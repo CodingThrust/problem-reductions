@@ -1,12 +1,26 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 include!("../../jl_helpers.rs");
 
 #[test]
+fn test_minimum_set_covering_create_spec_uses_subsets_input() {
+    assert_eq!(MinimumSetCoveringCreateSpec::FIELDS[1].name, "subsets");
+    let problem = MinimumSetCovering::try_from(MinimumSetCoveringCreateSpec {
+        universe_size: 2,
+        subsets: vec![vec![0], vec![1]],
+        weights: vec![2, 3],
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![0], vec![1]]);
+    assert_eq!(problem.weights_ref(), &[2, 3]);
+}
+
+#[test]
 fn test_set_covering_creation() {
-    let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 3);
     assert_eq!(problem.num_variables(), 3);
@@ -20,14 +34,14 @@ fn test_set_covering_with_weights() {
 
 #[test]
 fn test_covered_elements() {
-    let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
-    let covered = problem.covered_elements(&[1, 0, 0]);
+    let covered = problem.covered_elements(&[true, false, false]);
     assert!(covered.contains(&0));
     assert!(covered.contains(&1));
     assert!(!covered.contains(&2));
 
-    let covered = problem.covered_elements(&[1, 0, 1]);
+    let covered = problem.covered_elements(&[true, false, true]);
     assert!(covered.contains(&0));
     assert!(covered.contains(&1));
     assert!(covered.contains(&2));
@@ -46,7 +60,7 @@ fn test_is_set_cover_function() {
 
 #[test]
 fn test_get_set() {
-    let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![2, 3]]);
+    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![2, 3]]);
     assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
     assert_eq!(problem.get_set(1), Some(&vec![2, 3]));
     assert_eq!(problem.get_set(2), None);
@@ -54,9 +68,9 @@ fn test_get_set() {
 
 #[test]
 fn test_empty_universe() {
-    let problem = MinimumSetCovering::<i32>::new(0, vec![]);
+    let problem = MinimumSetCovering::<i64>::new(0, vec![]);
     // Empty universe is trivially covered with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), Min(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -72,11 +86,11 @@ fn test_jl_parity_evaluation() {
     for instance in data["instances"].as_array().unwrap() {
         let universe_size = instance["instance"]["universe_size"].as_u64().unwrap() as usize;
         let sets = jl_parse_sets(&instance["instance"]["sets"]);
-        let weights = jl_parse_i32_vec(&instance["instance"]["weights"]);
-        let problem = MinimumSetCovering::<i32>::with_weights(universe_size, sets, weights);
+        let weights = jl_parse_i64_vec(&instance["instance"]["weights"]);
+        let problem = MinimumSetCovering::<i64>::with_weights(universe_size, sets, weights);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config);
+            let config = jl_parse_bool_config(&eval["config"]);
+            let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
                 result.is_valid(),
@@ -85,7 +99,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,
@@ -94,9 +108,9 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_witnesses(&problem);
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SetCovering best solutions mismatch");
     }
 }
@@ -104,23 +118,23 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Universe: {0,1,2,3}, Sets: {0,1}, {1,2}, {2,3}
-    let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     // Valid: all sets selected covers {0,1,2,3}
-    assert!(problem.is_valid_solution(&[1, 1, 1]));
+    assert!(problem.is_valid_solution(&[true, true, true]));
     // Invalid: only set 1 ({1,2}) doesn't cover 0 and 3
-    assert!(!problem.is_valid_solution(&[0, 1, 0]));
+    assert!(!problem.is_valid_solution(&[false, true, false]));
 }
 
 #[test]
 fn test_setcovering_paper_example() {
     // Paper: U=5, sets {0,1,2},{1,3},{2,3,4}, min cover {S_0,S_2}, weight=2
-    let problem = MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
-    let config = vec![1, 0, 1]; // {S_0, S_2} covers all of {0,1,2,3,4}
-    let result = problem.evaluate(&config);
+    let problem = MinimumSetCovering::<i64>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
+    let config = vec![true, false, true]; // {S_0, S_2} covers all of {0,1,2,3,4}
+    let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best).unwrap(), 2);
+    let best = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }

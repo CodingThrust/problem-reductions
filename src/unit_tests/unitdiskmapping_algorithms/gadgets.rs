@@ -1,6 +1,6 @@
 //! Tests for gadget properties (src/rules/mapping/gadgets.rs and triangular gadgets).
 
-use super::common::{solve_weighted_mis, triangular_edges};
+use super::common::{ksg_edges, solve_weighted_mis, triangular_edges};
 use crate::rules::unitdiskmapping::ksg::{
     KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn,
     KsgReflectedGadget, KsgRotatedGadget, KsgTCon, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
@@ -210,8 +210,8 @@ fn test_triturn_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -241,8 +241,8 @@ fn test_tribranch_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -272,8 +272,8 @@ fn test_tricross_connected_weighted_mis_equivalence() {
     let (source_locs, source_edges, source_pins) = gadget.source_graph();
     let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &source_pins {
         src_weights[p] -= 1;
     }
@@ -303,8 +303,8 @@ fn test_tricross_disconnected_weighted_mis_equivalence() {
     let (source_locs, source_edges, source_pins) = gadget.source_graph();
     let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &source_pins {
         src_weights[p] -= 1;
     }
@@ -335,8 +335,8 @@ fn test_all_triangular_weighted_gadgets_mis_equivalence() {
         let (src_locs, src_edges, src_pins) = gadget.source_graph();
         let (map_locs, map_pins) = gadget.mapped_graph();
 
-        let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-        let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+        let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+        let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
         for &p in &src_pins {
             src_weights[p] -= 1;
         }
@@ -375,33 +375,14 @@ fn test_all_triangular_weighted_gadgets_mis_equivalence() {
 
 // === KSG Weighted Gadget Tests ===
 
-/// Generate King's SubGraph (KSG) edges for square lattice.
-/// KSG includes both axis-aligned and diagonal neighbors within distance sqrt(2).
-fn ksg_edges(locs: &[(usize, usize)]) -> Vec<(usize, usize)> {
-    let mut edges = Vec::new();
-    for (i, &(r1, c1)) in locs.iter().enumerate() {
-        for (j, &(r2, c2)) in locs.iter().enumerate() {
-            if i < j {
-                let dr = (r1 as i32 - r2 as i32).abs();
-                let dc = (c1 as i32 - c2 as i32).abs();
-                // KSG: neighbors at distance <= sqrt(2) => dr,dc each <= 1
-                if dr <= 1 && dc <= 1 {
-                    edges.push((i, j));
-                }
-            }
-        }
-    }
-    edges
-}
-
 #[test]
 fn test_weighted_ksg_cross_connected_mis_equivalence() {
     let gadget = WeightedKsgCross::<true>;
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -430,8 +411,8 @@ fn test_weighted_ksg_cross_disconnected_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -460,8 +441,8 @@ fn test_weighted_ksg_turn_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -490,8 +471,8 @@ fn test_weighted_ksg_wturn_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -520,8 +501,8 @@ fn test_weighted_ksg_branch_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -550,8 +531,8 @@ fn test_weighted_ksg_branchfix_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -580,8 +561,8 @@ fn test_weighted_ksg_tcon_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -610,8 +591,8 @@ fn test_weighted_ksg_trivialturn_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -640,8 +621,8 @@ fn test_weighted_ksg_endturn_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -670,8 +651,8 @@ fn test_weighted_ksg_branchfixb_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -700,8 +681,8 @@ fn test_weighted_ksg_danglinleg_mis_equivalence() {
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -794,8 +775,8 @@ fn test_all_ksg_weighted_gadgets_mis_equivalence() {
         let (src_locs, src_edges, src_pins) = gadget.source_graph();
         let (map_locs, map_pins) = gadget.mapped_graph();
 
-        let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
-        let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+        let mut src_weights: Vec<i64> = gadget.source_weights().to_vec();
+        let mut map_weights: Vec<i64> = gadget.mapped_weights().to_vec();
         for &p in &src_pins {
             src_weights[p] -= 1;
         }
@@ -943,40 +924,6 @@ fn test_gadget_connected_nodes() {
 
     let weighted_nodes = WeightedKsgCross::<true>.connected_nodes();
     assert!(!weighted_nodes.is_empty());
-}
-
-// === Alpha Tensor Tests ===
-
-#[test]
-fn test_build_standard_unit_disk_edges() {
-    use crate::rules::unitdiskmapping::alpha_tensor::build_standard_unit_disk_edges;
-
-    // Simple test: two adjacent points
-    let locs = vec![(0, 0), (1, 0)];
-    let edges = build_standard_unit_disk_edges(&locs);
-    assert_eq!(edges.len(), 1);
-    assert_eq!(edges[0], (0, 1));
-
-    // Points too far apart
-    let locs = vec![(0, 0), (3, 3)];
-    let edges = build_standard_unit_disk_edges(&locs);
-    assert!(edges.is_empty());
-
-    // Multiple points in a small grid
-    let locs = vec![(0, 0), (1, 0), (0, 1), (1, 1)];
-    let edges = build_standard_unit_disk_edges(&locs);
-    // Should have edges for adjacent and diagonal neighbors
-    assert!(edges.len() > 2);
-}
-
-#[test]
-fn test_build_triangular_unit_disk_edges() {
-    use crate::rules::unitdiskmapping::alpha_tensor::build_triangular_unit_disk_edges;
-
-    let locs = vec![(0, 0), (1, 0), (0, 1)];
-    let edges = build_triangular_unit_disk_edges(&locs);
-    // Should have some edges
-    assert!(!edges.is_empty() || locs.len() < 2);
 }
 
 // === Triangular Gadget Trait Method Tests ===

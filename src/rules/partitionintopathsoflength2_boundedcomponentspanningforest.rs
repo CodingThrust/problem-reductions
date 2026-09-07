@@ -18,12 +18,12 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing PartitionIntoPathsOfLength2 to BoundedComponentSpanningForest.
 #[derive(Debug, Clone)]
 pub struct ReductionPPL2ToBCSF {
-    target: BoundedComponentSpanningForest<SimpleGraph, i32>,
+    target: BoundedComponentSpanningForest<SimpleGraph, i64>,
 }
 
 impl ReductionResult for ReductionPPL2ToBCSF {
     type Source = PartitionIntoPathsOfLength2<SimpleGraph>;
-    type Target = BoundedComponentSpanningForest<SimpleGraph, i32>;
+    type Target = BoundedComponentSpanningForest<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -33,24 +33,29 @@ impl ReductionResult for ReductionPPL2ToBCSF {
     ///
     /// Both problems use the same vertex-to-group assignment encoding,
     /// so the solution mapping is identity.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
         max_components = "num_vertices / 3",
     }
 )]
-impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i32>>
+impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i64>>
     for PartitionIntoPathsOfLength2<SimpleGraph>
 {
     type Result = ReductionPPL2ToBCSF;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let q = n / 3;
 
@@ -59,12 +64,12 @@ impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i32>>
 
         let target = BoundedComponentSpanningForest::new(
             SimpleGraph::new(n, self.graph().edges()),
-            vec![1i32; n],  // unit weights
+            vec![1i64; n],  // unit weights
             max_components, // K = max(|V|/3, 1)
             3,              // B = 3
         );
 
-        ReductionPPL2ToBCSF { target }
+        Ok(ReductionPPL2ToBCSF { target })
     }
 }
 
@@ -82,12 +87,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             ));
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                BoundedComponentSpanningForest<SimpleGraph, i32>,
+                BoundedComponentSpanningForest<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 1, 1, 1],
+                    source_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
+                    target_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
                 },
             )
         },

@@ -18,12 +18,6 @@ pub struct ReductionClusteringToILP {
     num_clusters: usize,
 }
 
-impl ReductionClusteringToILP {
-    fn var_index(&self, element: usize, cluster: usize) -> usize {
-        element * self.num_clusters + cluster
-    }
-}
-
 impl ReductionResult for ReductionClusteringToILP {
     type Source = Clustering;
     type Target = ILP<bool>;
@@ -32,30 +26,34 @@ impl ReductionResult for ReductionClusteringToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_elements)
-            .map(|element| {
-                (0..self.num_clusters)
-                    .find(|&cluster| {
-                        let idx = self.var_index(element, cluster);
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_elements,
+            self.num_clusters,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_elements * num_clusters",
         num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for Clustering {
     type Result = ReductionClusteringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_elements = self.num_elements();
         let num_clusters = self.num_clusters();
         let num_vars = num_elements * num_clusters;
@@ -65,10 +63,10 @@ impl ReduceTo<ILP<bool>> for Clustering {
             |element: usize, cluster: usize| -> usize { element * num_clusters + cluster };
 
         for element in 0..num_elements {
-            let terms: Vec<(usize, f64)> = (0..num_clusters)
-                .map(|cluster| (var_index(element, cluster), 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_clusters)
+                .map(|cluster| (var_index(element, cluster), 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         let distances = self.distances();
@@ -78,19 +76,20 @@ impl ReduceTo<ILP<bool>> for Clustering {
                 if distance > diameter_bound {
                     for cluster in 0..num_clusters {
                         constraints.push(LinearConstraint::le(
-                            vec![(var_index(i, cluster), 1.0), (var_index(j, cluster), 1.0)],
-                            1.0,
+                            vec![(var_index(i, cluster), 1), (var_index(j, cluster), 1)],
+                            1,
                         ));
                     }
                 }
             }
         }
 
-        ReductionClusteringToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+        Ok(ReductionClusteringToILP {
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_elements,
             num_clusters,
-        }
+        })
     }
 }
 
@@ -114,8 +113,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1, 1],
-                    target_config: vec![1, 0, 1, 0, 0, 1, 0, 1],
+                    source_config: serde_json::json!(vec![0, 0, 1, 1]),
+                    target_config: serde_json::json!(vec![1, 0, 1, 0, 0, 1, 0, 1]),
                 },
             )
         },

@@ -24,15 +24,15 @@ struct GadgetData {
     name: String,
     size: Vec<usize>,
     cross_location: Vec<usize>,
-    mis_overhead: i32,
+    mis_overhead: i64,
     source_nodes: usize,
     mapped_nodes: usize,
     source_locs: Vec<Vec<usize>>,
     mapped_locs: Vec<Vec<usize>>,
     #[serde(default)]
-    source_weights: Vec<i32>,
+    source_weights: Vec<i64>,
     #[serde(default)]
-    mapped_weights: Vec<i32>,
+    mapped_weights: Vec<i64>,
     #[serde(default)]
     source_centers: Vec<Vec<usize>>,
     #[serde(default)]

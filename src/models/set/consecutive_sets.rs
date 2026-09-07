@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Consecutive Sets",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if a string exists where each subset's elements appear consecutively",
         fields: &[
@@ -33,10 +34,9 @@ inventory::submit! {
 /// such that the elements of each subset appear as a contiguous block (in any
 /// order) within w.
 ///
-/// Configurations use `bound_k` positions. Values `0..alphabet_size-1`
-/// represent alphabet symbols, and the extra value `alphabet_size` marks
-/// unused positions beyond the end of a shorter string. Only trailing unused
-/// positions are valid.
+/// Solutions use `bound_k` positions. `Some(symbol)` represents an alphabet
+/// symbol and trailing `None` positions mark the unused suffix of a shorter
+/// string.
 ///
 /// This problem is NP-complete and arises in physical mapping of DNA and in
 /// consecutive arrangements of hypergraph vertices.
@@ -45,7 +45,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::ConsecutiveSets;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet: {0, 1, 2, 3, 4, 5}, subsets that must appear consecutively
 /// let problem = ConsecutiveSets::new(
@@ -55,17 +55,20 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 ///
 /// // w = [0, 4, 2, 5, 1, 3] is a valid solution
 /// assert!(solution.is_some());
-/// assert!(problem.evaluate(&solution.unwrap()));
+/// assert!(problem.evaluate(&solution.unwrap()).unwrap());
 ///
-/// // Shorter strings are encoded with trailing `unused = alphabet_size`.
+/// // Shorter strings use trailing `None` positions.
 /// let shorter = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
-/// let unused = shorter.alphabet_size();
-/// assert!(shorter.evaluate(&[0, 1, unused, unused]));
-/// assert!(!shorter.evaluate(&[0, unused, 1, unused]));
+/// assert!(shorter
+///     .evaluate(&vec![Some(0), Some(1), None, None])
+///     .unwrap());
+/// assert!(!shorter
+///     .evaluate(&vec![Some(0), None, Some(1), None])
+///     .unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsecutiveSets {
@@ -135,84 +138,103 @@ impl ConsecutiveSets {
 
 impl Problem for ConsecutiveSets {
     const NAME: &'static str = "ConsecutiveSets";
+    type Solution = Vec<Option<usize>>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        // Each position can be any symbol (0..alphabet_size-1) or "unused" (alphabet_size)
-        vec![self.alphabet_size + 1; self.bound_k]
-    }
+    crate::problem_parameters![
+        ("alphabet_size", alphabet_size),
+        ("num_subsets", num_subsets),
+        ("bound_k", bound_k),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            // 1. Validate config
-            if config.len() != self.bound_k || config.iter().any(|&v| v > self.alphabet_size) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.bound_k {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "ordering representation length does not match the bound".into(),
+            ));
+        }
+        if config
+            .iter()
+            .any(|symbol| symbol.is_some_and(|value| value >= self.alphabet_size))
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "ordering representation contains an out-of-range symbol".into(),
+            ));
+        }
+        let config = config
+            .iter()
+            .map(|symbol| symbol.unwrap_or(self.alphabet_size))
+            .collect::<Vec<_>>();
+        Ok({
+            crate::types::Or({
+                // 2. Build string: find the actual string length (strip trailing "unused")
+                let unused = self.alphabet_size;
+                let str_len = config
+                    .iter()
+                    .rposition(|&v| v != unused)
+                    .map_or(0, |p| p + 1);
 
-            // 2. Build string: find the actual string length (strip trailing "unused")
-            let unused = self.alphabet_size;
-            let str_len = config
-                .iter()
-                .rposition(|&v| v != unused)
-                .map_or(0, |p| p + 1);
-
-            // 3. Check no internal "unused" symbols
-            let w = &config[..str_len];
-            if w.contains(&unused) {
-                return crate::types::Or(false);
-            }
-
-            let mut subset_membership = vec![0usize; self.alphabet_size];
-            let mut seen_in_window = vec![0usize; self.alphabet_size];
-            let mut subset_stamp = 1usize;
-            let mut window_stamp = 1usize;
-
-            // 4. Check each subset has a consecutive block
-            for subset in &self.subsets {
-                let subset_len = subset.len();
-                if subset_len == 0 {
-                    continue; // empty subset trivially satisfied
-                }
-                if subset_len > str_len {
-                    return crate::types::Or(false); // can't fit
-                }
-
-                for &elem in subset {
-                    subset_membership[elem] = subset_stamp;
+                // 3. Check no internal "unused" symbols
+                let w = &config[..str_len];
+                if w.contains(&unused) {
+                    return Ok(crate::types::Or(false));
                 }
 
-                let mut found = false;
-                for start in 0..=(str_len - subset_len) {
-                    let window = &w[start..start + subset_len];
-                    let current_window_stamp = window_stamp;
-                    window_stamp += 1;
+                let mut subset_membership = vec![0usize; self.alphabet_size];
+                let mut seen_in_window = vec![0usize; self.alphabet_size];
+                let mut subset_stamp = 1usize;
+                let mut window_stamp = 1usize;
 
-                    // Because subsets are validated to contain unique elements,
-                    // a window matches iff every symbol belongs to the subset and
-                    // appears at most once.
-                    if window.iter().all(|&elem| {
-                        let is_member = subset_membership[elem] == subset_stamp;
-                        let is_new = seen_in_window[elem] != current_window_stamp;
-                        if is_member && is_new {
-                            seen_in_window[elem] = current_window_stamp;
-                            true
-                        } else {
-                            false
-                        }
-                    }) {
-                        // subset is already sorted
-                        found = true;
-                        break;
+                // 4. Check each subset has a consecutive block
+                for subset in &self.subsets {
+                    let subset_len = subset.len();
+                    if subset_len == 0 {
+                        continue; // empty subset trivially satisfied
                     }
-                }
-                if !found {
-                    return crate::types::Or(false);
+                    if subset_len > str_len {
+                        return Ok(crate::types::Or(false)); // can't fit
+                    }
+
+                    for &elem in subset {
+                        subset_membership[elem] = subset_stamp;
+                    }
+
+                    let mut found = false;
+                    for start in 0..=(str_len - subset_len) {
+                        let window = &w[start..start + subset_len];
+                        let current_window_stamp = window_stamp;
+                        window_stamp += 1;
+
+                        // Because subsets are validated to contain unique elements,
+                        // a window matches iff every symbol belongs to the subset and
+                        // appears at most once.
+                        if window.iter().all(|&elem| {
+                            let is_member = subset_membership[elem] == subset_stamp;
+                            let is_new = seen_in_window[elem] != current_window_stamp;
+                            if is_member && is_new {
+                                seen_in_window[elem] = current_window_stamp;
+                                true
+                            } else {
+                                false
+                            }
+                        }) {
+                            // subset is already sorted
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        return Ok(crate::types::Or(false));
+                    }
+
+                    subset_stamp += 1;
                 }
 
-                subset_stamp += 1;
-            }
-
-            true
+                true
+            })
         })
     }
 
@@ -221,8 +243,19 @@ impl Problem for ConsecutiveSets {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ConsecutiveSets {
+    fn dimensions(&self) -> Vec<usize> {
+        // Each position can be any symbol (0..alphabet_size-1) or "unused" (alphabet_size)
+        vec![self.alphabet_size + 1; self.bound_k]
+    }
+}
+
 crate::declare_variants! {
     default ConsecutiveSets => "alphabet_size^bound_k * num_subsets",
+}
+
+crate::register_brute_force! {
+    ConsecutiveSets decode |problem: &ConsecutiveSets, indices: Vec<usize>| indices.into_iter().map(|value| (value != problem.alphabet_size()).then_some(value)).collect(),
 }
 
 #[cfg(feature = "example-db")]
@@ -235,7 +268,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
             6,
         )),
-        optimal_config: vec![0, 4, 2, 5, 1, 3],
+        optimal_config: serde_json::json!(vec![0, 4, 2, 5, 1, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

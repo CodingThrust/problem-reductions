@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -19,7 +20,7 @@ fn test_monochromatic_triangle_creation() {
     // K4 has 4 triangles
     assert_eq!(problem.triangles().len(), 4);
     // One binary variable per edge
-    assert_eq!(problem.dims(), vec![2; 6]);
+    assert_eq!(problem.dimensions(), vec![2; 6]);
     assert_eq!(problem.graph().num_vertices(), 4);
 }
 
@@ -32,23 +33,35 @@ fn test_monochromatic_triangle_evaluate_valid() {
     //   Triangle (0,1,3): edges 0,2,4 -> 0,1,0 -> mixed
     //   Triangle (0,2,3): edges 1,2,5 -> 0,1,1 -> mixed
     //   Triangle (1,2,3): edges 3,4,5 -> 1,0,1 -> mixed
-    assert!(problem.evaluate(&[0, 0, 1, 1, 0, 1]));
+    assert!(problem
+        .evaluate(&vec![false, false, true, true, false, true])
+        .unwrap());
 }
 
 #[test]
 fn test_monochromatic_triangle_evaluate_invalid() {
     let problem = k4_instance();
     // All edges color 0: every triangle is monochromatic
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+    assert!(!problem
+        .evaluate(&vec![false, false, false, false, false, false])
+        .unwrap());
     // All edges color 1: every triangle is monochromatic
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 1]));
+    assert!(!problem
+        .evaluate(&vec![true, true, true, true, true, true])
+        .unwrap());
 }
 
 #[test]
 fn test_monochromatic_triangle_evaluate_wrong_length() {
     let problem = k4_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]));
-    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 1, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false, false, true, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -56,18 +69,18 @@ fn test_monochromatic_triangle_triangle_free_graph() {
     // A path graph 0-1-2 has no triangles, so any coloring is valid.
     let problem = MonochromaticTriangle::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.triangles().len(), 0);
-    assert!(problem.evaluate(&[0, 0]));
-    assert!(problem.evaluate(&[1, 1]));
-    assert!(problem.evaluate(&[0, 1]));
+    assert!(problem.evaluate(&vec![false, false]).unwrap());
+    assert!(problem.evaluate(&vec![true, true]).unwrap());
+    assert!(problem.evaluate(&vec![false, true]).unwrap());
 }
 
 #[test]
 fn test_monochromatic_triangle_brute_force_k4() {
     let problem = k4_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
@@ -82,7 +95,7 @@ fn test_monochromatic_triangle_brute_force_k6_no_solution() {
     let problem = MonochromaticTriangle::new(SimpleGraph::new(6, edges));
     assert_eq!(problem.num_edges(), 15);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -96,9 +109,9 @@ fn test_monochromatic_triangle_brute_force_k5_has_solution() {
     }
     let problem = MonochromaticTriangle::new(SimpleGraph::new(5, edges));
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]

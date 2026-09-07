@@ -1,6 +1,6 @@
 //! JSON export schema for example payloads.
 
-use crate::rules::registry::ReductionOverhead;
+use crate::rules::registry::{ParameterContractError, ReductionParameterContract};
 use crate::rules::ReductionGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -51,8 +51,8 @@ pub struct ProblemRef {
 /// One source↔target solution pair.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolutionPair {
-    pub source_config: Vec<usize>,
-    pub target_config: Vec<usize>,
+    pub source_config: serde_json::Value,
+    pub target_config: serde_json::Value,
 }
 
 /// A complete rule example: reduction + solutions in one file.
@@ -69,7 +69,7 @@ pub struct ModelExample {
     pub problem: String,
     pub variant: BTreeMap<String, String>,
     pub instance: serde_json::Value,
-    pub optimal_config: Vec<usize>,
+    pub optimal_config: serde_json::Value,
     pub optimal_value: serde_json::Value,
 }
 
@@ -78,7 +78,7 @@ impl ModelExample {
         problem: &str,
         variant: BTreeMap<String, String>,
         instance: serde_json::Value,
-        optimal_config: Vec<usize>,
+        optimal_config: serde_json::Value,
         optimal_value: serde_json::Value,
     ) -> Self {
         Self {
@@ -117,17 +117,19 @@ pub struct ExampleDb {
     pub rules: Vec<RuleExample>,
 }
 
-/// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
-pub fn lookup_overhead(
+/// Look up the explicit parameter contract for an exact direct reduction entry.
+pub fn lookup_parameter_contract(
     source_name: &str,
     source_variant: &BTreeMap<String, String>,
     target_name: &str,
     target_variant: &BTreeMap<String, String>,
-) -> Option<ReductionOverhead> {
+) -> Result<Option<ReductionParameterContract>, ParameterContractError> {
     let graph = ReductionGraph::new();
-    let matched =
-        graph.find_best_entry(source_name, source_variant, target_name, target_variant)?;
-    Some(matched.overhead)
+    let Some(matched) = graph.find_entry(source_name, source_variant, target_name, target_variant)
+    else {
+        return Ok(None);
+    };
+    matched.parameter_contract.map(Some)
 }
 
 /// Convert `Problem::variant()` output to a stable `BTreeMap`.

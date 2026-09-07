@@ -1,18 +1,18 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
-use crate::traits::Problem;
+use crate::solvers::BruteForceProblem as _;
 include!("../jl_helpers.rs");
 
 #[test]
 fn test_spinglass_to_qubo_closed_loop() {
     // Antiferromagnetic: J > 0, prefers anti-aligned spins
-    let sg = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
+    let sg = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]).unwrap();
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(qubo);
+    let solutions = solver.find_all_witnesses(qubo).unwrap();
 
     // Anti-ferromagnetic: opposite spins are optimal
     for sol in &solutions {
@@ -24,34 +24,48 @@ fn test_spinglass_to_qubo_closed_loop() {
 }
 
 #[test]
+fn test_integer_spinglass_to_integer_qubo() {
+    let source = SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), 1)], vec![0, 0]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
+
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "integer SpinGlass->QUBO",
+    );
+}
+
+#[test]
 fn test_with_onsite_fields() {
     // SpinGlass with only on-site field h_0 = 1
     // Energy = h_0 * s_0 = s_0
     // Minimum at s_0 = -1, i.e., x_0 = 0
-    let sg = SpinGlass::<SimpleGraph, f64>::new(1, vec![], vec![1.0]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
+    let sg = SpinGlass::<SimpleGraph, f64>::new(1, vec![], vec![1.0]).unwrap();
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(qubo);
+    let solutions = solver.find_all_witnesses(qubo).unwrap();
 
     assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![0], "Should prefer x=0 (s=-1)");
+    assert_eq!(solutions[0], vec![false], "Should prefer x=false (s=-true)");
 }
 
 #[test]
 fn test_reduction_structure() {
     // Test QUBO to SpinGlass structure
-    let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
+    let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]).unwrap();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo)
+        .expect("reduction should succeed");
     let sg = reduction.target_problem();
 
     // SpinGlass should have same number of spins as QUBO variables
     assert_eq!(sg.num_spins(), 2);
 
     // Test SpinGlass to QUBO structure
-    let sg2 = SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]);
-    let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg2);
+    let sg2 =
+        SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]).unwrap();
+    let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg2).expect("reduction should succeed");
     let qubo2 = reduction2.target_problem();
 
     assert_eq!(qubo2.num_variables(), 3);
@@ -81,17 +95,21 @@ fn test_jl_parity_spinglass_to_qubo() {
         .map(|v| v.as_i64().unwrap() as f64)
         .collect();
     let interactions: Vec<((usize, usize), f64)> = edges.into_iter().zip(j_values).collect();
-    let source = SpinGlass::<SimpleGraph, f64>::new(nv, interactions, h_values);
-    let result = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let source = SpinGlass::<SimpleGraph, f64>::new(nv, interactions, h_values).unwrap();
+    let result = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<i8>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity SpinGlass->QUBO",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_spin_configs_set(&case["best_source"]));
     }
 }
 
@@ -123,17 +141,22 @@ fn test_jl_parity_qubo_to_spinglass() {
             rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i];
         }
     }
-    let source = QUBO::from_matrix(rust_matrix);
-    let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
+    let source = QUBO::from_matrix(rust_matrix).unwrap();
+    let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity QUBO->SpinGlass",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -166,16 +189,21 @@ fn test_jl_parity_rule_qubo_to_spinglass() {
             rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i];
         }
     }
-    let source = QUBO::from_matrix(rust_matrix);
-    let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
+    let source = QUBO::from_matrix(rust_matrix).unwrap();
+    let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<bool>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
         "JL parity rule QUBO->SpinGlass",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }

@@ -46,30 +46,42 @@ impl ReductionResult for ReductionCMOToILP {
     /// For each source residue `i in V_1`, find the unique `j` with
     /// `x_(i,j) = 1` and encode it as `j + 1` (CMO's `bot` is `0`); if no
     /// `x_(i,*)` is selected, the residue is left unmatched (`0`).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n1 = self.num_vertices_1;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n2 = self.num_vertices_2;
-        (0..n1)
-            .map(|i| {
-                (0..n2)
-                    .find(|&j| target_solution[i * n2 + j] == 1)
-                    .map(|j| j + 1)
-                    .unwrap_or(0)
+        (0..self.num_vertices_1)
+            .map(|residue| {
+                let mut selected =
+                    (0..n2).filter(|&mapped| target_solution[residue * n2 + mapped] == 1);
+                match (selected.next(), selected.next()) {
+                    (Some(mapped), None) => Ok(mapped + 1),
+                    (None, _) => Ok(0),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "source residue {residue} maps to multiple target residues"
+                    ))),
+                }
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices_1 * num_vertices_2 + num_contacts_1 * num_contacts_2",
         num_constraints = "num_vertices_1 + num_vertices_2 + num_vertices_1 * (num_vertices_1 - 1) / 2 * num_vertices_2 * (num_vertices_2 + 1) / 2 + 2 * num_contacts_1 * num_contacts_2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
     type Result = ReductionCMOToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n1 = self.num_vertices_1();
         let n2 = self.num_vertices_2();
         let contacts_1 = self.contacts_1();
@@ -88,14 +100,14 @@ impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
 
         // Row constraints: each residue of G_1 maps to at most one residue of G_2.
         for i in 0..n1 {
-            let terms: Vec<(usize, f64)> = (0..n2).map(|j| (x_idx(i, j), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n2).map(|j| (x_idx(i, j), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Column constraints: each residue of G_2 receives at most one residue of G_1.
         for j in 0..n2 {
-            let terms: Vec<(usize, f64)> = (0..n1).map(|i| (x_idx(i, j), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n1).map(|i| (x_idx(i, j), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Order-preservation: for i < k in V_1 and j >= l in V_2,
@@ -106,8 +118,8 @@ impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
                 for j in 0..n2 {
                     for l in 0..=j {
                         constraints.push(LinearConstraint::le(
-                            vec![(x_idx(i, j), 1.0), (x_idx(k, l), 1.0)],
-                            1.0,
+                            vec![(x_idx(i, j), 1), (x_idx(k, l), 1)],
+                            1,
                         ));
                     }
                 }
@@ -122,28 +134,23 @@ impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
         for &(i, k) in contacts_1 {
             for &(j, l) in contacts_2 {
                 let yv = y_idx(seq);
-                constraints.push(LinearConstraint::le(
-                    vec![(yv, 1.0), (x_idx(i, j), -1.0)],
-                    0.0,
-                ));
-                constraints.push(LinearConstraint::le(
-                    vec![(yv, 1.0), (x_idx(k, l), -1.0)],
-                    0.0,
-                ));
+                constraints.push(LinearConstraint::le(vec![(yv, 1), (x_idx(i, j), -1)], 0));
+                constraints.push(LinearConstraint::le(vec![(yv, 1), (x_idx(k, l), -1)], 0));
                 seq += 1;
             }
         }
 
         // Objective: maximize the number of preserved contacts.
-        let objective: Vec<(usize, f64)> = (0..num_y).map(|s| (y_idx(s), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..num_y).map(|s| (y_idx(s), 1)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
-        ReductionCMOToILP {
+        Ok(ReductionCMOToILP {
             target,
             num_vertices_1: n1,
             num_vertices_2: n2,
-        }
+        })
     }
 }
 

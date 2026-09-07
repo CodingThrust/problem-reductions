@@ -7,7 +7,7 @@ use crate::models::formula::Satisfiability;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
+use crate::solvers::BruteForceProblem as _;
 use std::collections::HashSet;
 
 /// Result of reducing SAT to CircuitSAT.
@@ -26,24 +26,35 @@ impl ReductionResult for ReductionSATToCircuit {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_var_indices
-            .iter()
-            .map(|&idx| target_solution[idx])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.source_var_indices
+                .iter()
+                .map(|&idx| target_solution[idx])
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_variables = "num_vars + num_clauses",
-        num_assignments = "num_vars + num_clauses",
+    transform = upper_bound {
+        num_variables = "2 * num_vars + num_clauses + 1",
+        num_assignments = "num_vars + num_clauses + 2",
+    },
+    unavailable = {
+        num_assignment_outputs = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_expression_nodes = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<CircuitSAT> for Satisfiability {
     type Result = ReductionSATToCircuit;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_variables();
         let clauses = self.clauses();
 
@@ -52,7 +63,7 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
 
         for (i, clause) in clauses.iter().enumerate() {
             let clause_output = format!("__clause_{}", i);
-            let literal_exprs: Vec<BooleanExpr> = clause
+            let mut literal_exprs: Vec<BooleanExpr> = clause
                 .literals
                 .iter()
                 .map(|&lit| {
@@ -67,7 +78,7 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
                 .collect();
 
             let clause_expr = if literal_exprs.len() == 1 {
-                literal_exprs.into_iter().next().unwrap()
+                literal_exprs.remove(0)
             } else {
                 BooleanExpr::or(literal_exprs)
             };
@@ -120,17 +131,18 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
         let source_var_indices: Vec<usize> = (1..=num_vars)
             .map(|i| {
                 let name = format!("x{}", i);
-                var_names
-                    .iter()
-                    .position(|n| n == &name)
-                    .unwrap_or_else(|| panic!("Variable {} not found in CircuitSAT", name))
+                var_names.iter().position(|n| n == &name).ok_or_else(|| {
+                    crate::rules::ReductionError::invalid_target::<Satisfiability, CircuitSAT>(
+                        format!("target circuit is missing source variable `{name}`"),
+                    )
+                })
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
-        ReductionSATToCircuit {
+        Ok(ReductionSATToCircuit {
             target,
             source_var_indices,
-        }
+        })
     }
 }
 
@@ -153,8 +165,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, CircuitSAT>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![1, 1, 1, 1, 1, 1, 1],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, true, true, true, true, true, true
+                    ]),
                 },
             )
         },

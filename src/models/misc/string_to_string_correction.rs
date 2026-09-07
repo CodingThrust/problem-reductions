@@ -14,7 +14,7 @@
 //!
 //! This problem is NP-complete (Wagner, 1975).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -24,14 +24,10 @@ inventory::submit! {
         display_name: "String-to-String Correction",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Derive target string from source using at most K deletions and adjacent swaps",
-        fields: &[
-            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the finite alphabet" },
-            FieldInfo { name: "source", type_name: "Vec<usize>", description: "Source string (symbol indices)" },
-            FieldInfo { name: "target", type_name: "Vec<usize>", description: "Target string (symbol indices)" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Maximum number of operations allowed" },
-        ],
+        fields: StringToStringCorrectionCreateSpec::FIELDS,
     }
 }
 
@@ -61,12 +57,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::StringToStringCorrection;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // source = [0,1,2,3,1,0], target = [0,1,3,2,1], bound = 2
 /// let problem = StringToStringCorrection::new(4, vec![0,1,2,3,1,0], vec![0,1,3,2,1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +71,57 @@ pub struct StringToStringCorrection {
     source: Vec<usize>,
     target: Vec<usize>,
     bound: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct StringToStringCorrectionCreateSpec {
+    /// Optional alphabet size; omitted values are inferred from both strings.
+    alphabet_size: Option<usize>,
+    /// Source string.
+    #[create(codec = "comma-separated")]
+    source_string: Vec<usize>,
+    /// Target string.
+    #[create(codec = "comma-separated")]
+    target_string: Vec<usize>,
+    /// Maximum number of correction operations.
+    bound: usize,
+}
+
+impl TryFrom<StringToStringCorrectionCreateSpec> for StringToStringCorrection {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: StringToStringCorrectionCreateSpec) -> Result<Self, Self::Error> {
+        let inferred_alphabet_size = spec
+            .source_string
+            .iter()
+            .chain(&spec.target_string)
+            .copied()
+            .max()
+            .map(|symbol| {
+                symbol
+                    .checked_add(1)
+                    .ok_or_else(|| "inferred alphabet size overflows usize".to_string())
+            })
+            .transpose()?
+            .unwrap_or(0);
+        let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
+        if alphabet_size < inferred_alphabet_size {
+            return Err(format!(
+                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
+            ).into());
+        }
+        if alphabet_size == 0 && (!spec.source_string.is_empty() || !spec.target_string.is_empty())
+        {
+            return Err("alphabet size must be positive when either string is non-empty".into());
+        }
+
+        Ok(Self {
+            alphabet_size,
+            source: spec.source_string,
+            target: spec.target_string,
+            bound: spec.bound,
+        })
+    }
 }
 
 impl StringToStringCorrection {
@@ -139,59 +186,77 @@ impl StringToStringCorrection {
 
 impl Problem for StringToStringCorrection {
     const NAME: &'static str = "StringToStringCorrection";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("bound", bound), ("source_length", source_length),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2 * self.source.len() + 1; self.bound]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.bound {
-                return crate::types::Or(false);
-            }
-            if self.target.len() > self.source.len()
-                || self.target.len() < self.source.len().saturating_sub(self.bound)
-            {
-                return crate::types::Or(false);
-            }
-            let n = self.source.len();
-            let domain = 2 * n + 1;
-            if config.iter().any(|&v| v >= domain) {
-                return crate::types::Or(false);
-            }
-            let noop = 2 * n;
-            let mut working = self.source.clone();
-            for &op in config {
-                if op == noop {
-                    // no-op
-                    continue;
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.bound {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "edit-program length does not match the operation bound".into(),
+                    ));
                 }
-                let current_len = working.len();
-                if op < current_len {
-                    // delete at index op
-                    working.remove(op);
-                } else {
-                    let swap_pos = op - current_len;
-                    if swap_pos + 1 < current_len {
-                        working.swap(swap_pos, swap_pos + 1);
+                if self.target.len() > self.source.len()
+                    || self.target.len() < self.source.len().saturating_sub(self.bound)
+                {
+                    return Ok(crate::types::Or(false));
+                }
+                let n = self.source.len();
+                let domain = 2 * n + 1;
+                if config.iter().any(|&v| v >= domain) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "edit program contains an out-of-range operation".into(),
+                    ));
+                }
+                let noop = 2 * n;
+                let mut working = self.source.clone();
+                for &op in config {
+                    if op == noop {
+                        // no-op
+                        continue;
+                    }
+                    let current_len = working.len();
+                    if op < current_len {
+                        // delete at index op
+                        working.remove(op);
                     } else {
-                        // invalid operation for current string state
-                        return crate::types::Or(false);
+                        let swap_pos = op - current_len;
+                        if swap_pos + 1 < current_len {
+                            working.swap(swap_pos, swap_pos + 1);
+                        } else {
+                            // invalid operation for current string state
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
-            working == self.target
+                working == self.target
+            })
         })
     }
 }
 
+impl crate::solvers::BruteForceProblem for StringToStringCorrection {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2 * self.source.len() + 1; self.bound]
+    }
+}
+
 crate::declare_variants! {
-    default StringToStringCorrection => "(2 * source_length + 1) ^ bound",
+    default StringToStringCorrection => "(2 * source_length + 1) ^ bound" create StringToStringCorrectionCreateSpec,
+}
+
+crate::register_brute_force! {
+    StringToStringCorrection,
 }
 
 #[cfg(feature = "example-db")]
@@ -207,7 +272,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 3, 2, 1],
             2,
         )),
-        optimal_config: vec![8, 5],
+        optimal_config: serde_json::json!(vec![8, 5]),
         optimal_value: serde_json::json!(true),
     }]
 }

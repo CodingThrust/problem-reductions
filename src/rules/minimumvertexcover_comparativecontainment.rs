@@ -1,22 +1,13 @@
-//! Reduction from Decision Minimum Vertex Cover to Comparative Containment.
+//! Signed-weight decision vertex cover to comparative containment.
 //!
-//! Implements the Plaisted (1976) construction (Garey & Johnson SP10): given a
-//! graph `G = (V, E)` and a bound `K`, build a Comparative Containment instance
-//! over universe `X = V` with two weighted set families `R` and `S` such that a
-//! subset `Y ⊆ X` satisfies the containment inequality iff `Y` is a vertex
-//! cover of `G` of size at most `K`.
-//!
-//! - For each vertex `v`, add `R_v = V \ {v}` with weight `1`. The total
-//!   R-weight equals `n - |Y|`.
-//! - For each edge `e = {u, v}`, add `S_e = V \ {u, v}` with weight `n + 1`.
-//!   Each uncovered edge contributes a penalty larger than the maximum possible
-//!   R-weight, so any feasible `Y` must cover every edge.
-//! - One budget set `S_0 = V` with weight `n - K`. The containment inequality
-//!   becomes `K - |Y| ≥ (n + 1) · (# uncovered edges)`.
-//!
-//! Source: `Decision<MinimumVertexCover<SimpleGraph, i32>>` with unit weights.
-//! See `decisionminimumvertexcover_hamiltoniancircuit.rs` for the analogous
-//! unit-weight assertion pattern.
+//! Extends the complement-set construction cited in Garey--Johnson SP10.
+//! Let W = sum w_v, U = sum max(w_v,0), B = min(K,U), and
+//! P = 1 + sum |w_v|. Encode the signed containment expression
+//! B - W + sum w_v [Y subset V\{v}] - P sum_e [Y subset V\e].
+//! Positive terms go to R, negative terms to S, and zero terms are omitted.
+//! Its value is B - w(Y) - P * uncovered(Y), so it is nonnegative exactly
+//! for vertex covers meeting the bound. Extraction is the identity.
+//! Stored weights and family totals must fit the repository's i64 contract.
 
 use crate::models::decision::Decision;
 use crate::models::graph::MinimumVertexCover;
@@ -25,136 +16,119 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Result of reducing `Decision<MinimumVertexCover<SimpleGraph, i32>>` to
-/// `ComparativeContainment<i32>`.
+/// Identity witness map for the signed-weight containment construction.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMVCToComparativeContainment {
-    target: ComparativeContainment<i32>,
-    num_source_vertices: usize,
-    /// If `Some`, the bound makes every vertex subset trivially feasible
-    /// (`K ≥ n`); the reduction emits an empty target instance and any
-    /// extracted source configuration is forced to be a YES instance.
-    trivial_yes: Option<Vec<usize>>,
+    target: ComparativeContainment<i64>,
 }
 
 impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, i32>>;
-    type Target = ComparativeContainment<i32>;
+    type Source = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    type Target = ComparativeContainment<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if let Some(witness) = &self.trivial_yes {
-            return witness.clone();
-        }
-        let mut cover = vec![0; self.num_source_vertices];
-        for (vertex, &selected) in target_solution
-            .iter()
-            .take(self.num_source_vertices)
-            .enumerate()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
         {
-            cover[vertex] = selected;
+            return Err(crate::rules::ExtractionError::invalid(
+                "containment inequality is not satisfied",
+            ));
         }
-        cover
+        Ok(target_solution.clone())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         universe_size = "num_vertices",
-        num_r_sets = "num_vertices",
-        num_s_sets = "num_edges + 1",
+        num_r_sets = "num_vertices + 1",
+        num_s_sets = "num_vertices + num_edges + 1",
     }
 )]
-impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<SimpleGraph, i32>> {
+impl ReduceTo<ComparativeContainment<i64>> for Decision<MinimumVertexCover<SimpleGraph, i64>> {
     type Result = ReductionDecisionMVCToComparativeContainment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, ComparativeContainment<i64>>(
+                operation,
+            )
+        };
         let weights = self.inner().weights();
-        assert!(
-            weights.iter().all(|&weight| weight == 1),
-            "Plaisted 1976 reduction requires unit vertex weights"
-        );
-
-        let num_vertices = self.inner().graph().num_vertices();
-        let raw_bound = *self.bound();
-
-        // Trivially NO corner case: a negative bound cannot be met by any
-        // (nonnegative) cover size. Emit an unsatisfiable target: universe of
-        // size 1 with a single S-set {0} and no R-sets, so the R-weight is
-        // always 0 < 1 = S-weight regardless of Y.
-        if raw_bound < 0 {
-            let target = ComparativeContainment::with_weights(
-                1,
-                Vec::new(),
-                vec![vec![0]],
-                Vec::<i32>::new(),
-                vec![1i32],
-            );
-            return ReductionDecisionMVCToComparativeContainment {
-                target,
-                num_source_vertices: num_vertices,
-                trivial_yes: None,
-            };
+        let n = self.inner().graph().num_vertices();
+        let mut positive_total = 0i64;
+        let mut negative_total = 0i64;
+        for &weight in weights {
+            if weight > 0 {
+                positive_total = positive_total
+                    .checked_add(weight)
+                    .ok_or_else(|| overflow("summing positive vertex weights"))?;
+            } else {
+                negative_total = negative_total
+                    .checked_add(weight)
+                    .ok_or_else(|| overflow("summing negative vertex weights"))?;
+            }
         }
+        // All subset sums lie in [negative_total, positive_total].
+        // Opposite-sign operands cannot overflow.
+        let total = positive_total + negative_total;
+        let bound = (*self.bound()).min(positive_total);
+        let constant = bound
+            .checked_sub(total)
+            .ok_or_else(|| overflow("computing the containment budget term"))?;
+        let penalty = positive_total
+            .checked_sub(negative_total)
+            .and_then(|span| span.checked_add(1))
+            .ok_or_else(|| overflow("computing a strict uncovered-edge penalty"))?;
 
-        // Trivial YES corner case: when K >= n, every vertex subset of size at
-        // most n is a feasible cover (in particular the all-ones configuration
-        // covers every edge), so the answer is YES regardless of the graph.
-        // Emit an empty target instance (universe size 0, no R/S sets); its
-        // unique configuration is trivially satisfying.
-        if raw_bound >= num_vertices as i32 {
-            let target = ComparativeContainment::with_weights(
-                0,
-                Vec::new(),
-                Vec::new(),
-                Vec::<i32>::new(),
-                Vec::<i32>::new(),
-            );
-            // The all-ones configuration is always a vertex cover with size
-            // n <= K.
-            let witness = vec![1; num_vertices];
-            return ReductionDecisionMVCToComparativeContainment {
-                target,
-                num_source_vertices: num_vertices,
-                trivial_yes: Some(witness),
-            };
+        let mut r_sets = Vec::new();
+        let mut r_weights = Vec::new();
+        let mut s_sets = Vec::new();
+        let mut s_weights = Vec::new();
+        // A signed term is represented on the corresponding side of R >= S.
+        for (set, coefficient) in weights
+            .iter()
+            .enumerate()
+            .filter(|(_, w)| **w != 0)
+            .map(|(v, &w)| (complement_singleton(n, v), w))
+            .chain((constant != 0).then(|| ((0..n).collect(), constant)))
+        {
+            if coefficient > 0 {
+                r_sets.push(set);
+                r_weights.push(coefficient);
+            } else if coefficient < 0 {
+                s_sets.push(set);
+                s_weights.push(
+                    coefficient
+                        .checked_neg()
+                        .ok_or_else(|| overflow("negating a containment coefficient"))?,
+                );
+            }
         }
-
-        let k = self.k();
-        let edges = self.inner().graph().edges();
-        let n = num_vertices;
-
-        // R sets: R_v = V \ {v} for each vertex v, weight 1.
-        let r_sets: Vec<Vec<usize>> = (0..n).map(|v| complement_singleton(n, v)).collect();
-        let r_weights: Vec<i32> = vec![1; n];
-
-        // S sets: one per edge plus a single budget set.
-        let mut s_sets: Vec<Vec<usize>> = Vec::with_capacity(edges.len() + 1);
-        let mut s_weights: Vec<i32> = Vec::with_capacity(edges.len() + 1);
-
-        let edge_weight =
-            i32::try_from(n + 1).expect("Plaisted edge-penalty weight (n + 1) must fit in i32");
-        for &(u, v) in &edges {
+        for (u, v) in self.inner().graph().edges() {
             s_sets.push(complement_pair(n, u, v));
-            s_weights.push(edge_weight);
+            s_weights.push(penalty);
         }
-        // Budget set S_0 = V with weight n - K. Since 0 <= K < n here, this is
-        // a positive integer.
-        let budget_weight =
-            i32::try_from(n - k).expect("Plaisted budget weight (n - K) must fit in i32");
-        s_sets.push((0..n).collect());
-        s_weights.push(budget_weight);
-
-        let target = ComparativeContainment::with_weights(n, r_sets, s_sets, r_weights, s_weights);
-
-        ReductionDecisionMVCToComparativeContainment {
-            target,
-            num_source_vertices: n,
-            trivial_yes: None,
+        // The empty subset is contained in every set. Checking both full sums
+        // ensures every target evaluation stays in i64, including NO witnesses.
+        for family in [&r_weights, &s_weights] {
+            family
+                .iter()
+                .try_fold(0i64, |sum, &weight| sum.checked_add(weight))
+                .ok_or_else(|| overflow("summing a containment weight family"))?;
         }
+        let target = ComparativeContainment::with_weights(n, r_sets, s_sets, r_weights, s_weights)
+            .map_err(
+                crate::rules::ReductionError::construction::<Self, ComparativeContainment<i64>>,
+            )?;
+        Ok(ReductionDecisionMVCToComparativeContainment { target })
     }
 }
 
@@ -176,14 +150,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Path P_4: 0-1-2-3, bound K=2. Minimum cover {1,2} has size 2.
             let inner = MinimumVertexCover::new(
                 SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-                vec![1i32; 4],
+                vec![1i64; 4],
             );
             let source = Decision::new(inner, 2);
-            crate::example_db::specs::rule_example_with_witness::<_, ComparativeContainment<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ComparativeContainment<i64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![false, true, true, false]),
                 },
             )
         },

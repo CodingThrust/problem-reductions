@@ -8,7 +8,7 @@
 //! A "block" is a maximal contiguous run of 1-entries in a row.
 //! This is problem SR17 in Garey & Johnson.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -18,12 +18,10 @@ inventory::submit! {
         display_name: "Consecutive Block Minimization",
         aliases: &["CBM"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Permute columns of a binary matrix to have at most K consecutive blocks of 1s",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Binary matrix A (m x n)" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on total consecutive blocks" },
-        ],
+        fields: ConsecutiveBlockMinimizationCreateSpec::FIELDS,
     }
 }
 
@@ -38,7 +36,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::ConsecutiveBlockMinimization;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 2x3 binary matrix
 /// let problem = ConsecutiveBlockMinimization::new(
@@ -50,11 +48,11 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Verify solutions satisfy the block bound
 /// for sol in solutions {
-///     assert!(problem.evaluate(&sol));
+///     assert!(problem.evaluate(&sol).unwrap());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +71,22 @@ pub struct ConsecutiveBlockMinimization {
     bound: i64,
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConsecutiveBlockMinimizationCreateSpec {
+    /// Binary matrix A (m x n).
+    matrix: Vec<Vec<bool>>,
+    /// Upper bound K on total consecutive blocks.
+    bound_k: i64,
+}
+
+impl TryFrom<ConsecutiveBlockMinimizationCreateSpec> for ConsecutiveBlockMinimization {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(spec: ConsecutiveBlockMinimizationCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.matrix, spec.bound_k)
+    }
+}
+
 impl ConsecutiveBlockMinimization {
     /// Create a new ConsecutiveBlockMinimization problem.
     ///
@@ -88,7 +102,10 @@ impl ConsecutiveBlockMinimization {
 
     /// Create a new ConsecutiveBlockMinimization problem, returning an error
     /// instead of panicking when the matrix is ragged.
-    pub fn try_new(matrix: Vec<Vec<bool>>, bound: i64) -> Result<Self, String> {
+    pub fn try_new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let (num_rows, num_cols) = validate_matrix_dimensions(&matrix)?;
         Ok(Self {
             matrix,
@@ -124,27 +141,34 @@ impl ConsecutiveBlockMinimization {
     /// `config[position] = column_index` defines the column permutation.
     /// Returns `Some(total_blocks)` if the config is a valid permutation,
     /// or `None` if it is not (wrong length, duplicate columns, or out-of-range).
-    pub fn count_consecutive_blocks(&self, config: &[usize]) -> Option<usize> {
+    pub fn count_consecutive_blocks(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if config.len() != self.num_cols {
-            return None;
+            return Ok(None);
         }
 
         // Validate permutation: all values distinct and in 0..num_cols.
         let mut seen = vec![false; self.num_cols];
         for &col in config {
             if col >= self.num_cols || seen[col] {
-                return None;
+                return Ok(None);
             }
             seen[col] = true;
         }
 
-        let mut total_blocks = 0;
+        let mut total_blocks = 0usize;
         for row in &self.matrix {
             let mut in_block = false;
             for &pos in config {
                 if row[pos] {
                     if !in_block {
-                        total_blocks += 1;
+                        total_blocks = total_blocks.checked_add(1).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "counting consecutive blocks".into(),
+                            )
+                        })?;
                         in_block = true;
                     }
                 } else {
@@ -153,38 +177,62 @@ impl ConsecutiveBlockMinimization {
             }
         }
 
-        Some(total_blocks)
+        Ok(Some(i64::try_from(total_blocks).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting consecutive-block count to i64".into(),
+            )
+        })?))
     }
 }
 
 impl Problem for ConsecutiveBlockMinimization {
     const NAME: &'static str = "ConsecutiveBlockMinimization";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_cols; self.num_cols]
-    }
+    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            match self.count_consecutive_blocks(config) {
-                Some(total) => (total as i64) <= self.bound,
-                None => false,
-            }
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_cols {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering length does not match the matrix".into(),
+            ));
+        }
+        if config.iter().any(|&column| column >= self.num_cols) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering contains an out-of-range column".into(),
+            ));
+        }
+        Ok({
+            crate::types::Or({
+                match self.count_consecutive_blocks(config)? {
+                    Some(total) => total <= self.bound,
+                    None => false,
+                }
+            })
         })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+}
 
-    fn num_variables(&self) -> usize {
-        self.num_cols
+impl crate::solvers::BruteForceProblem for ConsecutiveBlockMinimization {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_cols; self.num_cols]
     }
 }
 
 crate::declare_variants! {
-    default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",
+    default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols" create ConsecutiveBlockMinimizationCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConsecutiveBlockMinimization,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,7 +242,7 @@ struct ConsecutiveBlockMinimizationDef {
 }
 
 impl TryFrom<ConsecutiveBlockMinimizationDef> for ConsecutiveBlockMinimization {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: ConsecutiveBlockMinimizationDef) -> Result<Self, Self::Error> {
         Self::try_new(value.matrix, value.bound)
@@ -210,12 +258,16 @@ impl From<ConsecutiveBlockMinimization> for ConsecutiveBlockMinimizationDef {
     }
 }
 
-fn validate_matrix_dimensions(matrix: &[Vec<bool>]) -> Result<(usize, usize), String> {
+fn validate_matrix_dimensions(
+    matrix: &[Vec<bool>],
+) -> Result<(usize, usize), crate::registry::ConstructionError> {
     let num_rows = matrix.len();
     let num_cols = matrix.first().map_or(0, Vec::len);
 
     if matrix.iter().any(|row| row.len() != num_cols) {
-        return Err("all matrix rows must have the same length".to_string());
+        return Err("all matrix rows must have the same length"
+            .to_string()
+            .into());
     }
 
     Ok((num_rows, num_cols))
@@ -238,7 +290,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             6,
         )),
-        optimal_config: vec![0, 2, 4, 1, 3, 5],
+        optimal_config: serde_json::json!(vec![0, 2, 4, 1, 3, 5]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -54,16 +54,16 @@ Never skip step 1 or 3.
 
 **Goal:** Get the user's model name and solver complexity.
 
-**If invoked as `/find-problem <ModelName>`:** validate with `pred show <ModelName>`. If it exists, show the output (including size fields), then ask for solver complexity.
+**If invoked as `/find-problem <ModelName>`:** validate with `pred show <ModelName>`. If it exists, show the output (including parameters), then ask for solver complexity.
 
 **If invoked as `/find-problem`:** ask using `AskUserQuestion`: "Which problem model does your solver handle?" Validate the answer with `pred show`.
 
 **Ask for complexity** using `AskUserQuestion`: "What is your solver's time complexity? Use the size field names from the output above (e.g., `O(1.1996^num_vertices)`, `O(2^(num_variables/3))`)."
 
-- Variable names should match the model's size fields shown in `pred show` output
+- Variable names should match the model's parameters shown in `pred show` output
 - If the user gives informal notation (e.g., "exponential in n"), help them formalize it using the model's actual size field names
 
-**Exit condition:** Validated model name + complexity expression with variables matching the model's size fields. Proceed to Step 2.
+**Exit condition:** Validated model name + complexity expression with variables matching the model's parameters. Proceed to Step 2.
 
 ---
 
@@ -91,7 +91,7 @@ Never skip step 1 or 3.
    - **Better** — effective complexity has a smaller base or exponent than best-known
    - **Similar** — comparable asymptotic behavior
    - **Worse** — effective complexity exceeds best-known (reduction overhead makes it impractical)
-   - **When effective and best-known use different variables** (e.g., `O(1.5^num_subsets)` vs `O(2^universe_size)`): this happens when a problem has multiple independent size fields and the best-known algorithm's dominant variable differs from the reduction overhead's. In this case, use `pred-sym eval` at representative concrete values to determine the comparison. State the result conditionally: "Better when num_subsets ≤ c·universe_size" with the crossover ratio.
+   - **When effective and best-known use different variables** (e.g., `O(1.5^num_subsets)` vs `O(2^universe_size)`): this happens when a problem has multiple independent parameters and the best-known algorithm's dominant variable differs from the reduction overhead's. In this case, use `pred-sym eval` at representative concrete values to determine the comparison. State the result conditionally: "Better when num_subsets ≤ c·universe_size" with the crossover ratio.
 
 5. **Web search** only the **Better** and **Similar** candidates for real-world applications (not the Worse ones). Use `WebSearch` tool with query "<problem name> real-world applications".
 
@@ -194,5 +194,5 @@ pred solve bundle.json --solver ilp --timeout 60
 - **Conversational tone.** Guided consultation, not a lecture.
 - **Live execution.** Every `pred` command runs for real. No fake output.
 - **Graceful fallbacks.** If `pred to` returns no results (no incoming reductions), suggest trying with more hops or a different model. If `pred path` fails for a specific source, skip it and note it in the table.
-- **Help with complexity notation.** If the user gives informal complexity, show `pred show <model>` size fields and help them write a formal expression.
+- **Help with complexity notation.** If the user gives informal complexity, show `pred show <model>` parameters and help them write a formal expression.
 - **Cap results at 10.** If discovery returns many problems, show top 10 by effective complexity and offer to show more.

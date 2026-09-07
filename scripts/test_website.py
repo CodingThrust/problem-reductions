@@ -71,15 +71,17 @@ class WebsiteTests(unittest.TestCase):
         self.visit("problem/MaximumIndependentSet")
         expect(self.page.locator("#variant-select")).to_have_value("graph=SimpleGraph,weight=One")
         expect(self.page.locator('.relation-link[href*="MinimumVertexCover"]')).to_have_count(0)
-        self.page.locator("#variant-select").select_option("graph=SimpleGraph,weight=i32")
+        self.page.locator("#variant-select").select_option("graph=SimpleGraph,weight=i64")
         expect(self.page.locator('.relation-link[href*="MinimumVertexCover"]')).to_have_count(2)
         self.page.reload()
-        expect(self.page.locator("#variant-select")).to_have_value("graph=SimpleGraph,weight=i32")
+        expect(self.page.locator("#variant-select")).to_have_value("graph=SimpleGraph,weight=i64")
 
     def test_reduction_evidence_and_complement_example(self):
         self.visit()
         self.page.locator("#featured-result-link").click()
         expect(self.page.locator("h1")).to_contain_text("Minimum Vertex Cover")
+        expect(self.page.locator(".schema-table tbody tr")).to_have_count(2)
+        expect(self.page.locator(".schema-table tbody")).to_contain_text("exact")
         expect(self.page.locator("#demo-value")).to_have_text("Maximum size: 2")
         self.page.get_by_role("button", name="Vertex cover", exact=True).click()
         expect(self.page.locator("#demo-value")).to_have_text("Minimum size: 3")
@@ -90,7 +92,7 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator("details")).to_have_attribute("open", "")
         source = self.page.get_by_role("link", name="Inspect source problem")
         source.click()
-        expect(self.page.locator("#variant-select")).to_have_value("graph=SimpleGraph,weight=i32")
+        expect(self.page.locator("#variant-select")).to_have_value("graph=SimpleGraph,weight=i64")
 
     def test_clipboard(self):
         self.visit()

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -43,7 +44,7 @@ fn test_minimum_edge_cost_flow_creation() {
     assert_eq!(problem.max_capacity(), 2);
     assert_eq!(problem.prices(), &[3, 1, 2, 0, 0, 0]);
     assert_eq!(problem.capacities(), &[2, 2, 2, 2, 2, 2]);
-    assert_eq!(problem.dims(), vec![3, 3, 3, 3, 3, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3, 3, 3]);
     assert_eq!(
         <MinimumEdgeCostFlow as Problem>::NAME,
         "MinimumEdgeCostFlow"
@@ -55,7 +56,7 @@ fn test_minimum_edge_cost_flow_evaluate_optimal() {
     let problem = issue_instance();
     // Route 1 unit via v2 and 2 units via v3: config = [0, 1, 2, 0, 1, 2]
     let config = vec![0, 1, 2, 0, 1, 2];
-    assert_eq!(problem.evaluate(&config), Min(Some(3)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(3)));
 }
 
 #[test]
@@ -64,7 +65,7 @@ fn test_minimum_edge_cost_flow_evaluate_suboptimal() {
     // Route 1 via v1, 1 via v2, 1 via v3: config = [1, 1, 1, 1, 1, 1]
     // Cost = p(0)+p(1)+p(2)+p(3)+p(4)+p(5) = 3+1+2+0+0+0 = 6
     let config = vec![1, 1, 1, 1, 1, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(6)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
 }
 
 #[test]
@@ -72,7 +73,7 @@ fn test_minimum_edge_cost_flow_evaluate_infeasible_conservation() {
     let problem = issue_instance();
     // Flow into vertex 1 but not out: violates conservation
     let config = vec![1, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -80,23 +81,35 @@ fn test_minimum_edge_cost_flow_evaluate_infeasible_flow_req() {
     let problem = issue_instance();
     // All zeros: no flow → insufficient
     let config = vec![0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_edge_cost_flow_evaluate_wrong_config_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[0; 5]), Min(None)); // too short
-    assert_eq!(problem.evaluate(&[0; 7]), Min(None)); // too long
-    assert_eq!(problem.evaluate(&[]), Min(None)); // empty
+    assert!(matches!(
+        problem.evaluate(&vec![0; 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 7]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_minimum_edge_cost_flow_solver() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    let value = problem.evaluate(&witness);
+    let witness = solver
+        .solve(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    let value = problem.evaluate(&witness).unwrap();
     assert_eq!(value, Min(Some(3)));
 }
 
@@ -104,7 +117,7 @@ fn test_minimum_edge_cost_flow_solver() {
 fn test_minimum_edge_cost_flow_infeasible_instance() {
     let problem = infeasible_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -131,9 +144,9 @@ fn test_minimum_edge_cost_flow_max_capacity_empty() {
 fn test_minimum_edge_cost_flow_all_witnesses_optimal() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all.is_empty());
     for sol in &all {
-        assert_eq!(problem.evaluate(sol), Min(Some(3)));
+        assert_eq!(problem.evaluate(sol).unwrap(), Min(Some(3)));
     }
 }

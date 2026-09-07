@@ -39,44 +39,54 @@ impl ReductionResult for ReductionKCliqueToILP {
     ///
     /// Since the mapping is 1:1 (each vertex maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices",
-        num_constraints = "num_vertices^2",
+        num_constraints = "num_vertices^2 + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_vertices();
-        let k = self.k();
+        let k =
+            <Self as ReduceTo<ILP<bool>>>::exact_i64(self.k(), "encoding the clique cardinality")?;
 
         let mut constraints: Vec<LinearConstraint> = Vec::new();
 
         // Cardinality constraint: sum of x_v >= k (select at least k vertices)
-        let cardinality_terms: Vec<(usize, f64)> = (0..num_vars).map(|v| (v, 1.0)).collect();
-        constraints.push(LinearConstraint::ge(cardinality_terms, k as f64));
+        let cardinality_terms: Vec<(usize, i64)> = (0..num_vars).map(|v| (v, 1)).collect();
+        constraints.push(LinearConstraint::ge(cardinality_terms, k));
 
         // Non-edge constraints: x_u + x_v <= 1 for each non-edge (u, v)
         // Ensures no two selected vertices are non-adjacent (i.e., selected set is a clique)
         for u in 0..num_vars {
             for v in (u + 1)..num_vars {
                 if !self.graph().has_edge(u, v) {
-                    constraints.push(LinearConstraint::le(vec![(u, 1.0), (v, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(u, 1), (v, 1)], 1));
                 }
             }
         }
 
         // Objective: empty (feasibility problem — minimize 0)
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionKCliqueToILP { target }
+        Ok(ReductionKCliqueToILP { target })
     }
 }
 
@@ -95,8 +105,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1, 0],
-                    target_config: vec![1, 1, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, true, false]),
+                    target_config: serde_json::json!(vec![1, 1, 1, 0]),
                 },
             )
         },

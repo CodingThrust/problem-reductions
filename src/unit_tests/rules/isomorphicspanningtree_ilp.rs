@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -12,12 +12,13 @@ fn test_reduction_creates_valid_ilp() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = IsomorphicSpanningTree::new(graph, tree);
-    let reduction: ReductionISTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionISTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 9); // 3x3
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 }
 
 #[test]
@@ -25,13 +26,10 @@ fn test_isomorphicspanningtree_to_ilp_closed_loop() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
     let problem = IsomorphicSpanningTree::new(graph, tree);
-    let reduction: ReductionISTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionISTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_satisfaction_target(
-        &problem,
-        &reduction,
-        "IsomorphicSpanningTree->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -41,19 +39,20 @@ fn test_isomorphicspanningtree_to_ilp_bf_vs_ilp() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(
         bf_witness.is_some(),
         "BF should find a satisfying assignment"
     );
 
-    let reduction: ReductionISTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionISTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -62,12 +61,13 @@ fn test_solution_extraction() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = IsomorphicSpanningTree::new(graph, tree);
-    let reduction: ReductionISTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionISTToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 3);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

@@ -10,12 +10,13 @@
 use crate::expr::Expr;
 use crate::models::misc::SubsetSum;
 use crate::models::set::IntegerKnapsack;
-use crate::rules::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use crate::rules::registry::ReductionParameterDeclarations;
+use crate::rules::ReductionEntry;
 use crate::traits::Problem;
-use crate::types::ProblemSize;
+#[cfg(feature = "example-db")]
 use num_bigint::BigUint;
+#[cfg(feature = "example-db")]
 use num_traits::ToPrimitive;
-use std::any::Any;
 
 #[cfg(feature = "example-db")]
 fn biguint_to_i64(value: &BigUint, what: &str) -> i64 {
@@ -24,48 +25,24 @@ fn biguint_to_i64(value: &BigUint, what: &str) -> i64 {
         .unwrap_or_else(|| panic!("SubsetSum -> IntegerKnapsack requires {what} to fit in i64"))
 }
 
-fn biguint_to_usize(value: &BigUint, what: &str) -> usize {
-    value
-        .to_usize()
-        .unwrap_or_else(|| panic!("SubsetSum -> IntegerKnapsack requires {what} to fit in usize"))
-}
-
-fn subset_sum_source_size(any: &dyn Any) -> ProblemSize {
-    let source = any
-        .downcast_ref::<SubsetSum>()
-        .expect("SubsetSum -> IntegerKnapsack source type mismatch");
-    ProblemSize::new(vec![
-        ("num_elements", source.num_elements()),
-        ("target", biguint_to_usize(source.target(), "target")),
-    ])
-}
-
-fn subset_sum_to_integer_knapsack_overhead(any: &dyn Any) -> ProblemSize {
-    let source = any
-        .downcast_ref::<SubsetSum>()
-        .expect("SubsetSum -> IntegerKnapsack source type mismatch");
-    ProblemSize::new(vec![
-        ("num_items", source.num_elements()),
-        ("capacity", biguint_to_usize(source.target(), "target")),
-    ])
-}
-
 inventory::submit! {
     ReductionEntry {
         source_name: SubsetSum::NAME,
         target_name: IntegerKnapsack::NAME,
         source_variant_fn: <SubsetSum as Problem>::variant,
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_items", Expr::Var("num_elements")),
-            ("capacity", Expr::Var("target")),
-        ]),
+        parameter_declarations_fn: || ReductionParameterDeclarations {
+            relation: Some(crate::parameters::ParameterRelation::Exact),
+            fields: vec![("num_items", Expr::variable("num_elements"))],
+            unavailable: vec![crate::rules::registry::UnavailableParameterField {
+                field: "capacity",
+                reason: "the target capacity equals the SubsetSum target, which is not a registered source parameter",
+            }],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::none(),
-        overhead_eval_fn: subset_sum_to_integer_knapsack_overhead,
-        source_size_fn: subset_sum_source_size,
+        turing: false,
     }
 }
 
@@ -90,14 +67,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .map(|value| biguint_to_i64(value, "sizes"))
                     .collect(),
                 biguint_to_i64(source.target(), "target"),
-            );
+            )
+            .unwrap();
 
             assemble_rule_example(
                 &source,
                 &target,
                 vec![SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 1],
-                    target_config: vec![1, 0, 0, 1, 1],
+                    source_config: serde_json::json!(vec![true, false, false, true, true]),
+                    target_config: serde_json::json!(vec![1, 0, 0, 1, 1]),
                 }],
             )
         },

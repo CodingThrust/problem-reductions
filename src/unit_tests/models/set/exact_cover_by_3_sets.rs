@@ -1,4 +1,14 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+#[test]
+fn create_spec_sorts_triples() {
+    let problem = ExactCoverBy3Sets::try_from(ExactCoverBy3SetsCreateSpec {
+        universe_size: 3,
+        subsets: vec![[2, 0, 1]],
+    })
+    .unwrap();
+    assert_eq!(problem.subsets(), &[[0, 1, 2]]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
@@ -9,7 +19,7 @@ fn test_exact_cover_by_3_sets_creation() {
     assert_eq!(problem.num_subsets(), 3);
     assert_eq!(problem.num_sets(), 3);
     assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dims(), vec![2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
 }
 
 #[test]
@@ -19,31 +29,38 @@ fn test_exact_cover_by_3_sets_evaluation() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
 
     // S0 + S1 = exact cover
-    assert!(problem.evaluate(&[1, 1, 0]));
+    assert!(problem.evaluate(&vec![true, true, false]).unwrap());
 
     // S0 + S2 overlap at element 0
-    assert!(!problem.evaluate(&[1, 0, 1]));
+    assert!(!problem.evaluate(&vec![true, false, true]).unwrap());
 
     // Only S0 selected (need q=2 subsets)
-    assert!(!problem.evaluate(&[1, 0, 0]));
+    assert!(!problem.evaluate(&vec![true, false, false]).unwrap());
 
     // All selected (too many, and overlapping)
-    assert!(!problem.evaluate(&[1, 1, 1]));
+    assert!(!problem.evaluate(&vec![true, true, true]).unwrap());
 
     // None selected
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&vec![false, false, false]).unwrap());
 }
 
 #[test]
 fn test_exact_cover_by_3_sets_rejects_wrong_config_length() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
-    assert!(!problem.evaluate(&[1, 1, 0]));
+    assert!(matches!(
+        problem.evaluate(&vec![true, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_exact_cover_by_3_sets_rejects_non_binary_config_values() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
-    assert!(!problem.evaluate(&[1, 1, 2]));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([true, true, 2])
+    )
+    .is_err());
 }
 
 #[test]
@@ -65,15 +82,15 @@ fn test_exact_cover_by_3_sets_solver() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
 
     // S0={0,1,2}, S2={3,4,5}, S4={6,7,8} is an exact cover
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
     // Verify the known solution is in there
-    assert!(solutions.contains(&vec![1, 0, 1, 0, 1, 0, 0]));
+    assert!(solutions.contains(&vec![true, false, true, false, true, false, false]));
 }
 
 #[test]
@@ -84,7 +101,7 @@ fn test_exact_cover_by_3_sets_no_solution() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
 }
 
@@ -103,14 +120,14 @@ fn test_exact_cover_by_3_sets_serialization() {
 #[test]
 fn test_exact_cover_by_3_sets_is_valid_solution() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
-    assert!(problem.is_valid_solution(&[1, 1]));
-    assert!(!problem.is_valid_solution(&[1, 0]));
+    assert!(problem.is_valid_solution(&[true, true]).unwrap());
+    assert!(!problem.is_valid_solution(&[true, false]).unwrap());
 }
 
 #[test]
 fn test_exact_cover_by_3_sets_covered_elements() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
-    let covered = problem.covered_elements(&[1, 0, 1]);
+    let covered = problem.covered_elements(&[true, false, true]);
     assert_eq!(covered.len(), 5); // {0,1,2,3,4} -- note element 0 appears twice
     assert!(covered.contains(&0));
     assert!(covered.contains(&4));
@@ -129,10 +146,10 @@ fn test_exact_cover_by_3_sets_get_subset() {
 fn test_exact_cover_by_3_sets_empty() {
     // Empty universe with no subsets -- trivially satisfiable
     let problem = ExactCoverBy3Sets::new(0, vec![]);
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&vec![]).unwrap());
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
-    assert_eq!(solutions, vec![Vec::<usize>::new()]);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
+    assert_eq!(solutions, vec![Vec::<bool>::new()]);
 }
 
 #[test]

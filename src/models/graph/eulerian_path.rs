@@ -15,7 +15,7 @@
 //! time `O(num_vertices + num_arcs)` by the classical degree-balance plus
 //! Hierholzer construction (Bang-Jensen & Gutin 2009; Ebert 1988).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -25,9 +25,8 @@ inventory::submit! {
         name: "EulerianPath",
         display_name: "Eulerian Path",
         aliases: &[],
-        dimensions: &[
-            VariantDimension::new("graph", "DirectedGraph", &["DirectedGraph"]),
-        ],
+        dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does the directed multigraph admit a directed trail using every arc exactly once?",
         fields: &[
@@ -37,13 +36,6 @@ inventory::submit! {
                 description: "The directed multigraph D=(V,A); parallel arcs and loops allowed",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "EulerianPath",
-        fields: &["num_vertices", "num_arcs"],
     }
 }
 
@@ -66,7 +58,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::EulerianPath;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Problem};
 ///
 /// // V = {0,1,2}; A = [(0,1), (0,1), (1,2), (2,0)] (parallel arc (0,1)).
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
@@ -74,7 +66,7 @@ inventory::submit! {
 ///
 /// // Witness: ordering [a_0, a_2, a_3, a_1] = (0->1)->(1->2)->(2->0)->(0->1)
 /// // traces trail 0->1->2->0->1.
-/// let witness = BruteForce::new().find_witness(&problem);
+/// let witness = BruteForce::new().solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,19 +103,41 @@ impl EulerianPath {
 
 impl Problem for EulerianPath {
     const NAME: &'static str = "EulerianPath";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let m = self.graph.num_arcs();
+        if config.len() != m {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc ordering length does not match the graph".into(),
+            ));
+        }
+        if config.iter().any(|&arc| arc >= m) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc ordering contains an out-of-range arc".into(),
+            ));
+        }
+        Ok(crate::types::Or(is_valid_eulerian_trail(
+            &self.graph,
+            config,
+        )))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for EulerianPath {
+    fn dimensions(&self) -> Vec<usize> {
         let m = self.graph.num_arcs();
         vec![m; m]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_eulerian_trail(&self.graph, config))
     }
 }
 
@@ -174,13 +188,18 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "eulerian_path",
         instance: Box::new(EulerianPath::new(graph)),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 crate::declare_variants! {
     default EulerianPath => "num_vertices + num_arcs",
+}
+
+crate::register_brute_force! {
+    EulerianPath,
 }
 
 #[cfg(test)]

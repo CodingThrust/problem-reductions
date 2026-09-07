@@ -1,4 +1,4 @@
-//! Reduction from OpenShopScheduling to ILP<i32>.
+//! Reduction from OpenShopScheduling to `ILP<i64>`.
 //!
 //! Disjunctive formulation with binary ordering variables and integer start times:
 //!
@@ -31,7 +31,7 @@ use crate::models::misc::OpenShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing OpenShopScheduling to ILP<i32>.
+/// Result of reducing OpenShopScheduling to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `x_{j,k,i}` at index `pair_idx(j,k) * m + i`    (num_pairs * m vars)
@@ -41,7 +41,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - `C`: at index `num_order_vars + n * m + n * m*(m-1)/2` (1 var)
 #[derive(Debug, Clone)]
 pub struct ReductionOSSToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_jobs: usize,
     num_machines: usize,
     /// n*(n-1)/2 * m — start index of s_{j,i} variables
@@ -80,43 +80,37 @@ impl ReductionOSSToILP {
 
 impl ReductionResult for ReductionOSSToILP {
     type Source = OpenShopScheduling;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
-    /// Extract per-machine job orderings from the ILP start times, then
-    /// convert to the config format (direct permutation indices per machine).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_jobs;
-        let m = self.num_machines;
-
-        // Read start times s_{j,i} for each (j, i)
-        let start = |j: usize, i: usize| -> usize {
-            let idx = self.num_order_vars + j * m + i;
-            target_solution.get(idx).copied().unwrap_or(0)
-        };
-
-        // For each machine, sort jobs by their start time on that machine
-        let mut config = Vec::with_capacity(n * m);
-        for i in 0..m {
-            let mut jobs: Vec<usize> = (0..n).collect();
-            jobs.sort_by_key(|&j| (start(j, i), j));
-            config.extend(jobs);
-        }
-        config
+    /// Extract the job-major operation start times from the ILP solution.
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let start = self.num_order_vars;
+        let end = start + self.num_jobs * self.num_machines;
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[start..end])
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
-    num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
-})]
-impl ReduceTo<ILP<i32>> for OpenShopScheduling {
+#[reduction(
+    transform = exact {
+        num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
+        num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    }
+)]
+impl ReduceTo<ILP<i64>> for OpenShopScheduling {
     type Result = ReductionOSSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_jobs();
         let m = self.num_machines();
         let p = self.processing_times();
@@ -131,15 +125,25 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
         let num_vars = num_order_vars + num_start_vars + num_job_pair_vars + 1; // +1 for C
 
         let result = ReductionOSSToILP {
-            target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+            target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_jobs: n,
             num_machines: m,
             num_order_vars,
         };
 
         // Big-M: sum of all processing times (loose upper bound on makespan)
-        let total_p: usize = p.iter().flat_map(|row| row.iter()).sum();
-        let big_m = total_p as f64;
+        let total_p = p
+            .iter()
+            .flat_map(|row| row.iter())
+            .try_fold(0_i64, |total, &time| total.checked_add(time))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<OpenShopScheduling, ILP<i64>>(
+                    "summing open-shop processing times",
+                )
+            })?;
+        let big_m = total_p;
+        let processing_times = p;
 
         let c_var = num_order_vars + num_start_vars + num_job_pair_vars;
 
@@ -150,7 +154,7 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
             for k in (j + 1)..n {
                 for i in 0..m {
                     let x = result.x_var(j, k, i);
-                    constraints.push(LinearConstraint::le(vec![(x, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(x, 1)], 1));
                 }
             }
         }
@@ -160,12 +164,12 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
         for j in 0..n {
             for i in 0..m {
                 let sji = result.s_var(j, i);
-                constraints.push(LinearConstraint::le(vec![(sji, 1.0)], big_m));
+                constraints.push(LinearConstraint::le(vec![(sji, 1)], big_m));
             }
         }
 
         // Upper bound on makespan C ≤ total_p
-        constraints.push(LinearConstraint::le(vec![(c_var, 1.0)], big_m));
+        constraints.push(LinearConstraint::le(vec![(c_var, 1)], big_m));
 
         // 2. Machine non-overlap: for each pair (j,k) with j<k, each machine i
         //    x_{j,k,i}=1 means j precedes k on machine i:
@@ -184,22 +188,23 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
         //      (b) s_{j,i} - s_{k,i} + M*x ≥ p_{k,i}
         for j in 0..n {
             for k in (j + 1)..n {
-                for (i, (&pji_val, &pki_val)) in p[j].iter().zip(p[k].iter()).enumerate() {
+                for (i, (&pji, &pki)) in processing_times[j]
+                    .iter()
+                    .zip(processing_times[k].iter())
+                    .enumerate()
+                {
                     let x = result.x_var(j, k, i);
                     let sj = result.s_var(j, i);
                     let sk = result.s_var(k, i);
-                    let pji = pji_val as f64;
-                    let pki = pki_val as f64;
-
                     // (a) s_{k,i} - s_{j,i} - M*x_{j,k,i} >= p_{j,i} - M
                     constraints.push(LinearConstraint::ge(
-                        vec![(sk, 1.0), (sj, -1.0), (x, -big_m)],
+                        vec![(sk, 1), (sj, -1), (x, -big_m)],
                         pji - big_m,
                     ));
 
                     // (b) s_{j,i} - s_{k,i} + M*x_{j,k,i} >= p_{k,i}
                     constraints.push(LinearConstraint::ge(
-                        vec![(sj, 1.0), (sk, -1.0), (x, big_m)],
+                        vec![(sj, 1), (sk, -1), (x, big_m)],
                         pki,
                     ));
                 }
@@ -211,7 +216,7 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
             for i in 0..m {
                 for ip in (i + 1)..m {
                     let y = result.y_var(j, i, ip);
-                    constraints.push(LinearConstraint::le(vec![(y, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(y, 1)], 1));
                 }
             }
         }
@@ -222,24 +227,24 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
         //          s_{j,i'} - s_{j,i} - M*y ≥ p_{j,i} - M
         //      (b) s_{j,i} ≥ s_{j,i'} + p_{j,i'} - M*y
         //          s_{j,i} - s_{j,i'} + M*y ≥ p_{j,i'}
-        for (j, pj) in p.iter().enumerate() {
+        for (j, pj) in processing_times.iter().enumerate() {
             for i in 0..m {
                 for ip in (i + 1)..m {
                     let y = result.y_var(j, i, ip);
                     let sji = result.s_var(j, i);
                     let sjip = result.s_var(j, ip);
-                    let pji = pj[i] as f64;
-                    let pjip = pj[ip] as f64;
+                    let pji = pj[i];
+                    let pjip = pj[ip];
 
                     // (a) s_{j,i'} - s_{j,i} - M*y >= p_{j,i} - M
                     constraints.push(LinearConstraint::ge(
-                        vec![(sjip, 1.0), (sji, -1.0), (y, -big_m)],
+                        vec![(sjip, 1), (sji, -1), (y, -big_m)],
                         pji - big_m,
                     ));
 
                     // (b) s_{j,i} - s_{j,i'} + M*y >= p_{j,i'}
                     constraints.push(LinearConstraint::ge(
-                        vec![(sji, 1.0), (sjip, -1.0), (y, big_m)],
+                        vec![(sji, 1), (sjip, -1), (y, big_m)],
                         pjip,
                     ));
                 }
@@ -247,25 +252,23 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
         }
 
         // 5. Makespan: C ≥ s_{j,i} + p_{j,i}  ⟺  C - s_{j,i} ≥ p_{j,i}
-        for (j, pj) in p.iter().enumerate() {
+        for (j, pj) in processing_times.iter().enumerate() {
             for (i, &pji) in pj.iter().enumerate() {
                 let sji = result.s_var(j, i);
-                constraints.push(LinearConstraint::ge(
-                    vec![(c_var, 1.0), (sji, -1.0)],
-                    pji as f64,
-                ));
+                constraints.push(LinearConstraint::ge(vec![(c_var, 1), (sji, -1)], pji));
             }
         }
 
         // Objective: minimize C
-        let objective = vec![(c_var, 1.0)];
+        let objective = vec![(c_var, 1)];
 
-        ReductionOSSToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+        Ok(ReductionOSSToILP {
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_jobs: n,
             num_machines: m,
             num_order_vars,
-        }
+        })
     }
 }
 
@@ -276,7 +279,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Small 2x2 instance for canonical example
             let source = OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

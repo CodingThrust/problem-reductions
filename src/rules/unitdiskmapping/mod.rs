@@ -16,17 +16,15 @@
 //! let edges = vec![(0, 1), (1, 2), (0, 2)];
 //!
 //! // Map to King's Subgraph (unweighted)
-//! let result = ksg::map_unweighted(3, &edges);
+//! let result = ksg::map_unweighted(3, &edges).unwrap();
 //!
 //! // Map to King's Subgraph (weighted)
-//! let weighted_result = ksg::map_weighted(3, &edges);
+//! let weighted_result = ksg::map_weighted(3, &edges).unwrap();
 //!
 //! // Map to triangular lattice (weighted)
-//! let tri_result = triangular::map_weighted(3, &edges);
+//! let tri_result = triangular::map_weighted(3, &edges).unwrap();
 //! ```
 
-#[allow(dead_code)]
-pub(crate) mod alpha_tensor;
 mod copyline;
 mod grid;
 pub mod ksg;
@@ -37,6 +35,32 @@ mod weighted;
 
 // Re-export commonly used items from submodules for convenience
 pub use ksg::{GridKind, MappingResult};
+
+use crate::rules::ReductionError;
+
+fn mapping_invalid(message: impl Into<String>) -> ReductionError {
+    ReductionError::InvalidTarget {
+        source_problem: "Graph",
+        target_problem: "UnitDiskMapping",
+        message: message.into(),
+    }
+}
+
+fn mapping_integer_overflow(operation: impl Into<String>) -> ReductionError {
+    ReductionError::IntegerOverflow {
+        source_problem: "Graph",
+        target_problem: "UnitDiskMapping",
+        operation: operation.into(),
+    }
+}
+
+fn mapping_non_finite(operation: impl Into<String>) -> ReductionError {
+    ReductionError::NonFiniteResult {
+        source_problem: "Graph",
+        target_problem: "UnitDiskMapping",
+        operation: operation.into(),
+    }
+}
 
 // Re-exports for unit tests (only needed in test builds)
 #[cfg(test)]

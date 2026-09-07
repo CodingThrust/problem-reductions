@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::variant::{K2, K3, KN};
 include!("../../jl_helpers.rs");
@@ -60,11 +61,11 @@ fn test_3sat_brute_force() {
         ],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
 
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -98,9 +99,9 @@ fn test_ksat_count_satisfied() {
         ],
     );
     // x1=T, x2=T, x3=T: first satisfied, second not
-    assert_eq!(problem.count_satisfied(&[true, true, true]), 1);
+    assert_eq!(problem.count_satisfied(&[true, true, true]).unwrap(), 1);
     // x1=T, x2=F, x3=F: both satisfied
-    assert_eq!(problem.count_satisfied(&[true, false, false]), 2);
+    assert_eq!(problem.count_satisfied(&[true, false, false]).unwrap(), 2);
 }
 
 #[test]
@@ -112,8 +113,8 @@ fn test_ksat_evaluate() {
             CNFClause::new(vec![-1, -2, -3]),
         ],
     );
-    assert!(problem.evaluate(&[1, 0, 0])); // x1=T, x2=F, x3=F
-    assert!(!problem.evaluate(&[1, 1, 1])); // x1=T, x2=T, x3=T
+    assert!(problem.evaluate(&vec![true, false, false]).unwrap()); // x1=T, x2=F, x3=F
+    assert!(!problem.evaluate(&vec![true, true, true]).unwrap()); // x1=T, x2=T, x3=T
 }
 
 #[test]
@@ -128,11 +129,11 @@ fn test_ksat_problem_v2() {
         ],
     );
 
-    assert_eq!(p.dims(), vec![2, 2, 2]);
-    assert!(p.evaluate(&[1, 0, 0]));
-    assert!(!p.evaluate(&[1, 1, 1]));
-    assert!(!p.evaluate(&[0, 0, 0]));
-    assert!(p.evaluate(&[1, 0, 1]));
+    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert!(p.evaluate(&vec![true, false, false]).unwrap());
+    assert!(!p.evaluate(&vec![true, true, true]).unwrap());
+    assert!(!p.evaluate(&vec![false, false, false]).unwrap());
+    assert!(p.evaluate(&vec![true, false, true]).unwrap());
     assert_eq!(<KSatisfiability<K3> as Problem>::NAME, "KSatisfiability");
 }
 
@@ -145,11 +146,11 @@ fn test_ksat_problem_v2_2sat() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
 
-    assert_eq!(p.dims(), vec![2, 2]);
-    assert!(p.evaluate(&[1, 0]));
-    assert!(p.evaluate(&[0, 1]));
-    assert!(!p.evaluate(&[1, 1]));
-    assert!(!p.evaluate(&[0, 0]));
+    assert_eq!(p.dimensions(), vec![2, 2]);
+    assert!(p.evaluate(&vec![true, false]).unwrap());
+    assert!(p.evaluate(&vec![false, true]).unwrap());
+    assert!(!p.evaluate(&vec![true, true]).unwrap());
+    assert!(!p.evaluate(&vec![false, false]).unwrap());
 }
 
 #[test]
@@ -163,8 +164,8 @@ fn test_jl_parity_evaluation() {
         let num_clauses = instance["instance"]["clauses"].as_array().unwrap().len();
         let problem = KSatisfiability::<K3>::new(num_vars, clauses);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
-            let rust_result = problem.evaluate(&config);
+            let config = jl_parse_bool_config(&eval["config"]);
+            let rust_result = problem.evaluate(&config).unwrap();
             let jl_size = eval["size"].as_u64().unwrap() as usize;
             assert_eq!(
                 rust_result,
@@ -173,9 +174,9 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let rust_best = BruteForce::new().find_all_witnesses(&problem);
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
+        let rust_best = BruteForce::new().find_all_witnesses(&problem).unwrap();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best_set: HashSet<Vec<bool>> = rust_best.into_iter().collect();
         assert_eq!(rust_best_set, jl_best, "KSat best solutions mismatch");
     }
 }
@@ -193,7 +194,7 @@ fn test_kn_creation() {
     );
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_clauses(), 3);
-    assert!(problem.evaluate(&[1, 0, 0])); // x1=T, x2=F, x3=F
+    assert!(problem.evaluate(&vec![true, false, false]).unwrap()); // x1=T, x2=F, x3=F
 }
 
 #[test]
@@ -208,13 +209,17 @@ fn test_kn_from_k3_clauses() {
     );
     let kn = KSatisfiability::<KN>::new(k3.num_vars(), k3.clauses().to_vec());
     // Both should agree on evaluations
-    for config in &[[1, 0, 0], [0, 1, 0], [1, 1, 1]] {
-        assert_eq!(k3.evaluate(config), kn.evaluate(config));
+    for config in &[
+        vec![true, false, false],
+        vec![false, true, false],
+        vec![true, true, true],
+    ] {
+        assert_eq!(k3.evaluate(config).unwrap(), kn.evaluate(config).unwrap());
     }
 }
 
 #[test]
-fn test_size_getters() {
+fn test_parameter_getters() {
     let problem = KSatisfiability::<K3>::new(
         3,
         vec![
@@ -238,9 +243,9 @@ fn test_ksat_paper_example() {
             CNFClause::new(vec![1, -2, -3]),
         ],
     );
-    assert!(problem.evaluate(&[1, 0, 1]));
+    assert!(problem.evaluate(&vec![true, false, true]).unwrap());
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
 }

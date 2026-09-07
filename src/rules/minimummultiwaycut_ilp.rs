@@ -32,7 +32,7 @@ pub struct ReductionMMCToILP {
 }
 
 impl ReductionResult for ReductionMMCToILP {
-    type Source = MinimumMultiwayCut<SimpleGraph, i32>;
+    type Source = MinimumMultiwayCut<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -42,22 +42,34 @@ impl ReductionResult for ReductionMMCToILP {
     /// Extract solution from ILP back to MinimumMultiwayCut.
     ///
     /// For each edge e, source config[e] = target_solution[k*n + e] (the x_e variable).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let offset = self.k * self.n;
-        (0..self.m).map(|e| target_solution[offset + e]).collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let offset = self.k * self.n;
+            (0..self.m)
+                .map(|e| target_solution[offset + e] == 1)
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_terminals * num_vertices + num_edges",
         num_constraints = "num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMMCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let k = self.num_terminals();
@@ -75,22 +87,22 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
 
         // Terminal fixing: y_{i, t_i} = 1 for each terminal i
         for (i, &t) in terminals.iter().enumerate() {
-            constraints.push(LinearConstraint::eq(vec![(i * n + t, 1.0)], 1.0));
+            constraints.push(LinearConstraint::eq(vec![(i * n + t, 1)], 1));
         }
 
         // Terminal fixing: y_{j, t_i} = 0 for j != i
         for (i, &t) in terminals.iter().enumerate() {
             for j in 0..k {
                 if j != i {
-                    constraints.push(LinearConstraint::eq(vec![(j * n + t, 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(j * n + t, 1)], 0));
                 }
             }
         }
 
         // Partition constraints: sum_i y_{iv} = 1 for each vertex v
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..k).map(|i| (i * n + v, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|i| (i * n + v, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Edge-cut linking constraints: for each edge e=(u,v) and each terminal i:
@@ -103,27 +115,28 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
                 let y_iv = i * n + v;
                 // x_e - y_{iu} + y_{iv} >= 0
                 constraints.push(LinearConstraint::ge(
-                    vec![(x_var, 1.0), (y_iu, -1.0), (y_iv, 1.0)],
-                    0.0,
+                    vec![(x_var, 1), (y_iu, -1), (y_iv, 1)],
+                    0,
                 ));
                 // x_e + y_{iu} - y_{iv} >= 0
                 constraints.push(LinearConstraint::ge(
-                    vec![(x_var, 1.0), (y_iu, 1.0), (y_iv, -1.0)],
-                    0.0,
+                    vec![(x_var, 1), (y_iu, 1), (y_iv, -1)],
+                    0,
                 ));
             }
         }
 
         // Objective: minimize sum_e w_e * x_e
-        let objective: Vec<(usize, f64)> = weights
+        let objective: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
-            .map(|(e_idx, w)| (k * n + e_idx, *w as f64))
+            .map(|(e_idx, &weight)| (k * n + e_idx, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionMMCToILP { target, n, m, k }
+        Ok(ReductionMMCToILP { target, n, m, k })
     }
 }
 

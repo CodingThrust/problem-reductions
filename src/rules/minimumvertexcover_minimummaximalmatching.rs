@@ -8,21 +8,11 @@
 //! (for example, on `C5`, `mmm(G) = 2` but `mvc(G) = 3`).
 
 use crate::models::graph::{MinimumMaximalMatching, MinimumVertexCover};
-use crate::rules::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use crate::rules::registry::ReductionParameterDeclarations;
+use crate::rules::ReductionEntry;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{One, ProblemSize};
-use std::any::Any;
-
-fn source_problem_size(any: &dyn Any) -> ProblemSize {
-    let source = any
-        .downcast_ref::<MinimumVertexCover<SimpleGraph, One>>()
-        .expect("MinimumVertexCover -> MinimumMaximalMatching source type mismatch");
-    ProblemSize::new(vec![
-        ("num_vertices", source.num_vertices()),
-        ("num_edges", source.num_edges()),
-    ])
-}
+use crate::types::One;
 
 inventory::submit! {
     ReductionEntry {
@@ -30,13 +20,18 @@ inventory::submit! {
         target_name: MinimumMaximalMatching::<SimpleGraph>::NAME,
         source_variant_fn: <MinimumVertexCover<SimpleGraph, One> as Problem>::variant,
         target_variant_fn: <MinimumMaximalMatching<SimpleGraph> as Problem>::variant,
-        overhead_fn: || ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+        parameter_declarations_fn: || ReductionParameterDeclarations {
+            relation: Some(crate::parameters::ParameterRelation::Exact),
+            fields: vec![
+                ("num_vertices", crate::expr::Expr::variable("num_vertices")),
+                ("num_edges", crate::expr::Expr::variable("num_edges")),
+            ],
+            unavailable: vec![],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::none(),
-        overhead_eval_fn: source_problem_size,
-        source_size_fn: source_problem_size,
+        turing: false,
     }
 }
 
@@ -55,8 +50,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 &target,
                 vec![SolutionPair {
-                    source_config: vec![1, 1, 0, 1, 0],
-                    target_config: vec![1, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, false, true, false]),
+                    target_config: serde_json::json!(vec![true, false, true, false, false]),
                 }],
             )
         },

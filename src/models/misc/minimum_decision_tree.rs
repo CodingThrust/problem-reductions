@@ -4,7 +4,7 @@
 //! that identifies each object with minimum total external path length
 //! (sum of depths of all leaves).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -15,13 +15,10 @@ inventory::submit! {
         display_name: "Minimum Decision Tree",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find decision tree identifying objects with minimum total path length",
-        fields: &[
-            FieldInfo { name: "test_matrix", type_name: "Vec<Vec<bool>>", description: "Binary matrix: test_matrix[j][i] = object i passes test j" },
-            FieldInfo { name: "num_objects", type_name: "usize", description: "Number of objects to identify" },
-            FieldInfo { name: "num_tests", type_name: "usize", description: "Number of available binary tests" },
-        ],
+        fields: MinimumDecisionTreeCreateSpec::FIELDS,
     }
 }
 
@@ -38,7 +35,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumDecisionTree;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = MinimumDecisionTree::new(
 ///     vec![
@@ -50,7 +47,7 @@ inventory::submit! {
 ///     3,
 /// );
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
+/// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumDecisionTree {
@@ -60,6 +57,55 @@ pub struct MinimumDecisionTree {
     num_objects: usize,
     /// Number of tests.
     num_tests: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumDecisionTreeCreateSpec {
+    /// Binary test matrix as JSON.
+    #[create(codec = "json")]
+    test_matrix: Vec<Vec<bool>>,
+    /// Number of objects.
+    num_objects: usize,
+    /// Number of tests.
+    num_tests: usize,
+}
+
+impl TryFrom<MinimumDecisionTreeCreateSpec> for MinimumDecisionTree {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumDecisionTreeCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_objects < 2 {
+            return Err("num_objects must be at least 2".into());
+        }
+        if spec.num_tests == 0 {
+            return Err("num_tests must be positive".into());
+        }
+        if spec.test_matrix.len() != spec.num_tests {
+            return Err("test_matrix row count must equal num_tests".into());
+        }
+        if spec
+            .test_matrix
+            .iter()
+            .any(|row| row.len() != spec.num_objects)
+        {
+            return Err("each test_matrix row must have num_objects columns".into());
+        }
+        for a in 0..spec.num_objects {
+            for b in a + 1..spec.num_objects {
+                if !(0..spec.num_tests)
+                    .any(|test| spec.test_matrix[test][a] != spec.test_matrix[test][b])
+                {
+                    return Err(
+                        format!("objects {a} and {b} are not distinguished by any test").into(),
+                    );
+                }
+            }
+        }
+        Ok(Self {
+            test_matrix: spec.test_matrix,
+            num_objects: spec.num_objects,
+            num_tests: spec.num_tests,
+        })
+    }
 }
 
 impl MinimumDecisionTree {
@@ -128,11 +174,11 @@ impl MinimumDecisionTree {
 
     /// Simulate the decision tree for all objects and return total external path length,
     /// or None if the tree is invalid (doesn't identify all objects uniquely).
-    fn simulate(&self, config: &[usize]) -> Option<usize> {
+    fn simulate(&self, config: &[usize]) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let sentinel = self.leaf_sentinel();
         let max_slots = self.num_tree_slots();
         let mut seen_leaves = std::collections::HashSet::new();
-        let mut total_depth = 0usize;
+        let mut total_depth = 0_i64;
 
         for obj in 0..self.num_objects {
             let mut node = 0usize;
@@ -142,9 +188,18 @@ impl MinimumDecisionTree {
                 if node >= max_slots || config[node] == sentinel {
                     // Two objects at same leaf — invalid
                     if !seen_leaves.insert(node) {
-                        return None;
+                        return Ok(None);
                     }
-                    total_depth += depth;
+                    let depth = i64::try_from(depth).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting decision-tree depth to i64".to_string(),
+                        )
+                    })?;
+                    total_depth = total_depth.checked_add(depth).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing decision-tree external path length".to_string(),
+                        )
+                    })?;
                     break;
                 }
 
@@ -156,29 +211,34 @@ impl MinimumDecisionTree {
                 depth += 1;
 
                 if depth > self.num_objects {
-                    return None;
+                    return Ok(None);
                 }
             }
         }
 
-        Some(total_depth)
+        Ok(Some(total_depth))
     }
 }
 
 impl Problem for MinimumDecisionTree {
     const NAME: &'static str = "MinimumDecisionTree";
-    type Value = Min<usize>;
+    type Solution = Vec<usize>;
+    type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        // Each internal node can hold test 0..num_tests-1 or sentinel (leaf)
-        vec![self.num_tests + 1; self.num_tree_slots()]
-    }
+    crate::problem_parameters![("num_objects", num_objects), ("num_tests", num_tests),];
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_tree_slots() {
-            return Min(None);
-        }
-        Min(self.simulate(config))
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_tree_slots() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "decision-tree encoding length does not match the instance".into(),
+                ));
+            }
+            Min(self.simulate(config)?)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -186,8 +246,19 @@ impl Problem for MinimumDecisionTree {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumDecisionTree {
+    fn dimensions(&self) -> Vec<usize> {
+        // Each internal node can hold test 0..num_tests-1 or sentinel (leaf)
+        vec![self.num_tests + 1; self.num_tree_slots()]
+    }
+}
+
 crate::declare_variants! {
-    default MinimumDecisionTree => "num_tests^num_objects",
+    default MinimumDecisionTree => "num_tests^num_objects" create MinimumDecisionTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumDecisionTree,
 }
 
 #[cfg(feature = "example-db")]
@@ -204,7 +275,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
         )),
         // T0 at root, T2 left, T1 right, rest are leaves (sentinel=3)
-        optimal_config: vec![0, 2, 1, 3, 3, 3, 3],
+        optimal_config: serde_json::json!(vec![0, 2, 1, 3, 3, 3, 3]),
         optimal_value: serde_json::json!(8),
     }]
 }

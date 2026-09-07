@@ -1,13 +1,11 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
 use super::*;
-#[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 #[cfg(feature = "example-db")]
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -32,31 +30,27 @@ fn unsatisfiable_instance() -> KSatisfiability<K3> {
     )
 }
 
-fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
+fn all_assignments(num_vars: usize) -> Vec<Vec<bool>> {
     (0..(1usize << num_vars))
-        .map(|mask| {
-            (0..num_vars)
-                .map(|bit| usize::from(((mask >> bit) & 1) == 1))
-                .collect()
-        })
+        .map(|mask| (0..num_vars).map(|bit| ((mask >> bit) & 1) == 1).collect())
         .collect()
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(problem);
-    let ilp_solution = ILPSolver::new().solve(reduction.target_problem())?;
-    let extracted = reduction.extract_solution(&ilp_solution);
-    problem.evaluate(&extracted).0.then_some(extracted)
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(problem).expect("reduction should succeed");
+    let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    problem.evaluate(&extracted).unwrap().0.then_some(extracted)
 }
 
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_structure() {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 36);
@@ -71,14 +65,15 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_
 ) {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     for assignment in all_assignments(source.num_vars()) {
         let flow = reduction.encode_assignment(&assignment);
         assert_eq!(
-            source.evaluate(&assignment).0,
-            target.evaluate(&flow).0,
+            source.evaluate(&assignment).unwrap().0,
+            target.evaluate(&flow).unwrap().0,
             "assignment {:?} should preserve satisfiability through the encoded flow",
             assignment
         );
@@ -90,36 +85,43 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
 {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
 
-    let assignment = vec![1, 1, 0];
+    let assignment = vec![true, true, false];
     let flow = reduction.encode_assignment(&assignment);
-    assert!(reduction.target_problem().evaluate(&flow).0);
-    assert_eq!(reduction.extract_solution(&flow), assignment);
+    assert!(reduction.target_problem().evaluate(&flow).unwrap().0);
+    assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     let target_solution = solve_target_via_ilp(reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible two-commodity flow");
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
 
-    let extracted = reduction.extract_solution(&target_solution);
-    assert!(source.evaluate(&extracted).0);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_unsatisfiable() {
     let source = unsatisfiable_instance();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
     let maybe_solution = solve_target_via_ilp(reduction.target_problem());
     assert!(
         maybe_solution.is_none(),
@@ -155,7 +157,10 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_canonical_example_sp
         serde_json::json!(2)
     );
     assert_eq!(example.solutions.len(), 1);
-    assert_eq!(example.solutions[0].source_config, vec![1, 1, 0]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, true, false])
+    );
 
     let source: KSatisfiability<K3> = serde_json::from_value(example.source.instance.clone())
         .expect("source example deserializes");
@@ -163,10 +168,10 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_canonical_example_sp
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
 
-    assert!(source
-        .evaluate(&example.solutions[0].source_config)
-        .is_valid());
-    assert!(target
-        .evaluate(&example.solutions[0].target_config)
-        .is_valid());
+    let source_config: Vec<bool> =
+        serde_json::from_value(example.solutions[0].source_config.clone()).unwrap();
+    let target_config: Vec<usize> =
+        serde_json::from_value(example.solutions[0].target_config.clone()).unwrap();
+    assert!(source.evaluate(&source_config).unwrap().is_valid());
+    assert!(target.evaluate(&target_config).unwrap().is_valid());
 }

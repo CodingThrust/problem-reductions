@@ -9,7 +9,8 @@ fn test_minimumvertexcover_to_longestcommonsubsequence_closed_loop() {
         vec![One; 4],
     );
 
-    let reduction = ReduceTo::<LongestCommonSubsequence>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -24,7 +25,8 @@ fn test_mvc_to_lcs_structure_for_path_p4() {
         vec![One; 4],
     );
 
-    let reduction = ReduceTo::<LongestCommonSubsequence>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.alphabet_size(), 4);
@@ -49,7 +51,8 @@ fn test_mvc_to_lcs_triangle_closed_loop() {
         vec![One; 3],
     );
 
-    let reduction = ReduceTo::<LongestCommonSubsequence>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -61,7 +64,8 @@ fn test_mvc_to_lcs_triangle_closed_loop() {
 fn test_mvc_to_lcs_empty_graph_closed_loop() {
     let source = MinimumVertexCover::new(SimpleGraph::new(4, vec![]), vec![One; 4]);
 
-    let reduction = ReduceTo::<LongestCommonSubsequence>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.alphabet_size(), 4);
@@ -80,7 +84,8 @@ fn test_mvc_to_lcs_empty_graph_closed_loop() {
 fn test_mvc_to_lcs_canonicalizes_edge_orientation() {
     let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(1, 0)]), vec![One; 2]);
 
-    let reduction = ReduceTo::<LongestCommonSubsequence>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.strings(), &[vec![0, 1], vec![1, 0]]);

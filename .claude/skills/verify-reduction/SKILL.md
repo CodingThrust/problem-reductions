@@ -1,6 +1,6 @@
 ---
 name: verify-reduction
-description: Standalone mathematical verification of a reduction rule — generates Typst proof, constructor Python script (>=5000 checks), and adversary Python script (>=5000 independent checks). Reports verdict. No artifacts saved.
+description: Standalone mathematical verification of a reduction rule — generates a Typst proof plus constructor and independent adversary scripts with at least 5000 checks each. Reports a verdict without saving artifacts.
 ---
 
 # Verify Reduction
@@ -36,21 +36,60 @@ pred show <Target> --json
 
 ### Type compatibility gate — MANDATORY
 
-Check source/target `Value` types before any work:
+Check source/target `Value` types before any work. The `grep` only locates the definitions; it does
+not resolve generic parameters or associated types:
 
 ```bash
 grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
 ```
 
+Resolve both concrete types completely before declaring compatibility:
+
+1. Substitute every concrete generic argument from the proposed rule.
+2. Follow every type alias and associated type to its defining `impl`.
+3. Record the substitution chain and the source file evidence in the verification report.
+4. If any generic or associated type remains unresolved, run a compile-backed temporary Rust probe
+   using `std::any::type_name::<<ConcreteProblem as Problem>::Value>()`. Build the probe from `/tmp`
+   with a path dependency on this repository; do not modify the repository.
+
+Never infer a Rust value type from the mathematical problem name, from unit-weight terminology, or
+from the Python verifier's integer representation. In particular, arbitrary-precision Python
+integers do not establish that a Rust objective type is `usize` or that it is closed under all
+legal source instances.
+
+Required report format:
+
+```text
+TYPE RESOLUTION:
+  Source syntax:   Min<W::Sum>
+  Substitutions:   W = One; <One as WeightElement>::Sum = i64
+  Source resolved: Min<i64>
+  Target syntax:   Min<usize>
+  Target resolved: Min<usize>
+  Full-domain compatibility: FAILED
+```
+
 **Compatible pairs for `ReduceTo` (witness-capable):**
-- `Or`->`Or`, `Min`->`Min`, `Max`->`Max` (same type)
+- `Or`->`Or`
+- `Min<V>`->`Min<V>`, `Max<V>`->`Max<V>` (identical resolved inner type)
 - `Or`->`Min`, `Or`->`Max` (feasibility embeds into optimization)
+
+`Min<S>`->`Min<T>` or `Max<S>`->`Max<T>` with `S != T` is not automatically compatible. Proceed
+only if the rule or source model declares a bound covering every legal source instance and the
+verification proves a total, order-preserving conversion over that full declared domain. Otherwise
+STOP and report a value-domain mismatch.
 
 **Incompatible — STOP if any of these:**
 - `Min`->`Or` or `Max`->`Or` — optimization source has no threshold K; needs a decision-variant source model
 - `Max`->`Min` or `Min`->`Max` — opposite optimization directions; needs `ReduceToAggregate` or a decision-variant wrapper
 - `Or`->`Sum` or `Min`->`Sum` — Sum is aggregate-only; needs `ReduceToAggregate`
 - Any pair involving `And` or `Sum` on the target side
+
+**Regression case:** `MinimumDominatingSet<SimpleGraph, One>` resolves to `Min<i64>` because
+`<One as WeightElement>::Sum = i64`; `MinimumHittingSet` resolves to `Min<usize>`. Report
+`Min<i64> -> Min<usize>`, not `Min<usize> -> Min<usize>`. Without an explicit source-size bound,
+the full-domain type gate fails even though the classical cardinality reduction is mathematically
+correct and exhaustive small-instance checks pass.
 
 If incompatible, STOP and report the type mismatch and options. Do NOT proceed.
 
@@ -198,6 +237,10 @@ Every item must be YES. If any is NO, go back and fix.
 - [ ] NO example (fully worked, explains WHY infeasible)
 - [ ] Zero hand-waving language
 - [ ] Zero scratch work
+
+### Type gate
+- [ ] Concrete Rust `Value` types fully resolved with substitution evidence
+- [ ] Different numeric domains either rejected or covered by an explicit full-domain range proof
 
 ### Constructor Python
 - [ ] 0 failures, >=5,000 total checks

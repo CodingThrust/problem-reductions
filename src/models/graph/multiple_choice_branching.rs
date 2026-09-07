@@ -4,7 +4,7 @@
 //! threshold, determine whether there exists a high-weight branching that
 //! picks at most one arc from each partition group.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -18,16 +18,12 @@ inventory::submit! {
         display_name: "Multiple Choice Branching",
         aliases: &[],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a branching with partition constraints and weight at least K",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Arc weights w(a) for each arc a in A" },
-            FieldInfo { name: "partition", type_name: "Vec<Vec<usize>>", description: "Partition of arc indices; each arc index must appear in exactly one group" },
-            FieldInfo { name: "threshold", type_name: "W::Sum", description: "Weight threshold K" },
-        ],
+        fields: MultipleChoiceBranchingCreateSpec::FIELDS,
     }
 }
 
@@ -46,6 +42,59 @@ pub struct MultipleChoiceBranching<W: WeightElement> {
     weights: Vec<W>,
     partition: Vec<Vec<usize>>,
     threshold: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MultipleChoiceBranchingCreateSpec {
+    /// Directed graph arcs.
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated vertices.
+    num_vertices: Option<usize>,
+    /// Arc weights w(a) for each arc a in A.
+    weights: Vec<i64>,
+    /// Partition of arc indices; each arc must appear exactly once.
+    partition: Vec<Vec<usize>>,
+    /// Weight threshold K.
+    threshold: i64,
+}
+
+impl TryFrom<MultipleChoiceBranchingCreateSpec> for MultipleChoiceBranching<i64> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MultipleChoiceBranchingCreateSpec) -> Result<Self, Self::Error> {
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let num_vertices = spec.num_vertices.unwrap_or(inferred);
+        if num_vertices < inferred {
+            return Err("num_vertices is too small for arc endpoints"
+                .to_string()
+                .into());
+        }
+        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let num_arcs = graph.num_arcs();
+        if spec.weights.len() != num_arcs {
+            return Err(format!(
+                "weights has {} entries, expected {num_arcs}",
+                spec.weights.len()
+            )
+            .into());
+        }
+        if let Some(message) = partition_validation_error(&spec.partition, num_arcs) {
+            return Err(message.into());
+        }
+        Ok(Self::new(
+            graph,
+            spec.weights,
+            spec.partition,
+            spec.threshold,
+        ))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,7 +209,10 @@ impl<W: WeightElement> MultipleChoiceBranching<W> {
     }
 
     /// Check whether a configuration is a satisfying solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         is_valid_multiple_choice_branching(
             &self.graph,
             &self.weights,
@@ -176,26 +228,48 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MultipleChoiceBranching";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_vertices", num_vertices),
+        ("num_arcs", num_arcs),
+        ("num_partition_groups", num_partition_groups),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_arcs()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            is_valid_multiple_choice_branching(
-                &self.graph,
-                &self.weights,
-                &self.partition,
-                &self.threshold,
-                config,
-            )
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc-selection length does not match the graph".into(),
+            ));
+        }
+        Ok({
+            crate::types::Or({
+                is_valid_multiple_choice_branching(
+                    &self.graph,
+                    &self.weights,
+                    &self.partition,
+                    &self.threshold,
+                    config,
+                )?
+            })
         })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for MultipleChoiceBranching<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_arcs()]
     }
 }
 
@@ -236,23 +310,14 @@ fn is_valid_multiple_choice_branching<W: WeightElement>(
     weights: &[W],
     partition: &[Vec<usize>],
     threshold: &W::Sum,
-    config: &[usize],
-) -> bool {
+    config: &[bool],
+) -> Result<bool, crate::traits::EvaluationError> {
     if config.len() != graph.num_arcs() {
-        return false;
+        return Ok(false);
     }
-    if config.iter().any(|&value| value >= 2) {
-        return false;
-    }
-
     for group in partition {
-        if group
-            .iter()
-            .filter(|&&arc_index| config[arc_index] == 1)
-            .count()
-            > 1
-        {
-            return false;
+        if group.iter().filter(|&&arc_index| config[arc_index]).count() > 1 {
+            return Ok(false);
         }
     }
 
@@ -261,19 +326,23 @@ fn is_valid_multiple_choice_branching<W: WeightElement>(
     let mut selected_successors = vec![Vec::new(); graph.num_vertices()];
     let mut total = W::Sum::zero();
     for (index, &selected) in config.iter().enumerate() {
-        if selected == 1 {
+        if selected {
             let (source, target) = arcs[index];
             in_degree[target] += 1;
             if in_degree[target] > 1 {
-                return false;
+                return Ok(false);
             }
             selected_successors[source].push(target);
-            total += weights[index].to_sum();
+            total = W::checked_add_to_sum(
+                total,
+                weights[index].to_sum(),
+                "summing multiple-choice branching weights",
+            )?;
         }
     }
 
     if total < *threshold {
-        return false;
+        return Ok(false);
     }
 
     let mut queue: Vec<usize> = (0..graph.num_vertices())
@@ -290,17 +359,21 @@ fn is_valid_multiple_choice_branching<W: WeightElement>(
         }
     }
 
-    visited == graph.num_vertices()
+    Ok(visited == graph.num_vertices())
 }
 
 crate::declare_variants! {
-    default MultipleChoiceBranching<i32> => "2^num_arcs",
+    default MultipleChoiceBranching<i64> => "2^num_arcs" create MultipleChoiceBranchingCreateSpec,
+}
+
+crate::register_brute_force! {
+    MultipleChoiceBranching<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "multiple_choice_branching_i32",
+        id: "multiple_choice_branching",
         instance: Box::new(MultipleChoiceBranching::new(
             DirectedGraph::new(
                 6,
@@ -319,7 +392,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]],
             10,
         )),
-        optimal_config: vec![1, 0, 1, 0, 0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, false, true, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

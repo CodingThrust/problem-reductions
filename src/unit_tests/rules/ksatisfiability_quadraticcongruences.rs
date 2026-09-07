@@ -1,138 +1,217 @@
 use super::*;
-use crate::models::algebraic::QuadraticCongruences;
 use crate::models::formula::CNFClause;
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::variant::K3;
-use num_bigint::BigUint;
+use crate::types::Or;
+use num_traits::ToPrimitive;
 
-fn parse_biguint(decimal: &str) -> BigUint {
-    BigUint::parse_bytes(decimal.as_bytes(), 10).unwrap()
-}
-
-fn yes_source() -> KSatisfiability<K3> {
-    KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])])
-}
-
-fn no_source() -> KSatisfiability<K3> {
-    KSatisfiability::<K3>::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]),
-            CNFClause::new(vec![1, 2, -3]),
-            CNFClause::new(vec![1, -2, 3]),
-            CNFClause::new(vec![1, -2, -3]),
-            CNFClause::new(vec![-1, 2, 3]),
-            CNFClause::new(vec![-1, 2, -3]),
-            CNFClause::new(vec![-1, -2, 3]),
-            CNFClause::new(vec![-1, -2, -3]),
-        ],
-    )
-}
-
-#[test]
-fn test_ksatisfiability_to_quadraticcongruences_yes_vector_matches_reference() {
-    let source = yes_source();
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
-    let target = reduction.target_problem();
-
-    assert_eq!(
-        target.a().to_string(),
-        "24774376789833901930969493589690857054479757318809067389880050365481900686480521855790751085321855544028716091768740304061770154933483583912568032268487309839887150483217991803427841494632246256979069106267975739903077253313975220950334629543698896680796604644514471329982226587790198939310252130261854260061345261792534822703552107415993395149181095406643946417446677838556491529662967718612497196985465607481037701762565357464432115991588186315538944420338665581665657256990633048782316518458318960789823148195608356665866132094622331741751434660104464526446186908186423984327309378584441678852301608097413875097759322340203392440129757309044952206052676794474037444"
-    );
-    assert_eq!(
-        target.b().to_string(),
-        "258320492398609134568167452627805653838806933034511801239359528293031627308482985529627303083989608069978947502642310747925392872731730228104501603959708654521957819948288267706290429252928740405698982584646431109529262246477522695494351678851239966374979739979701122298088960329328753718665018850712042275569871466396457503567796534342707340019196698413210131749976105850216220019394606130292347220176211138740165131698855676193883728870618625384826419788829829526247269356884620132156221128153554106543852477345833208840768767922757003997300130451685941234216949874080226229911993667022444495949994448402992262942289046968833223208572761404733560153986210741255929856"
-    );
-    assert_eq!(
-        target.c().to_string(),
-        "1751451155417562289076090860910295013949798563382605049497801689362833144442778311933240623927667902634489226131336737498914714274795055484758030113178137436163237034061475775300435705196751438621958401245166827762311321148824531342518489821082597026301078157024033550589509978740853350146565333003331750962865756176467129058599530372891056620147121385604213541915205324234623562149270154119682624448276224413342516768403311219878134069384884962788483901933932054931801996913522906978676274990632045086346409870581389711391040275119346527314035568397793120598911278990196649611544031780831552993078580251588216452432109923605723648051009454783363"
-    );
-
-    let witness = parse_biguint(
-        "1751451122102119958305507786775835374858648979796949071929887579732578264063983923970828608254544727567945005331103265320267846420581308180536461678218456421163010842022583797942541569366464959069523226763069748653830351684499364645098951736761394790343553460544021210289436100818494593367113721596780252083857888675004881955664228675079663569835052161564690932502575257394108174870151908279593037426404556490332761276593006398441245490978500647642893471046425509487910796951416870024826654351366508266859321005453091128123256128675758429165869380881549388896022325625404673271432251145796159394173120179999131480837018022329857587128653018300402"
-    );
-    let target_config = target
-        .encode_witness(&witness)
-        .expect("reference witness must fit target encoding");
-    assert_eq!(target.evaluate(&target_config), crate::types::Or(true));
-
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0, 0]);
-    assert_eq!(source.evaluate(&extracted), crate::types::Or(true));
-}
-
-#[test]
-fn test_ksatisfiability_to_quadraticcongruences_no_vector_matches_reference() {
-    let source = no_source();
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
-    let target = reduction.target_problem();
-
-    assert_eq!(
-        target.a().to_string(),
-        "120619237677026130477382743668519955611573561225067606894291539776375461793042697084141982444840376832001728483520031164927711964309027723931955055266286697653823171984912998845552700982708397313076874101315576113063246467601796146446302015850261619724287365217007681583278794859395374862907111341177346218183179800717140552372231833894729949737335461236543786388850947901432259488709855205465866771912257416917279047309255913271484003744149430021735021695160328958001378399161910095840332775546649076458417491115249654227832505762740144311527592947868271995754125690220733691637204688156423224231300498143512347565896417676557114842881743922849970165789454322978012868"
-    );
-    assert_eq!(
-        target.b().to_string(),
-        "258320492398609134568167452627805653838806933034511801239359528293031627308482985529627303083989608069978947502642310747925392872731730228104501603959708654521957819948288267706290429252928740405698982584646431109529262246477522695494351678851239966374979739979701122298088960329328753718665018850712042275569871466396457503567796534342707340019196698413210131749976105850216220019394606130292347220176211138740165131698855676193883728870618625384826419788829829526247269356884620132156221128153554106543852477345833208840768767922757003997300130451685941234216949874080226229911993667022444495949994448402992262942289046968833223208572761404733560153986210741255929856"
-    );
-    assert_eq!(
-        target.c().to_string(),
-        "1751451155417562289076090860910295013949798563382605049497801689362833144442778311933240623927667902634489226131336737498914714274795055484758030113178137436163237034061475775300435705196751438621958401245166827762311321148824531342518489821082597026301078157024033550589509978740853350146565333003331750962865756176467129058599530372891056620147121385604213541915205324234623562149270154119682624448276224413342516768403311219878134069384884962788483901933932054931801996913522906978676274990632045086346409870581389711391040275119346527314035568397793120598911278990196649611544031780831552993078580251588216452432109923605723648051009454783363"
-    );
-
-    assert!(
-        exhaustive_alpha_solution(&source).is_none(),
-        "reference UNSAT instance should have no exact doubled-knapsack witness"
-    );
-}
-
-#[test]
-fn test_ksatisfiability_to_quadraticcongruences_extracts_assignment_from_constructed_witness() {
-    let source = KSatisfiability::<K3>::new(4, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
-    let target_config = witness_config_for_assignment(&source, &[1, 0, 0, 0])
-        .expect("assignment should lift to a target witness");
-
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0, 0, 0]);
-    assert_eq!(source.evaluate(&extracted), crate::types::Or(true));
-    assert_eq!(
-        reduction.target_problem().evaluate(&target_config),
-        crate::types::Or(true)
-    );
+fn source(n: usize, clauses: Vec<Vec<i64>>) -> KSatisfiability<K3> {
+    KSatisfiability::try_new_allow_less(n, clauses.into_iter().map(CNFClause::new).collect())
+        .unwrap()
 }
 
 #[test]
 fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
-    let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, -3])]);
-
-    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
-
-    // Construct a target config from a known-satisfying source assignment.
-    // Assignment: x1=true, x2=false, x3=false => clause (1,2,-3) satisfied by x1=true.
-    let assignment = [1, 0, 0];
+    // This target is small enough to exhaust with the registered reference solver.
+    let source = source(4, vec![vec![1, -1, 4]]);
+    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source).unwrap();
+    let solution = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
     assert_eq!(
-        source.evaluate(assignment.as_ref()),
-        crate::types::Or(true),
-        "assignment must satisfy the source"
+        reduction.target_problem().evaluate(&solution).unwrap(),
+        Or(true)
     );
-
-    let target_config = witness_config_for_assignment(&source, &assignment)
-        .expect("satisfying assignment should lift to a target witness");
-
-    // Verify the target config is a valid witness.
     assert_eq!(
-        reduction.target_problem().evaluate(&target_config),
-        crate::types::Or(true),
-        "constructed target config must satisfy the target"
+        source
+            .evaluate(&reduction.extract_solution(&solution).unwrap())
+            .unwrap(),
+        Or(true)
     );
+}
 
-    // Verify round-trip: extracting the source solution recovers the original assignment.
-    let extracted = reduction.extract_solution(&target_config);
-    assert_eq!(extracted, vec![1, 0, 0]);
+#[test]
+fn test_native_clauses_and_arbitrary_crt_signs() {
+    for source in [
+        source(0, vec![]),
+        source(0, vec![vec![]]),
+        source(3, vec![vec![1, 1, 1]]),
+        source(3, vec![vec![-1, -1, -1]]),
+        source(3, vec![vec![1, 2]]),
+        source(3, vec![vec![1, 2, 3]]),
+        source(3, vec![vec![-3, -1, 2]]),
+        source(2, vec![vec![1], vec![-1]]),
+        source(2, vec![vec![1, 2], vec![-1, -2]]),
+        source(2, vec![vec![], vec![1, 2]]),
+        source(17, vec![vec![17, 17, 17]]),
+    ] {
+        let construction = build_construction(&source).unwrap();
+        let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source).unwrap();
+        let count = construction.thetas.len();
+        let k: BigUint = construction.prime_powers.iter().product();
+        assert!(&construction.h * 2u32 < k);
+        let mut recovered = BTreeSet::new();
+        for mask in 0..(1usize << count) {
+            let signs: Vec<i8> = (0..count)
+                .map(|i| if mask & (1 << i) == 0 { 1 } else { -1 })
+                .collect();
+            let witness = witness_value_from_alphas(&signs, &construction.thetas);
+            let valid = reduction.target_problem().evaluate(&witness).unwrap().0;
+            let extracted = reduction.extract_solution(&witness);
+            if valid {
+                let extracted = extracted.unwrap();
+                assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
+                for (i, &original) in construction.active_to_source.iter().enumerate() {
+                    assert_eq!(
+                        extracted[original],
+                        signs[0] != signs[2 * construction.clauses.len() + i + 1]
+                    );
+                }
+                recovered.insert(extracted);
+            } else {
+                assert!(extracted.is_err());
+            }
+        }
+        // Enumerate only appearing variables; unused coordinates are free.
+        let mut expected = BTreeSet::new();
+        for mask in 0..(1usize << construction.active_to_source.len()) {
+            let mut assignment = vec![false; source.num_vars()];
+            for (i, &original) in construction.active_to_source.iter().enumerate() {
+                assignment[original] = mask & (1 << i) != 0;
+            }
+            if source.evaluate(&assignment).unwrap().0 {
+                let signs = build_alphas(&construction, &assignment).unwrap();
+                let witness = witness_value_from_alphas(&signs, &construction.thetas);
+                assert_eq!(
+                    reduction.target_problem().evaluate(&witness).unwrap(),
+                    Or(true)
+                );
+                assert_eq!(reduction.extract_solution(&witness).unwrap(), assignment);
+                expected.insert(assignment);
+            } else {
+                assert!(build_alphas(&construction, &assignment).is_none());
+            }
+        }
+        assert_eq!(recovered, expected);
+    }
+}
+
+#[test]
+fn test_unsatisfiable_formula_has_no_quadratic_sign_witness() {
+    let rows: Vec<_> = (0..8)
+        .map(|mask| {
+            (0..3)
+                .map(|i| if mask & (1 << i) == 0 { i + 1 } else { -i - 1 })
+                .collect()
+        })
+        .collect();
+    let source = source(3, rows);
+    let construction = build_construction(&source).unwrap();
+    let coefficients: Vec<i64> = construction
+        .coefficients
+        .iter()
+        .map(|c| c.to_i64().unwrap())
+        .collect();
+    let tau = construction.tau.to_i64().unwrap();
+    let modulus = 2 * 8i64.pow(9);
+    let mut linear: i64 = coefficients.iter().sum();
+    let mut signs = vec![1i64; coefficients.len()];
+    // Global negation has the same square, so fix alpha_0=+1. This exhausts
+    // all 524288 candidate CRT sign classes, including non-knapsack roots.
+    for mask in 0..(1usize << (coefficients.len() - 1)) {
+        if mask != 0 {
+            let bit = mask.trailing_zeros() as usize + 1;
+            linear -= 2 * signs[bit] * coefficients[bit];
+            signs[bit] = -signs[bit];
+        }
+        assert_ne!((linear * linear - tau * tau).rem_euclid(modulus), 0);
+    }
+    // Explicit regression: leave only the highest clause false and substitute
+    // y=1 for its impossible y=-1. The old doubled construction accepted this.
+    let mut signs = vec![1i8; construction.thetas.len()];
+    for (j, clause) in construction.clauses.iter().enumerate() {
+        let y = if j == 7 {
+            1
+        } else {
+            clause.iter().filter(|&&lit| lit < 0).count() - 1
+        };
+        signs[2 * j + 1] = if y & 1 == 0 { 1 } else { -1 };
+        signs[2 * j + 2] = if y < 2 { 1 } else { -1 };
+    }
+    assert_eq!(construction.clauses.last().unwrap(), &vec![1, 2, 3]);
+    let witness = witness_value_from_alphas(&signs, &construction.thetas);
+    assert_eq!(construction.target.evaluate(&witness).unwrap(), Or(false));
+}
+
+#[test]
+fn test_normalization_preserves_free_variables_and_formula() {
+    let canonical = source(5, vec![vec![-5, 2]]);
+    let redundant = source(5, vec![vec![2, -5, 2], vec![-5, 2, -5], vec![1, -1, 4]]);
+    let first = ReduceTo::<QuadraticCongruences>::reduce_to(&canonical).unwrap();
+    let second = ReduceTo::<QuadraticCongruences>::reduce_to(&redundant).unwrap();
     assert_eq!(
-        source.evaluate(&extracted),
-        crate::types::Or(true),
-        "extracted source config must satisfy the source"
+        serde_json::to_value(first.target_problem()).unwrap(),
+        serde_json::to_value(second.target_problem()).unwrap()
     );
+    let assignment = [true, true, true, true, false];
+    let witness = witness_config_for_assignment(&redundant, &assignment).unwrap();
+    assert_eq!(
+        second.extract_solution(&witness).unwrap(),
+        vec![false, true, false, false, false]
+    );
+    assert!(witness_config_for_assignment(&redundant, &[]).is_none());
+    assert!(
+        witness_config_for_assignment(&redundant, &[false, false, false, false, true]).is_none()
+    );
+}
+
+#[test]
+fn test_rejects_infeasible_and_out_of_bound_integers() {
+    let source = source(3, vec![vec![1, 2, 3]]);
+    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source).unwrap();
+    for witness in [
+        BigUint::zero(),
+        reduction.h.clone(),
+        reduction.target.c().clone(),
+        reduction.target.c() + 1u32,
+    ] {
+        assert_eq!(reduction.target.evaluate(&witness).unwrap(), Or(false));
+        assert!(reduction.extract_solution(&witness).is_err());
+    }
+}
+
+#[test]
+fn test_prime_generation_and_parameter_bounds() {
+    for (candidate, prime) in [
+        (0, false),
+        (1, false),
+        (2, true),
+        (3, true),
+        (4, false),
+        (9, false),
+        (13, true),
+        (25, false),
+        (u64::MAX, false),
+    ] {
+        assert_eq!(is_prime(candidate), prime);
+    }
+    assert!(admissible_primes(0).unwrap().is_empty());
+    assert_eq!(admissible_primes(4).unwrap(), vec![13, 17, 19, 23]);
+    for source in [
+        source(0, vec![]),
+        source(0, vec![vec![]]),
+        source(3, vec![vec![1, 2, 3]]),
+        source(1, vec![vec![1], vec![-1]]),
+    ] {
+        let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source).unwrap();
+        let n = 2 * source.num_clauses() + source.num_vars() + 1;
+        let bound = 64 * n * n + 3 * source.num_clauses() + 4;
+        let target = reduction.target_problem();
+        assert!(
+            target.bit_length_a() <= bound
+                && target.bit_length_b() <= bound
+                && target.bit_length_c() <= bound
+        );
+    }
 }

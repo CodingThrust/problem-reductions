@@ -10,7 +10,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::SubgraphIsomorphism;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_assignment_constraints;
+use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode_rows};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
@@ -34,28 +34,34 @@ impl ReductionResult for ReductionSubIsoToILP {
     }
 
     /// Extract: for each pattern vertex v, output the unique host vertex u with x_{v,u} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n_host = self.num_host_vertices;
-        (0..self.num_pattern_vertices)
-            .map(|v| {
-                (0..n_host)
-                    .find(|&u| target_solution[v * n_host + u] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(
+            target_solution,
+            self.num_pattern_vertices,
+            self.num_host_vertices,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_pattern_vertices * num_host_vertices",
         num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
     type Result = ReductionSubIsoToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n_pat = self.num_pattern_vertices();
         let n_host = self.num_host_vertices();
         let host = self.host_graph();
@@ -81,21 +87,22 @@ impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
                     }
                     // x_{v,u} + x_{w,u'} <= 1
                     constraints.push(LinearConstraint::le(
-                        vec![(v * n_host + u, 1.0), (w * n_host + u_prime, 1.0)],
-                        1.0,
+                        vec![(v * n_host + u, 1), (w * n_host + u_prime, 1)],
+                        1,
                     ));
                 }
             }
         }
 
         // Feasibility: no objective
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionSubIsoToILP {
+        Ok(ReductionSubIsoToILP {
             target,
             num_pattern_vertices: n_pat,
             num_host_vertices: n_host,
-        }
+        })
     }
 }
 

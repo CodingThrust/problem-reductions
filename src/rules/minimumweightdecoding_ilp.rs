@@ -1,4 +1,4 @@
-//! Reduction from MinimumWeightDecoding to ILP<i32>.
+//! Reduction from MinimumWeightDecoding to `ILP<i64>`.
 //!
 //! The GF(2) constraint Hx ≡ s (mod 2) is linearized by introducing integer
 //! slack variables k_i for each row:
@@ -20,41 +20,52 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing MinimumWeightDecoding to ILP<i32>.
+/// Result of reducing MinimumWeightDecoding to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - x_j at index j for j in 0..num_cols (binary codeword bits)
 /// - k_i at index num_cols + i for i in 0..num_rows (integer slack)
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumWeightDecodingToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_cols: usize,
 }
 
 impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     type Source = MinimumWeightDecoding;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
     /// Extract the source solution: first m variables are the binary x_j values.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_cols].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_cols]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_cols + num_rows",
         num_constraints = "num_rows + num_cols",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for MinimumWeightDecoding {
+impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_cols();
         let n = self.num_rows();
         let num_vars = m + n;
@@ -66,29 +77,30 @@ impl ReduceTo<ILP<i32>> for MinimumWeightDecoding {
 
         // Equality constraints: Σ_j H[i][j] * x_j - 2 * k_i = s_i
         for i in 0..n {
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for j in 0..m {
                 if self.matrix()[i][j] {
-                    terms.push((x(j), 1.0));
+                    terms.push((x(j), 1));
                 }
             }
-            terms.push((k(i), -2.0));
-            let rhs = if self.target()[i] { 1.0 } else { 0.0 };
+            terms.push((k(i), -2));
+            let rhs = if self.target()[i] { 1 } else { 0 };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
 
         // Binary bounds: x_j ≤ 1
         for j in 0..m {
-            constraints.push(LinearConstraint::le(vec![(x(j), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(x(j), 1)], 1));
         }
 
         // Objective: minimize Σ x_j
-        let objective: Vec<(usize, f64)> = (0..m).map(|j| (x(j), 1.0)).collect();
+        let objective: Vec<(usize, i64)> = (0..m).map(|j| (x(j), 1)).collect();
 
-        ReductionMinimumWeightDecodingToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+        Ok(ReductionMinimumWeightDecodingToILP {
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_cols: m,
-        }
+        })
     }
 }
 
@@ -105,7 +117,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 vec![true, true, false],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

@@ -3,7 +3,7 @@
 //! KClique is the decision version of Clique: determine whether a graph
 //! contains a clique of size at least `k`.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "k-Clique",
         aliases: &["Clique"],
         dimensions: &[VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"])],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether a graph contains a clique of size at least k",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "k", type_name: "usize", description: "Minimum clique size threshold" },
-        ],
+        fields: KCliqueCreateSpec::FIELDS,
     }
 }
 
@@ -32,6 +30,50 @@ inventory::submit! {
 pub struct KClique<G> {
     graph: G,
     k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct KCliqueCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    k: usize,
+}
+
+impl TryFrom<KCliqueCreateSpec> for KClique<SimpleGraph> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: KCliqueCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        if spec.k == 0 {
+            return Err("k must be positive".into());
+        }
+        if spec.k > count {
+            return Err("k must be <= graph num_vertices".into());
+        }
+        Ok(Self {
+            graph: SimpleGraph::new(count, spec.graph),
+            k: spec.k,
+        })
+    }
 }
 
 impl<G: Graph> KClique<G> {
@@ -63,21 +105,21 @@ impl<G: Graph> KClique<G> {
     }
 
     /// Check whether a configuration is a valid witness.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_kclique_config(&self.graph, config, self.k)
     }
 
     /// Build a binary selection config from the listed vertices.
-    pub fn config_from_vertices(num_vertices: usize, selected_vertices: &[usize]) -> Vec<usize> {
-        let mut config = vec![0; num_vertices];
+    pub fn config_from_vertices(num_vertices: usize, selected_vertices: &[usize]) -> Vec<bool> {
+        let mut config = vec![false; num_vertices];
         for &vertex in selected_vertices {
-            config[vertex] = 1;
+            config[vertex] = true;
         }
         config
     }
 
     /// Convenience wrapper around [`Self::config_from_vertices`] using `self.num_vertices()`.
-    pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<usize> {
+    pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<bool> {
         Self::config_from_vertices(self.num_vertices(), selected_vertices)
     }
 }
@@ -87,39 +129,55 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "KClique";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("k", k),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_kclique_config(&self.graph, config, self.k))
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
+        }
+        Ok(crate::types::Or(is_kclique_config(
+            &self.graph,
+            config,
+            self.k,
+        )))
     }
 }
 
-fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
+impl<G> crate::solvers::BruteForceProblem for KClique<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
+fn is_kclique_config<G: Graph>(graph: &G, config: &[bool], k: usize) -> bool {
     if config.len() != graph.num_vertices() {
         return false;
     }
 
-    let selected: Vec<usize> = match config
+    let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .map(|(index, &value)| match value {
-            0 => Ok(None),
-            1 => Ok(Some(index)),
-            _ => Err(()),
-        })
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(values) => values.into_iter().flatten().collect(),
-        Err(()) => return false,
-    };
+        .filter_map(|(index, &selected)| selected.then_some(index))
+        .collect();
 
     if selected.len() < k {
         return false;
@@ -135,8 +193,27 @@ fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
     true
 }
 
+crate::impl_random_generate!(
+    KClique<SimpleGraph>,
+    crate::random::CliqueRandomSpec,
+    |spec| {
+        if spec.k == 0 || spec.k > spec.num_vertices {
+            return Err(format!(
+                "k must be between 1 and num_vertices ({})",
+                spec.num_vertices
+            )
+            .into());
+        }
+        Ok(KClique::new(spec.graph()?, spec.k))
+    }
+);
+
 crate::declare_variants! {
-    default KClique<SimpleGraph> => "1.1996^num_vertices",
+    default KClique<SimpleGraph> => "1.1996^num_vertices" create KCliqueCreateSpec random,
+}
+
+crate::register_brute_force! {
+    KClique<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -147,7 +224,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
             3,
         )),
-        optimal_config: vec![0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, true, true, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

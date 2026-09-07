@@ -1,4 +1,4 @@
-//! Reduction from PrecedenceConstrainedScheduling to ILP<bool>.
+//! Reduction from PrecedenceConstrainedScheduling to `ILP<bool>`.
 //!
 //! Uses a time-indexed binary formulation:
 //! - Variables: Binary x_{j,t} where x_{j,t} = 1 iff task j is scheduled at time slot t.
@@ -15,7 +15,7 @@ use crate::models::misc::PrecedenceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing PrecedenceConstrainedScheduling to ILP<bool>.
+/// Result of reducing PrecedenceConstrainedScheduling to `ILP<bool>`.
 ///
 /// Variable layout: x_{j,t} at index j * deadline + t
 /// for j in 0..num_tasks, t in 0..deadline.
@@ -38,66 +38,80 @@ impl ReductionResult for ReductionPCSToILP {
     ///
     /// For each task j, find the time slot t where x_{j,t} = 1.
     /// Returns the time slot for each task (matching the `dims()` encoding of PCS).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let d = self.deadline;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..d)
-                    .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.deadline,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_tasks * deadline",
-        num_constraints = "num_tasks + deadline + num_tasks^2",
+        num_constraints = "num_tasks + deadline + num_precedences",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
     type Result = ReductionPCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
-        let m = self.num_processors();
-        let d = self.deadline();
+        let d = usize::try_from(self.deadline()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                PrecedenceConstrainedScheduling,
+                ILP<bool>,
+            >("validated deadline must fit usize")
+        })?;
         let num_vars = n * d;
 
         // x_{j,t} variable index
         let var = |j: usize, t: usize| j * d + t;
+        let processor_count =
+            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
 
         let mut constraints = Vec::new();
 
         // 1. One-hot: Σ_t x_{j,t} = 1 for each task j
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..d).map(|t| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..d).map(|t| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Capacity: Σ_j x_{j,t} ≤ m for each time slot t
         for t in 0..d {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, m as f64));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, processor_count));
         }
 
         // 3. Precedence: Σ_t t·x_{j,t} ≥ Σ_t t·x_{i,t} + 1 for each (i,j)
         // Rearranged: Σ_t t·x_{j,t} - Σ_t t·x_{i,t} ≥ 1
         for &(i, j) in self.precedences() {
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for t in 0..d {
-                terms.push((var(j, t), t as f64));
-                terms.push((var(i, t), -(t as f64)));
+                let t_i64 = Self::exact_i64(t, "encoding a time slot")?;
+                terms.push((var(j, t), t_i64));
+                terms.push((var(i, t), -t_i64));
             }
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
-        ReductionPCSToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+        Ok(ReductionPCSToILP {
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
             deadline: d,
-        }
+        })
     }
 }
 

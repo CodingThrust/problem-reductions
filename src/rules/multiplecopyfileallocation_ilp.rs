@@ -36,8 +36,16 @@ impl ReductionResult for ReductionMCFAToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -61,35 +69,23 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_vertices + num_vertices^2",
         num_constraints = "num_vertices^2 + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
     type Result = ReductionMCFAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let num_vars = n + n * n;
-        // Big-M penalty for unreachable pairs: use a value larger than any feasible
-        // total cost to make unreachable assignments infeasible.
-        let total_storage: i64 = self.storage().iter().sum();
-        let total_usage: i64 = self.usage().iter().sum();
-        let big_m = total_storage + total_usage * n as i64 + 1;
-
-        // Precompute all-pairs shortest-path distances using BFS.
+        // Precompute all-pairs shortest-path distances using BFS. A negative
+        // distance marks an unreachable pair and is prohibited below.
         let all_dist: Vec<Vec<i64>> = (0..n).map(|s| bfs_distances(self.graph(), s, n)).collect();
-
-        // Effective distance from v to u: use big_m when unreachable.
-        let eff_dist = |v: usize, u: usize| -> i64 {
-            let d = all_dist[u][v]; // distance from v to u = BFS from u, query v
-            if d < 0 {
-                big_m
-            } else {
-                d
-            }
-        };
 
         // Index helpers.
         let x_var = |v: usize| v;
@@ -99,43 +95,56 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
 
         // Assignment constraints: ∀v: Σ_u y_{v,u} = 1
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|u| (y_var(v, u), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|u| (y_var(v, u), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
-        // Capacity link constraints: ∀v,u: y_{v,u} ≤ x_u  →  y_{v,u} - x_u ≤ 0
-        for v in 0..n {
-            for u in 0..n {
-                constraints.push(LinearConstraint::le(
-                    vec![(y_var(v, u), 1.0), (x_var(u), -1.0)],
-                    0.0,
-                ));
-            }
-        }
-
-        // Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} usage(v)·dist(v,u)·y_{v,u}
-        let mut objective: Vec<(usize, f64)> = Vec::with_capacity(num_vars);
-        for v in 0..n {
-            let sc = self.storage()[v] as f64;
-            if sc != 0.0 {
-                objective.push((x_var(v), sc));
-            }
-        }
-        for v in 0..n {
-            let u_v = self.usage()[v] as f64;
-            for u in 0..n {
-                let coeff = u_v * eff_dist(v, u) as f64;
-                if coeff != 0.0 {
-                    objective.push((y_var(v, u), coeff));
+        // Reachable assignments require a selected copy. Unreachable
+        // assignments are forbidden exactly rather than discouraged by a cost.
+        for (u, distances_from_u) in all_dist.iter().enumerate() {
+            for (v, &distance) in distances_from_u.iter().enumerate() {
+                if distance < 0 {
+                    constraints.push(LinearConstraint::eq(vec![(y_var(v, u), 1)], 0));
+                } else {
+                    constraints.push(LinearConstraint::le(
+                        vec![(y_var(v, u), 1), (x_var(u), -1)],
+                        0,
+                    ));
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionMCFAToILP {
+        // Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} usage(v)·dist(v,u)·y_{v,u}
+        let mut objective: Vec<(usize, i64)> = Vec::with_capacity(num_vars);
+        for v in 0..n {
+            let sc = self.storage()[v];
+            if sc != 0 {
+                objective.push((x_var(v), sc));
+            }
+        }
+        for (u, distances_from_u) in all_dist.iter().enumerate() {
+            for (v, &distance) in distances_from_u.iter().enumerate() {
+                if distance < 0 {
+                    continue;
+                }
+                let service_cost = self.usage()[v].checked_mul(distance).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        MultipleCopyFileAllocation,
+                        ILP<bool>,
+                    >("multiplying usage by service distance")
+                })?;
+                if service_cost != 0 {
+                    objective.push((y_var(v, u), service_cost));
+                }
+            }
+        }
+
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionMCFAToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

@@ -1,11 +1,8 @@
-//! Reduction from SteinerTree to ILP (Integer Linear Programming).
+//! Exact Steiner-tree formulation for signed edge weights.
 //!
-//! Uses the standard rooted multi-commodity flow formulation:
-//! - Variables: edge selectors `y_e` plus directed flow variables `f^t_(u,v)`
-//!   for each non-root terminal `t`
-//! - Constraints: flow conservation for each commodity and capacity linking
-//!   `f^t_(u,v) <= y_e`
-//! - Objective: minimize the total weight of selected edges
+//! Binary vertex selectors and rooted flows connect every selected vertex.
+//! Endpoint linking and |selected edges| = |selected vertices| - 1 then enforce
+//! a tree, independently of the objective's signs.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::SteinerTree;
@@ -13,12 +10,8 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Result of reducing SteinerTree to ILP.
-///
-/// Variable layout (all binary):
-/// - `y_e` for each undirected source edge `e` (indices `0..m`)
-/// - `f^t_(u,v)` and `f^t_(v,u)` for each non-root terminal `t` and each source edge
-///   `(u, v)` (indices `m..m + 2m(k-1)`)
+/// Binary layout: m edge selectors, n vertex selectors, then 2m flow arcs
+/// for each vertex other than the first terminal (in vertex-index order).
 #[derive(Debug, Clone)]
 pub struct ReductionSteinerTreeToILP {
     target: ILP<bool>,
@@ -26,100 +19,144 @@ pub struct ReductionSteinerTreeToILP {
 }
 
 impl ReductionResult for ReductionSteinerTreeToILP {
-    type Source = SteinerTree<SimpleGraph, i32>;
+    type Source = SteinerTree<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        if crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .value
+            .is_none()
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
+        Ok(target_solution[..self.num_edges]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_edges + 2 * num_edges * (num_terminals - 1)",
-        num_constraints = "num_vertices * (num_terminals - 1) + 2 * num_edges * (num_terminals - 1)",
+    transform = exact {
+        num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
+        num_constraints = "num_vertices * (num_vertices - 1) + 2 * num_edges * num_vertices + num_terminals + 1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
     type Result = ReductionSteinerTreeToILP;
 
-    fn reduce_to(&self) -> Self::Result {
-        assert!(
-            self.edge_weights().iter().all(|&weight| weight > 0),
-            "SteinerTree -> ILP requires strictly positive edge weights (zero-weight edges should be contracted beforehand)"
-        );
-
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
+        let (num_vars, num_constraints) = tree_ilp_sizes(n, m, self.terminals().len())?;
+        // The source constructor requires at least two distinct terminals.
         let root = self.terminals()[0];
-        let non_root_terminals = &self.terminals()[1..];
         let edges = self.graph().edges();
-        let num_vars = m + 2 * m * non_root_terminals.len();
-        let num_constraints = n * non_root_terminals.len() + 2 * m * non_root_terminals.len();
+        let vertex_var = |v: usize| m + v;
+        let flow_var = |commodity: usize, edge: usize, dir: usize| {
+            m + n + commodity * (2 * m) + 2 * edge + dir
+        };
         let mut constraints = Vec::with_capacity(num_constraints);
 
-        let edge_var = |edge_idx: usize| edge_idx;
-        let flow_var = |terminal_pos: usize, edge_idx: usize, dir: usize| -> usize {
-            m + terminal_pos * 2 * m + 2 * edge_idx + dir
-        };
+        for (e, &(u, v)) in edges.iter().enumerate() {
+            for endpoint in [u, v] {
+                constraints.push(LinearConstraint::le(
+                    vec![(e, 1), (vertex_var(endpoint), -1)],
+                    0,
+                ));
+            }
+        }
+        for &terminal in self.terminals() {
+            constraints.push(LinearConstraint::eq(vec![(vertex_var(terminal), 1)], 1));
+        }
+        let cardinality = (0..m)
+            .map(|e| (e, 1))
+            .chain((0..n).map(|v| (vertex_var(v), -1)))
+            .collect();
+        constraints.push(LinearConstraint::eq(cardinality, -1));
 
-        for (terminal_pos, &terminal) in non_root_terminals.iter().enumerate() {
+        for (commodity, sink) in (0..n).filter(|&v| v != root).enumerate() {
             for vertex in 0..n {
                 let mut terms = Vec::new();
-                for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-                    if v == vertex {
-                        terms.push((flow_var(terminal_pos, edge_idx, 0), 1.0));
-                        terms.push((flow_var(terminal_pos, edge_idx, 1), -1.0));
+                for (edge, &(u, v)) in edges.iter().enumerate() {
+                    if vertex == u {
+                        terms.push((flow_var(commodity, edge, 0), -1));
+                        terms.push((flow_var(commodity, edge, 1), 1));
                     }
-                    if u == vertex {
-                        terms.push((flow_var(terminal_pos, edge_idx, 0), -1.0));
-                        terms.push((flow_var(terminal_pos, edge_idx, 1), 1.0));
+                    if vertex == v {
+                        terms.push((flow_var(commodity, edge, 0), 1));
+                        terms.push((flow_var(commodity, edge, 1), -1));
                     }
                 }
-
-                let rhs = if vertex == root {
-                    -1.0
-                } else if vertex == terminal {
-                    1.0
-                } else {
-                    0.0
-                };
-                constraints.push(LinearConstraint::eq(terms, rhs));
+                // Inflow - outflow = z_sink at sink and -z_sink at root.
+                if vertex == root {
+                    terms.push((vertex_var(sink), 1));
+                } else if vertex == sink {
+                    terms.push((vertex_var(sink), -1));
+                }
+                constraints.push(LinearConstraint::eq(terms, 0));
+            }
+            for edge in 0..m {
+                for dir in 0..2 {
+                    constraints.push(LinearConstraint::le(
+                        vec![(flow_var(commodity, edge, dir), 1), (edge, -1)],
+                        0,
+                    ));
+                }
             }
         }
-
-        for terminal_pos in 0..non_root_terminals.len() {
-            for edge_idx in 0..m {
-                let selector = edge_var(edge_idx);
-                constraints.push(LinearConstraint::le(
-                    vec![(flow_var(terminal_pos, edge_idx, 0), 1.0), (selector, -1.0)],
-                    0.0,
-                ));
-                constraints.push(LinearConstraint::le(
-                    vec![(flow_var(terminal_pos, edge_idx, 1), 1.0), (selector, -1.0)],
-                    0.0,
-                ));
-            }
-        }
-
-        let objective: Vec<(usize, f64)> = self
+        let objective = self
             .edge_weights()
             .iter()
             .enumerate()
-            .map(|(edge_idx, &weight)| (edge_var(edge_idx), weight as f64))
+            .map(|(e, &w)| (e, w))
             .collect();
-
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-
-        ReductionSteinerTreeToILP {
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionSteinerTreeToILP {
             target,
             num_edges: m,
-        }
+        })
     }
+}
+
+/// Bounds for all offsets and allocation sizes; n >= 2 is a source invariant.
+fn tree_ilp_sizes(
+    n: usize,
+    m: usize,
+    k: usize,
+) -> Result<(usize, usize), crate::rules::ReductionError> {
+    let overflow = || {
+        crate::rules::ReductionError::integer_overflow::<SteinerTree<SimpleGraph, i64>, ILP<bool>>(
+            "counting Steiner tree ILP variables and constraints",
+        )
+    };
+    let non_root = n.checked_sub(1).ok_or_else(overflow)?;
+    let arcs = m.checked_mul(2).ok_or_else(overflow)?;
+    let vars = arcs
+        .checked_mul(non_root)
+        .and_then(|x| x.checked_add(m))
+        .and_then(|x| x.checked_add(n))
+        .ok_or_else(overflow)?;
+    let rows = n
+        .checked_mul(non_root)
+        .and_then(|x| arcs.checked_mul(n).and_then(|a| x.checked_add(a)))
+        .and_then(|x| x.checked_add(k))
+        .and_then(|x| x.checked_add(1))
+        .ok_or_else(overflow)?;
+    Ok((vars, rows))
 }
 
 #[cfg(feature = "example-db")]

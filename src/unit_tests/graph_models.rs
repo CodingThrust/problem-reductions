@@ -8,6 +8,7 @@ use crate::models::graph::maximum_independent_set::is_independent_set;
 use crate::models::graph::minimum_vertex_cover::is_vertex_cover;
 use crate::models::graph::{KColoring, MaximumIndependentSet, MinimumVertexCover};
 use crate::prelude::*;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, Min};
@@ -24,7 +25,7 @@ mod maximum_independent_set {
     fn test_creation() {
         let problem = MaximumIndependentSet::new(
             SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-            vec![1i32; 4],
+            vec![1i64; 4],
         );
         assert_eq!(problem.graph().num_vertices(), 4);
         assert_eq!(problem.graph().num_edges(), 3);
@@ -40,15 +41,15 @@ mod maximum_independent_set {
 
     #[test]
     fn test_unweighted() {
-        // i32 type is always considered weighted, even with uniform values
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+        // i64 type is always considered weighted, even with uniform values
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
         assert!(problem.is_weighted());
     }
 
     #[test]
     fn test_has_edge() {
         let problem =
-            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
         assert!(problem.graph().has_edge(0, 1));
         assert!(problem.graph().has_edge(1, 0)); // Undirected
         assert!(problem.graph().has_edge(1, 2));
@@ -58,33 +59,48 @@ mod maximum_independent_set {
     #[test]
     fn test_evaluate_valid() {
         let problem =
-            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i64; 4]);
 
         // Valid: select 0 and 2 (not adjacent)
-        assert_eq!(problem.evaluate(&[1, 0, 1, 0]), Max(Some(2)));
+        assert_eq!(
+            problem.evaluate(&vec![true, false, true, false]).unwrap(),
+            Max(Some(2))
+        );
 
         // Valid: select 1 and 3 (not adjacent)
-        assert_eq!(problem.evaluate(&[0, 1, 0, 1]), Max(Some(2)));
+        assert_eq!(
+            problem.evaluate(&vec![false, true, false, true]).unwrap(),
+            Max(Some(2))
+        );
     }
 
     #[test]
     fn test_evaluate_invalid() {
         let problem =
-            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i64; 4]);
 
         // Invalid: 0 and 1 are adjacent - returns Invalid
-        assert_eq!(problem.evaluate(&[1, 1, 0, 0]), Max(None));
+        assert_eq!(
+            problem.evaluate(&vec![true, true, false, false]).unwrap(),
+            Max(None)
+        );
 
         // Invalid: 2 and 3 are adjacent
-        assert_eq!(problem.evaluate(&[0, 0, 1, 1]), Max(None));
+        assert_eq!(
+            problem.evaluate(&vec![false, false, true, true]).unwrap(),
+            Max(None)
+        );
     }
 
     #[test]
     fn test_evaluate_empty() {
         let problem =
-            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
         // Empty selection is valid with size 0
-        assert_eq!(problem.evaluate(&[0, 0, 0]), Max(Some(0)));
+        assert_eq!(
+            problem.evaluate(&vec![false, false, false]).unwrap(),
+            Max(Some(0))
+        );
     }
 
     #[test]
@@ -93,10 +109,16 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![10, 20, 30]);
 
         // Select vertex 2 (weight 30)
-        assert_eq!(problem.evaluate(&[0, 0, 1]), Max(Some(30)));
+        assert_eq!(
+            problem.evaluate(&vec![false, false, true]).unwrap(),
+            Max(Some(30))
+        );
 
         // Select vertices 0 and 2 (weights 10 + 30 = 40)
-        assert_eq!(problem.evaluate(&[1, 0, 1]), Max(Some(40)));
+        assert_eq!(
+            problem.evaluate(&vec![true, false, true]).unwrap(),
+            Max(Some(40))
+        );
     }
 
     #[test]
@@ -104,15 +126,15 @@ mod maximum_independent_set {
         // Triangle graph: maximum IS has size 1
         let problem = MaximumIndependentSet::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-            vec![1i32; 3],
+            vec![1i64; 3],
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // All solutions should have exactly 1 vertex selected
         assert_eq!(solutions.len(), 3); // Three equivalent solutions
         for sol in &solutions {
-            assert_eq!(sol.iter().sum::<usize>(), 1);
+            assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
         }
     }
 
@@ -121,17 +143,17 @@ mod maximum_independent_set {
         // Path graph 0-1-2-3: maximum IS = {0,2} or {1,3} or {0,3}
         let problem = MaximumIndependentSet::new(
             SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-            vec![1i32; 4],
+            vec![1i64; 4],
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // Maximum size is 2
         for sol in &solutions {
-            let size: usize = sol.iter().sum();
+            let size: usize = sol.iter().filter(|&&selected| selected).count();
             assert_eq!(size, 2);
             // Verify it's valid (evaluate returns Valid, not Invalid)
-            assert_eq!(problem.evaluate(sol), Max(Some(2)));
+            assert_eq!(problem.evaluate(sol).unwrap(), Max(Some(2)));
         }
     }
 
@@ -142,10 +164,10 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert_eq!(solutions.len(), 1);
         // Should select vertex 1 (weight 100) over vertices 0+2 (weight 2)
-        assert_eq!(solutions[0], vec![0, 1, 0]);
+        assert_eq!(solutions[0], vec![false, true, false]);
     }
 
     #[test]
@@ -174,13 +196,13 @@ mod maximum_independent_set {
 
     #[test]
     fn test_direction() {
-        let _problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+        let _problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
     }
 
     #[test]
     fn test_edges() {
         let problem =
-            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i64; 4]);
         let edges = problem.graph().edges();
         assert_eq!(edges.len(), 2);
         assert!(edges.contains(&(0, 1)) || edges.contains(&(1, 0)));
@@ -196,26 +218,38 @@ mod maximum_independent_set {
 
     #[test]
     fn test_empty_graph() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert_eq!(solutions.len(), 1);
         // All vertices can be selected
-        assert_eq!(solutions[0], vec![1, 1, 1]);
+        assert_eq!(solutions[0], vec![true, true, true]);
     }
 
     #[test]
     fn test_validity_via_evaluate() {
         let problem =
-            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
         // Valid IS configurations return is_valid() == true
-        assert!(problem.evaluate(&[1, 0, 1]).is_valid());
-        assert!(problem.evaluate(&[0, 1, 0]).is_valid());
+        assert!(problem
+            .evaluate(&vec![true, false, true])
+            .unwrap()
+            .is_valid());
+        assert!(problem
+            .evaluate(&vec![false, true, false])
+            .unwrap()
+            .is_valid());
         // Invalid configurations return Invalid
-        assert_eq!(problem.evaluate(&[1, 1, 0]), Max(None));
-        assert_eq!(problem.evaluate(&[0, 1, 1]), Max(None));
+        assert_eq!(
+            problem.evaluate(&vec![true, true, false]).unwrap(),
+            Max(None)
+        );
+        assert_eq!(
+            problem.evaluate(&vec![false, true, true]).unwrap(),
+            Max(None)
+        );
     }
 }
 
@@ -230,7 +264,7 @@ mod minimum_vertex_cover {
     fn test_creation() {
         let problem = MinimumVertexCover::new(
             SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-            vec![1i32; 4],
+            vec![1i64; 4],
         );
         assert_eq!(problem.graph().num_vertices(), 4);
         assert_eq!(problem.graph().num_edges(), 3);
@@ -247,37 +281,49 @@ mod minimum_vertex_cover {
     #[test]
     fn test_evaluate_valid() {
         let problem =
-            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
         // Valid: select vertex 1 (covers both edges)
-        assert_eq!(problem.evaluate(&[0, 1, 0]), Min(Some(1)));
+        assert_eq!(
+            problem.evaluate(&vec![false, true, false]).unwrap(),
+            Min(Some(1))
+        );
 
         // Valid: select all vertices
-        assert_eq!(problem.evaluate(&[1, 1, 1]), Min(Some(3)));
+        assert_eq!(
+            problem.evaluate(&vec![true, true, true]).unwrap(),
+            Min(Some(3))
+        );
     }
 
     #[test]
     fn test_evaluate_invalid() {
         let problem =
-            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
         // Invalid: no vertex selected - returns Invalid for minimization
-        assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
+        assert_eq!(
+            problem.evaluate(&vec![false, false, false]).unwrap(),
+            Min(None)
+        );
 
         // Invalid: only vertex 0 selected (edge 1-2 not covered)
-        assert_eq!(problem.evaluate(&[1, 0, 0]), Min(None));
+        assert_eq!(
+            problem.evaluate(&vec![true, false, false]).unwrap(),
+            Min(None)
+        );
     }
 
     #[test]
     fn test_brute_force_path() {
         // Path graph 0-1-2: minimum vertex cover is {1}
         let problem =
-            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert_eq!(solutions.len(), 1);
-        assert_eq!(solutions[0], vec![0, 1, 0]);
+        assert_eq!(solutions[0], vec![false, true, false]);
     }
 
     #[test]
@@ -285,17 +331,17 @@ mod minimum_vertex_cover {
         // Triangle: minimum vertex cover has size 2
         let problem = MinimumVertexCover::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-            vec![1i32; 3],
+            vec![1i64; 3],
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // There are 3 minimum covers of size 2
         assert_eq!(solutions.len(), 3);
         for sol in &solutions {
-            assert_eq!(sol.iter().sum::<usize>(), 2);
+            assert_eq!(sol.iter().filter(|&&selected| selected).count(), 2);
             // Verify valid (not Invalid)
-            assert!(problem.evaluate(sol).is_valid());
+            assert!(problem.evaluate(sol).unwrap().is_valid());
         }
     }
 
@@ -306,10 +352,10 @@ mod minimum_vertex_cover {
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert_eq!(solutions.len(), 1);
         // Should select vertex 1 (weight 1) instead of 0 and 2 (total 200)
-        assert_eq!(solutions[0], vec![0, 1, 0]);
+        assert_eq!(solutions[0], vec![false, true, false]);
     }
 
     #[test]
@@ -334,26 +380,26 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_direction() {
-        let _problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+        let _problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
     }
 
     #[test]
     fn test_empty_graph() {
-        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // No edges means empty cover is valid and optimal
         assert_eq!(solutions.len(), 1);
-        assert_eq!(solutions[0], vec![0, 0, 0]);
+        assert_eq!(solutions[0], vec![false, false, false]);
     }
 
     #[test]
     fn test_single_edge() {
-        let problem = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // Either vertex covers the single edge
         assert_eq!(solutions.len(), 2);
     }
@@ -361,14 +407,26 @@ mod minimum_vertex_cover {
     #[test]
     fn test_validity_via_evaluate() {
         let problem =
-            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
         // Valid cover configurations return is_valid() == true
-        assert!(problem.evaluate(&[0, 1, 0]).is_valid());
-        assert!(problem.evaluate(&[1, 0, 1]).is_valid());
+        assert!(problem
+            .evaluate(&vec![false, true, false])
+            .unwrap()
+            .is_valid());
+        assert!(problem
+            .evaluate(&vec![true, false, true])
+            .unwrap()
+            .is_valid());
         // Invalid configurations return Invalid
-        assert_eq!(problem.evaluate(&[1, 0, 0]), Min(None));
-        assert_eq!(problem.evaluate(&[0, 0, 1]), Min(None));
+        assert_eq!(
+            problem.evaluate(&vec![true, false, false]).unwrap(),
+            Min(None)
+        );
+        assert_eq!(
+            problem.evaluate(&vec![false, false, true]).unwrap(),
+            Min(None)
+        );
     }
 
     #[test]
@@ -376,17 +434,17 @@ mod minimum_vertex_cover {
         // For a graph, if S is an independent set, then V\S is a vertex cover
         let edges = vec![(0, 1), (1, 2), (2, 3)];
         let is_problem =
-            MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![1i32; 4]);
-        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![1i64; 4]);
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(4, edges), vec![1i64; 4]);
 
         let solver = BruteForce::new();
 
-        let is_solutions = solver.find_all_witnesses(&is_problem);
+        let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
         for is_sol in &is_solutions {
             // Complement should be a valid vertex cover
-            let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();
+            let vc_config: Vec<bool> = is_sol.iter().map(|&selected| !selected).collect();
             // Valid cover returns is_valid() == true
-            assert!(vc_problem.evaluate(&vc_config).is_valid());
+            assert!(vc_problem.evaluate(&vc_config).unwrap().is_valid());
         }
     }
 
@@ -399,8 +457,8 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_is_weighted_empty() {
-        // i32 type is always considered weighted, even with empty weights
-        let problem = MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![0i32; 0]);
+        // i64 type is always considered weighted, even with empty weights
+        let problem = MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![0i64; 0]);
         assert!(problem.is_weighted());
     }
 
@@ -444,7 +502,7 @@ mod integral_flow_homologous_arcs {
         );
         assert_eq!(problem.num_vertices(), 6);
         assert_eq!(problem.num_arcs(), 8);
-        assert_eq!(problem.dims(), vec![2; 8]);
+        assert_eq!(problem.dimensions(), vec![2; 8]);
     }
 }
 
@@ -469,8 +527,8 @@ mod kcoloring {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
 
         // Valid: different colors on adjacent vertices - returns true
-        assert!(problem.evaluate(&[0, 1, 0]));
-        assert!(problem.evaluate(&[0, 1, 2]));
+        assert!(problem.evaluate(&vec![0, 1, 0]).unwrap());
+        assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
     }
 
     #[test]
@@ -478,8 +536,8 @@ mod kcoloring {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
 
         // Invalid: adjacent vertices have same color
-        assert!(!problem.evaluate(&[0, 0, 1])); // 0-1 conflict
-        assert!(!problem.evaluate(&[0, 0, 0])); // Multiple conflicts
+        assert!(!problem.evaluate(&vec![0, 0, 1]).unwrap()); // 0-1 conflict
+        assert!(!problem.evaluate(&vec![0, 0, 0]).unwrap()); // Multiple conflicts
     }
 
     #[test]
@@ -488,10 +546,10 @@ mod kcoloring {
         let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // All solutions should be valid
         for sol in &solutions {
-            assert!(problem.evaluate(sol));
+            assert!(problem.evaluate(sol).unwrap());
         }
     }
 
@@ -501,9 +559,9 @@ mod kcoloring {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         for sol in &solutions {
-            assert!(problem.evaluate(sol));
+            assert!(problem.evaluate(sol).unwrap());
             // All three vertices have different colors
             assert_ne!(sol[0], sol[1]);
             assert_ne!(sol[1], sol[2]);
@@ -518,7 +576,7 @@ mod kcoloring {
         let solver = BruteForce::new();
 
         // No satisfying assignments
-        let solution = solver.find_witness(&problem);
+        let solution = solver.solve(&problem).unwrap();
         assert!(solution.is_none());
     }
 
@@ -545,9 +603,9 @@ mod kcoloring {
         let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         // Any coloring is valid when there are no edges
-        assert!(problem.evaluate(&solutions[0]));
+        assert!(problem.evaluate(&solutions[0]).unwrap());
     }
 
     #[test]
@@ -559,9 +617,9 @@ mod kcoloring {
         ));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_witnesses(&problem);
+        let solutions = solver.find_all_witnesses(&problem).unwrap();
         for sol in &solutions {
-            assert!(problem.evaluate(sol));
+            assert!(problem.evaluate(sol).unwrap());
         }
     }
 }

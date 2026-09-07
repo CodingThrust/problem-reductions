@@ -17,11 +17,11 @@ fn bench_independent_set(c: &mut Criterion) {
     for n in [4, 6, 8, 10].iter() {
         // Create a path graph with n vertices
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(*n, edges), vec![1i32; *n]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(*n, edges), vec![1i64; *n]);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -34,11 +34,11 @@ fn bench_vertex_covering(c: &mut Criterion) {
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = MinimumVertexCover::new(SimpleGraph::new(*n, edges), vec![1i32; *n]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(*n, edges), vec![1i64; *n]);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -51,12 +51,12 @@ fn bench_max_cut(c: &mut Criterion) {
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let weights = vec![1i32; edges.len()];
+        let weights = vec![1i64; edges.len()];
         let problem = MaxCut::new(SimpleGraph::new(*n, edges), weights);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -72,9 +72,9 @@ fn bench_satisfiability(c: &mut Criterion) {
         let clauses: Vec<CNFClause> = (0..*num_vars)
             .map(|i| {
                 CNFClause::new(vec![
-                    (i as i32 + 1),
-                    -((i + 1) as i32 % *num_vars as i32 + 1),
-                    ((i + 2) as i32 % *num_vars as i32 + 1),
+                    (i as i64 + 1),
+                    -((i + 1) as i64 % *num_vars as i64 + 1),
+                    ((i + 2) as i64 % *num_vars as i64 + 1),
                 ])
             })
             .collect();
@@ -100,11 +100,11 @@ fn bench_spin_glass(c: &mut Criterion) {
             .map(|i| ((i, i + 1), if i % 2 == 0 { 1.0 } else { -1.0 }))
             .collect();
         let onsite: Vec<f64> = vec![0.1; *n];
-        let problem = SpinGlass::new(*n, interactions, onsite);
+        let problem = SpinGlass::new(*n, interactions, onsite).unwrap();
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("chain", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -120,13 +120,13 @@ fn bench_set_covering(c: &mut Criterion) {
         let sets: Vec<Vec<usize>> = (0..*num_sets)
             .map(|i| vec![i, (i + 1) % *num_sets, (i + 2) % *num_sets])
             .collect();
-        let problem = MinimumSetCovering::<i32>::new(*num_sets, sets);
+        let problem = MinimumSetCovering::<i64>::new(*num_sets, sets);
         let solver = BruteForce::new();
 
         group.bench_with_input(
             BenchmarkId::new("overlapping", num_sets),
             num_sets,
-            |b, _| b.iter(|| solver.find_witness(black_box(&problem))),
+            |b, _| b.iter(|| solver.solve(black_box(&problem))),
         );
     }
 
@@ -156,12 +156,12 @@ fn bench_matching(c: &mut Criterion) {
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let weights = vec![1i32; edges.len()];
+        let weights = vec![1i64; edges.len()];
         let problem = MaximumMatching::new(SimpleGraph::new(*n, edges), weights);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -182,7 +182,7 @@ fn bench_paintshop(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("sequential", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -198,10 +198,10 @@ fn bench_comparison(c: &mut Criterion) {
     // MaximumIndependentSet with 8 vertices
     let is_problem = MaximumIndependentSet::new(
         SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]),
-        vec![1i32; 8],
+        vec![1i64; 8],
     );
     group.bench_function("MaximumIndependentSet", |b| {
-        b.iter(|| solver.find_witness(black_box(&is_problem)))
+        b.iter(|| solver.solve(black_box(&is_problem)))
     });
 
     // SAT with 8 variables
@@ -223,9 +223,10 @@ fn bench_comparison(c: &mut Criterion) {
         8,
         vec![((0, 1), 1.0), ((2, 3), -1.0), ((4, 5), 1.0), ((6, 7), -1.0)],
         vec![0.0; 8],
-    );
+    )
+    .unwrap();
     group.bench_function("SpinGlass", |b| {
-        b.iter(|| solver.find_witness(black_box(&sg_problem)))
+        b.iter(|| solver.solve(black_box(&sg_problem)))
     });
 
     // MaxCut with 8 vertices
@@ -234,7 +235,7 @@ fn bench_comparison(c: &mut Criterion) {
         vec![1, 1, 1, 1],
     );
     group.bench_function("MaxCut", |b| {
-        b.iter(|| solver.find_witness(black_box(&mc_problem)))
+        b.iter(|| solver.solve(black_box(&mc_problem)))
     });
 
     group.finish();

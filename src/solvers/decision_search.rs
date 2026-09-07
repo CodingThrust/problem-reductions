@@ -1,7 +1,7 @@
 //! Decision-guided binary search for optimization via decision queries.
 
 use crate::models::decision::{Decision, DecisionProblemMeta};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::{Max, Min, OptimizationValue, Or};
 use serde::de::DeserializeOwned;
@@ -9,96 +9,127 @@ use serde::Serialize;
 use std::fmt;
 
 /// Whether a decision problem has at least one satisfying configuration.
-fn is_satisfiable<P>(problem: &P) -> bool
+fn is_satisfiable<P>(problem: &P) -> Result<bool, crate::solvers::SolveError>
 where
-    P: Problem<Value = Or>,
+    P: Problem<Value = Or> + 'static,
+    P::Solution: 'static,
 {
-    BruteForce::new().solve(problem).0
+    Ok(BruteForce::new().solve(problem)?.is_some())
 }
 
-fn solve_via_decision_min<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+fn solve_via_decision_min<P>(
+    problem: &P,
+    lower: i64,
+    upper: i64,
+) -> Result<Option<i64>, crate::solvers::SolveError>
 where
-    P: DecisionProblemMeta + Problem<Value = Min<i32>> + Clone,
+    P: DecisionProblemMeta + Problem<Value = Min<i64>> + Clone + 'static,
+    P::Solution: 'static,
 {
     if lower > upper {
-        return None;
+        return Ok(None);
     }
 
-    if !is_satisfiable(&Decision::new(problem.clone(), upper)) {
-        return None;
+    if !is_satisfiable(&Decision::new(problem.clone(), upper))? {
+        return Ok(None);
     }
 
     let mut lo = lower;
     let mut hi = upper;
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
-        if is_satisfiable(&Decision::new(problem.clone(), mid)) {
+        if is_satisfiable(&Decision::new(problem.clone(), mid))? {
             hi = mid;
         } else {
             lo = mid + 1;
         }
     }
 
-    Some(lo)
+    Ok(Some(lo))
 }
 
-fn solve_via_decision_max<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+fn solve_via_decision_max<P>(
+    problem: &P,
+    lower: i64,
+    upper: i64,
+) -> Result<Option<i64>, crate::solvers::SolveError>
 where
-    P: DecisionProblemMeta + Problem<Value = Max<i32>> + Clone,
+    P: DecisionProblemMeta + Problem<Value = Max<i64>> + Clone + 'static,
+    P::Solution: 'static,
 {
     if lower > upper {
-        return None;
+        return Ok(None);
     }
 
-    if !is_satisfiable(&Decision::new(problem.clone(), lower)) {
-        return None;
+    if !is_satisfiable(&Decision::new(problem.clone(), lower))? {
+        return Ok(None);
     }
 
     let mut lo = lower;
     let mut hi = upper;
     while lo < hi {
         let mid = lo + (hi - lo + 1) / 2;
-        if is_satisfiable(&Decision::new(problem.clone(), mid)) {
+        if is_satisfiable(&Decision::new(problem.clone(), mid))? {
             lo = mid;
         } else {
             hi = mid - 1;
         }
     }
 
-    Some(lo)
+    Ok(Some(lo))
 }
 
 #[doc(hidden)]
 pub trait DecisionSearchValue:
-    OptimizationValue<Inner = i32> + Clone + fmt::Debug + Serialize + DeserializeOwned
+    OptimizationValue<Inner = i64> + Clone + fmt::Debug + Serialize + DeserializeOwned
 {
-    fn solve_problem<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+    fn solve_problem<P>(
+        problem: &P,
+        lower: i64,
+        upper: i64,
+    ) -> Result<Option<i64>, crate::solvers::SolveError>
     where
-        P: DecisionProblemMeta + Problem<Value = Self> + Clone;
+        P: DecisionProblemMeta + Problem<Value = Self> + Clone + 'static,
+        P::Solution: 'static;
 }
 
-impl DecisionSearchValue for Min<i32> {
-    fn solve_problem<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+impl DecisionSearchValue for Min<i64> {
+    fn solve_problem<P>(
+        problem: &P,
+        lower: i64,
+        upper: i64,
+    ) -> Result<Option<i64>, crate::solvers::SolveError>
     where
-        P: DecisionProblemMeta + Problem<Value = Self> + Clone,
+        P: DecisionProblemMeta + Problem<Value = Self> + Clone + 'static,
+        P::Solution: 'static,
     {
         solve_via_decision_min(problem, lower, upper)
     }
 }
 
-impl DecisionSearchValue for Max<i32> {
-    fn solve_problem<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+impl DecisionSearchValue for Max<i64> {
+    fn solve_problem<P>(
+        problem: &P,
+        lower: i64,
+        upper: i64,
+    ) -> Result<Option<i64>, crate::solvers::SolveError>
     where
-        P: DecisionProblemMeta + Problem<Value = Self> + Clone,
+        P: DecisionProblemMeta + Problem<Value = Self> + Clone + 'static,
+        P::Solution: 'static,
     {
         solve_via_decision_max(problem, lower, upper)
     }
 }
 
 /// Recover an optimization value by querying the problem's decision wrapper.
-pub fn solve_via_decision<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+pub fn solve_via_decision<P>(
+    problem: &P,
+    lower: i64,
+    upper: i64,
+) -> Result<Option<i64>, crate::solvers::SolveError>
 where
-    P: DecisionProblemMeta + Clone,
+    P: DecisionProblemMeta + Clone + 'static,
+    P::Solution: 'static,
     P::Value: DecisionSearchValue,
 {
     <P::Value as DecisionSearchValue>::solve_problem(problem, lower, upper)

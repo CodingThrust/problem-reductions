@@ -7,6 +7,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
+use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 // Index helpers
@@ -58,41 +59,42 @@ fn total_vars(n: usize, r: usize) -> usize {
 
 #[derive(Debug, Clone)]
 pub struct ReductionRTSAToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     n: usize,
 }
 
 impl ReductionResult for ReductionRTSAToILP {
     type Source = RootedTreeStorageAssignment;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
     /// Decode parent array from one-hot parent indicators p_{v,u}.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        (0..n)
-            .map(|v| {
-                (0..n)
-                    .find(|&u| target_solution[idx_p(n, v, u)] == 1)
-                    .unwrap_or(v)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
-        num_constraints = "universe_size * universe_size * universe_size + universe_size * universe_size + universe_size * universe_size + num_subsets * universe_size * universe_size",
+        num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
+impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
     type Result = ReductionRTSAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.universe_size();
         let subsets = self.subsets();
         let bound = self.bound();
@@ -104,15 +106,17 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
         let r = nontrivial.len();
 
         if n == 0 {
-            return ReductionRTSAToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+            return Ok(ReductionRTSAToILP {
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 n,
-            };
+            });
         }
 
         let nv = total_vars(n, r);
-        let big_m = n as f64;
-        let big_m_depth = (n - 1) as f64;
+        let big_m = Self::exact_i64(n, "representing the vertex count in ILP rows")?;
+        let big_m_depth =
+            Self::exact_i64(n - 1, "representing the maximum tree depth in ILP rows")?;
 
         let mut constraints = Vec::new();
 
@@ -120,37 +124,37 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
 
         // Σ_u p_{v,u} = 1  ∀ v
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|u| (idx_p(n, v, u), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|u| (idx_p(n, v, u), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Σ_v p_{v,v} = 1 (exactly one root)
-        let root_terms: Vec<(usize, f64)> = (0..n).map(|v| (idx_p(n, v, v), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(root_terms, 1.0));
+        let root_terms: Vec<(usize, i64)> = (0..n).map(|v| (idx_p(n, v, v), 1)).collect();
+        constraints.push(LinearConstraint::eq(root_terms, 1));
 
         // p_{v,u} binary: upper bound p_{v,u} <= 1
         for v in 0..n {
             for u in 0..n {
-                constraints.push(LinearConstraint::le(vec![(idx_p(n, v, u), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(idx_p(n, v, u), 1)], 1));
             }
         }
 
         // d_v <= (n-1)(1 - p_{v,v})  ∀ v  (root has depth 0)
         for v in 0..n {
             constraints.push(LinearConstraint::le(
-                vec![(idx_d(n, v), 1.0), (idx_p(n, v, v), big_m_depth)],
+                vec![(idx_d(n, v), 1), (idx_p(n, v, v), big_m_depth)],
                 big_m_depth,
             ));
         }
 
         // d_v >= 0  ∀ v
         for v in 0..n {
-            constraints.push(LinearConstraint::ge(vec![(idx_d(n, v), 1.0)], 0.0));
+            constraints.push(LinearConstraint::ge(vec![(idx_d(n, v), 1)], 0));
         }
 
         // d_v <= n-1  ∀ v
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(idx_d(n, v), 1.0)], big_m_depth));
+            constraints.push(LinearConstraint::le(vec![(idx_d(n, v), 1)], big_m_depth));
         }
 
         // For u != v: d_v - d_u >= 1 - n(1 - p_{v,u})
@@ -166,23 +170,19 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
                     // => d_v - d_u - n*p_{v,u} >= 1 - n
                     constraints.push(LinearConstraint::ge(
                         vec![
-                            (idx_d(n, v), 1.0),
-                            (idx_d(n, u), -1.0),
+                            (idx_d(n, v), 1),
+                            (idx_d(n, u), -1),
                             (idx_p(n, v, u), -big_m),
                         ],
-                        1.0 - big_m,
+                        1 - big_m,
                     ));
 
                     // d_v - d_u <= 1 + n(1 - p_{v,u})
                     // => d_v - d_u - n + n*p_{v,u} <= 1
                     // => d_v - d_u + n*p_{v,u} <= 1 + n
                     constraints.push(LinearConstraint::le(
-                        vec![
-                            (idx_d(n, v), 1.0),
-                            (idx_d(n, u), -1.0),
-                            (idx_p(n, v, u), big_m),
-                        ],
-                        1.0 + big_m,
+                        vec![(idx_d(n, v), 1), (idx_d(n, u), -1), (idx_p(n, v, u), big_m)],
+                        1 + big_m,
                     ));
                 }
             }
@@ -192,13 +192,13 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
 
         // a_{v,v} = 1  ∀ v
         for v in 0..n {
-            constraints.push(LinearConstraint::eq(vec![(idx_a(n, v, v), 1.0)], 1.0));
+            constraints.push(LinearConstraint::eq(vec![(idx_a(n, v, v), 1)], 1));
         }
 
         // h_{u,v,v} = 0  ∀ u,v
         for u in 0..n {
             for v in 0..n {
-                constraints.push(LinearConstraint::eq(vec![(idx_h(n, u, v, v), 1.0)], 0.0));
+                constraints.push(LinearConstraint::eq(vec![(idx_h(n, u, v, v), 1)], 0));
             }
         }
 
@@ -206,11 +206,11 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
         for u in 0..n {
             for v in 0..n {
                 if u != v {
-                    let mut terms = vec![(idx_a(n, u, v), -1.0)];
+                    let mut terms = vec![(idx_a(n, u, v), -1)];
                     for w in 0..n {
-                        terms.push((idx_h(n, u, v, w), 1.0));
+                        terms.push((idx_h(n, u, v, w), 1));
                     }
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 }
             }
         }
@@ -222,21 +222,10 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             for v in 0..n {
                 for w in 0..n {
                     if w != v {
-                        constraints.push(LinearConstraint::le(
-                            vec![(idx_h(n, u, v, w), 1.0), (idx_p(n, v, w), -1.0)],
-                            0.0,
-                        ));
-                        constraints.push(LinearConstraint::le(
-                            vec![(idx_h(n, u, v, w), 1.0), (idx_a(n, u, w), -1.0)],
-                            0.0,
-                        ));
-                        constraints.push(LinearConstraint::ge(
-                            vec![
-                                (idx_h(n, u, v, w), 1.0),
-                                (idx_p(n, v, w), -1.0),
-                                (idx_a(n, u, w), -1.0),
-                            ],
-                            -1.0,
+                        constraints.extend(mccormick_product(
+                            idx_h(n, u, v, w),
+                            idx_p(n, v, w),
+                            idx_a(n, u, w),
                         ));
                     }
                 }
@@ -246,9 +235,9 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
         // Binary bounds for a, h
         for u in 0..n {
             for v in 0..n {
-                constraints.push(LinearConstraint::le(vec![(idx_a(n, u, v), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(idx_a(n, u, v), 1)], 1));
                 for w in 0..n {
-                    constraints.push(LinearConstraint::le(vec![(idx_h(n, u, v, w), 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(idx_h(n, u, v, w), 1)], 1));
                 }
             }
         }
@@ -259,48 +248,37 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             let subset_size = subset.len();
 
             // Top selectors: Σ_{u ∈ S} t_{s,u} = 1, t_{s,u} = 0 for u ∉ S
-            let top_terms: Vec<(usize, f64)> =
-                subset.iter().map(|&u| (idx_t(n, r, s, u), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(top_terms, 1.0));
+            let top_terms: Vec<(usize, i64)> =
+                subset.iter().map(|&u| (idx_t(n, r, s, u), 1)).collect();
+            constraints.push(LinearConstraint::eq(top_terms, 1));
             for u in 0..n {
                 if !subset.contains(&u) {
-                    constraints.push(LinearConstraint::eq(vec![(idx_t(n, r, s, u), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(idx_t(n, r, s, u), 1)], 0));
                 }
                 // Binary bound
-                constraints.push(LinearConstraint::le(vec![(idx_t(n, r, s, u), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(idx_t(n, r, s, u), 1)], 1));
             }
 
             // Bottom selectors: Σ_{v ∈ S} b_{s,v} = 1, b_{s,v} = 0 for v ∉ S
-            let bot_terms: Vec<(usize, f64)> =
-                subset.iter().map(|&v| (idx_b(n, r, s, v), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(bot_terms, 1.0));
+            let bot_terms: Vec<(usize, i64)> =
+                subset.iter().map(|&v| (idx_b(n, r, s, v), 1)).collect();
+            constraints.push(LinearConstraint::eq(bot_terms, 1));
             for v in 0..n {
                 if !subset.contains(&v) {
-                    constraints.push(LinearConstraint::eq(vec![(idx_b(n, r, s, v), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(idx_b(n, r, s, v), 1)], 0));
                 }
-                constraints.push(LinearConstraint::le(vec![(idx_b(n, r, s, v), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(idx_b(n, r, s, v), 1)], 1));
             }
 
             // Pair selectors (McCormick): m_{s,u,v} = t_{s,u} * b_{s,v}
             for u in 0..n {
                 for v in 0..n {
-                    constraints.push(LinearConstraint::le(
-                        vec![(idx_m(n, r, s, u, v), 1.0), (idx_t(n, r, s, u), -1.0)],
-                        0.0,
+                    constraints.extend(mccormick_product(
+                        idx_m(n, r, s, u, v),
+                        idx_t(n, r, s, u),
+                        idx_b(n, r, s, v),
                     ));
-                    constraints.push(LinearConstraint::le(
-                        vec![(idx_m(n, r, s, u, v), 1.0), (idx_b(n, r, s, v), -1.0)],
-                        0.0,
-                    ));
-                    constraints.push(LinearConstraint::ge(
-                        vec![
-                            (idx_m(n, r, s, u, v), 1.0),
-                            (idx_t(n, r, s, u), -1.0),
-                            (idx_b(n, r, s, v), -1.0),
-                        ],
-                        -1.0,
-                    ));
-                    constraints.push(LinearConstraint::le(vec![(idx_m(n, r, s, u, v), 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(idx_m(n, r, s, u, v), 1)], 1));
                 }
             }
 
@@ -308,8 +286,8 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             for u in 0..n {
                 for v in 0..n {
                     constraints.push(LinearConstraint::le(
-                        vec![(idx_m(n, r, s, u, v), 1.0), (idx_a(n, u, v), -1.0)],
-                        0.0,
+                        vec![(idx_m(n, r, s, u, v), 1), (idx_a(n, u, v), -1)],
+                        0,
                     ));
                 }
             }
@@ -320,12 +298,12 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
                 for u in 0..n {
                     for v in 0..n {
                         constraints.push(LinearConstraint::le(
-                            vec![(idx_m(n, r, s, u, v), 1.0), (idx_a(n, u, w), -1.0)],
-                            0.0,
+                            vec![(idx_m(n, r, s, u, v), 1), (idx_a(n, u, w), -1)],
+                            0,
                         ));
                         constraints.push(LinearConstraint::le(
-                            vec![(idx_m(n, r, s, u, v), 1.0), (idx_a(n, w, v), -1.0)],
-                            0.0,
+                            vec![(idx_m(n, r, s, u, v), 1), (idx_a(n, w, v), -1)],
+                            0,
                         ));
                     }
                 }
@@ -336,16 +314,16 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             for &u in subset {
                 constraints.push(LinearConstraint::le(
                     vec![
-                        (idx_big_t(n, r, s), 1.0),
-                        (idx_d(n, u), -1.0),
+                        (idx_big_t(n, r, s), 1),
+                        (idx_d(n, u), -1),
                         (idx_t(n, r, s, u), big_m_depth),
                     ],
                     big_m_depth,
                 ));
                 constraints.push(LinearConstraint::le(
                     vec![
-                        (idx_d(n, u), 1.0),
-                        (idx_big_t(n, r, s), -1.0),
+                        (idx_d(n, u), 1),
+                        (idx_big_t(n, r, s), -1),
                         (idx_t(n, r, s, u), big_m_depth),
                     ],
                     big_m_depth,
@@ -355,16 +333,16 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             for &v in subset {
                 constraints.push(LinearConstraint::le(
                     vec![
-                        (idx_big_b(n, r, s), 1.0),
-                        (idx_d(n, v), -1.0),
+                        (idx_big_b(n, r, s), 1),
+                        (idx_d(n, v), -1),
                         (idx_b(n, r, s, v), big_m_depth),
                     ],
                     big_m_depth,
                 ));
                 constraints.push(LinearConstraint::le(
                     vec![
-                        (idx_d(n, v), 1.0),
-                        (idx_big_b(n, r, s), -1.0),
+                        (idx_d(n, v), 1),
+                        (idx_big_b(n, r, s), -1),
                         (idx_b(n, r, s, v), big_m_depth),
                     ],
                     big_m_depth,
@@ -372,14 +350,14 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             }
 
             // Depth bounds for T_s, B_s
-            constraints.push(LinearConstraint::ge(vec![(idx_big_t(n, r, s), 1.0)], 0.0));
+            constraints.push(LinearConstraint::ge(vec![(idx_big_t(n, r, s), 1)], 0));
             constraints.push(LinearConstraint::le(
-                vec![(idx_big_t(n, r, s), 1.0)],
+                vec![(idx_big_t(n, r, s), 1)],
                 big_m_depth,
             ));
-            constraints.push(LinearConstraint::ge(vec![(idx_big_b(n, r, s), 1.0)], 0.0));
+            constraints.push(LinearConstraint::ge(vec![(idx_big_b(n, r, s), 1)], 0));
             constraints.push(LinearConstraint::le(
-                vec![(idx_big_b(n, r, s), 1.0)],
+                vec![(idx_big_b(n, r, s), 1)],
                 big_m_depth,
             ));
 
@@ -387,25 +365,29 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
             // => c_s - B_s + T_s = 1 - |S|
             constraints.push(LinearConstraint::eq(
                 vec![
-                    (idx_c(n, r, s), 1.0),
-                    (idx_big_b(n, r, s), -1.0),
-                    (idx_big_t(n, r, s), 1.0),
+                    (idx_c(n, r, s), 1),
+                    (idx_big_b(n, r, s), -1),
+                    (idx_big_t(n, r, s), 1),
                 ],
-                1.0 - subset_size as f64,
+                1 - Self::exact_i64(
+                    subset_size,
+                    "representing a subset cardinality in an ILP row",
+                )?,
             ));
 
             // c_s >= 0
-            constraints.push(LinearConstraint::ge(vec![(idx_c(n, r, s), 1.0)], 0.0));
+            constraints.push(LinearConstraint::ge(vec![(idx_c(n, r, s), 1)], 0));
         }
 
         // Total cost bound: Σ c_s <= K
         if r > 0 {
-            let cost_terms: Vec<(usize, f64)> = (0..r).map(|s| (idx_c(n, r, s), 1.0)).collect();
-            constraints.push(LinearConstraint::le(cost_terms, bound as f64));
+            let cost_terms: Vec<(usize, i64)> = (0..r).map(|s| (idx_c(n, r, s), 1)).collect();
+            constraints.push(LinearConstraint::le(cost_terms, bound));
         }
 
-        let target = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionRTSAToILP { target, n }
+        let target = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        Ok(ReductionRTSAToILP { target, n })
     }
 }
 
@@ -416,19 +398,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "rootedtreestorageassignment_to_ilp",
         build: || {
             let source = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
-            let reduction: ReductionRTSAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let reduction: ReductionRTSAToILP =
+                ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            let source_config = reduction.extract_solution(&target_config).unwrap();
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

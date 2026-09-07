@@ -1,4 +1,20 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn create_spec_rejects_period_vector_mismatch() {
+    assert_eq!(ProductionPlanningCreateSpec::FIELDS[0].name, "num_periods");
+    assert!(ProductionPlanning::try_from(ProductionPlanningCreateSpec {
+        num_periods: 1,
+        demands: vec![],
+        capacities: vec![1],
+        setup_costs: vec![1],
+        production_costs: vec![1],
+        inventory_costs: vec![1],
+        cost_bound: 1
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Or;
@@ -38,7 +54,7 @@ fn test_production_planning_creation() {
     assert_eq!(problem.inventory_costs(), &[1, 1, 1, 1, 1, 1]);
     assert_eq!(problem.cost_bound(), 80);
     assert_eq!(problem.max_capacity(), 12);
-    assert_eq!(problem.dims(), vec![13; 6]);
+    assert_eq!(problem.dimensions(), vec![13; 6]);
     assert_eq!(<ProductionPlanning as Problem>::NAME, "ProductionPlanning");
     assert_eq!(<ProductionPlanning as Problem>::variant(), vec![]);
 }
@@ -46,40 +62,55 @@ fn test_production_planning_creation() {
 #[test]
 fn test_production_planning_evaluate_issue_example() {
     let problem = issue_example_problem();
-    assert_eq!(problem.evaluate(&[8, 0, 10, 0, 12, 0]), Or(true));
+    assert_eq!(
+        problem.evaluate(&vec![8, 0, 10, 0, 12, 0]).unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
 fn test_production_planning_rejects_capacity_overflow() {
     let problem = issue_example_problem();
-    assert_eq!(problem.evaluate(&[13, 0, 10, 0, 12, 0]), Or(false));
+    assert_eq!(
+        problem.evaluate(&vec![13, 0, 10, 0, 12, 0]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_production_planning_rejects_negative_inventory_prefix() {
     let problem = issue_example_problem();
-    assert_eq!(problem.evaluate(&[4, 4, 4, 4, 4, 4]), Or(false));
+    assert_eq!(
+        problem.evaluate(&vec![4, 4, 4, 4, 4, 4]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_production_planning_rejects_budget_overflow() {
     let problem = issue_example_problem();
-    assert_eq!(problem.evaluate(&[8, 0, 10, 0, 12, 1]), Or(false));
+    assert_eq!(
+        problem.evaluate(&vec![8, 0, 10, 0, 12, 1]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_production_planning_rejects_wrong_config_length() {
     let problem = issue_example_problem();
-    assert_eq!(problem.evaluate(&[8, 0, 10, 0, 12]), Or(false));
+    assert!(matches!(
+        problem.evaluate(&vec![8, 0, 10, 0, 12]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_production_planning_bruteforce_finds_satisfying_solution() {
     let problem = tiny_solver_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
-    assert_eq!(problem.evaluate(&solution.unwrap()), Or(true));
+    assert_eq!(problem.evaluate(&solution.unwrap()).unwrap(), Or(true));
 }
 
 #[test]
@@ -88,11 +119,11 @@ fn test_production_planning_paper_example() {
     let plan = vec![8, 0, 10, 0, 12, 0];
     let solver = BruteForce::new();
 
-    assert_eq!(problem.evaluate(&plan), Or(true));
+    assert_eq!(problem.evaluate(&plan).unwrap(), Or(true));
 
-    let witness = solver.find_witness(&problem);
+    let witness = solver.solve(&problem).unwrap();
     assert!(witness.is_some());
-    assert_eq!(problem.evaluate(&witness.unwrap()), Or(true));
+    assert_eq!(problem.evaluate(&witness.unwrap()).unwrap(), Or(true));
 }
 
 #[test]
@@ -121,12 +152,6 @@ fn test_production_planning_rejects_length_mismatch() {
         vec![1, 1],
         3,
     );
-}
-
-#[test]
-#[should_panic(expected = "capacities must fit in usize for dims()")]
-fn test_production_planning_rejects_capacity_too_large_for_dims() {
-    ProductionPlanning::new(1, vec![0], vec![u64::MAX], vec![0], vec![0], vec![0], 0);
 }
 
 #[test]

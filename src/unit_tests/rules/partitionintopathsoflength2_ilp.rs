@@ -9,19 +9,20 @@ fn test_reduction_creates_valid_ilp() {
     // Two P3 paths: 0-1-2 and 3-4-5
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
     let problem = PartitionIntoPathsOfLength2::new(graph);
-    let reduction: ReductionPIPL2ToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionPIPL2ToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=6, q=2, num_edges=4
     // num_vars = 6*2 + 4*2 = 12 + 8 = 20
-    assert_eq!(ilp.num_vars, 20, "Should have 20 variables");
+    assert_eq!(ilp.num_vars(), 20, "Should have 20 variables");
     assert_eq!(
-        ilp.sense,
+        ilp.sense(),
         ObjectiveSense::Minimize,
         "Should minimize (feasibility)"
     );
     // Constraints: 6 assignment + 2 group-size + 4*2*3 McCormick + 2 edge count = 6+2+24+2=34
-    assert_eq!(ilp.constraints.len(), 34, "Should have 34 constraints");
+    assert_eq!(ilp.constraints().len(), 34, "Should have 34 constraints");
 }
 
 #[test]
@@ -29,21 +30,23 @@ fn test_partitionintopathsoflength2_to_ilp_bf_vs_ilp() {
     // Two P3 paths: 0-1-2 and 3-4-5
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
     let problem = PartitionIntoPathsOfLength2::new(graph);
-    let reduction: ReductionPIPL2ToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionPIPL2ToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
+        .unwrap()
         .expect("BF should find a solution");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "Extracted ILP solution should be valid"
     );
@@ -54,7 +57,8 @@ fn test_solution_extraction() {
     // Two P3 paths: 0-1-2 and 3-4-5
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
     let problem = PartitionIntoPathsOfLength2::new(graph);
-    let reduction: ReductionPIPL2ToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionPIPL2ToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // x vars (12): group 0 gets 0,1,2; group 1 gets 3,4,5
     // x_{0,0}=1,x_{0,1}=0, x_{1,0}=1,x_{1,1}=0, x_{2,0}=1,x_{2,1}=0,
@@ -65,9 +69,9 @@ fn test_solution_extraction() {
         1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, // x vars
         1, 0, 1, 0, 0, 1, 0, 1, // y vars
     ];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -75,14 +79,15 @@ fn test_partitionintopathsoflength2_to_ilp_trivial() {
     // Minimal feasible: one P3 path 0-1-2
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = PartitionIntoPathsOfLength2::new(graph);
-    let reduction: ReductionPIPL2ToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionPIPL2ToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "Single P3 should be feasible"
     );

@@ -3,7 +3,7 @@
 //! The problem asks whether two integral commodities can be routed through an
 //! undirected capacitated graph while sharing edge capacities.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -14,25 +14,10 @@ inventory::submit! {
         display_name: "Undirected Two-Commodity Integral Flow",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "Undirected graph G=(V,E)" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Edge capacities c(e) in graph edge order" },
-            FieldInfo { name: "source_1", type_name: "usize", description: "Source vertex s_1 for commodity 1" },
-            FieldInfo { name: "sink_1", type_name: "usize", description: "Sink vertex t_1 for commodity 1" },
-            FieldInfo { name: "source_2", type_name: "usize", description: "Source vertex s_2 for commodity 2" },
-            FieldInfo { name: "sink_2", type_name: "usize", description: "Sink vertex t_2 for commodity 2" },
-            FieldInfo { name: "requirement_1", type_name: "u64", description: "Required net inflow R_1 at sink t_1" },
-            FieldInfo { name: "requirement_2", type_name: "u64", description: "Required net inflow R_2 at sink t_2" },
-        ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "UndirectedTwoCommodityIntegralFlow",
-        fields: &["num_vertices", "num_edges", "num_nonterminal_vertices"],
+        fields: UndirectedTwoCommodityIntegralFlowCreateSpec::FIELDS,
     }
 }
 
@@ -47,26 +32,102 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UndirectedTwoCommodityIntegralFlow {
     graph: SimpleGraph,
-    capacities: Vec<u64>,
+    capacities: Vec<i64>,
     source_1: usize,
     sink_1: usize,
     source_2: usize,
     sink_2: usize,
-    requirement_1: u64,
-    requirement_2: u64,
+    requirement_1: i64,
+    requirement_2: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct UndirectedTwoCommodityIntegralFlowCreateSpec {
+    /// Undirected graph edges.
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    /// Vertex count, needed for isolated vertices.
+    num_vertices: Option<usize>,
+    /// Edge capacities.
+    #[create(codec = "comma-separated")]
+    capacities: Vec<i64>,
+    source_1: usize,
+    sink_1: usize,
+    source_2: usize,
+    sink_2: usize,
+    requirement_1: i64,
+    requirement_2: i64,
+}
+
+impl TryFrom<UndirectedTwoCommodityIntegralFlowCreateSpec> for UndirectedTwoCommodityIntegralFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: UndirectedTwoCommodityIntegralFlowCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        if spec.capacities.len() != spec.graph.len() {
+            return Err("capacities length must match graph edge count".into());
+        }
+        for &capacity in &spec.capacities {
+            if usize::try_from(capacity)
+                .ok()
+                .and_then(|v| v.checked_add(1))
+                .is_none()
+            {
+                return Err("capacity is too large for this platform".into());
+            }
+        }
+        for (label, vertex) in [
+            ("source_1", spec.source_1),
+            ("sink_1", spec.sink_1),
+            ("source_2", spec.source_2),
+            ("sink_2", spec.sink_2),
+        ] {
+            if vertex >= count {
+                return Err(format!("{label} must be less than num_vertices").into());
+            }
+        }
+        Ok(Self {
+            graph: SimpleGraph::new(count, spec.graph),
+            capacities: spec.capacities,
+            source_1: spec.source_1,
+            sink_1: spec.sink_1,
+            source_2: spec.source_2,
+            sink_2: spec.sink_2,
+            requirement_1: spec.requirement_1,
+            requirement_2: spec.requirement_2,
+        })
+    }
 }
 
 impl UndirectedTwoCommodityIntegralFlow {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         graph: SimpleGraph,
-        capacities: Vec<u64>,
+        capacities: Vec<i64>,
         source_1: usize,
         sink_1: usize,
         source_2: usize,
         sink_2: usize,
-        requirement_1: u64,
-        requirement_2: u64,
+        requirement_1: i64,
+        requirement_2: i64,
     ) -> Self {
         assert_eq!(
             capacities.len(),
@@ -113,7 +174,7 @@ impl UndirectedTwoCommodityIntegralFlow {
         &self.graph
     }
 
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
@@ -133,11 +194,11 @@ impl UndirectedTwoCommodityIntegralFlow {
         self.sink_2
     }
 
-    pub fn requirement_1(&self) -> u64 {
+    pub fn requirement_1(&self) -> i64 {
         self.requirement_1
     }
 
-    pub fn requirement_2(&self) -> u64 {
+    pub fn requirement_2(&self) -> i64 {
         self.requirement_2
     }
 
@@ -149,21 +210,25 @@ impl UndirectedTwoCommodityIntegralFlow {
         self.graph.num_edges()
     }
 
-    pub fn num_nonterminal_vertices(&self) -> usize {
-        (0..self.num_vertices())
-            .filter(|&vertex| !self.is_terminal(vertex))
-            .count()
+    pub fn num_conservation_constraints(&self) -> usize {
+        [(self.source_1, self.sink_1), (self.source_2, self.sink_2)]
+            .into_iter()
+            .map(|(source, sink)| self.num_vertices() - if source == sink { 1 } else { 2 })
+            .sum()
     }
 
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate_solution(config)?.0)
     }
 
     fn config_len(&self) -> usize {
         self.num_edges() * 4
     }
 
-    fn domain_size(capacity: u64) -> usize {
+    fn domain_size(capacity: i64) -> usize {
         usize::try_from(capacity)
             .ok()
             .and_then(|value| value.checked_add(1))
@@ -180,10 +245,6 @@ impl UndirectedTwoCommodityIntegralFlow {
         ])
     }
 
-    fn is_terminal(&self, vertex: usize) -> bool {
-        [self.source_1, self.sink_1, self.source_2, self.sink_2].contains(&vertex)
-    }
-
     fn flow_pair_for_commodity(flows: [usize; 4], commodity: usize) -> (usize, usize) {
         match commodity {
             1 => (flows[0], flows[1]),
@@ -192,45 +253,157 @@ impl UndirectedTwoCommodityIntegralFlow {
         }
     }
 
-    fn commodity_balance(&self, config: &[usize], commodity: usize, vertex: usize) -> Option<i128> {
-        let mut balance = 0i128;
+    fn commodity_balance(
+        &self,
+        config: &[usize],
+        commodity: usize,
+        vertex: usize,
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
+        let mut balance = 0_i64;
         for (edge_index, (u, v)) in self.graph.edges().into_iter().enumerate() {
-            let flows = self.edge_flows(config, edge_index)?;
+            let Some(flows) = self.edge_flows(config, edge_index) else {
+                return Ok(None);
+            };
             let (uv, vu) = Self::flow_pair_for_commodity(flows, commodity);
-            let uv = i128::from(u64::try_from(uv).ok()?);
-            let vu = i128::from(u64::try_from(vu).ok()?);
+            let uv = i64::try_from(uv).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting forward commodity flow to i64".into(),
+                )
+            })?;
+            let vu = i64::try_from(vu).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting reverse commodity flow to i64".into(),
+                )
+            })?;
 
             if vertex == u {
-                balance -= uv;
-                balance += vu;
+                balance = balance.checked_sub(uv).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "subtracting forward commodity flow".into(),
+                    )
+                })?;
+                balance = balance.checked_add(vu).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "adding reverse commodity flow".into(),
+                    )
+                })?;
             } else if vertex == v {
-                balance += uv;
-                balance -= vu;
+                balance = balance.checked_add(uv).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "adding forward commodity flow".into(),
+                    )
+                })?;
+                balance = balance.checked_sub(vu).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "subtracting reverse commodity flow".into(),
+                    )
+                })?;
             }
         }
-        Some(balance)
+        Ok(Some(balance))
     }
 
-    fn net_flow_into_sink(&self, config: &[usize], commodity: usize) -> Option<u64> {
+    fn net_flow_into_sink(
+        &self,
+        config: &[usize],
+        commodity: usize,
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let sink = match commodity {
             1 => self.sink_1,
             2 => self.sink_2,
             _ => unreachable!("commodity must be 1 or 2"),
         };
-        let balance = self.commodity_balance(config, commodity, sink)?;
-        u64::try_from(balance).ok()
+        self.commodity_balance(config, commodity, sink)
+    }
+
+    fn evaluate_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.config_len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow representation length does not match the graph".into(),
+            ));
+        }
+
+        for (edge_index, &capacity) in self.capacities.iter().enumerate() {
+            let Some(flows) = self.edge_flows(config, edge_index) else {
+                return Ok(crate::types::Or(false));
+            };
+
+            if flows
+                .iter()
+                .any(|&value| i64::try_from(value).map_or(true, |value| value > capacity))
+            {
+                return Ok(crate::types::Or(false));
+            }
+            if flows[0] > 0 && flows[1] > 0 || flows[2] > 0 && flows[3] > 0 {
+                return Ok(crate::types::Or(false));
+            }
+
+            let commodity_1 = i64::try_from(std::cmp::max(flows[0], flows[1]))
+                .expect("flow values already validated against i64 capacities");
+            let commodity_2 = i64::try_from(std::cmp::max(flows[2], flows[3]))
+                .expect("flow values already validated against i64 capacities");
+            let shared = commodity_1.checked_add(commodity_2).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing two commodities on an undirected edge".into(),
+                )
+            })?;
+            if shared > capacity {
+                return Ok(crate::types::Or(false));
+            }
+        }
+
+        for (commodity, source, sink) in [
+            (1, self.source_1, self.sink_1),
+            (2, self.source_2, self.sink_2),
+        ] {
+            for vertex in 0..self.num_vertices() {
+                if vertex != source
+                    && vertex != sink
+                    && self.commodity_balance(config, commodity, vertex)? != Some(0)
+                {
+                    return Ok(crate::types::Or(false));
+                }
+            }
+        }
+
+        Ok(crate::types::Or(
+            self.net_flow_into_sink(config, 1)?
+                .is_some_and(|flow| flow >= self.requirement_1)
+                && self
+                    .net_flow_into_sink(config, 2)?
+                    .is_some_and(|flow| flow >= self.requirement_2),
+        ))
     }
 }
 
 impl Problem for UndirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "UndirectedTwoCommodityIntegralFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![
+        ("num_edges", num_edges),
+        ("num_conservation_constraints", num_conservation_constraints),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        self.evaluate_solution(config)
+    }
+}
+
+impl crate::solvers::BruteForceProblem for UndirectedTwoCommodityIntegralFlow {
+    fn dimensions(&self) -> Vec<usize> {
         self.capacities
             .iter()
             .flat_map(|&capacity| {
@@ -239,67 +412,14 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
             })
             .collect()
     }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.config_len() {
-                return crate::types::Or(false);
-            }
-
-            for (edge_index, &capacity) in self.capacities.iter().enumerate() {
-                let Some(flows) = self.edge_flows(config, edge_index) else {
-                    return crate::types::Or(false);
-                };
-
-                if flows
-                    .iter()
-                    .any(|&value| u64::try_from(value).map_or(true, |value| value > capacity))
-                {
-                    return crate::types::Or(false);
-                }
-
-                if flows[0] > 0 && flows[1] > 0 {
-                    return crate::types::Or(false);
-                }
-                if flows[2] > 0 && flows[3] > 0 {
-                    return crate::types::Or(false);
-                }
-
-                let commodity_1 = u64::try_from(std::cmp::max(flows[0], flows[1]))
-                    .expect("flow values already validated against u64 capacities");
-                let commodity_2 = u64::try_from(std::cmp::max(flows[2], flows[3]))
-                    .expect("flow values already validated against u64 capacities");
-                let Some(shared) = commodity_1.checked_add(commodity_2) else {
-                    return crate::types::Or(false);
-                };
-                if shared > capacity {
-                    return crate::types::Or(false);
-                }
-            }
-
-            for vertex in 0..self.num_vertices() {
-                if self.is_terminal(vertex) {
-                    continue;
-                }
-
-                if self.commodity_balance(config, 1, vertex) != Some(0)
-                    || self.commodity_balance(config, 2, vertex) != Some(0)
-                {
-                    return crate::types::Or(false);
-                }
-            }
-
-            self.net_flow_into_sink(config, 1)
-                .is_some_and(|flow| flow >= self.requirement_1)
-                && self
-                    .net_flow_into_sink(config, 2)
-                    .is_some_and(|flow| flow >= self.requirement_2)
-        })
-    }
 }
 
 crate::declare_variants! {
-    default UndirectedTwoCommodityIntegralFlow => "5^num_edges",
+    default UndirectedTwoCommodityIntegralFlow => "5^num_edges" create UndirectedTwoCommodityIntegralFlowCreateSpec,
+}
+
+crate::register_brute_force! {
+    UndirectedTwoCommodityIntegralFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -316,7 +436,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             1,
             1,
         )),
-        optimal_config: vec![1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,5 +1,6 @@
 use crate::models::misc::NonLivenessFreePetriNet;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -12,11 +13,13 @@ fn chain_net() -> NonLivenessFreePetriNet {
         vec![(0, 1), (1, 2), (2, 3)],
         vec![1, 0, 0, 0],
     )
+    .unwrap()
 }
 
 /// Cycle net: token oscillates between two places, both transitions always fireable.
 fn cycle_net() -> NonLivenessFreePetriNet {
     NonLivenessFreePetriNet::new(2, 2, vec![(0, 0), (1, 1)], vec![(0, 1), (1, 0)], vec![1, 0])
+        .unwrap()
 }
 
 #[test]
@@ -26,7 +29,7 @@ fn test_non_liveness_free_petri_net_basic() {
     assert_eq!(problem.num_transitions(), 3);
     assert_eq!(problem.num_arcs(), 6);
     assert_eq!(problem.initial_token_sum(), 1);
-    assert_eq!(problem.dims(), vec![2; 3]);
+    assert_eq!(problem.dimensions(), vec![2; 3]);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(
         <NonLivenessFreePetriNet as Problem>::NAME,
@@ -40,45 +43,63 @@ fn test_non_liveness_chain_net_is_not_live() {
     let problem = chain_net();
     // All transitions are dead: after the chain fires, nothing can fire again.
     // Selecting all transitions should yield true.
-    assert_eq!(problem.evaluate(&[1, 1, 1]), Or(true));
+    assert_eq!(problem.evaluate(&vec![true, true, true]).unwrap(), Or(true));
     // Selecting just one transition should also yield true.
-    assert_eq!(problem.evaluate(&[1, 0, 0]), Or(true));
-    assert_eq!(problem.evaluate(&[0, 1, 0]), Or(true));
-    assert_eq!(problem.evaluate(&[0, 0, 1]), Or(true));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false]).unwrap(),
+        Or(true)
+    );
+    assert_eq!(
+        problem.evaluate(&vec![false, true, false]).unwrap(),
+        Or(true)
+    );
+    assert_eq!(
+        problem.evaluate(&vec![false, false, true]).unwrap(),
+        Or(true)
+    );
     // Selecting no transition yields false (no claimed dead transition).
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Or(false));
+    assert_eq!(
+        problem.evaluate(&vec![false, false, false]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_non_liveness_cycle_net_is_live() {
     let problem = cycle_net();
     // In the cycle net, both transitions can always fire. No transition is dead.
-    assert_eq!(problem.evaluate(&[1, 1]), Or(false));
-    assert_eq!(problem.evaluate(&[1, 0]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&vec![true, true]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&vec![true, false]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&vec![false, true]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&vec![false, false]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_non_liveness_solver_finds_witness_chain() {
     let problem = chain_net();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Or(true));
+    let witness = solver.solve(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
 fn test_non_liveness_solver_no_witness_cycle() {
     let problem = cycle_net();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_non_liveness_wrong_config_length() {
     let problem = chain_net();
-    assert_eq!(problem.evaluate(&[1, 0]), Or(false));
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), Or(false));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, false, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -153,32 +174,29 @@ fn test_non_liveness_deserialization_rejects_invalid() {
 }
 
 #[test]
-#[should_panic(expected = "at least one place")]
-fn test_non_liveness_zero_places_panics() {
-    NonLivenessFreePetriNet::new(0, 1, vec![], vec![], vec![]);
+fn test_non_liveness_rejects_zero_places() {
+    assert!(NonLivenessFreePetriNet::new(0, 1, vec![], vec![], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "at least one transition")]
-fn test_non_liveness_zero_transitions_panics() {
-    NonLivenessFreePetriNet::new(1, 0, vec![], vec![], vec![0]);
+fn test_non_liveness_rejects_zero_transitions() {
+    assert!(NonLivenessFreePetriNet::new(1, 0, vec![], vec![], vec![0]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "does not match")]
-fn test_non_liveness_marking_length_mismatch_panics() {
-    NonLivenessFreePetriNet::new(2, 1, vec![], vec![], vec![0]);
+fn test_non_liveness_rejects_marking_length_mismatch() {
+    assert!(NonLivenessFreePetriNet::new(2, 1, vec![], vec![], vec![0]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "Free-choice violation")]
-fn test_non_liveness_free_choice_violation_panics() {
+fn test_non_liveness_rejects_free_choice_violation() {
     // t0 has preset {s0}, t1 has preset {s0, s1} -- they share s0 but have different presets
-    NonLivenessFreePetriNet::new(
+    assert!(NonLivenessFreePetriNet::new(
         2,
         2,
         vec![(0, 0), (0, 1), (1, 1)],
         vec![(0, 0), (1, 1)],
         vec![1, 1],
-    );
+    )
+    .is_err());
 }

@@ -12,6 +12,26 @@ use super::super::pathdecomposition::{
 };
 use super::gadgets::{apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead};
 use crate::rules::unitdiskmapping::ksg::mapping::GridKind;
+use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
+use crate::rules::ReductionError;
+use std::collections::HashMap;
+
+fn position_index(
+    result: &MappingResult,
+) -> Result<HashMap<(usize, usize), usize>, ReductionError> {
+    result
+        .positions
+        .iter()
+        .enumerate()
+        .map(|(index, &(row, column))| {
+            let row = usize::try_from(row)
+                .map_err(|_| mapping_invalid("mapping result contains a negative grid row"))?;
+            let column = usize::try_from(column)
+                .map_err(|_| mapping_invalid("mapping result contains a negative grid column"))?;
+            Ok(((row, column), index))
+        })
+        .collect()
+}
 
 /// Spacing between copy lines on triangular lattice.
 pub const SPACING: usize = 6;
@@ -59,8 +79,8 @@ fn crossat(
 /// # Returns
 /// A `MappingResult` containing the grid graph and mapping metadata.
 ///
-/// # Panics
-/// Panics if `num_vertices == 0`.
+/// # Errors
+/// Returns [`ReductionError`] if the input graph or generated dimensions are invalid.
 ///
 /// # Example
 /// ```rust
@@ -68,10 +88,13 @@ fn crossat(
 /// use problemreductions::topology::Graph;
 ///
 /// let edges = vec![(0, 1), (1, 2)];
-/// let result = map_weighted(3, &edges);
+/// let result = map_weighted(3, &edges).unwrap();
 /// assert!(result.to_triangular_subgraph().num_vertices() > 0);
 /// ```
-pub fn map_weighted(num_vertices: usize, edges: &[(usize, usize)]) -> MappingResult {
+pub fn map_weighted(
+    num_vertices: usize,
+    edges: &[(usize, usize)],
+) -> Result<MappingResult, ReductionError> {
     map_weighted_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
@@ -88,7 +111,7 @@ pub fn map_weighted_with_method(
     num_vertices: usize,
     edges: &[(usize, usize)],
     method: PathDecompositionMethod,
-) -> MappingResult {
+) -> Result<MappingResult, ReductionError> {
     let layout = pathwidth(num_vertices, edges, method);
     let vertex_order = vertex_order_from_layout(&layout);
     map_weighted_with_order(num_vertices, edges, &vertex_order)
@@ -107,19 +130,21 @@ pub fn map_weighted_with_method(
 /// # Returns
 /// A `MappingResult` containing the grid graph and mapping metadata.
 ///
-/// # Panics
-/// Panics if `num_vertices == 0` or if any edge vertex is not in `vertex_order`.
+/// # Errors
+/// Returns [`ReductionError`] if the vertex order, graph, or generated dimensions are invalid.
 pub fn map_weighted_with_order(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> MappingResult {
-    assert!(num_vertices > 0, "num_vertices must be > 0");
+) -> Result<MappingResult, ReductionError> {
+    if num_vertices == 0 {
+        return Err(mapping_invalid("num_vertices must be positive"));
+    }
 
     let spacing = SPACING;
     let padding = PADDING;
 
-    let copylines = create_copylines(num_vertices, edges, vertex_order);
+    let copylines = create_copylines(num_vertices, edges, vertex_order)?;
 
     // Calculate grid dimensions
     // Julia formula: N = (n-1)*col_spacing + 2 + 2*padding
@@ -128,9 +153,21 @@ pub fn map_weighted_with_order(
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
     let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
 
-    let rows = max_hslot.max(max_vstop) * spacing + 2 + 2 * padding;
+    let padding_twice = padding.checked_mul(2).ok_or(mapping_integer_overflow(
+        "computing triangular grid padding",
+    ))?;
+    let extent = |slots: usize| {
+        slots
+            .checked_mul(spacing)
+            .and_then(|value| value.checked_add(2))
+            .and_then(|value| value.checked_add(padding_twice))
+            .ok_or(mapping_integer_overflow(
+                "computing triangular grid dimensions",
+            ))
+    };
+    let rows = extent(max_hslot.max(max_vstop))?;
     // Use (num_vertices - 1) for cols, matching Julia's (n-1) formula
-    let cols = (num_vertices - 1) * spacing + 2 + 2 * padding;
+    let cols = extent(num_vertices - 1)?;
 
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
 
@@ -138,7 +175,10 @@ pub fn map_weighted_with_order(
     // (includes the endpoint node for triangular weighted mode)
     for line in &copylines {
         for (row, col, weight) in line.copyline_locations_triangular(padding, spacing) {
-            grid.add_node(row, col, weight as i32);
+            let weight = i64::try_from(weight).map_err(|_| {
+                mapping_integer_overflow("converting a triangular grid weight to i64")
+            })?;
+            grid.add_node(row, col, weight);
         }
     }
 
@@ -183,14 +223,36 @@ pub fn map_weighted_with_order(
 
     // Calculate MIS overhead from copylines using the dedicated function
     // which matches Julia's mis_overhead_copyline(TriangularWeighted(), ...)
-    let copyline_overhead: i32 = copylines
-        .iter()
-        .map(|line| super::super::copyline::mis_overhead_copyline_triangular(line, spacing))
-        .sum();
+    let copyline_overhead = copylines.iter().try_fold(0_i64, |total, line| {
+        total
+            .checked_add(super::super::copyline::mis_overhead_copyline_triangular(
+                line, spacing,
+            )?)
+            .ok_or(mapping_integer_overflow(
+                "summing triangular copy-line MIS overhead",
+            ))
+    })?;
 
     // Add gadget overhead (crossing gadgets + simplifiers)
-    let gadget_overhead: i32 = triangular_tape.iter().map(tape_entry_mis_overhead).sum();
-    let mis_overhead = copyline_overhead + gadget_overhead;
+    let gadget_overhead = triangular_tape.iter().try_fold(0_i64, |total, entry| {
+        total
+            .checked_add(tape_entry_mis_overhead(entry)?)
+            .ok_or(mapping_integer_overflow(
+                "summing triangular gadget MIS overhead",
+            ))
+    })?;
+    let mis_overhead =
+        copyline_overhead
+            .checked_add(gadget_overhead)
+            .ok_or(mapping_integer_overflow(
+                "computing total triangular MIS overhead",
+            ))?;
+
+    if grid.has_unresolved_cells() {
+        return Err(mapping_invalid(
+            "triangular mapping left doubled or connected cells unresolved",
+        ));
+    }
 
     // Convert triangular tape entries to generic tape entries
     let tape: Vec<TapeEntry> = triangular_tape
@@ -206,17 +268,30 @@ pub fn map_weighted_with_order(
     let doubled_cells = grid.doubled_cells();
 
     // Extract positions and weights from occupied cells
-    let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid
+    let positions_and_weights = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
-                .map(|cell| ((row as i32, col as i32), cell.weight()))
+                .filter(|cell| cell.weight() > 0)
+                .map(|cell| {
+                    Ok((
+                        (
+                            i64::try_from(row).map_err(|_| {
+                                mapping_integer_overflow("converting a grid row to i64")
+                            })?,
+                            i64::try_from(col).map_err(|_| {
+                                mapping_integer_overflow("converting a grid column to i64")
+                            })?,
+                        ),
+                        cell.weight(),
+                    ))
+                })
         })
-        .filter(|&(_, w)| w > 0)
-        .unzip();
+        .collect::<Result<Vec<_>, ReductionError>>()?;
+    let (positions, node_weights): (Vec<_>, Vec<_>) = positions_and_weights.into_iter().unzip();
 
-    MappingResult {
+    Ok(MappingResult {
         positions,
         node_weights,
         grid_dimensions: grid.size(),
@@ -227,55 +302,75 @@ pub fn map_weighted_with_order(
         mis_overhead,
         tape,
         doubled_cells,
+    })
+}
+
+/// Read the original vertex configuration at the traced triangular centers.
+pub fn map_config_back(
+    result: &MappingResult,
+    grid_config: &[usize],
+) -> crate::rules::ExtractionResult<Vec<usize>> {
+    map_config_back_internal(result, grid_config)
+        .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
+}
+
+fn map_config_back_internal(
+    result: &MappingResult,
+    grid_config: &[usize],
+) -> Result<Vec<usize>, ReductionError> {
+    if grid_config.len() != result.positions.len() {
+        return Err(mapping_invalid(
+            "grid configuration length must match the mapped vertex count",
+        ));
     }
+    let positions = position_index(result)?;
+
+    super::super::weighted::trace_centers(result)?
+        .into_iter()
+        .map(|center| {
+            positions
+                .get(&center)
+                .map(|&index| grid_config[index])
+                .ok_or(mapping_invalid(
+                    "a traced center is missing from the mapped graph",
+                ))
+        })
+        .collect()
 }
 
-/// Get the weighted triangular crossing ruleset.
+/// Encode unit source weights exactly in the integer target weights.
 ///
-/// This returns the list of weighted triangular gadgets used for resolving
-/// crossings in the mapping process. Matches Julia's `crossing_ruleset_triangular_weighted`.
-///
-/// # Returns
-/// A vector of `WeightedTriangularGadget` enum variants.
-pub fn weighted_ruleset() -> Vec<super::super::weighted::WeightedTriangularGadget> {
-    super::super::weighted::triangular_weighted_ruleset()
-}
+/// Multiplying the base gadget weights by `n + 1` preserves the mapping's
+/// primary objective. Adding one at each traced source center then maximizes
+/// the source independent-set size among those primary optima.
+pub fn map_unit_weights(result: &MappingResult) -> Result<Vec<i64>, ReductionError> {
+    let count = i64::try_from(result.lines.len())
+        .map_err(|_| mapping_integer_overflow("converting the source vertex count to i64"))?;
+    let scale = count.checked_add(1).ok_or(mapping_integer_overflow(
+        "computing the unit-weight encoding scale",
+    ))?;
+    let mut weights = result
+        .node_weights
+        .iter()
+        .map(|weight| {
+            weight.checked_mul(scale).ok_or(mapping_integer_overflow(
+                "scaling a triangular mapped weight",
+            ))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let positions = position_index(result)?;
 
-/// Trace center locations through gadget transformations.
-///
-/// Returns the final center location for each original vertex after all
-/// gadget transformations have been applied.
-///
-/// This matches Julia's `trace_centers` function which:
-/// 1. Gets initial center locations with (0, 1) offset
-/// 2. Applies `move_center` for each gadget in the tape
-///
-/// # Arguments
-/// * `result` - The mapping result from `map_weighted`
-///
-/// # Returns
-/// A vector of (row, col) positions for each original vertex.
-pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
-    super::super::weighted::trace_centers(result)
-}
-
-/// Map source vertex weights to grid graph weights.
-///
-/// This function takes weights for each original vertex and maps them to
-/// the corresponding nodes in the grid graph.
-///
-/// # Arguments
-/// * `result` - The mapping result from `map_weighted`
-/// * `source_weights` - Weights for each original vertex (should be in [0, 1])
-///
-/// # Returns
-/// A vector of weights for each node in the grid graph.
-///
-/// # Panics
-/// Panics if any weight is outside the range [0, 1] or if the number of
-/// weights doesn't match the number of vertices.
-pub fn map_weights(result: &MappingResult, source_weights: &[f64]) -> Vec<f64> {
-    super::super::weighted::map_weights(result, source_weights)
+    for center in super::super::weighted::trace_centers(result)? {
+        let index = positions.get(&center).copied().ok_or(mapping_invalid(
+            "a traced center is missing from the mapped graph",
+        ))?;
+        weights[index] = weights[index]
+            .checked_add(1)
+            .ok_or(mapping_integer_overflow(
+                "adding a unit source weight to a triangular center",
+            ))?;
+    }
+    Ok(weights)
 }
 
 #[cfg(test)]

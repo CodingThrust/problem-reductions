@@ -10,7 +10,7 @@ pred show MIS
 pred list --rules
 ```
 
-`list` reports every problem with its aliases, variants, and reduction counts. `show` describes the resolved variant, its size fields, input schema, and incoming and outgoing reductions. Read that schema before constructing an instance.
+`list` reports every problem with its aliases, variants, and reduction counts. `show` describes the resolved variant, its parameter fields, input schema, and incoming and outgoing reductions. Read that schema before constructing an instance.
 
 <details>
 <summary>Example: <code>pred show MIS</code></summary>
@@ -24,11 +24,11 @@ pred list --rules
 ## Names and variants
 
 ```bash
-pred show MIS/SimpleGraph/i32
-pred path MIS/SimpleGraph/i32 ILP/bool
+pred show MIS/SimpleGraph/i64
+pred path MIS/SimpleGraph/i64 ILP/bool
 ```
 
-Aliases such as `MIS` resolve to full names, and a bare name selects the declared default variant: `MIS` is `MaximumIndependentSet/SimpleGraph/One`. Slash-separated parameters select graph, weight, or other variant values. `One` means unit weights; passing non-unit `--weights` to `create` upgrades a default instance to `i32`. Name the exact variant when a reproducible endpoint matters.
+Aliases such as `MIS` resolve to full names, and a bare name selects the declared default variant: `MIS` is `MaximumIndependentSet/SimpleGraph/One`. Slash-separated parameters select graph, weight, or other variant values. `One` means unit weights; passing non-unit `--weights` to `create` upgrades a default instance to `i64`. Name the exact variant when a reproducible endpoint matters.
 
 {{#include generated/pred-aliases.txt}}
 
@@ -36,13 +36,13 @@ Aliases such as `MIS` resolve to full names, and a bare name selects the declare
 
 ```bash
 pred path MIS ILP
-pred path MIS QUBO --all --max-paths 50
-pred path MIS QUBO --cost minimize:num_variables -o path.json
+pred path MIS QUBO --limit 50
+pred path MIS QUBO --json -o paths.json
 pred from MIS --hops 2
 pred to QUBO
 ```
 
-`path` finds the cheapest route between two endpoints; `--all` enumerates alternatives up to `--max-paths`. The default cost minimizes steps; `minimize:<field>` uses the overhead metadata of a size field from `pred show`. `from` and `to` explore outgoing and incoming neighbors. Search defaults to reductions that can map a solution back.
+`path` enumerates witness-capable simple routes between exact endpoints, without ranking. `--limit` accepts 1 through 999, or `all` for 999; the default is 20. JSON output contains `paths` and `truncated`. `from` and `to` explore outgoing and incoming neighbors.
 
 <details>
 <summary>Example: a multi-step path from <code>Factoring</code> to <code>SpinGlass</code></summary>
@@ -53,14 +53,14 @@ pred to QUBO
 
 </details>
 
-Overhead formulas describe scaling bounds, not exact target sizes. A discovered route does not imply the target is cheap to solve; inspect the constructed target on representative instances.
+Parameter transforms declare exact equalities, upper bounds, or unavailable relations. A discovered route does not imply the target is cheap to solve; inspect the constructed target on representative instances.
 
 ## Create
 
 ```bash
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
-pred create MIS/SimpleGraph/i32 --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o weighted.json
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o source.json
+pred create MIS/SimpleGraph/i64 --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o weighted.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 -o source.json
 pred create MIS --random --num-vertices 10 --edge-prob 0.3 --seed 42 -o random.json
 ```
 
@@ -79,21 +79,24 @@ pred create Factoring --target 6 --m 2 --n 2 -o factoring.json
 
 ```bash
 pred inspect problem.json
-pred evaluate problem.json --config 1,0,1,0
-pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
+pred evaluate problem.json --config '[true,false,true,false]'
+pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config '[true,false,true,false]'
 ```
 
 `inspect` reports the resolved variant and sizes of a problem file or reduction bundle. `evaluate` scores one configuration: selecting vertices 0 and 2 returns `Max(2)`, while selecting adjacent vertices returns `Max(None)`. Configurations follow each problem's variable domains and are not always binary. `-` reads from stdin.
 
+For a problem file, JSON inspection includes `parameter_values`, the model's actual named instance parameters. These are separate from the `parameters` list of parameter names.
+
 ## Reduce
 
 ```bash
-pred reduce problem.json --to QUBO -o reduced.json
+pred path MIS QUBO --json -o paths.json
+python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json
 pred reduce problem.json --via path.json -o reduced.json
-pred extract reduced.json --config 1,0,1,0
+pred extract reduced.json --config '[1,0,1,0]'
 ```
 
-The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays a path saved by `pred path -o`, whose source variant must match the input. `extract` maps a target-space configuration back to the source.
+The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input. `extract` maps a target-space configuration back to the source.
 
 ## Solve
 
@@ -105,16 +108,16 @@ pred solve reduced.json --timeout 30 --json
 
 | Solver | Behavior |
 |---|---|
-| `ilp` (default) | Finds a route to ILP, solves the target, and recovers a source configuration |
+| `ilp` | Executes the exact variant’s registered fixed ILP pipeline and recovers its source solution |
 | `brute-force` | Enumerates all configurations; for tiny instances and cross-checks |
 | `customized` | Exact structure-exploiting backends for selected models; see `pred solve --help` |
 
-Solving a bundle solves the target and maps the result back; JSON output records the target result under `intermediate`. If the ILP solver reports no route, check `pred path <exact-variant> ILP`. Aggregate-only problems return a value without a configuration. To verify a result, evaluate the returned configuration on the original instance, or compare the value with an exhaustive solve on a small example.
+Default dispatch tries registered customized, ILP, then brute-force capabilities in that order. `pred inspect` lists the capabilities available for the exact variant. Solving a bundle solves its target and maps the result back; every successful solve returns a solution. A discovered path does not by itself provide a registered solver. Evaluate the returned solution on the original instance to verify its value.
 
 ## JSON and pipes
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve - --json
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via path.json | pred solve - --json
 pred export-graph -o reduction_graph.json
 ```
 

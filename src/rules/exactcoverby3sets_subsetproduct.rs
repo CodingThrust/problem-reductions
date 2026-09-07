@@ -26,8 +26,13 @@ impl ReductionResult for ReductionX3CToSubsetProduct {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -53,13 +58,14 @@ fn assigned_primes(universe_size: usize) -> Vec<u64> {
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_sets",
-})]
+#[reduction(
+    transform = exact {
+        num_elements = "num_sets",
+    })]
 impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
     type Result = ReductionX3CToSubsetProduct;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let primes = assigned_primes(self.universe_size());
         let values = self
             .sets()
@@ -68,9 +74,9 @@ impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
             .collect();
         let target = product_biguint(primes.iter().copied());
 
-        ReductionX3CToSubsetProduct {
+        Ok(ReductionX3CToSubsetProduct {
             target: SubsetProduct::new(values, target),
-        }
+        })
     }
 }
 
@@ -84,8 +90,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, SubsetProduct>(
                 ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]),
                 SolutionPair {
-                    source_config: vec![1, 1, 0],
-                    target_config: vec![1, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, false]),
+                    target_config: serde_json::json!(vec![true, true, false]),
                 },
             )
         },

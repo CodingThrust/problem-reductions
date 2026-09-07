@@ -46,7 +46,7 @@ For each of the 10 entries, read the full entry text and evaluate against the ch
 | M3. Self-contained notation | Every symbol in `def` is defined before first use |
 | M4. Background text | Body contains at least 2 sentences of background/motivation |
 | M5. Example present | Body contains `*Example.*` or `Example.` |
-| M6. Example from fixture | Example data matches `src/example_db/fixtures/examples.json` (not invented) — check by loading the JSON and comparing |
+| M6. Example from fixture | Example data matches `docs/paper/data/examples.json` (not invented) — check by loading the JSON and comparing |
 | M7. Figure present | Body contains `#figure(` |
 | M8. Pred commands | Body contains `pred-commands(` or `pred create` |
 | M9. Algorithm citation | Complexity claims have `@citation` or a footnote explaining absence |
@@ -72,7 +72,7 @@ For each of the 10 entries, read the full entry text and evaluate against the ch
 | M3. Proof length | Proof is at least 3 sentences (not just "trivial" or a one-liner) |
 | M4. Overhead documented | Overhead is auto-generated from JSON (verify edge exists in `reduction_graph.json`) |
 | M5. Example present | `example: true` and example renders correctly |
-| M6. Example from fixture | Example data matches `src/example_db/fixtures/examples.json` |
+| M6. Example from fixture | Example data matches `docs/paper/data/examples.json` |
 | M7. Pred commands | Example section contains `pred-commands(` with create/reduce/evaluate pipeline |
 | M8. Both directions | If the reverse rule also exists in the graph, check it has its own entry |
 

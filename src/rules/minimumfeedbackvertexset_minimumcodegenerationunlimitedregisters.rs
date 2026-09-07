@@ -1,145 +1,125 @@
-//! Reduction from MinimumFeedbackVertexSet to MinimumCodeGenerationUnlimitedRegisters.
+//! Unit-weight feedback vertex set to unlimited-register code generation.
 //!
-//! The Aho-Johnson-Ullman chain gadget construction: for each source vertex x
-//! with outgoing edges (x,y₁),...,(x,y_d), create a chain of internal nodes
-//! x¹,...,x^d where xⁱ has left child x^{i-1} and right child y_i⁰ (the leaf).
-//! Copies in an optimal program correspond exactly to a minimum feedback vertex set.
+//! The Aho–Johnson–Ullman reduction encodes cardinality, not arbitrary vertex
+//! weights. Each source vertex has a start operation followed by its outgoing
+//! arc operations. The separate start makes each right-use strictly later than
+//! the originating start, including self-loops. An additional right-only leaf
+//! makes every start binary without introducing another possible copy.
 
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::models::misc::MinimumCodeGenerationUnlimitedRegisters;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::One;
 
-/// Result of reducing MinimumFeedbackVertexSet to MinimumCodeGenerationUnlimitedRegisters.
+/// Result of the unit-weight FVS to code-generation reduction.
 #[derive(Debug, Clone)]
 pub struct ReductionFVSToCodeGen {
     target: MinimumCodeGenerationUnlimitedRegisters,
-    /// Number of source vertices (= number of leaves in the target DAG).
-    num_source_vertices: usize,
-    /// For each source vertex x, the target index of x¹ (first chain node).
-    /// `None` if vertex x has out-degree 0 (no chain, leaf only).
-    chain_start: Vec<Option<usize>>,
-    /// For each leaf x⁰ (source vertex x), the list of internal node target
-    /// indices that use x⁰ as a right child.
+    /// Configuration index of each source vertex's start operation.
+    chain_start: Vec<usize>,
+    /// Configuration indices of operations that right-use each original leaf.
     right_child_users: Vec<Vec<usize>>,
 }
 
 impl ReductionResult for ReductionFVSToCodeGen {
-    type Source = MinimumFeedbackVertexSet<i32>;
+    type Source = MinimumFeedbackVertexSet<One>;
     type Target = MinimumCodeGenerationUnlimitedRegisters;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    /// Extract a feedback vertex set from a target evaluation-order solution.
-    ///
-    /// A leaf register R_x is destroyed when x¹ executes (left operand).
-    /// If any right-child user of x⁰ is evaluated after x¹, a LOAD was needed,
-    /// meaning x is in the feedback vertex set.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_source_vertices;
-        let mut source_config = vec![0usize; n];
-
-        // target_solution[i] = evaluation position for the i-th internal node
-        // Internal nodes are indices n, n+1, ..., n+m-1 (sorted), so
-        // target_solution[j] = position for internal node (n + j).
-
-        // eval_pos[j] = evaluation position for internal node (n + j)
-        let eval_pos = target_solution;
-
-        for (x, cfg) in source_config.iter_mut().enumerate() {
-            if let Some(chain_start_idx) = self.chain_start[x] {
-                let start_j = chain_start_idx - n;
-                let start_pos = eval_pos[start_j];
-
-                for &user_idx in &self.right_child_users[x] {
-                    let user_j = user_idx - n;
-                    if eval_pos[user_j] > start_pos {
-                        *cfg = 1;
-                        break;
-                    }
-                }
-            }
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.0.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target order must be a permutation respecting expression dependencies",
+            ));
         }
-
-        source_config
+        Ok(self
+            .chain_start
+            .iter()
+            .zip(&self.right_child_users)
+            .map(|(&start, users)| {
+                users
+                    .iter()
+                    .any(|&user| target_solution[user] > target_solution[start])
+            })
+            .collect())
     }
 }
 
+/// Count source leaves, the dummy leaf, and all start/arc operations before allocation.
+fn code_generation_vertex_count(n: usize, m: usize) -> Result<usize, crate::rules::ReductionError> {
+    n.checked_mul(2)
+        .and_then(|count| count.checked_add(m))
+        .and_then(|count| count.checked_add(1))
+        .ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                MinimumFeedbackVertexSet<One>,
+                MinimumCodeGenerationUnlimitedRegisters,
+            >("counting code-generation start and arc nodes")
+        })
+}
+
 #[reduction(
-    overhead = {
-        num_vertices = "num_vertices + num_arcs",
+    transform = exact {
+        num_vertices = "2 * num_vertices + num_arcs + 1",
     }
 )]
-impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertexSet<i32> {
+impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertexSet<One> {
     type Result = ReductionFVSToCodeGen;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let m = self.graph().num_arcs();
-
-        // Build outgoing adjacency list
-        let mut out_neighbors: Vec<Vec<usize>> = vec![vec![]; n];
+        let num_vertices = code_generation_vertex_count(n, m)?;
+        // All subsequent offsets are bounded by the checked total above.
+        let first_internal = n + 1;
+        let num_internal = n + m;
+        let mut out_neighbors = vec![vec![]; n];
         for (u, v) in self.graph().arcs() {
             out_neighbors[u].push(v);
         }
-
-        // Assign internal node indices: leaves are 0..n, chain nodes are n..n+m
-        let mut left_arcs = Vec::with_capacity(m);
-        let mut right_arcs = Vec::with_capacity(m);
-        let mut chain_start = vec![None; n];
-        let mut right_child_users: Vec<Vec<usize>> = vec![vec![]; n];
-
-        let mut next_internal = n; // first internal node index
-        for x in 0..n {
-            let neighbors = &out_neighbors[x];
-            let d = neighbors.len();
-            if d == 0 {
-                continue;
+        let mut left_arcs = Vec::with_capacity(num_internal);
+        let mut right_arcs = Vec::with_capacity(num_internal);
+        let mut chain_start = Vec::with_capacity(n);
+        let mut right_child_users = vec![vec![]; n];
+        let mut next_internal = first_internal;
+        for (x, neighbors) in out_neighbors.iter().enumerate() {
+            chain_start.push(next_internal - first_internal);
+            left_arcs.push((next_internal, x));
+            right_arcs.push((next_internal, n)); // dummy leaf is never overwritten
+            next_internal += 1;
+            for &neighbor in neighbors {
+                left_arcs.push((next_internal, next_internal - 1));
+                right_arcs.push((next_internal, neighbor));
+                right_child_users[neighbor].push(next_internal - first_internal);
+                next_internal += 1;
             }
-
-            chain_start[x] = Some(next_internal);
-
-            for (i, &neighbor) in neighbors.iter().enumerate() {
-                let node_idx = next_internal + i;
-                // Left child: predecessor in chain
-                let left_child = if i == 0 {
-                    x // leaf x⁰
-                } else {
-                    next_internal + i - 1 // previous chain node
-                };
-                // Right child: leaf y_i⁰
-                let right_child = neighbor; // leaf index = source vertex index
-
-                left_arcs.push((node_idx, left_child));
-                right_arcs.push((node_idx, right_child));
-                right_child_users[right_child].push(node_idx);
-            }
-
-            next_internal += d;
         }
-
-        debug_assert_eq!(next_internal, n + m);
-
-        let target = MinimumCodeGenerationUnlimitedRegisters::new(n + m, left_arcs, right_arcs);
-
-        ReductionFVSToCodeGen {
+        debug_assert_eq!(next_internal, num_vertices);
+        let target =
+            MinimumCodeGenerationUnlimitedRegisters::new(num_vertices, left_arcs, right_arcs);
+        Ok(ReductionFVSToCodeGen {
             target,
-            num_source_vertices: n,
             chain_start,
             right_child_users,
-        }
+        })
     }
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn issue_example_source() -> MinimumFeedbackVertexSet<i32> {
+fn issue_example_source() -> MinimumFeedbackVertexSet<One> {
     use crate::topology::DirectedGraph;
-    // 3-cycle: a→b→c→a (vertices 0,1,2)
     MinimumFeedbackVertexSet::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-        vec![1i32; 3],
+        vec![One; 3],
     )
 }
 
@@ -152,31 +132,21 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters",
         build: || {
             let source = issue_example_source();
-            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source);
-
-            // Find a target witness whose extracted source solution matches an optimal FVS
-            let solver = BruteForce::new();
-            let source_witnesses = solver.find_all_witnesses(&source);
-            let target_witnesses = solver.find_all_witnesses(reduction.target_problem());
-
-            let (source_config, target_config) = target_witnesses
-                .iter()
-                .find_map(|tw| {
-                    let extracted = reduction.extract_solution(tw);
-                    if source_witnesses.contains(&extracted) {
-                        Some((extracted, tw.clone()))
-                    } else {
-                        None
-                    }
-                })
-                .expect("canonical FVS -> CodeGen example must have matching witness");
-
+            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source)
+                .expect("reduction should succeed");
+            let target_config = BruteForce::new()
+                .solve(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
+                .expect("canonical DAG has an evaluation order");
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

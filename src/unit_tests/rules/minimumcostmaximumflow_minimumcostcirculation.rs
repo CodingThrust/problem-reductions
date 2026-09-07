@@ -21,7 +21,8 @@ fn canonical_source() -> MinimumCostMaximumFlow {
 #[test]
 fn test_minimumcostmaximumflow_to_minimumcostcirculation_structure() {
     let source = canonical_source();
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Vertices preserved, arcs gain exactly one return arc.
@@ -48,7 +49,8 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_structure() {
 #[test]
 fn test_minimumcostmaximumflow_to_minimumcostcirculation_closed_loop() {
     let source = canonical_source();
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -68,7 +70,8 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_bottleneck() {
         vec![1, 1, 1, 1],
         vec![0, 2, 1, 3],
     );
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -78,10 +81,10 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_bottleneck() {
     // Brute-force the target and confirm the extracted source flow has
     // value 1 and cost 1 (the cheaper 1->3 path).
     let solver = BruteForce::new();
-    let target_witness = solver.find_witness(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
-    assert_eq!(source.flow_value(&extracted), 1);
-    assert_eq!(source.total_cost(&extracted), 1);
+    let target_witness = solver.solve(reduction.target_problem()).unwrap().unwrap();
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    assert_eq!(source.flow_value(&extracted).unwrap(), 1);
+    assert_eq!(source.total_cost(&extracted).unwrap(), 1);
 }
 
 #[test]
@@ -95,7 +98,8 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_parallel_arcs() {
         vec![1, 1, 1],
         vec![5, 1, 0],
     );
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // U = cap[(0,1)#1] + cap[(0,1)#2] = 1 + 1 = 2.
@@ -112,10 +116,10 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_parallel_arcs() {
     // Max flow value = 1 (limited by arc (1,2) capacity), cheaper
     // parallel arc has cost 1, so optimal source cost = 1.
     let solver = BruteForce::new();
-    let target_witness = solver.find_witness(target).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
-    assert_eq!(source.flow_value(&extracted), 1);
-    assert_eq!(source.total_cost(&extracted), 1);
+    let target_witness = solver.solve(target).unwrap().unwrap();
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    assert_eq!(source.flow_value(&extracted).unwrap(), 1);
+    assert_eq!(source.total_cost(&extracted).unwrap(), 1);
 }
 
 #[test]
@@ -130,7 +134,8 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_unused_low_cost_arc() {
         vec![1, 1, 1],
         vec![1, 0, 1],
     );
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -148,7 +153,8 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
         vec![1, 1, 0],
         vec![0, 0, 0],
     );
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     // Return arc capacity = cap leaving source = 1 + 0 = 1.
     assert_eq!(target.capacities()[source.num_arcs()], 1);
@@ -160,11 +166,38 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
     );
 
     let solver = BruteForce::new();
-    let target_witness = solver.find_witness(target).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
-    assert_eq!(source.flow_value(&extracted), 1);
+    let target_witness = solver.solve(target).unwrap().unwrap();
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     // Zero-capacity arc must be 0 in the extracted flow.
     assert_eq!(extracted[2], 0);
+}
+
+#[test]
+fn test_minimumcostmaximumflow_to_minimumcostcirculation_reports_overflow() {
+    let capacity_overflow = MinimumCostMaximumFlow::new(
+        DirectedGraph::new(3, vec![(0, 1), (0, 2)]),
+        0,
+        2,
+        vec![i64::MAX, 1],
+        vec![0, 0],
+    );
+    assert!(matches!(
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&capacity_overflow),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
+
+    let cost_overflow = MinimumCostMaximumFlow::new(
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        0,
+        2,
+        vec![1, 1],
+        vec![i64::MAX, 1],
+    );
+    assert!(matches!(
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&cost_overflow),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
 }
 
 #[test]
@@ -183,24 +216,29 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_value_priority_over_cos
         vec![2, 2],
         vec![0, 10],
     );
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
 
     let solver = BruteForce::new();
-    let target_witness = solver.find_witness(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
-    assert_eq!(source.flow_value(&extracted), 2);
-    assert_eq!(source.total_cost(&extracted), 20);
+    let target_witness = solver.solve(reduction.target_problem()).unwrap().unwrap();
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    assert_eq!(source.flow_value(&extracted).unwrap(), 2);
+    assert_eq!(source.total_cost(&extracted).unwrap(), 20);
 
     // The target circulation value uses cost 20 + 2*(-B) where
     // B = 1 + 0 + 10 = 11, so optimum = 20 - 22 = -2.
-    let target_value = reduction.target_problem().evaluate(&target_witness);
+    let target_value = reduction
+        .target_problem()
+        .evaluate(&target_witness)
+        .unwrap();
     assert_eq!(target_value, Min(Some(-2)));
 }
 
 #[test]
 fn test_minimumcostmaximumflow_to_minimumcostcirculation_extract_solution_length() {
     let source = canonical_source();
-    let reduction = ReduceTo::<MinimumCostCirculation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
     // Provide a dummy target config of the right length; extract_solution
     // must truncate to num_original_arcs.
     let m = source.num_arcs();
@@ -208,7 +246,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_extract_solution_length
     for (i, v) in padded.iter_mut().enumerate().take(m) {
         *v = i % 2;
     }
-    let extracted = reduction.extract_solution(&padded);
+    let extracted = reduction.extract_solution(&padded).unwrap();
     assert_eq!(extracted.len(), m);
     assert_eq!(extracted, padded[..m].to_vec());
 }

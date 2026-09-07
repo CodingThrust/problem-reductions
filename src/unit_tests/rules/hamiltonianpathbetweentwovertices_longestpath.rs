@@ -14,7 +14,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_closed_loop() {
         0,
         4,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
 
     assert_eq!(target.num_vertices(), 5);
@@ -37,7 +38,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_path_graph() {
         0,
         3,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -56,14 +58,16 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
         1,
         2,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_best = solver
-        .find_witness(result.target_problem())
+        .solve(result.target_problem())
+        .unwrap()
         .expect("LongestPath should have some valid path");
 
     // The best path has fewer than n-1 = 4 edges (it's not Hamiltonian)
-    let selected_edges: usize = target_best.iter().sum();
+    let selected_edges: usize = target_best.iter().filter(|&&selected| selected).count();
     assert!(
         selected_edges < 4,
         "Best path should have fewer than n-1 edges since no Hamiltonian s-t path exists"
@@ -78,7 +82,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_complete_graph() {
         0,
         3,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -95,7 +100,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_triangle() {
         0,
         2,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
 
     assert_eq!(target.num_vertices(), 3);
@@ -106,4 +112,61 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_triangle() {
         &result,
         "HamiltonianPathBetweenTwoVertices->LongestPath triangle",
     );
+}
+
+#[test]
+fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
+    use crate::Problem;
+    for n in 2..=4 {
+        let possible: Vec<_> = (0..n)
+            .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
+            .collect();
+        for graph_mask in 0usize..(1 << possible.len()) {
+            let edges: Vec<_> = possible
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &e)| ((graph_mask >> i) & 1 == 1).then_some(e))
+                .collect();
+            for start in 0..n {
+                for end in 0..n {
+                    if start == end {
+                        continue;
+                    }
+                    let source = HamiltonianPathBetweenTwoVertices::new(
+                        SimpleGraph::new(n, edges.clone()),
+                        start,
+                        end,
+                    );
+                    let reduction =
+                        ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source).unwrap();
+                    let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+                    for mask in 0usize..(1 << edges.len()) {
+                        let config: Vec<_> =
+                            (0..edges.len()).map(|i| (mask >> i) & 1 == 1).collect();
+                        let value = target.evaluate(&config).unwrap();
+                        let expected = value.0 == Some(n as i64 - 1);
+                        assert_eq!(
+                            crate::rules::AggregateReductionResult::extract_value(
+                                &reduction, value
+                            )
+                            .0,
+                            expected
+                        );
+                        let result = reduction.extract_solution(&config);
+                        assert_eq!(
+                            result.is_ok(),
+                            expected,
+                            "n={n}, graph={graph_mask}, s={start}, t={end}, config={mask}"
+                        );
+                        if let Ok(order) = result {
+                            assert!(source.evaluate(&order).unwrap().0);
+                        }
+                    }
+                    assert!(reduction
+                        .extract_solution(&vec![false; edges.len() + 1])
+                        .is_err());
+                }
+            }
+        }
+    }
 }

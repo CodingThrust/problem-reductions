@@ -35,21 +35,29 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         one_hot_decode(target_solution, self.num_vertices, self.num_vertices, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices",
         num_constraints = "2 * num_vertices + 6 * num_edges * num_vertices + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHamiltonianPathToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = self.graph();
         let edges = graph.edges();
@@ -91,19 +99,20 @@ impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
         for p in 0..n_pos {
             let mut terms = Vec::new();
             for e in 0..m {
-                terms.push((z_fwd_idx(e, p), 1.0));
-                terms.push((z_rev_idx(e, p), 1.0));
+                terms.push((z_fwd_idx(e, p), 1));
+                terms.push((z_rev_idx(e, p), 1));
             }
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Feasibility: no objective
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionHamiltonianPathToILP {
+        Ok(ReductionHamiltonianPathToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

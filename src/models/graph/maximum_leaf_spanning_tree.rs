@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find spanning tree maximizing the number of leaves",
         fields: &[
@@ -76,7 +77,7 @@ impl<G: Graph> MaximumLeafSpanningTree<G> {
     }
 
     /// Check if a configuration is a valid spanning tree.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_spanning_tree(&self.graph, config)
     }
 }
@@ -84,7 +85,7 @@ impl<G: Graph> MaximumLeafSpanningTree<G> {
 /// Check if a configuration forms a valid spanning tree:
 /// 1. Exactly n-1 edges selected
 /// 2. Selected edges form a connected subgraph (which, combined with n-1 edges, implies a tree)
-fn is_valid_spanning_tree<G: Graph>(graph: &G, config: &[usize]) -> bool {
+fn is_valid_spanning_tree<G: Graph>(graph: &G, config: &[bool]) -> bool {
     let n = graph.num_vertices();
     let edges = graph.edges();
     if config.len() != edges.len() {
@@ -92,7 +93,7 @@ fn is_valid_spanning_tree<G: Graph>(graph: &G, config: &[usize]) -> bool {
     }
 
     // Count selected edges
-    let selected_count: usize = config.iter().sum();
+    let selected_count = config.iter().filter(|&&selected| selected).count();
     if selected_count != n - 1 {
         return false;
     }
@@ -100,7 +101,7 @@ fn is_valid_spanning_tree<G: Graph>(graph: &G, config: &[usize]) -> bool {
     // Build adjacency from selected edges and check connectivity via BFS
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push(v);
             adj[v].push(u);
@@ -126,12 +127,12 @@ fn is_valid_spanning_tree<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 /// Count the number of leaves (degree-1 vertices) in the tree defined by the config.
-fn count_leaves<G: Graph>(graph: &G, config: &[usize]) -> usize {
+fn count_leaves<G: Graph>(graph: &G, config: &[bool]) -> usize {
     let n = graph.num_vertices();
     let edges = graph.edges();
     let mut degree = vec![0usize; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             degree[u] += 1;
             degree[v] += 1;
@@ -145,26 +146,65 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumLeafSpanningTree";
-    type Value = Max<usize>;
+    type Solution = Vec<bool>;
+    type Value = Max<i64>;
+
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        if !is_valid_spanning_tree(&self.graph, config) {
-            return Max(None);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
         }
-        Max(Some(count_leaves(&self.graph, config)))
+        Ok({
+            if !is_valid_spanning_tree(&self.graph, config) {
+                return Ok(Max(None));
+            }
+            Max(Some(
+                i64::try_from(count_leaves(&self.graph, config)).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting leaf count to i64".into(),
+                    )
+                })?,
+            ))
+        })
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for MaximumLeafSpanningTree<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
+crate::impl_random_generate!(
+    MaximumLeafSpanningTree<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| {
+        if spec.num_vertices < 2 {
+            return Err("num_vertices must be at least 2".to_string().into());
+        }
+        Ok(MaximumLeafSpanningTree::new(spec.graph()?))
+    }
+);
+
 crate::declare_variants! {
-    default MaximumLeafSpanningTree<SimpleGraph> => "1.8966^num_vertices",
+    default MaximumLeafSpanningTree<SimpleGraph> => "1.8966^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    MaximumLeafSpanningTree<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -188,7 +228,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Edges: 0:(0,1), 1:(0,2), 2:(0,3), 3:(1,4), 4:(2,4), 5:(2,5), 6:(3,5), 7:(4,5), 8:(1,3)
         // Tree: {(0,1),(0,2),(0,3),(2,4),(2,5)} = indices 0,1,2,4,5
         // Leaves: 1,3,4,5 (degree 1 each), Internal: 0 (deg 3), 2 (deg 3)
-        optimal_config: vec![1, 1, 1, 0, 1, 1, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![
+            true, true, true, false, true, true, false, false, false
+        ]),
         optimal_value: serde_json::json!(4),
     }]
 }

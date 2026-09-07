@@ -24,39 +24,46 @@ impl ReductionResult for ReductionKnapsackToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_items",
         num_constraints = "1",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for Knapsack {
     type Result = ReductionKnapsackToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_items();
+        let weights = self.weights();
+        let values = self.values();
+        let capacity = self.capacity();
         let constraints = vec![LinearConstraint::le(
-            self.weights()
+            weights
                 .iter()
                 .enumerate()
-                .map(|(i, &weight)| (i, weight as f64))
+                .map(|(item, &weight)| (item, weight))
                 .collect(),
-            self.capacity() as f64,
+            capacity,
         )];
-        let objective = self
-            .values()
-            .iter()
-            .enumerate()
-            .map(|(i, &value)| (i, value as f64))
-            .collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let objective = values.iter().copied().enumerate().collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
-        ReductionKnapsackToILP { target }
+        Ok(ReductionKnapsackToILP { target })
     }
 }
 
@@ -70,8 +77,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7),
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![0, 1, 1, 0]),
                 },
             )
         },

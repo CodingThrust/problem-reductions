@@ -75,8 +75,7 @@ impl Graph for PlanarGraph {
 }
 
 use crate::impl_variant_param;
-impl_variant_param!(PlanarGraph, "graph", parent: SimpleGraph,
-    cast: |g| g.inner.clone());
+impl_variant_param!(PlanarGraph, "graph");
 
 #[cfg(test)]
 #[path = "../unit_tests/topology/planar_graph.rs"]

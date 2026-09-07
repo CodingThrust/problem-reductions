@@ -4,7 +4,7 @@
 //! whether the rows can be overlaid into a storage vector of length `n + K`
 //! by assigning each row a shift in `{1, ..., K}` without collisions.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Sparse Matrix Compression",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Overlay binary-matrix rows into a short storage vector by shifting each row without collisions",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m x n binary matrix A" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Maximum shift range K" },
-        ],
+        fields: SparseMatrixCompressionCreateSpec::FIELDS,
     }
 }
 
@@ -33,6 +31,30 @@ inventory::submit! {
 pub struct SparseMatrixCompression {
     matrix: Vec<Vec<bool>>,
     bound_k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SparseMatrixCompressionCreateSpec {
+    /// m x n binary matrix A.
+    matrix: Vec<Vec<bool>>,
+    /// Maximum shift range K.
+    bound_k: usize,
+}
+
+impl TryFrom<SparseMatrixCompressionCreateSpec> for SparseMatrixCompression {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: SparseMatrixCompressionCreateSpec) -> Result<Self, Self::Error> {
+        if spec.bound_k == 0 {
+            return Err("bound_k must be positive".to_string().into());
+        }
+        let columns = spec.matrix.first().map_or(0, Vec::len);
+        if spec.matrix.iter().any(|row| row.len() != columns) {
+            return Err("all matrix rows must have the same length"
+                .to_string()
+                .into());
+        }
+        Ok(Self::new(spec.matrix, spec.bound_k))
+    }
 }
 
 impl SparseMatrixCompression {
@@ -119,14 +141,30 @@ impl SparseMatrixCompression {
 
 impl Problem for SparseMatrixCompression {
     const NAME: &'static str = "SparseMatrixCompression";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.bound_k; self.num_rows()]
-    }
+    crate::problem_parameters![
+        ("bound_k", bound_k),
+        ("num_cols", num_cols),
+        ("num_rows", num_rows),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.storage_vector(config).is_some())
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_rows() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "shift-vector length does not match the matrix rows".into(),
+            ));
+        }
+        if config.iter().any(|&shift| shift >= self.bound_k) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "shift vector contains an out-of-range shift".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.storage_vector(config).is_some()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -134,8 +172,18 @@ impl Problem for SparseMatrixCompression {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SparseMatrixCompression {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.bound_k; self.num_rows()]
+    }
+}
+
 crate::declare_variants! {
-    default SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols",
+    default SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols" create SparseMatrixCompressionCreateSpec,
+}
+
+crate::register_brute_force! {
+    SparseMatrixCompression,
 }
 
 #[cfg(feature = "example-db")]
@@ -151,7 +199,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -25,23 +25,44 @@ impl ReductionResult for ReductionBMFToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Extract B (m x k) then C (k x n) — first m*k + k*n variables
-        let total = self.m * self.k + self.k * self.n;
-        target_solution[..total].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        let b = (0..self.m)
+            .map(|i| {
+                (0..self.k)
+                    .map(|r| target_solution[i * self.k + r] == 1)
+                    .collect()
+            })
+            .collect();
+        let c_offset = self.m * self.k;
+        let c = (0..self.k)
+            .map(|r| {
+                (0..self.n)
+                    .map(|j| target_solution[c_offset + r * self.n + j] == 1)
+                    .collect()
+            })
+            .collect();
+        Ok((b, c))
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
         num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.rows();
         let n = self.cols();
         let k = self.rank();
@@ -75,30 +96,30 @@ impl ReduceTo<ILP<bool>> for BMF {
                 // w_{i,j} >= p_{i,r,j} for all r
                 for r in 0..k {
                     let p_idx = p_offset + i * k * n + r * n + j;
-                    constraints.push(LinearConstraint::ge(vec![(w_idx, 1.0), (p_idx, -1.0)], 0.0));
+                    constraints.push(LinearConstraint::ge(vec![(w_idx, 1), (p_idx, -1)], 0));
                 }
 
                 // w_{i,j} <= sum_r p_{i,r,j}
-                let mut w_upper_terms = vec![(w_idx, 1.0)];
+                let mut w_upper_terms = vec![(w_idx, 1)];
                 for r in 0..k {
                     let p_idx = p_offset + i * k * n + r * n + j;
-                    w_upper_terms.push((p_idx, -1.0));
+                    w_upper_terms.push((p_idx, -1));
                 }
-                constraints.push(LinearConstraint::le(w_upper_terms, 0.0));
+                constraints.push(LinearConstraint::le(w_upper_terms, 0));
 
                 // Exact factorization: w_{i,j} = A_{i,j}
-                let a_val = if self.matrix()[i][j] { 1.0 } else { 0.0 };
-                constraints.push(LinearConstraint::eq(vec![(w_idx, 1.0)], a_val));
+                let a_val = if self.matrix()[i][j] { 1 } else { 0 };
+                constraints.push(LinearConstraint::eq(vec![(w_idx, 1)], a_val));
             }
         }
 
         // Objective: minimize sum_{i,r} b_{i,r} + sum_{r,j} c_{r,j} (total factor size)
-        let mut objective: Vec<(usize, f64)> =
-            (0..m * k).map(|idx| (b_offset + idx, 1.0)).collect();
-        objective.extend((0..k * n).map(|idx| (c_offset + idx, 1.0)));
+        let mut objective: Vec<(usize, i64)> = (0..m * k).map(|idx| (b_offset + idx, 1)).collect();
+        objective.extend((0..k * n).map(|idx| (c_offset + idx, 1)));
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionBMFToILP { target, m, n, k }
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
+        Ok(ReductionBMFToILP { target, m, n, k })
     }
 }
 

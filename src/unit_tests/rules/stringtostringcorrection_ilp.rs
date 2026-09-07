@@ -8,12 +8,13 @@ use crate::types::Or;
 fn test_reduction_creates_valid_ilp() {
     // source = [0,1], target = [1], bound = 1 (delete position 0)
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
-    let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSTSCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=2, K=1: (K+1)*n*n + (K+1)*n + K*n + K*(n-1) + K = 2*4 + 2*2 + 1*2 + 1*1 + 1 = 16
     assert_eq!(ilp.num_vars(), 16);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -22,30 +23,32 @@ fn test_stringtostringcorrection_to_ilp_bf_vs_ilp() {
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some(), "BF should find a solution");
 
-    let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSTSCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_solution_extraction_delete() {
     // source=[0,1], target=[1], bound=1 => delete at position 0
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
-    let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSTSCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 1);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -56,13 +59,14 @@ fn test_stringtostringcorrection_to_ilp_infeasible() {
 
     // Verify the source problem is actually infeasible
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_none(), "source should be infeasible");
 
-    let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSTSCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     assert!(
-        ilp_solver.solve(reduction.target_problem()).is_none(),
+        ilp_solver.solve(reduction.target_problem()).is_err(),
         "reduced ILP should also be infeasible"
     );
 }
@@ -73,14 +77,15 @@ fn test_stringtostringcorrection_to_ilp_swap() {
     let problem = StringToStringCorrection::new(2, vec![1, 0], vec![0, 1], 1);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some(), "BF should find a solution");
 
-    let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSTSCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

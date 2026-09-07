@@ -1,8 +1,11 @@
 # Design
 
-The Rust library holds problem definitions, executable reductions, and their registry metadata. The CLI exposes that core to tools and agents.
+This guide covers the library internals for contributors.
 
-Each layer depends only on the layers above it.
+See [Numeric types and arithmetic](#numeric-types-and-arithmetic) before
+choosing numeric fields or implementing arithmetic in a model or reduction.
+
+## Module Architecture
 
 | Location | Responsibility | Depends on |
 |---|---|---|
@@ -16,40 +19,137 @@ Each layer depends only on the layers above it.
 | `src/unit_tests/` | Tests mirroring the source tree | Everything |
 | `problemreductions-cli/` | The `pred` CLI | The library |
 
-## Problem contract
+## Problem Model
 
-Every problem implements `Problem`. `evaluate()` returns the associated `Value` for one configuration; solvers fold those values across the configuration space defined by `dims()`.
+Every problem implements `Problem`. The associated `Value` type is the per-configuration aggregate returned by `evaluate()`. Solvers fold these values across the configuration space, and witness-capable aggregates can also recover representative configurations.
 
 ```rust,ignore
-trait Problem {
+trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
-    type Value: Clone;                     // e.g., Max<i32>, Or, Sum<i32>
-    fn dims(&self) -> Vec<usize>;          // configuration space per variable
-    fn evaluate(&self, config: &[usize]) -> Self::Value;
-    fn variant() -> Vec<(&'static str, &'static str)>; // e.g., [("graph", "SimpleGraph"), ("weight", "i32")]
-    fn num_variables(&self) -> usize;      // default: dims().len()
+    type Solution;                         // e.g., Vec<bool>, permutation, tuple
+    type Value: Clone;                     // e.g., Max<i64>, Or, Sum<i64>
+    fn parameter_names() -> &'static [&'static str];
+    fn parameters(&self) -> ProblemParameters;
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
+    fn variant() -> Vec<(&'static str, &'static str)>; // e.g., [("graph", "SimpleGraph"), ("weight", "i64")]
     fn problem_type() -> ProblemType;      // default: registry lookup by NAME
 }
 ```
 
-A four-vertex independent set problem has `dims() = [2, 2, 2, 2]`; `evaluate(&[1, 0, 1, 0])` returns `Max(Some(2))` if vertices 0 and 2 are non-adjacent and `Max(None)` otherwise. Witness-capable objective problems use `Max<V>`, `Min<V>`, or `Extremum<V>`; feasibility problems use `Or`; aggregate-only problems such as counting use `Sum<W>` or `And` and solve to a value without a representative configuration. Each problem also provides inherent getters such as `num_vertices()` that reduction overhead expressions reference.
+- **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and reports its canonical instance parameters. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named parameters used by reduction expressions.
+- **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its `dimensions()` method and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
+- **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
+- **Feasibility problems** — typically use `Or`.
+- **Solve contract** — a successful solve always returns the problem's `Solution`; a global count or statistic without a representative solution is not a `Problem` solve.
+- **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
 
-## Variants
+## Construction inputs
 
-One problem name can have several **variants**: weights on vertices, or a restricted topology such as a king's subgraph. Variants form a subtype hierarchy, and the reduction from a more specific variant to a less specific one is a **variant cast**, an identity mapping that preserves indices.
+`VariantEntry::inputs()` describes the values a concrete constructor accepts.
+Models with a separate construction specification supply `CreateSpec::inputs()`;
+direct constructors use their declared fields. CLI creation, MCP creation, and
+`pred show` use this contract. Model-level
+catalog fields describe the model family; they are not a concrete variant's input
+schema. `show` exposes concrete `inputs` in JSON and labels them **Inputs** in text.
+
+Unit-valued data are implicit in `One` variants. For example, `MVC/One` accepts a
+graph, while `MVC/i64` also accepts vertex weights. Constructors derive unit-vector
+lengths from the graph, set family, or task deadlines. Internal `Vec<One>` storage
+and persisted instance JSON remain independent of construction inputs. Supplying
+an undeclared weight or length input is an error, even when every value is one.
+
+`Decision<P>` composes the registered inputs of `P` with an objective `bound` and
+calls `P`'s registered constructor before wrapping the result. It does not repeat
+the inner input schema or deserialize construction inputs as persisted model JSON.
+
+## Numeric types and arithmetic
+
+Numeric formats are selected by semantic role:
+
+- `usize` represents in-memory indices, collection lengths, and brute-force
+  dimensions;
+- `u64` represents public problem parameters and the input/output values
+  of reduction parameter expressions;
+- `i64` represents signed mathematical integers;
+- `bool` represents Boolean variables; and
+- finite `f64` represents real or rational values when an approximate
+  representation is part of the model contract.
+
+`usize` is not a portable serialized parameter format, and `u64` is not an index or
+general-purpose replacement for a model's mathematical integer domain.
+
+Another numeric format requires sufficient justification from the mathematical
+problem or target schema. Required exceptions include `BigUint` in `Factoring`,
+`SubsetSum`, `SubsetProduct`, `QuadraticCongruences`, and
+`QuadraticDiophantineEquations`, where arbitrary precision is part of the
+problem, and `One` in unweighted variants, where the type represents the
+unit-weight domain. Implementation convenience is not sufficient justification.
+There is no `i32` model or I/O numeric format.
+
+This contract applies only at model, result, reduction-target, and external I/O
+boundaries; implementation-local values are outside its scope. For example,
+SpinGlass couplings and its objective result use `i64`, while the temporary
+`{−1, +1}` spin values used inside `evaluate()` need not. A reduction's
+temporary calculations are also outside the contract, but numeric fields
+written into its target model must follow the target model's numeric format.
+
+Weight variants are `One`, `i64`, and `f64`, with `One ⊂ i64 ⊂ f64`.
+`i64 → f64` is a fallible reduction using a checked conversion in
+`±(2^53-1)`, not `as f64`.
+
+### Arithmetic
+
+- Keep arithmetic in the declared type. Exact values use checked `i64`
+  operations; approximate values use finite `f64` operations.
+- Constructors and reductions reject an arithmetic step that would overflow
+  `i64` when producing a stored field. They do not cap every magnitude at
+  `2^53-1`. `evaluate()` never widens, wraps, saturates, or silently
+  approximates.
+- Do not promote an `i64` calculation to `i128`, `BigInt`, or `BigUint` to
+  accept a larger instance.
+
+### Boundaries
+
+- Use `From` only for value-preserving conversions and `TryFrom` when range,
+  sign, or domain can change. Do not use `as` for model-derived values.
+- Converting a registered parameter getter from `usize` to `u64` is an internal
+  invariant of `Problem::parameters()`, not a recoverable construction error. A valid
+  instance's registered parameters must already fit `u64`; the
+  implementation checks this conversion to prevent silent truncation.
+- Symbolic parameter evaluation may use arbitrary-precision integers for local
+  intermediate arithmetic, but a materialized `ProblemParameters` must fit `u64`.
+- An `i64` to `f64` conversion is explicit and fallible: it succeeds only
+  for `|value| ≤ 2^53-1`. Use one shared helper at weight casts, solver
+  adapters, and other exact-to-float hubs.
+- A lattice-to-`UnitDiskGraph` reduction converts coordinates fallibly and
+  rejects a stored `f64` geometry that would change source adjacency.
+- Rust constructors keep `i64` fields as `i64`. CLI and MCP JSON encoding
+  of an `i64` with `|value| > 2^53-1` errors; there is no string encoding
+  and no clamping.
+
+## Variant System
+
+A single problem name like `MaximumIndependentSet` can have multiple
+**variants**. Each variant is identified by dimension-value pairs such as
+`{graph: "SimpleGraph", weight: "i64"}`. Concrete variants are registered
+nodes in the reduction graph, and explicit reduction rules connect them.
 
 <div class="theme-light-only">
 
-![Variant Hierarchy](static/variant-hierarchy.svg)
+![Variant Dimensions](static/variant-hierarchy.svg)
 
 </div>
 <div class="theme-dark-only">
 
-![Variant Hierarchy](static/variant-hierarchy-dark.svg)
+![Variant Dimensions](static/variant-hierarchy-dark.svg)
 
 </div>
 
-Variant parameters fall into three categories: graph type (`SimpleGraph` at the root, then `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`), weight type (`One`, `i32`, `f64`), and K value (`K3` for 3-SAT, `KN` for arbitrary K).
+Variant types fall into three categories:
+
+- **Graph type** — `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Weight type** — `One` (unweighted), `i64`, `f64`.
+- **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
 
 <div class="theme-light-only">
 
@@ -62,58 +162,279 @@ Variant parameters fall into three categories: graph type (`SimpleGraph` at the 
 
 </div>
 
-Each parameter type implements `VariantParam`, declaring its category, value, and optional parent; types with a parent also implement `CastToParent` for the runtime conversion. `Problem::variant()` is composed from the type parameters with `variant_params![G, W]`. The macros `impl_variant_param!`, `impl_variant_reduction!`, and `declare_variants!` register parameter types, explicit variant casts, and concrete variants with their load, serialize, and solve metadata. Their current contract is documented in the [repository instructions](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/CLAUDE.md) and visible in any model file.
+<details>
+<summary>Implementation details: VariantParam trait and macros</summary>
 
-## Reductions
+### VariantParam trait
 
-A reduction connects exact source and target variants. Its capability determines how a result is recovered:
-
-| Capability | Contract | Example |
-|---|---|---|
-| Witness | `ReduceTo<T>` and `ReductionResult::extract_solution` | Solve a target, recover a source configuration |
-| Aggregate | `ReduceToAggregate<T>` and `AggregateReductionResult::extract_value` | Solve a target value, recover a source value |
-| Turing | Multiple target queries | Optimize by querying a decision problem at several bounds |
-
-Graph search defaults to witness mode; `ReductionMode::Aggregate` and `ReductionMode::Turing` select the others. A witness reduction is registered with the `#[reduction]` attribute, whose `overhead` block is required:
+Each reusable variant parameter type implements `VariantParam`, which declares
+its category and value:
 
 ```rust,ignore
-#[reduction(overhead = {
-    num_vertices = "num_vertices",
-    num_edges = "num_edges",
-})]
-impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>>
-    for MaximumIndependentSet<SimpleGraph, i32>
-{
-    // Provide Result and reduce_to(); the result owns the target
-    // and maps a vertex-cover witness to its independent-set complement.
+pub trait VariantParam: 'static {
+    const CATEGORY: &'static str;     // e.g., "graph", "weight", "k"
+    const VALUE: &'static str;        // e.g., "SimpleGraph", "i64"
 }
 ```
 
-See a [complete implementation](https://github.com/CodingThrust/problem-reductions/blob/main/src/rules/maximumindependentset_minimumvertexcover.rs) for the result type. Aggregate and Turing edges use manual `ReductionEntry` registration. Keep one primitive registration per exact endpoint pair. Correctness needs a proof that construction and extraction preserve the required result; a closed-loop test on a small example is evidence, not proof.
+### Registration with `impl_variant_param!`
 
-## Path costs and overhead
+The `impl_variant_param!` macro implements `VariantParam` and optionally
+`KValue` for a type:
 
-`ReductionGraph` searches a directed graph of exact `(name, variant)` pairs. Registered reductions carry capabilities; natural variant connections follow the graph and weight subtype relations.
+```rust,ignore
+impl_variant_param!(SimpleGraph, "graph");
 
-| Cost | Purpose |
-|---|---|
-| `MinimizeSteps` | Fewest reduction steps |
-| `Minimize("field")` | Cost based on an output size field |
-| `CustomCost(closure)` | User-defined edge cost from overhead and current size |
+impl_variant_param!(KN, "k", k: None);
 
-`find_cheapest_path` takes source and target variant maps, an input `ProblemSize`, and a cost; `find_all_paths` enumerates simple paths with a bound. Overhead expressions refer to getters on the source type and are validated at compile time. They describe scaling bounds, not exact target counts: for a concrete instance inspect the constructed target, and for a chain use `path_overheads` and `compose_path_overhead` for an end-to-end bound. A shorter route can produce a harder target, so compare target sizes and solver measurements as well as hop counts.
+impl_variant_param!(K3, "k", k: Some(3));
+```
 
-## JSON serialization
+### Explicit variant reductions
+
+`impl_variant_reduction!` registers a concrete same-model conversion with an
+exact parameter transform and identity witness extraction:
+
+```rust,ignore
+impl_variant_reduction!(
+    MaximumIndependentSet,
+    <UnitDiskGraph, i64> => <SimpleGraph, i64>,
+    fields: [num_vertices, num_edges],
+    |src| MaximumIndependentSet::new(
+        SimpleGraph::new(
+            src.num_vertices(),
+            Graph::edges(src.graph()),
+        ),
+        src.weights().to_vec())
+);
+```
+
+### Composing `Problem::variant()`
+
+The `variant_params!` macro composes the `Problem::variant()` body from type parameter names:
+
+```rust,ignore
+// MaximumIndependentSet<G: VariantParam, W: VariantParam>
+fn variant() -> Vec<(&'static str, &'static str)> {
+    crate::variant_params![G, W]
+    // e.g., MaximumIndependentSet<UnitDiskGraph, One>
+    //     -> vec![("graph", "UnitDiskGraph"), ("weight", "One")]
+}
+```
+
+### Querying one variant family
+
+`ReductionGraph::variants_for(name)` returns every registered concrete variant
+of a problem. `ReductionGraph::outgoing_reductions(name)` returns their outgoing
+edges. Filtering those edges by `target_name == name` produces the directed
+relations within that variant family.
+
+</details>
+
+## Reduction Rules
+
+A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
+
+The result struct holds the target problem and the logic to map solutions back:
+
+```rust,ignore
+#[derive(Debug, Clone)]
+pub struct ReductionISToVC<W> {
+    target: MinimumVertexCover<SimpleGraph, W>,
+}
+
+impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
+    type Source = MaximumIndependentSet<SimpleGraph, W>;
+    type Target = MinimumVertexCover<SimpleGraph, W>;
+
+    fn target_problem(&self) -> &Self::Target { &self.target }
+    fn extract_solution(
+        &self,
+        target_sol: &Vec<bool>,
+    ) -> crate::rules::ExtractionResult<Vec<bool>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_sol)?;
+        Ok(target_sol.iter().map(|&x| !x).collect())
+    }
+}
+```
+
+### Solution extraction contract
+
+`ReductionResult::extract_solution` accepts one complete target configuration
+and returns the source configuration defined by the reduction. Extraction is a
+fallible boundary, not a recovery mechanism:
+
+1. In every direct extractor, call `validate_target_solution()` once before
+   indexing or decoding. Composed extractors delegate this check.
+2. Validate any structure required by the inverse mapping, such as exactly-one
+   blocks, permutations, paths, flows, or schedules.
+3. Apply the reduction's mathematical inverse once and return a source
+   configuration with the required length and domains.
+4. Return `ExtractionError` when a precondition is not satisfied.
+
+Do not truncate or pad input, substitute zero for missing data, select the
+first of several invalid candidates, retry with another mapping, or panic on
+caller-provided configuration data. Empty and singleton instances should flow
+through the same mathematical mapping unless the reduction itself has a
+genuine mathematical case distinction.
+
+Zero and sentinel values remain valid when the source model explicitly gives
+them meaning. For example, `MaximumCommonEdgeSubgraph` includes an "unmapped"
+sentinel in its source dimensions. Missing target data must never be
+interpreted as that sentinel.
+
+Each conditional in an extractor should therefore either reject a named
+invariant violation or implement a case in the reduction's mathematics. A
+normal extractor has one validation phase followed by one decoding phase; it
+does not accumulate compatibility or fallback branches.
+
+The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
+
+```rust,ignore
+#[reduction(transform = exact {
+    num_vertices = "num_vertices",
+    num_edges = "num_edges",
+})]
+impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>>
+    for MaximumIndependentSet<SimpleGraph, i64>
+{
+    type Result = ReductionISToVC<i64>;
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> { /* ... */ }
+}
+```
+
+## Reduction Graph
+
+`ReductionGraph::new()` iterates all registered `ReductionEntry` items (via `inventory`) and builds a variant-level directed graph:
+
+- **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i64"})`.
+- **Edges** come from explicit `#[reduction]` registrations, including
+  cross-problem and same-problem variant reductions.
+
+Exported files:
+
+- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
+- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
+
+These JSON assets are generated during `make doc`, `make mdbook`, and `make paper`; they are build artifacts, not committed source files.
+Generate them manually with `cargo run --example export_graph` and `cargo run --example export_schemas` when you need the raw exports locally.
+
+### Path finding
+
+All path-finding operates on **exact variant nodes**. Use `ReductionGraph::variant_to_map(&T::variant())` to convert a `Problem::variant()` into the required `BTreeMap<String, String>`.
+
+| Method | Algorithm | Use case |
+|--------|-----------|----------|
+| `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
+| `compose_path_parameter_transform(path)` | Symbolic composition | Compose each rule's exact or upper-bound parameter relation while preserving its promise |
+
+A rule has one relation for all of its formulas: either an exact equality or an upper
+bound. Composition keeps exact formulas exact only when every step is exact; every other
+combination is an upper bound. Concrete-instance measurement remains a separate execution
+API.
+
+**Example:** Finding a path from `MIS{KingsSubgraph, i64}` to `VC{SimpleGraph, i64}`:
+
+```
+MIS{KingsSubgraph,i64} -> MIS{UnitDiskGraph,i64} -> MIS{SimpleGraph,i64} -> VC{SimpleGraph,i64}
+    variant reduction        variant reduction              reduction
+```
+
+### Executable paths
+
+Execute an explicitly selected path with `ReductionGraph::reduce_along_path`:
+
+```rust,ignore
+let reduction = graph.reduce_along_path(rpath, &factoring_instance)?.unwrap();
+let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
+let source_solution = reduction.extract_solution(&target_solution)?;
+```
+
+The returned `ReductionChain` stores each intermediate reduction and extracts the source solution by applying the inverse mappings in reverse order. Construction returns `ReductionError`; extraction returns `ExtractionError`.
+
+<details>
+<summary>Parameter contracts</summary>
+
+Each reduction declares one relation for all represented target-parameter fields and may mark
+other fields unavailable with a reason. The `#[reduction]` macro parses every formula into
+the canonical `Expr` DAG at compile time:
+
+```rust,ignore
+#[reduction(
+transform = upper_bound {
+    num_vars = "num_vertices + num_edges",
+    num_clauses = "3 * num_edges",
+},
+unavailable = {
+    encoding_bits = "coefficient magnitudes are not tracked",
+},
+})]
+impl ReduceTo<Target> for Source { ... }
+```
+
+`ParameterTransform` uses exact rational and arbitrary-precision integer arithmetic. Exact
+relations must evaluate to non-negative integers, while upper-bound results round rational
+values upward. Missing fields, negative or non-integral exact results, division by zero,
+and explicit conversion outside `u64` are errors.
+
+Transforms can be evaluated with explicit source parameters:
+
+```
+Input:  ProblemParameters { num_vertices: 10, num_edges: 15 }
+Output: ProblemParameters { num_vars: 25 }
+```
+
+For multi-step paths, `compose_path_parameter_transform` substitutes each step into the next.
+When only upper bounds are known for the intermediate fields, a downstream polynomial is
+first fully expanded and like monomials are combined; terms with non-positive coefficients
+are then removed before substitution. For example, `m <= n^2` followed by `k = 10 - m`
+produces the sound bound `k <= 10`, while
+`e' = v(v - 1)/2 - e` produces `e' <= v^2/2`. A non-polynomial downstream formula cannot
+propagate symbolic upper bounds and reports an error. Projection to `Growth` is a separate descriptive terminal operation used for
+Big-O display; it does not rank or filter paths.
+
+</details>
+
+## Solvers
+
+The reference solver exposes a direct typed operation:
+
+```rust,ignore
+BruteForce::solve(&problem) -> Result<Option<P::Solution>, SolveError>
+```
+
+`Some(solution)` is a successful exact solve, `None` means exhaustive search
+proved infeasibility, and `Err` reports an operational failure.
+
+| Solver | Description |
+|--------|-------------|
+| **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved by HiGHS via `good_lp`. |
+
+ILP results are optimal or infeasible according to HiGHS numerical tolerances;
+zero MIP gaps do not imply mathematical exactness. Integer extraction rounds
+variable assignments, validates the original constraints, and recomputes the
+source objective with checked integer arithmetic. Floating-point objective
+comparisons in numerical regression tests use an explicit acceptance policy
+in source units (absolute and relative tolerances of `1e-7` for the QUBO solver
+regression), separate from the `1e-6` variable-rounding tolerance. This test
+policy is not a universal bound on backend objective error.
+
+When an ILP target witness misses a source decision threshold, the solver
+returns `ILPSolveError::UnresolvedDecision`, not infeasibility: the witness
+alone cannot prove that no qualifying source solution exists.
+
+## JSON Serialization
+
+All problem types support JSON serialization via serde:
 
 ```rust,ignore
 use problemreductions::io::{to_json, from_json};
 
 let json: String = to_json(&problem)?;
-let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json)?;
+let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 ```
-
-These helpers serialize typed problem data. The CLI additionally wraps data with `type` and `variant` for dynamic loading; keep that wrapper when passing files between commands.
 
 ## Contributing
 
-Propose a model or reduction through the `propose` [skill](skills.md) or the [issue templates](https://github.com/CodingThrust/problem-reductions/issues/new/choose). A useful rule includes exact endpoint variants, a construction, solution or value extraction, a correctness argument, and overhead metadata. The `add-model` and `add-rule` skills list the required code, tests, examples, and paper changes; `.claude/CLAUDE.md` holds the conventions.
+See [Call for Contributions](./open-problems.md) for the recommended issue-based workflow (no coding required).

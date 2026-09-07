@@ -27,25 +27,24 @@ impl OutputConfig {
 
     /// Emit output: `-o` saves JSON to file, `--json` prints JSON to stdout,
     /// otherwise prints human-readable text.
-    pub fn emit_with_default_name(
-        &self,
-        _default_name: &str,
-        human_text: &str,
-        json_value: &serde_json::Value,
-    ) -> anyhow::Result<()> {
+    pub fn emit<H, J>(&self, human_text: H, json_value: J) -> anyhow::Result<()>
+    where
+        H: FnOnce() -> String,
+        J: FnOnce() -> anyhow::Result<serde_json::Value>,
+    {
         if let Some(ref path) = self.output {
             let content =
-                serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?;
+                serde_json::to_string_pretty(&json_value()?).context("Failed to serialize JSON")?;
             std::fs::write(path, &content)
                 .with_context(|| format!("Failed to write {}", path.display()))?;
             self.info(&format!("Wrote {}", path.display()));
         } else if self.json || (self.auto_json && !std::io::stdout().is_terminal()) {
             println!(
                 "{}",
-                serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?
+                serde_json::to_string_pretty(&json_value()?).context("Failed to serialize JSON")?
             );
         } else {
-            println!("{human_text}");
+            println!("{}", human_text());
         }
         Ok(())
     }

@@ -4,10 +4,7 @@ use super::*;
 fn test_embed_graph_path() {
     // Path graph: 0-1-2
     let edges = vec![(0, 1), (1, 2)];
-    let result = embed_graph(3, &edges, &[0, 1, 2]);
-
-    assert!(result.is_some());
-    let grid = result.unwrap();
+    let grid = embed_graph(3, &edges, &[0, 1, 2]).unwrap();
     assert!(!grid.occupied_coords().is_empty());
 }
 
@@ -15,8 +12,7 @@ fn test_embed_graph_path() {
 fn test_map_unweighted_triangle() {
     // Triangle graph
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = map_unweighted(3, &edges);
-
+    let result = map_unweighted(3, &edges).unwrap();
     assert!(!result.positions.is_empty());
     // mis_overhead can be negative due to gadgets, so we just verify the function completes
 }
@@ -25,33 +21,38 @@ fn test_map_unweighted_triangle() {
 fn test_map_weighted_triangle() {
     // Triangle graph
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = map_weighted(3, &edges);
-
+    let result = map_weighted(3, &edges).unwrap();
     assert!(!result.positions.is_empty());
 }
 
 #[test]
 fn test_mapping_result_config_back_unweighted() {
     let edges = vec![(0, 1)];
-    let result = map_unweighted(2, &edges);
-
+    let result = map_unweighted(2, &edges).unwrap();
     // Create a dummy config
     let config: Vec<usize> = vec![0; result.positions.len()];
-    let original = result.map_config_back(&config);
-
+    let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 2);
 }
 
 #[test]
 fn test_mapping_result_config_back_weighted() {
     let edges = vec![(0, 1)];
-    let result = map_weighted(2, &edges);
-
+    let result = map_weighted(2, &edges).unwrap();
     // Create a dummy config
     let config: Vec<usize> = vec![0; result.positions.len()];
-    let original = result.map_config_back(&config);
-
+    let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 2);
+}
+
+#[test]
+fn test_mapping_result_config_back_rejects_wrong_length() {
+    let result = map_unweighted(2, &[(0, 1)]).unwrap();
+
+    assert!(matches!(
+        result.map_config_back(&[]),
+        Err(crate::rules::ExtractionError::InvalidTargetSolution(_))
+    ));
 }
 
 #[test]
@@ -73,8 +74,7 @@ fn test_map_config_copyback_simple() {
     }
 
     let doubled_cells = HashSet::new();
-    let result = map_config_copyback(&lines, PADDING, SPACING, &config, &doubled_cells);
-
+    let result = map_config_copyback(&lines, PADDING, SPACING, &config, &doubled_cells).unwrap();
     // count = len(locs) (all selected with ci=1), overhead = len/2
     // result = count - overhead = n - n/2 = n/2
     let n = locs.len();
@@ -86,15 +86,13 @@ fn test_map_config_copyback_simple() {
 #[test]
 fn test_map_unweighted_with_method() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_unweighted_with_method(3, &edges, PathDecompositionMethod::greedy());
-
+    let result = map_unweighted_with_method(3, &edges, PathDecompositionMethod::greedy()).unwrap();
     assert!(!result.positions.is_empty());
 }
 
 #[test]
 fn test_map_weighted_with_method() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_weighted_with_method(3, &edges, PathDecompositionMethod::greedy());
-
+    let result = map_weighted_with_method(3, &edges, PathDecompositionMethod::greedy()).unwrap();
     assert!(!result.positions.is_empty());
 }

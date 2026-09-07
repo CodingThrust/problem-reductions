@@ -23,7 +23,8 @@ fn test_minimumvertexcover_to_minimumhittingset_closed_loop() {
         ),
         vec![One; 6],
     );
-    let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
+    let reduction =
+        ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &vc_problem,
@@ -37,7 +38,8 @@ fn test_vc_to_hs_structure() {
     // Path graph 0-1-2 with edges (0,1) and (1,2)
     let vc_problem =
         MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
-    let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
+    let reduction =
+        ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
 
     // Universe size = num_vertices = 3
@@ -57,7 +59,8 @@ fn test_vc_to_hs_triangle() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![One; 3],
     );
-    let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
+    let reduction =
+        ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
 
     assert_eq!(hs_problem.universe_size(), 3);
@@ -70,19 +73,20 @@ fn test_vc_to_hs_triangle() {
 
     // Solve both and verify they match
     let solver = BruteForce::new();
-    let vc_solutions = solver.find_all_witnesses(&vc_problem);
-    let hs_solutions = solver.find_all_witnesses(hs_problem);
+    let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
+    let hs_solutions = solver.find_all_witnesses(hs_problem).unwrap();
 
     // Minimum vertex cover of triangle = 2, same for hitting set
-    assert_eq!(vc_solutions[0].iter().filter(|&&x| x == 1).count(), 2);
-    assert_eq!(hs_solutions[0].iter().filter(|&&x| x == 1).count(), 2);
+    assert_eq!(vc_solutions[0].iter().filter(|&&x| x).count(), 2);
+    assert_eq!(hs_solutions[0].iter().filter(|&&x| x).count(), 2);
 }
 
 #[test]
 fn test_vc_to_hs_empty_graph() {
     // Graph with no edges: no sets to hit
     let vc_problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![One; 3]);
-    let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
+    let reduction =
+        ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
 
     assert_eq!(hs_problem.universe_size(), 3);
@@ -96,7 +100,8 @@ fn test_vc_to_hs_star_graph() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
         vec![One; 4],
     );
-    let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
+    let reduction =
+        ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
 
     assert_eq!(hs_problem.universe_size(), 4);
@@ -111,8 +116,8 @@ fn test_vc_to_hs_star_graph() {
 
     // Minimum cover = just vertex 0
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&vc_problem);
-    assert_eq!(solutions[0], vec![1, 0, 0, 0]);
+    let solutions = solver.find_all_witnesses(&vc_problem).unwrap();
+    assert_eq!(solutions[0], vec![true, false, false, false]);
 }
 
 #[test]
@@ -120,9 +125,10 @@ fn test_vc_to_hs_solution_extraction() {
     // Verify that extract_solution is identity (1:1 correspondence)
     let vc_problem =
         MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
-    let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
+    let reduction =
+        ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
 
-    let target_solution = vec![0, 1, 0];
-    let extracted = reduction.extract_solution(&target_solution);
-    assert_eq!(extracted, vec![0, 1, 0]);
+    let target_solution = vec![false, true, false];
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    assert_eq!(extracted, vec![false, true, false]);
 }

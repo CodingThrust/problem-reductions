@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Subset Product",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a subset of positive integers whose product equals exactly a target value",
         fields: &[
@@ -42,11 +43,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SubsetProduct;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,40 +108,53 @@ impl SubsetProduct {
 
 impl Problem for SubsetProduct {
     const NAME: &'static str = "SubsetProduct";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_parameters![("num_elements", num_elements),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_elements()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_elements() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-            let mut product = BigUint::one();
-            for (i, &x) in config.iter().enumerate() {
-                if x == 1 {
-                    product *= &self.sizes[i];
-                    if product > self.target {
-                        return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_elements() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "subset-selection length does not match the elements".into(),
+                    ));
+                }
+                let mut product = BigUint::one();
+                for (i, &x) in config.iter().enumerate() {
+                    if x {
+                        product *= &self.sizes[i];
+                        if product > self.target {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
-            product == self.target
+                product == self.target
+            })
         })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SubsetProduct {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_elements()]
     }
 }
 
 crate::declare_variants! {
     default SubsetProduct => "2^num_elements",
+}
+
+crate::register_brute_force! {
+    SubsetProduct decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -149,7 +163,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subset_product",
         instance: Box::new(SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32)),
-        optimal_config: vec![1, 1, 1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

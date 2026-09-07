@@ -44,27 +44,37 @@ impl ReductionResult for ReductionNMTSToILP {
     }
 
     /// Extract solution: for each x_i find the y_j it is paired with.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut assignment = vec![0usize; self.m];
-        for (var_idx, triple) in self.triples.iter().enumerate() {
-            if target_solution[var_idx] == 1 {
-                assignment[triple.i] = triple.j;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let mut assignment = vec![0usize; self.m];
+            for (var_idx, triple) in self.triples.iter().enumerate() {
+                if target_solution[var_idx] == 1 {
+                    assignment[triple.i] = triple.j;
+                }
             }
-        }
-        assignment
+            assignment
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = upper_bound {
         num_vars = "num_pairs * num_pairs * num_pairs",
         num_constraints = "3 * num_pairs",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
     type Result = ReductionNMTSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_pairs();
         let sx = self.sizes_x();
         let sy = self.sizes_y();
@@ -87,40 +97,41 @@ impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
 
         // Each x_i in exactly one pair: Σ_{(i,j,k)} z_{i,j,k} = 1 for each i
         for i in 0..m {
-            let terms: Vec<(usize, f64)> = triples
+            let terms: Vec<(usize, i64)> = triples
                 .iter()
                 .enumerate()
                 .filter(|(_, t)| t.i == i)
-                .map(|(idx, _)| (idx, 1.0))
+                .map(|(idx, _)| (idx, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Each y_j in exactly one pair: Σ_{(i,j,k)} z_{i,j,k} = 1 for each j
         for j in 0..m {
-            let terms: Vec<(usize, f64)> = triples
+            let terms: Vec<(usize, i64)> = triples
                 .iter()
                 .enumerate()
                 .filter(|(_, t)| t.j == j)
-                .map(|(idx, _)| (idx, 1.0))
+                .map(|(idx, _)| (idx, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Each target k used exactly once: Σ_{(i,j,k)} z_{i,j,k} = 1 for each k
         for k in 0..m {
-            let terms: Vec<(usize, f64)> = triples
+            let terms: Vec<(usize, i64)> = triples
                 .iter()
                 .enumerate()
                 .filter(|(_, t)| t.k == k)
-                .map(|(idx, _)| (idx, 1.0))
+                .map(|(idx, _)| (idx, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionNMTSToILP { target, triples, m }
+        Ok(ReductionNMTSToILP { target, triples, m })
     }
 }
 

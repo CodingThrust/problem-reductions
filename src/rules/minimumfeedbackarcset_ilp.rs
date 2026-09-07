@@ -16,7 +16,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing MinimumFeedbackArcSet to ILP.
 ///
-/// The ILP uses integer variables (`ILP<i32>`) because it needs both
+/// The ILP uses integer variables (`ILP<i64>`) because it needs both
 /// binary arc-removal variables (y_a) and integer ordering variables (o_v).
 ///
 /// Variable layout:
@@ -24,16 +24,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - `o_v` at index `m + v` for `v in 0..n`: integer in {0, ..., n-1}, topological order
 #[derive(Debug, Clone)]
 pub struct ReductionFASToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     /// Number of arcs in the source graph (needed for solution extraction).
     num_arcs: usize,
 }
 
 impl ReductionResult for ReductionFASToILP {
-    type Source = MinimumFeedbackArcSet<i32>;
-    type Target = ILP<i32>;
+    type Source = MinimumFeedbackArcSet<i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -41,21 +41,32 @@ impl ReductionResult for ReductionFASToILP {
     ///
     /// The first m variables of the ILP solution are the binary y_a values,
     /// which directly correspond to the FAS configuration (1 = removed).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_arcs].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_arcs]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    transform = exact {
         num_vars = "num_arcs + num_vertices",
         num_constraints = "num_arcs + num_arcs + num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
     }
 )]
-impl ReduceTo<ILP<i32>> for MinimumFeedbackArcSet<i32> {
+impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
     type Result = ReductionFASToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_arcs();
         let arcs = self.graph().arcs();
@@ -66,44 +77,45 @@ impl ReduceTo<ILP<i32>> for MinimumFeedbackArcSet<i32> {
         // o_v = m + v     (integer: topological order of vertex v)
 
         let mut constraints = Vec::new();
+        let n_i64 = Self::exact_i64(n, "encoding the topological order")?;
 
         // Binary bounds: y_a <= 1 for a in 0..m
         for a in 0..m {
-            constraints.push(LinearConstraint::le(vec![(a, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(a, 1)], 1));
         }
 
         // Order bounds: o_v <= n - 1 for v in 0..n
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(m + v, 1.0)], (n - 1) as f64));
+            constraints.push(LinearConstraint::le(vec![(m + v, 1)], n_i64 - 1));
         }
 
         // Arc constraints: for each arc a = (u -> v):
         //   o_v - o_u >= 1 - n * y_a
         // Rearranged: o_v - o_u + n * y_a >= 1
-        let n_f64 = n as f64;
         for (a, &(u, v)) in arcs.iter().enumerate() {
             let terms = vec![
-                (m + v, 1.0),  // o_v
-                (m + u, -1.0), // -o_u
-                (a, n_f64),    // n * y_a
+                (m + v, 1),  // o_v
+                (m + u, -1), // -o_u
+                (a, n_i64),  // n * y_a
             ];
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Objective: minimize sum w_a * y_a
-        let objective: Vec<(usize, f64)> = self
+        let objective: Vec<(usize, i64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(a, &w)| (a, w as f64))
+            .map(|(arc, &weight)| (arc, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
-        ReductionFASToILP {
+        Ok(ReductionFASToILP {
             target,
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -119,8 +131,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Remove arc 2 (2->0): source_config = [0, 0, 1]
             // ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-            let source = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            let source = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

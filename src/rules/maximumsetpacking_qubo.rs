@@ -4,7 +4,12 @@
 //! Maximize Σ w_i·x_i s.t. x_i·x_j = 0 for overlapping pairs (i,j).
 //! = Minimize -Σ w_i·x_i + P·Σ_{overlapping (i,j)} x_i·x_j
 //!
-//! Q[i][i] = -w_i, Q[i][j] = P for overlapping pairs. P = 1 + Σ w_i.
+//! Q[i][i] = -w_i, Q[i][j] = P for overlapping pairs, with
+//! P = 2 max(1, max_i w_i). Negative and zero weights are allowed.
+//!
+//! If a selected set i conflicts with d >= 1 selected sets, removing it changes
+//! the energy by w_i - P*d < 0. Thus every minimizer is a packing. On packings,
+//! the energy is exactly the negative total weight, preserving every optimum.
 
 use crate::models::algebraic::QUBO;
 use crate::models::set::MaximumSetPacking;
@@ -25,22 +30,37 @@ impl ReductionResult for ReductionSPToQUBO {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = { num_vars = "num_sets" }
+    transform = exact {
+        num_vars = "num_sets",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     type Result = ReductionSPToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_sets();
         let weights = self.weights_ref();
-        let total_weight: f64 = weights.iter().sum();
-        let penalty = 1.0 + total_weight;
+        // Doubling gives a strict margin even where adding 1.0 would round
+        // back to the original weight. Do not let negative weights cancel it.
+        let max_weight = weights.iter().copied().fold(1.0_f64, f64::max);
+        let penalty = 2.0 * max_weight;
+        if !penalty.is_finite() {
+            return Err(crate::rules::ReductionError::non_finite_result::<
+                MaximumSetPacking<f64>,
+                QUBO<f64>,
+            >("computing the set-packing conflict penalty"));
+        }
 
         let mut matrix = vec![vec![0.0; n]; n];
 
@@ -55,9 +75,13 @@ impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
             matrix[a][b] += penalty;
         }
 
-        ReductionSPToQUBO {
-            target: QUBO::from_matrix(matrix),
-        }
+        Ok(ReductionSPToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<MaximumSetPacking<f64>, QUBO<f64>>(
+                    message,
+                )
+            })?,
+        })
     }
 }
 
@@ -80,8 +104,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 0],
-                    target_config: vec![0, 0, 0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, false, false, true, true, false]),
+                    target_config: serde_json::json!(vec![false, false, false, true, true, false]),
                 },
             )
         },
