@@ -85,6 +85,8 @@ pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config '[true,false,true
 
 `inspect` reports the resolved variant and sizes of a problem file or reduction bundle. `evaluate` scores one configuration: selecting vertices 0 and 2 returns `Max(2)`, while selecting adjacent vertices returns `Max(None)`. Configurations follow each problem's variable domains and are not always binary. `-` reads from stdin.
 
+For a problem file, JSON inspection includes `parameter_values`, the model's actual named instance parameters. These are separate from the `parameters` list of parameter names.
+
 ## Reduce
 
 ```bash

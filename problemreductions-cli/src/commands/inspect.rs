@@ -71,6 +71,7 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
                 "type": name,
                 "variant": variant,
                 "parameters": parameters,
+                "parameter_values": problem.parameters_dyn().iter().collect::<BTreeMap<_, _>>(),
                 "brute_force_num_variables": brute_force_num_variables,
                 "solvers": solver_view.solvers,
                 "default_solver": solver_view.default_solver,

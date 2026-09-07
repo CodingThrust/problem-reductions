@@ -6367,6 +6367,9 @@ fn test_inspect_problem() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["parameter_values"]["num_vertices"], 4);
+    assert_eq!(json["parameter_values"]["num_edges"], 3);
     // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
         stdout.contains("MaximumIndependentSet"),
