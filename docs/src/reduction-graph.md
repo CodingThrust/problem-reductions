@@ -32,4 +32,4 @@
 
 You can also explore this graph from the terminal with the [CLI tool](./cli.md). For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
-For exact variants and structured output, use [CLI path queries](cli-paths.md).
+For exact variants and structured output, use [CLI path queries](cli-commands.md#paths).

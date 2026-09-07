@@ -1,29 +1,29 @@
-# Documentation
+# Problem Reductions
 
-Use executable reductions to connect a hard problem to a solver. Explore the catalog, transform an instance, and check the recovered solution. These guides are organized around small tasks for agents and their operators.
+Problem Reductions is a Rust library and command-line tool for NP-hard problems and the reductions between them. Each problem is a model with a configuration space and an objective. Each reduction is a registered rule that maps an instance of one problem to an instance of another and maps solutions back. Searching the reduction graph yields a route from a problem to a solver, such as integer linear programming, with recovery of a solution to the original instance. The catalog currently holds:
 
-## See what works
+{{#include generated/catalog-counts.md}}
 
-[Watch the CLI solve a graph problem →](cli-demo.md)
+- [Atlas](index.html#atlas): every problem variant and reduction, with schemas and overheads
+- [Paper](reductions.pdf): definitions, constructions, and proofs
+- [Rust API](api/problemreductions/index.html): generated from source
 
-A real terminal run: discover a route, reduce to ILP, recover an independent set, and cross-check the optimum. Six commands, about half a minute.
+This guide covers the `pred` CLI, the agent skills shipped with the repository, and the Rust library. Every page has a **Markdown** link for reading without a browser; the [Markdown index](markdown/index.md) lists all pages.
 
-## Choose a task
+## Cite
 
-| You have… | Start here | You get… |
-|---|---|---|
-| A problem to solve | [Find a solver](agent-find-solver.md) | A model, reduction route, and solver recommendation |
-| A solver to reuse | [Extend its reach](agent-find-problem.md) | Reachable source problems and size overheads |
-| A candidate connection | [Propose a model or rule](agent-propose.md) | A precise research proposal |
-| An approved issue | [Implement and review](agent-pipeline.md) | A tested implementation for review |
-| An instance to run | [First solve](cli.md) | A solution checked against the original problem |
-
-## Give an agent the right context
-
-Start with [agent setup](skills.md). Every page has a **Markdown** link for direct reading; the [Markdown index](markdown/index.md) lists all tasks. Use [JSON exports](cli-automation.md) for registry data and [MCP](mcp.md) for tool access.
+```bibtex
+@misc{pan2026problemreductionsscaleagentic,
+  title         = {Problem Reductions at Scale: Agentic Integration of Computationally Hard Problems},
+  author        = {Xi-Wei Pan and Shi-Wen An and Jin-Guo Liu},
+  year          = {2026},
+  eprint        = {2604.11535},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2604.11535},
+}
+```
 
 ## Research scope
 
-The long-term goal is autonomous discovery of new reduction rules. Today, this repository provides executable models, registered reductions, solver routing, and agent workflows for proposals, implementation, and review. A candidate rule needs a mathematical argument as well as tests; passing finite examples does not establish a general proof.
-
-[Explore the atlas](index.html#atlas) · [Read the mathematical manual](reductions.pdf) · [Browse the Rust API](api.md)
+The long-term goal is autonomous discovery of new reduction rules. Today the repository provides executable models, registered reductions, solver routing, and agent workflows for proposals, implementation, and review. A rule needs a mathematical argument as well as tests; passing finite examples does not establish a general proof.

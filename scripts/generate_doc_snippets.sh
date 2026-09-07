@@ -67,7 +67,14 @@ for alias, name in rows:
     print(f'| \`{alias}\` | \`{name}\` |')
 " > "$OUT/pred-aliases.txt"
 
-# 13. Factoring example output (path discovery line + overhead)
+# 13. Catalog counts for the guide overview (same registry as the atlas)
+"$PRED" list --json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(f\"**{data['num_types']}** problem families · **{data['num_variant_nodes']}** concrete variants · **{data['num_reductions']}** directed reductions\")
+" > "$OUT/catalog-counts.md"
+
+# 14. Factoring example output (path discovery line + overhead)
 FACTORING_OUTPUT=$(cargo run --example chained_reduction_factoring_to_spinglass 2>/dev/null)
 echo "$FACTORING_OUTPUT" | head -1 > "$OUT/factoring-path.txt"
 echo "$FACTORING_OUTPUT" | sed -n '2p' > "$OUT/factoring-result.txt"

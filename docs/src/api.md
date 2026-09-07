@@ -4,4 +4,4 @@
 
 The API is generated from Rust source with rustdoc. Start with [models](api/problemreductions/models/index.html), [reduction contracts](api/problemreductions/rules/index.html), or [solvers](api/problemreductions/solvers/index.html).
 
-Run `make doc` to build the guides and API locally. For short runnable examples, see [first Rust program](getting-started.md) and [apply a reduction](rust-reduction.md).
+Run `make doc` to build the guides and API locally. For short runnable examples, see [getting started](getting-started.md).

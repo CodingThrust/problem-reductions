@@ -639,7 +639,7 @@
       "connections",
       "main",
     ].includes(parts[0]);
-    document.title = `${baseTitle} — A new route through hard problems`;
+    document.title = baseTitle;
     if (isHome) {
       main.innerHTML = homeHTML;
       hydrateHome();
