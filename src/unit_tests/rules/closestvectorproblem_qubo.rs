@@ -13,6 +13,56 @@ fn canonical_bits() -> Vec<bool> {
 }
 
 #[test]
+fn test_closestvectorproblem_determinant_exact_elimination() {
+    assert_eq!(determinant(&[]).unwrap(), 1);
+    assert_eq!(determinant(&[vec![-7]]).unwrap(), -7);
+    assert_eq!(determinant(&[vec![0, 1], vec![1, 0]]).unwrap(), -1);
+    assert_eq!(
+        determinant(&[vec![0, 0, 1], vec![1, 0, 0], vec![0, 1, 0]]).unwrap(),
+        1
+    );
+    assert_eq!(
+        determinant(&[vec![2, 3, 1], vec![4, 1, -3], vec![1, 2, 0]]).unwrap(),
+        10
+    );
+    assert_eq!(determinant(&[vec![0, 1], vec![0, 2]]).unwrap(), 0);
+    assert_eq!(determinant(&[vec![1, 2], vec![2, 4]]).unwrap(), 0);
+    let large = i64::MAX;
+    assert_eq!(
+        determinant(&[vec![large, large - 1], vec![large - 1, large - 2]]).unwrap(),
+        -1
+    );
+    assert!(matches!(
+        determinant(&[vec![large, 0], vec![0, 2]]),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
+}
+
+#[test]
+fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
+    let size = 12;
+    let basis = (0..size)
+        .map(|column| (0..size).map(|row| i64::from(row == column)).collect())
+        .collect();
+    let source = ClosestVectorProblem::new(basis, vec![1_i64; size]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    let mut bits = vec![false; reduction.target_problem().num_vars()];
+    for encoding in &reduction.encodings {
+        let mut offset = 1 - encoding.lower;
+        for (index, &weight) in encoding.weights.iter().enumerate().rev() {
+            if weight <= offset {
+                bits[encoding.start + index] = true;
+                offset -= weight;
+            }
+        }
+        assert_eq!(offset, 0);
+    }
+    let solution = reduction.extract_solution(&bits).unwrap();
+    assert_eq!(solution, vec![1; size]);
+    assert_eq!(source.evaluate(&solution).unwrap().0, Some(0.0));
+}
+
+#[test]
 fn test_closestvectorproblem_to_qubo_closed_loop() {
     let source = canonical_cvp();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();

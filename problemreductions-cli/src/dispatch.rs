@@ -298,7 +298,12 @@ impl BundleReplay {
         target_config: &serde_json::Value,
     ) -> Result<(serde_json::Value, String)> {
         let source_config = self.chain.extract_solution_json(target_config.clone())?;
-        let source_eval = self.source.evaluate_dyn(&source_config)?;
+        let source_eval = self.source.evaluate_witness_dyn(&source_config)?.ok_or_else(|| {
+            problemreductions::rules::ExtractionError::invalid(format!(
+                "extracted solution is infeasible for {}; the reduction did not establish a source solution",
+                self.source_name
+            ))
+        })?;
         Ok((source_config, source_eval))
     }
 
@@ -421,6 +426,50 @@ mod tests {
     use problemreductions::models::misc::BinPacking;
     use problemreductions::topology::SimpleGraph;
     use serde_json::json;
+
+    #[test]
+    fn bundle_rejects_infeasible_extracted_witness() {
+        for (clauses, feasible) in [
+            (vec![vec![1, 1, 1], vec![-1, -1, -1]], false),
+            (vec![vec![1, 1, 1], vec![1, 1, 1]], true),
+        ] {
+            let source = problemreductions::models::formula::KSatisfiability::<
+                problemreductions::variant::K3,
+            >::new(
+                1,
+                clauses
+                    .into_iter()
+                    .map(problemreductions::models::formula::CNFClause::new)
+                    .collect(),
+            );
+            let source = ProblemJson {
+                problem_type: "KSatisfiability".into(),
+                variant: BTreeMap::from([("k".into(), "K3".into())]),
+                data: serde_json::to_value(source).unwrap(),
+            };
+            let route = crate::commands::reduce::parse_path_json(
+                r#"{"path":[{
+                    "from":{"name":"KSatisfiability","variant":{"k":"K3"}},
+                    "to":{"name":"MinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                }]}"#,
+            ).unwrap();
+            let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
+            let replay = BundleReplay::prepare(&bundle).unwrap();
+            let result = replay.solve(SolverRequest::BruteForce);
+            if feasible {
+                assert!(matches!(result.unwrap().source_outcome,
+                    SolveOutcome::Optimal { evaluation, .. } if evaluation == "Or(true)"));
+            } else {
+                let error = result.err().unwrap();
+                assert!(error
+                    .downcast_ref::<problemreductions::rules::ExtractionError>()
+                    .is_some());
+                assert!(error
+                    .to_string()
+                    .contains("extracted solution is infeasible"));
+            }
+        }
+    }
 
     #[test]
     fn test_float_bundle_round_trip_corpus_regression() {

@@ -52,7 +52,7 @@ impl ReductionResult for ReductionSWIDToILP {
 #[reduction(
     transform = exact {
         num_vars = "num_tasks * max_deadline",
-        num_constraints = "num_tasks + max_deadline + num_precedences",
+        num_constraints = "num_tasks + max_deadline + num_precedences + 1",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -88,6 +88,18 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
             let terms: Vec<(usize, i64)> = (0..dj).map(|t| (var(j, t), 1)).collect();
             constraints.push(LinearConstraint::eq(terms, 1));
         }
+
+        // Binary variables are nonnegative, so a zero sum fixes every unused slot.
+        let unused_slots = self
+            .deadlines()
+            .iter()
+            .enumerate()
+            .flat_map(|(j, &deadline)| {
+                (usize::try_from(deadline).expect("validated deadline fits usize")..max_d)
+                    .map(move |t| (var(j, t), 1))
+            })
+            .collect();
+        constraints.push(LinearConstraint::eq(unused_slots, 0));
 
         // 2. Capacity: Σ_j x_{j,t} ≤ m for each time slot t
         for t in 0..max_d {

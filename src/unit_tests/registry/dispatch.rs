@@ -112,6 +112,30 @@ fn test_dyn_problem_formats_optimization_values_as_max_min() {
 }
 
 #[test]
+fn test_dyn_witness_evaluation_distinguishes_infeasibility_and_malformed_input() {
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let dyn_problem: &dyn DynProblem = &problem;
+    assert_eq!(
+        dyn_problem
+            .evaluate_witness_dyn(&serde_json::json!([true, false, true]))
+            .unwrap(),
+        Some("Max(2)".into())
+    );
+    assert_eq!(
+        dyn_problem
+            .evaluate_witness_dyn(&serde_json::json!([true, true, false]))
+            .unwrap(),
+        None
+    );
+    assert!(dyn_problem
+        .evaluate_witness_dyn(&serde_json::json!([true]))
+        .is_err());
+    assert!(dyn_problem
+        .evaluate_witness_dyn(&serde_json::json!([0, 0, 0]))
+        .is_err());
+}
+
+#[test]
 fn test_loaded_dyn_problem_delegates_to_solve_fn() {
     let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
     let loaded = LoadedDynProblem::new(Box::new(problem));

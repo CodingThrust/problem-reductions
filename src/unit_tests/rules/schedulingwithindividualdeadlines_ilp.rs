@@ -25,8 +25,34 @@ fn test_schedulingwithindividualdeadlines_to_ilp_structure() {
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert!(ilp.objective().is_empty());
 
-    // 3 one-hot + 3 capacity + 1 precedence = 7 constraints
-    assert_eq!(ilp.constraints().len(), 7);
+    // 3 one-hot + 1 unused-slot + 3 capacity + 1 precedence = 8 constraints
+    assert_eq!(ilp.constraints().len(), 8);
+}
+
+#[test]
+fn test_schedulingwithindividualdeadlines_to_ilp_fixes_unused_slots() {
+    let problem = SchedulingWithIndividualDeadlines::new(2, 2, vec![1, 2], vec![]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    assert!(!reduction
+        .target_problem()
+        .evaluate(&vec![1, 1, 1, 0])
+        .unwrap()
+        .is_valid());
+    let witnesses: Vec<Vec<i64>> = (0..16)
+        .map(|bits| (0..4).map(|bit| i64::from((bits >> bit) & 1)).collect())
+        .filter(|witness| {
+            reduction
+                .target_problem()
+                .evaluate(witness)
+                .unwrap()
+                .is_valid()
+        })
+        .collect();
+    assert_eq!(witnesses.len(), 2);
+    for witness in witnesses {
+        let source_solution = reduction.extract_solution(&witness).unwrap();
+        assert!(problem.evaluate(&source_solution).unwrap());
+    }
 }
 
 #[test]

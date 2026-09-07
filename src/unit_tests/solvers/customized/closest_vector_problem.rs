@@ -126,3 +126,30 @@ fn test_cvp_enumeration_improves_the_nearest_plane_candidate() {
     // Nearest-plane rounding yields [0, 0]; the adjacent branch is closer.
     assert_eq!(solve(&problem).unwrap(), vec![0, 1]);
 }
+
+#[test]
+fn test_cvp_pruning_preserves_exact_large_translation_optimum() {
+    for coefficient in [-100_000_000_000_000_i64, 100_000_000_000_000] {
+        let basis = vec![vec![3, 1], vec![2, 1]];
+        let target = vec![5 * coefficient, 2 * coefficient];
+        let integer = ClosestVectorProblem::new(basis.clone(), target.clone()).unwrap();
+        let real = ClosestVectorProblem::new(
+            basis,
+            target.into_iter().map(|value| value as f64).collect(),
+        )
+        .unwrap();
+        let expected = vec![coefficient, coefficient];
+        assert_eq!(solve(&integer).unwrap(), expected);
+        assert_eq!(solve(&real).unwrap(), expected);
+        assert_eq!(integer.evaluate(&expected).unwrap().0, Some(0.0));
+    }
+}
+
+#[test]
+fn test_cvp_pruning_handles_nearly_parallel_integer_columns() {
+    let n = 100_000_000_i64;
+    let problem =
+        ClosestVectorProblem::new(vec![vec![n, n + 1], vec![n + 1, n + 2]], vec![1_i64, 0])
+            .unwrap();
+    assert_eq!(solve(&problem).unwrap(), vec![-n - 2, n + 1]);
+}

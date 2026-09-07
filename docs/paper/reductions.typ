@@ -5448,7 +5448,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("ClosestVectorProblem")[
       Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
     ][
-      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver is a direct floating-point Gram--Schmidt sphere enumeration following the recursive enumeration structure of Fincke and Pohst @fincke1985; it is intended for small transparent instances, not exact-arithmetic or state-of-the-art performance. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. Finite `f64` targets are interpreted as their exact binary rational values. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
       *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with distance #dist-rounded.
 
@@ -12269,7 +12269,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
       _Solution extraction._ Validate the target configuration once and require a finite distance exactly $sqrt(n)$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal distance proves NO and provides no source witness.
 
-      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. On a 64-bit platform this bounds $n < 2^30$; the threshold and the unit squared-distance gap remain distinguishable in the target's floating-point evaluation. The paired coordinates and boundary carry equations also ensure every threshold witness has exactly evaluated small integer residuals. The solver retains its existing floating-point sphere enumeration; runtime limitations are separate from the mathematical equivalence.
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. On a 64-bit platform this bounds $n < 2^30$; the threshold and the unit squared-distance gap remain distinguishable in the target's floating-point evaluation. The paired coordinates and boundary carry equations also ensure every threshold witness has exactly evaluated small integer residuals. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -14923,7 +14923,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     & x_(j,t) in {0, 1}.
   $
 
-  _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables.
+  _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables. The implementation allocates a common horizon $max_j d_j$ and adds one zero-sum equality fixing all indicators outside individual deadlines to zero.
 
   _Solution extraction._ Task $j$ is scheduled at time $arg max_t x_(j,t)$.
 ]

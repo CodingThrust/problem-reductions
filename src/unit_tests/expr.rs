@@ -7,6 +7,36 @@ fn eval(expression: &Expr, size: &ProblemParameters) -> f64 {
     evaluate_approximate(expression, size).unwrap()
 }
 
+#[test]
+fn test_display_preserves_fractional_exponents_and_negative_bases() {
+    let parameters = ProblemParameters::new(vec![("n", 8)]);
+    for (expression, expected) in [
+        (
+            Expr::pow(Expr::variable("n"), Expr::rational(1, 3)),
+            "n^(1/3)",
+        ),
+        (
+            Expr::pow(Expr::rational(2, 3), Expr::variable("n")),
+            "(2/3)^n",
+        ),
+        (
+            Expr::pow(Expr::rational(-2, 3), Expr::variable("n")),
+            "(-2/3)^n",
+        ),
+        (Expr::pow(Expr::integer(-2), Expr::variable("n")), "(-2)^n"),
+        (
+            Expr::pow(Expr::rational(-1, 2), Expr::variable("n")),
+            "(-0.5)^n",
+        ),
+        (Expr::pow(Expr::variable("n"), Expr::integer(-1)), "n^-1"),
+    ] {
+        let displayed = expression.to_string();
+        assert_eq!(displayed, expected);
+        let reparsed = Expr::parse(&displayed);
+        assert_eq!(eval(&expression, &parameters), eval(&reparsed, &parameters));
+    }
+}
+
 #[derive(Deserialize)]
 struct SympyApproximateFixture {
     approximate_cases: Vec<SympyApproximateCase>,

@@ -126,6 +126,20 @@ fn test_cyclic_ordering_zero_elements_panics() {
 }
 
 #[test]
+fn test_cyclic_ordering_complexity_estimate_handles_factorial_overflow() {
+    let entry = crate::registry::find_variant_entry("CyclicOrdering", &Default::default()).unwrap();
+    assert_eq!(
+        (entry.complexity_eval_fn)(&CyclicOrdering::new(5, vec![])),
+        120.0
+    );
+    assert!((entry.complexity_eval_fn)(&CyclicOrdering::new(170, vec![])).is_finite());
+    assert_eq!(
+        (entry.complexity_eval_fn)(&CyclicOrdering::new(171, vec![])),
+        f64::INFINITY
+    );
+}
+
+#[test]
 #[should_panic(expected = "out of range")]
 fn test_cyclic_ordering_element_out_of_range_panics() {
     CyclicOrdering::new(3, vec![(0, 1, 5)]);

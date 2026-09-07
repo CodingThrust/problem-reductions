@@ -187,12 +187,6 @@ impl Problem for SchedulingWithIndividualDeadlines {
                     ));
                 }
 
-                if config.iter().any(|&position| position >= self.num_tasks) {
-                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
-                        "schedule contains an out-of-range task position".into(),
-                    ));
-                }
-
                 for (&start, &deadline) in config.iter().zip(&self.deadlines) {
                     let deadline =
                         usize::try_from(deadline).expect("validated deadline must fit usize");

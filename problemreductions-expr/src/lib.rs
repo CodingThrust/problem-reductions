@@ -754,6 +754,8 @@ impl Expr {
         match self.node() {
             ExprNode::Add(_) => 1,
             ExprNode::Mul(_) => 2,
+            ExprNode::Const(value) if decimal_factors(value.denom()).is_none() => 2,
+            ExprNode::Const(value) if value.is_negative() => 3,
             ExprNode::Pow(_, _) => 4,
             _ => 5,
         }
@@ -766,7 +768,8 @@ impl Expr {
         right_child: bool,
     ) -> fmt::Result {
         let precedence = self.precedence();
-        let needs_parentheses = precedence < parent_precedence
+        let needs_parentheses = (precedence < parent_precedence
+            && !(right_child && precedence == 3 && parent_precedence == 4))
             || (right_child
                 && precedence == parent_precedence
                 && matches!(self.node(), ExprNode::Add(_) | ExprNode::Mul(_)))
@@ -811,13 +814,8 @@ impl Expr {
     }
 }
 
-fn fmt_rational(value: &BigRational, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if value.is_integer() {
-        return write!(formatter, "{}", value.to_integer());
-    }
-    let negative = value.is_negative();
-    let numerator = value.numer().abs();
-    let mut denominator = value.denom().clone();
+fn decimal_factors(denominator: &BigInt) -> Option<(usize, usize)> {
+    let mut denominator = denominator.clone();
     let mut twos = 0usize;
     let mut fives = 0usize;
     while (&denominator % 2u8).is_zero() {
@@ -828,9 +826,18 @@ fn fmt_rational(value: &BigRational, formatter: &mut fmt::Formatter<'_>) -> fmt:
         denominator /= 5u8;
         fives += 1;
     }
-    if !denominator.is_one() {
-        return write!(formatter, "{}/{}", value.numer(), value.denom());
+    denominator.is_one().then_some((twos, fives))
+}
+
+fn fmt_rational(value: &BigRational, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if value.is_integer() {
+        return write!(formatter, "{}", value.to_integer());
     }
+    let negative = value.is_negative();
+    let numerator = value.numer().abs();
+    let Some((twos, fives)) = decimal_factors(value.denom()) else {
+        return write!(formatter, "{}/{}", value.numer(), value.denom());
+    };
     let scale = twos.max(fives);
     let scaled = numerator
         * BigInt::from(2u8).pow((scale - twos) as u32)

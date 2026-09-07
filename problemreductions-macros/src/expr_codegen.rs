@@ -96,7 +96,10 @@ pub(crate) fn complexity_estimate_tokens(
             let value = complexity_estimate_tokens(value, parameters)?;
             quote! {
                 crate::expr::approximate_factorial(#value)
-                    .expect("complexity factorial requires a non-negative integer")
+                    .unwrap_or_else(|error| match error {
+                        crate::expr::ApproximationError::NonFiniteResult(_) => f64::INFINITY,
+                        _ => f64::NAN,
+                    })
             }
         }
     })

@@ -105,6 +105,18 @@ fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadli
 }
 
 #[test]
+fn test_scheduling_with_individual_deadlines_slots_can_exceed_task_count() {
+    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![3], vec![]);
+    assert!(problem.evaluate(&vec![1]).unwrap());
+    assert_eq!(
+        BruteForce::new().find_all_witnesses(&problem).unwrap(),
+        vec![vec![0], vec![1], vec![2]]
+    );
+    assert!(!problem.evaluate(&vec![3]).unwrap());
+    assert!(!problem.evaluate(&vec![usize::MAX]).unwrap());
+}
+
+#[test]
 fn test_scheduling_with_individual_deadlines_brute_force_satisfiable() {
     let problem = SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 2], vec![(0, 2)]);
     let solver = BruteForce::new();

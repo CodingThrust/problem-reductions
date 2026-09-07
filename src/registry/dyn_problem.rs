@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use crate::traits::{EvaluationError, Problem};
-use crate::types::Aggregate;
+use crate::types::SolutionAggregate;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
 ///
@@ -19,10 +19,13 @@ where
 
 /// Type-erased problem interface for dynamic dispatch.
 ///
-/// Implemented via blanket impl for any `T: Problem + Serialize + 'static`.
+/// Implemented for serializable problems whose values support solution witnesses.
 pub trait DynProblem: Any {
     /// Evaluate a configuration and return the CLI-facing metric string.
     fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError>;
+    /// Evaluate a candidate witness, returning `None` when it is infeasible.
+    /// This validates feasibility, not global optimality.
+    fn evaluate_witness_dyn(&self, solution: &Value) -> Result<Option<String>, EvaluationError>;
     /// Evaluate a configuration and return the result as a serializable JSON value.
     fn evaluate_json(&self, solution: &Value) -> Result<Value, EvaluationError>;
     /// Serialize the problem to a JSON value.
@@ -43,7 +46,7 @@ impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
     T::Solution: serde::de::DeserializeOwned,
-    T::Value: Aggregate + fmt::Display + Serialize,
+    T::Value: SolutionAggregate + fmt::Display + Serialize,
 {
     fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError> {
         let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
@@ -57,6 +60,14 @@ where
             EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
         })?;
         Ok(serde_json::to_value(self.evaluate(&solution)?).expect("serialize metric failed"))
+    }
+
+    fn evaluate_witness_dyn(&self, solution: &Value) -> Result<Option<String>, EvaluationError> {
+        let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
+            EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
+        })?;
+        let value = self.evaluate(&solution)?;
+        Ok(T::Value::contributes_to_solution(&value, &value).then(|| format_metric(&value)))
     }
 
     fn serialize_json(&self) -> Value {

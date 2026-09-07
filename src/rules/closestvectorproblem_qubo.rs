@@ -9,6 +9,8 @@ use crate::export::SolutionPair;
 use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use num_bigint::BigInt;
+use num_traits::Zero;
 
 type Source = ClosestVectorProblem<i64>;
 type Target = QUBO<i64>;
@@ -71,33 +73,40 @@ fn overflow(operation: &str) -> crate::rules::ReductionError {
 }
 
 fn determinant(matrix: &[Vec<i64>]) -> Result<i64, crate::rules::ReductionError> {
-    match matrix.len() {
-        0 => Ok(1),
-        1 => Ok(matrix[0][0]),
-        size => {
-            let mut result = 0_i64;
-            for column in 0..size {
-                let minor = (1..size)
-                    .map(|row| {
-                        (0..size)
-                            .filter(|&next_column| next_column != column)
-                            .map(|next_column| matrix[row][next_column])
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-                let term = matrix[0][column]
-                    .checked_mul(determinant(&minor)?)
-                    .ok_or_else(|| overflow("computing a closest-vector determinant"))?;
-                result = if column % 2 == 0 {
-                    result.checked_add(term)
-                } else {
-                    result.checked_sub(term)
-                }
-                .ok_or_else(|| overflow("computing a closest-vector determinant"))?;
-            }
-            Ok(result)
-        }
+    let size = matrix.len();
+    if size == 0 {
+        return Ok(1);
     }
+    // Pivoted Bareiss elimination uses exact division and cubic arithmetic work.
+    // BigInt preserves cancellation when intermediate products exceed i64.
+    let mut matrix: Vec<Vec<BigInt>> = matrix
+        .iter()
+        .map(|row| row.iter().copied().map(BigInt::from).collect())
+        .collect();
+    let mut previous_pivot = BigInt::from(1);
+    let mut negative = false;
+    for column in 0..size - 1 {
+        let Some(pivot_row) = (column..size).find(|&row| !matrix[row][column].is_zero()) else {
+            return Ok(0);
+        };
+        if pivot_row != column {
+            matrix.swap(column, pivot_row);
+            negative = !negative;
+        }
+        let pivot = matrix[column][column].clone();
+        for row in column + 1..size {
+            for next_column in column + 1..size {
+                matrix[row][next_column] = (&matrix[row][next_column] * &pivot
+                    - &matrix[row][column] * &matrix[column][next_column])
+                    / &previous_pivot;
+            }
+            matrix[row][column] = BigInt::zero();
+        }
+        previous_pivot = pivot;
+    }
+    let value = matrix[size - 1][size - 1].clone();
+    i64::try_from(if negative { -value } else { value })
+        .map_err(|_| overflow("computing a closest-vector determinant"))
 }
 
 fn coefficient_bounds(problem: &Source) -> Result<Vec<i64>, crate::rules::ReductionError> {
