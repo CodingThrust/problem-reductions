@@ -49,9 +49,14 @@ jobs:
           node scripts/generate_reduction_graph_layout.js
           cargo run --example export_schemas
           cargo run --example export_module_graph
+          cargo build -p problemreductions-cli --bin pred
+          bash scripts/generate_doc_snippets.sh target/debug/pred
 
       - name: Build mdBook
         run: mdbook build
+
+      - name: Build research website
+        run: python3 scripts/build_website.py
 
       - name: Build PDF
         run: typst compile --root . docs/paper/reductions.typ book/reductions.pdf

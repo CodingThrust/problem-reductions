@@ -1,19 +1,30 @@
-# AI Agent Skills
+# Start with an agent
 
-AI coding assistants ([Claude Code](https://claude.ai/claude-code), [OpenCode](https://github.com/opencode-ai/opencode), [Codex](https://github.com/openai/codex)) can call `pred` CLI commands directly and use interactive skills to work with the reduction graph.
+An agent can use the CLI directly from a repository checkout. Skills supply the task procedure; the CLI supplies current model and reduction data.
 
-## Quick Start
+## Prepare the workspace
 
-Paste into Claude Code or Codex:
-
-```
-1. Clone https://github.com/CodingThrust/problem-reductions,
-2. Build the pred CLI with `make cli` in the root directory,
-3.1 Run `/find-solver` skill to help me find a solver for my scheduling problem.
-3.2 Run `/find-problem` skill to help me find problems that my QUBO solver can solve.
-3.3 Run `/propose` skill to help me propose a new problem or reduction to the project.
+```bash
+git clone https://github.com/CodingThrust/problem-reductions
+cd problem-reductions
+make cli
 ```
 
-The prompt 3.1 is for users who have a real-world problem and need help finding a solver for it.
-The prompt 3.2 is for users who have a solver and need help finding problems that it can solve.
-The prompt 3.3 is for contributors who want to propose a new problem or reduction rule to the project.
+This installs `pred` into Cargo’s binary directory (usually `~/.cargo/bin`). Confirm it is on your shell’s `PATH` with `pred --version`.
+
+## Give the agent this context
+
+```text
+Work in this repository. Read AGENTS.md and .claude/CLAUDE.md.
+Use the built pred CLI to inspect current models, variants, and paths.
+Read the SKILL.md for the task before following its workflow.
+Report the exact model variant, commands, results, and unresolved assumptions.
+```
+
+Then choose [find a solver](agent-find-solver.md), [extend a solver's reach](agent-find-problem.md), or [propose a rule](agent-propose.md).
+
+## Read without a browser
+
+Use the [Markdown index](markdown/index.md) to retrieve only the relevant task pages. Code includes are expanded in those files. The [graph and schemas](cli-automation.md#registry-exports) provide structured data.
+
+An agent with MCP support can instead [connect to `pred mcp`](mcp.md). Repository skills still require access to the checkout.
