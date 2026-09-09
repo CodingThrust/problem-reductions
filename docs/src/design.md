@@ -93,20 +93,25 @@ SpinGlass couplings and its objective result use `i64`, while the temporary
 temporary calculations are also outside the contract, but numeric fields
 written into its target model must follow the target model's numeric format.
 
-Weight variants are `One`, `i64`, and `f64`, with `One ⊂ i64 ⊂ f64`.
-`i64 → f64` is a fallible reduction using a checked conversion in
-`±(2^53-1)`, not `as f64`.
+Supported weight variants are `One`, `i64`, and `f64`.
 
 ### Arithmetic
 
-- Keep arithmetic in the declared type. Exact values use checked `i64`
-  operations; approximate values use finite `f64` operations.
-- Constructors and reductions reject an arithmetic step that would overflow
-  `i64` when producing a stored field. They do not cap every magnitude at
-  `2^53-1`. `evaluate()` never widens, wraps, saturates, or silently
-  approximates.
-- Do not promote an `i64` calculation to `i128`, `BigInt`, or `BigUint` to
-  accept a larger instance.
+- Integer rules and exact type conversions preserve exact values within their
+  supported domains; overflow or an unsupported exact conversion is an error.
+  Keep integer arithmetic in its declared type: do not widen, wrap, saturate,
+  or approximate it to accept a larger instance.
+- Floating-point rules implement mathematically equivalent transformations
+  using ordinary `f64` arithmetic and accept its rounding. Check overflow and
+  non-finite results; do not deliberately discard small nonzero coefficients.
+  Machine rounding may change the set of optimal solutions for some inputs.
+- Preserve representation and witness-structure checks. Do not add exact
+  arithmetic merely to detect floating-point rounding, or reject a reduction
+  because a backend may struggle to solve it.
+
+Keep ordinary round-trip tests. When results differ, distinguish errors in
+formulas, floating-point target construction, and solving. Investigate concrete
+failures rather than adding defenses for every possible numerical discrepancy.
 
 ### Boundaries
 
@@ -433,10 +438,7 @@ integer ILP instead of constructing a float-coefficient ILP as an extra step.
 Explicit coefficient conversions are ordinary registered `ReduceTo` rules in
 `rules/ilp_i64_ilp_f64.rs`. They preserve the formal mathematical problem within
 the supported exact-conversion range and extract assignments unchanged after
-standard target validation. Backend numerical accuracy does not determine
-whether a reduction is valid; these rules do not compensate for solver error.
-Ordinary round-trip tests remain useful integration checks, but a backend
-numerical failure alone does not establish that a reduction is incorrect.
+standard target validation.
 
 The internal `HighsAdapter` borrows an `ILP<V, C>` and returns its existing
 `Vec<i64>` solution representation. It builds the backend model, executes it,
