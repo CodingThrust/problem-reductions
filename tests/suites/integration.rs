@@ -532,3 +532,51 @@ mod weighted_problems {
         assert!(satisfying.is_empty());
     }
 }
+
+/// Exercise the solver as a downstream crate: struct construction, generic
+/// bounds, solution type, and exhaustive error matching must keep compiling.
+#[test]
+fn ilp_public_api_remains_source_compatible() {
+    use problemreductions::solvers::{ILPSolveError, ILPSolver};
+    fn solve_as_before<P>(problem: &P) -> std::result::Result<P::Solution, ILPSolveError>
+    where
+        P: Problem + 'static,
+        P::Solution: 'static,
+    {
+        ILPSolver::new().solve(problem)
+    }
+    fn classify_as_before(error: ILPSolveError) -> &'static str {
+        match error {
+            ILPSolveError::Infeasible => "infeasible",
+            ILPSolveError::UnresolvedDecision(_) => "unresolved decision",
+            ILPSolveError::Unbounded => "unbounded",
+            ILPSolveError::Timeout => "timeout",
+            ILPSolveError::BackendFailure(_) => "backend",
+            ILPSolveError::UnsupportedProblemType => "unsupported",
+            ILPSolveError::MissingPipeline(_) => "missing pipeline",
+            ILPSolveError::InvalidRegistry(_) => "registry",
+            ILPSolveError::PipelineTypeMismatch(_) => "type mismatch",
+            ILPSolveError::InvalidSolution(_) => "invalid solution",
+            ILPSolveError::InexactTransport(_) => "transport",
+            ILPSolveError::Extraction(_) => "extraction",
+            ILPSolveError::Reduction(_) => "reduction",
+        }
+    }
+    let solver = ILPSolver { time_limit: None };
+    let ILPSolver { time_limit } = solver.clone();
+    assert_eq!(time_limit, None);
+    let ilp = ILP::<bool>::new(1, vec![], vec![(0, 1)], ObjectiveSense::Maximize).unwrap();
+    let solution: Vec<i64> = solve_as_before(&ilp).unwrap();
+    assert_eq!(solution, vec![1]);
+    let infeasible = ILP::<bool>::new(
+        0,
+        vec![LinearConstraint::ge(vec![], 1)],
+        vec![],
+        ObjectiveSense::Minimize,
+    )
+    .unwrap();
+    assert_eq!(
+        classify_as_before(solver.solve(&infeasible).unwrap_err()),
+        "infeasible"
+    );
+}

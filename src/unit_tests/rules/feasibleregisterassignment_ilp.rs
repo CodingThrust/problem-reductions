@@ -40,8 +40,9 @@ fn test_feasible_register_assignment_to_ilp_infeasible() {
     let source = FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "register-conflict source instance should reduce to an infeasible ILP"
     );
 }

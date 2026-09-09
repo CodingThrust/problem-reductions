@@ -167,5 +167,8 @@ fn test_zero_requirement_vertex_still_must_be_connected() {
     );
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }

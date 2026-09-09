@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{IntegerVariable, ObjectiveSense};
-use crate::rules::ReductionGraph;
+use crate::rules::{ReductionGraph, ReductionResult};
 use crate::solvers::ILPSolver;
 use crate::types::MAX_EXACT_F64_INTEGER;
 
@@ -35,7 +35,7 @@ fn test_ilp_i64_coefficients_to_f64_rejects_inexact_value() {
     let source = ILP::<bool>::new(
         1,
         vec![],
-        vec![(0, MAX_EXACT_F64_INTEGER + 1)],
+        vec![(0, MAX_EXACT_F64_INTEGER + 2)],
         ObjectiveSense::Minimize,
     )
     .unwrap();
@@ -47,7 +47,7 @@ fn test_ilp_i64_coefficients_to_f64_rejects_inexact_value() {
 }
 
 #[test]
-fn test_ilp_cast_rechecks_source_feasibility() {
+fn test_ilp_integer_coefficients_preserve_large_exact_constraint() {
     let rhs = 1_000_000_000_000_i64;
     let source = ILP::<i64>::with_variables(
         vec![IntegerVariable::nonnegative()],
@@ -57,13 +57,26 @@ fn test_ilp_cast_rechecks_source_feasibility() {
     )
     .unwrap();
     let reduction = ReduceTo::<ILP<i64, f64>>::reduce_to(&source).unwrap();
-    let target_solution = vec![rhs + 1];
+    assert_eq!(reduction.target_problem().variables(), source.variables());
+    assert_eq!(
+        reduction.target_problem().constraints()[0].terms(),
+        &[(0, 1.0)]
+    );
+    assert_eq!(
+        reduction.target_problem().constraints()[0].rhs(),
+        rhs as f64
+    );
+    let target_solution = vec![rhs];
 
     assert!(reduction
         .target_problem()
         .is_feasible(&target_solution)
         .unwrap());
-    assert!(reduction.extract_solution(&target_solution).is_err());
+    assert_eq!(
+        reduction.extract_solution(&target_solution).unwrap(),
+        target_solution
+    );
+    assert!(reduction.extract_solution(&vec![]).is_err());
 }
 
 #[test]

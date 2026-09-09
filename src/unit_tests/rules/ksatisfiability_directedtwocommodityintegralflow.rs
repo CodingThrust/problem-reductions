@@ -40,9 +40,17 @@ fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(problem).expect("reduction should succeed");
-    let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
+    let ilp_solution = match ILPSolver::new().solve(reduction.target_problem()) {
+        Ok(solution) => solution,
+        Err(crate::solvers::ILPSolveError::Infeasible) => return None,
+        Err(error) => panic!("ILP execution failed: {error}"),
+    };
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    problem.evaluate(&extracted).unwrap().0.then_some(extracted)
+    assert!(
+        problem.evaluate(&extracted).unwrap().0,
+        "decoded flow must be feasible"
+    );
+    Some(extracted)
 }
 
 #[test]

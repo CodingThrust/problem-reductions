@@ -65,7 +65,10 @@ fn test_cdft_to_ilp_unsat_instance_is_infeasible() {
     let reduction: ReductionCDFTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let solver = ILPSolver::new();
-    assert!(solver.solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        solver.solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

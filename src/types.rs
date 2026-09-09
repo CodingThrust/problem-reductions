@@ -38,7 +38,8 @@ pub fn i64_to_exact_f64(value: i64) -> Result<f64, ExactI64ToF64Error> {
     }
 }
 
-/// Bound for objective value types (i64, f64, etc.)
+/// Bound for objective value types (i64, f64, etc.).
+/// Integers reject overflow; floats allow rounding and reject non-finite results.
 pub trait NumericSize:
     Clone
     + Default
@@ -49,9 +50,9 @@ pub trait NumericSize:
     + std::ops::AddAssign
     + 'static
 {
-    /// Add two values when the exact result remains representable and finite.
+    /// Checked addition.
     fn checked_add_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
-    /// Multiply two values when the exact result remains representable and finite.
+    /// Checked multiplication.
     fn checked_mul_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
 }
 

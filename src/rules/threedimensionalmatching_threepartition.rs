@@ -9,7 +9,6 @@ use crate::models::misc::ThreePartition;
 use crate::models::set::ThreeDimensionalMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
 enum Step2Item {
@@ -33,18 +32,6 @@ enum Step2Item {
     },
 }
 
-#[derive(Debug, Clone, Copy)]
-enum PairingKind {
-    U,
-    UPrime,
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-struct PairUsage {
-    saw_u: bool,
-    uprime_regulars: Option<[usize; 2]>,
-}
-
 /// Result of reducing ThreeDimensionalMatching to ThreePartition.
 #[derive(Debug, Clone)]
 pub struct ReductionThreeDimensionalMatchingToThreePartition {
@@ -65,27 +52,6 @@ impl ReductionThreeDimensionalMatchingToThreePartition {
 
     fn filler_start(&self) -> usize {
         self.pairing_start() + 2 * self.pair_keys.len()
-    }
-
-    fn classify_target_element(&self, element_index: usize) -> TargetElement {
-        if element_index < self.num_regulars() {
-            return TargetElement::Regular {
-                step2_index: element_index,
-            };
-        }
-
-        if element_index < self.filler_start() {
-            let pairing_offset = element_index - self.pairing_start();
-            let pair_index = pairing_offset / 2;
-            let kind = if pairing_offset.is_multiple_of(2) {
-                PairingKind::U
-            } else {
-                PairingKind::UPrime
-            };
-            return TargetElement::Pairing { pair_index, kind };
-        }
-
-        TargetElement::Filler
     }
 
     fn decode_real_group(&self, step2_group: [usize; 4]) -> Option<usize> {
@@ -143,6 +109,8 @@ impl ReductionThreeDimensionalMatchingToThreePartition {
 
     #[cfg(test)]
     fn build_target_witness(&self, source_solution: &[usize]) -> Vec<usize> {
+        use std::collections::HashMap;
+
         let mut a_indices = vec![0usize; self.num_source_triples];
         let mut first_b_by_w = HashMap::new();
         let mut first_c_by_x = HashMap::new();
@@ -298,98 +266,62 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreePartition {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "the target assignment is not a valid 3-partition",
+            ));
+        }
 
-        Ok({
-            let mut groups = vec![Vec::new(); self.target.num_groups()];
-            for (element_index, &group_index) in target_solution.iter().enumerate() {
-                groups[group_index].push(element_index);
+        let mut groups = vec![Vec::with_capacity(3); self.target.num_groups()];
+        let mut positions = Vec::with_capacity(target_solution.len());
+        for (element, &group) in target_solution.iter().enumerate() {
+            positions.push((group, groups[group].len()));
+            groups[group].push(element);
+        }
+
+        // Garey--Johnson's reverse construction first normalizes filler triples.
+        // Each has two pairing elements whose sum equals that of an original
+        // U/UPrime pair. Exchange the second element with the first's mate:
+        // they have equal sizes, so both affected triples remain valid. A mate
+        // cannot belong to an already normalized filler triple unless it is
+        // already here, so each iteration permanently normalizes one triple.
+        // Initial index order puts regulars first and fillers last; exchanges
+        // only move pairing elements, preserving those positions.
+        let pairing_start = self.pairing_start();
+        for filler in self.filler_start()..target_solution.len() {
+            let (group, _) = positions[filler];
+            let first = groups[group][0];
+            let second = groups[group][1];
+            let mate = pairing_start + ((first - pairing_start) ^ 1);
+            let (mate_group, mate_slot) = positions[mate];
+            groups[group][1] = mate;
+            groups[mate_group][mate_slot] = second;
+            positions[mate] = (group, 1);
+            positions[second] = (mate_group, mate_slot);
+        }
+
+        let mut source_solution = vec![false; self.num_source_triples];
+        for first in (pairing_start..self.filler_start()).step_by(2) {
+            let (left, _) = positions[first];
+            if groups[left][0] >= pairing_start {
+                continue; // This complete pair is used by a filler triple.
             }
-
-            let mut pair_usage: HashMap<(usize, usize), PairUsage> = HashMap::new();
-
-            for members in groups.into_iter().filter(|members| !members.is_empty()) {
-                let mut regulars = Vec::new();
-                let mut pairing = None;
-                let mut has_filler = false;
-
-                for element_index in members {
-                    match self.classify_target_element(element_index) {
-                        TargetElement::Regular { step2_index } => regulars.push(step2_index),
-                        TargetElement::Pairing { pair_index, kind } => {
-                            pairing = Some((pair_index, kind))
-                        }
-                        TargetElement::Filler => has_filler = true,
-                    }
-                }
-
-                if has_filler || regulars.len() != 2 {
-                    continue;
-                }
-
-                let Some((pair_index, kind)) = pairing else {
-                    continue;
-                };
-
-                let pair_key = self.pair_keys[pair_index];
-                let regular_pair = sorted_pair(regulars[0], regulars[1]);
-                let usage = pair_usage.entry(pair_key).or_default();
-
-                match kind {
-                    PairingKind::U => {
-                        if regular_pair == [pair_key.0, pair_key.1] {
-                            usage.saw_u = true;
-                        }
-                    }
-                    PairingKind::UPrime => {
-                        usage.uprime_regulars = Some(regular_pair);
-                    }
-                }
+            let (right, _) = positions[first + 1];
+            // Use the actual regular elements, not the pair's construction
+            // indices: equal-valued pairing elements are interchangeable.
+            let regulars = [
+                groups[left][0],
+                groups[left][1],
+                groups[right][0],
+                groups[right][1],
+            ];
+            if let Some(source_triple) = self.decode_real_group(regulars) {
+                source_solution[source_triple] = true;
             }
-
-            let mut source_solution = vec![false; self.num_source_triples];
-
-            for ((left, right), usage) in pair_usage {
-                let Some(other_two) = usage.uprime_regulars else {
-                    continue;
-                };
-                if !usage.saw_u {
-                    continue;
-                }
-
-                let mut group = [left, right, other_two[0], other_two[1]];
-                group.sort_unstable();
-                if group.windows(2).any(|window| window[0] == window[1]) {
-                    continue;
-                }
-
-                if let Some(source_triple) = self.decode_real_group(group) {
-                    source_solution[source_triple] = true;
-                }
-            }
-
-            source_solution
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum TargetElement {
-    Regular {
-        step2_index: usize,
-    },
-    Pairing {
-        pair_index: usize,
-        kind: PairingKind,
-    },
-    Filler,
-}
-
-fn sorted_pair(a: usize, b: usize) -> [usize; 2] {
-    if a <= b {
-        [a, b]
-    } else {
-        [b, a]
+        }
+        Ok(source_solution)
     }
 }
 

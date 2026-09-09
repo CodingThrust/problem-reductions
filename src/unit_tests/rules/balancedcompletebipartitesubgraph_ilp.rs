@@ -45,7 +45,10 @@ fn test_infeasible_instance() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = crate::solvers::ILPSolver::new();
-    assert!(solver.solve(ilp).is_err());
+    assert_eq!(
+        solver.solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

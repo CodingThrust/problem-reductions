@@ -30,14 +30,20 @@ fn test_ensemblecomputation_to_ilp_closed_loop() {
 fn test_ensemblecomputation_to_ilp_infeasible_budget() {
     let source = EnsembleComputation::new(3, vec![vec![0, 1, 2]], 1);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
 fn test_ensemblecomputation_to_ilp_rejects_singleton_target() {
     let source = EnsembleComputation::new(3, vec![vec![0]], 2);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

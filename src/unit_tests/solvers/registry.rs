@@ -32,10 +32,6 @@ fn generic_decision_ilp_respects_maximization_bounds() {
                 name: "ILP",
                 variant: BOOL_VARIANT,
             },
-            StaticProblemStep {
-                name: "ILP",
-                variant: FLOAT_BOOL_VARIANT,
-            },
         ],
     };
     let registry = build_registry(
@@ -54,7 +50,7 @@ fn generic_decision_ilp_respects_maximization_bounds() {
     );
     for bound in [0, 1, 2] {
         let decision = Decision::new(inner.clone(), bound);
-        let result = pipeline.solve(&decision, &crate::solvers::ILPSolver::new());
+        let result = pipeline.solve(&decision, &HighsAdapter::new(None));
         if bound > 1 {
             assert!(matches!(
                 result,
@@ -76,7 +72,7 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::{ExtractionError, ReductionResult};
-    use crate::solvers::{ILPSolveError, ILPSolver};
+    use crate::solvers::ILPSolveError;
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 
@@ -114,11 +110,11 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     };
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
-        pipeline.solve(&Decision::new(inner.clone(), 0), &ILPSolver::new()),
+        pipeline.solve(&Decision::new(inner.clone(), 0), &HighsAdapter::new(None)),
         Err(ILPSolveError::UnresolvedDecision(_))
     ));
     assert!(matches!(
-        pipeline.solve(&Decision::new(inner, 1), &ILPSolver::new()),
+        pipeline.solve(&Decision::new(inner, 1), &HighsAdapter::new(None)),
         Err(ILPSolveError::Extraction(ExtractionError::Reduction { message, .. }))
             if message == "broken witness decoder"
     ));
@@ -406,11 +402,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        [
-            "MaximumClique<SimpleGraph, i64>",
-            "ILP<i64, bool>",
-            "ILP<f64, bool>"
-        ]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<i64, bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -435,10 +427,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let ilp_itself =
         solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
-    assert_eq!(
-        ilp_itself.ilp.unwrap().path_labels(),
-        ["ILP<i64, bool>", "ILP<f64, bool>"]
-    );
+    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<i64, bool>"]);
 }
 
 #[test]
@@ -587,4 +576,35 @@ fn solver_capability_registry_ambiguous_exact_edge_is_rejected() {
         error,
         RegistryBuildError::InvalidEdge { matches: 2, .. }
     ));
+}
+
+#[test]
+fn native_terminal_dispatch_rejects_non_ilp_values() {
+    assert_eq!(
+        solve_ilp_terminal(&42_i64, &HighsAdapter::new(None)),
+        Err(crate::solvers::ILPSolveError::UnsupportedProblemType)
+    );
+}
+
+#[test]
+fn registered_pipelines_stop_at_the_first_native_ilp() {
+    let registry = solver_capability_registry().unwrap();
+    for pipeline in registry.ilp.values() {
+        assert!(pipeline.path.last().unwrap().is_supported_ilp());
+        assert!(pipeline.path[..pipeline.path.len() - 1]
+            .iter()
+            .all(|step| !step.is_supported_ilp()));
+    }
+    for variable in ["bool", "i64"] {
+        for coefficient in ["i64", "f64"] {
+            let key = ExactProblemKey::new(
+                "ILP",
+                BTreeMap::from([
+                    ("variable".into(), variable.into()),
+                    ("coefficient".into(), coefficient.into()),
+                ]),
+            );
+            assert_eq!(registry.lookup(&key).ilp.unwrap().path(), &[key]);
+        }
+    }
 }
