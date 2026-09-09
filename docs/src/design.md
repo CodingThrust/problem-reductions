@@ -430,7 +430,13 @@ alone cannot prove that no qualifying source solution exists.
 entry point. Registry lookup, concrete-terminal dispatch, and reduction-chain
 extraction live in the orchestration layer. Integer pipelines stop at their
 integer ILP instead of constructing a float-coefficient ILP as an extra step.
-Existing explicit coefficient-conversion reductions remain available.
+Explicit coefficient conversions are ordinary registered `ReduceTo` rules in
+`rules/ilp_i64_ilp_f64.rs`. They preserve the formal mathematical problem within
+the supported exact-conversion range and extract assignments unchanged after
+standard target validation. Backend numerical accuracy does not determine
+whether a reduction is valid; these rules do not compensate for solver error.
+Ordinary round-trip tests remain useful integration checks, but a backend
+numerical failure alone does not establish that a reduction is incorrect.
 
 The internal `HighsAdapter` borrows an `ILP<V, C>` and returns its existing
 `Vec<i64>` solution representation. It builds the backend model, executes it,

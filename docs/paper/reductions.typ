@@ -16911,7 +16911,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Correctness._ The binary-to-integer embedding changes no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and objective values. Exact conversion preserves every stored coefficient, so it constructs the same formal linear objective and constraints over the same integer variables.
 
-  _Solution extraction._ Binary-to-integer and coefficient conversions preserve the assignment; coefficient conversion additionally checks the assignment against the source integer ILP. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
+  _Solution extraction._ Binary-to-integer and coefficient conversions preserve the assignment after the standard target-solution validation. Numerical solver accuracy is independent of the mathematical coefficient conversion. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
