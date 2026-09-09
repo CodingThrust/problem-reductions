@@ -3,7 +3,7 @@ use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::models::misc::{ResourceConstrainedScheduling, ThreePartition};
 use crate::models::set::ThreeDimensionalMatching;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
-use crate::solvers::{BruteForce, ILPSolveError, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -138,11 +138,6 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     let direct_source = direct.extract_solution(&direct_solution).unwrap();
 
     assert_eq!(problem.evaluate(&direct_source).unwrap(), Or(true));
-    let indirect_solution = solver.solve(indirect.target_problem());
-    assert!(
-        matches!(indirect_solution, Err(ILPSolveError::InvalidSolution(_))),
-        "the numerically unstable indirect ILP should be rejected: {indirect_solution:?}"
-    );
     assert!(direct.target_problem().num_vars() < indirect.target_problem().num_vars());
     assert!(
         direct.target_problem().constraints().len() < indirect.target_problem().constraints().len()

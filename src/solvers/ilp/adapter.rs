@@ -231,7 +231,9 @@ fn decode_and_validate<V: VariableDomain, C: ILPCoefficient>(
         .map_err(|error| IlpBackendError::InvalidSolution(error.to_string()))?
     {
         return Err(IlpBackendError::InvalidSolution(
-            "the rounded assignment violates the ILP".into(),
+            "the rounded assignment violates the ILP; this may be caused by numerical tolerances. \
+             Consider tightening the backend's integer feasibility tolerance"
+                .into(),
         ));
     }
     problem
