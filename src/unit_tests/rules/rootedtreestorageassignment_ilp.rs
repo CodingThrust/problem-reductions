@@ -42,9 +42,10 @@ fn test_rootedtreestorageassignment_to_ilp_bf_vs_ilp() {
             assert!(ilp_value.0, "ILP solution should be feasible");
             assert!(bf_value.0, "BF should also find feasible solution");
         }
-        Err(_) => {
+        Err(crate::solvers::ILPSolveError::Infeasible) => {
             assert!(!bf_value.0, "both should agree on infeasibility");
         }
+        Err(error) => panic!("ILP execution failed: {error}"),
     }
 }
 
@@ -66,7 +67,11 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
     assert!(bf_witness.is_none(), "source should be infeasible");
-    assert!(ilp_result.is_err(), "reduced ILP should also be infeasible");
+    assert_eq!(
+        ilp_result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
+        "reduced ILP should also be infeasible"
+    );
 }
 
 #[test]

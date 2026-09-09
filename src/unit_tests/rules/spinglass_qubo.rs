@@ -2,6 +2,7 @@ use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
 #[test]
@@ -205,5 +206,32 @@ fn test_jl_parity_rule_qubo_to_spinglass() {
     );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
+    }
+}
+
+#[test]
+fn test_qubo_to_spinglass_preserves_small_nonzero_coefficients() {
+    // Exact powers of two distinguish algebraic coefficient preservation from
+    // backend tolerances. The two scales expose both former pruning branches:
+    // q < 1e-10, and q > 1e-10 but q/4 < 1e-10.
+    for magnitude in [2.0_f64.powi(-40), 2.0_f64.powi(-32)] {
+        for sign in [-1.0, 1.0] {
+            let q = sign * magnitude;
+            let source = QUBO::<f64>::from_matrix(vec![vec![q, q], vec![0.0, 0.0]]).unwrap();
+            let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source).unwrap();
+            let target = reduction.target_problem();
+            assert_eq!(target.fields(), &[3.0 * q / 4.0, q / 4.0]);
+            assert_eq!(target.interactions(), vec![((0, 1), q / 4.0)]);
+            let offset = 3.0 * q / 4.0;
+            for left in [-1, 1] {
+                for right in [-1, 1] {
+                    let spins = vec![left, right];
+                    let bits = reduction.extract_solution(&spins).unwrap();
+                    let source_value = source.evaluate(&bits).unwrap().0.unwrap();
+                    let target_value = target.evaluate(&spins).unwrap().0.unwrap();
+                    assert_eq!(source_value, target_value + offset);
+                }
+            }
+        }
     }
 }

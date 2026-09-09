@@ -66,7 +66,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
         for i in 0..n {
             for j in i..n {
                 let q = matrix[i][j];
-                if q.abs() < 1e-10 {
+                if q == 0.0 {
                     continue;
                 }
 
@@ -77,7 +77,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
                     // Off-diagonal: Q_ij * x_i * x_j
                     // J_ij contribution
                     let j_ij = q / 4.0;
-                    if j_ij.abs() > 1e-10 {
+                    if j_ij != 0.0 {
                         interactions.push(((i, j), j_ij));
                     }
                     // h_i and h_j contributions

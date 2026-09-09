@@ -118,10 +118,9 @@ fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
     let target_reduction = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem())
         .expect("timetable reduction should succeed");
 
-    assert!(
-        ILPSolver::new()
-            .solve(target_reduction.target_problem())
-            .is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(target_reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "unsatisfiable 3SAT instance should produce an infeasible timetable"
     );
 }

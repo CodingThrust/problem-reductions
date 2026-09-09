@@ -112,8 +112,9 @@ fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
         BruteForce::new().solve(&problem).unwrap().is_none(),
         "source instance should be infeasible"
     );
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "reduced ILP should be infeasible"
     );
 }

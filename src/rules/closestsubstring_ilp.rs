@@ -166,11 +166,8 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         }
 
         // Tight upper bound on R: the worst-case Hamming distance over a
-        // length-ell window is at most ell. Added as a single-term `<=`
-        // constraint so the solver's bound-tightening pass (which scans for
-        // exactly this pattern) picks it up. Without this, R defaults to the
-        // full i64 domain, which severely degrades HiGHS performance even on
-        // tiny instances.
+        // length-ell window is at most ell. Restricting R to this range
+        // preserves every optimal solution.
         constraints.push(LinearConstraint::le(vec![(r_idx, 1)], ell_i64));
 
         // Window-choice constraints: exactly one window per input string.

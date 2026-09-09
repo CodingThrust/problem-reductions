@@ -96,8 +96,9 @@ fn test_minimumweightdecoding_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionMinimumWeightDecodingToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible instance should produce infeasible ILP"
     );
 }

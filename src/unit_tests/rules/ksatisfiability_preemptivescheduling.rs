@@ -32,7 +32,11 @@ fn solve_threshold_schedule_via_ilp(
         target.precedences().to_vec(),
     );
     let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs).expect("reduction should succeed");
-    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem()).ok()?;
+    let ilp_solution = match ILPSolver::new().solve(pcs_to_ilp.target_problem()) {
+        Ok(solution) => solution,
+        Err(crate::solvers::ILPSolveError::Infeasible) => return None,
+        Err(error) => panic!("ILP execution failed: {error}"),
+    };
     let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution).unwrap();
 
     let mut config = vec![vec![false; target.d_max()]; target.num_tasks()];

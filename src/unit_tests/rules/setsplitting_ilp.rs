@@ -70,8 +70,9 @@ fn test_setsplitting_to_ilp_infeasible() {
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
-    assert!(
-        ilp_solver.solve(ilp).is_err(),
+    assert_eq!(
+        ilp_solver.solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "ILP should be infeasible for unsplittable instance"
     );
 }

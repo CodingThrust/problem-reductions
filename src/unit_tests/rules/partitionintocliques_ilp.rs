@@ -29,5 +29,8 @@ fn test_partitionintocliques_to_ilp_preserves_infeasibility() {
     let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![]), 2);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
 
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }

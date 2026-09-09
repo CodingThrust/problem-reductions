@@ -43,8 +43,9 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_infeasible() {
     let problem =
         SequencingToMinimizeWeightedTardiness::new(vec![10, 10], vec![1, 1], vec![1, 1], 0);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible STMWT should produce infeasible ILP"
     );
 }

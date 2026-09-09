@@ -171,7 +171,11 @@ fn test_infeasible_target_too_large() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
 
-    assert!(result.is_err(), "Should be infeasible");
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
+        "Should be infeasible"
+    );
 }
 
 #[test]
@@ -277,7 +281,10 @@ fn test_oversized_biguint_target_makes_ilp_infeasible() {
     let target = BigUint::from(1u32) << 70;
     let problem = Factoring::with_factor_bits(target, 2, 2);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

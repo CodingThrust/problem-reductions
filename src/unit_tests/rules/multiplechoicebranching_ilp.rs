@@ -21,7 +21,10 @@ fn test_multiplechoicebranching_to_ilp_closed_loop() {
                 let actual = reduction.extract_solution(&target).unwrap();
                 assert!(problem.evaluate(&actual).unwrap().0);
             }
-            None => assert!(ILPSolver::new().solve(reduction.target_problem()).is_err()),
+            None => assert_eq!(
+                ILPSolver::new().solve(reduction.target_problem()),
+                Err(crate::solvers::ILPSolveError::Infeasible)
+            ),
         }
     }
 }
@@ -35,7 +38,10 @@ fn test_multiplechoicebranching_to_ilp_rejects_forced_cycle() {
         2,
     );
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

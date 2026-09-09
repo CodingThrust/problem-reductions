@@ -244,6 +244,12 @@ constraints; implementers derive the Rust representation. Do not require issue
 authors to choose implementation types or add implementation-specific numeric
 fields to issue templates. Changes to issue templates require user approval.
 
+### Reduction and Solver Boundary
+
+- Reduction rules construct mathematically equivalent problems within their supported representation domains. Keep required range, exact-conversion, overflow, and witness-structure checks; do not trim nonzero coefficients, compensate for solver tolerances, or reject a reduction merely because a backend may struggle to solve it.
+- Keep ordinary round-trip tests. A backend execution failure alone does not establish a mathematical reduction error.
+- In ILP-based tests, distinguish `Ok(solution)`, `Err(ILPSolveError::Infeasible)`, and other errors. Check extracted witnesses after successful solves. Other errors must fail the test with their original details; never turn them, or invalid decoded witnesses, into expected infeasibility using `.is_err()`, `.ok()`, or a catch-all error branch.
+
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)

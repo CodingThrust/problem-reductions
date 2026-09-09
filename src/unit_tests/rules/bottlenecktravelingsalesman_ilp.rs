@@ -96,8 +96,9 @@ fn test_no_hamiltonian_cycle_infeasible() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Path graph should have no Hamiltonian cycle"
     );
 }
