@@ -72,7 +72,10 @@ fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
+    let outcome = match pipeline.solve(
+        problem.as_any(),
+        &super::ilp::adapter::HighsAdapter::new(None),
+    ) {
         Ok(solution) => SolveOutcome::Optimal {
             evaluation: problem.evaluate_dyn(&solution)?,
             solution,

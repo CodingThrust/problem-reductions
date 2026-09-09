@@ -409,7 +409,7 @@ proved infeasibility, and `Err` reports an operational failure.
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
-| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved by HiGHS via `good_lp`. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at a native `ILP<V, C>` with bool/i64 variables and i64/f64 coefficients, solved by the shared HiGHS adapter via `good_lp`. |
 
 ILP results are optimal or infeasible according to HiGHS numerical tolerances;
 zero MIP gaps do not imply mathematical exactness. Integer extraction rounds
@@ -423,6 +423,33 @@ policy is not a universal bound on backend objective error.
 When an ILP target witness misses a source decision threshold, the solver
 returns `ILPSolveError::UnresolvedDecision`, not infeasibility: the witness
 alone cannot prove that no qualifying source solution exists.
+
+### ILP execution boundary
+
+`ILPSolver::solve<P>() -> Result<P::Solution, ILPSolveError>` remains the public
+entry point. Registry lookup, concrete-terminal dispatch, and reduction-chain
+extraction live in the orchestration layer. Integer pipelines stop at their
+integer ILP instead of constructing a float-coefficient ILP as an extra step.
+Existing explicit coefficient-conversion reductions remain available.
+
+The internal `HighsAdapter` borrows an `ILP<V, C>` and returns its existing
+`Vec<i64>` solution representation. It builds the backend model, executes it,
+checks returned integer values, and validates constraints and objective
+arithmetic against the original ILP. It does not inspect variant names, query
+registrations, or extract solutions for source problems. Coefficient conversion
+is an adapter-local capability; the public `ILPCoefficient` trait is unchanged.
+The existing exact-integer transport limits and float-model tolerances remain
+in effect. Validating a witness is not an independent optimality certificate;
+solver-reported optimality retains its existing numerical contract.
+
+Adapter errors remain internal and map to the existing public `ILPSolveError`
+variants. Rust return types, solver configuration, and CLI/JSON/MCP outcome
+formats remain unchanged; reported reduction paths now end at native ILPs.
+An unsupported integer coefficient is now reported through the existing
+`InexactTransport` error at the adapter boundary instead of a cast-reduction
+error. Bounds use that same existing transport error. An integer assignment
+that violates the original ILP is rejected as `InvalidSolution` by the adapter,
+rather than failing later during coefficient-cast extraction.
 
 ## JSON Serialization
 

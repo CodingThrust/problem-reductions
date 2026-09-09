@@ -1,5 +1,7 @@
 //! Deterministic solver capabilities for exact problem variants.
 
+use super::ilp::adapter::HighsAdapter;
+use crate::models::algebraic::ILP;
 use crate::registry::VariantEntry;
 use crate::rules::registry::{reduction_entries, AggregateReduceFn, ReduceFn, ReductionEntry};
 use crate::rules::DynReductionResult;
@@ -7,6 +9,22 @@ use serde::Serialize;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
+
+/// Type erasure is resolved at the registry boundary, never inside the adapter.
+fn solve_ilp_terminal(
+    source: &dyn Any,
+    adapter: &HighsAdapter,
+) -> Result<Vec<i64>, super::ILPSolveError> {
+    macro_rules! dispatch {
+        ($($v:ty, $c:ty);* $(;)?) => { $(
+            if let Some(ilp) = source.downcast_ref::<ILP<$v, $c>>() {
+                return adapter.solve(ilp).map_err(Into::into);
+            }
+        )* };
+    }
+    dispatch! { bool, i64; i64, i64; bool, f64; i64, f64; }
+    Err(super::ILPSolveError::UnsupportedProblemType)
+}
 
 /// Canonical identity of one concrete problem variant.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -53,7 +71,10 @@ impl ExactProblemKey {
                 self.variant.get("variable").map(String::as_str),
                 Some("bool" | "i64")
             )
-            && self.variant.get("coefficient").map(String::as_str) == Some("f64")
+            && matches!(
+                self.variant.get("coefficient").map(String::as_str),
+                Some("i64" | "f64")
+            )
     }
 }
 
@@ -118,14 +139,14 @@ impl CompiledIlpPipeline {
     fn solve_with<R>(
         &self,
         source: &dyn Any,
-        solver: &super::ILPSolver,
+        adapter: &HighsAdapter,
         finish: impl FnOnce(
             Box<dyn Any>,
             Option<&dyn DynReductionResult>,
         ) -> Result<R, super::ILPSolveError>,
     ) -> Result<R, super::ILPSolveError> {
         if self.reducers.is_empty() {
-            return finish(Box::new(solver.solve_dyn(source)?), None);
+            return finish(Box::new(solve_ilp_terminal(source, adapter)?), None);
         }
 
         let mut reductions: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -141,7 +162,7 @@ impl CompiledIlpPipeline {
             .last()
             .expect("non-empty fixed pipeline must produce a target")
             .target_problem_any();
-        let solution = solver.solve_dyn(target)?;
+        let solution = solve_ilp_terminal(target, adapter)?;
         let mut source_solution: Box<dyn Any> = Box::new(solution);
         for (index, step) in reductions.iter().enumerate().rev() {
             if let Some(reduce) = self.reducers[index].1 {
@@ -168,9 +189,9 @@ impl CompiledIlpPipeline {
     pub(crate) fn solve(
         &self,
         source: &dyn Any,
-        solver: &super::ILPSolver,
+        adapter: &HighsAdapter,
     ) -> Result<serde_json::Value, super::ILPSolveError> {
-        self.solve_with(source, solver, |solution, first_reduction| {
+        self.solve_with(source, adapter, |solution, first_reduction| {
             if let Some(reduction) = first_reduction {
                 return reduction
                     .source_solution_json(solution.as_ref())
@@ -188,9 +209,9 @@ impl CompiledIlpPipeline {
     pub(crate) fn solve_typed<S: 'static>(
         &self,
         source: &dyn Any,
-        solver: &super::ILPSolver,
+        adapter: &HighsAdapter,
     ) -> Result<S, super::ILPSolveError> {
-        self.solve_with(source, solver, |solution, _| {
+        self.solve_with(source, adapter, |solution, _| {
             solution
                 .downcast::<S>()
                 .map(|solution| *solution)
@@ -287,7 +308,7 @@ pub enum RegistryBuildError {
     MissingSolverCapability(String),
     #[error("ILP pipeline must contain at least one node")]
     EmptyPipeline,
-    #[error("ILP pipeline for {0} does not end at an f64-coefficient ILP")]
+    #[error("ILP pipeline for {0} does not end at a supported native ILP")]
     UnsupportedTarget(String),
     #[error("ILP pipeline for {0} continues after reaching a supported ILP node")]
     ContinuesAfterIlp(String),

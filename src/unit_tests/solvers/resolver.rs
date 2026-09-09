@@ -365,7 +365,7 @@ fn deterministic_solver_dispatch_customized_infeasibility_does_not_fall_back() {
 }
 
 #[test]
-fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
+fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
     let problem = ILP::<bool>::new(0, vec![], vec![], ObjectiveSense::Minimize).unwrap();
     let loaded = load_dyn(
         ILP::<bool>::NAME,
@@ -381,7 +381,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
     assert_eq!(
         result.solver,
         SolverExecution::Ilp {
-            reduction_path: vec!["ILP<i64, bool>".to_string(), "ILP<f64, bool>".to_string()]
+            reduction_path: vec!["ILP<i64, bool>".to_string()]
         }
     );
     assert!(matches!(
@@ -498,7 +498,6 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
             "MaximumIndependentSet<SimpleGraph, i64>",
             "MaximumSetPacking<i64>",
             "ILP<i64, bool>",
-            "ILP<f64, bool>",
         ]
     );
 }
