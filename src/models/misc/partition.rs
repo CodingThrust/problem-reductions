@@ -137,8 +137,12 @@ impl Problem for Partition {
 }
 
 impl crate::solvers::BruteForceProblem for Partition {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_elements()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_elements())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

@@ -30,13 +30,6 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinMaxMulticente
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target placement does not certify a dominating set: radius must be at most one",
-            ));
-        }
         Ok(target_solution[..self.source_num_vertices].to_vec())
     }
 }

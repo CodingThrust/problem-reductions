@@ -267,8 +267,12 @@ impl<K: KValue> Problem for KSatisfiability<K> {
 }
 
 impl<K: KValue> crate::solvers::BruteForceProblem for KSatisfiability<K> {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vars)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

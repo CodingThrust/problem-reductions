@@ -36,28 +36,25 @@ impl ReductionResult for ReductionTSPToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.num_vertices;
 
-            let tour = one_hot_decode(target_solution, n, n, 0)?;
+            let tour = one_hot_decode(target_solution, n, n, 0);
 
             // Map tour to edge selection
             let mut edge_selection = vec![false; self.source_edges.len()];
             for k in 0..n {
                 let u = tour[k];
                 let v = tour[(k + 1) % n];
-                let edge = self
+                for (edge, _) in self
                     .source_edges
                     .iter()
-                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target tour uses absent source edge ({u}, {v})"
-                        ))
-                    })?;
-                edge_selection[edge] = true;
+                    .enumerate()
+                    .filter(|&(_, &(a, b))| (a == u && b == v) || (a == v && b == u))
+                    .take(1)
+                {
+                    edge_selection[edge] = true;
+                }
             }
 
             edge_selection

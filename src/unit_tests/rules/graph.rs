@@ -12,7 +12,6 @@ use crate::registry::ProblemCategory;
 use crate::rules::graph::{ReductionMode, ReductionStep};
 use crate::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, ProblemParameters, Sum};
@@ -84,7 +83,12 @@ impl Problem for AggregateChainSource {
     type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 1usize as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -99,8 +103,12 @@ impl Problem for AggregateChainSource {
 }
 
 impl crate::solvers::BruteForceProblem for AggregateChainSource {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![1]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([1][variable])
     }
 }
 
@@ -109,7 +117,12 @@ impl Problem for AggregateChainMiddle {
     type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 1usize as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -124,8 +137,12 @@ impl Problem for AggregateChainMiddle {
 }
 
 impl crate::solvers::BruteForceProblem for AggregateChainMiddle {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![1]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([1][variable])
     }
 }
 
@@ -134,7 +151,12 @@ impl Problem for AggregateChainTarget {
     type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 1usize as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -149,23 +171,32 @@ impl Problem for AggregateChainTarget {
 }
 
 impl crate::solvers::BruteForceProblem for AggregateChainTarget {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![1]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([1][variable])
     }
 }
 
 impl Problem for NaturalVariantProblem {
     const NAME: &'static str = "NaturalVariantProblem";
     type Solution = Vec<usize>;
-    type Value = Sum<u64>;
+    type Value = crate::types::Max<u64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 1usize as u64)])
+    }
 
     fn evaluate(
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().sum::<usize>() as u64))
+        Ok(crate::types::Max(Some(config.iter().sum::<usize>() as u64)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -174,8 +205,12 @@ impl Problem for NaturalVariantProblem {
 }
 
 impl crate::solvers::BruteForceProblem for NaturalVariantProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![1]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([1][variable])
     }
 }
 
@@ -267,7 +302,7 @@ impl ReductionResult for SourceToMiddleWitnessResult {
 
 fn reduce_source_to_middle_witness(
     any: &dyn Any,
-) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
     any.downcast_ref::<AggregateChainSource>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
             source_problem: AggregateChainSource::NAME,
@@ -275,14 +310,18 @@ fn reduce_source_to_middle_witness(
             expected: std::any::type_name::<AggregateChainSource>(),
         },
     )?;
-    Ok(Box::new(SourceToMiddleWitnessResult {
-        target: AggregateChainMiddle,
-    }))
+    Ok(crate::rules::registry::ExecutedStep {
+        witness: std::rc::Rc::new(SourceToMiddleWitnessResult {
+            target: AggregateChainMiddle,
+        }),
+        aggregate: None,
+        interpret_optimum: None,
+    })
 }
 
 fn fail_source_to_middle_witness(
     _any: &dyn Any,
-) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
     Err(crate::rules::ReductionError::InvalidTarget {
         source_problem: AggregateChainSource::NAME,
         target_problem: AggregateChainMiddle::NAME,
@@ -294,7 +333,7 @@ static SHARED_PREFIX_EXECUTIONS: AtomicUsize = AtomicUsize::new(0);
 
 fn reduce_counted_source_to_middle_witness(
     any: &dyn Any,
-) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
     SHARED_PREFIX_EXECUTIONS.fetch_add(1, Ordering::SeqCst);
     reduce_source_to_middle_witness(any)
 }
@@ -321,7 +360,7 @@ impl ReductionResult for MiddleToTargetWitnessResult {
 
 fn reduce_middle_to_target_witness(
     any: &dyn Any,
-) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
     any.downcast_ref::<AggregateChainMiddle>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
             source_problem: AggregateChainMiddle::NAME,
@@ -329,14 +368,18 @@ fn reduce_middle_to_target_witness(
             expected: std::any::type_name::<AggregateChainMiddle>(),
         },
     )?;
-    Ok(Box::new(MiddleToTargetWitnessResult {
-        target: AggregateChainTarget,
-    }))
+    Ok(crate::rules::registry::ExecutedStep {
+        witness: std::rc::Rc::new(MiddleToTargetWitnessResult {
+            target: AggregateChainTarget,
+        }),
+        aggregate: None,
+        interpret_optimum: None,
+    })
 }
 
 fn reduce_natural_variant_witness(
     any: &dyn Any,
-) -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
     let source = any.downcast_ref::<NaturalVariantProblem>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
             source_problem: NaturalVariantProblem::NAME,
@@ -344,10 +387,14 @@ fn reduce_natural_variant_witness(
             expected: std::any::type_name::<NaturalVariantProblem>(),
         },
     )?;
-    Ok(Box::new(crate::rules::VariantReductionResult::<
-        NaturalVariantProblem,
-        NaturalVariantProblem,
-    >::new(source.clone())))
+    Ok(crate::rules::registry::ExecutedStep {
+        witness: std::rc::Rc::new(crate::rules::VariantReductionResult::<
+            NaturalVariantProblem,
+            NaturalVariantProblem,
+        >::new(source.clone())),
+        aggregate: None,
+        interpret_optimum: None,
+    })
 }
 
 fn build_two_node_graph(
@@ -418,7 +465,7 @@ fn execute_paths_executes_a_shared_prefix_once() {
             ),
         ],
     );
-    let paths = vec![
+    let mut paths = vec![
         named_path(&[AggregateChainSource::NAME, AggregateChainMiddle::NAME]),
         named_path(&[
             AggregateChainSource::NAME,
@@ -427,11 +474,31 @@ fn execute_paths_executes_a_shared_prefix_once() {
         ]),
     ];
 
+    paths.push(paths[0].clone());
+    paths.push(paths[1].clone());
+
     let executed = graph
         .execute_paths(&paths, &AggregateChainSource)
         .expect("both paths are executable");
 
-    assert_eq!(executed.len(), 2);
+    assert_eq!(executed.len(), 4);
+    for (path, execution) in paths.iter().zip(&executed) {
+        assert_eq!(execution.steps.len(), path.len());
+        assert_eq!(
+            execution
+                .extract_solution::<Vec<usize>, _>(&vec![1usize])
+                .unwrap(),
+            vec![1]
+        );
+    }
+    assert!(std::rc::Rc::ptr_eq(
+        &executed[0].steps[0].witness,
+        &executed[3].steps[0].witness
+    ));
+    assert!(std::rc::Rc::ptr_eq(
+        &executed[1].steps[1].witness,
+        &executed[3].steps[1].witness
+    ));
     assert_eq!(SHARED_PREFIX_EXECUTIONS.load(Ordering::SeqCst), 1);
 }
 
@@ -693,7 +760,8 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         .expect("expected aggregate reduction chain");
 
     assert_eq!(
-        chain.target_problem::<AggregateChainTarget>().dimensions(),
+        crate::solvers::cartesian_dimensions(chain.target_problem::<AggregateChainTarget>())
+            .unwrap(),
         vec![1]
     );
     assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
@@ -1915,4 +1983,116 @@ fn test_composed_path_parameters_transform_evaluation() {
     // MIS → MVC preserves num_vertices and num_edges
     assert_eq!(final_size.get("num_vertices"), Some(10));
     assert_eq!(final_size.get("num_edges"), Some(20));
+}
+
+#[test]
+fn witness_and_value_mapping_share_one_executed_construction() {
+    use crate::rules::registry::ExecutedStep;
+    use std::rc::Rc;
+
+    static CONSTRUCTIONS: AtomicUsize = AtomicUsize::new(0);
+
+    let chain = crate::rules::ReductionChain::execute(
+        &AggregateChainSource,
+        &[|_| {
+            CONSTRUCTIONS.fetch_add(1, Ordering::SeqCst);
+            let result = Rc::new(SourceToMiddleWitnessResult {
+                target: AggregateChainMiddle,
+            });
+            Ok(ExecutedStep {
+                aggregate: Some(result.clone()),
+                interpret_optimum: None,
+                witness: result,
+            })
+        }],
+    )
+    .unwrap();
+    let step = &chain.steps[0];
+    let aggregate = step.aggregate.as_ref().unwrap();
+    assert!(std::ptr::eq(
+        step.witness.target_problem_any(),
+        aggregate.target_problem_any(),
+    ));
+    let witness = vec![1usize];
+    assert_eq!(
+        chain.extract_solution::<Vec<usize>, _>(&witness).unwrap(),
+        witness
+    );
+    assert_eq!(
+        aggregate.extract_value_dyn(serde_json::json!(7)),
+        serde_json::json!(7)
+    );
+    assert_eq!(CONSTRUCTIONS.load(Ordering::SeqCst), 1);
+}
+
+impl AggregateReductionResult for SourceToMiddleWitnessResult {
+    type Source = AggregateChainSource;
+    type Target = AggregateChainMiddle;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: Sum<u64>) -> Sum<u64> {
+        value
+    }
+}
+
+#[test]
+fn composed_witness_agrees_across_direct_chain_path_and_json() {
+    use crate::rules::ReduceTo;
+    type Cover = MinimumVertexCover<SimpleGraph, i64>;
+    type IndependentSet = MaximumIndependentSet<SimpleGraph, i64>;
+    let source = Cover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1; 3]);
+    let first = ReduceTo::<IndependentSet>::reduce_to(&source).unwrap();
+    let second = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(first.target_problem()).unwrap();
+    let third = ReduceTo::<ILP<bool>>::reduce_to(second.target_problem()).unwrap();
+    let target_solution = vec![1i64, 0, 1];
+    assert!(third
+        .target_problem()
+        .evaluate(&target_solution)
+        .unwrap()
+        .is_valid());
+    let expected = first
+        .extract_solution(
+            &second
+                .extract_solution(&third.extract_solution(&target_solution).unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(expected, vec![false, true, false]);
+    let path = ReductionPath {
+        steps: [
+            (Cover::NAME, Cover::variant()),
+            (IndependentSet::NAME, IndependentSet::variant()),
+            (
+                MaximumSetPacking::<i64>::NAME,
+                MaximumSetPacking::<i64>::variant(),
+            ),
+            (ILP::<bool>::NAME, ILP::<bool>::variant()),
+        ]
+        .into_iter()
+        .map(|(name, variant)| ReductionStep {
+            name: name.into(),
+            variant: ReductionGraph::variant_to_map(&variant),
+        })
+        .collect(),
+    };
+    let graph = ReductionGraph::new();
+    let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+    let executed = graph.execute_paths(&[path], &source).unwrap();
+    assert_eq!(
+        chain
+            .extract_solution::<Vec<bool>, _>(&target_solution)
+            .unwrap(),
+        expected
+    );
+    assert_eq!(
+        executed[0]
+            .extract_solution::<Vec<bool>, _>(&target_solution)
+            .unwrap(),
+        expected
+    );
+    assert_eq!(
+        chain.extract_solution_json(json!(target_solution)).unwrap(),
+        json!(expected)
+    );
 }

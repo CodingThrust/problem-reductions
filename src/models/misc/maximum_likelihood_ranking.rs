@@ -182,9 +182,12 @@ impl Problem for MaximumLikelihoodRanking {
 }
 
 impl crate::solvers::BruteForceProblem for MaximumLikelihoodRanking {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.num_items();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_items())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_items())
     }
 }
 

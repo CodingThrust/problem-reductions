@@ -54,7 +54,7 @@ fn generic_decision_ilp_respects_maximization_bounds() {
         if bound > 1 {
             assert!(matches!(
                 result,
-                Err(crate::solvers::ILPSolveError::UnresolvedDecision(_))
+                Err(crate::solvers::ILPSolveError::Infeasible)
             ));
             assert!(BruteForce::new().solve(&decision).unwrap().is_none());
             continue;
@@ -68,7 +68,7 @@ fn generic_decision_ilp_respects_maximization_bounds() {
 }
 
 #[test]
-fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
+fn generic_decision_ilp_reports_no_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::{ExtractionError, ReductionResult};
@@ -77,17 +77,31 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     use crate::traits::Problem;
 
     type Inner = MinimumVertexCover<SimpleGraph, i64>;
-    struct BrokenExtractor(Inner);
+    struct BrokenExtractor(Decision<Inner>);
     impl ReductionResult for BrokenExtractor {
         type Source = Decision<Inner>;
         type Target = Inner;
 
         fn target_problem(&self) -> &Inner {
-            &self.0
+            self.0.inner()
         }
 
         fn extract_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
             Err(ExtractionError::invalid("broken witness decoder"))
+        }
+    }
+
+    impl crate::rules::AggregateReductionResult for BrokenExtractor {
+        type Source = Decision<Inner>;
+        type Target = Inner;
+        fn target_problem(&self) -> &Inner {
+            self.0.inner()
+        }
+        fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &value,
+                self.0.bound(),
+            ))
         }
     }
 
@@ -104,14 +118,30 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
         path: original.path.clone(),
         reducers: original.reducers.clone(),
     };
-    pipeline.reducers[0].0 = |source| {
+    pipeline.reducers[0] = |source| {
         let source = source.downcast_ref::<Decision<Inner>>().unwrap();
-        Ok(Box::new(BrokenExtractor(source.inner().clone())))
+        let result = std::rc::Rc::new(BrokenExtractor(source.clone()));
+        Ok(crate::rules::registry::ExecutedStep {
+            aggregate: Some(result.clone()),
+            interpret_optimum: Some({
+                let result = result.clone();
+                std::rc::Rc::new(move |solution: &dyn std::any::Any| {
+                    let solution = solution.downcast_ref::<Vec<bool>>().unwrap();
+                    let value = result.0.inner().evaluate(solution)?;
+                    Ok(crate::rules::AggregateReductionResult::extract_value(
+                        result.as_ref(),
+                        value,
+                    )
+                    .is_valid())
+                })
+            }),
+            witness: result,
+        })
     };
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
         pipeline.solve(&Decision::new(inner.clone(), 0), &HighsAdapter::new(None)),
-        Err(ILPSolveError::UnresolvedDecision(_))
+        Err(ILPSolveError::Infeasible)
     ));
     assert!(matches!(
         pipeline.solve(&Decision::new(inner, 1), &HighsAdapter::new(None)),
@@ -527,18 +557,12 @@ fn solver_capability_registry_ignores_unrelated_reduction_edges() {
         minimal_pipeline
             .reducers
             .iter()
-            .map(|(reducer, aggregate)| (
-                *reducer as usize,
-                aggregate.map(|reduce| reduce as usize)
-            ))
+            .map(|reducer| *reducer as usize)
             .collect::<Vec<_>>(),
         expanded_pipeline
             .reducers
             .iter()
-            .map(|(reducer, aggregate)| (
-                *reducer as usize,
-                aggregate.map(|reduce| reduce as usize)
-            ))
+            .map(|reducer| *reducer as usize)
             .collect::<Vec<_>>()
     );
 }

@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -29,7 +28,10 @@ fn test_preemptive_scheduling_creation() {
     assert_eq!(p.lengths(), &[2, 1, 3]);
     assert_eq!(p.precedences(), &[(0, 2)]);
     assert_eq!(p.d_max(), 6);
-    assert_eq!(p.dimensions(), vec![2; 3 * 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2; 3 * 6]
+    );
     assert_eq!(
         <PreemptiveScheduling as Problem>::NAME,
         "PreemptiveScheduling"
@@ -42,7 +44,10 @@ fn test_preemptive_scheduling_empty_tasks() {
     let p = PreemptiveScheduling::new(vec![], 1, vec![]).unwrap();
     assert_eq!(p.num_tasks(), 0);
     assert_eq!(p.d_max(), 0);
-    assert_eq!(p.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(p.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 

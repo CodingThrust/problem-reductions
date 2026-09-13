@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_zero_bound() {
@@ -32,7 +31,10 @@ fn test_sparse_matrix_compression_basic() {
     assert_eq!(problem.num_cols(), 4);
     assert_eq!(problem.bound_k(), 2);
     assert_eq!(problem.storage_len(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <SparseMatrixCompression as Problem>::NAME,
         "SparseMatrixCompression"

@@ -42,7 +42,7 @@ fn test_graphpartitioning_to_qubo_matrix_matches_issue_example() {
 
     let expected_diagonal = [-48, -47, -46, -46, -47, -48];
     for (index, expected) in expected_diagonal.into_iter().enumerate() {
-        assert_eq!(qubo.get(index, index), Some(&expected));
+        assert_eq!(qubo.get(index, index), Some(expected));
     }
 
     let edge_pairs = [
@@ -57,12 +57,12 @@ fn test_graphpartitioning_to_qubo_matrix_matches_issue_example() {
         (4, 5),
     ];
     for &(u, v) in &edge_pairs {
-        assert_eq!(qubo.get(u, v), Some(&18), "edge ({u}, {v})");
+        assert_eq!(qubo.get(u, v), Some(18), "edge ({u}, {v})");
     }
 
     let non_edge_pairs = [(0, 3), (0, 4), (0, 5), (1, 4), (1, 5), (2, 5)];
     for &(u, v) in &non_edge_pairs {
-        assert_eq!(qubo.get(u, v), Some(&20), "non-edge ({u}, {v})");
+        assert_eq!(qubo.get(u, v), Some(20), "non-edge ({u}, {v})");
     }
 }
 
@@ -77,6 +77,6 @@ fn test_graphpartitioning_to_qubo_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "GraphPartitioning");
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["num_vars"], 6);
+    assert_eq!(example.target.instance["matrix"]["nrows"], 6);
     assert!(!example.solutions.is_empty());
 }

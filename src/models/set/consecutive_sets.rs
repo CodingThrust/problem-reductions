@@ -244,9 +244,14 @@ impl Problem for ConsecutiveSets {
 }
 
 impl crate::solvers::BruteForceProblem for ConsecutiveSets {
-    fn dimensions(&self) -> Vec<usize> {
-        // Each position can be any symbol (0..alphabet_size-1) or "unused" (alphabet_size)
-        vec![self.alphabet_size + 1; self.bound_k]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.bound_k)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.alphabet_size).checked_add(1usize).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

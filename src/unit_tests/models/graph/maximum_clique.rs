@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_weight_count_mismatch() {
@@ -22,7 +21,10 @@ fn test_clique_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2]
+    );
 }
 
 #[test]
@@ -291,7 +293,10 @@ fn test_clique_problem() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1i64; 3],
     );
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
     // Valid clique: select all 3 vertices (triangle is a clique)
     assert_eq!(p.evaluate(&vec![true, true, true]).unwrap(), Max(Some(3)));
     // Valid clique: select just vertex 0

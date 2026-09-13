@@ -44,9 +44,6 @@ pub struct ReductionKColoringToBicliqueCover {
     /// the diagonal indices of each source vertex without re-reading the
     /// reduction parameters.
     num_vertices: usize,
-    /// Number of source colors `q`. Used as the upper bound on the number of
-    /// color bicliques recovered during extraction.
-    num_colors: usize,
 }
 
 impl ReductionResult for ReductionKColoringToBicliqueCover {
@@ -72,14 +69,6 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.0.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a biclique cover",
-            ));
-        }
-
         Ok({
             let n = self.num_vertices;
             let k = self.target.k();
@@ -91,14 +80,11 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
             for v in 0..n {
                 let a_v = v;
                 let b_v = left_size + v;
-                let biclique = (0..k)
-                    .find(|&r| target_solution[r][a_v] && target_solution[r][b_v])
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target cover leaves diagonal gadget edge {v} uncovered"
-                        ))
-                    })?;
-                diagonal_biclique.push(biclique);
+                diagonal_biclique.extend(
+                    (0..k)
+                        .filter(|&r| target_solution[r][a_v] && target_solution[r][b_v])
+                        .take(1),
+                );
             }
 
             // Compact distinct biclique indices into colors 0..q-1 in first-seen order.
@@ -108,12 +94,6 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
             for biclique in diagonal_biclique {
                 let next_color = color_of_biclique.len();
                 let color = *color_of_biclique.entry(biclique).or_insert(next_color);
-                if color >= self.num_colors {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "target cover uses more than {} diagonal bicliques",
-                        self.num_colors
-                    )));
-                }
                 coloring.push(color);
             }
             coloring
@@ -145,7 +125,6 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
             return Ok(ReductionKColoringToBicliqueCover {
                 target: BicliqueCover::new(BipartiteGraph::new(1, 1, vec![(0, 0)]), 0),
                 num_vertices: n,
-                num_colors: q,
             });
         }
 
@@ -216,7 +195,6 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
         Ok(ReductionKColoringToBicliqueCover {
             target,
             num_vertices: n,
-            num_colors: q,
         })
     }
 }

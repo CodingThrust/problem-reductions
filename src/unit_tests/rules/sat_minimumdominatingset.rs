@@ -1,9 +1,10 @@
 use super::*;
+use crate::traits::Problem;
+include!("../jl_helpers.rs");
 use crate::models::formula::CNFClause;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_sat_to_minimumdominatingset_closed_loop() {
@@ -144,9 +145,12 @@ fn test_extract_solution_too_many_selected() {
         .expect("reduction should succeed");
 
     let ds_sol = vec![true, true, false, false];
-    assert_eq!(
-        reduction.extract_solution(&ds_sol).unwrap_err().to_string(),
-        "target dominating set does not certify satisfiability"
+    assert!(
+        !crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            reduction.target_problem().evaluate(&ds_sol).unwrap()
+        )
+        .0
     );
 }
 
@@ -156,12 +160,15 @@ fn test_extract_solution_rejects_unselected_variable_gadget() {
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![false, false, false, false])
-            .unwrap_err()
-            .to_string(),
-        "target dominating set does not certify satisfiability"
+    assert!(
+        !crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            reduction
+                .target_problem()
+                .evaluate(&vec![false, false, false, false])
+                .unwrap()
+        )
+        .0
     );
 }
 
@@ -171,12 +178,15 @@ fn test_extract_solution_rejects_selected_clause_vertex() {
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![true, false, false, true])
-            .unwrap_err()
-            .to_string(),
-        "target dominating set does not certify satisfiability"
+    assert!(
+        !crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            reduction
+                .target_problem()
+                .evaluate(&vec![true, false, false, true])
+                .unwrap()
+        )
+        .0
     );
 }
 
@@ -247,7 +257,9 @@ fn test_jl_parity_sat_to_dominatingset() {
                     .solve(result.target_problem())
                     .unwrap()
                     .expect("SAT->DS: target should have an optimal solution");
-                assert!(result.extract_solution(&target_solution).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&result), &target_solution), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&result, value); value.is_valid() })
+                );
             } else {
                 assert_satisfaction_round_trip_from_optimization_target(
                     &source,
@@ -296,22 +308,19 @@ fn test_sat_to_dominatingset_native_certificates() {
                 crate::rules::AggregateReductionResult::extract_value(&result, value),
                 Or(certificate)
             );
-            match result.extract_solution(&config) {
-                Ok(x) => {
-                    assert!(certificate);
-                    assert_eq!(source.evaluate(&x).unwrap(), Or(true));
-                    accepted = true;
-                }
-                Err(_) => assert!(!certificate),
+            if certificate {
+                let x = result.extract_solution(&config).unwrap();
+                assert_eq!(source.evaluate(&x).unwrap(), Or(true));
+                accepted = true;
             }
         }
         assert_eq!(
             accepted,
             BruteForce::new().solve(&source).unwrap().is_some()
         );
-        assert!(result
-            .extract_solution(&vec![false; target.num_vertices() + 1])
-            .is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&result), &vec![false; target.num_vertices() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&result, value); value.is_valid() })
+        );
     }
 }
 

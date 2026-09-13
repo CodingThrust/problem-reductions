@@ -76,7 +76,9 @@ fn test_ilp_integer_coefficients_preserve_large_exact_constraint() {
         reduction.extract_solution(&target_solution).unwrap(),
         target_solution
     );
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]

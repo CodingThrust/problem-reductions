@@ -1,6 +1,5 @@
 use problemreductions::models::algebraic::SimultaneousIncongruences;
 use problemreductions::solvers::BruteForce;
-use problemreductions::solvers::BruteForceProblem as _;
 use problemreductions::traits::Problem;
 
 #[test]
@@ -10,8 +9,11 @@ fn test_simultaneous_incongruences_issue_example() {
 
     assert_eq!(problem.num_pairs(), 4);
     assert_eq!(problem.pairs(), &[(2, 2), (1, 3), (2, 5), (3, 7)]);
-    assert_eq!(problem.lcm_moduli(), 210);
-    assert_eq!(problem.dimensions(), vec![210]);
+    assert_eq!(problem.lcm_moduli().unwrap(), 210);
+    assert_eq!(
+        problemreductions::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![210]
+    );
     // x=5: 5%2=1!=0(=2%2), 5%3=2!=1, 5%5=0!=2, 5%7=5!=3 => valid
     assert!(problem.evaluate(&5).unwrap());
     // x=2: 2%2=0=2%2 => invalid (first incongruence violated)

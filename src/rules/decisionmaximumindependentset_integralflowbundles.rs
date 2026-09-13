@@ -31,13 +31,6 @@ impl ReductionResult for ReductionDecisionMISToIFB {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let feasible =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !feasible.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target flow must satisfy conservation, bundle capacities, and the requirement",
-            ));
-        }
         Ok((0..self.num_source_vertices)
             .map(|i| target_solution[2 * i + 1] == 1)
             .collect())

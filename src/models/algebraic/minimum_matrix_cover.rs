@@ -3,7 +3,7 @@
 //! Given an n×n nonnegative integer matrix A, find a sign assignment
 //! f: {1,...,n} → {-1,+1} minimizing Σ a_ij · f(i) · f(j).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -44,13 +44,13 @@ inventory::submit! {
 ///     vec![3, 0, 0, 2],
 ///     vec![1, 0, 0, 4],
 ///     vec![0, 2, 4, 0],
-/// ]);
+/// ]).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumMatrixCover {
     /// The n×n nonnegative integer matrix.
     matrix: Vec<Vec<i64>>,
@@ -59,20 +59,23 @@ pub struct MinimumMatrixCover {
 impl MinimumMatrixCover {
     /// Create a new MinimumMatrixCover instance.
     ///
-    /// # Panics
-    ///
-    /// Panics if the matrix is not square or has inconsistent row lengths.
-    pub fn new(matrix: Vec<Vec<i64>>) -> Self {
+    /// Returns an error for a nonsquare matrix or a negative entry.
+    pub fn new(matrix: Vec<Vec<i64>>) -> Result<Self, ConstructionError> {
         let n = matrix.len();
         for (i, row) in matrix.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                n,
-                "Matrix must be square: row {i} has {} columns, expected {n}",
-                row.len()
-            );
+            if row.len() != n {
+                return Err(ConstructionError::InvalidInput(format!(
+                    "matrix row {i} has {} columns, expected {n}",
+                    row.len()
+                )));
+            }
+            if row.iter().any(|&entry| entry < 0) {
+                return Err(ConstructionError::InvalidInput(format!(
+                    "matrix row {i} contains a negative entry"
+                )));
+            }
         }
-        Self { matrix }
+        Ok(Self { matrix })
     }
 
     /// Returns the number of rows (= columns) of the matrix.
@@ -83,6 +86,17 @@ impl MinimumMatrixCover {
     /// Returns a reference to the matrix.
     pub fn matrix(&self) -> &[Vec<i64>] {
         &self.matrix
+    }
+}
+
+impl<'de> Deserialize<'de> for MinimumMatrixCover {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Data {
+            matrix: Vec<Vec<i64>>,
+        }
+        let data = Data::deserialize(deserializer)?;
+        Self::new(data.matrix).map_err(serde::de::Error::custom)
     }
 }
 
@@ -140,8 +154,12 @@ impl Problem for MinimumMatrixCover {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumMatrixCover {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_rows()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_rows())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -159,12 +177,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Config [0,1,1,0] → f=(-1,+1,+1,-1) → value = -20
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_matrix_cover",
-        instance: Box::new(MinimumMatrixCover::new(vec![
-            vec![0, 3, 1, 0],
-            vec![3, 0, 0, 2],
-            vec![1, 0, 0, 4],
-            vec![0, 2, 4, 0],
-        ])),
+        instance: Box::new(
+            MinimumMatrixCover::new(vec![
+                vec![0, 3, 1, 0],
+                vec![3, 0, 0, 2],
+                vec![1, 0, 0, 4],
+                vec![0, 2, 4, 0],
+            ])
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![false, true, true, false]),
         optimal_value: serde_json::json!(-20),
     }]

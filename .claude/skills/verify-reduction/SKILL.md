@@ -1,13 +1,14 @@
 ---
 name: verify-reduction
-description: Standalone mathematical verification of a reduction rule — generates a Typst proof plus constructor and independent adversary scripts with at least 5000 checks each. Reports a verdict without saving artifacts.
+description: Verify a reduction mathematically using a Typst proof and independent constructor/adversary scripts, with coverage chosen from the construction's risks. Report findings without committing artifacts.
 ---
 
 # Verify Reduction
 
-Mathematical verification of a reduction rule. Produces a Typst proof + dual Python verification scripts, iterating until all checks pass. Reports a VERIFIED/FAILED verdict. All artifacts are ephemeral — nothing is committed to the repository.
-
-Use standalone to check correctness before implementation, or as a subroutine of `/add-rule` (which calls this by default).
+Verify a reduction before implementation, standalone or as the default mathematical
+verification step of `/add-rule`. Produce a proof and independent executable
+checks in a temporary directory. Report what was established and any limitations;
+finite checks support the proof but do not replace it.
 
 ## Invocation
 
@@ -16,280 +17,148 @@ Use standalone to check correctness before implementation, or as a subroutine of
 /verify-reduction SubsetSum Partition
 ```
 
-## Step 0: Parse Input
+## Step 1: Read the Definition and Resolve the API
 
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-ISSUE=<number>
-ISSUE_JSON=$(gh issue view "$ISSUE" --json title,body,number)
-```
+For an issue, read it with `gh issue view <number> --json title,body`. Inspect both
+concrete models with `pred show <Problem> --json` and read their implementations.
+Extract the construction, mathematical domain, correctness argument, witness
+mapping, parameter formulas, worked example, and references. Consult the cited
+literature when needed to resolve a mathematical claim.
 
-If invoked with problem names instead of an issue number, use the names directly.
+Read the canonical [witness/aggregate contract](../../../docs/src/design.md#witness-and-aggregate-reductions),
+[arithmetic policy](../../../docs/src/design.md#arithmetic), and
+[validation policy](../../../docs/src/design.md#validation-evidence).
 
-## Step 1: Read Issue, Study Models, Type Check
+Locate `Solution` and `Value` definitions with `rg`, substitute concrete generic
+arguments, and follow associated types to their implementations. Record the
+resolved types and source evidence. If resolution remains unclear, use a temporary
+compile-backed Rust probe with a path dependency on the repository. Do not infer
+Rust types from problem names, unit-weight terminology, or Python integers.
 
-```bash
-gh issue view "$ISSUE" --json title,body
-pred show <Source> --json
-pred show <Target> --json
-```
+Check the actual operation:
 
-### Type compatibility gate — MANDATORY
+- A witness reduction maps solutions and justifies feasibility and, where claimed,
+  optimality preservation. Different objective directions or Rust value types are
+  not automatic failures. For example, complementing an independent set of size
+  `k` gives a vertex cover of size `n-k` and reverses optimization direction.
+- An aggregate reduction must justify its actual value conversion. Check the
+  domain of arithmetic the construction or mapping performs, not a hypothetical
+  conversion between all source and target objective values.
+- A multi-query algorithm needs the existing Turing capability. An arbitrary
+  feasibility witness does not establish a source optimum without an argument.
 
-Check source/target `Value` types before any work. The `grep` only locates the definitions; it does
-not resolve generic parameters or associated types:
+Report a concrete mathematical/API mismatch before implementation if one exists.
+Do not replace that analysis with a wrapper-pair whitelist or backend range gate.
 
-```bash
-grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
-```
+## Step 2: Write the Proof
 
-Resolve both concrete types completely before declaring compatibility:
+Write a standalone Typst proof in the temporary directory containing:
 
-1. Substitute every concrete generic argument from the proposed rule.
-2. Follow every type alias and associated type to its defining `impl`.
-3. Record the substitution chain and the source file evidence in the verification report.
-4. If any generic or associated type remains unresolved, run a compile-backed temporary Rust probe
-   using `std::any::type_name::<<ConcreteProblem as Problem>::Value>()`. Build the probe from `/tmp`
-   with a path dependency on this repository; do not modify the repository.
+- Source/target definitions and the precise applicability domain.
+- Construction steps with symbols defined before use.
+- Independent forward and reverse correctness arguments. For optimization,
+  state the objective relationship and why target optima yield source optima.
+- Witness extraction, including its mathematical preconditions.
+- Target parameter formulas, distinguishing equalities from upper bounds.
+- Small worked examples that exercise the construction. Include YES and NO
+  examples where both exist; for always-feasible optimization problems, show
+  the relevant objective relationship instead of inventing an infeasible case.
 
-Never infer a Rust value type from the mathematical problem name, from unit-weight terminology, or
-from the Python verifier's integer representation. In particular, arbitrary-precision Python
-integers do not establish that a Rust objective type is `usize` or that it is closed under all
-legal source instances.
+Use enough detail to make the argument checkable. Do not substitute phrases such
+as “obviously” or “the converse is similar” for a missing proof. Example size is
+chosen for clarity and coverage, not a minimum vertex count.
 
-Required report format:
+## Step 3: Implement Constructor Checks
+
+Write a temporary Python script with independent source/target feasibility and
+objective oracles. Cover the claims relevant to this construction:
+
+| Claim | Evidence |
+|-------|----------|
+| Forward/reverse correctness | Small exhaustive instances or justified sampling; compare feasibility and the stated optimum relationship |
+| Witness extraction | Target witnesses satisfying the mapping's preconditions produce valid source witnesses; check optimal mappings where claimed |
+| Parameter formulas | Measure constructed targets and compare with equalities or upper bounds; use symbolic checking when it adds evidence |
+| Target structure | Check the actual target invariants and gadget interactions |
+| Worked examples | Reproduce the proof's values and witnesses |
+| Arithmetic/case splits | Exercise concrete branches and representation risks in the construction |
+
+Choose exhaustive bounds and sampling from the construction's risks and cost.
+Record bounds, seeds, counts, and omissions so the evidence is reproducible.
+There is no universal minimum generated-check count. Do not duplicate solver
+precision tests or require a backend to establish mathematical equivalence.
+Python's arbitrary-precision arithmetic is not evidence that Rust construction
+arithmetic cannot overflow; inspect the actual stored representation separately.
+
+## Step 4: Run Checks and Analyze Gaps
+
+Run the script and investigate failures. Correct the proof, construction, or
+checker according to the evidence, then rerun affected checks. Map each proof
+claim to its executable evidence or explain why it is established by proof alone.
+Report untested areas rather than increasing check counts without new coverage.
+
+If a backend integration run is included, identify it separately. Record whether
+failure occurs in construction, solving, extraction, or source validation. A
+backend timeout, numerical rejection, or non-optimal termination is not itself a
+counterexample to the reduction theorem and must not be reported as a pass.
+
+## Step 5: Independent Adversary Verification
+
+Dispatch an independent subagent with the problem definitions and Typst proof,
+without the constructor script. Ask it to implement its own construction,
+extraction, feasibility, and objective checks. It must not import the constructor
+implementation. Have it challenge the proof's actual risks:
+
+- Complement/identity mappings: objective direction and witness correspondence.
+- Algebraic mappings: case boundaries, coefficients, and extraction per case.
+- Gadget mappings: unintended paths, gadget interactions, and target invariants.
+
+Use exhaustive checks or property-based strategies where they provide useful
+independent coverage, not to satisfy a count. Reproduce applicable worked examples.
+Compare both implementations on shared instances. Investigate disagreements;
+structurally different but equivalent encodings may be valid. One checker passing
+does not establish that the other checker is at fault.
+
+## Step 6: Review and Report
+
+Before reporting, confirm:
+
+- The concrete Rust types and actual witness/aggregate contract were checked.
+- The proof covers construction, both directions, extraction, and parameters.
+- Independent checks exercise relevant branches and mappings with reproducible
+  bounds/seeds; remaining gaps are stated.
+- Disagreements and failures are resolved or explicitly reported.
+- Mathematical evidence and backend integration results are distinguished.
+
+Report:
 
 ```text
-TYPE RESOLUTION:
-  Source syntax:   Min<W::Sum>
-  Substitutions:   W = One; <One as WeightElement>::Sum = i64
-  Source resolved: Min<i64>
-  Target syntax:   Min<usize>
-  Target resolved: Min<usize>
-  Full-domain compatibility: FAILED
+VERIFICATION RESULT: VERIFIED / FAILED / INCOMPLETE
+  Source and target: <concrete variants>
+  Mathematical claim and applicability domain: <summary>
+  Constructor coverage: <bounds, cases, counts>
+  Independent coverage: <bounds, cases, counts>
+  Cross-comparison: <result>
+  Remaining gaps or counterexamples: <details or none>
+  Backend integration, if run: <separate result>
 ```
 
-**Compatible pairs for `ReduceTo` (witness-capable):**
-- `Or`->`Or`
-- `Min<V>`->`Min<V>`, `Max<V>`->`Max<V>` (identical resolved inner type)
-- `Or`->`Min`, `Or`->`Max` (feasibility embeds into optimization)
+Use VERIFIED only when the proof and independent checks support the stated claim;
+use FAILED for an established defect and INCOMPLETE for unresolved evidence.
+When called by `/add-rule`, provide the checked construction, extraction, and
+examples for the Rust implementation. Keep proof/scripts/results temporary; do
+not commit generated verification artifacts.
 
-`Min<S>`->`Min<T>` or `Max<S>`->`Max<T>` with `S != T` is not automatically compatible. Proceed
-only if the rule or source model declares a bound covering every legal source instance and the
-verification proves a total, order-preserving conversion over that full declared domain. Otherwise
-STOP and report a value-domain mismatch.
+## Reduction lifecycle responsibilities
 
-**Incompatible — STOP if any of these:**
-- `Min`->`Or` or `Max`->`Or` — optimization source has no threshold K; needs a decision-variant source model
-- `Max`->`Min` or `Min`->`Max` — opposite optimization directions; needs `ReduceToAggregate` or a decision-variant wrapper
-- `Or`->`Sum` or `Min`->`Sum` — Sum is aggregate-only; needs `ReduceToAggregate`
-- Any pair involving `And` or `Sum` on the target side
+Apply the canonical [executed lifecycle](../../../docs/src/design.md#executed-reduction-lifecycle).
+State the rule's instance domain, qualifying-witness premise, source guarantee,
+and infeasibility interpretation. Check every qualifying tied optimum in small
+exhaustive cases where ties are relevant. A witness flag alone does not prove
+complete solvability or that adjacent path premises compose.
 
-**Regression case:** `MinimumDominatingSet<SimpleGraph, One>` resolves to `Min<i64>` because
-`<One as WeightElement>::Sum = i64`; `MinimumHittingSet` resolves to `Min<usize>`. Report
-`Min<i64> -> Min<usize>`, not `Min<usize> -> Min<usize>`. Without an explicit source-size bound,
-the full-domain type gate fails even though the classical cardinality reduction is mathematically
-correct and exhaustive small-instance checks pass.
-
-If incompatible, STOP and report the type mismatch and options. Do NOT proceed.
-
-### If compatible
-
-Extract: construction algorithm, correctness argument, overhead formulas, worked example, reference. Use WebSearch if the issue is incomplete.
-
-## Step 2: Write Typst Proof
-
-Write a standalone Typst proof (in a temp file, not committed).
-
-**Mandatory structure:**
-
-```typst
-== Source $arrow.r$ Target <sec:source-target>
-#theorem[...] <thm:source-target>
-#proof[
-  _Construction._ (numbered steps, every symbol defined before first use)
-  _Correctness._
-  ($arrow.r.double$) ... (genuinely independent, NOT "the converse is similar")
-  ($arrow.l.double$) ...
-  _Solution extraction._ ...
-]
-*Overhead.* (table with target metric -> formula)
-*Feasible example.* (YES instance, >=3 variables, fully worked with numbers)
-*Infeasible example.* (NO instance, fully worked — show WHY no solution exists)
-```
-
-**Hard rules:**
-- Zero instances of "clearly", "obviously", "it is easy to see", "straightforward"
-- Zero scratch work ("Wait", "Hmm", "Actually", "Let me try")
-- Two examples minimum, both with >=3 variables/vertices
-- Every symbol defined before first use
-
-## Step 3: Write Constructor Python Script
-
-Write a Python verification script (temp file) with ALL 7 mandatory sections:
-
-| Section | What to verify | Notes |
-|---------|---------------|-------|
-| 1. Symbolic (sympy) | Overhead formulas symbolically for general n | "The overhead is trivial" is NOT an excuse to skip |
-| 2. Exhaustive forward+backward | Source feasible <=> target feasible | n <= 5 minimum. ALL instances or >=300 sampled per (n,m) |
-| 3. Solution extraction | Extract source solution from every feasible target witness | Most commonly skipped section. DO NOT SKIP |
-| 4. Overhead formula | Build target, measure actual size, compare against formula | Catches off-by-one in construction |
-| 5. Structural properties | Target well-formed, no degenerate cases | Gadget reductions: girth, connectivity, widget structure |
-| 6. YES example | Reproduce exact Typst feasible example numbers | Every value must match |
-| 7. NO example | Reproduce exact Typst infeasible example, verify both sides infeasible | Must verify WHY infeasible |
-
-### Minimum check counts — STRICTLY ENFORCED
-
-| Type | Minimum checks | Minimum n |
-|------|---------------|-----------|
-| Identity (same graph, different objective) | 10,000 | n <= 6 |
-| Algebraic (padding, complement, case split) | 10,000 | n <= 5 |
-| Gadget (widget, cycle construction) | 5,000 | n <= 5 |
-
-Every reduction gets at least 5,000 checks regardless of perceived simplicity.
-
-## Step 4: Run and Iterate
-
-```bash
-python3 /tmp/verify_<source>_<target>.py
-```
-
-### Iteration 1: Fix failures
-
-Run the script. Fix any failures. Re-run until 0 failures.
-
-### Iteration 2: Check count audit
-
-Print and fill this table honestly:
-
-```
-CHECK COUNT AUDIT:
-  Total checks:          ___ (minimum: 5,000)
-  Forward direction:     ___ instances (minimum: all n <= 5)
-  Backward direction:    ___ instances (minimum: all n <= 5)
-  Solution extraction:   ___ feasible instances tested
-  Overhead formula:      ___ instances compared
-  Symbolic (sympy):      ___ identities verified
-  YES example:           verified? [yes/no]
-  NO example:            verified? [yes/no]
-  Structural properties: ___ checks
-```
-
-If ANY line is below minimum, enhance the script and re-run. Do NOT proceed.
-
-### Iteration 3: Gap analysis
-
-List EVERY claim in the Typst proof and whether it's tested:
-
-```
-CLAIM                                    TESTED BY
-"Universe has 2n elements"               Section 4: overhead
-"Complementarity forces consistency"     Section 3: extraction
-"Forward: NAE-sat -> valid splitting"    Section 2: exhaustive
-...
-```
-
-If any claim has no test, add one. If untestable, document WHY.
-
-## Step 5: Adversary Verification
-
-Dispatch a subagent that reads ONLY the Typst proof (not the constructor script) and independently implements + tests the reduction.
-
-**Adversary requirements:**
-- Own `reduce()` function from scratch
-- Own `extract_solution()` function
-- Own `is_feasible_source()` and `is_feasible_target()` validators
-- Exhaustive forward + backward for n <= 5
-- `hypothesis` property-based testing (>=2 strategies)
-- Reproduce both Typst examples (YES and NO)
-- >=5,000 total checks
-- Must NOT import from the constructor script
-
-**Typed adversary focus** (include in prompt):
-- **Identity reductions:** exhaustive enumeration n <= 6, edge-case configs (all-zero, all-one, alternating)
-- **Algebraic reductions:** case boundary conditions (e.g., S = 2T exactly, S = 2T +/- 1), per-case extraction
-- **Gadget reductions:** widget structure invariants, traversal patterns, interior vertex isolation
-
-### Cross-comparison
-
-After both scripts pass, compare `reduce()` outputs on shared instances. Both must produce structurally identical targets and agree on feasibility for all tested instances.
-
-### Verdict table
-
-| Constructor | Adversary | Cross-compare | Verdict | Action |
-|-------------|-----------|---------------|---------|--------|
-| Pass | Pass | Agree | **VERIFIED** | Done (or proceed to add-rule Step 2) |
-| Pass | Pass | Disagree | **Suspect** | Investigate — may be isomorphic or latent bug |
-| Pass | Fail | -- | **Adversary bug** | Fix adversary or clarify Typst spec |
-| Fail | Pass | -- | **Constructor bug** | Fix constructor, re-run from Step 4 |
-| Fail | Fail | -- | **Proof bug** | Re-examine Typst proof, return to Step 2 |
-
-## Step 6: Self-Review Checklist
-
-Every item must be YES. If any is NO, go back and fix.
-
-### Typst proof
-- [ ] Construction with numbered steps, symbols defined before use
-- [ ] Correctness with independent => and <= paragraphs
-- [ ] Solution extraction section present
-- [ ] Overhead table with formulas
-- [ ] YES example (>=3 variables, fully worked)
-- [ ] NO example (fully worked, explains WHY infeasible)
-- [ ] Zero hand-waving language
-- [ ] Zero scratch work
-
-### Type gate
-- [ ] Concrete Rust `Value` types fully resolved with substitution evidence
-- [ ] Different numeric domains either rejected or covered by an explicit full-domain range proof
-
-### Constructor Python
-- [ ] 0 failures, >=5,000 total checks
-- [ ] All 7 sections present and non-empty
-- [ ] Exhaustive n <= 5
-- [ ] Extraction tested for every feasible instance
-- [ ] Gap analysis: every Typst claim has a test
-
-### Adversary Python
-- [ ] 0 failures, >=5,000 total checks
-- [ ] Independent implementation (no imports from constructor)
-- [ ] `hypothesis` PBT with >=2 strategies
-- [ ] Reproduces both Typst examples
-
-### Cross-consistency
-- [ ] Cross-comparison: 0 disagreements, 0 feasibility mismatches
-
-## Step 7: Report Verdict
-
-Report the final verdict to the user:
-
-```
-VERIFICATION RESULT: VERIFIED / FAILED
-  Source: <Source>
-  Target: <Target>
-  Constructor checks: <N>
-  Adversary checks: <N>
-  Cross-comparison: <N> instances, 0 disagreements
-  Issue: #<N>
-```
-
-If called as a subroutine of `/add-rule`, the verified Python `reduce()`, `extract_solution()`, and YES/NO instances remain in conversation context for use in the Rust implementation steps. No files are saved.
-
-If called standalone, the verdict is the final output. The user can inspect the proof and scripts interactively during the session.
-
-## Common Mistakes
-
-| Mistake | Consequence |
-|---------|-------------|
-| Proceeding past type gate with incompatible types | Wasted work — math may be correct but `ReduceTo` impl is impossible |
-| Adversary imports from constructor script | Rejected — must be independent |
-| No `hypothesis` PBT in adversary | Rejected |
-| Section 1 (symbolic) empty | Rejected — "overhead is trivial" is not an excuse |
-| Only YES example, no NO example | Rejected |
-| n <= 3 or n <= 4 "because it's simple" | Rejected — minimum n <= 5 |
-| No gap analysis | Rejected — perform before proceeding |
-| Example has < 3 variables | Rejected — too degenerate |
-| Either script has < 5,000 checks | Rejected — enhance testing |
-| Extraction (Section 3) not tested | Rejected — most commonly skipped |
-| Cross-comparison skipped | Rejected |
-| Disagreements dismissed without investigation | Rejected |
-| Saving artifacts to the repository | All files are ephemeral — use temp directory, nothing committed |
+Construct each executed result once and share target, witness, value, and
+completion state. Outcome interpretation uses the rule's mathematical relation;
+ordinary extraction assumes its premises. Keep necessary dynamic/JSON conversion
+and reachable representation failures, but no checked/unchecked extraction or
+pure forwarding wrappers. Do not add `SolutionAggregate` bounds to models or
+mathematical mappings; it belongs to brute-force witness selection.

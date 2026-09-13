@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_period_vector_mismatch() {
@@ -54,7 +53,10 @@ fn test_production_planning_creation() {
     assert_eq!(problem.inventory_costs(), &[1, 1, 1, 1, 1, 1]);
     assert_eq!(problem.cost_bound(), 80);
     assert_eq!(problem.max_capacity(), 12);
-    assert_eq!(problem.dimensions(), vec![13; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![13; 6]
+    );
     assert_eq!(<ProductionPlanning as Problem>::NAME, "ProductionPlanning");
     assert_eq!(<ProductionPlanning as Problem>::variant(), vec![]);
 }

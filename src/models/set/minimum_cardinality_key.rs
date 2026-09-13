@@ -156,8 +156,12 @@ impl Problem for MinimumCardinalityKey {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumCardinalityKey {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_attributes]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_attributes)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

@@ -152,19 +152,14 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                             .0,
                             expected
                         );
-                        let result = reduction.extract_solution(&config);
-                        assert_eq!(
-                            result.is_ok(),
-                            expected,
-                            "n={n}, graph={graph_mask}, s={start}, t={end}, config={mask}"
-                        );
-                        if let Ok(order) = result {
+                        if expected {
+                            let order = reduction.extract_solution(&config).unwrap();
                             assert!(source.evaluate(&order).unwrap().0);
                         }
                     }
-                    assert!(reduction
-                        .extract_solution(&vec![false; edges.len() + 1])
-                        .is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; edges.len() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                    );
                 }
             }
         }

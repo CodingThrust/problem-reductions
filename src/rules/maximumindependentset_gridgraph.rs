@@ -29,8 +29,6 @@ impl ReductionResult for ReductionISSimpleOneToGridOne {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let encoded = crate::config::bits_to_config(target_solution);
         let mapped = self.mapping_result.map_config_back(&encoded)?;
         Ok(crate::config::config_to_bits(&mapped))

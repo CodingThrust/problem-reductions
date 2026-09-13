@@ -254,13 +254,12 @@ impl Problem for QuadraticDiophantineEquations {
 }
 
 impl crate::solvers::BruteForceProblem for QuadraticDiophantineEquations {
-    fn dimensions(&self) -> Vec<usize> {
-        let num_bits = self.witness_bit_length();
-        if num_bits == 0 {
-            Vec::new()
-        } else {
-            vec![2; num_bits]
-        }
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.witness_bit_length())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2)
     }
 }
 

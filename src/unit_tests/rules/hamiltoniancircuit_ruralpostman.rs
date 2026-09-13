@@ -147,3 +147,31 @@ fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
         "extracted solution should be a valid Hamiltonian circuit"
     );
 }
+
+#[test]
+fn aggregate_distinguishes_hamiltonian_tour_cost() {
+    for (edges, expected) in [
+        (vec![(0, 1), (1, 2), (0, 2)], true),
+        (vec![(0, 1), (1, 2)], false),
+    ] {
+        let source = HamiltonianCircuit::new(SimpleGraph::new(3, edges));
+        let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                target.evaluate(&solution).unwrap()
+            ),
+            crate::types::Or(expected)
+        );
+        if expected {
+            assert!(
+                source
+                    .evaluate(&reduction.extract_solution(&solution).unwrap())
+                    .unwrap()
+                    .0
+            );
+        }
+    }
+}

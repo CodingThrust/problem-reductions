@@ -242,8 +242,12 @@ impl Problem for MinimumGeometricConnectedDominatingSet {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumGeometricConnectedDominatingSet {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_points()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_points())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

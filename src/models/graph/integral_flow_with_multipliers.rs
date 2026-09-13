@@ -83,14 +83,8 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
                 return Err("non-terminal multipliers must be positive".into());
             }
         }
-        for &c in &spec.capacities {
-            if usize::try_from(c)
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-            {
-                return Err("capacity is too large".into());
-            }
+        if spec.capacities.iter().any(|&capacity| capacity < 0) {
+            return Err("capacities must be nonnegative".into());
         }
         Ok(Self {
             graph: DirectedGraph::new(count, spec.arcs),
@@ -140,15 +134,10 @@ impl IntegralFlowWithMultipliers {
             }
         }
 
-        for &capacity in &capacities {
-            let domain = usize::try_from(capacity)
-                .ok()
-                .and_then(|value| value.checked_add(1));
-            assert!(
-                domain.is_some(),
-                "arc capacities must fit into usize for dims()"
-            );
-        }
+        assert!(
+            capacities.iter().all(|&capacity| capacity >= 0),
+            "capacities must be nonnegative"
+        );
 
         Self {
             graph,
@@ -194,13 +183,6 @@ impl IntegralFlowWithMultipliers {
 
     pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
-    }
-
-    fn domain_size(capacity: i64) -> usize {
-        usize::try_from(capacity)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .expect("capacity already validated to fit into usize")
     }
 
     pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
@@ -297,11 +279,12 @@ impl Problem for IntegralFlowWithMultipliers {
 }
 
 impl crate::solvers::BruteForceProblem for IntegralFlowWithMultipliers {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .map(|&capacity| Self::domain_size(capacity))
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(i128::from(self.capacities[variable]) + 1)?)
     }
 }
 

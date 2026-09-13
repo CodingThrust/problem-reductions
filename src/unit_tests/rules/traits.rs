@@ -1,11 +1,6 @@
-#[test]
-fn test_traits_compile() {
-    // Traits should compile - actual tests in reduction implementations
-}
-
 use crate::rules::traits::{
-    validate_target_solution, AggregateReductionResult, DynAggregateReductionResult, ReduceTo,
-    ReduceToAggregate, ReductionResult,
+    AggregateReductionResult, DynAggregateReductionResult, ReduceTo, ReduceToAggregate,
+    ReductionResult,
 };
 use crate::traits::Problem;
 use crate::types::Sum;
@@ -47,34 +42,25 @@ impl Problem for SourceProblem {
     }
 }
 
-impl crate::solvers::BruteForceProblem for SourceProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2, 2]
-    }
-}
-
 impl Problem for TargetProblem {
     const NAME: &'static str = "Target";
     type Solution = Vec<usize>;
-    type Value = i64;
+    type Value = crate::types::Max<i64>;
 
     crate::problem_parameters![("num_variables", num_variables)];
-    fn evaluate(&self, config: &Self::Solution) -> Result<i64, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         if config.len() != 2 || config.iter().any(|&value| value >= 2) {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
                 "expected two binary target values".to_string(),
             ));
         }
-        Ok((config[0] + config[1]) as i64)
+        Ok(crate::types::Max(Some((config[0] + config[1]) as i64)))
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i64")]
-    }
-}
-
-impl crate::solvers::BruteForceProblem for TargetProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2, 2]
     }
 }
 
@@ -112,18 +98,11 @@ fn test_reduction() {
     let result = <SourceProblem as ReduceTo<TargetProblem>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();
-    assert_eq!(target.evaluate(&vec![1, 1]).unwrap(), 2);
+    assert_eq!(
+        target.evaluate(&vec![1, 1]).unwrap(),
+        crate::types::Max(Some(2))
+    );
     assert_eq!(result.extract_solution(&vec![1, 0]).unwrap(), vec![1, 0]);
-}
-
-#[test]
-fn target_solution_validation_rejects_shape_and_domain_errors() {
-    let target = TargetProblem;
-
-    assert_eq!(validate_target_solution(&target, &vec![1, 0]).unwrap(), 1);
-    assert!(validate_target_solution(&target, &vec![1]).is_err());
-    assert!(validate_target_solution(&target, &vec![1, 0, 0]).is_err());
-    assert!(validate_target_solution(&target, &vec![1, 2]).is_err());
 }
 
 #[test]
@@ -132,23 +111,30 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::ExtractionError;
     use crate::topology::SimpleGraph;
-    use crate::types::Or;
 
     let source = Decision::new(
         MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]),
         0,
     );
-    let reduction = source.reduce_to_aggregate().unwrap();
-    let value = reduction
-        .extract_value_from_solution_dyn(&vec![true, false])
+    let edge = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|edge| {
+            edge.source_name == "DecisionMinimumVertexCover"
+                && edge.target_name == "MinimumVertexCover"
+                && (edge.source_variant_fn)()
+                    == <Decision<MinimumVertexCover<SimpleGraph, i64>> as Problem>::variant()
+        })
         .unwrap();
-    assert_eq!(value.downcast_ref::<Or>(), Some(&Or(false)));
+    let step = (edge.reduce_fn.unwrap())(&source).unwrap();
+    let interpret = step.interpret_optimum.as_ref().unwrap();
+    let value = interpret(&vec![true, false]).unwrap();
+    assert!(!value);
     assert!(matches!(
-        reduction.extract_value_from_solution_dyn(&vec![true]),
+        interpret(&vec![true]),
         Err(ExtractionError::Evaluation(_))
     ));
     assert!(matches!(
-        reduction.extract_value_from_solution_dyn(&vec![1i64, 0]),
+        interpret(&vec![1i64, 0]),
         Err(ExtractionError::InvalidTargetSolution(_))
     ));
 }
@@ -190,12 +176,6 @@ impl Problem for AggregateSourceProblem {
     }
 }
 
-impl crate::solvers::BruteForceProblem for AggregateSourceProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2]
-    }
-}
-
 impl Problem for AggregateTargetProblem {
     const NAME: &'static str = "AggregateTarget";
     type Solution = Vec<usize>;
@@ -212,12 +192,6 @@ impl Problem for AggregateTargetProblem {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
-    }
-}
-
-impl crate::solvers::BruteForceProblem for AggregateTargetProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2]
     }
 }
 

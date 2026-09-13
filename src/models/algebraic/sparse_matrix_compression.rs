@@ -173,8 +173,12 @@ impl Problem for SparseMatrixCompression {
 }
 
 impl crate::solvers::BruteForceProblem for SparseMatrixCompression {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.bound_k; self.num_rows()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_rows())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.bound_k)
     }
 }
 

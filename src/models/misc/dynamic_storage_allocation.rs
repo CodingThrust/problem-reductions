@@ -172,11 +172,18 @@ impl Problem for DynamicStorageAllocation {
 }
 
 impl crate::solvers::BruteForceProblem for DynamicStorageAllocation {
-    fn dimensions(&self) -> Vec<usize> {
-        self.items
-            .iter()
-            .map(|&(_, _, s)| self.memory_size - s + 1)
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.items.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.memory_size - self.items[variable].2)
+            .checked_add(1usize)
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a search coordinate size".into(),
+                )
+            })
     }
 }
 

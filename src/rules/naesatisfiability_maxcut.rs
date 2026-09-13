@@ -42,14 +42,6 @@ impl ReductionResult for ReductionNAESATToMaxCut {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target cut does not certify a satisfying NAE assignment",
-            ));
-        }
-
         Ok({
             (0..self.source_num_vars)
                 .map(|i| target_solution[2 * i])

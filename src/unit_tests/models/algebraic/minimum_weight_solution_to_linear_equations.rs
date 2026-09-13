@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_rhs_length_mismatch() {
@@ -27,7 +26,10 @@ fn test_minimum_weight_solution_creation() {
     let problem = example_instance();
     assert_eq!(problem.num_equations(), 2);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <MinimumWeightSolutionToLinearEquations as Problem>::NAME,
         "MinimumWeightSolutionToLinearEquations"

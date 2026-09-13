@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -22,7 +21,10 @@ fn test_partition_into_forests_creation() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.num_forests(), 2);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(problem.graph().num_vertices(), 6);
 }
 

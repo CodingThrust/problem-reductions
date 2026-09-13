@@ -94,6 +94,13 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     target_solution[0] = 1; // edge (0,1)
     target_solution[1] = 1; // edge (1,2)
     target_solution[2] = 1; // edge (2,3)
+    target_solution[4] = 1; // vertex 0 is a leaf
+    target_solution[7] = 1; // vertex 3 is a leaf
+
+    // Root 0 supplies one unit to each other vertex along the path.
+    target_solution[8] = 3; // 0 -> 1
+    target_solution[10] = 2; // 1 -> 2
+    target_solution[12] = 1; // 2 -> 3
 
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),

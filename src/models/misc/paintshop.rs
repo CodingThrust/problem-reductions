@@ -214,8 +214,12 @@ impl Problem for PaintShop {
 }
 
 impl crate::solvers::BruteForceProblem for PaintShop {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_cars]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_cars)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

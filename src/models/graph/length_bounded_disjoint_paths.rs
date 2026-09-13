@@ -243,8 +243,16 @@ impl<G> crate::solvers::BruteForceProblem for LengthBoundedDisjointPaths<G>
 where
     G: Graph + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.max_paths * self.graph.num_edges()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.max_paths)
+            .checked_mul(self.graph.num_edges())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+            })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

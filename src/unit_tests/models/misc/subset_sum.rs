@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 
@@ -18,7 +17,10 @@ fn test_subsetsum_basic() {
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.sizes(), buv(&[3, 7, 1, 8, 2, 4]).as_slice());
     assert_eq!(problem.target(), &bu(11));
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(<SubsetSum as Problem>::NAME, "SubsetSum");
     assert_eq!(<SubsetSum as Problem>::variant(), vec![]);
 }
@@ -80,7 +82,10 @@ fn test_subsetsum_empty_instance() {
     // Empty set, target 0: empty subset satisfies
     let problem = SubsetSum::new_unchecked(vec![], bu(0));
     assert_eq!(problem.num_elements(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

@@ -151,7 +151,6 @@ impl IntegralFlowBundles {
         assert!(requirement > 0, "requirement must be positive");
 
         let mut arc_covered = vec![false; num_arcs];
-        let mut arc_upper_bounds = vec![i64::MAX; num_arcs];
 
         for (bundle_index, (bundle, &capacity)) in
             bundles.iter().zip(&bundle_capacities).enumerate()
@@ -172,7 +171,6 @@ impl IntegralFlowBundles {
                     "bundle {bundle_index} contains duplicate arc index {arc_index}"
                 );
                 arc_covered[arc_index] = true;
-                arc_upper_bounds[arc_index] = arc_upper_bounds[arc_index].min(capacity);
             }
         }
 
@@ -180,13 +178,6 @@ impl IntegralFlowBundles {
             assert!(
                 covered,
                 "arc {arc_index} must belong to at least one bundle"
-            );
-            let domain = usize::try_from(arc_upper_bounds[arc_index])
-                .ok()
-                .and_then(|bound| bound.checked_add(1));
-            assert!(
-                domain.is_some(),
-                "bundle-derived upper bound for arc {arc_index} must fit into usize for dims()"
             );
         }
 
@@ -369,16 +360,20 @@ impl Problem for IntegralFlowBundles {
 }
 
 impl crate::solvers::BruteForceProblem for IntegralFlowBundles {
-    fn dimensions(&self) -> Vec<usize> {
-        self.arc_upper_bounds()
-            .into_iter()
-            .map(|bound| {
-                usize::try_from(bound)
-                    .ok()
-                    .and_then(|bound| bound.checked_add(1))
-                    .expect("bundle-derived arc upper bounds are validated in the constructor")
-            })
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_arcs())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        let bound = self
+            .bundles
+            .iter()
+            .zip(&self.bundle_capacities)
+            .filter(|(bundle, _)| bundle.contains(&variable))
+            .map(|(_, &capacity)| capacity)
+            .min()
+            .expect("each arc belongs to at least one bundle");
+        Ok(usize::try_from(i128::from(bound) + 1)?)
     }
 }
 

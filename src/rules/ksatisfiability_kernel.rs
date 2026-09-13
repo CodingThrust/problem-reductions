@@ -33,13 +33,6 @@ impl ReductionResult for Reduction3SatToKernel {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target vertex selection is not a kernel",
-            ));
-        }
         let mut assignment = vec![false; self.source_num_vars];
         for (compact, &original) in self.source_variables.iter().enumerate() {
             assignment[original] = target_solution[2 * compact];

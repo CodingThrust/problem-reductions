@@ -57,7 +57,7 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 5 | Aggregate value is present | `Grep("type Value =", file)` |
 | 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
 | 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
-| 8 | Test file has >= 3 test functions | `Grep("fn test_", test_file)` — count matches, FAIL if < 3 |
+| 8 | Semantic test coverage | Inspect cases against the [validation policy](../../../docs/src/design.md#validation-evidence); require meaningful coverage of the changed behavior, not a test-function count. |
 | 9 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
 | 10 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
 | 11 | Variant registration exists | `Grep("declare_variants!|VariantEntry", file)` |
@@ -66,7 +66,7 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
-| 17 | Numeric and error contracts | Derive the expected boundary representation from the mathematical definition, then compare schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic`. Verify construction paths return `ConstructionError`, `evaluate()` returns `EvaluationError`, and no public model path returns `Result<_, String>`. |
+| 17 | Numeric and error contracts | Read the canonical [responsibility and arithmetic contract](../../../docs/src/design.md#responsibility-boundaries). Check model representation, constructor/serde consistency, and actual arithmetic risks; flag backend tolerances or enumeration limits used as model semantics. Verify construction paths return `ConstructionError`, `evaluate()` returns `EvaluationError`, and no public model path returns `Result<_, String>`. |
 
 ### Rule Checklist
 
@@ -85,8 +85,8 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 9 | Canonical rule example registered | `Grep("canonical_rule_example_specs", rule file)` and verify it is included by `src/rules/mod.rs` |
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
-| 12 | Extraction contract | Direct decoders call `validate_target_solution()`, enforce rule-specific structure, and test malformed cases; the helper does not establish feasibility or optimality. Composed extractors may delegate. |
-| 13 | Numeric and error contracts | Compare source/target boundary types, size arithmetic, coefficients, bounds, auxiliary IDs, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic`. Verify public reduction paths return `ReductionError`, preserve target `ConstructionError` as its construction cause, and never stringify or silently handle either failure. |
+| 12 | Extraction contract | Follow the canonical responsibility boundaries. Both external extraction and internal rule mappings rely on documented premises; parsing and type conversion stay at the transport boundary. Reject repeated feasibility checks and error branches excluded by construction. Solver orchestration interprets aggregate thresholds to determine source answers. No independent optimality certification is required. |
+| 13 | Numeric and error contracts | Check the [witness/aggregate contract](../../../docs/src/design.md#witness-and-aggregate-reductions) and actual construction arithmetic under the canonical policy. Do not reject different objective directions/value types or demand backend precision tests for every rule. Verify public reduction paths return `ReductionError`, preserve target `ConstructionError` as its construction cause, and never stringify or silently handle either failure. |
 
 ## Step 2b: Blacklisted File Check
 
@@ -177,3 +177,18 @@ Flag any deviation as ISSUE.
 - X/Y issue compliance checks passed (if applicable)
 - [list of all FAIL/ISSUE items as bullet points]
 ```
+
+## Reduction lifecycle responsibilities
+
+Apply the canonical [executed lifecycle](../../../docs/src/design.md#executed-reduction-lifecycle).
+State the rule's instance domain, qualifying-witness premise, source guarantee,
+and infeasibility interpretation. Check every qualifying tied optimum in small
+exhaustive cases where ties are relevant. A witness flag alone does not prove
+complete solvability or that adjacent path premises compose.
+
+Construct each executed result once and share target, witness, value, and
+completion state. Outcome interpretation uses the rule's mathematical relation;
+ordinary extraction assumes its premises. Keep necessary dynamic/JSON conversion
+and reachable representation failures, but no checked/unchecked extraction or
+pure forwarding wrappers. Do not add `SolutionAggregate` bounds to models or
+mathematical mappings; it belongs to brute-force witness selection.

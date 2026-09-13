@@ -42,7 +42,7 @@ impl LoadedProblem {
     pub fn brute_force_num_variables(&self) -> Result<Option<usize>> {
         brute_force_dimensions(&self.inner)
             .map(|dimensions| dimensions.map(|dimensions| dimensions.len()))
-            .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))
+            .map_err(|error| anyhow::anyhow!("cannot inspect brute-force coordinates: {error}"))
     }
 
     pub fn solve(&self, request: SolverRequest) -> Result<SolveResult> {
@@ -77,7 +77,7 @@ pub struct SolverCapabilitiesView {
 pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabilitiesView> {
     let key = ExactProblemKey::new(problem.problem_name(), problem.variant_map());
     let registered = solver_capabilities(&key)
-        .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))?;
+        .map_err(|error| anyhow::anyhow!("cannot inspect brute-force coordinates: {error}"))?;
     let customized = registered
         .customized
         .map(|entry| CustomizedSolverCapabilityView {
@@ -292,19 +292,15 @@ impl BundleReplay {
         })
     }
 
-    /// Map a target-space configuration back to the source space and evaluate it.
+    /// Map a target witness under the reduction contract and evaluate for display.
     pub fn extract(
         &self,
         target_config: &serde_json::Value,
-    ) -> Result<(serde_json::Value, String)> {
+    ) -> Result<(serde_json::Value, String, String)> {
+        let (target_eval, _) = self.target.evaluate_dyn(target_config)?;
         let source_config = self.chain.extract_solution_json(target_config.clone())?;
-        let source_eval = self.source.evaluate_witness_dyn(&source_config)?.ok_or_else(|| {
-            problemreductions::rules::ExtractionError::invalid(format!(
-                "extracted solution is infeasible for {}; the reduction did not establish a source solution",
-                self.source_name
-            ))
-        })?;
-        Ok((source_config, source_eval))
+        let (source_eval, _) = self.source.evaluate_dyn(&source_config)?;
+        Ok((source_config, source_eval, target_eval))
     }
 
     /// Solve the target and map the result back to the source problem.
@@ -312,25 +308,12 @@ impl BundleReplay {
     pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
         let target_result = self.target.solve(request)?;
         let solver = target_result.solver;
-        let (source_outcome, target_outcome) = match target_result.outcome {
-            SolveOutcome::Optimal {
-                solution: target_solution,
-                evaluation: target_evaluation,
-            } => {
-                let (source_solution, source_evaluation) = self.extract(&target_solution)?;
-                (
-                    SolveOutcome::Optimal {
-                        solution: source_solution,
-                        evaluation: source_evaluation,
-                    },
-                    SolveOutcome::Optimal {
-                        solution: target_solution,
-                        evaluation: target_evaluation,
-                    },
-                )
-            }
-            SolveOutcome::Infeasible => (SolveOutcome::Infeasible, SolveOutcome::Infeasible),
-        };
+        let target_outcome = target_result.outcome;
+        let source_outcome = problemreductions::solvers::complete_reduction(
+            &*self.source,
+            &self.chain,
+            &target_outcome,
+        )?;
 
         Ok(BundleSolveResult {
             source_name: self.source_name.clone(),
@@ -428,7 +411,59 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn bundle_rejects_infeasible_extracted_witness() {
+    fn ilp_qubo_bundle_maps_optima_and_infeasibility() {
+        use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+        use problemreductions::Problem;
+
+        for rhs in [1, -1] {
+            let ilp = ILP::<bool>::new(
+                2,
+                vec![LinearConstraint::le(vec![(0, 1), (1, 1)], rhs)],
+                vec![(0, 3), (1, 2)],
+                ObjectiveSense::Maximize,
+            )
+            .unwrap();
+            let source = ProblemJson {
+                problem_type: "ILP".into(),
+                variant: ILP::<bool>::variant()
+                    .into_iter()
+                    .map(|(key, value)| (key.to_string(), value.to_string()))
+                    .collect(),
+                data: serde_json::to_value(&ilp).unwrap(),
+            };
+            let route = crate::commands::reduce::parse_path_json(
+                r#"{"path":[{"from":{"name":"ILP","variant":{"variable":"bool","coefficient":"i64"}},"to":{"name":"QUBO","variant":{"weight":"i64"}}}]}"#,
+            ).unwrap();
+            let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
+            let replay = BundleReplay::prepare(&bundle).unwrap();
+            for backend in [SolverRequest::BruteForce, SolverRequest::Ilp] {
+                let result = replay.solve(backend).unwrap();
+                if rhs == 1 {
+                    let SolveOutcome::Optimal { solution, .. } = result.source_outcome else {
+                        panic!("the ILP has an optimum");
+                    };
+                    assert_eq!(solution, json!([1, 0]));
+                    let SolveOutcome::Optimal {
+                        solution: target, ..
+                    } = result.target_outcome
+                    else {
+                        panic!("the QUBO has an optimum");
+                    };
+                    assert_eq!(target, json!([true, false, false]));
+                    assert_eq!(replay.extract(&target).unwrap().0, solution);
+                } else {
+                    assert_eq!(result.source_outcome, SolveOutcome::Infeasible);
+                    assert!(matches!(
+                        result.target_outcome,
+                        SolveOutcome::Optimal { .. }
+                    ));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bundle_maps_satisfiability_outcomes_through_the_value_relation() {
         for (clauses, feasible) in [
             (vec![vec![1, 1, 1], vec![-1, -1, -1]], false),
             (vec![vec![1, 1, 1], vec![1, 1, 1]], true),
@@ -460,13 +495,61 @@ mod tests {
                 assert!(matches!(result.unwrap().source_outcome,
                     SolveOutcome::Optimal { evaluation, .. } if evaluation == "Or(true)"));
             } else {
-                let error = result.err().unwrap();
-                assert!(error
-                    .downcast_ref::<problemreductions::rules::ExtractionError>()
-                    .is_some());
-                assert!(error
-                    .to_string()
-                    .contains("extracted solution is infeasible"));
+                assert!(matches!(
+                    result.unwrap().source_outcome,
+                    SolveOutcome::Infeasible
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn bundle_and_registered_pipeline_agree_on_decision_thresholds() {
+        for bound in [0, 1] {
+            let source = ProblemJson {
+                problem_type: "DecisionMinimumVertexCover".into(),
+                variant: BTreeMap::from([
+                    ("graph".into(), "SimpleGraph".into()),
+                    ("weight".into(), "i64".into()),
+                ]),
+                data: json!({
+                    "inner": {"graph": {"num_vertices": 2, "edges": [[0,1]]}, "weights": [1,1]},
+                    "bound": bound,
+                }),
+            };
+            let route = crate::commands::reduce::parse_path_json(
+                r#"{"path":[{
+                    "from":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}},
+                    "to":{"name":"MinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                }]}"#,
+            ).unwrap();
+            let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
+            let replay = BundleReplay::prepare(&bundle).unwrap();
+            if bound == 1 {
+                assert_eq!(
+                    replay.extract(&json!([true, false])).unwrap().0,
+                    json!([true, false])
+                );
+            }
+            for backend in [
+                SolverRequest::BruteForce,
+                SolverRequest::Ilp,
+                SolverRequest::Default,
+            ] {
+                let result = replay.solve(backend).unwrap();
+                assert!(matches!(
+                    result.target_outcome,
+                    SolveOutcome::Optimal { .. }
+                ));
+                assert_eq!(
+                    matches!(result.source_outcome, SolveOutcome::Infeasible),
+                    bound == 0
+                );
+                let direct = replay.source.solve(backend).unwrap();
+                assert_eq!(
+                    matches!(direct.outcome, SolveOutcome::Infeasible),
+                    bound == 0
+                );
             }
         }
     }

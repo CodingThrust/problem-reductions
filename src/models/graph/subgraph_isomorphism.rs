@@ -175,16 +175,18 @@ impl Problem for SubgraphIsomorphism {
 }
 
 impl crate::solvers::BruteForceProblem for SubgraphIsomorphism {
-    fn dimensions(&self) -> Vec<usize> {
-        let n_host = self.host_graph.num_vertices();
-        let n_pattern = self.pattern_graph.num_vertices();
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.pattern_graph.num_vertices())
+    }
 
-        if n_pattern > n_host {
-            // No injective mapping possible: each variable gets an empty domain.
-            vec![0; n_pattern]
-        } else {
-            vec![n_host; n_pattern]
-        }
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(
+            if self.pattern_graph.num_vertices() > self.host_graph.num_vertices() {
+                0
+            } else {
+                self.host_graph.num_vertices()
+            },
+        )
     }
 }
 

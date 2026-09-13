@@ -239,13 +239,9 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_extract_solution_length
     let source = canonical_source();
     let reduction =
         ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
-    // Provide a dummy target config of the right length; extract_solution
-    // must truncate to num_original_arcs.
+    // A value-3 flow closes through the added sink-to-source return arc.
     let m = source.num_arcs();
-    let mut padded = vec![0_usize; m + 1];
-    for (i, v) in padded.iter_mut().enumerate().take(m) {
-        *v = i % 2;
-    }
+    let padded = vec![2_usize, 1, 1, 1, 2, 3];
     let extracted = reduction.extract_solution(&padded).unwrap();
     assert_eq!(extracted.len(), m);
     assert_eq!(extracted, padded[..m].to_vec());

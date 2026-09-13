@@ -1,6 +1,6 @@
 use super::*;
 use crate::traits::EvaluationError;
-use crate::types::{Aggregate, SolutionAggregate};
+use crate::types::Aggregate;
 
 #[test]
 fn test_max_identity_and_combine() {
@@ -94,27 +94,6 @@ fn test_sum_has_no_absorbing_value() {
 fn test_and_absorbing_value_is_false() {
     assert!(!And(true).is_absorbing());
     assert!(And(false).is_absorbing());
-}
-
-#[test]
-fn test_max_solution_selection() {
-    assert!(Max::contributes_to_solution(&Max(Some(7)), &Max(Some(7))));
-    assert!(!Max::contributes_to_solution(&Max(Some(3)), &Max(Some(7))));
-    assert!(!Max::contributes_to_solution(&Max(None), &Max(Some(7))));
-}
-
-#[test]
-fn test_min_solution_selection() {
-    assert!(Min::contributes_to_solution(&Min(Some(3)), &Min(Some(3))));
-    assert!(!Min::contributes_to_solution(&Min(Some(7)), &Min(Some(3))));
-    assert!(!Min::contributes_to_solution(&Min(None), &Min(Some(3))));
-}
-
-#[test]
-fn test_or_solution_selection() {
-    assert!(Or::contributes_to_solution(&Or(true), &Or(true)));
-    assert!(!Or::contributes_to_solution(&Or(false), &Or(true)));
-    assert!(!Or::contributes_to_solution(&Or(true), &Or(false)));
 }
 
 #[test]
@@ -330,27 +309,6 @@ fn test_extremum_aggregate_identity_and_combine() {
         .combine(Extremum::minimize(Some(3)))
         .unwrap();
     assert_eq!(combined, Extremum::minimize(Some(3)));
-}
-
-#[test]
-fn test_extremum_solution_selection() {
-    // Matching value and sense -> contributes
-    assert!(Extremum::contributes_to_solution(
-        &Extremum::maximize(Some(10)),
-        &Extremum::maximize(Some(10)),
-    ));
-
-    // Different value -> does not contribute
-    assert!(!Extremum::contributes_to_solution(
-        &Extremum::maximize(Some(5)),
-        &Extremum::maximize(Some(10)),
-    ));
-
-    // None config -> does not contribute
-    assert!(!Extremum::contributes_to_solution(
-        &Extremum::<i64>::maximize(None),
-        &Extremum::maximize(Some(10)),
-    ));
 }
 
 #[test]

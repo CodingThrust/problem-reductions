@@ -531,6 +531,30 @@ fn generate_reduction_entry(
         quote! { None }
     };
 
+    let aggregate_view = if attrs.aggregate {
+        quote! { Some(result.clone()) }
+    } else {
+        quote! { None }
+    };
+
+    let interpret_optimum = if attrs.aggregate {
+        quote! {
+            Some({
+                let result = result.clone();
+                std::rc::Rc::new(move |solution: &dyn std::any::Any| {
+                    let solution = solution.downcast_ref::<<#target_type as crate::traits::Problem>::Solution>()
+                        .ok_or_else(|| crate::rules::ExtractionError::invalid("target solution type mismatch"))?;
+                    let target = crate::rules::ReductionResult::target_problem(result.as_ref());
+                    let value = crate::traits::Problem::evaluate(target, solution)?;
+                    let value = crate::rules::AggregateReductionResult::extract_value(result.as_ref(), value);
+                    Ok(value.is_valid())
+                })
+            })
+        }
+    } else {
+        quote! { None }
+    };
+
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
@@ -572,12 +596,17 @@ fn generate_reduction_entry(
                     unavailable: vec![#(#unavailable_tokens),*],
                 },
                 module_path: module_path!(),
-                reduce_fn: Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+                reduce_fn: Some(|src: &dyn std::any::Any| -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
                     let src = src.downcast_ref::<#source_type>().ok_or_else(
                         crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
                     )?;
                     let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
-                    Ok(Box::new(result))
+                    let result = std::rc::Rc::new(result);
+                    Ok(crate::rules::registry::ExecutedStep {
+                        aggregate: #aggregate_view,
+                        interpret_optimum: #interpret_optimum,
+                        witness: result,
+                    })
                 }),
                 reduce_aggregate_fn: #reduce_aggregate_fn,
                 turing: false,
@@ -787,7 +816,7 @@ pub fn register_brute_force(input: TokenStream) -> TokenStream {
                         let problem = any
                             .downcast_ref::<#ty>()
                             .expect("brute-force registration received the wrong problem type");
-                        <#ty as crate::solvers::BruteForceProblem>::dimensions(problem)
+                        crate::solvers::cartesian_dimensions(problem)
                     },
                     solve_fn: |any| {
                         let problem = any
@@ -944,6 +973,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
         output.extend(quote! {
             impl crate::traits::DeclaredVariant for #ty {}
+            crate::impl_dyn_problem!(#ty);
 
             crate::inventory::submit! {
                 crate::registry::VariantEntry {

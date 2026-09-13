@@ -44,7 +44,7 @@ inventory::submit! {
 /// A configuration is an arc-ordering `pi`: position `t` carries the index of
 /// the arc occurrence used as the `t`-th arc of the trail.
 ///
-/// `dims() = vec![m; m]` where `m = num_arcs()`. A configuration is feasible
+/// `coordinate cardinalities = vec![m; m]` where `m = num_arcs()`. A configuration is feasible
 /// when:
 /// 1. it is a permutation of `0..m` (all values distinct, each in range), and
 /// 2. for every consecutive pair `(pi[t], pi[t+1])`, the target vertex of arc
@@ -135,9 +135,12 @@ impl Problem for EulerianPath {
 }
 
 impl crate::solvers::BruteForceProblem for EulerianPath {
-    fn dimensions(&self) -> Vec<usize> {
-        let m = self.graph.num_arcs();
-        vec![m; m]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_arcs())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_arcs())
     }
 }
 

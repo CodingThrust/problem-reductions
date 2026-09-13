@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -271,7 +270,10 @@ fn test_min_sum_multicenter_paper_example() {
 fn test_min_sum_multicenter_dims() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
 }
 
 #[test]

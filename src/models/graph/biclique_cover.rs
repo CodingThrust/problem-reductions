@@ -365,9 +365,14 @@ impl Problem for BicliqueCover {
 }
 
 impl crate::solvers::BruteForceProblem for BicliqueCover {
-    fn dimensions(&self) -> Vec<usize> {
-        // Each vertex has k binary variables (one per biclique)
-        vec![2; self.num_vertices() * self.k]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.num_vertices()).checked_mul(self.k).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

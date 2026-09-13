@@ -148,15 +148,10 @@ impl UndirectedTwoCommodityIntegralFlow {
             );
         }
 
-        for &capacity in &capacities {
-            let domain = usize::try_from(capacity)
-                .ok()
-                .and_then(|value| value.checked_add(1));
-            assert!(
-                domain.is_some(),
-                "edge capacities must fit into usize for dims()"
-            );
-        }
+        assert!(
+            capacities.iter().all(|&capacity| capacity >= 0),
+            "capacities must be nonnegative"
+        );
 
         Self {
             graph,
@@ -226,13 +221,6 @@ impl UndirectedTwoCommodityIntegralFlow {
 
     fn config_len(&self) -> usize {
         self.num_edges() * 4
-    }
-
-    fn domain_size(capacity: i64) -> usize {
-        usize::try_from(capacity)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .expect("capacity already validated to fit into usize")
     }
 
     fn edge_flows(&self, config: &[usize], edge_index: usize) -> Option<[usize; 4]> {
@@ -403,14 +391,14 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
 }
 
 impl crate::solvers::BruteForceProblem for UndirectedTwoCommodityIntegralFlow {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .flat_map(|&capacity| {
-                let domain = Self::domain_size(capacity);
-                std::iter::repeat_n(domain, 4)
-            })
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(4 * self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(
+            i128::from(self.capacities[variable / 4]) + 1,
+        )?)
     }
 }
 

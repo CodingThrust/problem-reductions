@@ -71,13 +71,8 @@ impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
                 );
             }
         }
-        if spec.capacities.iter().any(|&capacity| {
-            usize::try_from(capacity)
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-        }) {
-            return Err("capacities must fit in usize for dims()".to_string().into());
+        if spec.capacities.iter().any(|&capacity| capacity < 0) {
+            return Err("capacities must be nonnegative".into());
         }
         Ok(Self::new(
             spec.num_periods,
@@ -114,15 +109,6 @@ impl ProductionPlanning {
                 "all per-period vectors must have length num_periods"
             );
         }
-        assert!(
-            capacities.iter().all(|&capacity| {
-                usize::try_from(capacity)
-                    .ok()
-                    .and_then(|value| value.checked_add(1))
-                    .is_some()
-            }),
-            "capacities must fit in usize for dims()"
-        );
         assert!(
             demands
                 .iter()
@@ -200,11 +186,7 @@ impl Problem for ProductionPlanning {
                 let mut total_cost = 0_i64;
 
                 for (i, &production) in config.iter().enumerate() {
-                    let capacity = match usize::try_from(self.capacities[i]) {
-                        Ok(value) => value,
-                        Err(_) => return Ok(Or(false)),
-                    };
-                    if production > capacity {
+                    if production as i128 > i128::from(self.capacities[i]) {
                         return Ok(Or(false));
                     }
 
@@ -289,16 +271,12 @@ impl Problem for ProductionPlanning {
 }
 
 impl crate::solvers::BruteForceProblem for ProductionPlanning {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .map(|&capacity| {
-                usize::try_from(capacity)
-                    .ok()
-                    .and_then(|value| value.checked_add(1))
-                    .expect("capacities validated in constructor")
-            })
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(i128::from(self.capacities[variable]) + 1)?)
     }
 }
 

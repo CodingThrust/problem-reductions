@@ -35,8 +35,11 @@ fn test_minimum_fault_detection_test_set_creation() {
     assert_eq!(problem.num_inputs(), 2);
     assert_eq!(problem.num_outputs(), 2);
     // 2 inputs * 2 outputs = 4 pairs
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(problem.num_variables().unwrap(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <MinimumFaultDetectionTestSet as Problem>::NAME,
         "MinimumFaultDetectionTestSet"

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -20,7 +19,10 @@ fn test_monochromatic_triangle_creation() {
     // K4 has 4 triangles
     assert_eq!(problem.triangles().len(), 4);
     // One binary variable per edge
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
 }
 

@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_maps_rhs_to_target() {
@@ -30,7 +29,10 @@ fn test_minimum_weight_decoding_creation() {
     let problem = example_instance();
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_cols(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <MinimumWeightDecoding as Problem>::NAME,
         "MinimumWeightDecoding"

@@ -266,14 +266,6 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreePartition {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "the target assignment is not a valid 3-partition",
-            ));
-        }
-
         let mut groups = vec![Vec::with_capacity(3); self.target.num_groups()];
         let mut positions = Vec::with_capacity(target_solution.len());
         for (element, &group) in target_solution.iter().enumerate() {

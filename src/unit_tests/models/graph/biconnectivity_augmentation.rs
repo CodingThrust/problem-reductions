@@ -28,8 +28,11 @@ fn test_biconnectivity_augmentation_creation() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_potential_edges(), 2);
-    assert_eq!(problem.dimensions(), vec![2, 2]);
-    assert_eq!(problem.num_variables(), 2);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 2);
     assert!(problem.is_weighted());
     assert_eq!(
         <BiconnectivityAugmentation<SimpleGraph, i64> as Problem>::NAME,

@@ -69,7 +69,7 @@ fn test_kcoloring_to_qubo_sizes() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
 
     // QUBO should have n*K = 3*3 = 9 variables
-    assert_eq!(reduction.target_problem().num_variables(), 9);
+    assert_eq!(reduction.target_problem().num_variables().unwrap(), 9);
 }
 
 #[test]
@@ -116,13 +116,10 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
                         AggregateReductionResult::extract_value(&reduction, value).0,
                         expected
                     );
-                    match reduction.extract_solution(&config) {
-                        Ok(coloring) => {
-                            assert!(expected);
-                            assert!(source.evaluate(&coloring).unwrap().0);
-                            any_coloring = true;
-                        }
-                        Err(_) => assert!(!expected),
+                    if expected {
+                        let coloring = reduction.extract_solution(&config).unwrap();
+                        assert!(source.evaluate(&coloring).unwrap().0);
+                        any_coloring = true;
                     }
                 }
                 assert_eq!(
@@ -136,7 +133,9 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
                 assert!(
                     !AggregateReductionResult::extract_value(&reduction, crate::types::Min(None)).0
                 );
-                assert!(reduction.extract_solution(&vec![false; n * k + 1]).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; n * k + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                );
             }
         }
     }

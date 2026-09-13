@@ -170,8 +170,12 @@ impl Problem for MultiprocessorScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for MultiprocessorScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_processors; self.num_tasks()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_processors)
     }
 }
 

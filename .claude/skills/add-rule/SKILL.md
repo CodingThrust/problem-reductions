@@ -36,47 +36,31 @@ Before any implementation, collect all required information. If called from `iss
 
 If any item is missing, ask the user to provide it. Put a high standard on item 7 (concrete example): it must be in tutorial style with clear intuition and easy to understand. Do NOT proceed until the checklist is complete.
 
-## Step 0.5: Type Compatibility Gate
+## Step 0.5: Mathematical and API Contract
 
-Check source/target `Value` types before any work:
+Read [the canonical witness/aggregate contract](../../../docs/src/design.md#witness-and-aggregate-reductions).
+Resolve the source and target's concrete `Solution` and `Value` types from their
+implementations and check the construction, extraction preconditions, and
+objective relationship. Different optimization directions or numeric value
+types do not by themselves invalidate a witness reduction. Use the existing
+witness, aggregate, or Turing capability required by the actual operation.
+Report a concrete mathematical or Rust implementation mismatch if one exists;
+do not apply a wrapper-pair whitelist.
 
-```bash
-grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
-```
+## Arithmetic and Validation
 
-**Compatible pairs for `ReduceTo` (witness-capable):**
-- `Or`->`Or`, `Min`->`Min`, `Max`->`Max` (same type)
-- `Or`->`Min`, `Or`->`Max` (feasibility embeds into optimization)
+Follow [the canonical arithmetic and boundary policy](../../../docs/src/design.md#arithmetic)
+and [validation evidence](../../../docs/src/design.md#validation-evidence).
+Derive representation requirements from the source, target, and construction.
+Ask for clarification only when the mathematical domain is ambiguous, not to
+make the contributor choose Rust types.
 
-**Incompatible — STOP if any of these:**
-- `Min`->`Or` or `Max`->`Or` — optimization source has no threshold K; needs a decision-variant source model
-- `Max`->`Min` or `Min`->`Max` — opposite optimization directions; needs `ReduceToAggregate` or a decision-variant wrapper
-- `Or`->`Sum` or `Min`->`Sum` — Sum is aggregate-only; needs `ReduceToAggregate`
-- Any pair involving `And` or `Sum` on the target side
-
-If incompatible, STOP and comment on the issue explaining the type mismatch and options. Do NOT proceed.
-
-## Numeric Safety Gate
-
-Read `docs/src/design.md#numeric-types-and-arithmetic`. Derive implementation
-types, supported ranges, and checked conversions from the mathematical source,
-target, and reduction algorithm. Use `usize` for in-memory indices, collection
-lengths, and brute-force dimensions; `u64` for registered problem size
-parameters; `i64` for signed mathematical integers; `bool` for Boolean data;
-and finite `f64` for real or rational data. Another format needs mathematical
-or target-schema justification; there is no `i32` boundary format.
-Temporary reduction calculations are outside this format contract, but fields
-written into the target must use the target model's format.
-
-Ask the contributor only when a mathematical domain or constraint is ambiguous;
-do not ask them to choose Rust types. Do not use `as` for range/sign changes.
-Check target-size arithmetic and auxiliary identifiers before constructing the
-target, verify serde/CLI uses the same ranges, and add focused boundary tests.
-The public reduction returns `ReductionError`: preserve a target constructor's
-`ConstructionError` as `ReductionError::Construction`, and report reduction
-arithmetic directly as the corresponding `ReductionError`; do not stringify or
-silently handle either error. Convert model-derived `i64` values to `f64` only
-through `i64_to_exact_f64`.
+Check the construction's actual size arithmetic, coefficients, and auxiliary
+identifiers. Preserve target `ConstructionError` as `ReductionError::Construction`
+and report reduction arithmetic through `ReductionError`; do not stringify or
+silently handle failures. Reuse shared conversion and extraction APIs according
+to their contracts. Backend transport limits and precision checks belong to the
+adapter, not this rule's applicability domain or mandatory test template.
 
 ## Reference Implementations
 
@@ -90,11 +74,11 @@ Read these first to understand the patterns:
 
 **If `--no-verify` was passed, skip to Step 2.**
 
-Invoke the `/verify-reduction` skill to mathematically verify the reduction before writing Rust code. This runs the full verification pipeline: Typst proof, constructor Python script (>=5000 checks), adversary subagent (>=5000 independent checks), and cross-comparison.
+Invoke the `/verify-reduction` skill to mathematically verify the reduction before writing Rust code. This runs the full verification pipeline: Typst proof, constructor Python script, independent adversary checks, and cross-comparison with coverage justified by the construction.
 
 All verification artifacts are ephemeral — they exist only in conversation context and temp files. Nothing is committed to the repository.
 
-**If verification FAILS: STOP. Report to user. Do NOT proceed to implementation.**
+**Proceed to implementation only when verification reports VERIFIED. For FAILED or INCOMPLETE, report the concrete defect or missing evidence and resolve it before implementing.**
 
 If verification passes, the verified Python `reduce()` and `extract_solution()` functions, along with the YES/NO instances, carry forward in conversation context to inform Steps 2-5. Use them as the canonical spec for the Rust implementation.
 
@@ -106,7 +90,7 @@ Create `src/rules/<source>_<target>.rs` (all lowercase, no underscores between w
 // Required structure:
 // 1. ReductionResult struct (holds the target problem + mapping state)
 // 2. ReductionResult trait impl (target_problem + extract_solution)
-// 3. #[reduction(overhead = { ... })] on ReduceTo impl
+// 3. #[reduction(transform = exact { ... })] on ReduceTo impl
 // 4. ReduceTo trait impl (reduce_to method)
 // 5. #[cfg(test)] #[path = "..."] mod tests;
 ```
@@ -130,31 +114,30 @@ impl ReductionResult for ReductionXToY {
     fn target_problem(&self) -> &Self::Target { &self.target }
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        target_solution: &<TargetType as Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<SourceType as Problem>::Solution> {
         let source_solution = /* translate the verified mathematical mapping exactly */;
         Ok(source_solution)
     }
 }
 ```
 
-Every direct extractor must call `validate_target_solution()` once before decoding. It checks only length and value domains, not feasibility, optimality, or rule-specific structure; reject malformed structure with `ExtractionError`.
+Follow the canonical [extraction contract](../../../docs/src/design.md#witness-and-aggregate-reductions). Document the mathematical premises and implement the mapping directly. The adapter accepts solver output; external callers supply witnesses under the same mathematical contract. Extraction does not validate feasibility or optimality. Do not recheck constraints or add errors for states excluded by construction. Solver orchestration uses aggregate mappings to handle required thresholds before witness extraction; do not independently certify optimality or compensate for a rule bug with source revalidation.
 
-**ReduceTo with `#[reduction]` macro** (overhead is **required**):
+**ReduceTo with `#[reduction]` macro** (a parameter relation is **required**):
 ```rust
-#[reduction(overhead = {
+#[reduction(transform = exact {
     field_name = "source_field",
 })]
 impl ReduceTo<TargetType> for SourceType {
     type Result = ReductionXToY;
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         // If Step 1 ran: translate the verified Python reduce() logic
     }
 }
 ```
 
-Each primitive reduction is determined by the exact source/target variant pair. Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]`.
+Each primitive reduction is determined by the exact source/target variant pair. Keep one primitive registration per endpoint pair and declare `transform = exact`, `upper_bound`, or `unavailable` according to the actual parameter relationship; follow `.claude/CLAUDE.md` for metadata requirements.
 
 **Aggregate-only reductions:** when the rule preserves aggregate values but cannot recover a source witness from a target witness, implement `AggregateReductionResult` + `ReduceToAggregate<T>` instead of `ReductionResult` + `ReduceTo<T>`. Those edges are not auto-registered by `#[reduction]` yet; register them manually with `ReductionEntry { reduce_aggregate_fn: ..., capabilities: EdgeCapabilities::aggregate_only(), ... }`. See `src/unit_tests/rules/traits.rs` and `src/unit_tests/rules/graph.rs` for the reference pattern.
 
@@ -162,7 +145,7 @@ Each primitive reduction is determined by the exact source/target variant pair. 
 
 Add to `src/rules/mod.rs`:
 - `mod <source>_<target>;`
-- If feature-gated (e.g., ILP): wrap with `#[cfg(feature = "ilp-solver")]`
+- Register native ILP rules normally; there is no ILP solver feature gate.
 
 ## Step 4: Write unit tests
 
@@ -171,20 +154,20 @@ Create `src/unit_tests/rules/<source>_<target>.rs`:
 **Required: closed-loop test** (`test_<source>_to_<target>_closed_loop`):
 ```rust
 // 1. Create source problem instance
-// 2. Reduce: let reduction = ReduceTo::<Target>::reduce_to(&source);
+// 2. Reduce: let reduction = ReduceTo::<Target>::reduce_to(&source).unwrap();
 // 3. Solve target: solver.find_all_witnesses(reduction.target_problem())
 // 4. Extract: reduction.extract_solution(&target_sol)
 // 5. Verify: extracted solution is valid and optimal for source
 ```
 
-If Step 1 ran, use the verified YES/NO instances from conversation context to construct test cases. Include both a feasible (closed-loop) and infeasible (no witnesses) test.
+If Step 1 ran, use the verified YES/NO instances from conversation context to construct test cases. Include feasible and infeasible cases when both exist; for always-feasible optimization models, check the objective relationship instead.
 
 Additional recommended tests:
 - Verify target problem structure (correct size, edges, constraints)
 - Edge cases (empty graph, single vertex, etc.)
 - Weight preservation (if applicable)
 
-Test every malformed representation distinguished by the decoder (for example, zero or multiple one-hot selections, or duplicate permutation entries). The canonical example supplies shared wrong-length and out-of-domain tests.
+Test the mathematical mapping for witnesses satisfying its premises, including all tied optima on suitable small instances. Malformed witnesses do not impose rejection requirements on extraction. Keep necessary parsing/type-conversion tests at the transport boundary.
 
 For aggregate-only reductions, replace the closed-loop witness test with value-chain tests:
 - Solve the target with `Solver::solve()`
@@ -195,7 +178,7 @@ Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule fil
 
 ## Step 5: Add canonical example
 
-Define `canonical_rule_example_specs()` in the rule module and include it from `src/rules/mod.rs::canonical_rule_example_specs()`. This enrolls the rule in shared round-trip, wrong-length, and out-of-domain extraction tests.
+Define `canonical_rule_example_specs()` in the rule module and include it from `src/rules/mod.rs::canonical_rule_example_specs()`. This enrolls the rule in shared example checks. Extraction correctness checks use witnesses satisfying the mapping contract; model evaluation retains its own domain checks.
 
 ## Step 6: Document in paper (MANDATORY — DO NOT SKIP)
 
@@ -272,8 +255,8 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 ## Solver Rules
 
 - If the target problem already has a solver, use it directly.
-- If the solving strategy requires ILP, implement the ILP reduction rule alongside (feature-gated under `ilp-solver`).
-- A direct-to-ILP rule is a production reduction, not a stub. Match the completeness bar used by strong ILP reductions in this repo: exact overhead metadata, structure + closed-loop + extraction tests, weighted/infeasible/pathological regressions whenever the semantics require them, and ILP-enabled workspace verification.
+- If the solving strategy requires ILP, implement and register the ILP reduction rule alongside.
+- A direct-to-ILP rule is a production reduction, not a stub. Match the completeness bar used by strong ILP reductions in this repo: correct parameter relationships, structure + closed-loop + extraction tests, weighted/infeasible cases and arithmetic regressions justified by the construction, and representative solver integration.
 - When this rule is the companion to a `[Model]` issue that explicitly claims ILP solvability, it belongs in the same PR as the model.
 - If a custom solver is needed, implement in `src/solvers/` and document.
 
@@ -304,10 +287,25 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Wrong overhead expression | Must accurately reflect the size relationship |
 | Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
-| Permissive extraction | Validate first, then map exactly or return `ExtractionError` |
+| Permissive extraction | Map witnesses satisfying the documented premises directly; do not validate feasibility or optimality |
 | Not adding a canonical example | Add the rule-local spec and include it from `src/rules/mod.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
 | Skipping Step 6 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
 | Source/target model not fully registered | Both problems must already have `ProblemSchemaEntry`, `declare_variants!`, registry aliases as needed, and a construction contract -- use `add-model` skill first |
-| Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
+| Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need correct parameter relationships and strong semantic regression tests, just like other production ILP rules |
 | Skipping verification for complex reductions | Verification is default for a reason — `--no-verify` is for trivial identity/complement reductions only |
+
+## Reduction lifecycle responsibilities
+
+Apply the canonical [executed lifecycle](../../../docs/src/design.md#executed-reduction-lifecycle).
+State the rule's instance domain, qualifying-witness premise, source guarantee,
+and infeasibility interpretation. Check every qualifying tied optimum in small
+exhaustive cases where ties are relevant. A witness flag alone does not prove
+complete solvability or that adjacent path premises compose.
+
+Construct each executed result once and share target, witness, value, and
+completion state. Outcome interpretation uses the rule's mathematical relation;
+ordinary extraction assumes its premises. Keep necessary dynamic/JSON conversion
+and reachable representation failures, but no checked/unchecked extraction or
+pure forwarding wrappers. Do not add `SolutionAggregate` bounds to models or
+mathematical mappings; it belongs to brute-force witness selection.

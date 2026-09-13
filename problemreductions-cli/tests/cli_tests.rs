@@ -9648,7 +9648,7 @@ fn test_extract_roundtrip_mis_to_qubo() {
 }
 
 #[test]
-fn test_extract_rejects_structurally_invalid_one_hot_config() {
+fn test_extract_decodes_a_qualifying_tour() {
     let problem_file = std::env::temp_dir().join("pred_test_extract_tsp_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_extract_tsp_bundle.json");
 
@@ -9686,19 +9686,22 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
 
     let extract_out = pred()
         .args([
+            "--json",
             "extract",
             bundle_file.to_str().unwrap(),
             "--config",
-            "[false,false,false,false,false,false,false,false,false]",
+            "[true,false,false,false,true,false,false,false,true]",
         ])
         .output()
         .unwrap();
-    assert!(!extract_out.status.success());
-    let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("tour position 0 does not select exactly one vertex"),
-        "unexpected stderr: {stderr}"
+        extract_out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&extract_out.stderr)
     );
+    let json: serde_json::Value = serde_json::from_slice(&extract_out.stdout).unwrap();
+    assert_eq!(json["solution"], serde_json::json!([true, true, true]));
+    assert_eq!(json["evaluation"], "Min(3)");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
@@ -9950,7 +9953,7 @@ fn test_extract_rejects_tampered_target_data() {
     // what the reduction chain actually produces.
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
-    bundle["target"]["data"]["matrix"][0][0] = serde_json::json!(999.0);
+    bundle["target"]["data"]["matrix"]["data"][0] = serde_json::json!(999.0);
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 

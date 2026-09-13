@@ -37,7 +37,7 @@ inventory::submit! {
 /// # Representation
 ///
 /// Each task has a variable in `{0, ..., m-1}` representing its processor
-/// assignment, giving `dims() = [m; n]`.
+/// assignment, giving `coordinate cardinalities = [m; n]`.
 ///
 /// # Example
 ///
@@ -303,8 +303,12 @@ impl Problem for SchedulingToMinimizeWeightedCompletionTime {
 }
 
 impl crate::solvers::BruteForceProblem for SchedulingToMinimizeWeightedCompletionTime {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_processors; self.num_tasks()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_processors)
     }
 }
 

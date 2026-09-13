@@ -37,7 +37,7 @@ inventory::submit! {
 ///
 /// Uses a permutation encoding (Lehmer code), where `config[i]` selects which
 /// remaining task to schedule next from the pool of unscheduled tasks.
-/// `dims() = [n, n-1, ..., 2, 1]`. Tasks are scheduled left-to-right: each
+/// `coordinate cardinalities = [n, n-1, ..., 2, 1]`. Tasks are scheduled left-to-right: each
 /// task starts at `max(release_time, current_time)`. The schedule is feasible
 /// iff every task finishes by its deadline.
 ///
@@ -167,8 +167,12 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
 }
 
 impl crate::solvers::BruteForceProblem for SequencingWithReleaseTimesAndDeadlines {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks() - variable)
     }
 }
 

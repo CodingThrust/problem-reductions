@@ -51,15 +51,6 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if target_solution.len() != self.target.num_cols() {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} target codeword bits, got {}",
-                self.target.num_cols(),
-                target_solution.len()
-            )));
-        }
-
         Ok(target_solution[..self.source_num_triples].to_vec())
     }
 }

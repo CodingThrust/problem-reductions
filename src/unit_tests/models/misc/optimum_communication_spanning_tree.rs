@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_edge_weights() {
@@ -36,7 +35,10 @@ fn test_ocst_creation() {
     let problem = k4_problem();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(
         <OptimumCommunicationSpanningTree as Problem>::NAME,
         "OptimumCommunicationSpanningTree"

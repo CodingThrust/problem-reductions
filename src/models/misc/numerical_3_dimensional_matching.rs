@@ -217,8 +217,12 @@ impl Problem for Numerical3DimensionalMatching {
 }
 
 impl crate::solvers::BruteForceProblem for Numerical3DimensionalMatching {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_groups(); 2 * self.num_groups()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2 * self.num_groups())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_groups())
     }
 }
 

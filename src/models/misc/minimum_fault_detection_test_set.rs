@@ -335,8 +335,16 @@ impl Problem for MinimumFaultDetectionTestSet {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumFaultDetectionTestSet {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.inputs.len() * self.outputs.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.inputs.len())
+            .checked_mul(self.outputs.len())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+            })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

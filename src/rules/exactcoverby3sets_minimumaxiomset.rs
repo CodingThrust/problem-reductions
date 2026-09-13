@@ -33,8 +33,6 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let set_offset = self.source_universe_size;
             (0..self.source_num_subsets)

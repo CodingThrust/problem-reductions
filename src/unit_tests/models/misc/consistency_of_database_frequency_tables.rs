@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_known_values() {
@@ -60,7 +59,7 @@ fn test_cdft_creation_and_getters() {
     let problem = issue_yes_instance();
     assert_eq!(problem.num_objects(), 6);
     assert_eq!(problem.num_attributes(), 3);
-    assert_eq!(problem.domain_size_product(), 12);
+    assert_eq!(problem.max_domain_size(), 3);
     assert_eq!(problem.num_assignment_variables(), 18);
     assert_eq!(problem.attribute_domains(), &[2, 3, 2]);
     assert_eq!(problem.frequency_tables().len(), 2);
@@ -79,7 +78,7 @@ fn test_cdft_creation_and_getters() {
 fn test_cdft_dims_repeat_attribute_domains_for_each_object() {
     let problem = issue_yes_instance();
     assert_eq!(
-        problem.dimensions(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2]
     );
 }

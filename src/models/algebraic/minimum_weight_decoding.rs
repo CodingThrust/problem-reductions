@@ -181,8 +181,12 @@ impl Problem for MinimumWeightDecoding {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_cols()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_cols())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

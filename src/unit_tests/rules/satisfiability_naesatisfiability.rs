@@ -86,14 +86,13 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
         vec![false, false]
     );
 
-    let error = reduction.extract_solution(&vec![false, false]).unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        "target evaluation failed during extraction: invalid configuration: assignment length does not match the formula variables"
-    );
     assert!(reduction
-        .extract_solution(&vec![false, false, false, false])
+        .target_problem()
+        .evaluate(&vec![false, false])
         .is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false, false, false, false]), Ok(value) if { value.is_valid() })
+    );
     assert!(crate::rules::DynReductionResult::target_solution_from_json(
         &reduction,
         serde_json::json!([false, 2, false])

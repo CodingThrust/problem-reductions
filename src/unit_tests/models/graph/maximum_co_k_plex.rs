@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Max, One};
@@ -34,7 +33,10 @@ fn test_maximum_co_k_plex_creation() {
     assert_eq!(problem.graph().num_edges(), 5);
     assert_eq!(problem.weights(), &[5, 1, 4, 1, 3]);
     assert_eq!(problem.bound_k(), 2);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 5);
     assert!(problem.is_weighted());

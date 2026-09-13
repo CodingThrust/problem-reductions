@@ -224,8 +224,12 @@ impl Problem for TwoDimensionalConsecutiveSets {
 }
 
 impl crate::solvers::BruteForceProblem for TwoDimensionalConsecutiveSets {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.alphabet_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.alphabet_size)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.alphabet_size)
     }
 }
 

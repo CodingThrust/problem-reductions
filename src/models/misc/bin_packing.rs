@@ -155,9 +155,12 @@ where
     W: WeightElement + crate::variant::VariantParam,
     W::Sum: PartialOrd,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.sizes.len();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.sizes.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.sizes.len())
     }
 }
 

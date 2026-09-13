@@ -70,7 +70,9 @@ fn test_codegen_empty_graph_and_invalid_orders() {
     let reduction =
         ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source).unwrap();
     for config in [vec![], vec![9; 6], vec![0; 6], vec![1, 0, 2, 3, 4, 5]] {
-        assert!(reduction.extract_solution(&config).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

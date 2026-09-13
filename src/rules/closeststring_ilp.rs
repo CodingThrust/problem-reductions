@@ -55,26 +55,12 @@ impl ReductionResult for ReductionClosestStringToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        let q = self.alphabet_size;
-        let mut center = Vec::with_capacity(self.string_length);
-        for position in 0..self.string_length {
-            let block = &target_solution[position * q..(position + 1) * q];
-            let mut selected = block.iter().enumerate().filter(|(_, value)| **value == 1);
-            let symbol = selected.next().map(|(symbol, _)| symbol).ok_or_else(|| {
-                crate::rules::ExtractionError::invalid(format!(
-                    "center position {position} has no selected symbol"
-                ))
-            })?;
-            if selected.next().is_some() || block.iter().any(|&value| value > 1) {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "center position {position} is not one-hot"
-                )));
-            }
-            center.push(symbol);
-        }
-        Ok(center)
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.string_length,
+            self.alphabet_size,
+            0,
+        ))
     }
 }
 

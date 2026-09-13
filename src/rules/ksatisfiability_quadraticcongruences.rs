@@ -40,13 +40,6 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target integer does not satisfy the bounded quadratic congruence",
-            ));
-        }
         // Validation gives 0 < x <= H. Each prime power divides exactly one
         // of H-x and H+x. The coordinate zero sign chooses x or -x so that
         // the odd linear target, rather than its negative, is recovered.

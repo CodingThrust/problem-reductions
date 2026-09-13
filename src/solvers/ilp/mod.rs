@@ -1,6 +1,6 @@
 //! ILP (Integer Linear Programming) solver module.
 //!
-//! This module provides an ILP solver using the HiGHS solver via the `good_lp` crate.
+//! This module provides an ILP solver using the HiGHS solver through its native Rust bindings.
 
 pub(super) mod adapter;
 mod solver;

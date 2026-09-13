@@ -285,10 +285,22 @@ impl Problem for MinimumInternalMacroDataCompression {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumInternalMacroDataCompression {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.string.len();
-        let domain = self.alphabet_size + n + 1; // literals + EOS + pointers
-        vec![domain; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.string.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        ((self.alphabet_size)
+            .checked_add(self.string.len())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a coordinate cardinality".into(),
+                )
+            })?)
+        .checked_add(1usize)
+        .ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

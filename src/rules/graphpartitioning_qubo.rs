@@ -28,8 +28,6 @@ impl ReductionResult for ReductionGraphPartitioningToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(target_solution.to_vec())
     }
 }
@@ -52,7 +50,7 @@ impl ReduceTo<QUBO<i64>> for GraphPartitioning<SimpleGraph> {
         let penalty = edge_count
             .checked_add(1)
             .ok_or_else(|| overflow("computing the balance penalty"))?;
-        let mut matrix = vec![vec![0i64; n]; n];
+        let mut matrix = vec![std::collections::BTreeMap::new(); n];
         let mut degrees = vec![0usize; n];
         let edges = self.graph().edges();
 
@@ -70,11 +68,11 @@ impl ReduceTo<QUBO<i64>> for GraphPartitioning<SimpleGraph> {
                         .ok_or_else(|| overflow("computing a balance coefficient"))?,
                 )
                 .ok_or_else(|| overflow("computing a balance coefficient"))?;
-            row[i] = degree
+            *row.entry(i).or_insert(0i64) = degree
                 .checked_add(balance_linear)
                 .ok_or_else(|| overflow("combining QUBO diagonal coefficients"))?;
-            for value in row.iter_mut().skip(i + 1) {
-                *value = penalty
+            for j in (i + 1)..n {
+                *row.entry(j).or_insert(0i64) = penalty
                     .checked_mul(2)
                     .ok_or_else(|| overflow("computing a balance interaction coefficient"))?;
             }
@@ -82,13 +80,14 @@ impl ReduceTo<QUBO<i64>> for GraphPartitioning<SimpleGraph> {
 
         for (u, v) in edges {
             let (lo, hi) = if u < v { (u, v) } else { (v, u) };
-            matrix[lo][hi] = matrix[lo][hi]
+            let coefficient = matrix[lo].entry(hi).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_sub(2)
                 .ok_or_else(|| overflow("adding a cut interaction coefficient"))?;
         }
 
         Ok(ReductionGraphPartitioningToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
+            target: QUBO::from_rows(matrix).map_err(|message| {
                 crate::rules::ReductionError::construction::<
                     GraphPartitioning<SimpleGraph>,
                     QUBO<i64>,

@@ -38,8 +38,6 @@ impl ReductionResult for ReductionKCliqueToBCBS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             (0..self.num_original_vertices)
                 .map(|v| !target_solution[v])

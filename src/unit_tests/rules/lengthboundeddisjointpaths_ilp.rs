@@ -113,6 +113,8 @@ fn test_lengthboundeddisjointpaths_to_ilp_rejects_invalid_target_solutions() {
     let source = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]), 0, 1, 1);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     for solution in [vec![], vec![2, 0, 1], vec![0, 0, 1], vec![1, 0, 0]] {
-        assert!(reduction.extract_solution(&solution).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &solution), Ok(value) if value.is_valid())
+        );
     }
 }

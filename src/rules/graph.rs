@@ -11,8 +11,8 @@
 //! - JSON export for documentation and visualization
 
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ParameterContractError, ReduceFn, ReductionEntry,
-    ReductionParameterContract,
+    AggregateReduceFn, EdgeCapabilities, ExecutedStep, ParameterContractError, ReduceFn,
+    ReductionEntry, ReductionParameterContract,
 };
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemParameters;
@@ -22,7 +22,6 @@ use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
-use std::rc::Rc;
 
 type NodePathOrderKey<'a> = (usize, Vec<(&'static str, &'a BTreeMap<String, String>)>);
 
@@ -1528,21 +1527,51 @@ pub struct MatchedEntry {
     pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
 }
 
+/// Apply already-constructed witness mappings in reverse order.
+fn map_solution<'a>(
+    steps: impl DoubleEndedIterator<Item = &'a dyn DynReductionResult>,
+    target_solution: &dyn Any,
+) -> crate::rules::ExtractionResult<Box<dyn Any>> {
+    let mut steps = steps.rev();
+    let first = steps.next().expect("reduction path has no steps");
+    let mut solution = first.extract_solution_dyn(target_solution)?;
+    for step in steps {
+        solution = step.extract_solution_dyn(solution.as_ref())?;
+    }
+    Ok(solution)
+}
+
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
 ///
 /// Holds the intermediate reduction results from executing a multi-step
 /// reduction path. Provides access to the final target problem and
 /// solution extraction back to the source problem space.
 pub struct ReductionChain {
-    steps: Vec<Box<dyn DynReductionResult>>,
+    pub(crate) steps: Vec<ExecutedStep>,
 }
 
 impl ReductionChain {
+    pub(crate) fn execute(
+        source: &dyn Any,
+        reducers: &[ReduceFn],
+    ) -> Result<Self, crate::rules::ReductionError> {
+        let mut steps: Vec<ExecutedStep> = Vec::with_capacity(reducers.len());
+        for reduce in reducers {
+            let input = steps
+                .last()
+                .map(|step| step.witness.target_problem_any())
+                .unwrap_or(source);
+            steps.push(reduce(input)?);
+        }
+        Ok(Self { steps })
+    }
+
     /// Get the final target problem as a type-erased reference.
     pub fn target_problem_any(&self) -> &dyn Any {
         self.steps
             .last()
             .expect("ReductionChain has no steps")
+            .witness
             .target_problem_any()
     }
 
@@ -1560,12 +1589,10 @@ impl ReductionChain {
         &self,
         target_solution: &T,
     ) -> crate::rules::ExtractionResult<S> {
-        let mut steps = self.steps.iter().rev();
-        let first = steps.next().expect("ReductionChain has no steps");
-        let mut solution = first.extract_solution_dyn(target_solution)?;
-        for step in steps {
-            solution = step.extract_solution_dyn(solution.as_ref())?;
-        }
+        let solution = map_solution(
+            self.steps.iter().map(|step| step.witness.as_ref()),
+            target_solution,
+        )?;
         solution
             .downcast::<S>()
             .map(|solution| *solution)
@@ -1578,11 +1605,14 @@ impl ReductionChain {
         target_solution: serde_json::Value,
     ) -> crate::rules::ExtractionResult<serde_json::Value> {
         let last = self.steps.last().expect("ReductionChain has no steps");
-        let mut solution = last.target_solution_from_json(target_solution)?;
-        for step in self.steps.iter().rev() {
-            solution = step.extract_solution_dyn(solution.as_ref())?;
-        }
-        self.steps[0].source_solution_json(solution.as_ref())
+        let solution = last.witness.target_solution_from_json(target_solution)?;
+        let solution = map_solution(
+            self.steps.iter().map(|step| step.witness.as_ref()),
+            solution.as_ref(),
+        )?;
+        self.steps[0]
+            .witness
+            .source_solution_json(solution.as_ref())
     }
 }
 
@@ -1679,18 +1709,7 @@ impl ReductionGraph {
             };
             edge_fns.push(reduce);
         }
-        // Execute the chain
-        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        let step = (edge_fns[0])(source)?;
-        steps.push(step);
-        for edge_fn in &edge_fns[1..] {
-            let step = {
-                let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)?
-            };
-            steps.push(step);
-        }
-        Ok(Some(ReductionChain { steps }))
+        Ok(Some(ReductionChain::execute(source, &edge_fns)?))
     }
 
     /// Execute an aggregate-value reduction path on a source problem instance.
@@ -1744,7 +1763,7 @@ pub struct ExecutedPath {
     /// The variant-level path.
     pub path: ReductionPath,
     /// The executed reduction steps (one per hop), shared via `Rc`.
-    steps: Vec<Rc<dyn DynReductionResult>>,
+    steps: Vec<ExecutedStep>,
 }
 
 impl ExecutedPath {
@@ -1753,6 +1772,7 @@ impl ExecutedPath {
         self.steps
             .last()
             .expect("ExecutedPath has no steps")
+            .witness
             .target_problem_any()
     }
 
@@ -1765,7 +1785,7 @@ impl ExecutedPath {
                 ReductionGraph::compute_problem_parameters(
                     &target.name,
                     &target.variant,
-                    result.target_problem_any(),
+                    result.witness.target_problem_any(),
                 )
             })
             .collect()
@@ -1776,12 +1796,10 @@ impl ExecutedPath {
         &self,
         target_solution: &T,
     ) -> crate::rules::ExtractionResult<S> {
-        let mut steps = self.steps.iter().rev();
-        let first = steps.next().expect("ExecutedPath has no steps");
-        let mut solution = first.extract_solution_dyn(target_solution)?;
-        for step in steps {
-            solution = step.extract_solution_dyn(solution.as_ref())?;
-        }
+        let solution = map_solution(
+            self.steps.iter().map(|step| step.witness.as_ref()),
+            target_solution,
+        )?;
         solution
             .downcast::<S>()
             .map(|solution| *solution)
@@ -1796,8 +1814,7 @@ impl ReductionGraph {
         paths: &[ReductionPath],
         source_instance: &dyn Any,
     ) -> Result<Vec<ExecutedPath>, ExecutePathsError> {
-        let mut prefixes: HashMap<Vec<ReductionStep>, Vec<Rc<dyn DynReductionResult>>> =
-            HashMap::new();
+        let mut prefixes: HashMap<Vec<ReductionStep>, ExecutedStep> = HashMap::new();
         let mut executed = Vec::with_capacity(paths.len());
         let mut batch_source: Option<&ReductionStep> = None;
         for (path_index, path) in paths.iter().enumerate() {
@@ -1815,14 +1832,12 @@ impl ReductionGraph {
             } else {
                 batch_source = Some(source);
             }
-            let source_prefix = vec![source.clone()];
-            let mut chain = prefixes.get(&source_prefix).cloned().unwrap_or_default();
-            prefixes.entry(source_prefix.clone()).or_default();
-            let mut prefix = source_prefix;
+            let mut chain: Vec<ExecutedStep> = Vec::with_capacity(path.len());
+            let mut prefix = vec![source.clone()];
             for pair in path.steps.windows(2) {
                 prefix.push(pair[1].clone());
                 if let Some(cached) = prefixes.get(&prefix) {
-                    chain = cached.clone();
+                    chain.push(cached.clone());
                     continue;
                 }
                 let source_node = self
@@ -1857,12 +1872,12 @@ impl ReductionGraph {
                 };
                 let current = chain
                     .last()
-                    .map(|step| step.target_problem_any())
+                    .map(|step| step.witness.target_problem_any())
                     .unwrap_or(source_instance);
                 let result = reduce_fn(current)
                     .map_err(|cause| ExecutePathsError::Reduction { path_index, cause })?;
-                chain.push(Rc::from(result));
-                prefixes.insert(prefix.clone(), chain.clone());
+                prefixes.insert(prefix.clone(), result.clone());
+                chain.push(result);
             }
             executed.push(ExecutedPath {
                 path: path.clone(),

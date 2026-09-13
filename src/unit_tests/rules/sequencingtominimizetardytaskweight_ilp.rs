@@ -134,24 +134,23 @@ fn test_tardy_ilp_signed_permutations_and_all_indicators() {
                             (0..count).all(|job| (bits[count * count + job] == 1) == expected[job]);
                         let value = target.evaluate(&bits).unwrap();
                         assert_eq!(value.is_valid(), exact);
-                        let extracted = reduction.extract_solution(&bits);
-                        assert_eq!(extracted.is_ok(), exact);
                         if exact {
+                            let extracted = reduction.extract_solution(&bits);
                             assert_eq!(value.value, source_value.0);
                             assert_eq!(extracted.unwrap(), schedule);
                         }
                     }
                 }
-                assert!(reduction
-                    .extract_solution(&vec![0; target.num_vars() + 1])
-                    .is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &vec![0; target.num_vars() + 1]), Ok(value) if value.is_valid())
+                );
                 if count > 0 {
-                    assert!(reduction
-                        .extract_solution(&vec![0; target.num_vars()])
-                        .is_err());
-                    assert!(reduction
-                        .extract_solution(&vec![2; target.num_vars()])
-                        .is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &vec![0; target.num_vars()]), Ok(value) if value.is_valid())
+                    );
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &vec![2; target.num_vars()]), Ok(value) if value.is_valid())
+                    );
                 }
             }
         }
@@ -170,9 +169,8 @@ fn test_tardy_ilp_complete_small_binary_target_space() {
             .map(|i| i64::from(mask & (1 << i) != 0))
             .collect();
         let value = target.evaluate(&bits).unwrap();
-        let extracted = reduction.extract_solution(&bits);
-        assert_eq!(extracted.is_ok(), value.is_valid());
-        if let Ok(schedule) = extracted {
+        if value.is_valid() {
+            let schedule = reduction.extract_solution(&bits).unwrap();
             assert_eq!(source.evaluate(&schedule).unwrap().0, value.value);
             feasible += 1;
         }

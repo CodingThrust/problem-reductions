@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -27,7 +26,10 @@ fn test_partition_into_paths_basic() {
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.num_groups(), 3);
-    assert_eq!(problem.dimensions(), vec![3; 9]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 9]
+    );
 
     // Valid partition: {0,1,2}, {3,4,5}, {6,7,8}
     // Config: vertex i -> group i/3

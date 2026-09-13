@@ -55,8 +55,6 @@ impl ReductionResult for ReductionPSToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok((0..self.num_tasks)
             .map(|task| {
                 (0..self.d_max)

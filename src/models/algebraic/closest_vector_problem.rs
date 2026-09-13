@@ -1,11 +1,14 @@
 //! Closest Vector Problem (CVP).
 //!
 //! Given an integer lattice basis `B` and a target vector `t`, find integer
-//! coefficients `x` minimizing `||Bx - t||_2`.
+//! coefficients `x` minimizing the squared distance `||Bx - t||_2^2`.
 
 use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{EvaluationError, Problem};
 use crate::types::Min;
+use num_bigint::BigInt;
+use num_rational::BigRational;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 /// Target coordinate domains supported by [`ClosestVectorProblem`].
@@ -16,8 +19,8 @@ pub trait ClosestVectorTarget: Clone + std::fmt::Debug + 'static {
     /// Validate one stored target coordinate.
     fn validate(&self, index: usize) -> Result<(), ConstructionError>;
 
-    /// Convert one coordinate for numerical evaluation and solving.
-    fn to_f64(&self) -> Result<f64, EvaluationError>;
+    /// Represent a stored coordinate exactly for distance evaluation and solving.
+    fn to_rational(&self) -> BigRational;
 }
 
 impl ClosestVectorTarget for i64 {
@@ -27,9 +30,8 @@ impl ClosestVectorTarget for i64 {
         Ok(())
     }
 
-    fn to_f64(&self) -> Result<f64, EvaluationError> {
-        crate::types::i64_to_exact_f64(*self)
-            .map_err(|error| EvaluationError::InexactFloatConversion(error.to_string()))
+    fn to_rational(&self) -> BigRational {
+        BigRational::from_integer((*self).into())
     }
 }
 
@@ -46,8 +48,8 @@ impl ClosestVectorTarget for f64 {
         }
     }
 
-    fn to_f64(&self) -> Result<f64, EvaluationError> {
-        Ok(*self)
+    fn to_rational(&self) -> BigRational {
+        BigRational::from_float(*self).expect("CVP target coordinate must be finite")
     }
 }
 
@@ -119,7 +121,7 @@ impl<T: ClosestVectorTarget> ClosestVectorProblem<T> {
                 basis.len()
             )));
         }
-        if independent_rows(&basis, ambient_dimension)?.is_none() {
+        if independent_rows(&basis, ambient_dimension).is_none() {
             return Err(ConstructionError::Conversion(
                 "closest-vector basis columns must be linearly independent".into(),
             ));
@@ -147,62 +149,72 @@ impl<T: ClosestVectorTarget> ClosestVectorProblem<T> {
         &self.target
     }
 
-    pub(crate) fn independent_rows(&self) -> Result<Vec<usize>, ConstructionError> {
-        independent_rows(&self.basis, self.ambient_dimension())?.ok_or_else(|| {
-            ConstructionError::Conversion(
-                "closest-vector basis columns must be linearly independent".into(),
-            )
-        })
+    pub(crate) fn independent_rows(&self) -> Vec<usize> {
+        independent_rows(&self.basis, self.ambient_dimension())
+            .expect("CVP basis columns must be independent")
+    }
+
+    /// Exact squared distance from the lattice point to the stored target.
+    pub fn squared_distance(&self, solution: &[i64]) -> Result<BigRational, EvaluationError> {
+        if solution.len() != self.num_basis_vectors() {
+            return Err(EvaluationError::InvalidConfiguration(format!(
+                "expected {} closest-vector coefficients, got {}",
+                self.num_basis_vectors(),
+                solution.len()
+            )));
+        }
+        Ok(self
+            .target
+            .iter()
+            .enumerate()
+            .map(|(row, target)| {
+                let coordinate: BigInt = solution
+                    .iter()
+                    .zip(&self.basis)
+                    .map(|(&coefficient, column)| BigInt::from(coefficient) * column[row])
+                    .sum();
+                let difference = BigRational::from_integer(coordinate) - target.to_rational();
+                &difference * &difference
+            })
+            .sum())
     }
 }
 
-fn independent_rows(
-    basis: &[Vec<i64>],
-    ambient_dimension: usize,
-) -> Result<Option<Vec<usize>>, ConstructionError> {
+fn independent_rows(basis: &[Vec<i64>], ambient_dimension: usize) -> Option<Vec<usize>> {
     let num_columns = basis.len();
     if num_columns == 0 {
-        return Ok(Some(Vec::new()));
+        return Some(Vec::new());
     }
 
     let mut matrix = (0..ambient_dimension)
-        .map(|row| basis.iter().map(|column| column[row]).collect::<Vec<_>>())
+        .map(|row| {
+            basis
+                .iter()
+                .map(|column| BigInt::from(column[row]))
+                .collect::<Vec<_>>()
+        })
         .collect::<Vec<_>>();
-    let mut previous_pivot = 1_i64;
+    let mut previous_pivot = BigInt::from(1);
     let mut row_indices = (0..ambient_dimension).collect::<Vec<_>>();
 
     for column in 0..num_columns {
-        let Some(pivot_row) = (column..ambient_dimension).find(|&row| matrix[row][column] != 0)
-        else {
-            return Ok(None);
-        };
+        let pivot_row = (column..ambient_dimension).find(|&row| !matrix[row][column].is_zero())?;
         matrix.swap(column, pivot_row);
         row_indices.swap(column, pivot_row);
-        let pivot = matrix[column][column];
+        let pivot = matrix[column][column].clone();
 
         for row in (column + 1)..ambient_dimension {
             for next_column in (column + 1)..num_columns {
-                let left = matrix[row][next_column]
-                    .checked_mul(pivot)
-                    .ok_or_else(rank_overflow)?;
-                let right = matrix[row][column]
-                    .checked_mul(matrix[column][next_column])
-                    .ok_or_else(rank_overflow)?;
-                let numerator = left.checked_sub(right).ok_or_else(rank_overflow)?;
-                matrix[row][next_column] = numerator
-                    .checked_div(previous_pivot)
-                    .ok_or_else(rank_overflow)?;
+                matrix[row][next_column] = (&matrix[row][next_column] * &pivot
+                    - &matrix[row][column] * &matrix[column][next_column])
+                    / &previous_pivot;
             }
-            matrix[row][column] = 0;
+            matrix[row][column] = BigInt::zero();
         }
         previous_pivot = pivot;
     }
     row_indices.truncate(num_columns);
-    Ok(Some(row_indices))
-}
-
-fn rank_overflow() -> ConstructionError {
-    ConstructionError::IntegerOverflow("checking closest-vector basis rank".into())
+    Some(row_indices)
 }
 
 impl<'de, T> Deserialize<'de> for ClosestVectorProblem<T>
@@ -230,58 +242,15 @@ where
 {
     const NAME: &'static str = "ClosestVectorProblem";
     type Solution = Vec<i64>;
-    type Value = Min<f64>;
+    type Value = Min<BigRational>;
 
     crate::problem_parameters![
         ("ambient_dimension", ambient_dimension),
         ("num_basis_vectors", num_basis_vectors),
     ];
 
-    fn evaluate(&self, solution: &Self::Solution) -> Result<Min<f64>, EvaluationError> {
-        if solution.len() != self.num_basis_vectors() {
-            return Err(EvaluationError::InvalidConfiguration(format!(
-                "expected {} closest-vector coefficients, got {}",
-                self.num_basis_vectors(),
-                solution.len()
-            )));
-        }
-
-        let mut displacement = self
-            .target
-            .iter()
-            .map(ClosestVectorTarget::to_f64)
-            .collect::<Result<Vec<_>, _>>()?;
-        for value in &mut displacement {
-            *value = -*value;
-        }
-
-        for (&coefficient, column) in solution.iter().zip(&self.basis) {
-            let coefficient = crate::types::i64_to_exact_f64(coefficient)
-                .map_err(|error| EvaluationError::InexactFloatConversion(error.to_string()))?;
-            for (value, &basis_entry) in displacement.iter_mut().zip(column) {
-                let basis_entry = crate::types::i64_to_exact_f64(basis_entry)
-                    .map_err(|error| EvaluationError::InexactFloatConversion(error.to_string()))?;
-                let next = *value + coefficient * basis_entry;
-                if !next.is_finite() {
-                    return Err(EvaluationError::NonFiniteResult(
-                        "computing closest-vector displacement".into(),
-                    ));
-                }
-                *value = next;
-            }
-        }
-
-        let squared_norm = displacement.into_iter().try_fold(0.0, |total, value| {
-            let next = total + value * value;
-            if next.is_finite() {
-                Ok(next)
-            } else {
-                Err(EvaluationError::NonFiniteResult(
-                    "computing closest-vector norm".into(),
-                ))
-            }
-        })?;
-        Ok(Min(Some(squared_norm.sqrt())))
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError> {
+        Ok(Min(Some(self.squared_distance(solution)?)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -303,7 +272,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 .expect("canonical closest-vector instance must be valid"),
         ),
         optimal_config: serde_json::json!(vec![1, 1]),
-        optimal_value: serde_json::json!(0.0),
+        optimal_value: serde_json::json!(BigRational::zero()),
     }]
 }
 

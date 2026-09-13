@@ -223,12 +223,27 @@ impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
         }
         for (index, prize) in vertex_prizes.iter().enumerate() {
             prize.validate_element(&format!("vertex prize at index {index}"))?;
+            if prize.to_sum() < W::Sum::zero() {
+                return Err(ConstructionError::InvalidInput(format!(
+                    "vertex prize at index {index} must be nonnegative"
+                )));
+            }
         }
         for (index, cost) in edge_costs.iter().enumerate() {
             cost.validate_element(&format!("edge cost at index {index}"))?;
+            if cost.to_sum() < W::Sum::zero() {
+                return Err(ConstructionError::InvalidInput(format!(
+                    "edge cost at index {index} must be nonnegative"
+                )));
+            }
         }
         beta.validate_element("beta")?;
         omega.validate_element("omega")?;
+        if beta.to_sum() < W::Sum::zero() || omega.to_sum() < W::Sum::zero() {
+            return Err(ConstructionError::InvalidInput(
+                "beta and omega must be nonnegative".into(),
+            ));
+        }
         Ok(Self {
             graph,
             vertex_prizes,
@@ -389,8 +404,16 @@ where
     G: Graph + VariantParam,
     W: WeightElement + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices() + self.graph.num_edges()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.graph.num_vertices())
+            .checked_add(self.graph.num_edges())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+            })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

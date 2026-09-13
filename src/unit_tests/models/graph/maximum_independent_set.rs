@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_simple_weights() {
     let problem = MaximumIndependentSet::try_from(MaximumIndependentSetSimpleI64CreateSpec {
@@ -10,10 +9,10 @@ fn create_spec_defaults_simple_weights() {
     .unwrap();
     assert_eq!(problem.weights(), &[1, 1, 1]);
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_independent_set_creation() {
@@ -23,7 +22,12 @@ fn test_independent_set_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.dimensions().len(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        4
+    );
 }
 
 #[test]

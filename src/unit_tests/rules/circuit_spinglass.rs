@@ -5,7 +5,6 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::{NumericSize, WeightElement};
 use num_traits::Num;
-include!("../jl_helpers.rs");
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<bool>, Vec<bool>)])
@@ -359,7 +358,9 @@ fn test_circuit_spinglass_all_threshold_witnesses_native_domain() {
                     assert!(source.evaluate(&decoded).unwrap().0);
                     actual.insert(decoded);
                 } else {
-                    assert!(reduction.extract_solution(&spins).is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &spins), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                    );
                 }
             }
             assert_eq!(actual, expected, "expression {expr:?}, output {output}");
@@ -382,10 +383,14 @@ fn test_circuit_spinglass_unsat_threshold_and_invalid_spins() {
         .find_all_witnesses(ReductionResult::target_problem(&reduction))
         .unwrap()
     {
-        assert!(reduction.extract_solution(&witness).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        );
     }
     for bad in [vec![], vec![1], vec![0, 0], vec![1, 1, 1]] {
-        assert!(reduction.extract_solution(&bad).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &bad), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        );
     }
     let empty = CircuitSAT::new(Circuit::new(vec![]));
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&empty).unwrap();

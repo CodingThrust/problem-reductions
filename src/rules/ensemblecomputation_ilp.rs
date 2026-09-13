@@ -42,30 +42,20 @@ impl ReductionResult for ReductionEnsembleComputationToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
         let mut config = Vec::with_capacity(2 * self.budget);
-        let mut inactive = false;
         for step in 0..self.budget {
             let active = target_solution[self.activity_base + step];
             if active == 0 {
-                inactive = true;
-                continue;
-            }
-            if active != 1 || inactive {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "active ensemble-operation slots must form a binary prefix",
-                ));
+                break;
             }
             for left in [true, false] {
-                let selected = (0..self.universe_size + step)
-                    .filter(|&operand| target_solution[self.selector_var(left, step, operand)] == 1)
-                    .collect::<Vec<_>>();
-                if selected.len() != 1 {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "each active ensemble operation must select exactly one operand per side",
-                    ));
-                }
-                config.push(selected[0]);
+                config.push(
+                    (0..self.universe_size + step)
+                        .filter(|&operand| {
+                            target_solution[self.selector_var(left, step, operand)] == 1
+                        })
+                        .sum(),
+                );
             }
         }
         let filler = if self.universe_size >= 2 {

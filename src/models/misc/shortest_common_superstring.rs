@@ -202,8 +202,14 @@ impl Problem for ShortestCommonSuperstring {
 }
 
 impl crate::solvers::BruteForceProblem for ShortestCommonSuperstring {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.alphabet_size + 1; self.max_length]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.max_length)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.alphabet_size).checked_add(1usize).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

@@ -275,9 +275,14 @@ impl Problem for PreemptiveScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for PreemptiveScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        let d = self.d_max();
-        vec![2; self.num_tasks() * d]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.num_tasks()).checked_mul(self.d_max()).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

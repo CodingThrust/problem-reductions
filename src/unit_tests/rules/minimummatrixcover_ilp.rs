@@ -13,7 +13,8 @@ fn test_minimum_matrix_cover_to_ilp_closed_loop() {
         vec![3, 0, 0, 2],
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
-    ]);
+    ])
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&problem, &reduction);
@@ -28,7 +29,7 @@ fn test_minimum_matrix_cover_to_ilp_closed_loop() {
 
 #[test]
 fn test_minimum_matrix_cover_to_ilp_structure() {
-    let problem = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]);
+    let problem = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -54,7 +55,8 @@ fn test_minimum_matrix_cover_to_ilp_bf_vs_ilp() {
         vec![3, 0, 0, 2],
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
-    ]);
+    ])
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
@@ -72,7 +74,7 @@ fn test_minimum_matrix_cover_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_minimum_matrix_cover_to_ilp_2x2() {
-    let problem = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]);
+    let problem = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -86,7 +88,7 @@ fn test_minimum_matrix_cover_to_ilp_2x2() {
 
 #[test]
 fn test_minimum_matrix_cover_to_ilp_1x1() {
-    let problem = MinimumMatrixCover::new(vec![vec![5]]);
+    let problem = MinimumMatrixCover::new(vec![vec![5]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -108,7 +110,8 @@ fn test_minimum_matrix_cover_to_ilp_1x1() {
 fn test_minimum_matrix_cover_to_ilp_diagonal_matrix() {
     // Diagonal matrix: all off-diagonal entries are 0
     // Value is always Σ a_ii (constant), since f(i)²=1
-    let problem = MinimumMatrixCover::new(vec![vec![2, 0, 0], vec![0, 3, 0], vec![0, 0, 1]]);
+    let problem =
+        MinimumMatrixCover::new(vec![vec![2, 0, 0], vec![0, 3, 0], vec![0, 0, 1]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -122,7 +125,7 @@ fn test_minimum_matrix_cover_to_ilp_diagonal_matrix() {
 #[test]
 fn test_minimum_matrix_cover_to_ilp_asymmetric() {
     // Non-symmetric matrix
-    let problem = MinimumMatrixCover::new(vec![vec![0, 5], vec![1, 0]]);
+    let problem = MinimumMatrixCover::new(vec![vec![0, 5], vec![1, 0]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();

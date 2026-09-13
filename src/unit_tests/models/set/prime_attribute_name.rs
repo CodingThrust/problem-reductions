@@ -44,8 +44,11 @@ fn test_prime_attribute_name_creation() {
     assert_eq!(problem.num_attributes(), 6);
     assert_eq!(problem.num_dependencies(), 3);
     assert_eq!(problem.query_attribute(), 3);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2, 2]
+    );
     assert_eq!(problem.dependencies().len(), 3);
 }
 

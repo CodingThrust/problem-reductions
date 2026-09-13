@@ -91,7 +91,6 @@ impl ReductionResult for ReductionOSSToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
         let start = self.num_order_vars;
         let end = start + self.num_jobs * self.num_machines;
         crate::rules::ilp_helpers::decode_usize_values(&target_solution[start..end])

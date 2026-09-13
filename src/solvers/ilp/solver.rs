@@ -8,14 +8,9 @@ use crate::traits::Problem;
 /// A failure to produce an ILP solution optimal within backend numerical tolerances.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ILPSolveError {
-    /// The constraints have no feasible assignment.
-    #[error("the ILP is infeasible")]
+    /// The completed solve establishes that the source has no feasible solution.
+    #[error("the problem is infeasible")]
     Infeasible,
-    /// A target witness did not establish the source decision threshold.
-    #[error(
-        "the ILP witness does not meet the decision threshold for {0}; the decision is unresolved"
-    )]
-    UnresolvedDecision(String),
     /// The objective is unbounded.
     #[error("the ILP objective is unbounded")]
     Unbounded,
@@ -37,9 +32,12 @@ pub enum ILPSolveError {
     /// A registered pipeline returned a solution for a different source type.
     #[error("registered ILP pipeline returned the wrong solution type for {0}")]
     PipelineTypeMismatch(String),
-    /// HiGHS reported an optimal solution that is invalid after integer rounding.
-    #[error("the ILP backend returned an invalid rounded solution: {0}")]
+    /// The backend or reduction pipeline returned an invalid witness.
+    #[error("the ILP solve returned an invalid solution: {0}")]
     InvalidSolution(String),
+    /// Evaluating the extracted source witness failed.
+    #[error(transparent)]
+    Evaluation(#[from] crate::traits::EvaluationError),
     /// An exact integer in the model cannot be transported through the f64 backend API.
     #[error("the ILP backend cannot represent an exact model integer: {0}")]
     InexactTransport(#[from] crate::types::ExactI64ToF64Error),

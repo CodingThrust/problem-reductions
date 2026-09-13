@@ -50,22 +50,15 @@ impl ReductionResult for ReductionCMOToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let n2 = self.num_vertices_2;
-        (0..self.num_vertices_1)
+        Ok((0..self.num_vertices_1)
             .map(|residue| {
-                let mut selected =
-                    (0..n2).filter(|&mapped| target_solution[residue * n2 + mapped] == 1);
-                match (selected.next(), selected.next()) {
-                    (Some(mapped), None) => Ok(mapped + 1),
-                    (None, _) => Ok(0),
-                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "source residue {residue} maps to multiple target residues"
-                    ))),
+                match (0..n2).find(|&mapped| target_solution[residue * n2 + mapped] == 1) {
+                    Some(mapped) => mapped + 1,
+                    None => 0,
                 }
             })
-            .collect()
+            .collect())
     }
 }
 

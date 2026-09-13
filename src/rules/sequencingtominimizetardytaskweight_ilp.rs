@@ -29,20 +29,12 @@ impl ReductionResult for ReductionSTMTTWToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.is_valid() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
-
         Ok({
             let n = self.num_tasks;
             // Decode the n*n block of x_{j,p} variables into a schedule permutation.
             // The source uses direct permutation encoding (config = schedule directly),
             // so return the schedule as-is (it is already a permutation of 0..n).
-            one_hot_decode(target_solution, n, n, 0)?
+            one_hot_decode(target_solution, n, n, 0)
         })
     }
 }

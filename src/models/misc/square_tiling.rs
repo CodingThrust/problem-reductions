@@ -207,8 +207,14 @@ impl Problem for SquareTiling {
 }
 
 impl crate::solvers::BruteForceProblem for SquareTiling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.tiles.len(); self.grid_size * self.grid_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.grid_size).checked_mul(self.grid_size).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.tiles.len())
     }
 }
 

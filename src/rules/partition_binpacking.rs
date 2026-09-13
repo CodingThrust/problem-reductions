@@ -34,8 +34,6 @@ impl ReductionResult for ReductionPartitionToBinPacking {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             // BinPacking may use any bin indices (0..n-1). Remap the two distinct
             // bins used in a 2-bin packing to Partition's {0, 1} assignment.

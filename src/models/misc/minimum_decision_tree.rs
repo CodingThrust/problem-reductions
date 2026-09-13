@@ -163,8 +163,17 @@ impl MinimumDecisionTree {
     }
 
     /// Number of internal node slots in the flattened complete binary tree.
-    fn num_tree_slots(&self) -> usize {
-        (1usize << (self.num_objects - 1)) - 1
+    fn num_tree_slots(&self) -> Result<usize, crate::traits::EvaluationError> {
+        self.num_objects
+            .checked_sub(1)
+            .and_then(|depth| u32::try_from(depth).ok())
+            .and_then(|depth| 1usize.checked_shl(depth))
+            .map(|leaves| leaves - 1)
+            .ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "representing the decision-tree witness slots".into(),
+                )
+            })
     }
 
     /// Sentinel value meaning "this node is a leaf".
@@ -176,7 +185,7 @@ impl MinimumDecisionTree {
     /// or None if the tree is invalid (doesn't identify all objects uniquely).
     fn simulate(&self, config: &[usize]) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let sentinel = self.leaf_sentinel();
-        let max_slots = self.num_tree_slots();
+        let max_slots = self.num_tree_slots()?;
         let mut seen_leaves = std::collections::HashSet::new();
         let mut total_depth = 0_i64;
 
@@ -232,7 +241,7 @@ impl Problem for MinimumDecisionTree {
         config: &Self::Solution,
     ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
-            if config.len() != self.num_tree_slots() {
+            if config.len() != self.num_tree_slots()? {
                 return Err(crate::traits::EvaluationError::InvalidConfiguration(
                     "decision-tree encoding length does not match the instance".into(),
                 ));
@@ -247,9 +256,14 @@ impl Problem for MinimumDecisionTree {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumDecisionTree {
-    fn dimensions(&self) -> Vec<usize> {
-        // Each internal node can hold test 0..num_tests-1 or sentinel (leaf)
-        vec![self.num_tests + 1; self.num_tree_slots()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tree_slots()?)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.num_tests).checked_add(1usize).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

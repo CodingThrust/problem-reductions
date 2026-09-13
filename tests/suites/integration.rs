@@ -536,19 +536,19 @@ mod weighted_problems {
 /// Exercise the solver as a downstream crate: struct construction, generic
 /// bounds, solution type, and exhaustive error matching must keep compiling.
 #[test]
-fn ilp_public_api_remains_source_compatible() {
+fn ilp_public_api_supports_generic_witness_solving() {
     use problemreductions::solvers::{ILPSolveError, ILPSolver};
-    fn solve_as_before<P>(problem: &P) -> std::result::Result<P::Solution, ILPSolveError>
+    fn solve_generic<P>(problem: &P) -> std::result::Result<P::Solution, ILPSolveError>
     where
         P: Problem + 'static,
         P::Solution: 'static,
+        P::Value: problemreductions::solvers::SolutionAggregate,
     {
         ILPSolver::new().solve(problem)
     }
-    fn classify_as_before(error: ILPSolveError) -> &'static str {
+    fn classify_error(error: ILPSolveError) -> &'static str {
         match error {
             ILPSolveError::Infeasible => "infeasible",
-            ILPSolveError::UnresolvedDecision(_) => "unresolved decision",
             ILPSolveError::Unbounded => "unbounded",
             ILPSolveError::Timeout => "timeout",
             ILPSolveError::BackendFailure(_) => "backend",
@@ -557,6 +557,7 @@ fn ilp_public_api_remains_source_compatible() {
             ILPSolveError::InvalidRegistry(_) => "registry",
             ILPSolveError::PipelineTypeMismatch(_) => "type mismatch",
             ILPSolveError::InvalidSolution(_) => "invalid solution",
+            ILPSolveError::Evaluation(_) => "evaluation",
             ILPSolveError::InexactTransport(_) => "transport",
             ILPSolveError::Extraction(_) => "extraction",
             ILPSolveError::Reduction(_) => "reduction",
@@ -566,7 +567,7 @@ fn ilp_public_api_remains_source_compatible() {
     let ILPSolver { time_limit } = solver.clone();
     assert_eq!(time_limit, None);
     let ilp = ILP::<bool>::new(1, vec![], vec![(0, 1)], ObjectiveSense::Maximize).unwrap();
-    let solution: Vec<i64> = solve_as_before(&ilp).unwrap();
+    let solution: Vec<i64> = solve_generic(&ilp).unwrap();
     assert_eq!(solution, vec![1]);
     let infeasible = ILP::<bool>::new(
         0,
@@ -576,7 +577,7 @@ fn ilp_public_api_remains_source_compatible() {
     )
     .unwrap();
     assert_eq!(
-        classify_as_before(solver.solve(&infeasible).unwrap_err()),
+        classify_error(solver.solve(&infeasible).unwrap_err()),
         "infeasible"
     );
 }

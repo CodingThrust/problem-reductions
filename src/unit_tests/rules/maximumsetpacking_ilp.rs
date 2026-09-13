@@ -142,3 +142,63 @@ fn test_maximumsetpacking_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
+
+#[test]
+fn extraction_maps_feasible_witnesses_through_typed_and_dynamic_paths() {
+    use crate::rules::{DynReductionResult, ReductionGraph};
+    use serde_json::json;
+
+    let source = MaximumSetPacking::with_weights(vec![vec![0]], vec![1i64]).unwrap();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    let graph = ReductionGraph::new();
+    let path = graph
+        .find_all_paths(
+            MaximumSetPacking::<i64>::NAME,
+            &ReductionGraph::variant_to_map(&MaximumSetPacking::<i64>::variant()),
+            ILP::<bool>::NAME,
+            &ReductionGraph::variant_to_map(&ILP::<bool>::variant()),
+        )
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .unwrap();
+    let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+    assert_eq!(reduction.extract_solution(&vec![1]).unwrap(), vec![true]);
+    let extracted = reduction.extract_solution_dyn(&vec![1i64]).unwrap();
+    assert_eq!(*extracted.downcast::<Vec<bool>>().unwrap(), vec![true]);
+    // An unselected set is feasible even though it is not optimal.
+    assert_eq!(reduction.extract_solution(&vec![0]).unwrap(), vec![false]);
+    assert_eq!(
+        chain.extract_solution_json(json!([0])).unwrap(),
+        json!([false])
+    );
+}
+
+#[test]
+fn parameter_upper_bounds_cover_single_and_shared_elements() {
+    use crate::parameters::ParameterRelation;
+    use crate::rules::registry::ReductionEntry;
+    let entry = inventory::iter::<ReductionEntry>
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == MaximumSetPacking::<i64>::NAME
+                && entry.target_name == ILP::<bool>::NAME
+                && (entry.source_variant_fn)() == MaximumSetPacking::<i64>::variant()
+                && (entry.target_variant_fn)() == ILP::<bool>::variant()
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    assert_eq!(transform.relation(), ParameterRelation::UpperBound);
+    for (sets, constraints) in [
+        (vec![vec![0]], 0),
+        (vec![vec![0, 1], vec![1, 2], vec![2, 3]], 2),
+    ] {
+        let source = MaximumSetPacking::<i64>::new(sets);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let actual = reduction.target_problem().parameters();
+        let declared = transform.evaluate(&source.parameters()).unwrap();
+        assert_eq!(actual.get("num_constraints"), Some(constraints));
+        assert_eq!(actual.get("num_vars"), declared.get("num_vars"));
+        assert!(actual.get("num_constraints").unwrap() <= declared.get("num_constraints").unwrap());
+    }
+}

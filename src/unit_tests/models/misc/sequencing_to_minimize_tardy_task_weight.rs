@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_task_weights() {
@@ -29,7 +28,10 @@ fn test_sequencing_to_minimize_tardy_task_weight_basic() {
     assert_eq!(problem.lengths(), &[3, 2, 4, 1, 2]);
     assert_eq!(problem.weights(), &[5, 3, 7, 2, 4]);
     assert_eq!(problem.deadlines(), &[6, 4, 10, 2, 8]);
-    assert_eq!(problem.dimensions(), vec![5, 5, 5, 5, 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 5, 5, 5, 5]
+    );
     assert_eq!(
         <SequencingToMinimizeTardyTaskWeight as Problem>::NAME,
         "SequencingToMinimizeTardyTaskWeight"
@@ -187,7 +189,10 @@ fn test_sequencing_to_minimize_tardy_task_weight_deserialization_rejects_zero_we
 #[test]
 fn test_sequencing_to_minimize_tardy_task_weight_single_task() {
     let problem = SequencingToMinimizeTardyTaskWeight::new(vec![3], vec![2], vec![5]);
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     // completes at 3, deadline 5, on time
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
 }
@@ -203,7 +208,10 @@ fn test_sequencing_to_minimize_tardy_task_weight_single_task_tardy() {
 fn test_sequencing_to_minimize_tardy_task_weight_empty() {
     let problem = SequencingToMinimizeTardyTaskWeight::new(vec![], vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 

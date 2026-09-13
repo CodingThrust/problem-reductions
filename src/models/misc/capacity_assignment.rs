@@ -245,8 +245,12 @@ impl Problem for CapacityAssignment {
 }
 
 impl crate::solvers::BruteForceProblem for CapacityAssignment {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_capacities(); self.num_links()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_links())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_capacities())
     }
 }
 

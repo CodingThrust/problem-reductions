@@ -41,8 +41,6 @@ where
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(target_solution[..self.num_original]
             .iter()
             .map(|&value| value == 1)
@@ -59,9 +57,9 @@ where
 
     // Collect non-zero off-diagonal entries (i < j)
     let mut off_diag: Vec<(usize, usize, C)> = Vec::new();
-    for (i, row) in matrix.iter().enumerate() {
-        for (j, &q_ij) in row.iter().enumerate().skip(i + 1) {
-            if q_ij != C::zero() {
+    for (i, row) in matrix.outer_iterator().enumerate() {
+        for (j, &q_ij) in row.iter() {
+            if j > i && q_ij != C::zero() {
                 off_diag.push((i, j, q_ij));
             }
         }
@@ -72,8 +70,8 @@ where
 
     // Objective: minimize Σ Q_ii · x_i + Σ Q_ij · y_k
     let mut objective: Vec<(usize, C)> = Vec::new();
-    for (i, row) in matrix.iter().enumerate() {
-        let q_ii = row[i];
+    for (i, row) in matrix.outer_iterator().enumerate() {
+        let q_ii = row.get(i).copied().unwrap_or_else(C::zero);
         if q_ii != C::zero() {
             objective.push((i, q_ii));
         }

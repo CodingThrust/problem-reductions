@@ -41,8 +41,6 @@ impl ReductionResult for ReductionD2CIFToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         crate::rules::ilp_helpers::decode_usize_values(&target_solution[..2 * self.num_arcs])
     }
 }

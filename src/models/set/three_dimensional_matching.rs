@@ -179,8 +179,12 @@ impl Problem for ThreeDimensionalMatching {
 }
 
 impl crate::solvers::BruteForceProblem for ThreeDimensionalMatching {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.triples.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.triples.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

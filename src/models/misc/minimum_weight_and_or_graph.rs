@@ -350,8 +350,12 @@ impl Problem for MinimumWeightAndOrGraph {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumWeightAndOrGraph {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.arcs.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.arcs.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

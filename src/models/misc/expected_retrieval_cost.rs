@@ -109,6 +109,15 @@ impl ExpectedRetrievalCost {
         Ok(Some(masses))
     }
 
+    /// Number of intervening sectors, wrapping around the device.
+    pub(crate) fn latency_distance(&self, source: usize, target: usize) -> usize {
+        if source < target {
+            target - source - 1
+        } else {
+            self.num_sectors - source + target - 1
+        }
+    }
+
     pub fn expected_cost(
         &self,
         config: &[usize],
@@ -119,17 +128,7 @@ impl ExpectedRetrievalCost {
         let mut total = 0.0;
         for source in 0..self.num_sectors {
             for target in 0..self.num_sectors {
-                let latency = i64::try_from(latency_distance(self.num_sectors, source, target))
-                    .map_err(|_| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "converting expected-retrieval latency to i64".to_string(),
-                        )
-                    })?;
-                let latency = crate::types::i64_to_exact_f64(latency).map_err(|_| {
-                    crate::traits::EvaluationError::InexactFloatConversion(
-                        "converting expected-retrieval latency to f64".to_string(),
-                    )
-                })?;
+                let latency = self.latency_distance(source, target) as f64;
                 let term = masses[source] * masses[target] * latency;
                 let next = total + term;
                 if !term.is_finite() || !next.is_finite() {
@@ -202,16 +201,12 @@ impl Problem for ExpectedRetrievalCost {
 }
 
 impl crate::solvers::BruteForceProblem for ExpectedRetrievalCost {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_sectors; self.num_records()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_records())
     }
-}
 
-fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
-    if source < target {
-        target - source - 1
-    } else {
-        num_sectors - source + target - 1
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_sectors)
     }
 }
 

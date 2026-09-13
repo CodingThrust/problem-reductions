@@ -55,7 +55,6 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
         let nae_solution = (0..self.nae_reduction.target_problem().num_vars())
             .map(|index| target_solution[2 * index])
             .collect();

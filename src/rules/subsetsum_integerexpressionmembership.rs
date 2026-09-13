@@ -21,8 +21,6 @@ impl ReductionResult for ReductionSubsetSumToIntegerExpressionMembership {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             // Union choice 0 = left = Atom(1) = exclude, choice 1 = right = Atom(s_i+1) = include.
             // This maps directly to SubsetSum's 0/1 include/exclude encoding.

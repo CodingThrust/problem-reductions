@@ -26,7 +26,9 @@ fn test_hamiltoniancircuit_aggregate_requires_a_spanning_cycle() {
     }
     let short_cycle = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]));
     let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&short_cycle).unwrap();
-    assert!(reduction.extract_solution(&vec![true; 3]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![true; 3]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
 }
 
 #[test]
@@ -123,19 +125,14 @@ fn test_hamiltoniancircuit_extraction_matches_all_small_target_configurations() 
                     .collect();
                 let value = target.evaluate(&config).unwrap();
                 let certifies = value.0 == Some(n as i64);
-                let extracted = reduction.extract_solution(&config);
-                assert_eq!(
-                    extracted.is_ok(),
-                    certifies,
-                    "n={n}, graph={graph_mask}, config={mask}"
-                );
-                if let Ok(order) = extracted {
+                if certifies {
+                    let order = reduction.extract_solution(&config).unwrap();
                     assert!(source.evaluate(&order).unwrap().0);
                 }
             }
-            assert!(reduction
-                .extract_solution(&vec![false; target.num_edges() + 1])
-                .is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_edges() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
         }
     }
 }

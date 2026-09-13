@@ -28,8 +28,11 @@ fn test_highly_connected_deletion_creation() {
     assert_eq!(problem.graph().num_edges(), 4);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 4);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
 }
 
 #[test]

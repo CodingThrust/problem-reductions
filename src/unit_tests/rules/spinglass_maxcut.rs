@@ -1,7 +1,7 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_spinglass_to_maxcut_closed_loop() {

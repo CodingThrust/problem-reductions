@@ -197,8 +197,12 @@ impl Problem for Knapsack {
 }
 
 impl crate::solvers::BruteForceProblem for Knapsack {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_items()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_items())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

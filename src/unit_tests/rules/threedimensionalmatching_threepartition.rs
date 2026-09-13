@@ -171,12 +171,20 @@ fn test_threedimensionalmatching_to_threepartition_equal_size_permutations() {
 fn test_threedimensionalmatching_to_threepartition_rejects_invalid_partitions() {
     let (_, reduction) = reduce(1, &[(0, 0, 0)]);
     let valid = reduction.build_target_witness(&[1]);
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+    );
     let mut invalid = valid.clone();
     invalid[0] = reduction.target_problem().num_groups();
-    assert!(reduction.extract_solution(&invalid).is_err());
-    assert!(reduction.extract_solution(&vec![0; valid.len()]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &invalid), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; valid.len()]), Ok(value) if { value.is_valid() })
+    );
     let mut wrong_sum = valid;
     wrong_sum.swap(0, 2);
-    assert!(reduction.extract_solution(&wrong_sum).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &wrong_sum), Ok(value) if { value.is_valid() })
+    );
 }

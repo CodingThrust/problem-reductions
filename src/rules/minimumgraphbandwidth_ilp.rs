@@ -38,14 +38,12 @@ impl ReductionResult for ReductionMGBToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        crate::rules::ilp_helpers::one_hot_decode_rows(
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
             self.num_vertices,
             self.num_vertices,
             0,
-        )
+        ))
     }
 }
 

@@ -165,7 +165,9 @@ fn test_minimumvertexcover_to_ensemblecomputation_rejects_invalid_programs() {
     let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     for program in [vec![], vec![0; 6], vec![3, 0, 1, 2, 0, 1]] {
-        assert!(reduction.extract_solution(&program).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &program), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

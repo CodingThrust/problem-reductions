@@ -11,9 +11,12 @@ fn test_minimum_covering_by_cliques_creation() {
     let problem = MinimumCoveringByCliques::new(graph);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables().unwrap(), 3);
     // Each edge can be assigned to one of 3 groups
-    assert_eq!(problem.dimensions(), vec![3; 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 3]
+    );
 }
 
 #[test]

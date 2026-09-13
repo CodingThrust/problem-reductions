@@ -26,8 +26,11 @@ fn test_consecutive_block_minimization_basic() {
     assert_eq!(problem.num_rows(), 2);
     assert_eq!(problem.num_cols(), 3);
     assert_eq!(problem.bound(), 2);
-    assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dimensions(), vec![3; 3]);
+    assert_eq!(problem.num_variables().unwrap(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 3]
+    );
 }
 
 #[test]

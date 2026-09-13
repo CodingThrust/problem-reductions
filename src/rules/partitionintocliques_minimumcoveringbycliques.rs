@@ -142,7 +142,6 @@ fn target_clique_bound(
 pub struct ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
     target: MinimumCoveringByCliques<SimpleGraph>,
     num_source_vertices: usize,
-    source_num_cliques: usize,
     target_bound: i64,
 }
 
@@ -158,58 +157,32 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !Min::meets_bound(&value, &self.target_bound) {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target cover does not certify the source clique bound",
-            ));
-        }
-
-        Ok({
-            let n = self.num_source_vertices;
-            let target_edges = self.target.graph().edges();
-            let mut matching_labels = vec![None; n];
-            for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
-                let matching_index = if *u < n && *v == n + *u {
-                    Some(*u)
-                } else if *v < n && *u == n + *v {
-                    Some(*v)
+        let n = self.num_source_vertices;
+        let mut matching_labels: Vec<_> = self
+            .target
+            .graph()
+            .edges()
+            .into_iter()
+            .zip(target_solution)
+            .filter_map(|((u, v), &label)| {
+                if u < n && v == n + u {
+                    Some((u, label))
+                } else if v < n && u == n + v {
+                    Some((v, label))
                 } else {
                     None
-                };
-
-                if let Some(i) = matching_index {
-                    matching_labels[i] = Some(label);
                 }
-            }
-
-            let mut label_map = BTreeMap::new();
-            let extracted = matching_labels
-                .into_iter()
-                .map(|label| {
-                    let label = label.ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target cover does not label every matching gadget edge",
-                        )
-                    })?;
-                    let next = label_map.len();
-                    Ok(*label_map.entry(label).or_insert(next))
-                })
-                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
-
-            if label_map.len() > self.source_num_cliques {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "target cover uses {} cliques, exceeding source bound {}",
-                    label_map.len(),
-                    self.source_num_cliques
-                )));
-            }
-
-            // Equal matching-edge labels imply pairwise source adjacency.
-            // The target certificate leaves at most K labels for these edges.
-            extracted
-        })
+            })
+            .collect();
+        matching_labels.sort_unstable_by_key(|&(vertex, _)| vertex);
+        let mut label_map = BTreeMap::new();
+        Ok(matching_labels
+            .into_iter()
+            .map(|(_, label)| {
+                let next = label_map.len();
+                *label_map.entry(label).or_insert(next)
+            })
+            .collect())
     }
 }
 
@@ -287,7 +260,6 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
         Ok(ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
             target,
             num_source_vertices: n,
-            source_num_cliques: self.num_cliques(),
             target_bound,
         })
     }

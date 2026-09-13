@@ -51,22 +51,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target augmentation is infeasible",
-            ));
-        }
-
         Ok({
             let n = self.num_vertices;
-            if n < 3 {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "a Hamiltonian circuit requires at least three vertices",
-                ));
-            }
-
             // Collect selected edges (those with config value 1)
             let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
             for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
@@ -76,43 +62,17 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
                 }
             }
 
-            // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
-            if adj.iter().any(|neighbors| neighbors.len() != 2) {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "selected edges do not give every source vertex degree two",
-                ));
-            }
-
-            // Walk the cycle starting from vertex 0
             let mut circuit = Vec::with_capacity(n);
-            circuit.push(0);
-            let mut prev = 0;
-            let mut current = adj[0][0];
-            while current != 0 {
+            let mut previous = n;
+            let mut current = 0;
+            for _ in 0..n {
                 circuit.push(current);
-                let next = if adj[current][0] == prev {
-                    adj[current][1]
-                } else {
-                    adj[current][0]
-                };
-                prev = current;
+                let neighbors = &adj[current];
+                let next = neighbors[usize::from(neighbors[0] == previous)];
+                previous = current;
                 current = next;
-
-                // Safety: if we've visited more than n vertices, something is wrong
-                if circuit.len() > n {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "selected edges revisit a source vertex",
-                    ));
-                }
             }
-
-            if circuit.len() == n {
-                circuit
-            } else {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "selected edges do not form a spanning circuit",
-                ));
-            }
+            circuit
         })
     }
 }

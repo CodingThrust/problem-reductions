@@ -132,9 +132,22 @@ impl From<ParameterTransformError> for ParameterContractError {
     }
 }
 
+/// Interpret an accepted target optimum using this execution's mathematical relation.
+pub type InterpretOptimum = dyn Fn(&dyn Any) -> crate::rules::ExtractionResult<bool>;
+
+/// One executed witness reduction, with optional value mapping over the same state.
+#[derive(Clone)]
+pub struct ExecutedStep {
+    /// Target access and witness recovery for this execution.
+    pub witness: std::rc::Rc<dyn DynReductionResult>,
+    /// Value recovery sharing the witness result allocation, when supported.
+    pub aggregate: Option<std::rc::Rc<dyn DynAggregateReductionResult>>,
+    /// Solver completion only: whether the mapped optimum supplies a source witness.
+    pub interpret_optimum: Option<std::rc::Rc<InterpretOptimum>>,
+}
+
 /// Witness/config reduction executor stored in the inventory.
-pub type ReduceFn =
-    fn(&dyn Any) -> Result<Box<dyn DynReductionResult>, crate::rules::ReductionError>;
+pub type ReduceFn = fn(&dyn Any) -> Result<ExecutedStep, crate::rules::ReductionError>;
 
 /// Aggregate/value reduction executor stored in the inventory.
 pub type AggregateReduceFn =
@@ -182,7 +195,7 @@ pub struct ReductionEntry {
     pub module_path: &'static str,
     /// Type-erased reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
-    /// and returns either a boxed `DynReductionResult` or the edge's `ReductionError`.
+    /// and returns one `ExecutedStep` sharing the result, or the edge's `ReductionError`.
     pub reduce_fn: Option<ReduceFn>,
     /// Type-erased aggregate reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls

@@ -34,8 +34,11 @@ fn test_bottleneck_traveling_salesman_creation_and_parameter_getters() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 10);
     assert_eq!(problem.num_edges(), 10);
-    assert_eq!(problem.dimensions(), vec![2; 10]);
-    assert_eq!(problem.num_variables(), 10);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 10]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 10);
     assert_eq!(problem.weights(), vec![5, 4, 4, 5, 4, 1, 2, 1, 5, 4]);
     assert_eq!(
         problem.edges(),

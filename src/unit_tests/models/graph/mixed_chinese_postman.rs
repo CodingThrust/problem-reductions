@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_infers_graph_and_default_weights() {
@@ -51,7 +50,10 @@ fn test_mixed_chinese_postman_creation_and_accessors() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 4);
     assert_eq!(problem.num_edges(), 4);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2]
+    );
     assert_eq!(problem.arc_weights(), &[2, 3, 1, 4]);
     assert_eq!(problem.edge_weights(), &[2, 3, 1, 2]);
 }

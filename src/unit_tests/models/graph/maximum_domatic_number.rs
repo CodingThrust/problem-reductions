@@ -11,8 +11,11 @@ fn test_maximum_domatic_number_creation() {
     let problem = MaximumDomaticNumber::new(graph);
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![4; 4]);
+    assert_eq!(problem.num_variables().unwrap(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 4]
+    );
 }
 
 #[test]

@@ -303,8 +303,12 @@ impl Problem for FeasibleRegisterAssignment {
 }
 
 impl crate::solvers::BruteForceProblem for FeasibleRegisterAssignment {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_vertices; self.num_vertices]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vertices)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vertices)
     }
 }
 

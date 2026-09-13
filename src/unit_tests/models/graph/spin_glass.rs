@@ -13,9 +13,9 @@ fn create_spec_defaults_couplings_and_fields() {
     assert_eq!(problem.couplings(), &[1]);
     assert_eq!(problem.fields(), &[0, 0, 0]);
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_spin_glass_creation() {
@@ -94,7 +94,7 @@ fn test_compute_energy_rejects_invalid_spin_configuration() {
 #[test]
 fn test_num_variables() {
     let problem = SpinGlass::<SimpleGraph, f64>::without_fields(5, vec![]).unwrap();
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(problem.num_variables().unwrap(), 5);
 }
 
 #[test]

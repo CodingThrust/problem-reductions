@@ -246,8 +246,12 @@ impl Problem for StringToStringCorrection {
 }
 
 impl crate::solvers::BruteForceProblem for StringToStringCorrection {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2 * self.source.len() + 1; self.bound]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.bound)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2 * self.source.len() + 1)
     }
 }
 

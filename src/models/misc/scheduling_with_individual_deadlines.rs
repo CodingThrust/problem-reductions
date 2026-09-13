@@ -61,15 +61,6 @@ impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndi
         if spec.deadlines.iter().any(|&deadline| deadline < 0) {
             return Err("deadlines must be nonnegative".to_string().into());
         }
-        if spec
-            .deadlines
-            .iter()
-            .any(|&deadline| usize::try_from(deadline).is_err())
-        {
-            return Err("deadlines must fit usize to define schedule slots"
-                .to_string()
-                .into());
-        }
         let precedences = spec.precedences.unwrap_or_default();
         if let Some(&(pred, succ)) = precedences
             .iter()
@@ -105,12 +96,6 @@ impl SchedulingWithIndividualDeadlines {
         assert!(
             deadlines.iter().all(|&deadline| deadline >= 0),
             "deadlines must be nonnegative"
-        );
-        assert!(
-            deadlines
-                .iter()
-                .all(|&deadline| usize::try_from(deadline).is_ok()),
-            "deadlines must fit usize to define schedule slots"
         );
         for &(pred, succ) in &precedences {
             assert!(
@@ -188,15 +173,13 @@ impl Problem for SchedulingWithIndividualDeadlines {
                 }
 
                 for (&start, &deadline) in config.iter().zip(&self.deadlines) {
-                    let deadline =
-                        usize::try_from(deadline).expect("validated deadline must fit usize");
-                    if start >= deadline {
+                    if start as i128 >= i128::from(deadline) {
                         return Ok(crate::types::Or(false));
                     }
                 }
 
                 for &(pred, succ) in &self.precedences {
-                    if config[pred] + 1 > config[succ] {
+                    if config[pred] >= config[succ] {
                         return Ok(crate::types::Or(false));
                     }
                 }
@@ -217,11 +200,12 @@ impl Problem for SchedulingWithIndividualDeadlines {
 }
 
 impl crate::solvers::BruteForceProblem for SchedulingWithIndividualDeadlines {
-    fn dimensions(&self) -> Vec<usize> {
-        self.deadlines
-            .iter()
-            .map(|&deadline| usize::try_from(deadline).expect("validated deadline must fit usize"))
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.deadlines.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(self.deadlines[variable])?)
     }
 }
 

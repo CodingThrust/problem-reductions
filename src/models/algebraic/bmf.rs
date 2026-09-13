@@ -247,9 +247,20 @@ impl Problem for BMF {
 }
 
 impl crate::solvers::BruteForceProblem for BMF {
-    fn dimensions(&self) -> Vec<usize> {
-        // B: m*k + C: k*n binary variables
-        vec![2; self.m * self.k + self.k * self.n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        ((self.m).checked_mul(self.k).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })?)
+        .checked_add((self.k).checked_mul(self.n).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })?)
+        .ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

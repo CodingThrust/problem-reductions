@@ -13,10 +13,10 @@ fn create_spec_rejects_weight_count_mismatch() {
     });
     assert!(result.is_err());
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_vertex_cover_creation() {
@@ -26,7 +26,7 @@ fn test_vertex_cover_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(problem.num_variables().unwrap(), 4);
 }
 
 #[test]

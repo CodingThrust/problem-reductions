@@ -183,23 +183,20 @@ fn check_every_cut(source: &NAESatisfiability) {
         let value = target.evaluate(&cut).unwrap();
         best = best.max(value.0.unwrap());
         let certificate = AggregateReductionResult::extract_value(&reduction, value).0;
-        match reduction.extract_solution(&cut) {
-            Ok(assignment) => {
-                assert!(certificate);
-                assert!(source.evaluate(&assignment).unwrap().0);
-                assert_eq!(
-                    assignment,
-                    (0..source.num_vars())
-                        .map(|i| cut[2 * i])
-                        .collect::<Vec<_>>()
-                );
-                let index = assignment
-                    .iter()
-                    .enumerate()
-                    .fold(0, |index, (i, &bit)| index | (usize::from(bit) << i));
-                decoded[index] = true;
-            }
-            Err(_) => assert!(!certificate),
+        if certificate {
+            let assignment = reduction.extract_solution(&cut).unwrap();
+            assert!(source.evaluate(&assignment).unwrap().0);
+            assert_eq!(
+                assignment,
+                (0..source.num_vars())
+                    .map(|i| cut[2 * i])
+                    .collect::<Vec<_>>()
+            );
+            let index = assignment
+                .iter()
+                .enumerate()
+                .fold(0, |index, (i, &bit)| index | (usize::from(bit) << i));
+            decoded[index] = true;
         }
     }
     for (mask, &has_extension) in decoded.iter().enumerate() {
@@ -213,9 +210,9 @@ fn check_every_cut(source: &NAESatisfiability) {
         decoded.iter().any(|&valid| valid)
     );
     assert!(!AggregateReductionResult::extract_value(&reduction, crate::types::Max(None)).0);
-    assert!(reduction
-        .extract_solution(&vec![false; target.num_vertices() + 1])
-        .is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vertices() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
 }
 
 #[test]

@@ -368,8 +368,12 @@ impl Problem for StackerCrane {
 }
 
 impl crate::solvers::BruteForceProblem for StackerCrane {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_arcs(); self.num_arcs()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_arcs())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_arcs())
     }
 }
 

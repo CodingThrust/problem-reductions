@@ -1,10 +1,10 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 use std::collections::HashMap;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_read_bit() {
@@ -396,10 +396,12 @@ fn test_factoring_to_circuit_zero_width_closed_loop() {
 fn test_factoring_to_circuit_rejects_invalid_certificates() {
     let source = Factoring::with_factor_bits(6, 2, 2);
     let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
-    assert!(reduction.extract_solution(&vec![]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![false; reduction.target_problem().num_variables()])
-        .is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; reduction.target_problem().num_variables()]), Ok(value) if { value.is_valid() })
+    );
     let values = evaluate_multiplier_circuit(&reduction, 1, 1);
     let config = reduction
         .target_problem()
@@ -407,7 +409,9 @@ fn test_factoring_to_circuit_rejects_invalid_certificates() {
         .iter()
         .map(|name| values[name])
         .collect();
-    assert!(reduction.extract_solution(&config).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]

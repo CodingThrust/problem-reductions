@@ -173,8 +173,12 @@ impl Problem for ConsecutiveOnesMatrixAugmentation {
 }
 
 impl crate::solvers::BruteForceProblem for ConsecutiveOnesMatrixAugmentation {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_cols(); self.num_cols()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_cols())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_cols())
     }
 }
 

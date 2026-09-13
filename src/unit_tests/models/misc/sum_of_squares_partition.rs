@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -10,7 +9,10 @@ fn test_sum_of_squares_partition_basic() {
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.num_groups(), 3);
     assert_eq!(problem.sizes(), &[5, 3, 8, 2, 7, 1]);
-    assert_eq!(problem.dimensions(), vec![3; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 6]
+    );
     assert_eq!(
         <SumOfSquaresPartition as Problem>::NAME,
         "SumOfSquaresPartition"

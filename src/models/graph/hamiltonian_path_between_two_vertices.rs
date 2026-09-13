@@ -46,7 +46,7 @@ inventory::submit! {
 /// - The last element equals `target_vertex`
 /// - Consecutive entries are adjacent in the graph
 ///
-/// The search space has `dims() = [n; n]` (each position can hold any of `n`
+/// The search space has `coordinate cardinalities = [n; n]` (each position can hold any of `n`
 /// vertices), so brute-force enumerates `n^n` configurations.
 ///
 /// # Type Parameters
@@ -192,9 +192,12 @@ impl<G> crate::solvers::BruteForceProblem for HamiltonianPathBetweenTwoVertices<
 where
     G: Graph + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
     }
 }
 

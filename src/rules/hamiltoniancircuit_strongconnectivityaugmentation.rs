@@ -31,14 +31,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.n;
-            if n == 0 {
-                return Ok(vec![]);
-            }
-
             // Build directed adjacency from selected arcs.
             let candidate_arcs = self.target.candidate_arcs();
             let mut successors = vec![Vec::new(); n];
@@ -52,20 +46,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
             // Walk the directed cycle starting from vertex 0.
             let mut order = Vec::with_capacity(n);
             let mut current = 0;
-            let mut visited = vec![false; n];
             for _ in 0..n {
-                if visited[current] {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "selected arcs revisit a source vertex",
-                    ));
-                }
-                visited[current] = true;
                 order.push(current);
-                if successors[current].len() != 1 {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "selected arcs do not provide one successor for every source vertex",
-                    ));
-                }
                 current = successors[current][0];
             }
 

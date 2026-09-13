@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -16,7 +15,10 @@ fn test_minimum_code_generation_unlimited_registers_creation() {
     assert_eq!(problem.num_internal(), 3);
     assert_eq!(problem.left_arcs(), &[(1, 3), (2, 3), (0, 1)]);
     assert_eq!(problem.right_arcs(), &[(1, 4), (2, 4), (0, 2)]);
-    assert_eq!(problem.dimensions(), vec![3; 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 3]
+    );
     assert_eq!(
         <MinimumCodeGenerationUnlimitedRegisters as Problem>::NAME,
         "MinimumCodeGenerationUnlimitedRegisters"

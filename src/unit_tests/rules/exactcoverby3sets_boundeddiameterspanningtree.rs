@@ -82,11 +82,15 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let mut invalid = vec![false; target_config.len()];
     invalid[2] = true;
     invalid[3] = true;
-    assert!(reduction.extract_solution(&invalid).is_err());
-    assert!(reduction.extract_solution(&vec![]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![true; target_config.len()])
-        .is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &invalid), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![true; target_config.len()]), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]
@@ -103,7 +107,9 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     // exist here). Equivalently, the brute-force aggregate evaluates to
     // Or(false).
     assert!(BruteForce::new().solve(target).unwrap().is_none());
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]
@@ -118,7 +124,9 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
             .solve(reduction.target_problem())
             .unwrap()
             .is_none());
-        assert!(reduction.extract_solution(&vec![]).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+        );
     }
     let source = ExactCoverBy3Sets::new(0, vec![]);
     let reduction =

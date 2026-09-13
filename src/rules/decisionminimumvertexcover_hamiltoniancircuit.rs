@@ -1,20 +1,19 @@
 //! Reduction from Decision Minimum Vertex Cover to Hamiltonian Circuit.
 //!
 //! This implements the gadget construction from Garey & Johnson, Theorem 3.4,
-//! on the unit-weight `Decision<MinimumVertexCover<SimpleGraph, i64>>` model.
+//! on the unit-weight `Decision<MinimumVertexCover<SimpleGraph, One>>` model.
 
 use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianCircuit, MinimumVertexCover};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
+use crate::types::One;
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
 enum ConstructionKind {
-    FixedYes { source_cover: Vec<bool> },
-    FixedNo,
+    Fixed { source_cover: Vec<bool> },
     Theorem(TheoremConstruction),
 }
 
@@ -184,24 +183,12 @@ impl TheoremConstruction {
 
     fn decode_solution(
         &self,
-        target_problem: &HamiltonianCircuit<SimpleGraph>,
-        target_solution: &Vec<usize>,
+        target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<bool>> {
         Ok({
             let mut source_cover = vec![false; self.num_source_vertices];
-            if !target_problem.evaluate(target_solution)?.0 {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target configuration is not a Hamiltonian circuit",
-                ));
-            }
-
             let mut positions = vec![usize::MAX; target_solution.len()];
             for (idx, &vertex) in target_solution.iter().enumerate() {
-                if vertex >= positions.len() || positions[vertex] != usize::MAX {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "target circuit contains an invalid or repeated vertex",
-                    ));
-                }
                 positions[vertex] = idx;
             }
 
@@ -222,19 +209,12 @@ impl TheoremConstruction {
                 }
             }
 
-            let selected_count = source_cover.iter().filter(|&&x| x).count();
-            if selected_count != self.selector_count || !self.covers_all_edges(&source_cover) {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target circuit does not encode a source vertex cover of the required size",
-                ));
-            }
-
             source_cover
         })
     }
 }
 
-/// Result of reducing Decision<MinimumVertexCover<SimpleGraph, i64>> to
+/// Result of reducing Decision<MinimumVertexCover<SimpleGraph, One>> to
 /// HamiltonianCircuit<SimpleGraph>.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
@@ -246,8 +226,7 @@ impl ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
     #[cfg(any(test, feature = "example-db"))]
     fn build_target_witness(&self, source_cover: &[bool]) -> Vec<usize> {
         match &self.construction {
-            ConstructionKind::FixedYes { .. } => vec![0, 1, 2],
-            ConstructionKind::FixedNo => Vec::new(),
+            ConstructionKind::Fixed { .. } => vec![0, 1, 2],
             ConstructionKind::Theorem(construction) => {
                 construction.build_target_witness(source_cover)
             }
@@ -256,7 +235,7 @@ impl ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
 }
 
 impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    type Source = Decision<MinimumVertexCover<SimpleGraph, One>>;
     type Target = HamiltonianCircuit<SimpleGraph>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -267,26 +246,11 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             match &self.construction {
-                ConstructionKind::FixedYes { source_cover } => {
-                    if self.target.evaluate(target_solution)?.0 {
-                        source_cover.clone()
-                    } else {
-                        return Err(crate::rules::ExtractionError::invalid(
-                            "target configuration is not the fixed Hamiltonian circuit",
-                        ));
-                    }
-                }
-                ConstructionKind::FixedNo => {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "the fixed negative target instance has no extractable witness",
-                    ))
-                }
+                ConstructionKind::Fixed { source_cover } => source_cover.clone(),
                 ConstructionKind::Theorem(construction) => {
-                    construction.decode_solution(&self.target, target_solution)?
+                    construction.decode_solution(target_solution)?
                 }
             }
         })
@@ -313,30 +277,21 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
         num_edges = "the construction size depends on the decision threshold, which is not a problem parameter",
     }
 )]
-impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, i64>> {
+impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, One>> {
     type Result = ReductionDecisionMinimumVertexCoverToHamiltonianCircuit;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let weights = self.inner().weights();
-        if weights.iter().any(|&weight| weight != 1) {
-            return Err(crate::rules::ReductionError::invalid_target::<
-                Decision<MinimumVertexCover<SimpleGraph, i64>>,
-                HamiltonianCircuit<SimpleGraph>,
-            >(
-                "Garey-Johnson construction requires unit vertex weights"
-            ));
-        }
-
         let num_source_vertices = self.inner().graph().num_vertices();
         let raw_bound = *self.bound();
         if raw_bound < 0 {
             return Ok(ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::path(3)),
-                construction: ConstructionKind::FixedNo,
+                construction: ConstructionKind::Fixed {
+                    source_cover: vec![false; num_source_vertices],
+                },
             });
         }
 
-        let k = self.k();
         let edges = normalize_edges(self.inner().graph().edges());
         let mut incident_edges = vec![Vec::new(); num_source_vertices];
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
@@ -352,27 +307,30 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
             .collect();
         let active_count = active_vertices.len();
 
-        if active_count == 0 || k >= active_count {
+        if i128::from(raw_bound) >= active_count as i128 {
             let mut source_cover = vec![false; num_source_vertices];
             for vertex in active_vertices {
                 source_cover[vertex] = true;
             }
             return Ok(ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::cycle(3)),
-                construction: ConstructionKind::FixedYes { source_cover },
+                construction: ConstructionKind::Fixed { source_cover },
             });
         }
 
-        if k == 0 {
+        if raw_bound == 0 {
             return Ok(ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::path(3)),
-                construction: ConstructionKind::FixedNo,
+                construction: ConstructionKind::Fixed {
+                    source_cover: vec![false; num_source_vertices],
+                },
             });
         }
 
         let construction = TheoremConstruction {
             num_source_vertices,
-            selector_count: k,
+            selector_count: usize::try_from(raw_bound)
+                .expect("nonnegative bound is smaller than the active vertex count"),
             edges,
             incident_edges,
         };
@@ -426,7 +384,7 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
 
             let (start, end) = construction.path_endpoints(vertex).ok_or_else(|| {
                 crate::rules::ReductionError::invalid_target::<
-                    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                    Decision<MinimumVertexCover<SimpleGraph, One>>,
                     HamiltonianCircuit<SimpleGraph>,
                 >("active source vertex has no Hamiltonian gadget path endpoints")
             })?;
@@ -457,7 +415,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "decisionminimumvertexcover_to_hamiltoniancircuit",
         build: || {
             let source = Decision::new(
-                MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]),
+                MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]),
                 1,
             );
             let source_config = vec![false, true, false];

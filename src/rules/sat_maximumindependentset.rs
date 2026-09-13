@@ -82,15 +82,6 @@ impl ReductionResult for ReductionSATToIS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
-        if !certificate.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target independent set does not certify satisfiability",
-            ));
-        }
-
         let mut assignment = vec![false; self.num_source_variables];
         for (literal, &selected) in self.literals.iter().zip(target_solution) {
             if selected {

@@ -240,8 +240,12 @@ impl Problem for MinimumDummyActivitiesPert {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumDummyActivitiesPert {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_arcs()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_arcs())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

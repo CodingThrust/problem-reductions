@@ -3,16 +3,15 @@
 use crate::models::algebraic::ClosestVectorProblem;
 use crate::models::misc::SubsetSum;
 use crate::reduction;
-use crate::registry::ConstructionError;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::types::{Min, Or};
+use num_rational::BigRational;
 
 /// Result of reducing SubsetSum to ClosestVectorProblem.
 #[derive(Debug, Clone)]
 pub struct ReductionSubsetSumToClosestVectorProblem {
     target: ClosestVectorProblem<i64>,
     num_elements: usize,
-    target_distance: f64,
 }
 
 impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
@@ -27,14 +26,6 @@ impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
-        if !certificate.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target lattice vector does not certify a subset sum",
-            ));
-        }
         Ok(target_solution[..self.num_elements]
             .iter()
             .map(|&value| value == 1)
@@ -50,8 +41,8 @@ impl crate::rules::AggregateReductionResult for ReductionSubsetSumToClosestVecto
         &self.target
     }
 
-    fn extract_value(&self, target_value: Min<f64>) -> Or {
-        Or(target_value == Min(Some(self.target_distance)))
+    fn extract_value(&self, target_value: Min<BigRational>) -> Or {
+        Or(target_value == Min(Some(BigRational::from_integer(self.num_elements.into()))))
     }
 }
 
@@ -112,9 +103,7 @@ impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {
             }
             basis.push(column);
         }
-        // Carry c_k occurs with +1 in bit k and -2 in bit k-1. Descending
-        // bit rows and carry columns preserve unit pivots in the formal rank
-        // checker, without changing its implementation or bypassing validation.
+        // Carry c_k occurs with +1 in bit k and -2 in bit k-1.
         for bit in (1..bits).rev() {
             let mut column = vec![0_i64; rows];
             column[rows - 1 - bit] = 1;
@@ -126,22 +115,11 @@ impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {
         for bit in 0..bits {
             target[rows - 1 - bit] = i64::from(self.target().bit(bit as u64));
         }
-        // The checked dense byte count bounds n below 2^30 on 64-bit systems,
-        // so the integer threshold and its unit squared-distance gap are exact.
-        let count = <Self as ReduceTo<ClosestVectorProblem<i64>>>::exact_i64(
-            n,
-            "representing the subset-sum distance threshold",
-        )?;
-        let target_distance = crate::types::i64_to_exact_f64(count)
-            .map_err(ConstructionError::from)
-            .map_err(<Self as ReduceTo<ClosestVectorProblem<i64>>>::target_construction)?
-            .sqrt();
         let target = ClosestVectorProblem::new(basis, target)
             .map_err(<Self as ReduceTo<ClosestVectorProblem<i64>>>::target_construction)?;
         Ok(ReductionSubsetSumToClosestVectorProblem {
             target,
             num_elements: n,
-            target_distance,
         })
     }
 }

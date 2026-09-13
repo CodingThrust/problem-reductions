@@ -1,10 +1,10 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::variant::K3;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_constructor_basic_structure() {

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -39,7 +38,10 @@ fn test_staff_scheduling_creation() {
     assert_eq!(problem.num_schedules(), 5);
     assert_eq!(problem.requirements(), &[2, 2, 2, 3, 3, 2, 1]);
     assert_eq!(problem.num_workers(), 4);
-    assert_eq!(problem.dimensions(), vec![5; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5; 5]
+    );
 }
 
 #[test]

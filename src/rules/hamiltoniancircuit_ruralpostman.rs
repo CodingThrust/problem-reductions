@@ -50,8 +50,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             // The target solution is edge multiplicities.
             // Required edges are indices 0..n (the {v_i^a, v_i^b} edges).
@@ -90,11 +88,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
             for _ in 0..n {
                 cycle.push(current);
                 let next = successor[current];
-                if next == usize::MAX {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "target tour does not provide one successor for every source vertex",
-                    ));
-                }
                 current = next;
             }
 
@@ -103,7 +96,21 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
     }
 }
 
+impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToRuralPostman {
+    type Source = HamiltonianCircuit<SimpleGraph>;
+    type Target = RuralPostman<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(self.n >= 3 && value.0 == Some(2 * self.n as i64))
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vertices = "2 * num_vertices",
         num_edges = "num_vertices + 2 * num_edges",

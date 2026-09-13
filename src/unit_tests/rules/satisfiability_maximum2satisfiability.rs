@@ -73,7 +73,9 @@ fn test_satisfiability_to_maximum2satisfiability_unsatisfiable_gap() {
         .solve(target)
         .unwrap()
         .expect("MAX-2-SAT target should always have a witness");
-    assert!(reduction.extract_solution(&target_solution).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &target_solution), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
     assert_eq!(
         crate::rules::AggregateReductionResult::extract_value(&reduction, Max(Some(55))),
         Or(false)
@@ -162,14 +164,16 @@ fn test_satisfiability_to_maximum2satisfiability_every_target_witness() {
                 let decoded = reduction.extract_solution(&assignment).unwrap();
                 assert!(source.evaluate(&decoded).unwrap().0);
             } else {
-                assert!(reduction.extract_solution(&assignment).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &assignment), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                );
             }
         }
         let source_yes = BruteForce::new().solve(&source).unwrap().is_some();
         assert_eq!(best == threshold, source_yes);
-        assert!(reduction
-            .extract_solution(&vec![false; target.num_vars() + 1])
-            .is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vars() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        );
         assert_eq!(
             crate::rules::AggregateReductionResult::extract_value(&reduction, Max(None)),
             Or(false)

@@ -37,13 +37,6 @@ impl ReductionResult for ReductionKSatToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "QUBO energy does not meet the SAT zero-penalty threshold",
-            ));
-        }
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
@@ -68,13 +61,6 @@ impl ReductionResult for Reduction3SATToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "QUBO energy does not meet the SAT zero-penalty threshold",
-            ));
-        }
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
@@ -84,19 +70,20 @@ impl ReductionResult for Reduction3SATToQUBO {
 /// For clause (l_i ∨ l_j), the penalty for the clause being unsatisfied is
 /// the product of the complemented literals.
 fn add_coefficient(
-    matrix: &mut [Vec<i64>],
+    matrix: &mut [std::collections::BTreeMap<usize, i64>],
     row: usize,
     column: usize,
     coefficient: i64,
 ) -> Result<(), &'static str> {
-    matrix[row][column] = matrix[row][column]
+    let entry = matrix[row].entry(column).or_insert(0i64);
+    *entry = entry
         .checked_add(coefficient)
         .ok_or("adding a SAT QUBO coefficient")?;
     Ok(())
 }
 
 fn add_2sat_clause_penalty(
-    matrix: &mut [Vec<i64>],
+    matrix: &mut [std::collections::BTreeMap<usize, i64>],
     lits: &[(usize, bool)],
 ) -> Result<(), &'static str> {
     assert_eq!(lits.len(), 2, "Expected 2-literal clause");
@@ -151,7 +138,7 @@ fn add_2sat_clause_penalty(
 ///
 /// `aux_var` is the 0-indexed auxiliary variable.
 fn add_3sat_clause_penalty(
-    matrix: &mut [Vec<i64>],
+    matrix: &mut [std::collections::BTreeMap<usize, i64>],
     lits: &[(usize, bool)],
     aux_var: usize,
 ) -> Result<(), &'static str> {
@@ -176,7 +163,7 @@ fn add_3sat_clause_penalty(
 
     // Helper: add coefficient * yi * yj to the matrix
     // where yi depends on variable vi and negation ni
-    let add_yy = |matrix: &mut [Vec<i64>],
+    let add_yy = |matrix: &mut [std::collections::BTreeMap<usize, i64>],
                   vi: usize,
                   ni: bool,
                   vj: usize,
@@ -241,7 +228,7 @@ fn add_3sat_clause_penalty(
 
     // Helper: add coefficient * yi * a to the matrix
     // where yi depends on variable vi and negation ni, a is aux variable
-    let add_ya = |matrix: &mut [Vec<i64>],
+    let add_ya = |matrix: &mut [std::collections::BTreeMap<usize, i64>],
                   vi: usize,
                   ni: bool,
                   a: usize,
@@ -280,6 +267,8 @@ fn add_3sat_clause_penalty(
     Ok(())
 }
 
+type CoefficientRows = Vec<std::collections::BTreeMap<usize, i64>>;
+
 /// Expand clause penalties and retain the constant omitted by QUBO.
 /// K3 reserves one auxiliary per clause, including free auxiliaries for short
 /// clauses; K2 reserves none. The source constructor validates clause widths.
@@ -287,14 +276,11 @@ fn build_qubo_matrix(
     num_vars: usize,
     clauses: &[crate::models::formula::CNFClause],
     num_aux: usize,
-) -> Result<(Vec<Vec<i64>>, i64), &'static str> {
+) -> Result<(CoefficientRows, i64), &'static str> {
     let total = num_vars
         .checked_add(num_aux)
         .ok_or("computing the number of SAT QUBO variables")?;
-    total
-        .checked_mul(total)
-        .ok_or("computing the SAT QUBO dense matrix entry count")?;
-    let mut matrix = vec![vec![0; total]; total];
+    let mut matrix = vec![std::collections::BTreeMap::new(); total];
     let mut constant = 0i64;
     for (idx, clause) in clauses.iter().enumerate() {
         let literals: Vec<_> = clause
@@ -366,7 +352,7 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K2> {
         })?;
 
         Ok(ReductionKSatToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
+            target: QUBO::from_rows(matrix).map_err(|message| {
                 crate::rules::ReductionError::construction::<KSatisfiability<K2>, QUBO<i64>>(
                     message,
                 )
@@ -396,7 +382,7 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K3> {
             })?;
 
         Ok(Reduction3SATToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
+            target: QUBO::from_rows(matrix).map_err(|message| {
                 crate::rules::ReductionError::construction::<KSatisfiability<K3>, QUBO<i64>>(
                     message,
                 )

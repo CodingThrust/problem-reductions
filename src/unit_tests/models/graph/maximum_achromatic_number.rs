@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -12,7 +11,10 @@ fn test_maximum_achromatic_number_c6() {
     let problem = MaximumAchromaticNumber::new(graph);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 6);
-    assert_eq!(problem.dimensions(), vec![6; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6; 6]
+    );
 
     // [0,1,2,0,1,2] is a valid complete proper 3-coloring
     let config = vec![0, 1, 2, 0, 1, 2];

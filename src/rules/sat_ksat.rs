@@ -36,8 +36,6 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             // Only return the original variables, discarding ancillas
             target_solution[..self.source_num_vars].to_vec()
@@ -186,8 +184,6 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             // Direct mapping - no transformation needed
             target_solution.to_vec()

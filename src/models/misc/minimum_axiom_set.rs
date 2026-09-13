@@ -217,8 +217,12 @@ impl Problem for MinimumAxiomSet {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumAxiomSet {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_true_sentences()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_true_sentences())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

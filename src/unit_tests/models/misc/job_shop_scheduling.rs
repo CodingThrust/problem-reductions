@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -28,7 +27,7 @@ fn test_job_shop_scheduling_creation_and_dims() {
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(problem.num_tasks(), 12);
     assert_eq!(
-        problem.dimensions(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1]
     );
 }

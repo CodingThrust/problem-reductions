@@ -29,7 +29,7 @@ fn test_cvp_evaluates_without_coefficient_bounds() {
         ClosestVectorProblem::new(vec![vec![2, 0, 0], vec![1, 2, 0]], vec![3_i64, 3, 1]).unwrap();
     assert_eq!(
         problem.evaluate(&vec![1, 1]).unwrap(),
-        Min(Some(2.0_f64.sqrt()))
+        Min(Some(BigRational::from_integer(2.into())))
     );
     assert!(problem.evaluate(&vec![11, -12]).unwrap().0.is_some());
     assert!(matches!(
@@ -48,11 +48,15 @@ fn test_cvp_rejects_invalid_basis() {
 }
 
 #[test]
-fn test_cvp_reports_rank_arithmetic_overflow() {
-    let error =
+fn test_cvp_rank_uses_exact_integer_elimination() {
+    let problem =
         ClosestVectorProblem::new(vec![vec![i64::MAX, 1], vec![1, i64::MAX]], vec![0_i64, 0])
-            .unwrap_err();
-    assert!(matches!(error, ConstructionError::IntegerOverflow(_)));
+            .unwrap();
+    assert_eq!(problem.independent_rows(), vec![0, 1]);
+    // Swapped pivots and a redundant ambient row preserve column rank.
+    let rectangular =
+        ClosestVectorProblem::new(vec![vec![0, 0, 1], vec![0, 1, 0]], vec![0_i64; 3]).unwrap();
+    assert_eq!(rectangular.independent_rows(), vec![2, 1]);
 }
 
 #[test]
@@ -68,16 +72,61 @@ fn test_cvp_rejects_non_finite_real_target() {
 }
 
 #[test]
-fn test_cvp_reports_exact_to_float_boundary() {
-    let problem = ClosestVectorProblem::new(
-        vec![vec![crate::types::MAX_EXACT_F64_INTEGER + 1]],
-        vec![0_i64],
+fn test_cvp_integer_coordinates_preserve_zero_and_unit_distance() {
+    let target = (1_i64 << 53) + 1;
+    let problem = ClosestVectorProblem::new(vec![vec![1]], vec![target]).unwrap();
+    assert_eq!(
+        crate::solvers::customized::closest_vector_problem::solve(&problem).unwrap(),
+        vec![target]
+    );
+    assert_eq!(
+        problem.squared_distance(&[target]).unwrap(),
+        BigRational::zero()
+    );
+    assert_eq!(
+        problem.squared_distance(&[target - 1]).unwrap(),
+        BigRational::from_integer(1.into())
+    );
+    let cancellation = ClosestVectorProblem::new(
+        vec![vec![i64::MAX, 1], vec![i64::MAX - 1, 1]],
+        vec![1_i64, 0],
     )
     .unwrap();
-    assert!(matches!(
-        problem.evaluate(&vec![1]),
-        Err(crate::traits::EvaluationError::InexactFloatConversion(_))
-    ));
+    assert_eq!(
+        cancellation.squared_distance(&[1, -1]).unwrap(),
+        BigRational::zero()
+    );
+}
+
+#[test]
+fn test_cvp_real_target_preserves_its_stored_rational_value() {
+    let problem = ClosestVectorProblem::new(vec![vec![1]], vec![0.25]).unwrap();
+    assert_eq!(
+        problem.squared_distance(&[1]).unwrap(),
+        BigRational::new(9.into(), 16.into())
+    );
+    let value = problem.evaluate(&vec![1]).unwrap();
+    let serialized =
+        crate::registry::DynProblem::evaluate_json(&problem, &serde_json::json!([1])).unwrap();
+    assert_eq!(
+        serde_json::from_value::<Min<BigRational>>(serialized).unwrap(),
+        value
+    );
+    assert_eq!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([1])).unwrap(),
+        ("Min(9/16)".into(), true)
+    );
+    let loaded = crate::registry::LoadedDynProblem::new(Box::new(problem));
+    let outcome = crate::solvers::solve(&loaded, crate::solvers::SolverRequest::Default)
+        .unwrap()
+        .outcome;
+    assert_eq!(
+        outcome,
+        crate::solvers::SolveOutcome::Optimal {
+            solution: serde_json::json!([0]),
+            evaluation: "Min(1/16)".into(),
+        }
+    );
 }
 
 #[test]
@@ -132,5 +181,8 @@ fn test_cvp_registers_both_target_variants() {
 #[test]
 fn test_cvp_empty_basis_is_valid() {
     let problem = ClosestVectorProblem::new(Vec::new(), vec![3_i64, 4]).unwrap();
-    assert_eq!(problem.evaluate(&Vec::new()).unwrap(), Min(Some(5.0)));
+    assert_eq!(
+        problem.evaluate(&Vec::new()).unwrap(),
+        Min(Some(BigRational::from_integer(25.into())))
+    );
 }

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -12,7 +11,10 @@ fn test_isomorphicspanningtree_basic() {
     let problem: IsomorphicSpanningTree<SimpleGraph> =
         IsomorphicSpanningTree::new(graph.clone(), tree.clone());
 
-    assert_eq!(problem.dimensions(), vec![3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3]
+    );
     assert_eq!(problem.graph(), &graph);
     assert_eq!(problem.tree(), &tree);
     assert_eq!(problem.num_vertices(), 3);

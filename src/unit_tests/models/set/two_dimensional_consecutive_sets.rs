@@ -17,8 +17,11 @@ fn test_two_dimensional_consecutive_sets_creation() {
     );
     assert_eq!(problem.alphabet_size(), 6);
     assert_eq!(problem.num_subsets(), 5);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![6, 6, 6, 6, 6, 6]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6, 6, 6, 6, 6, 6]
+    );
 }
 
 #[test]

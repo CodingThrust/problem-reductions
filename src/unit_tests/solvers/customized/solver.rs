@@ -1,7 +1,6 @@
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
 use crate::solvers::brute_force::CartesianIndices;
 use crate::solvers::registry::solver_capability_registry;
-use crate::solvers::BruteForceProblem as _;
 use crate::solvers::ExactProblemKey;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -59,7 +58,7 @@ fn exact_partial_feedback_edge_set_feasible(
     max_cycle_length: usize,
 ) -> bool {
     let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
-    CartesianIndices::new(problem.dimensions())
+    CartesianIndices::new(crate::solvers::cartesian_dimensions(&problem).unwrap())
         .unwrap()
         .any(|config| {
             let solution = crate::config::config_to_bits(&config);
@@ -69,7 +68,7 @@ fn exact_partial_feedback_edge_set_feasible(
 
 fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64> {
     let problem = RootedTreeArrangement::new(graph.clone(), i64::MAX);
-    CartesianIndices::new(problem.dimensions())
+    CartesianIndices::new(crate::solvers::cartesian_dimensions(&problem).unwrap())
         .unwrap()
         .filter_map(|config| problem.total_edge_stretch(&config).unwrap())
         .min()

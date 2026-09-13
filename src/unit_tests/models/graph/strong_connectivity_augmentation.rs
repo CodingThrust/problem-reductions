@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -71,7 +70,10 @@ fn test_strong_connectivity_augmentation_creation() {
     assert_eq!(problem.num_potential_arcs(), 18);
     assert_eq!(problem.candidate_arcs().len(), 18);
     assert_eq!(problem.bound(), &1);
-    assert_eq!(problem.dimensions(), vec![2; 18]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 18]
+    );
     assert!(problem.is_weighted());
 }
 
@@ -103,7 +105,10 @@ fn test_strong_connectivity_augmentation_wrong_length() {
 #[test]
 fn test_strong_connectivity_augmentation_already_strongly_connected() {
     let problem = issue_example_already_strongly_connected();
-    assert_eq!(problem.dimensions(), vec![2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2]
+    );
     assert!(problem.evaluate(&vec![false]).unwrap());
     assert!(!problem.evaluate(&vec![true]).unwrap());
 }

@@ -35,7 +35,7 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Configurations use Lehmer code encoding with `dims() = [n, n-1, ..., 1]`.
+/// Configurations use Lehmer code encoding with `coordinate cardinalities = [n, n-1, ..., 1]`.
 /// A config `[c_0, c_1, ..., c_{n-1}]` where `c_i < n - i` is decoded by
 /// maintaining a list of available jobs and picking the `c_i`-th element:
 ///
@@ -214,8 +214,12 @@ impl Problem for FlowShopScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for FlowShopScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_jobs())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_jobs())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_jobs() - variable)
     }
 }
 

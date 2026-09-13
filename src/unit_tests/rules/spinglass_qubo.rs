@@ -1,9 +1,9 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_spinglass_to_qubo_closed_loop() {
@@ -69,7 +69,7 @@ fn test_reduction_structure() {
     let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg2).expect("reduction should succeed");
     let qubo2 = reduction2.target_problem();
 
-    assert_eq!(qubo2.num_variables(), 3);
+    assert_eq!(qubo2.num_variables().unwrap(), 3);
 }
 
 #[test]

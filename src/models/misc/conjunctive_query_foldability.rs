@@ -325,9 +325,22 @@ impl Problem for ConjunctiveQueryFoldability {
 
 impl crate::solvers::BruteForceProblem for ConjunctiveQueryFoldability {
     /// Each undistinguished variable can map to any element of `D ∪ X ∪ Y`.
-    fn dimensions(&self) -> Vec<usize> {
-        let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
-        vec![range; self.num_undistinguished]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_undistinguished)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        ((self.domain_size)
+            .checked_add(self.num_distinguished)
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a coordinate cardinality".into(),
+                )
+            })?)
+        .checked_add(self.num_undistinguished)
+        .ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

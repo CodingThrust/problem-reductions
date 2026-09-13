@@ -174,7 +174,9 @@ fn test_ksatisfiability_to_kernel_rejects_non_kernel() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
     let reduction = ReduceTo::<Kernel>::reduce_to(&source).unwrap();
     for config in [vec![], vec![false; 5], vec![true; 5], vec![false; 6]] {
-        assert!(reduction.extract_solution(&config).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

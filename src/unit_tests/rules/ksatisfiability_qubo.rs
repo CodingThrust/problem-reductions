@@ -102,7 +102,7 @@ fn test_ksatisfiability_to_qubo_structure() {
     let qubo = reduction.target_problem();
 
     // QUBO should have at least the original variables
-    assert!(qubo.num_variables() >= ksat.num_vars());
+    assert!(qubo.num_variables().unwrap() >= ksat.num_vars());
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     // QUBO should have 5 + 7 = 12 variables
-    assert_eq!(qubo.num_variables(), 12);
+    assert_eq!(qubo.num_variables().unwrap(), 12);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -146,7 +146,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
     let qubo = reduction.target_problem();
 
     // 3 vars + 1 auxiliary = 4 total
-    assert_eq!(qubo.num_variables(), 4);
+    assert_eq!(qubo.num_variables().unwrap(), 4);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -235,7 +235,7 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                             let decoded = reduction.extract_solution(&witness).unwrap();
                             assert!(source.evaluate(&decoded).unwrap().0);
                         } else {
-                            assert!(reduction.extract_solution(&witness).is_err());
+                            assert!(!matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() }));
                         }
                         minimum = minimum.min(energy);
                     }
@@ -250,10 +250,8 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                         AggregateReductionResult::extract_value(&reduction, Min(None)),
                         Or(false)
                     );
-                    assert!(reduction.extract_solution(&vec![]).is_err());
-                    assert!(reduction
-                        .extract_solution(&vec![false; target.num_vars() + 1])
-                        .is_err());
+                    assert!(!matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() }));
+                    assert!(!matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vars() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() }));
                 }
             }
             for n in [0, 3] {
@@ -272,29 +270,15 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
 
 #[test]
 fn test_sat_qubo_checked_numeric_boundaries() {
-    let mut matrix = vec![vec![i64::MAX]];
+    let mut matrix = vec![std::collections::BTreeMap::from([(0, i64::MAX)])];
     assert!(add_coefficient(&mut matrix, 0, 0, 1).is_err());
-    let mut matrix = vec![vec![i64::MIN]];
+    let mut matrix = vec![std::collections::BTreeMap::from([(0, i64::MIN)])];
     assert!(add_coefficient(&mut matrix, 0, 0, -1).is_err());
     assert!(build_qubo_matrix(usize::MAX, &[], 1).is_err());
-    // This variable count is legal for the source on both 32- and 64-bit hosts,
-    // but its dense target cannot have an addressable number of entries.
-    let n = usize::MAX / 2;
-    let k2 = KSatisfiability::<K2>::new(n, vec![]);
-    let k3 = KSatisfiability::<K3>::new(n, vec![]);
-    assert!(matches!(
-        ReduceTo::<QUBO<i64>>::reduce_to(&k2),
-        Err(crate::rules::ReductionError::IntegerOverflow { .. })
-    ));
-    assert!(matches!(
-        ReduceTo::<QUBO<i64>>::reduce_to(&k3),
-        Err(crate::rules::ReductionError::IntegerOverflow { .. })
-    ));
 }
 
 #[test]
 fn test_sat_qubo_registered_aggregate_threshold() {
-    use crate::types::Or;
     macro_rules! check {
         ($k:ty) => {
             for (clauses, expected) in [(vec![vec![1]], true), (vec![vec![1], vec![-1]], false)] {
@@ -315,14 +299,10 @@ fn test_sat_qubo_registered_aggregate_threshold() {
                             && (e.target_variant_fn)() == QUBO::<i64>::variant()
                     })
                     .unwrap();
-                let aggregate = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
+                let step = (edge.reduce_fn.unwrap())(&source).unwrap();
                 assert_eq!(
-                    *aggregate
-                        .extract_value_from_solution_dyn(&witness)
-                        .unwrap()
-                        .downcast::<Or>()
-                        .unwrap(),
-                    Or(expected)
+                    step.interpret_optimum.as_ref().unwrap()(&witness).unwrap(),
+                    expected
                 );
             }
         };

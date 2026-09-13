@@ -2,23 +2,33 @@ use super::*;
 use crate::models::algebraic::{IntegerVariable, LinearConstraint};
 
 #[test]
-fn test_backend_errors_are_classified_without_losing_the_cause() {
+fn backend_statuses_preserve_termination_causes() {
+    assert_eq!(accept_backend_status(HighsModelStatus::Optimal), Ok(()));
     assert_eq!(
-        classify_backend_error(ResolutionError::Infeasible, None),
-        IlpBackendError::Infeasible,
+        accept_backend_status(HighsModelStatus::Infeasible),
+        Err(IlpBackendError::Infeasible)
     );
     assert_eq!(
-        classify_backend_error(ResolutionError::Unbounded, None),
-        IlpBackendError::Unbounded,
+        accept_backend_status(HighsModelStatus::Unbounded),
+        Err(IlpBackendError::Unbounded)
     );
     assert_eq!(
-        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
-        IlpBackendError::Timeout,
+        accept_backend_status(HighsModelStatus::ReachedTimeLimit),
+        Err(IlpBackendError::Timeout)
     );
-    assert!(matches!(
-        classify_backend_error(ResolutionError::Other("SolveError"), None),
-        IlpBackendError::BackendFailure(message) if message.contains("SolveError")
-    ));
+    for status in [
+        HighsModelStatus::UnboundedOrInfeasible,
+        HighsModelStatus::SolveError,
+        HighsModelStatus::ObjectiveBound,
+        HighsModelStatus::ObjectiveTarget,
+        HighsModelStatus::ReachedIterationLimit,
+        HighsModelStatus::ReachedMemoryLimit,
+        HighsModelStatus::ReachedSolutionLimit,
+        HighsModelStatus::ReachedInterrupt,
+    ] {
+        assert!(matches!(accept_backend_status(status),
+            Err(IlpBackendError::BackendFailure(message)) if message.contains(&format!("{status:?}"))));
+    }
 }
 
 #[test]
@@ -95,33 +105,30 @@ fn decoding_checks_shape_integrality_range_and_original_constraints() {
 }
 
 #[test]
-fn integer_validation_does_not_use_float_row_tolerances() {
-    let coefficient = 1_i64 << 52;
-    let ilp = ILP::<bool>::new(
+fn validation_rejects_constraint_violations_in_both_coefficient_domains() {
+    let integer = ILP::<bool>::new(
         1,
-        vec![LinearConstraint::le(
-            vec![(0, coefficient)],
-            coefficient - 1,
-        )],
+        vec![LinearConstraint::le(vec![(0, 2)], 1)],
         vec![],
         ObjectiveSense::Minimize,
     )
     .unwrap();
     assert!(matches!(
-        decode_and_validate(&ilp, [1.0]),
+        decode_and_validate(&integer, [1.0]),
         Err(IlpBackendError::InvalidSolution(_))
     ));
     let float = ILP::<bool, f64>::new(
         1,
-        vec![LinearConstraint::le(
-            vec![(0, coefficient as f64)],
-            (coefficient - 1) as f64,
-        )],
+        vec![LinearConstraint::le(vec![(0, 1.0)], 1.0 - 5e-10)],
         vec![],
         ObjectiveSense::Minimize,
     )
     .unwrap();
-    assert_eq!(decode_and_validate(&float, [1.0]).unwrap(), vec![1]);
+    assert!(!float.is_feasible(&[1]).unwrap());
+    assert!(matches!(
+        decode_and_validate(&float, [1.0]),
+        Err(IlpBackendError::InvalidSolution(_))
+    ));
 }
 
 #[test]
@@ -149,7 +156,7 @@ fn validation_propagates_constraint_and_objective_overflow() {
 }
 
 #[test]
-fn coefficient_conversion_preserves_existing_transport_policy() {
+fn coefficient_encoding_enforces_supported_transport_range() {
     assert_eq!(BackendCoefficient::to_backend_number(17_i64).unwrap(), 17.0);
     assert_eq!(BackendCoefficient::to_backend_number(0.5_f64).unwrap(), 0.5);
     let value = MAX_EXACT_F64_INTEGER + 1;
@@ -210,4 +217,19 @@ fn adapter_accepts_an_ilp_domain_without_any_registry_entry() {
     )
     .unwrap();
     assert_eq!(HighsAdapter::new(None).solve(&ilp).unwrap(), vec![2]);
+}
+
+#[test]
+fn backend_model_loading_failure_is_an_explicit_error() {
+    let ilp = ILP::<bool, f64>::new(
+        1,
+        vec![LinearConstraint::le(vec![(0, 1e30)], 1.0)],
+        vec![],
+        ObjectiveSense::Minimize,
+    )
+    .unwrap();
+    assert!(matches!(
+        HighsAdapter::new(None).solve(&ilp),
+        Err(IlpBackendError::BackendFailure(message)) if message.contains("loading HiGHS model")
+    ));
 }

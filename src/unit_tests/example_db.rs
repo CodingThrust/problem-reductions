@@ -712,29 +712,15 @@ fn rule_specs_solution_pairs_are_consistent() {
                 .unwrap_or_else(|error| {
                     panic!("Rule {label}: source configuration evaluation failed: {error}")
                 });
-            assert_ne!(
-                source_eval, "Max(None)",
-                "Rule {label}: source_config evaluates to Max(None)"
+            assert!(
+                source_eval.1,
+                "Rule {label}: infeasible source configuration: {}",
+                source_eval.0
             );
-            assert_ne!(
-                source_eval, "Min(None)",
-                "Rule {label}: source_config evaluates to Min(None)"
-            );
-            assert_ne!(
-                source_eval, "Or(false)",
-                "Rule {label}: source_config evaluates to Or(false)"
-            );
-            assert_ne!(
-                target_eval, "Max(None)",
-                "Rule {label}: target_config evaluates to Max(None)"
-            );
-            assert_ne!(
-                target_eval, "Min(None)",
-                "Rule {label}: target_config evaluates to Min(None)"
-            );
-            assert_ne!(
-                target_eval, "Or(false)",
-                "Rule {label}: target_config evaluates to Or(false)"
+            assert!(
+                target_eval.1,
+                "Rule {label}: infeasible target configuration: {}",
+                target_eval.0
             );
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)

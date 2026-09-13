@@ -55,7 +55,7 @@ fn test_minimumvertexcover_to_qubo_via_path_closed_loop() {
             "QUBO",
         ]
     );
-    assert_eq!(qubo.num_variables(), 4);
+    assert_eq!(qubo.num_variables().unwrap(), 4);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -93,7 +93,7 @@ fn test_minimumvertexcover_to_qubo_via_path_star_graph() {
     let (_, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
-    assert_eq!(qubo.num_variables(), 4);
+    assert_eq!(qubo.num_variables().unwrap(), 4);
 
     let solver = BruteForce::new();
     let qubo_solution = solver

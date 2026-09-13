@@ -18,8 +18,11 @@ fn test_numerical_3dm_creation() {
     assert_eq!(problem.sizes_y(), &[5, 7]);
     assert_eq!(problem.bound(), 15);
     assert_eq!(problem.num_groups(), 2);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
     assert_eq!(
         <Numerical3DimensionalMatching as Problem>::NAME,
         "Numerical3DimensionalMatching"

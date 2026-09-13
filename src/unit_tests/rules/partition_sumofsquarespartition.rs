@@ -153,5 +153,7 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
         );
     }
 
-    assert!(reduction.extract_solution(&vec![0]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0]), Ok(value) if { value.is_valid() })
+    );
 }

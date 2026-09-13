@@ -89,18 +89,11 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
     /// The rank budget forces a unique row covering the first domino anchor.
     /// Its left crown memberships give the normalized truth assignment.
     /// Map appearing variables back to their original indices and assign false
-    /// to variables absent from the formula. Infeasible covers are rejected.
+    /// to variables absent from the formula.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.0.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a biclique cover",
-            ));
-        }
         // Variables absent from every clause may be assigned false.
         // This also defines the inverse map for the empty-formula YES target.
         let mut source_assignment = vec![false; self.source_num_vars];
@@ -111,18 +104,14 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         let s11_v = self.target.left_size() + self.s1_right_offset;
         // The Y matching and the important induced matching use the entire
         // rank budget. Exactly one row covers this important anchor edge.
-        let b1_index = target_solution
+        for row in target_solution
             .iter()
-            .position(|row| row[s11_u] && row[s11_v]);
-
-        let b1_index = b1_index.ok_or_else(|| {
-            crate::rules::ExtractionError::invalid(
-                "target configuration has no important-edge biclique B_1",
-            )
-        })?;
-        // Pair i corresponds to source_variables[i]; its t variable is 2*i.
-        for (i, &source_index) in self.source_variables.iter().enumerate() {
-            source_assignment[source_index] = target_solution[b1_index][2 * i];
+            .filter(|row| row[s11_u] && row[s11_v])
+        {
+            // Pair i corresponds to source_variables[i]; its t variable is 2*i.
+            for (i, &source_index) in self.source_variables.iter().enumerate() {
+                source_assignment[source_index] = row[2 * i];
+            }
         }
         Ok(source_assignment)
     }

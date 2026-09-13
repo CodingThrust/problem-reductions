@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_reused_terminal() {
     assert!(
@@ -43,7 +42,10 @@ fn test_disjoint_connecting_paths_creation() {
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.num_pairs(), 2);
     assert_eq!(problem.terminal_pairs(), &[(0, 3), (2, 5)]);
-    assert_eq!(problem.dimensions(), vec![2; 7]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 7]
+    );
     assert_eq!(
         problem.ordered_edges(),
         vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 4), (3, 5), (4, 5)]

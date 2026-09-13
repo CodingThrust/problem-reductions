@@ -7,7 +7,6 @@ use crate::models::formula::Satisfiability;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::BruteForceProblem as _;
 use std::collections::HashSet;
 
 /// Result of reducing SAT to CircuitSAT.
@@ -30,8 +29,6 @@ impl ReductionResult for ReductionSATToCircuit {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             self.source_var_indices
                 .iter()
@@ -55,7 +52,7 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
     type Result = ReductionSATToCircuit;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let num_vars = self.num_variables();
+        let num_vars = self.num_vars();
         let clauses = self.clauses();
 
         let mut assignments = Vec::new();

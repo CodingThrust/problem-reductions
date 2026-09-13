@@ -39,14 +39,6 @@ impl ReductionResult for ReductionILPToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).is_valid() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target QUBO configuration does not certify a feasible ILP assignment",
-            ));
-        }
-
         Ok(target_solution[..self.num_original_vars]
             .iter()
             .map(|&value| i64::from(value))
@@ -252,7 +244,7 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
             feasible_energy_range(&c_vec, &b_vec, penalty)?;
 
         // QUBO = -diag(c + 2·P·b·A) + P·A^T·A
-        let mut matrix = vec![vec![0_i64; nq]; nq];
+        let mut matrix = vec![std::collections::BTreeMap::new(); nq];
 
         // Compute b·A (b_vec dot each column of a_ext)
         let mut ba = vec![0_i64; nq];
@@ -281,14 +273,17 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
                         "computing a QUBO diagonal penalty",
                     )
                 })?;
-            matrix[j][j] = c_vec[j]
-                .checked_add(penalty_term)
-                .and_then(i64::checked_neg)
-                .ok_or_else(|| {
-                    crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
-                        "computing a QUBO diagonal coefficient",
-                    )
-                })?;
+            matrix[j].insert(
+                j,
+                c_vec[j]
+                    .checked_add(penalty_term)
+                    .and_then(i64::checked_neg)
+                    .ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
+                            "computing a QUBO diagonal coefficient",
+                        )
+                    })?,
+            );
         }
 
         // A^T·A contribution (upper-triangular convention)
@@ -308,13 +303,17 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
                             "computing a quadratic QUBO diagonal penalty",
                         )
                     })?;
-                row_i[i] = row_i[i].checked_add(diagonal).ok_or_else(|| {
+                let coefficient = row_i.entry(i).or_insert(0i64);
+                *coefficient = coefficient.checked_add(diagonal).ok_or_else(|| {
                     crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
                         "adding a quadratic QUBO diagonal penalty",
                     )
                 })?;
                 // Off-diagonal
                 for j in (i + 1)..nq {
+                    if row[j] == 0 {
+                        continue;
+                    }
                     let interaction = penalty
                         .checked_mul(row[i])
                         .and_then(|value| value.checked_mul(row[j]))
@@ -324,7 +323,8 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
                                 "computing a quadratic QUBO interaction penalty",
                             )
                         })?;
-                    row_i[j] = row_i[j].checked_add(interaction).ok_or_else(|| {
+                    let coefficient = row_i.entry(j).or_insert(0i64);
+                    *coefficient = coefficient.checked_add(interaction).ok_or_else(|| {
                         crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<i64>>(
                             "adding a quadratic QUBO interaction penalty",
                         )
@@ -334,7 +334,7 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
         }
 
         Ok(ReductionILPToQUBO {
-            target: QUBO::from_matrix(matrix)
+            target: QUBO::from_rows(matrix)
                 .map_err(crate::rules::ReductionError::construction::<ILP<bool>, QUBO<i64>>)?,
             num_original_vars: n,
             sense: self.sense(),

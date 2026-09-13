@@ -26,15 +26,6 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
-        if !certificate.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not certify satisfiability",
-            ));
-        }
-
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }

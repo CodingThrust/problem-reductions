@@ -102,6 +102,13 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     target_solution[1] = 1; // edge (0,2)
     target_solution[3] = 1; // edge (1,3)
 
+    // Requirement and connectivity flows run toward root 0.
+    for offset in [5, 15] {
+        target_solution[offset + 1] = 2; // 1 -> 0
+        target_solution[offset + 3] = 1; // 2 -> 0
+        target_solution[offset + 7] = 1; // 3 -> 1
+    }
+
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
         vec![true, true, false, true, false]

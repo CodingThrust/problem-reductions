@@ -29,8 +29,11 @@ fn test_prize_collecting_steiner_forest_creation() {
     assert_eq!(*problem.beta(), 1);
     assert_eq!(*problem.omega(), 2);
     // n + m = 3 + 2 = 5 binary variables.
-    assert_eq!(problem.dimensions(), vec![2; 5]);
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 5);
     assert!(problem.graph().has_edge(0, 1));
 }
 
@@ -245,4 +248,26 @@ fn create_specs_default_prizes_and_costs_to_one() {
     assert_eq!(floating.edge_costs(), &[1.0]);
     assert!(!PrizeCollectingSteinerForestI64CreateSpec::inputs()[2].required);
     assert!(!PrizeCollectingSteinerForestI64CreateSpec::inputs()[3].required);
+}
+
+#[test]
+fn nonnegative_domain_is_shared_by_construction_and_serde() {
+    for (prizes, costs, beta, omega) in [
+        (vec![-1, 0], vec![0], 1, 1),
+        (vec![0, 0], vec![-1], 1, 1),
+        (vec![0, 0], vec![0], -1, 1),
+        (vec![0, 0], vec![0], 1, -1),
+    ] {
+        let graph = SimpleGraph::new(2, vec![(0, 1)]);
+        let data = serde_json::json!({"graph": graph, "vertex_prizes": prizes,
+            "edge_costs": costs, "beta": beta, "omega": omega});
+        assert!(
+            serde_json::from_value::<PrizeCollectingSteinerForest<SimpleGraph, i64>>(data.clone())
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<PrizeCollectingSteinerForest<SimpleGraph, f64>>(data).is_err()
+        );
+        assert!(PrizeCollectingSteinerForest::new(graph, prizes, costs, beta, omega).is_err());
+    }
 }

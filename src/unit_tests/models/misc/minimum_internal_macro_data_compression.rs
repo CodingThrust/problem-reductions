@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -20,7 +19,7 @@ fn test_minimum_internal_macro_data_compression_creation() {
         vec![]
     );
     // dims: 9 slots, domain = 3 + 9 + 1 = 13
-    let dims = problem.dimensions();
+    let dims = crate::solvers::cartesian_dimensions(&problem).unwrap();
     assert_eq!(dims.len(), 9);
     assert!(dims.iter().all(|&d| d == 13));
 }
@@ -88,7 +87,10 @@ fn test_minimum_internal_macro_data_compression_evaluate_pointer_forward_ref() {
 #[test]
 fn test_minimum_internal_macro_data_compression_empty_string() {
     let problem = MinimumInternalMacroDataCompression::new(2, vec![], 2);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 

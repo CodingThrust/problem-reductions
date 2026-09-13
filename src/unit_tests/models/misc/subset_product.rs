@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 
@@ -18,7 +17,10 @@ fn test_subsetproduct_basic() {
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.sizes(), buv(&[2, 3, 5, 7, 6, 10]).as_slice());
     assert_eq!(problem.target(), &bu(210));
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(<SubsetProduct as Problem>::NAME, "SubsetProduct");
     assert_eq!(<SubsetProduct as Problem>::variant(), vec![]);
 }
@@ -80,7 +82,10 @@ fn test_subsetproduct_empty_instance() {
     // Empty set, target 1: empty subset product = 1 satisfies
     let problem = SubsetProduct::new_unchecked(vec![], bu(1));
     assert_eq!(problem.num_elements(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

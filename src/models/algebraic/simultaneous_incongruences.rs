@@ -79,11 +79,6 @@ impl SimultaneousIncongruences {
                 .into());
             }
         }
-        pairs.iter().try_fold(1i64, |lcm, &(_, modulus)| {
-            (lcm / gcd(lcm, modulus))
-                .checked_mul(modulus)
-                .ok_or_else(|| "Least common multiple of moduli exceeds i64 range".to_string())
-        })?;
         Ok(())
     }
 
@@ -105,9 +100,15 @@ impl SimultaneousIncongruences {
     }
 
     /// Compute the LCM of all moduli.
-    pub fn lcm_moduli(&self) -> i64 {
-        self.pairs.iter().fold(1i64, |lcm, &(_, modulus)| {
-            (lcm / gcd(lcm, modulus)) * modulus
+    pub fn lcm_moduli(&self) -> Result<i64, crate::traits::EvaluationError> {
+        self.pairs.iter().try_fold(1i64, |lcm, &(_, modulus)| {
+            (lcm / gcd(lcm, modulus))
+                .checked_mul(modulus)
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing the incongruence period".into(),
+                    )
+                })
         })
     }
 }
@@ -141,15 +142,18 @@ impl Problem for SimultaneousIncongruences {
     fn evaluate(&self, solution: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({
             // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
-            Or(self.pairs.iter().all(|&(a, b)| solution % b != a % b))
+            Or(*solution >= 0 && self.pairs.iter().all(|&(a, b)| solution % b != a % b))
         })
     }
 }
 
 impl crate::solvers::BruteForceProblem for SimultaneousIncongruences {
-    fn dimensions(&self) -> Vec<usize> {
-        let lcm = usize::try_from(self.lcm_moduli()).expect("validated positive LCM fits usize");
-        vec![lcm]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(self.lcm_moduli()?)?)
     }
 }
 

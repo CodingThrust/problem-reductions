@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_edge_weights() {
@@ -16,7 +15,7 @@ fn create_spec_defaults_edge_weights() {
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{Min, SolutionAggregate};
+use crate::types::Min;
 
 /// Build the example instance from issue #228:
 /// 8 vertices, 12 edges, s=0, t=7, B=5
@@ -50,7 +49,10 @@ fn test_minimumcutintoboundedsets_basic() {
     assert_eq!(problem.source(), 0);
     assert_eq!(problem.sink(), 7);
     assert_eq!(problem.size_bound(), 5);
-    assert_eq!(problem.dimensions(), vec![2; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
 }
 
 #[test]
@@ -191,10 +193,4 @@ fn test_minimumcutintoboundedsets_variant() {
     assert_eq!(variant.len(), 2);
     assert!(variant.iter().any(|(k, _)| *k == "graph"));
     assert!(variant.iter().any(|(k, _)| *k == "weight"));
-}
-
-#[test]
-fn test_minimumcutintoboundedsets_selects_optimal_solutions() {
-    type Value = <MinimumCutIntoBoundedSets<SimpleGraph, i64> as Problem>::Value;
-    assert!(Value::contributes_to_solution(&Min(Some(3)), &Min(Some(3))));
 }

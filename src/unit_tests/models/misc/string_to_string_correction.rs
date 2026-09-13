@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -13,7 +12,10 @@ fn test_string_to_string_correction_creation() {
     assert_eq!(problem.source_length(), 6);
     assert_eq!(problem.target_length(), 5);
     // domain = 2*6+1 = 13, bound = 2
-    assert_eq!(problem.dimensions(), vec![13; 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![13; 2]
+    );
     assert_eq!(
         <StringToStringCorrection as Problem>::NAME,
         "StringToStringCorrection"
@@ -111,7 +113,10 @@ fn test_string_to_string_correction_paper_example() {
 fn test_string_to_string_correction_unsatisfiable() {
     // bound=0, source != target → impossible
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(!problem.evaluate(&vec![]).unwrap());
 
     let solver = BruteForce::new();

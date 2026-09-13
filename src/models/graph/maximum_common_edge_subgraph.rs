@@ -136,7 +136,7 @@ impl LabelledDigraph {
 ///
 /// # Configuration encoding
 ///
-/// `dims()` returns `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
+/// The coordinate cardinalities are `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
 /// For each source vertex `u in V1`, `config[u]` is either an index in
 /// `0..graph_2.num_vertices` (the matched target vertex) or the sentinel
 /// value `graph_2.num_vertices` denoting `bottom` (unmatched). Feasibility
@@ -293,8 +293,18 @@ impl Problem for MaximumCommonEdgeSubgraph {
 }
 
 impl crate::solvers::BruteForceProblem for MaximumCommonEdgeSubgraph {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.graph_2.num_vertices() + 1; self.graph_1.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph_1.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.graph_2.num_vertices())
+            .checked_add(1usize)
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a coordinate cardinality".into(),
+                )
+            })
     }
 }
 

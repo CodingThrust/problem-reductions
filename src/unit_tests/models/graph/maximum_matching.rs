@@ -1,10 +1,10 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_matching_creation() {
@@ -14,7 +14,7 @@ fn test_matching_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables().unwrap(), 3);
 }
 
 #[test]

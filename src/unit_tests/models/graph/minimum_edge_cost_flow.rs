@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -44,7 +43,10 @@ fn test_minimum_edge_cost_flow_creation() {
     assert_eq!(problem.max_capacity(), 2);
     assert_eq!(problem.prices(), &[3, 1, 2, 0, 0, 0]);
     assert_eq!(problem.capacities(), &[2, 2, 2, 2, 2, 2]);
-    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3, 3, 3, 3]
+    );
     assert_eq!(
         <MinimumEdgeCostFlow as Problem>::NAME,
         "MinimumEdgeCostFlow"

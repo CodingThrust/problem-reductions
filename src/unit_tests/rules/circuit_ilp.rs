@@ -144,7 +144,9 @@ fn test_circuit_ilp_native_folds_all_feasible_witnesses() {
                         assert!(source.evaluate(&extracted).unwrap().0);
                         actual.insert(extracted);
                     } else {
-                        assert!(reduction.extract_solution(&solution).is_err());
+                        assert!(
+                            !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &solution), Ok(value) if value.is_valid())
+                        );
                     }
                 }
                 assert_eq!(actual, expected, "{expr:?}, output={output}");
@@ -161,7 +163,9 @@ fn test_circuit_ilp_rejects_invalid_target_and_supports_empty_circuit() {
     )]));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     for invalid in [vec![], vec![0], vec![0, 0], vec![2, 1], vec![1, 1, 1]] {
-        assert!(reduction.extract_solution(&invalid).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &invalid), Ok(value) if value.is_valid())
+        );
     }
     let empty = CircuitSAT::new(Circuit::new(vec![]));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&empty).unwrap();

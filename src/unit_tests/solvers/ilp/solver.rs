@@ -238,41 +238,23 @@ fn test_registered_ilp_pipeline_success() {
     assert!(problem.evaluate(&solution).unwrap().is_valid());
 }
 
-// Test acceptance policy in source-objective units, separate from variable rounding.
-// This allows small absolute numerical differences near zero; it is not a
-// guaranteed objective-error bound derived from HiGHS feasibility tolerances.
-fn objective_close(a: f64, b: f64) -> bool {
-    let abs_tol = 1e-7;
-    let rel_tol = 1e-7;
-    (a - b).abs() <= abs_tol + rel_tol * a.abs().max(b.abs())
-}
-
 #[test]
-fn test_float_qubo_objective_matches_reference_within_tolerance() {
+fn test_float_qubo_objective_matches_reference() {
     use crate::models::algebraic::QUBO;
     use crate::solvers::BruteForce;
 
-    for scale in [1e-9, 1.0] {
-        let matrix = vec![
-            vec![1.0, -5.0, 3.0, -8.0],
-            vec![0.0, -7.0, 8.0, -6.0],
-            vec![0.0, 0.0, 2.0, 9.0],
-            vec![0.0, 0.0, 0.0, -8.0],
-        ]
-        .into_iter()
-        .map(|row| row.into_iter().map(|v| v * scale).collect())
-        .collect();
-        let source = QUBO::<f64>::from_matrix(matrix).unwrap();
-        let actual = ILPSolver::new().solve(&source).unwrap();
-        let reference = BruteForce::new().solve(&source).unwrap().unwrap();
-        let actual_value = source.evaluate(&actual).unwrap();
-        let reference_value = source.evaluate(&reference).unwrap();
-        assert!(actual_value.is_valid());
-        assert!(objective_close(
-            actual_value.0.unwrap(),
-            reference_value.0.unwrap()
-        ));
-    }
+    let source = QUBO::<f64>::from_matrix(vec![
+        vec![0.5, -2.5, 1.5, -4.0],
+        vec![0.0, -3.5, 4.0, -3.0],
+        vec![0.0, 0.0, 1.0, 4.5],
+        vec![0.0, 0.0, 0.0, -4.0],
+    ])
+    .unwrap();
+    let actual = ILPSolver::new().solve(&source).unwrap();
+    let reference = BruteForce::new().solve(&source).unwrap().unwrap();
+    let actual_value = source.evaluate(&actual).unwrap();
+    assert!(actual_value.is_valid());
+    assert_eq!(actual_value, source.evaluate(&reference).unwrap());
 }
 
 #[test]

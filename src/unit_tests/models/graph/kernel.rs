@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -13,7 +12,10 @@ fn test_kernel_creation() {
     let problem = Kernel::new(graph);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 7);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2]
+    );
 }
 
 #[test]

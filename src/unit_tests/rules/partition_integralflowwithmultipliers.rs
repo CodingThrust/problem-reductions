@@ -75,10 +75,6 @@ fn test_partition_to_integralflowwithmultipliers_odd_total_is_fixed_no_instance(
     assert_eq!(target.capacities(), &[1, 1]);
     assert_eq!(target.requirement(), 1);
     assert!(BruteForce::new().solve(target).unwrap().is_none());
-    assert_eq!(
-        reduction.extract_solution(&vec![]).unwrap_err().to_string(),
-        "the fixed infeasible target instance has no extractable witness"
-    );
 }
 
 #[test]

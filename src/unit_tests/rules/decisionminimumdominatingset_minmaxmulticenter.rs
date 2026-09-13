@@ -42,7 +42,9 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
         crate::rules::AggregateReductionResult::extract_value(&reduction, optimum),
         Or(false)
     );
-    assert!(reduction.extract_solution(&witness).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
 }
 
 #[test]
@@ -97,7 +99,9 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
                                 .0
                         );
                     } else {
-                        assert!(reduction.extract_solution(&witness).is_err());
+                        assert!(
+                            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                        );
                     }
                 }
                 assert_eq!(
@@ -119,7 +123,9 @@ fn test_multicenter_duplicate_edges_and_malformed_witness() {
         vec![true, false, true]
     );
     for bad in [vec![], vec![true; 6]] {
-        assert!(reduction.extract_solution(&bad).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &bad), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        );
     }
     assert_eq!(
         crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None)),

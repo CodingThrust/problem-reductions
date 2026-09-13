@@ -46,12 +46,6 @@ fn test_partition_to_subsetsum_odd_total() {
     // No witness should exist for the target
     let witness = BruteForce::new().solve(target).unwrap();
     assert!(witness.is_none());
-
-    let error = reduction.extract_solution(&vec![]).unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        "expected 3 subset-selection values, got 0"
-    );
 }
 
 #[test]
@@ -72,7 +66,7 @@ fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
     let source = Partition::new(vec![1, 1, 2, 2]).unwrap();
     let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(reduction
-        .extract_solution(&vec![false, true, false])
-        .is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false, true, false]), Ok(value) if { value.is_valid() })
+    );
 }

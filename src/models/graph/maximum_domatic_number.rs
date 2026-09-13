@@ -177,9 +177,12 @@ impl<G> crate::solvers::BruteForceProblem for MaximumDomaticNumber<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
     }
 }
 

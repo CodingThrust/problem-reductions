@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -12,7 +11,10 @@ fn test_directed_hamiltonian_path_creation() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_arcs(), 3);
     // Lehmer dims: [4, 3, 2, 1]
-    assert_eq!(problem.dimensions(), vec![4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 3, 2, 1]
+    );
 }
 
 #[test]
@@ -131,7 +133,10 @@ fn test_parameter_getters() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 4);
     // Lehmer dims: [5, 4, 3, 2, 1]
-    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 3, 2, 1]
+    );
 }
 
 #[test]

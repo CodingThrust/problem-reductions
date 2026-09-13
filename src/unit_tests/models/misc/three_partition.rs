@@ -16,8 +16,11 @@ fn test_three_partition_basic() {
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.num_groups(), 2);
     assert_eq!(problem.total_sum(), 30);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
-    assert_eq!(problem.num_variables(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 6);
     assert_eq!(<ThreePartition as Problem>::NAME, "ThreePartition");
     assert_eq!(<ThreePartition as Problem>::variant(), vec![]);
 }

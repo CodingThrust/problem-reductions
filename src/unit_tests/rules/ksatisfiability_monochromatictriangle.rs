@@ -99,7 +99,9 @@ fn test_ksatisfiability_to_monochromatic_triangle_closed_loop() {
             .unwrap()
             .0
     );
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]

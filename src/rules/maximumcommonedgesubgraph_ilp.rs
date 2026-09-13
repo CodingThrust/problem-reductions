@@ -47,22 +47,15 @@ impl ReductionResult for ReductionMCESToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let n2 = self.num_vertices_2;
-        (0..self.num_vertices_1)
+        Ok((0..self.num_vertices_1)
             .map(|vertex| {
-                let mut selected =
-                    (0..n2).filter(|&mapped| target_solution[vertex * n2 + mapped] == 1);
-                match (selected.next(), selected.next()) {
-                    (Some(mapped), None) => Ok(mapped),
-                    (None, _) => Ok(n2),
-                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "source vertex {vertex} maps to multiple target vertices"
-                    ))),
+                match (0..n2).find(|&mapped| target_solution[vertex * n2 + mapped] == 1) {
+                    Some(mapped) => mapped,
+                    None => n2,
                 }
             })
-            .collect()
+            .collect())
     }
 }
 

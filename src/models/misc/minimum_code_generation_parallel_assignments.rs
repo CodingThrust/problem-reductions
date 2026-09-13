@@ -175,9 +175,12 @@ impl Problem for MinimumCodeGenerationParallelAssignments {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumCodeGenerationParallelAssignments {
-    fn dimensions(&self) -> Vec<usize> {
-        let m = self.num_assignments();
-        vec![m; m]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_assignments())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_assignments())
     }
 }
 

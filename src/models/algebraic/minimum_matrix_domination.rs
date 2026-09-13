@@ -174,8 +174,12 @@ impl Problem for MinimumMatrixDomination {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumMatrixDomination {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_ones()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_ones())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

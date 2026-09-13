@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -13,7 +12,10 @@ fn test_feasible_register_assignment_basic() {
     assert_eq!(problem.num_same_register_pairs(), 3);
     assert_eq!(problem.arcs(), &[(0, 1), (0, 2), (1, 3)]);
     assert_eq!(problem.assignment(), &[0, 1, 0, 0]);
-    assert_eq!(problem.dimensions(), vec![4; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 4]
+    );
     assert_eq!(
         <FeasibleRegisterAssignment as Problem>::NAME,
         "FeasibleRegisterAssignment"
@@ -143,7 +145,10 @@ fn test_feasible_register_assignment_serialization() {
 fn test_feasible_register_assignment_empty() {
     let problem = FeasibleRegisterAssignment::new(0, vec![], 0, vec![]);
     assert_eq!(problem.num_vertices(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

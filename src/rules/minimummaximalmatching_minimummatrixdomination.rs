@@ -80,7 +80,6 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
     ///
     /// - **Drop:** if every edge of `B` incident to `u` is already dominated
     ///   by `D \ {e1}`, set `D := D \ {e1}` (size strictly decreases).
-    ///   Symmetric for `w` and `e2`.
     /// - **Swap:** otherwise, some edge `(u, x)` of `B` is currently dominated
     ///   only by `e1`. This `x` must lie outside `V(D \ {e1})` and is
     ///   therefore distinct from `w`, so `(u, x)` is not adjacent to `e2`.
@@ -89,16 +88,14 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
     ///
     /// Each iteration strictly decreases either `|D|` or the number of
     /// adjacent pairs, so the loop terminates in `O(|F|^2)` iterations. Each
-    /// iteration scans `O(|F|)` edges to find an adjacent pair, an EDS check,
-    /// and a swap candidate, for a total of `O(|F|^3)` time. The result is a
+    /// iteration scans `O(|F|)` edges to find an adjacent pair and an
+    /// undominated edge, for a total of `O(|F|^3)` time. The result is a
     /// matching that is an EDS, i.e. an independent EDS, which is precisely a
     /// maximal matching.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let graph = self.source.graph();
             let edges = graph.edges();
@@ -124,87 +121,28 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
                 .collect();
             let mut d: Vec<usize> = target_solution
                 .iter()
-                .zip(target_ones.iter())
-                .filter_map(|(&sel, &cell)| {
-                    if sel {
-                        Some(cell_to_source_edge.get(&cell).copied().ok_or_else(|| {
-                            crate::rules::ExtractionError::invalid(format!(
-                                "selected matrix cell {cell:?} has no source edge"
-                            ))
-                        }))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<crate::rules::ExtractionResult<_>>()?;
+                .zip(target_ones)
+                .filter(|(selected, _)| **selected)
+                .map(|(_, cell)| cell_to_source_edge[cell])
+                .collect();
 
-            // Step 2: Yannakakis-Gavril EDS -> independent EDS (maximal matching).
-            // Loop invariants: `d` is an EDS of the source graph; each iteration
-            // strictly decreases either |d| or the number of (unordered) pairs of
-            // adjacent edges inside `d`.
-            loop {
-                // Find an adjacent pair (e1_idx, e2_idx) inside `d`, sharing vertex v.
-                let pair = find_adjacent_pair(&d, &edges);
-                let Some((e1_idx, e2_idx, _shared)) = pair else {
-                    break; // `d` is a matching; we are done.
-                };
-
-                // Try dropping e1_idx or e2_idx if the remainder is still an EDS.
-                let mut without_e1 = d.clone();
-                let e1_position = d.iter().position(|&x| x == e1_idx).ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "edge-domination transformation lost its selected edge",
-                    )
-                })?;
-                without_e1.swap_remove(e1_position);
-                if is_edge_dominating_set(&without_e1, &edges) {
-                    d = without_e1;
-                    continue;
+            // Remove one of two adjacent selected edges. Any edge no longer
+            // dominated is private to its non-shared endpoint; replacing the
+            // removed edge with it preserves domination and reduces adjacency.
+            while let Some(position) = find_adjacent_pair(&d, &edges) {
+                let mut remaining = d.clone();
+                remaining.swap_remove(position);
+                let covered: std::collections::HashSet<_> = remaining
+                    .iter()
+                    .flat_map(|&edge| [edges[edge].0, edges[edge].1])
+                    .collect();
+                match edges
+                    .iter()
+                    .position(|&(u, v)| !covered.contains(&u) && !covered.contains(&v))
+                {
+                    Some(edge) => d[position] = edge,
+                    None => d = remaining,
                 }
-                let mut without_e2 = d.clone();
-                let e2_position = d.iter().position(|&x| x == e2_idx).ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "edge-domination transformation lost its selected edge",
-                    )
-                })?;
-                without_e2.swap_remove(e2_position);
-                if is_edge_dominating_set(&without_e2, &edges) {
-                    d = without_e2;
-                    continue;
-                }
-
-                // Neither drop works -> perform a swap on one of e1 or e2.
-                // Choose endpoint not shared with the other edge: for e1=(u, v),
-                // e2=(v, w), the "non-shared" endpoint of e1 is u.
-                let (e1_a, e1_b) = edges[e1_idx];
-                let (e2_a, e2_b) = edges[e2_idx];
-                let shared = if e1_a == e2_a || e1_a == e2_b {
-                    e1_a
-                } else {
-                    e1_b
-                };
-                let u = if e1_a == shared { e1_b } else { e1_a };
-                let w = if e2_a == shared { e2_b } else { e2_a };
-
-                // Try to swap e1 := (u, x) where x ∉ V(d \ {e1}). The YG proof
-                // guarantees such x exists when neither drop succeeded.
-                if let Some(new_idx) = find_swap_edge(u, e1_idx, &d, &edges) {
-                    d[e1_position] = new_idx;
-                    continue;
-                }
-                // Symmetric swap on e2.
-                if let Some(new_idx) = find_swap_edge(w, e2_idx, &d, &edges) {
-                    d[e2_position] = new_idx;
-                    continue;
-                }
-
-                // YG guarantees that for an EDS at least one of the four moves
-                // above succeeds. Reaching this point implies the input was not
-                // a valid EDS (i.e., not a feasible MMD witness on the constructed
-                // instance), which violates the reduction's precondition.
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target matrix entries do not encode an edge-dominating set",
-                ));
             }
 
             // Step 3: encode the matching as a binary configuration over source edges.
@@ -217,76 +155,14 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
     }
 }
 
-/// Return `Some((i, j, v))` where `i`, `j` are indices in `d` of two edges that
-/// share vertex `v`, or `None` if all edges in `d` are pairwise independent.
-fn find_adjacent_pair(d: &[usize], edges: &[(usize, usize)]) -> Option<(usize, usize, usize)> {
-    for (a_pos, &i) in d.iter().enumerate() {
-        let (iu, iv) = edges[i];
-        for &j in &d[a_pos + 1..] {
-            let (ju, jv) = edges[j];
-            if iu == ju || iu == jv {
-                return Some((i, j, iu));
+/// Find the position of a selected edge adjacent to another selected edge.
+fn find_adjacent_pair(d: &[usize], edges: &[(usize, usize)]) -> Option<usize> {
+    let mut incident = std::collections::HashMap::new();
+    for (position, &edge) in d.iter().enumerate() {
+        for vertex in [edges[edge].0, edges[edge].1] {
+            if let Some(previous) = incident.insert(vertex, position) {
+                return Some(previous);
             }
-            if iv == ju || iv == jv {
-                return Some((i, j, iv));
-            }
-        }
-    }
-    None
-}
-
-/// Check whether the edge set `d` (indices into `edges`) dominates every edge
-/// of `edges`. An edge `f` is dominated iff `f ∈ d` or `f` shares an endpoint
-/// with some edge in `d`.
-fn is_edge_dominating_set(d: &[usize], edges: &[(usize, usize)]) -> bool {
-    // Vertex cover of the candidate EDS.
-    let mut covered_vertices: std::collections::HashSet<usize> = std::collections::HashSet::new();
-    for &i in d {
-        let (u, v) = edges[i];
-        covered_vertices.insert(u);
-        covered_vertices.insert(v);
-    }
-    edges.iter().enumerate().all(|(f_idx, (u, v))| {
-        d.contains(&f_idx) || covered_vertices.contains(u) || covered_vertices.contains(v)
-    })
-}
-
-/// Find an edge index in `edges` that is (i) incident to vertex `endpoint`,
-/// (ii) different from `excluded_idx`, and (iii) whose other endpoint lies
-/// outside `V(d \ {excluded_idx})`.
-///
-/// This is the swap candidate `(u, x)` from the Yannakakis-Gavril argument
-/// when the drop move is not available for `excluded_idx`.
-fn find_swap_edge(
-    endpoint: usize,
-    excluded_idx: usize,
-    d: &[usize],
-    edges: &[(usize, usize)],
-) -> Option<usize> {
-    // Vertex cover of d \ {excluded_idx}.
-    let mut other_cover: std::collections::HashSet<usize> = std::collections::HashSet::new();
-    for &i in d {
-        if i == excluded_idx {
-            continue;
-        }
-        let (u, v) = edges[i];
-        other_cover.insert(u);
-        other_cover.insert(v);
-    }
-    for (k, &(u, v)) in edges.iter().enumerate() {
-        if k == excluded_idx {
-            continue;
-        }
-        let (e_endpoint, other) = if u == endpoint {
-            (u, v)
-        } else if v == endpoint {
-            (v, u)
-        } else {
-            continue;
-        };
-        debug_assert_eq!(e_endpoint, endpoint);
-        if !other_cover.contains(&other) {
-            return Some(k);
         }
     }
     None

@@ -58,15 +58,6 @@ impl ReductionResult for ReductionBiconnAugToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .value
-            .is_none()
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
-
         Ok(target_solution[..self.num_candidates]
             .iter()
             .map(|&value| value == 1)

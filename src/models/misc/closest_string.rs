@@ -169,8 +169,12 @@ impl Problem for ClosestString {
 }
 
 impl crate::solvers::BruteForceProblem for ClosestString {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.string_length()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.string_length())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.alphabet_size)
     }
 }
 

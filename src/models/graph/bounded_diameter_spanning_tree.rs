@@ -365,8 +365,12 @@ where
     G: Graph + VariantParam,
     W: WeightElement + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.edge_list.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.edge_list.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

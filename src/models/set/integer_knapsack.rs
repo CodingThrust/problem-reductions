@@ -5,7 +5,6 @@
 
 use crate::registry::ConstructionError;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -115,16 +114,6 @@ impl Problem for IntegerKnapsack {
                     "multiplicity-vector length does not match the items".into(),
                 ));
             }
-            let dims = self.dimensions();
-            if config
-                .iter()
-                .zip(&dims)
-                .any(|(&count, &dimension)| count >= dimension)
-            {
-                return Err(crate::traits::EvaluationError::InvalidConfiguration(
-                    "multiplicity vector contains an out-of-range count".into(),
-                ));
-            }
             let total_size = config
                 .iter()
                 .enumerate()
@@ -174,15 +163,14 @@ impl Problem for IntegerKnapsack {
 }
 
 impl crate::solvers::BruteForceProblem for IntegerKnapsack {
-    fn dimensions(&self) -> Vec<usize> {
-        self.sizes
-            .iter()
-            .map(|&s| {
-                let dimension = i128::from(self.capacity) / i128::from(s) + 1;
-                usize::try_from(dimension)
-                    .expect("validated integer-knapsack dimension must fit usize")
-            })
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_items())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(
+            i128::from(self.capacity / self.sizes[variable]) + 1,
+        )?)
     }
 }
 
@@ -238,15 +226,6 @@ impl TryFrom<RawIntegerKnapsack> for IntegerKnapsack {
                 "expected nonnegative capacity, got {}",
                 raw.capacity
             )));
-        }
-        for &size in &raw.sizes {
-            let dimension = i128::from(raw.capacity) / i128::from(size) + 1;
-            usize::try_from(dimension).map_err(|_| {
-                ConstructionError::IntegerOverflow(format!(
-                    "knapsack dimension for capacity {} and item size {size} does not fit usize",
-                    raw.capacity
-                ))
-            })?;
         }
         Ok(IntegerKnapsack {
             sizes: raw.sizes,

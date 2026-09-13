@@ -125,8 +125,6 @@ impl ReductionResult for ReductionEMDCToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.layout.n;
             let k = self.alphabet_size;
@@ -135,27 +133,10 @@ impl ReductionResult for ReductionEMDCToILP {
             // Build D-slots
             let mut d_slots = vec![empty; n];
             for j in 0..n {
-                let symbols: Vec<_> = (0..k)
-                    .filter(|&c| target_solution[self.layout.d_var(j, c)] == 1)
-                    .collect();
                 if target_solution[self.layout.d_used_var(j)] == 1 {
-                    match symbols.as_slice() {
-                        [symbol] => d_slots[j] = *symbol,
-                        [] => {
-                            return Err(crate::rules::ExtractionError::invalid(format!(
-                                "dictionary slot {j} is active without a symbol"
-                            )))
-                        }
-                        _ => {
-                            return Err(crate::rules::ExtractionError::invalid(format!(
-                                "dictionary slot {j} selects multiple symbols"
-                            )))
-                        }
-                    }
-                } else if !symbols.is_empty() {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "inactive dictionary slot {j} selects a symbol"
-                    )));
+                    d_slots[j] = (0..k)
+                        .filter(|&c| target_solution[self.layout.d_var(j, c)] == 1)
+                        .sum();
                 }
             }
 
@@ -173,23 +154,14 @@ impl ReductionResult for ReductionEMDCToILP {
                     })
                     .collect();
                 if target_solution[self.layout.lit_var(pos)] == 1 {
-                    if !pointers.is_empty() {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "position {pos} selects both a literal and a pointer"
-                        )));
-                    }
                     // Literal at position pos
                     c_slots[c_pos] = self.source_string[pos];
                     c_pos += 1;
                     pos += 1;
                     continue;
                 }
-                let [(d_start, length)] = pointers.as_slice() else {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "position {pos} must select exactly one pointer"
-                    )));
-                };
-                let ptr_idx = encode_pointer(n, *d_start, *length);
+                let (d_start, length) = pointers[0];
+                let ptr_idx = encode_pointer(n, d_start, length);
                 c_slots[c_pos] = k + 1 + ptr_idx;
                 c_pos += 1;
                 pos += length;

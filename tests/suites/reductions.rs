@@ -246,7 +246,7 @@ mod sg_qubo_reductions {
         let result = ReduceTo::<QUBO<f64>>::reduce_to(&sg).expect("reduction should succeed");
         let qubo = result.target_problem();
 
-        assert_eq!(qubo.num_variables(), 2);
+        assert_eq!(qubo.num_variables().unwrap(), 2);
 
         // Solve QUBO
         let solver = BruteForce::new();
@@ -574,7 +574,7 @@ mod qubo_reductions {
             .expect("Should reduce MaximumIndependentSet to QUBO");
         let qubo: &QUBO<f64> = chain.target_problem();
 
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+        assert_eq!(qubo.num_variables().unwrap(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -620,7 +620,7 @@ mod qubo_reductions {
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+        assert_eq!(qubo.num_variables().unwrap(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -657,7 +657,7 @@ mod qubo_reductions {
         let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+        assert_eq!(qubo.num_variables().unwrap(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -727,7 +727,7 @@ mod qubo_reductions {
         let reduction = ReduceTo::<QUBO>::reduce_to(&ksat).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+        assert_eq!(qubo.num_variables().unwrap(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -815,7 +815,7 @@ mod qubo_reductions {
         let qubo = reduction.target_problem();
 
         // QUBO may have more variables (slack), but original count matches
-        assert!(qubo.num_variables() >= data.qubo_num_vars);
+        assert!(qubo.num_variables().unwrap() >= data.qubo_num_vars);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(qubo).unwrap();

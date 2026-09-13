@@ -105,7 +105,7 @@ fn test_ilp_to_qubo_ge_with_slack() {
     let qubo = reduction.target_problem();
 
     // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
-    assert_eq!(qubo.num_variables(), 5);
+    assert_eq!(qubo.num_variables().unwrap(), 5);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -136,7 +136,7 @@ fn test_ilp_to_qubo_le_with_slack() {
     let qubo = reduction.target_problem();
 
     // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
-    assert_eq!(qubo.num_variables(), 5);
+    assert_eq!(qubo.num_variables().unwrap(), 5);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -164,7 +164,7 @@ fn test_ilp_to_qubo_structure() {
     let qubo = reduction.target_problem();
 
     // Verify QUBO has appropriate structure
-    assert!(qubo.num_variables() >= ilp.num_vars());
+    assert!(qubo.num_variables().unwrap() >= ilp.num_vars());
 }
 
 #[test]
@@ -215,12 +215,11 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
                             // Independently detect zero squared-residual penalty.
                             let certifies = source_value.is_valid()
                                 && energy.0.unwrap() + constant == normalized_objective;
-                            let decoded = reduction.extract_solution(&config);
-                            assert_eq!(decoded.is_ok(), certifies);
                             let extracted_value =
                                 AggregateReductionResult::extract_value(&reduction, energy);
                             assert_eq!(extracted_value.is_valid(), certifies);
-                            if let Ok(solution) = decoded {
+                            if certifies {
+                                let solution = reduction.extract_solution(&config).unwrap();
                                 assert_eq!(source.evaluate(&solution).unwrap(), source_value);
                                 assert_eq!(extracted_value, source_value);
                             }
@@ -244,9 +243,9 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
                             .unwrap();
                         }
                         assert_eq!(actual, expected);
-                        assert!(reduction
-                            .extract_solution(&vec![false; target.num_vars() + 1])
-                            .is_err());
+                        assert!(
+                            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vars() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                        );
                     }
                 }
             }
@@ -275,7 +274,9 @@ fn test_ilp_qubo_inconsistent_rows_and_absent_aggregate() {
                 .evaluate(&config)
                 .unwrap();
             assert!(!AggregateReductionResult::extract_value(&reduction, value).is_valid());
-            assert!(reduction.extract_solution(&config).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
         }
         assert!(
             !AggregateReductionResult::extract_value(&reduction, crate::types::Min(None))

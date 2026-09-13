@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -10,7 +9,10 @@ fn test_precedence_constrained_scheduling_basic() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.deadline(), 3);
     assert_eq!(problem.precedences(), &[(0, 2), (1, 3)]);
-    assert_eq!(problem.dimensions(), vec![3; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 4]
+    );
     assert_eq!(
         <PrecedenceConstrainedScheduling as Problem>::NAME,
         "PrecedenceConstrainedScheduling"
@@ -129,7 +131,10 @@ fn test_precedence_constrained_scheduling_serialization() {
 fn test_precedence_constrained_scheduling_empty() {
     let problem = PrecedenceConstrainedScheduling::new(0, 1, 1, vec![]);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

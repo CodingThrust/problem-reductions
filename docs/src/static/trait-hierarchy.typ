@@ -24,14 +24,15 @@
     spacing: (8mm, 12mm),
 
     // Problem trait (top center)
-    node((0.6, 0), box(width: 55mm, align(left)[
+    node((1, 0), box(width: 55mm, align(left)[
       #strong[trait Problem]\
       #text(size: 8pt, fill: secondary)[
         `const NAME: &str`\
         `type Solution`\
         `type Value: Clone`\
-        `fn size() -> ProblemParameters`\
-        `fn evaluate(&solution) -> Value`\
+        `fn parameters() -> ProblemParameters`\
+        `fn evaluate(&solution)`\
+        `  -> Result<Value, EvaluationError>`\
         `fn variant() -> Vec<(&str, &str)>`
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <problem>),
@@ -41,7 +42,8 @@
       #strong[trait Aggregate]\
       #text(size: 8pt, fill: secondary)[
         `fn identity() -> Self`\
-        `fn combine(self, other) -> Self`\
+        `fn combine(self, other)`\
+        `  -> Result<Self, AggregationError>`\
         `fn is_absorbing(&self) -> bool`\
         #strong[trait SolutionAggregate: Aggregate]\
         `fn contributes_to_solution(...)`
@@ -49,17 +51,19 @@
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <aggregate>),
 
     // Brute-force capability (bottom center)
-    node((0.7, 1), box(width: 48mm, align(left)[
+    node((1, 1), box(width: 48mm, align(left)[
       #strong[trait BruteForceProblem]\
       #text(size: 8pt, fill: secondary)[
         `extends Problem`\
-        `fn dimensions() -> Vec<usize>`\
+        `num_variables()`\
+        `dimension(i: usize)`\
+        `→ Result<usize, SolveError>`\
         #text(style: "italic")[reference solver only]
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <brute-force>),
 
     // Common value types (bottom right)
-    node((1.4, 1), box(width: 48mm, align(left)[
+    node((0, 2), box(width: 48mm, align(left)[
       #strong[Common Value Types]\
       #text(size: 8pt, fill: secondary)[
         `Max<V> | Min<V> | Extremum<V>`\

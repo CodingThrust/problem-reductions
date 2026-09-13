@@ -29,14 +29,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not certify a Hamiltonian circuit",
-            ));
-        }
-
         // Zero cost makes this permutation itself a Hamiltonian circuit.
         Ok(target_solution.to_vec())
     }

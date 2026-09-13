@@ -145,7 +145,9 @@ fn test_kcoloring_to_tdcs_native_loops_are_no() {
         for a in 0..3 {
             for b in 0..3 {
                 for c in 0..3 {
-                    assert!(reduction.extract_solution(&vec![a, b, c]).is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![a, b, c]), Ok(value) if { value.is_valid() })
+                    );
                 }
             }
         }
@@ -157,7 +159,9 @@ fn test_kcoloring_to_tdcs_rejects_noncertificates() {
     let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
     for config in [vec![], vec![0, 1], vec![0, 1, 3], vec![0, 0, 0]] {
-        assert!(reduction.extract_solution(&config).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+        );
     }
 }
 
@@ -214,9 +218,8 @@ fn test_kcoloring_to_tdcs_all_tiny_graphs_and_target_assignments() {
                     })
                     .collect();
                 let feasible = target.evaluate(&grouping).unwrap().0;
-                let extracted = reduction.extract_solution(&grouping);
-                assert_eq!(extracted.is_ok(), feasible);
-                if let Ok(coloring) = extracted {
+                if feasible {
+                    let coloring = reduction.extract_solution(&grouping).unwrap();
                     assert!(source.evaluate(&coloring).unwrap().0);
                     target_yes = true;
                 }

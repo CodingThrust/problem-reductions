@@ -338,9 +338,12 @@ impl Problem for MinimumCodeGenerationOneRegister {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumCodeGenerationOneRegister {
-    fn dimensions(&self) -> Vec<usize> {
-        let n_internal = self.num_internal();
-        vec![n_internal; n_internal]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_internal())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_internal())
     }
 }
 

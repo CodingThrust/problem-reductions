@@ -58,8 +58,6 @@ impl ReductionResult for ReductionUFLBToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let e = self.num_edges;
             target_solution[2 * e..3 * e]

@@ -35,7 +35,10 @@ fn test_length_bounded_disjoint_paths_creation() {
     assert_eq!(problem.max_paths(), 3);
     assert_eq!(problem.max_length(), 3);
     // 3 slots * 6 edges = 18 binary variables
-    assert_eq!(problem.dimensions(), vec![2; 18]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 18]
+    );
 }
 
 #[test]
@@ -196,7 +199,7 @@ fn test_length_bounded_disjoint_paths_graph_getter() {
 #[test]
 fn test_length_bounded_disjoint_paths_num_variables() {
     let problem = sample_problem();
-    assert_eq!(problem.num_variables(), 18);
+    assert_eq!(problem.num_variables().unwrap(), 18);
 }
 
 #[test]

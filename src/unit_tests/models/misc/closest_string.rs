@@ -18,8 +18,11 @@ fn test_closest_string_creation() {
     assert_eq!(problem.num_strings(), 4);
     assert_eq!(problem.string_length(), 3);
     assert_eq!(problem.total_length(), 12);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 3);
     assert_eq!(<ClosestString as Problem>::NAME, "ClosestString");
     assert_eq!(<ClosestString as Problem>::variant(), vec![]);
 }
@@ -101,7 +104,10 @@ fn test_closest_string_larger_alphabet_smoke() {
     // must have radius at least 2; e.g., c = 00 achieves d(00,01)=1,
     // d(00,12)=2, d(00,20)=1, giving a max of 2.
     let problem = ClosestString::new(3, vec![vec![0, 1], vec![1, 2], vec![2, 0]]);
-    assert_eq!(problem.dimensions(), vec![3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3]
+    );
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.string_length(), 2);
     let solver = BruteForce::new();
@@ -120,7 +126,10 @@ fn test_closest_string_serialization() {
     let restored: ClosestString = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.strings(), problem.strings());
-    assert_eq!(restored.dimensions(), problem.dimensions());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&restored).unwrap(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap()
+    );
     assert_eq!(
         restored.evaluate(&vec![0, 0, 0]).unwrap(),
         problem.evaluate(&vec![0, 0, 0]).unwrap()

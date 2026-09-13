@@ -123,7 +123,7 @@ This runs `fmt-check + clippy + test`. Print a pass/fail summary for each stage.
 | Failure | Fix |
 |---------|-----|
 | `fmt-check` fails | Run `make fmt` to auto-fix |
-| Linker errors in clippy/test | Missing C/C++ toolchain for `ilp-highs` feature. Install Xcode CLT (`xcode-select --install` on macOS) or `build-essential` (`sudo apt install build-essential` on Linux) |
+| Linker errors in clippy/test | Missing C/C++ toolchain required by the HiGHS backend. Install Xcode CLT (`xcode-select --install` on macOS) or `build-essential` (`sudo apt install build-essential` on Linux) |
 | "HiGHS not found" or cmake errors | Install cmake: `brew install cmake` (macOS) or `sudo apt install cmake` (Linux) |
 | `cargo llvm-cov` fails with "missing llvm-profdata" | `rustup component add llvm-tools-preview` |
 

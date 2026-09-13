@@ -64,30 +64,13 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let mut cluster_of: Vec<Option<usize>> = vec![None; vertex_count(&self.clusters)];
         for (c, cluster) in self.clusters.iter().enumerate() {
             if target_solution[c] == 1 {
                 for &v in cluster {
-                    if cluster_of[v].is_some() {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "vertex {v} belongs to multiple selected clusters"
-                        )));
-                    }
                     cluster_of[v] = Some(c);
                 }
-            } else if target_solution[c] != 0 {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "cluster selection {c} is not binary"
-                )));
             }
-        }
-
-        if let Some(vertex) = cluster_of.iter().position(Option::is_none) {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "vertex {vertex} has no selected cluster"
-            )));
         }
 
         Ok(self
@@ -117,13 +100,16 @@ fn vertex_count(clusters: &[Vec<usize>]) -> usize {
 /// Order: all `n` singletons first (subset ids `1, 2, 4, ...`), then larger
 /// feasible clusters listed by ascending bitmask of their vertex set. This
 /// gives a stable variable layout; tests pin the singleton prefix.
-fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
+fn enumerate_feasible_clusters(
+    graph: &SimpleGraph,
+) -> Result<Vec<Vec<usize>>, crate::rules::ReductionError> {
     let n = graph.num_vertices();
-    debug_assert!(
-        n < 64,
-        "enumerate_feasible_clusters requires n < 64 due to u64 subset mask; got n={}",
-        n
-    );
+    if n >= u64::BITS as usize {
+        return Err(crate::rules::ReductionError::integer_overflow::<
+            HighlyConnectedDeletion<SimpleGraph>,
+            ILP<bool>,
+        >("enumerating vertex subsets with a u64 mask"));
+    }
     let mut clusters: Vec<Vec<usize>> = Vec::new();
 
     // Singletons first.
@@ -132,7 +118,7 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
     }
 
     if n < 3 {
-        return clusters;
+        return Ok(clusters);
     }
 
     // Larger feasible clusters by ascending subset bitmask.
@@ -147,7 +133,7 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
         }
     }
 
-    clusters
+    Ok(clusters)
 }
 
 #[reduction(
@@ -165,7 +151,7 @@ impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let n = graph.num_vertices();
-        let clusters = enumerate_feasible_clusters(graph);
+        let clusters = enumerate_feasible_clusters(graph)?;
         let num_vars = clusters.len();
 
         // Partition constraints: for every vertex v, sum_{S : v in S} x_S = 1.
