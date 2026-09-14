@@ -18,9 +18,12 @@ fn solve_ilp_terminal(
     macro_rules! dispatch {
         ($($v:ty, $c:ty);* $(;)?) => { $(
             if let Some(ilp) = source.downcast_ref::<ILP<$v, $c>>() {
-                let solution = adapter.solve(ilp)?;
-                let outcome = super::SolveOutcome::optimal(ilp, solution)
-                    .map_err(crate::rules::ExtractionError::from)?;
+                let outcome = match adapter.solve(ilp) {
+                    Ok(solution) => super::SolveOutcome::optimal(ilp, solution)
+                        .map_err(crate::rules::ExtractionError::from)?,
+                    Err(super::ilp::adapter::IlpBackendError::Infeasible) => super::SolveOutcome::Infeasible,
+                    Err(error) => return Err(error.into()),
+                };
                 return Ok(super::erase_outcome(outcome));
             }
         )* };
@@ -144,7 +147,7 @@ impl CompiledIlpPipeline {
         source: &dyn Any,
         adapter: &HighsAdapter,
         finish: impl FnOnce(
-            Box<dyn Any>,
+            super::ErasedOutcome,
             Option<&dyn DynReductionResult>,
         ) -> Result<R, super::ILPSolveError>,
     ) -> Result<R, super::ILPSolveError> {
@@ -159,24 +162,16 @@ impl CompiledIlpPipeline {
         let target_problem = chain
             .as_ref()
             .map_or(source, |chain| chain.target_problem_any());
-        let target = match solve_ilp_terminal(target_problem, adapter) {
-            Ok(outcome) => outcome,
-            Err(super::ILPSolveError::Infeasible) => super::SolveOutcome::Infeasible,
-            Err(error) => return Err(error),
-        };
+        let target = solve_ilp_terminal(target_problem, adapter)?;
         let recovered = match &chain {
             Some(chain) => chain.recover_erased(source, target)?,
             None => target,
         };
-        let source_solution = match recovered {
-            super::SolveOutcome::Optimal { solution, .. } => solution,
-            super::SolveOutcome::Infeasible => return Err(super::ILPSolveError::Infeasible),
-            super::SolveOutcome::Feasible { .. } => {
-                return Err(crate::rules::ExtractionError::InsufficientSolutionQuality.into())
-            }
-        };
+        if matches!(recovered, super::SolveOutcome::Feasible { .. }) {
+            return Err(crate::rules::ExtractionError::InsufficientSolutionQuality.into());
+        }
         finish(
-            source_solution,
+            recovered,
             chain.as_ref().map(|chain| chain.steps[0].witness.as_ref()),
         )
     }
@@ -185,19 +180,22 @@ impl CompiledIlpPipeline {
         &self,
         source: &dyn Any,
         adapter: &HighsAdapter,
-    ) -> Result<serde_json::Value, super::ILPSolveError> {
-        self.solve_with(source, adapter, |solution, first_reduction| {
+    ) -> Result<super::SolveOutcome, super::ILPSolveError> {
+        self.solve_with(source, adapter, |outcome, first_reduction| {
             if let Some(reduction) = first_reduction {
-                return reduction
-                    .source_solution_json(solution.as_ref())
-                    .map_err(super::ILPSolveError::from);
+                return Ok(reduction.source_result_json(outcome)?);
             }
-            Ok(serde_json::to_value(
-                *solution
-                    .downcast::<Vec<i64>>()
-                    .expect("ILP backend returned the wrong solution type"),
-            )
-            .expect("ILP solution serialization failed"))
+            // The terminal already validated the native ILP type. Recover its
+            // coefficient type here to format the stored evaluation.
+            if source.is::<ILP<bool, i64>>() || source.is::<ILP<i64, i64>>() {
+                let outcome =
+                    super::downcast_outcome::<Vec<i64>, crate::types::Extremum<i64>>(outcome)?;
+                Ok(super::outcome_to_json(&outcome)?)
+            } else {
+                let outcome =
+                    super::downcast_outcome::<Vec<i64>, crate::types::Extremum<f64>>(outcome)?;
+                Ok(super::outcome_to_json(&outcome)?)
+            }
         })
     }
 
@@ -210,7 +208,10 @@ impl CompiledIlpPipeline {
         P: crate::traits::Problem + 'static,
         P::Solution: 'static,
     {
-        self.solve_with(source, adapter, |solution, _| {
+        self.solve_with(source, adapter, |outcome, _| {
+            let solution = outcome
+                .into_solution()
+                .ok_or(super::ILPSolveError::Infeasible)?;
             let solution = solution
                 .downcast::<P::Solution>()
                 .map_err(|_| super::ILPSolveError::PipelineTypeMismatch(self.path[0].label()))?;

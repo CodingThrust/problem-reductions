@@ -281,16 +281,16 @@ where
 /// Type erasure for executed reduction results. Mathematical recovery remains typed.
 pub trait DynReductionResult {
     fn target_problem_any(&self) -> &dyn Any;
-    fn source_solution_json(&self, solution: &dyn Any) -> ExtractionResult<serde_json::Value>;
     fn recover_result_dyn(
         &self,
         source: &dyn Any,
         target: crate::solvers::ErasedOutcome,
     ) -> ExtractionResult<crate::solvers::ErasedOutcome>;
+    /// Decode and evaluate once, returning the typed result and its canonical JSON.
     fn target_result_from_json(
         &self,
         target: crate::solvers::SolveOutcome,
-    ) -> ExtractionResult<crate::solvers::ErasedOutcome>;
+    ) -> ExtractionResult<(crate::solvers::ErasedOutcome, crate::solvers::SolveOutcome)>;
     fn source_result_json(
         &self,
         source: crate::solvers::ErasedOutcome,
@@ -301,20 +301,13 @@ impl<R: ReductionResult + 'static> DynReductionResult for R
 where
     R::Source: 'static,
     R::Target: 'static,
-    <R::Target as Problem>::Solution: serde::de::DeserializeOwned + 'static,
-    <R::Target as Problem>::Value: 'static,
+    <R::Target as Problem>::Solution: serde::de::DeserializeOwned + serde::Serialize + 'static,
+    <R::Target as Problem>::Value: std::fmt::Display + 'static,
     <R::Source as Problem>::Solution: serde::Serialize + 'static,
     <R::Source as Problem>::Value: std::fmt::Display + 'static,
 {
     fn target_problem_any(&self) -> &dyn Any {
         self.target_problem()
-    }
-
-    fn source_solution_json(&self, solution: &dyn Any) -> ExtractionResult<serde_json::Value> {
-        let solution = solution
-            .downcast_ref::<<R::Source as Problem>::Solution>()
-            .ok_or_else(|| ExtractionError::invalid("source solution type mismatch"))?;
-        serde_json::to_value(solution).map_err(|error| ExtractionError::invalid(error.to_string()))
     }
 
     fn recover_result_dyn(
@@ -334,12 +327,12 @@ where
     fn target_result_from_json(
         &self,
         target: crate::solvers::SolveOutcome,
-    ) -> ExtractionResult<crate::solvers::ErasedOutcome> {
+    ) -> ExtractionResult<(crate::solvers::ErasedOutcome, crate::solvers::SolveOutcome)> {
         use crate::solvers::SolveOutcome;
         // Numeric evaluation is model-owned, not parsed from a display string.
         let decode = |solution| {
             serde_json::from_value(solution).map_err(|error| {
-                ExtractionError::invalid(format!("target solution deserialization failed: {error}"))
+                ExtractionError::invalid(format!("invalid solution JSON: {error}"))
             })
         };
         let target = match target {
@@ -351,38 +344,17 @@ where
             }
             SolveOutcome::Infeasible => SolveOutcome::Infeasible,
         };
-        Ok(crate::solvers::erase_outcome(target))
+        let target_json = crate::solvers::outcome_to_json(&target)?;
+        Ok((crate::solvers::erase_outcome(target), target_json))
     }
 
     fn source_result_json(
         &self,
         source: crate::solvers::ErasedOutcome,
     ) -> ExtractionResult<crate::solvers::SolveOutcome> {
-        use crate::solvers::SolveOutcome;
         let source: crate::solvers::ProblemOutcome<R::Source> =
             crate::solvers::downcast_outcome(source)?;
-        let encode = |solution| {
-            serde_json::to_value(solution).map_err(|error| {
-                ExtractionError::invalid(format!("source solution serialization failed: {error}"))
-            })
-        };
-        Ok(match source {
-            SolveOutcome::Optimal {
-                solution,
-                evaluation,
-            } => SolveOutcome::Optimal {
-                solution: encode(solution)?,
-                evaluation: evaluation.to_string(),
-            },
-            SolveOutcome::Feasible {
-                solution,
-                evaluation,
-            } => SolveOutcome::Feasible {
-                solution: encode(solution)?,
-                evaluation: evaluation.to_string(),
-            },
-            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
-        })
+        crate::solvers::outcome_to_json(&source)
     }
 }
 

@@ -1,6 +1,6 @@
 //! Mathematical solve results, shared by solvers and reduction recovery.
 
-use crate::traits::{EvaluationError, Problem};
+use crate::traits::{EvaluationError, EvaluationValue, Problem};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
@@ -18,24 +18,42 @@ pub enum SolveOutcome<S = serde_json::Value, V = String> {
 pub type ProblemOutcome<P> = SolveOutcome<<P as Problem>::Solution, <P as Problem>::Value>;
 
 impl<S, V> SolveOutcome<S, V> {
-    /// Package an optimum established by the caller and evaluate its objective.
+    /// Evaluate and validate a candidate whose optimality is established by the caller.
+    ///
+    /// Returns an evaluation error if evaluation fails or the candidate violates
+    /// the constraints. This checks feasibility, not optimality.
     pub fn optimal<P: Problem<Solution = S, Value = V>>(
         problem: &P,
         solution: S,
-    ) -> Result<Self, EvaluationError> {
+    ) -> Result<Self, EvaluationError>
+    where
+        V: EvaluationValue,
+    {
         let evaluation = problem.evaluate(&solution)?;
+        if !evaluation.is_valid() {
+            return Err(EvaluationError::ConstraintViolation);
+        }
         Ok(Self::Optimal {
             solution,
             evaluation,
         })
     }
 
-    /// Package a feasible witness established by the caller without claiming optimality.
+    /// Evaluate and validate a candidate without claiming optimality.
+    ///
+    /// Returns an evaluation error if evaluation fails or the candidate violates
+    /// the constraints; this does not establish problem infeasibility.
     pub fn feasible<P: Problem<Solution = S, Value = V>>(
         problem: &P,
         solution: S,
-    ) -> Result<Self, EvaluationError> {
+    ) -> Result<Self, EvaluationError>
+    where
+        V: EvaluationValue,
+    {
         let evaluation = problem.evaluate(&solution)?;
+        if !evaluation.is_valid() {
+            return Err(EvaluationError::ConstraintViolation);
+        }
         Ok(Self::Feasible {
             solution,
             evaluation,
@@ -55,6 +73,43 @@ impl<S, V> SolveOutcome<S, V> {
             Self::Infeasible => None,
         }
     }
+}
+
+/// Serialize a model-owned result without evaluating its solution again.
+pub(crate) fn outcome_to_json<S: Serialize, V: EvaluationValue + std::fmt::Display>(
+    outcome: &SolveOutcome<S, V>,
+) -> crate::rules::ExtractionResult<SolveOutcome> {
+    if let SolveOutcome::Optimal { evaluation, .. } | SolveOutcome::Feasible { evaluation, .. } =
+        outcome
+    {
+        if !evaluation.is_valid() {
+            return Err(EvaluationError::ConstraintViolation.into());
+        }
+    }
+    let encode = |solution| {
+        serde_json::to_value(solution).map_err(|error| {
+            crate::rules::ExtractionError::invalid(format!(
+                "solution serialization failed: {error}"
+            ))
+        })
+    };
+    Ok(match outcome {
+        SolveOutcome::Optimal {
+            solution,
+            evaluation,
+        } => SolveOutcome::Optimal {
+            solution: encode(solution)?,
+            evaluation: evaluation.to_string(),
+        },
+        SolveOutcome::Feasible {
+            solution,
+            evaluation,
+        } => SolveOutcome::Feasible {
+            solution: encode(solution)?,
+            evaluation: evaluation.to_string(),
+        },
+        SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+    })
 }
 
 pub(crate) type ErasedOutcome = SolveOutcome<Box<dyn Any>, Box<dyn Any>>;
@@ -115,3 +170,7 @@ pub(crate) fn downcast_outcome<S: 'static, V: 'static>(
         SolveOutcome::Infeasible => SolveOutcome::Infeasible,
     })
 }
+
+#[cfg(test)]
+#[path = "../unit_tests/solvers/outcome.rs"]
+mod tests;

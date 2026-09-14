@@ -10228,7 +10228,7 @@ fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
         std::fs::write(
             &result_file,
             serde_json::json!({
-                "status":"feasible", "solution":solution, "evaluation":"",
+                "status":"feasible", "solution":solution, "evaluation":"untrusted external evaluation",
             })
             .to_string(),
         )
@@ -10257,7 +10257,8 @@ fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
             assert_eq!(result["intermediate"]["status"], "feasible");
             assert_eq!(result["intermediate"]["evaluation"], "Min(3)");
         } else {
-            assert!(String::from_utf8_lossy(&output.stderr).contains("infeasible target solution"));
+            assert!(String::from_utf8_lossy(&output.stderr)
+                .contains("candidate solution violates the problem constraints"));
         }
     }
     std::fs::remove_dir_all(directory).unwrap();

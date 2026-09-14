@@ -27,7 +27,7 @@ Every problem implements `Problem`. The associated `Value` type is the per-confi
 trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
     type Solution;                         // e.g., Vec<bool>, permutation, tuple
-    type Value: Clone;                     // e.g., Max<i64>, Or, Sum<i64>
+    type Value: EvaluationValue;           // e.g., Max<i64>, Or
     fn parameter_names() -> &'static [&'static str];
     fn parameters(&self) -> ProblemParameters;
     fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
@@ -37,6 +37,7 @@ trait Problem: Clone {
 ```
 
 - **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and reports its canonical instance parameters. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named parameters used by reduction expressions.
+- **`EvaluationValue`** — requires `Clone` and `is_valid()`, expressing whether one candidate satisfies the model constraints. `Min`, `Max`, `Or`, and `Extremum` implement it. Custom evaluation types implement this check without needing aggregation or solver capabilities. An invalid candidate does not establish that the problem is infeasible.
 - **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its fallible `num_variables()` and `dimension(variable)` methods describe coordinates without allocating their vector. These methods and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
 - **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
 - **Feasibility problems** — typically use `Or`.
@@ -128,9 +129,24 @@ optional interpretation callback or separate value-only execution path.
 | Evaluation, decoding, or execution error | Preserve the error; never turn it into `Infeasible` |
 
 `ProblemOutcome<P>` retains `P::Solution` and `P::Value` as concrete Rust types.
-`SolveOutcome::optimal` evaluates an already established optimum; it does not
-prove optimality. The solver or external caller supplies that conclusion.
-Likewise, `SolveOutcome::feasible` packages an established feasible witness.
+`SolveOutcome::optimal` and `SolveOutcome::feasible` evaluate the candidate once
+and check `EvaluationValue::is_valid()`. A candidate violating the constraints
+returns `EvaluationError::ConstraintViolation`, not `SolveOutcome::Infeasible`:
+rejecting one candidate does not prove that the problem has no solution.
+Evaluation failures propagate unchanged. `optimal` does not prove optimality;
+the solver or external caller supplies that conclusion. Direct enum construction
+and deserialization do not perform these checks.
+
+The ILP pipeline carries complete results through recovery and JSON serialization;
+it does not discard and recompute the source evaluation. Backend infeasibility
+becomes a mathematical result at the terminal boundary. Only the typed
+`ILPSolver::solve()` outlet converts it to `ILPSolveError::Infeasible` to satisfy
+that method's solution-returning contract.
+
+`ReductionChain::recover_result_json()` returns `(source_result, target_result)`.
+It decodes and evaluates the external target once, then retains the model-computed
+target evaluation for output while recovering the source. CLI callers use both
+returned results; they do not independently evaluate the external candidate.
 
 For example, an independent set of size 2 in a four-vertex graph maps to a
 vertex cover of size 2. Recovery complements the solution and evaluates the

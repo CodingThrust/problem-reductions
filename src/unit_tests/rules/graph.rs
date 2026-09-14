@@ -15,7 +15,7 @@ use crate::rules::traits::ReductionResult;
 use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{One, ProblemParameters, Sum};
+use crate::types::{Min, One, ProblemParameters};
 use petgraph::graph::DiGraph;
 use serde_json::json;
 use std::any::Any;
@@ -82,7 +82,7 @@ struct NaturalVariantProblem;
 impl Problem for AggregateChainSource {
     const NAME: &'static str = "AggregateChainSource";
     type Solution = Vec<usize>;
-    type Value = Sum<u64>;
+    type Value = Min<u64>;
 
     fn parameter_names() -> &'static [&'static str] {
         &["num_variables"]
@@ -95,7 +95,7 @@ impl Problem for AggregateChainSource {
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().sum::<usize>() as u64))
+        Ok(Min(Some(config.iter().sum::<usize>() as u64)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -116,7 +116,7 @@ impl crate::solvers::BruteForceProblem for AggregateChainSource {
 impl Problem for AggregateChainMiddle {
     const NAME: &'static str = "AggregateChainMiddle";
     type Solution = Vec<usize>;
-    type Value = Sum<u64>;
+    type Value = Min<u64>;
 
     fn parameter_names() -> &'static [&'static str] {
         &["num_variables"]
@@ -129,7 +129,7 @@ impl Problem for AggregateChainMiddle {
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().sum::<usize>() as u64))
+        Ok(Min(Some(config.iter().sum::<usize>() as u64)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -150,7 +150,7 @@ impl crate::solvers::BruteForceProblem for AggregateChainMiddle {
 impl Problem for AggregateChainTarget {
     const NAME: &'static str = "AggregateChainTarget";
     type Solution = Vec<usize>;
-    type Value = Sum<u64>;
+    type Value = Min<u64>;
 
     fn parameter_names() -> &'static [&'static str] {
         &["num_variables"]
@@ -163,7 +163,7 @@ impl Problem for AggregateChainTarget {
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().sum::<usize>() as u64))
+        Ok(Min(Some(config.iter().sum::<usize>() as u64)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -563,7 +563,7 @@ fn execute_paths_executes_a_shared_prefix_once() {
                     &AggregateChainSource,
                     SolveOutcome::Optimal {
                         solution: vec![1usize],
-                        evaluation: Sum(1)
+                        evaluation: Min(Some(1))
                     }
                 )
                 .unwrap()
@@ -853,7 +853,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             .unwrap(),
         SolveOutcome::Optimal {
             solution: vec![12],
-            evaluation: Sum(12)
+            evaluation: Min(Some(12))
         }
     );
 }
@@ -2127,7 +2127,7 @@ fn witness_and_value_mapping_share_one_executed_construction() {
             .unwrap(),
         SolveOutcome::Optimal {
             solution: witness,
-            evaluation: Sum(7)
+            evaluation: Min(Some(7))
         }
     );
     assert_eq!(CONSTRUCTIONS.load(Ordering::SeqCst), 1);
@@ -2207,7 +2207,8 @@ fn composed_witness_agrees_across_direct_chain_path_and_json() {
                     evaluation: String::new(),
                 }
             )
-            .unwrap(),
+            .unwrap()
+            .0,
         SolveOutcome::Optimal {
             solution: json!(expected),
             evaluation: "Min(1)".into()

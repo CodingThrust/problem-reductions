@@ -32,7 +32,9 @@ impl ReductionResult for ReductionVCToFAS {
     }
 
     /// Extract solution: internal arcs are at positions 0..n in the FAS config.
-    /// If internal arc i is in the FAS (config[i] = 1), vertex i is in the cover.
+    /// If internal arc i is in the FAS, vertex i is in the cover.
+    /// Only optimal target results qualify: a feasible incumbent may remove
+    /// crossing arcs, whose removal does not select any source vertex.
     fn recover_result(
         &self,
         source: &Self::Source,
@@ -41,25 +43,13 @@ impl ReductionResult for ReductionVCToFAS {
         match target {
             SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
             SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
+                let solution = solution[..self.num_source_vertices].to_vec();
                 Ok(SolveOutcome::optimal(source, solution)?)
             }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
             }
         }
-    }
-}
-
-impl ReductionVCToFAS {
-    fn map_solution(
-        &self,
-        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<
-        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
-    > {
-        Ok(target_solution[..self.num_source_vertices].to_vec())
     }
 }
 

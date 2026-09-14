@@ -37,18 +37,27 @@ fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
     ExactProblemKey::new(problem.problem_name(), problem.variant_map())
 }
 
+/// Check the candidate returned by an exact solver before publishing its result.
+fn optimal_outcome(
+    problem: &LoadedDynProblem,
+    solution: serde_json::Value,
+) -> Result<SolveOutcome, super::SolveError> {
+    let (evaluation, feasible) = problem.evaluate_dyn(&solution)?;
+    if !feasible {
+        return Err(crate::traits::EvaluationError::ConstraintViolation.into());
+    }
+    Ok(SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    })
+}
+
 fn solve_customized(
     problem: &LoadedDynProblem,
     registration: &'static CustomizedSolverRegistration,
 ) -> Result<SolveResult, super::SolveError> {
     let outcome = match (registration.solve_fn)(problem.as_any())? {
-        Some(solution) => {
-            let (evaluation, _) = problem.evaluate_dyn(&solution)?;
-            SolveOutcome::Optimal {
-                evaluation,
-                solution,
-            }
-        }
+        Some(solution) => optimal_outcome(problem, solution)?,
         None => SolveOutcome::Infeasible,
     };
     Ok(SolveResult {
@@ -63,25 +72,15 @@ fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match pipeline.solve(
-        problem.as_any(),
-        &super::ilp::adapter::HighsAdapter::new(None),
-    ) {
-        Ok(solution) => {
-            let (evaluation, _) = problem.evaluate_dyn(&solution)?;
-            SolveOutcome::Optimal {
-                evaluation,
-                solution,
-            }
-        }
-        Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
-        Err(source) => {
-            return Err(super::SolveError::IlpSolve {
-                problem: problem_key(problem).label(),
-                source,
-            });
-        }
-    };
+    let outcome = pipeline
+        .solve(
+            problem.as_any(),
+            &super::ilp::adapter::HighsAdapter::new(None),
+        )
+        .map_err(|source| super::SolveError::IlpSolve {
+            problem: problem_key(problem).label(),
+            source,
+        })?;
     Ok(SolveResult {
         solver: SolverExecution::Ilp {
             reduction_path: pipeline.path_labels(),

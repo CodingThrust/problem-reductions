@@ -672,3 +672,67 @@ fn decision_closest_vector_solver_preserves_bound_after_serialization() {
         }
     }
 }
+
+#[test]
+fn customized_dispatch_rejects_a_constraint_violating_candidate() {
+    use crate::solvers::registry::CustomizedSolverRegistration;
+    use crate::solvers::SolveError;
+    use crate::traits::EvaluationError;
+
+    static INVALID_SOLVER: CustomizedSolverRegistration = CustomizedSolverRegistration {
+        source_name: "MinimumVertexCover",
+        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i64")],
+        implementation: "invalid-candidate",
+        solve_fn: |_| Ok(Some(serde_json::json!([false, false]))),
+    };
+    let problem = load_dyn(
+        "MinimumVertexCover",
+        &BTreeMap::from([
+            ("graph".into(), "SimpleGraph".into()),
+            ("weight".into(), "i64".into()),
+        ]),
+        serde_json::json!({"graph": {"num_vertices": 2, "edges": [[0, 1]]}, "weights": [1, 1]}),
+    )
+    .unwrap();
+    assert!(matches!(
+        super::solve_customized(&problem, &INVALID_SOLVER),
+        Err(SolveError::Evaluation(EvaluationError::ConstraintViolation)),
+    ));
+    // The model is feasible; the error concerns only the solver's candidate.
+    assert!(
+        problem
+            .evaluate_dyn(&serde_json::json!([true, false]))
+            .unwrap()
+            .1
+    );
+}
+
+#[test]
+fn native_float_ilp_preserves_solution_and_fractional_evaluation() {
+    let problem =
+        ILP::<bool, f64>::new(1, vec![], vec![(0, 0.5)], ObjectiveSense::Maximize).unwrap();
+    // Both variable domains accept this same explicitly bounded [0, 1] instance.
+    let data = serde_json::to_value(problem).unwrap();
+    for variable in ["bool", "i64"] {
+        let loaded = load_dyn(
+            "ILP",
+            &BTreeMap::from([
+                ("variable".into(), variable.into()),
+                ("coefficient".into(), "f64".into()),
+            ]),
+            data.clone(),
+        )
+        .unwrap();
+        let result = solve(&loaded, SolverRequest::Ilp).unwrap();
+        let solution = serde_json::json!([1]);
+        let (evaluation, valid) = loaded.evaluate_dyn(&solution).unwrap();
+        assert!(valid);
+        assert_eq!(
+            result.outcome,
+            SolveOutcome::Optimal {
+                solution,
+                evaluation
+            }
+        );
+    }
+}

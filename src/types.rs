@@ -343,6 +343,12 @@ impl<V: fmt::Display> fmt::Display for Max<V> {
     }
 }
 
+impl<V: Clone> crate::traits::EvaluationValue for Max<V> {
+    fn is_valid(&self) -> bool {
+        Max::is_valid(self)
+    }
+}
+
 impl<V> Max<V> {
     pub fn is_valid(&self) -> bool {
         self.0.is_some()
@@ -391,6 +397,12 @@ impl<V: fmt::Display> fmt::Display for Min<V> {
             Some(value) => write!(f, "Min({value})"),
             None => write!(f, "Min(None)"),
         }
+    }
+}
+
+impl<V: Clone> crate::traits::EvaluationValue for Min<V> {
+    fn is_valid(&self) -> bool {
+        Min::is_valid(self)
     }
 }
 
@@ -463,6 +475,12 @@ impl<W: fmt::Display> fmt::Display for Sum<W> {
 /// Disjunction aggregate for existential satisfaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Or(pub bool);
+
+impl crate::traits::EvaluationValue for Or {
+    fn is_valid(&self) -> bool {
+        Or::is_valid(self)
+    }
+}
 
 impl Or {
     pub fn is_valid(&self) -> bool {
@@ -548,6 +566,12 @@ pub enum ExtremumSense {
 pub struct Extremum<V> {
     pub sense: ExtremumSense,
     pub value: Option<V>,
+}
+
+impl<V: Clone> crate::traits::EvaluationValue for Extremum<V> {
+    fn is_valid(&self) -> bool {
+        Extremum::is_valid(self)
+    }
 }
 
 impl<V> Extremum<V> {

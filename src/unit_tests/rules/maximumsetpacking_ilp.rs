@@ -238,7 +238,8 @@ fn extraction_maps_feasible_witnesses_through_typed_and_dynamic_paths() {
                     evaluation: String::new(),
                 }
             )
-            .unwrap(),
+            .unwrap()
+            .0,
         SolveOutcome::Feasible {
             solution: json!([false]),
             evaluation: "Max(0)".into()

@@ -298,9 +298,9 @@ impl BundleReplay {
         target_outcome: SolveOutcome,
         solver: SolverExecution,
     ) -> Result<BundleSolveResult> {
-        let source_outcome = self
+        let (source_outcome, target_outcome) = self
             .chain
-            .recover_result_json(self.source.as_any(), target_outcome.clone())?;
+            .recover_result_json(self.source.as_any(), target_outcome)?;
         Ok(BundleSolveResult {
             source_name: self.source_name.clone(),
             target_name: self.target_name.clone(),

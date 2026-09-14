@@ -54,7 +54,10 @@ macro_rules! impl_dyn_problem {
                     ))
                 })?;
                 let value = <$ty as $crate::traits::Problem>::evaluate(self, &solution)?;
-                Ok(($crate::registry::format_metric(&value), value.is_valid()))
+                Ok((
+                    $crate::registry::format_metric(&value),
+                    $crate::traits::EvaluationValue::is_valid(&value),
+                ))
             }
 
             fn evaluate_json(

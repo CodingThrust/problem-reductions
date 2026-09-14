@@ -102,7 +102,7 @@ pub mod prelude {
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, ProblemOutcome, SolveOutcome};
-    pub use crate::traits::Problem;
+    pub use crate::traits::{EvaluationValue, Problem};
 
     // Types
     pub use crate::error::{ProblemError, Result};
@@ -120,7 +120,7 @@ pub use expr::{
 pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::BruteForce;
-pub use traits::Problem;
+pub use traits::{EvaluationValue, Problem};
 pub use types::{
     And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemParameters, Sum,
     WeightElement,

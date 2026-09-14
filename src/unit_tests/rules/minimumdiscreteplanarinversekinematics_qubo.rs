@@ -186,7 +186,8 @@ fn optimum_energy_recovers_distance_and_infeasibility() {
                         evaluation: String::new(),
                     },
                 )
-                .unwrap();
+                .unwrap()
+                .0;
             assert_eq!(
                 matches!(completed, SolveOutcome::Optimal { .. }),
                 expected.is_some()

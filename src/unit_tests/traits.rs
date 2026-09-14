@@ -1,6 +1,6 @@
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-use crate::types::{Max, Min, Or, Sum};
+use crate::types::{Max, Min, Or};
 
 #[derive(Clone)]
 struct TestSatProblem {
@@ -183,7 +183,7 @@ struct MultiDimProblem {
 impl Problem for MultiDimProblem {
     const NAME: &'static str = "MultiDim";
     type Solution = Vec<usize>;
-    type Value = Sum<i64>;
+    type Value = Min<i64>;
 
     fn parameter_names() -> &'static [&'static str] {
         &["num_variables"]
@@ -196,7 +196,7 @@ impl Problem for MultiDimProblem {
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().map(|&c| c as i64).sum()))
+        Ok(Min(Some(config.iter().map(|&c| c as i64).sum())))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -225,8 +225,8 @@ fn test_multi_dim_problem() {
         vec![2, 3, 4]
     );
     assert_eq!(p.num_variables().unwrap(), 3);
-    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Sum(0));
-    assert_eq!(p.evaluate(&vec![1, 2, 3]).unwrap(), Sum(6));
+    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(p.evaluate(&vec![1, 2, 3]).unwrap(), Min(Some(6)));
 }
 
 #[test]

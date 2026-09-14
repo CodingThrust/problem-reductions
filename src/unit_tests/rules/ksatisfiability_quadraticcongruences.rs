@@ -69,27 +69,30 @@ fn test_native_clauses_and_arbitrary_crt_signs() {
                 .collect();
             let witness = witness_value_from_alphas(&signs, &construction.thetas);
             let valid = reduction.target_problem().evaluate(&witness).unwrap().0;
+            let target = SolveOutcome::optimal(reduction.target_problem(), witness.clone());
+            if !valid {
+                assert_eq!(
+                    target,
+                    Err(crate::traits::EvaluationError::ConstraintViolation)
+                );
+                continue;
+            }
             let extracted = reduction
-                .recover_result(
-                    &source,
-                    SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
-                )
+                .recover_result(&source, target.unwrap())
                 .map(|result| {
                     result
                         .into_solution()
                         .expect("qualifying target result must recover a source solution")
                 });
-            if valid {
-                let extracted = extracted.unwrap();
-                assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-                for (i, &original) in construction.active_to_source.iter().enumerate() {
-                    assert_eq!(
-                        extracted[original],
-                        signs[0] != signs[2 * construction.clauses.len() + i + 1]
-                    );
-                }
-                recovered.insert(extracted);
+            let extracted = extracted.unwrap();
+            assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
+            for (i, &original) in construction.active_to_source.iter().enumerate() {
+                assert_eq!(
+                    extracted[original],
+                    signs[0] != signs[2 * construction.clauses.len() + i + 1]
+                );
             }
+            recovered.insert(extracted);
         }
         // Enumerate only appearing variables; unused coordinates are free.
         let mut expected = BTreeSet::new();

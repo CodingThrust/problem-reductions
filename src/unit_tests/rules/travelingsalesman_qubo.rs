@@ -155,7 +155,8 @@ fn signed_and_small_tours_recover_all_optima_or_infeasibility() {
                         evaluation: String::new(),
                     },
                 )
-                .unwrap();
+                .unwrap()
+                .0;
             assert_eq!(
                 matches!(completed, SolveOutcome::Optimal { .. }),
                 expected.is_some()

@@ -172,3 +172,42 @@ fn test_canonical_rule_example_spec_builds() {
     assert_eq!(source_metric, source.evaluate(&best_source).unwrap());
     assert_eq!(target_metric, target.evaluate(&best_target).unwrap());
 }
+
+#[test]
+fn feasible_feedback_arc_set_does_not_establish_a_vertex_cover() {
+    use crate::rules::{DynReductionResult, ExtractionError};
+    use crate::traits::Problem;
+    use crate::types::Min;
+
+    let source = triangle_source();
+    let reduction = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source).unwrap();
+    // Removing one internal arc and one crossing arc breaks every cycle,
+    // but selecting only the corresponding vertex leaves edge (0, 1) uncovered.
+    let candidate = vec![false, false, true, true, false, false, false, false, false];
+    assert!(reduction
+        .target_problem()
+        .evaluate(&candidate)
+        .unwrap()
+        .is_valid());
+    assert_eq!(
+        source.evaluate(&candidate[..3].to_vec()).unwrap(),
+        Min(None)
+    );
+    let target = SolveOutcome::feasible(reduction.target_problem(), candidate.clone()).unwrap();
+    assert!(matches!(
+        reduction.recover_result(&source, target),
+        Err(ExtractionError::InsufficientSolutionQuality),
+    ));
+    // The external JSON boundary must report the same rule-level failure.
+    let target = reduction
+        .target_result_from_json(SolveOutcome::Feasible {
+            solution: serde_json::json!(candidate),
+            evaluation: String::new(),
+        })
+        .unwrap()
+        .0;
+    assert!(matches!(
+        reduction.recover_result_dyn(&source, target),
+        Err(ExtractionError::InsufficientSolutionQuality),
+    ));
+}

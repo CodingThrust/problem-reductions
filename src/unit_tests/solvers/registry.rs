@@ -54,12 +54,13 @@ fn generic_decision_ilp_respects_maximization_bounds() {
         if bound > 1 {
             assert!(matches!(
                 result,
-                Err(crate::solvers::ILPSolveError::Infeasible)
+                Ok(crate::solvers::SolveOutcome::Infeasible)
             ));
             assert!(BruteForce::new().solve(&decision).unwrap().is_none());
             continue;
         }
-        let solution: Vec<bool> = serde_json::from_value(result.unwrap()).unwrap();
+        let solution: Vec<bool> =
+            serde_json::from_value(result.unwrap().into_solution().unwrap()).unwrap();
         assert_eq!(
             crate::traits::Problem::evaluate(&decision, &solution).unwrap(),
             crate::types::Or(true)
@@ -146,7 +147,7 @@ fn generic_decision_ilp_reports_no_but_preserves_extraction_errors() {
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
         pipeline.solve(&Decision::new(inner.clone(), 0), &HighsAdapter::new(None)),
-        Err(ILPSolveError::Infeasible)
+        Ok(crate::solvers::SolveOutcome::Infeasible)
     ));
     assert!(matches!(
         pipeline.solve(&Decision::new(inner, 1), &HighsAdapter::new(None)),

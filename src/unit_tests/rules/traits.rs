@@ -1,7 +1,7 @@
 use crate::rules::traits::{DynReductionResult, ReduceTo, ReductionResult};
 use crate::solvers::{downcast_outcome, erase_outcome, SolveOutcome};
 use crate::traits::Problem;
-use crate::types::Sum;
+use crate::types::Min;
 use serde_json::json;
 
 #[derive(Clone)]
@@ -24,16 +24,19 @@ impl TargetProblem {
 impl Problem for SourceProblem {
     const NAME: &'static str = "Source";
     type Solution = Vec<usize>;
-    type Value = i64;
+    type Value = Min<i64>;
 
     crate::problem_parameters![("num_variables", num_variables)];
-    fn evaluate(&self, config: &Self::Solution) -> Result<i64, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         if config.len() != 2 || config.iter().any(|&value| value >= 2) {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
                 "expected two binary target values".to_string(),
             ));
         }
-        Ok((config[0] + config[1]) as i64)
+        Ok(Min(Some((config[0] + config[1]) as i64)))
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i64")]
@@ -164,7 +167,8 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
             solution: json!([true, false]),
             evaluation: String::new(),
         })
-        .unwrap();
+        .unwrap()
+        .0;
     assert!(matches!(
         step.witness.recover_result_dyn(&source, target).unwrap(),
         SolveOutcome::Infeasible
@@ -194,6 +198,10 @@ struct AggregateSourceProblem;
 #[derive(Clone)]
 struct AggregateTargetProblem;
 
+thread_local! {
+    static TARGET_EVALUATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 impl AggregateSourceProblem {
     fn num_variables(&self) -> usize {
         1
@@ -209,7 +217,7 @@ impl AggregateTargetProblem {
 impl Problem for AggregateSourceProblem {
     const NAME: &'static str = "AggregateSource";
     type Solution = Vec<usize>;
-    type Value = Sum<u64>;
+    type Value = Min<u64>;
 
     crate::problem_parameters![("num_variables", num_variables)];
 
@@ -217,7 +225,7 @@ impl Problem for AggregateSourceProblem {
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().sum::<usize>() as u64))
+        Ok(Min(Some(config.iter().sum::<usize>() as u64)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -228,7 +236,7 @@ impl Problem for AggregateSourceProblem {
 impl Problem for AggregateTargetProblem {
     const NAME: &'static str = "AggregateTarget";
     type Solution = Vec<usize>;
-    type Value = Sum<u64>;
+    type Value = Min<u64>;
 
     crate::problem_parameters![("num_variables", num_variables)];
 
@@ -236,7 +244,8 @@ impl Problem for AggregateTargetProblem {
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().sum::<usize>() as u64))
+        TARGET_EVALUATIONS.with(|count| count.set(count.get() + 1));
+        Ok(Min(Some(config.iter().sum::<usize>() as u64)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -302,7 +311,7 @@ fn test_aggregate_reduction_extracts_value() {
             .unwrap(),
         SolveOutcome::Optimal {
             solution: vec![10],
-            evaluation: Sum(10)
+            evaluation: Min(Some(10))
         }
     );
 }
@@ -319,20 +328,30 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
         .target_problem_any()
         .downcast_ref::<AggregateTargetProblem>()
         .is_some());
-    let target = dyn_result
+    TARGET_EVALUATIONS.with(|count| count.set(0));
+    let (target, target_json) = dyn_result
         .target_result_from_json(SolveOutcome::Optimal {
             solution: json!([7]),
-            evaluation: "Sum(7)".into(),
+            evaluation: "untrusted external evaluation".into(),
         })
         .unwrap();
+    assert_eq!(
+        target_json,
+        SolveOutcome::Optimal {
+            solution: json!([7]),
+            evaluation: "Min(7)".into(),
+        }
+    );
+    assert_eq!(TARGET_EVALUATIONS.with(|count| count.get()), 1);
     let recovered = dyn_result
         .recover_result_dyn(&AggregateSourceProblem, target)
         .unwrap();
+    assert_eq!(TARGET_EVALUATIONS.with(|count| count.get()), 1);
     assert_eq!(
-        downcast_outcome::<Vec<usize>, Sum<u64>>(recovered).unwrap(),
+        downcast_outcome::<Vec<usize>, Min<u64>>(recovered).unwrap(),
         SolveOutcome::Optimal {
             solution: vec![9],
-            evaluation: Sum(9)
+            evaluation: Min(Some(9))
         }
     );
 }

@@ -1610,16 +1610,22 @@ impl ReductionChain {
         recover_steps(&self.steps, source, target)
     }
 
-    /// JSON transport for the same complete-result recovery used by typed callers.
+    /// Recover the source result and return it with the validated target result.
+    /// The returned pair is `(source, target)`; target evaluation is computed once
+    /// from the model, never trusted from the incoming display string.
     pub fn recover_result_json(
         &self,
         source: &dyn Any,
         target: crate::solvers::SolveOutcome,
-    ) -> crate::rules::ExtractionResult<crate::solvers::SolveOutcome> {
+    ) -> crate::rules::ExtractionResult<(crate::solvers::SolveOutcome, crate::solvers::SolveOutcome)>
+    {
         let last = self.steps.last().expect("ReductionChain has no steps");
-        let target = last.witness.target_result_from_json(target)?;
+        let (target, target_json) = last.witness.target_result_from_json(target)?;
         let source = recover_steps(&self.steps, source, target)?;
-        self.steps[0].witness.source_result_json(source)
+        Ok((
+            self.steps[0].witness.source_result_json(source)?,
+            target_json,
+        ))
     }
 }
 

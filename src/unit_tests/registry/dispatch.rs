@@ -507,7 +507,7 @@ struct DirectEvaluation;
 #[derive(Clone, serde::Serialize)]
 struct DirectValue(bool);
 
-impl DirectValue {
+impl crate::traits::EvaluationValue for DirectValue {
     fn is_valid(&self) -> bool {
         self.0
     }
