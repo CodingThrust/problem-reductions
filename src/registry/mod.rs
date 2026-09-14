@@ -5,7 +5,7 @@
 //! # Overview
 //!
 //! - [`ProblemInfo`] - Rich metadata (name, description, complexity, reductions)
-//! - [`ProblemMetadata`] - Trait for problems to provide their own metadata
+//! - [`ProblemType`] - Catalog metadata for registered models
 //! - [`ComplexityClass`] - Computational complexity classification
 //!
 //! # Example
@@ -22,26 +22,17 @@
 //! assert!(info.is_np_complete());
 //! ```
 //!
-//! # Implementing for Custom Problems
+//! # Querying Registered Problems
 //!
-//! Problems can implement [`ProblemMetadata`] to provide introspection:
+//! Models declare their catalog metadata through [`ProblemSchemaEntry`].
+//! Query those entries by name or alias:
 //!
 //! ```rust
-//! use problemreductions::registry::{
-//!     ProblemMetadata, ProblemInfo, ComplexityClass
-//! };
+//! use problemreductions::registry::find_problem_type;
 //!
-//! struct MyProblem;
-//!
-//! impl ProblemMetadata for MyProblem {
-//!     fn problem_info() -> ProblemInfo {
-//!         ProblemInfo::new("My Problem", "Description")
-//!             .with_complexity(ComplexityClass::NpComplete)
-//!     }
-//! }
-//!
-//! let info = MyProblem::problem_info();
-//! println!("Problem: {}", info.name);
+//! let info = find_problem_type("MaximumIndependentSet").unwrap();
+//! assert_eq!(info.canonical_name, "MaximumIndependentSet");
+//! println!("Problem: {}", info.display_name);
 //! ```
 
 mod dyn_problem;
@@ -52,7 +43,7 @@ mod schema;
 pub mod variant;
 
 pub use dyn_problem::{format_metric, DynProblem, LoadedDynProblem};
-pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
+pub use info::{ComplexityClass, FieldInfo, ProblemInfo};
 pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
 pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
 pub use schema::{

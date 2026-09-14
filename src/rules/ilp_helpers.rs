@@ -3,7 +3,7 @@
 use crate::models::algebraic::LinearConstraint;
 
 /// Convert exact ILP integer values into a source model's `usize` representation.
-pub fn decode_usize_values(values: &[i64]) -> crate::rules::ExtractionResult<Vec<usize>> {
+pub(crate) fn decode_usize_values(values: &[i64]) -> crate::rules::ExtractionResult<Vec<usize>> {
     values
         .iter()
         .enumerate()
@@ -18,7 +18,7 @@ pub fn decode_usize_values(values: &[i64]) -> crate::rules::ExtractionResult<Vec
 }
 
 /// McCormick linearization: `y = x_a * x_b` for binary variables.
-pub fn mccormick_product<C: From<i8>>(
+pub(crate) fn mccormick_product<C: From<i8>>(
     y_idx: usize,
     x_a: usize,
     x_b: usize,
@@ -44,7 +44,7 @@ pub fn mccormick_product<C: From<i8>>(
 }
 
 /// Decode a column-major assignment whose constraints select one item per slot.
-pub fn one_hot_decode(
+pub(crate) fn one_hot_decode(
     solution: &[i64],
     num_items: usize,
     num_slots: usize,
@@ -60,7 +60,7 @@ pub fn one_hot_decode(
 }
 
 /// Decode a row-major assignment whose constraints select one column per row.
-pub fn one_hot_decode_rows(
+pub(crate) fn one_hot_decode_rows(
     solution: &[i64],
     num_rows: usize,
     num_columns: usize,
@@ -77,7 +77,7 @@ pub fn one_hot_decode_rows(
 
 /// Convert a permutation to Lehmer code.
 #[cfg(test)]
-pub fn permutation_to_lehmer(permutation: &[usize]) -> Vec<usize> {
+pub(crate) fn permutation_to_lehmer(permutation: &[usize]) -> Vec<usize> {
     (0..permutation.len())
         .map(|index| {
             (index + 1..permutation.len())
@@ -88,7 +88,7 @@ pub fn permutation_to_lehmer(permutation: &[usize]) -> Vec<usize> {
 }
 
 /// Constrain each item to exactly one slot and each slot to at most one item.
-pub fn one_hot_assignment_constraints(
+pub(crate) fn one_hot_assignment_constraints(
     num_items: usize,
     num_slots: usize,
     var_offset: usize,

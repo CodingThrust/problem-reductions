@@ -4,7 +4,9 @@
 //!
 //! - [`ComplexityClass`] - Computational complexity (P, NP-complete, etc.)
 //! - [`ProblemInfo`] - Rich metadata about a problem type
-//! - [`ProblemMetadata`] - Trait for problems to provide their metadata
+//!
+//! Registered models are queried through [`super::ProblemType`]; [`ProblemInfo`]
+//! is a standalone description and does not register a model.
 //!
 //! # Example
 //!
@@ -18,6 +20,15 @@
 //!
 //! assert!(info.is_np_complete());
 //! assert_eq!(info.all_names().len(), 3);
+//! ```
+//!
+//! # Query a registered model
+//!
+//! ```rust
+//! use problemreductions::registry::find_problem_type;
+//!
+//! let info = find_problem_type("MaximumIndependentSet").unwrap();
+//! assert_eq!(info.canonical_name, "MaximumIndependentSet");
 //! ```
 
 use std::fmt;
@@ -215,38 +226,6 @@ pub struct FieldInfo {
     pub type_name: &'static str,
     /// Human-readable description of what this field represents.
     pub description: &'static str,
-}
-
-/// Trait for problems that provide static metadata.
-///
-/// Implement this trait to enable introspection and discovery for problem types.
-///
-/// # Example
-///
-/// ```rust
-/// use problemreductions::registry::{
-///     ProblemMetadata, ProblemInfo, ComplexityClass
-/// };
-///
-/// struct MyProblem;
-///
-/// impl ProblemMetadata for MyProblem {
-///     fn problem_info() -> ProblemInfo {
-///         ProblemInfo::new("My Problem", "Description")
-///             .with_complexity(ComplexityClass::NpComplete)
-///     }
-/// }
-///
-/// // Get problem metadata
-/// let info = MyProblem::problem_info();
-/// assert_eq!(info.name, "My Problem");
-/// ```
-pub trait ProblemMetadata {
-    /// Returns the problem info for this problem type.
-    ///
-    /// This includes the problem name, description, aliases, complexity class,
-    /// and known reductions.
-    fn problem_info() -> ProblemInfo;
 }
 
 #[cfg(test)]
