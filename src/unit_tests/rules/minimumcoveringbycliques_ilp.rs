@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MinimumCoveringByCliques;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -33,7 +34,14 @@ fn test_minimumcoveringbycliques_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(2)));
     assert_eq!(source.evaluate(&extracted).unwrap(), bf_value);
@@ -49,7 +57,14 @@ fn test_minimumcoveringbycliques_to_ilp_empty_graph() {
     assert_eq!(ilp.num_vars(), 0);
     assert_eq!(ilp.constraints().len(), 0);
     assert_eq!(
-        reduction.extract_solution(&vec![]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<usize>::new()
     );
     assert_eq!(source.evaluate(&vec![]).unwrap(), Min(Some(0)));

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn canonical_cvp() -> ClosestVectorProblem<i64> {
@@ -57,7 +58,14 @@ fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
         }
         assert_eq!(offset, 0);
     }
-    let solution = reduction.extract_solution(&bits).unwrap();
+    let solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), bits.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(solution, vec![1; size]);
     assert_eq!(
         source.evaluate(&solution).unwrap().0,
@@ -73,7 +81,14 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
         .solve(reduction.target_problem())
         .unwrap()
         .unwrap();
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source_solution, vec![1, 1]);
     assert_eq!(
@@ -98,14 +113,32 @@ fn test_closestvectorproblem_to_qubo_coefficients() {
 fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
     assert_eq!(
-        reduction.extract_solution(&canonical_bits()).unwrap(),
+        reduction
+            .recover_result(
+                &canonical_cvp(),
+                SolveOutcome::optimal(reduction.target_problem(), canonical_bits().clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![1, 1]
     );
 
     let duplicate = vec![
         true, false, false, true, false, true, true, true, true, true, false,
     ];
-    assert_eq!(reduction.extract_solution(&duplicate).unwrap(), vec![1, 1]);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &canonical_cvp(),
+                SolveOutcome::optimal(reduction.target_problem(), duplicate.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![1, 1]
+    );
     assert_eq!(
         reduction
             .target_problem()
@@ -124,7 +157,14 @@ fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
         .unwrap()
         .unwrap();
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![20]
     );
 }
@@ -171,8 +211,15 @@ fn qubo_energy_matches_squared_distance_up_to_the_dropped_constant() {
     assert_eq!(target.num_vars(), 3);
     // The all-zero encoding represents x=-2, with squared distance (-4-1)^2=25.
     for index in 0..8 {
-        let bits = (0..3).map(|bit| index & (1 << bit) != 0).collect();
-        let coefficient = reduction.extract_solution(&bits).unwrap();
+        let bits: Vec<bool> = (0..3).map(|bit| index & (1 << bit) != 0).collect();
+        let coefficient = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), bits.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let energy = target.evaluate(&bits).unwrap().unwrap();
         assert_eq!(
             source.squared_distance(&coefficient).unwrap(),

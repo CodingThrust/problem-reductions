@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::graph::DirectedHamiltonianPath;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -39,7 +40,14 @@ fn test_directedhamiltonianpath_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),
@@ -72,7 +80,14 @@ fn test_directedhamiltonianpath_to_ilp_issue_example() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should find a path");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),

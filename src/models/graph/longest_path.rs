@@ -355,3 +355,44 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/longest_path.rs"]
 mod tests;
+
+crate::decision_problem_meta!(LongestPath<SimpleGraph, One>, "DecisionLongestPath");
+crate::register_decision_variant!(
+    LongestPath<SimpleGraph, One>, "DecisionLongestPath", "num_vertices * 2^num_vertices", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "One", &["One"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "source_vertex", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "target_vertex", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_longest_path_to_longest_path",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                LongestPath::new(SimpleGraph::path(3), vec![crate::types::One; 2], 0, 2),
+                2,
+            );
+            let witness = serde_json::json!(vec![true, true]);
+            crate::example_db::specs::rule_example_with_witness::<_, LongestPath<SimpleGraph, One>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

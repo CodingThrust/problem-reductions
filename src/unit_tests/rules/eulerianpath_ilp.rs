@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::EulerianPath;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Or;
@@ -52,7 +53,14 @@ fn test_eulerianpath_to_ilp_empty_instance() {
     let solution = ILPSolver::new()
         .solve(ilp)
         .expect("Empty ILP should be feasible");
-    let extracted = reduction.extract_solution(&solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 0);
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
 }
@@ -66,7 +74,14 @@ fn test_eulerianpath_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible for a YES instance");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted.len(), source.num_arcs());
     assert!(
@@ -105,7 +120,14 @@ fn test_eulerianpath_to_ilp_closed_circuit_with_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible for a closed Eulerian circuit");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 3);
     assert!(
         source.is_valid_solution(&extracted),

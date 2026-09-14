@@ -313,3 +313,42 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/open_shop_scheduling.rs"]
 mod tests;
+
+crate::decision_problem_meta!(OpenShopScheduling, "DecisionOpenShopScheduling");
+crate::register_decision_variant!(
+    OpenShopScheduling, "DecisionOpenShopScheduling", "(schedule_horizon + 1)^(num_jobs * num_machines)", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Misc,
+    dims: [],
+    fields: [
+        crate::registry::FieldInfo { name: "num_processors", type_name: "usize", description: "Number of machines m." },
+        crate::registry::FieldInfo { name: "processing_times", type_name: "Vec<Vec<i64>>", description: "Processing time of each job on each machine (n x m)." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_open_shop_scheduling_to_open_shop_scheduling",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                OpenShopScheduling::new(
+                    3,
+                    vec![vec![3, 1, 2], vec![2, 3, 1], vec![1, 2, 3], vec![2, 2, 1]],
+                ),
+                8,
+            );
+            let witness = serde_json::json!(vec![0, 3, 4, 3, 0, 6, 5, 6, 0, 6, 4, 3]);
+            crate::example_db::specs::rule_example_with_witness::<_, OpenShopScheduling>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

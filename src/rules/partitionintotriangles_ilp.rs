@@ -13,6 +13,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::PartitionIntoTriangles;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing PartitionIntoTriangles to ILP.
@@ -37,10 +39,32 @@ impl ReductionResult for ReductionPITToILP {
     }
 
     /// Extract solution: for each vertex v, find the unique group g where x_{v,g} = 1.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionPITToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
             self.num_vertices,

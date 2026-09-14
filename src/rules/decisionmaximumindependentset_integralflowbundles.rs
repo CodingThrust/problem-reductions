@@ -9,6 +9,8 @@ use crate::models::decision::Decision;
 use crate::models::graph::{IntegralFlowBundles, MaximumIndependentSet};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::One;
 
@@ -27,10 +29,32 @@ impl ReductionResult for ReductionDecisionMISToIFB {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionDecisionMISToIFB {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok((0..self.num_source_vertices)
             .map(|i| target_solution[2 * i + 1] == 1)
             .collect())
@@ -135,7 +159,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .solve(reduction.target_problem())
                 .expect("canonical target evaluation must succeed")
                 .expect("the path has an independent set of size two");
-            let source_witness = reduction.extract_solution(&target_witness).unwrap();
+            let source_witness = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_witness.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),

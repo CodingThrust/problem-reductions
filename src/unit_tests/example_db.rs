@@ -4,6 +4,7 @@ use crate::example_db::{
 use crate::export::ProblemRef;
 use crate::registry::load_dyn;
 use crate::rules::{registry::reduction_entries, ReductionGraph};
+use crate::solvers::SolveOutcome;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 #[test]
@@ -559,6 +560,9 @@ fn model_specs_are_optimal() {
             let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
             match solve(&loaded, request).ok()?.outcome {
                 SolveOutcome::Optimal { solution, .. } => Some(solution),
+                SolveOutcome::Feasible { .. } => {
+                    panic!("exact solver returned only a feasible incumbent")
+                }
                 SolveOutcome::Infeasible => None,
             }
         };
@@ -650,41 +654,19 @@ fn rule_specs_solution_pairs_are_consistent() {
             .into_iter()
             .find(|path| path.len() == 1);
         if witness_path.is_none() {
-            let has_aggregate_path = graph
-                .find_all_paths_mode(
+            assert!(
+                graph
+                    .has_direct_reduction_by_name(&example.source.problem, &example.target.problem),
+                "No direct reduction for {label}"
+            );
+            assert!(
+                !graph.has_direct_reduction_by_name_mode(
                     &example.source.problem,
-                    &example.source.variant,
                     &example.target.problem,
-                    &example.target.variant,
-                    crate::rules::ReductionMode::Aggregate,
-                )
-                .iter()
-                .any(|path| path.len() == 1);
-            if !has_aggregate_path {
-                assert!(
-                    graph.has_direct_reduction_by_name(
-                        &example.source.problem,
-                        &example.target.problem
-                    ),
-                    "No direct witness, aggregate, or proof-only reduction for {label}"
-                );
-                assert!(
-                    !graph.has_direct_reduction_by_name_mode(
-                        &example.source.problem,
-                        &example.target.problem,
-                        crate::rules::ReductionMode::Witness,
-                    ),
-                    "Proof-only edge unexpectedly exposed witness mode for {label}"
-                );
-                assert!(
-                    !graph.has_direct_reduction_by_name_mode(
-                        &example.source.problem,
-                        &example.target.problem,
-                        crate::rules::ReductionMode::Aggregate,
-                    ),
-                    "Proof-only edge unexpectedly exposed aggregate mode for {label}"
-                );
-            }
+                    crate::rules::ReductionMode::Witness
+                ),
+                "Proof-only edge unexpectedly executable for {label}"
+            );
         }
 
         // Only do witness round-trip when a witness path exists
@@ -726,7 +708,14 @@ fn rule_specs_solution_pairs_are_consistent() {
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
                 let extracted = chain
-                    .extract_solution_json(pair.target_config.clone())
+                    .recover_result_json(
+                        source.as_any(),
+                        SolveOutcome::Optimal {
+                            solution: pair.target_config.clone(),
+                            evaluation: target_eval.0.clone(),
+                        },
+                    )
+                    .map(|outcome| outcome.into_solution().unwrap())
                     .unwrap();
                 let extracted_val = source
                     .evaluate_json(&extracted)
@@ -739,9 +728,36 @@ fn rule_specs_solution_pairs_are_consistent() {
                     extracted_val, source_val, extracted, pair.source_config
                 );
 
+                assert_eq!(
+                    chain
+                        .recover_result_json(source.as_any(), SolveOutcome::Infeasible)
+                        .unwrap(),
+                    SolveOutcome::Infeasible,
+                    "Rule {label}: target infeasibility must propagate"
+                );
+                match chain.recover_result_json(source.as_any(), SolveOutcome::Feasible {
+                    solution: pair.target_config.clone(), evaluation: target_eval.0.clone(),
+                }) {
+                    Ok(SolveOutcome::Feasible { solution, evaluation }) => {
+                        let (actual, valid) = source.evaluate_dyn(&solution).unwrap();
+                        assert!(valid, "Rule {label}: feasible recovery returned an invalid source witness");
+                        assert_eq!(evaluation, actual);
+                    }
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality) => {}
+                    result => panic!("Rule {label}: feasible recovery returned an unjustified status: {result:?}"),
+                }
+
                 let malformed = serde_json::json!({"invalid_solution": true});
                 assert!(
-                    chain.extract_solution_json(malformed).is_err(),
+                    chain
+                        .recover_result_json(
+                            source.as_any(),
+                            SolveOutcome::Optimal {
+                                solution: malformed,
+                                evaluation: String::new()
+                            }
+                        )
+                        .is_err(),
                     "Rule {label}: extraction accepted malformed target-solution JSON"
                 );
             }
@@ -882,7 +898,7 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
         variant: BTreeMap::from([("k".to_string(), "K3".to_string())]),
     };
     let target = ProblemRef {
-        name: "MinimumVertexCover".to_string(),
+        name: "DecisionMinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -890,7 +906,7 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "KSatisfiability");
-    assert_eq!(example.target.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "DecisionMinimumVertexCover");
 }
 
 #[test]
@@ -966,12 +982,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_stackercrane() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "StackerCrane".to_string(),
+        name: "DecisionStackerCrane".to_string(),
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "StackerCrane");
+    assert_eq!(example.target.problem, "DecisionStackerCrane");
 }
 
 #[test]
@@ -981,7 +997,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "RuralPostman".to_string(),
+        name: "DecisionRuralPostman".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -989,7 +1005,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "RuralPostman");
+    assert_eq!(example.target.problem, "DecisionRuralPostman");
 }
 
 #[test]
@@ -1017,12 +1033,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_quadraticassignment() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "QuadraticAssignment".to_string(),
+        name: "DecisionQuadraticAssignment".to_string(),
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "QuadraticAssignment");
+    assert_eq!(example.target.problem, "DecisionQuadraticAssignment");
 }
 
 // PR #804 rules
@@ -1088,7 +1104,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "LongestCircuit".to_string(),
+        name: "DecisionLongestCircuit".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1096,7 +1112,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "LongestCircuit");
+    assert_eq!(example.target.problem, "DecisionLongestCircuit");
 }
 
 #[test]
@@ -1252,7 +1268,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
         variant: BTreeMap::new(),
     };
     let target = ProblemRef {
-        name: "MaxCut".to_string(),
+        name: "DecisionMaxCut".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1260,7 +1276,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "NAESatisfiability");
-    assert_eq!(example.target.problem, "MaxCut");
+    assert_eq!(example.target.problem, "DecisionMaxCut");
 }
 
 #[test]

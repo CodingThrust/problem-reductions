@@ -189,6 +189,7 @@
   "MaximumLeafSpanningTree": [Maximum Leaf Spanning Tree],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
+  "DecisionMaxCut": [Decision Max-Cut],
   "GeneralizedHex": [Generalized Hex],
   "GraphPartitioning": [Graph Partitioning],
   "HamiltonianCircuit": [Hamiltonian Circuit],
@@ -200,7 +201,9 @@
   "DirectedHamiltonianPath": [Directed Hamiltonian Path],
   "IntegralFlowBundles": [Integral Flow with Bundles],
   "LongestCircuit": [Longest Circuit],
+  "DecisionLongestCircuit": [Decision Longest Circuit],
   "LongestPath": [Longest Path],
+  "DecisionLongestPath": [Decision Longest Path],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedFlowLowerBounds": [Undirected Flow with Lower Bounds],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
@@ -213,6 +216,7 @@
   "KColoring": [$k$-Coloring],
   "KClique": [$k$-Clique],
   "MinimumCoveringByCliques": [Minimum Covering by Cliques],
+  "DecisionMinimumCoveringByCliques": [Decision Minimum Covering by Cliques],
   "MinimumIntersectionGraphBasis": [Minimum Intersection Graph Basis],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MinimumGeometricConnectedDominatingSet": [Minimum Geometric Connected Dominating Set],
@@ -236,7 +240,9 @@
   "SetSplitting": [Set Splitting],
   "MinimumCardinalityKey": [Minimum Cardinality Key],
   "SpinGlass": [Spin Glass],
+  "DecisionSpinGlass": [Decision Spin Glass],
   "QUBO": [QUBO],
+  "DecisionQUBO": [Decision QUBO],
   "ILP": [Integer Linear Programming],
   "IntegerKnapsack": [Integer Knapsack],
   "Knapsack": [Knapsack],
@@ -245,6 +251,7 @@
   "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
   "Maximum2Satisfiability": [Maximum 2-Satisfiability],
+  "DecisionMaximum2Satisfiability": [Decision Maximum 2-Satisfiability],
   "NonTautology": [Non-Tautology],
   "OneInThreeSatisfiability": [1-in-3 SAT],
   "Planar3Satisfiability": [Planar 3-SAT],
@@ -266,14 +273,17 @@
   "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "DecisionClosestVectorProblem": [Decision Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
   "DisjointConnectingPaths": [Disjoint Connecting Paths],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RootedTreeArrangement": [Rooted Tree Arrangement],
   "RuralPostman": [Rural Postman],
+  "DecisionRuralPostman": [Decision Rural Postman],
   "MixedChinesePostman": [Mixed Chinese Postman],
   "StackerCrane": [Stacker Crane],
+  "DecisionStackerCrane": [Decision Stacker Crane],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ClosestString": [Closest String],
   "ClosestSubstring": [Closest Substring],
@@ -307,14 +317,17 @@
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
+  "DecisionMinMaxMulticenter": [Decision Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "JobShopScheduling": [Job-Shop Scheduling],
   "OpenShopScheduling": [Open Shop Scheduling],
+  "DecisionOpenShopScheduling": [Decision Open Shop Scheduling],
   "GroupingBySwapping": [Grouping by Swapping],
   "IntegerExpressionMembership": [Integer Expression Membership],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
+  "DecisionMinimumSumMulticenter": [Decision Minimum Sum Multicenter],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "MonochromaticTriangle": [Monochromatic Triangle],
   "MultipleChoiceBranching": [Multiple Choice Branching],
@@ -333,6 +346,7 @@
   "PreemptiveScheduling": [Preemptive Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
+  "DecisionQuadraticAssignment": [Decision Quadratic Assignment],
   "EquilibriumPoint": [Equilibrium Point],
   "QuadraticCongruences": [Quadratic Congruences],
   "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
@@ -360,6 +374,7 @@
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
   "SequencingToMinimizeTardyTaskWeight": [Sequencing to Minimize Tardy Task Weight],
+  "DecisionSequencingToMinimizeTardyTaskWeight": [Decision Sequencing to Minimize Tardy Task Weight],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
   "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
   "SequencingWithDeadlinesAndSetUpTimes": [Sequencing with Deadlines and Set-Up Times],
@@ -11475,14 +11490,21 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
 ]
 
+The decision reductions below construct `Decision<T>`: the target contains an
+optimization instance `inner` and a bound `bound`. Feasibility requires an inner
+solution whose objective is at most the bound for minimization, or at least the
+bound for maximization. A numeric objective discussed in a proof refers to
+`inner`; the decision target itself returns YES or NO. The bound is serialized
+with the target, rather than stored separately by solution extraction.
+
 #let dmds_mmmc = load-example(
   "DecisionMinimumDominatingSet",
-  "MinMaxMulticenter",
+  "DecisionMinMaxMulticenter",
   source-variant: (graph: "SimpleGraph", weight: "One"),
   target-variant: (graph: "SimpleGraph", weight: "One"),
 )
 #let dmds_mmmc_sol = dmds_mmmc.solutions.at(0)
-#reduction-rule("DecisionMinimumDominatingSet", "MinMaxMulticenter",
+#reduction-rule("DecisionMinimumDominatingSet", "DecisionMinMaxMulticenter",
   example: true,
   example-source-variant: (graph: "SimpleGraph", weight: "One"),
   example-target-variant: (graph: "SimpleGraph", weight: "One"),
@@ -11496,28 +11518,28 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     )
     *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
-    *Step 2 -- Build the target instance.* Append two isolated vertices, assign weight $1$ to every vertex and length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
+    *Step 2 -- Build the target instance.* Append two isolated vertices, assign weight $1$ to every vertex and length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.inner.k$. The target therefore has $#graph-num-vertices(dmds_mmmc.target.instance.inner)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance.inner)$ edges.
 
     *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1, 0, 0)$ to the nearest center, so the maximum weighted distance is $1$. Discarding the two auxiliary center bits recovers a dominating set of size $2$ #sym.checkmark
   ],
 )[
-  The radius-threshold relation between centers and dominating sets @hochbaumshmoys1985 is extended here to all signed source bounds using two mandatory isolated centers. This $O(n+m+1)$ construction preserves the existing endpoint variants.
+  The radius-threshold relation between centers and dominating sets @hochbaumshmoys1985 is extended here to all signed source bounds using two mandatory isolated centers. This $O(n+m+1)$ construction includes the radius bound in the target decision instance.
 ][
   _Construction._ For source graph $G=(V,E)$ with $n$ vertices and integer bound $K$, set $q=max(-1,min(K,n))$. Add isolated vertices $a=n$ and $b=n+1$, leaving every original edge record unchanged. Give all vertices and edges unit weights and lengths, and require exactly $k=q+2$ centers. Then $1<=k<=n+2$ for every input, including an empty graph.
 
   _Correctness._ Every finite target placement must select both isolated vertices. If a source dominating set $D$ has $|D|<=K$, then $q>=0$ and $|D|<=q<=n$. Extend $D$ to $q$ original vertices and add $a,b$. This placement has $k$ centers and radius at most $1$, proving the forward direction. Conversely, a target placement of radius at most $1$ selects both isolates and exactly $q$ original vertices. Each original vertex is within one original edge of a selected vertex, so those $q<=K$ vertices dominate $G$. For $K<0$, $k=1$ cannot cover both isolates and the target has no finite placement. For $n=0,K>=0$, the two isolates form a radius-zero placement. Loops and repeated edges preserve this reasoning.
 
-  _Solution extraction and NO instances._ Evaluate the full target indicator first. A finite radius at most $1$ permits extraction of its first $n$ bits. Any larger radius or infeasible placement is rejected. The formal aggregate map sends an optimum $r<=1$ to true, and an optimum $r>1$ or infeasibility to false. In particular, a four-vertex path with $K=1$ produces optimum radius $2$, not an infeasible target. Checked parameter arithmetic precedes allocation; unrepresentable counts return the formal numeric error. Target sizes are exactly $n+2$ vertices and $m$ edge records.
+  _Solution extraction and NO instances._ Evaluate the full target indicator first. A finite radius at most $1$ permits extraction of its first $n$ bits. Any larger radius or infeasible placement is rejected. The target bound is $1$. Its evaluation accepts exactly the placements of finite radius at most $1$; the aggregate map preserves this Boolean value. In particular, a four-vertex path with $K=1$ has inner optimum radius $2$; with target bound $1$, the decision target is infeasible. Checked parameter arithmetic precedes allocation; unrepresentable counts return the formal numeric error. Target sizes are exactly $n+2$ vertices and $m$ edge records.
 ]
 
 #let dmds_msmc = load-example(
   "DecisionMinimumDominatingSet",
-  "MinimumSumMulticenter",
+  "DecisionMinimumSumMulticenter",
   source-variant: (graph: "SimpleGraph", weight: "One"),
   target-variant: (graph: "SimpleGraph", weight: "i64"),
 )
 #let dmds_msmc_sol = dmds_msmc.solutions.at(0)
-#reduction-rule("DecisionMinimumDominatingSet", "MinimumSumMulticenter",
+#reduction-rule("DecisionMinimumDominatingSet", "DecisionMinimumSumMulticenter",
   example: true,
   example-source-variant: (graph: "SimpleGraph", weight: "One"),
   example-target-variant: (graph: "SimpleGraph", weight: "i64"),
@@ -11531,7 +11553,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     )
     *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
-    *Step 2 -- Build the target instance.* Add one isolated vertex $z$, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
+    *Step 2 -- Build the target instance.* Add one isolated vertex $z$, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.inner.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
 
     *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1, 0)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness removes the coordinate of $z$, hence a valid YES witness for the original decision instance #sym.checkmark
   ],
@@ -11978,9 +12000,9 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
-#let kc_qubo = load-example("KColoring", "QUBO")
+#let kc_qubo = load-example("KColoring", "DecisionQUBO")
 #let kc_qubo_sol = kc_qubo.solutions.at(0)
-#reduction-rule("KColoring", "QUBO",
+#reduction-rule("KColoring", "DecisionQUBO",
   example: true,
   example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
   extra: [
@@ -12049,7 +12071,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return $bold(x)$ directly. There are exactly $m$ target variables.
 ]
 
-#reduction-rule("KSatisfiability", "QUBO")[
+#reduction-rule("KSatisfiability", "DecisionQUBO")[
   Clause falsification penalties become a quadratic objective using Rosenberg quadratization. Retain its omitted constant to decode the SAT decision, rather than interpreting an arbitrary QUBO configuration as a satisfying assignment.
 ][
   _Construction._ Let $n$ be the number of source variables and $m$ the clause count. For each literal let $y$ be its falsity indicator: $y=1-x$ for a positive literal and $y=x$ for a negative one. For widths zero, one and two, the clause penalty is respectively $1$, $y_1$, and $y_1 y_2$. For width three use
@@ -12168,17 +12190,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ]
 
 #{
-  let ss-cvp = load-example("SubsetSum", "ClosestVectorProblem")
+  let ss-cvp = load-example("SubsetSum", "DecisionClosestVectorProblem")
   let ss-cvp-sol = ss-cvp.solutions.at(0)
   let ss-cvp-sizes = ss-cvp.source.instance.sizes
   let ss-cvp-target = ss-cvp.source.instance.target
-  let ss-cvp-basis = ss-cvp.target.instance.basis
-  let ss-cvp-target-vec = ss-cvp.target.instance.target
+  let ss-cvp-basis = ss-cvp.target.instance.inner.basis
+  let ss-cvp-target-vec = ss-cvp.target.instance.inner.target
   let ss-cvp-n = ss-cvp-sizes.len()
   let ss-cvp-x = ss-cvp-sol.target_config
   let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   [
-    #reduction-rule("SubsetSum", "ClosestVectorProblem",
+    #reduction-rule("SubsetSum", "DecisionClosestVectorProblem",
       example: true,
       example-caption: [#ss-cvp-n elements, target sum $B = #ss-cvp-target$],
       extra: [
@@ -12644,9 +12666,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 == Non-Trivial Reductions
 
-#let sat_mis = load-example("Satisfiability", "MaximumIndependentSet")
+#let sat_mis = load-example("Satisfiability", "DecisionMaximumIndependentSet")
 #let sat_mis_sol = sat_mis.solutions.at(0)
-#reduction-rule("Satisfiability", "MaximumIndependentSet",
+#reduction-rule("Satisfiability", "DecisionMaximumIndependentSet",
   example: true,
   example-caption: [3-SAT with 5 variables and 7 clauses],
   extra: [
@@ -12657,7 +12679,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred evaluate sat.json --config " + cli-config(sat_mis_sol.source_config),
     )
     SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_mis_sol.source_config))$ \
-    IS graph: #graph-num-vertices(sat_mis.target.instance) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance) edges \
+    IS graph: #graph-num-vertices(sat_mis.target.instance.inner) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance.inner) edges \
     IS of size #sat-num-clauses(sat_mis.source.instance) $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
   ],
 )[
@@ -12704,9 +12726,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
 ]
 
-#let sat_ds = load-example("Satisfiability", "MinimumDominatingSet")
+#let sat_ds = load-example("Satisfiability", "DecisionMinimumDominatingSet")
 #let sat_ds_sol = sat_ds.solutions.at(0)
-#reduction-rule("Satisfiability", "MinimumDominatingSet",
+#reduction-rule("Satisfiability", "DecisionMinimumDominatingSet",
   example: true,
   example-caption: [5-variable 7-clause 3-SAT to dominating set],
   extra: [
@@ -12717,7 +12739,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred evaluate sat.json --config " + cli-config(sat_ds_sol.source_config),
     )
     SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_ds_sol.source_config))$ \
-    Vertex structure: $#graph-num-vertices(sat_ds.target.instance) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
+    Vertex structure: $#graph-num-vertices(sat_ds.target.instance.inner) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
     Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
   ],
 )[
@@ -12819,9 +12841,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard auxiliary variables; return original variable assignments.
 ]
 
-#let sat_max2sat = load-example("Satisfiability", "Maximum2Satisfiability")
+#let sat_max2sat = load-example("Satisfiability", "DecisionMaximum2Satisfiability")
 #let sat_max2sat_sol = sat_max2sat.solutions.at(0)
-#reduction-rule("Satisfiability", "Maximum2Satisfiability",
+#reduction-rule("Satisfiability", "DecisionMaximum2Satisfiability",
   example: true,
   example-caption: [3-variable 2-clause SAT to MAX-2-SAT],
   extra: [
@@ -12845,7 +12867,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     $
     The normalized formula therefore has $4$ variables and $3$ clauses.
 
-    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.num_vars$ variables and #sat_max2sat.target.instance.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#fmt-values(sat_max2sat_sol.target_config))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
+    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.inner.num_vars$ variables and #sat_max2sat.target.instance.inner.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#fmt-values(sat_max2sat_sol.target_config))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical optimum. Auxiliary variables such as $y_1$ can vary across optimal witnesses, but truncating any optimal target assignment to the first $3$ coordinates still yields a satisfying assignment of the original SAT formula.
   ],
@@ -12959,9 +12981,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the values of the named circuit variables and discard the auxiliary Tseitin variables.
 ]
 
-#let cs_sg = load-example("CircuitSAT", "SpinGlass")
+#let cs_sg = load-example("CircuitSAT", "DecisionSpinGlass")
 #let cs_sg_sol = cs_sg.solutions.at(0)
-#reduction-rule("CircuitSAT", "SpinGlass",
+#reduction-rule("CircuitSAT", "DecisionSpinGlass",
   example: true,
   example-caption: [1-bit full adder to Ising model],
   extra: [
@@ -12972,7 +12994,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred evaluate circuitsat.json --config " + cli-config(cs_sg_sol.source_config),
     )
     Circuit: #circuit-num-gates(cs_sg.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_sg.source.instance) variables \
-    Target: #spin-num-spins(cs_sg.target.instance) spins (each gate allocates I/O + auxiliary spins) \
+    Target: #spin-num-spins(cs_sg.target.instance.inner) spins (each gate allocates I/O + auxiliary spins) \
     Canonical ground-state witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
@@ -14529,7 +14551,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
         *Step 4 -- Target optimum.* The fixture selects the matrix-domination set $C = {(0, 2), (1, 3)}$ at 1-entry indices #selected-target.map(i => str(i)).join(", "). Every other 1-entry of $M$ shares row $0$ or row $1$ with one of the chosen entries, so $C$ is dominating with $|C| = #selected-target.len() = 2 = "mm"(B) #sym.checkmark$.
 
-        *Extraction.* For this fixture the selected 1-entries happen to be pairwise independent (no shared row or column), so they already correspond to a matching of $B$. In general a matrix-domination witness only maps back to an edge dominating set $F_C subset.eq F$ that need not be a matching: for instance, the optimal witness $C = {(0, 3), (0, 4)}$ corresponds to source edges ${(l_0, r_1), (l_0, r_2)}$, which share endpoint $l_0$. In such cases the polynomial-time Yannakakis-Gavril transformation @yannakakis1980 -- implemented in `extract_solution` as a sequence of drop / swap moves on $F_C$ -- converts $F_C$ into a maximal matching of $B$ of the same or smaller size, here e.g. ${(l_0, r_0), (l_1, r_1)}$ or ${(l_0, r_1), (l_1, r_2)}$.
+        *Extraction.* For this fixture the selected 1-entries happen to be pairwise independent (no shared row or column), so they already correspond to a matching of $B$. In general a matrix-domination witness only maps back to an edge dominating set $F_C subset.eq F$ that need not be a matching: for instance, the optimal witness $C = {(0, 3), (0, 4)}$ corresponds to source edges ${(l_0, r_1), (l_0, r_2)}$, which share endpoint $l_0$. In such cases the polynomial-time Yannakakis-Gavril transformation @yannakakis1980 -- implemented in `recover_result` as a sequence of drop / swap moves on $F_C$ -- converts $F_C$ into a maximal matching of $B$ of the same or smaller size, here e.g. ${(l_0, r_0), (l_1, r_1)}$ or ${(l_0, r_1), (l_1, r_2)}$.
       ]
     }
   ],
@@ -14555,7 +14577,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   ($arrow.l.double$) A dominating set $C$ of $M$ with $|C| <= K'$ corresponds to an EDS $F_C$ of size $|C| <= K' = K$. Applying the polynomial-time Yannakakis-Gavril transformation to $F_C$ yields a maximal matching of $B$ of the same size, so $"mm"(B) <= K$.
 
-  _Solution extraction._ Read the selected 1-entries of the matrix-domination witness, map each $(i, m + j)$ back to the bipartite edge $(l_i, r_j)$ to obtain an EDS $F_C$ of $B$. Arbitrary optimal MMD witnesses may select 1-entries whose corresponding source edges form a connected subgraph (e.g. two edges sharing a left endpoint) rather than a matching; in that case the polynomial-time Yannakakis-Gavril EDS-to-IEDS transformation iteratively resolves each adjacent pair in $F_C$ by either dropping a redundant edge or swapping it for an edge whose new endpoint lies outside the current vertex cover, terminating in $O(|F|^3)$ time. The result is a maximal matching $M^*$ of $B$ with $|M^*| <= |F_C|$, which `extract_solution` returns as the source-side configuration.
+  _Solution extraction._ Read the selected 1-entries of the matrix-domination witness, map each $(i, m + j)$ back to the bipartite edge $(l_i, r_j)$ to obtain an EDS $F_C$ of $B$. Arbitrary optimal MMD witnesses may select 1-entries whose corresponding source edges form a connected subgraph (e.g. two edges sharing a left endpoint) rather than a matching; in that case the polynomial-time Yannakakis-Gavril EDS-to-IEDS transformation iteratively resolves each adjacent pair in $F_C$ by either dropping a redundant edge or swapping it for an edge whose new endpoint lies outside the current vertex cover, terminating in $O(|F|^3)$ time. The result is a maximal matching $M^*$ of $B$ with $|M^*| <= |F_C|$, which `recover_result` returns as the source-side configuration.
 
   _Note on source variant._ The reduction crucially requires the source graph to be bipartite. The biadjacency matrix faithfully represents the edge structure of $B$ (each edge contributes exactly one 1-entry). The adjacency matrix of a general undirected graph would produce two symmetric 1-entries per edge that do not preserve the row/column sharing pattern.
 ]
@@ -15504,14 +15526,14 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one. Parallel edges keep their individual identities.
 ]
 
-#let hc_lc = load-example("HamiltonianCircuit", "LongestCircuit")
+#let hc_lc = load-example("HamiltonianCircuit", "DecisionLongestCircuit")
 #let hc_lc_sol = hc_lc.solutions.at(0)
 #let hc_lc_n = graph-num-vertices(hc_lc.source.instance)
 #let hc_lc_source_edges = hc_lc.source.instance.graph.edges
-#let hc_lc_target_edges = hc_lc.target.instance.graph.edges
-#let hc_lc_target_weights = hc_lc.target.instance.edge_lengths
+#let hc_lc_target_edges = hc_lc.target.instance.inner.graph.edges
+#let hc_lc_target_weights = hc_lc.target.instance.inner.edge_lengths
 #let hc_lc_selected_edges = hc_lc_target_edges.enumerate().filter(((i, _)) => hc_lc_sol.target_config.at(i)).map(((i, e)) => (e.at(0), e.at(1)))
-#reduction-rule("HamiltonianCircuit", "LongestCircuit",
+#reduction-rule("HamiltonianCircuit", "DecisionLongestCircuit",
   example: true,
   example-caption: [Cycle graph on $#hc_lc_n$ vertices with unit edge lengths],
   extra: [
@@ -16636,22 +16658,22 @@ The following table shows concrete target-variable counts for example instances,
   ),
   (source: "QUBO", target: "SpinGlass"),
   (source: "ClosestVectorProblem", target: "QUBO"),
-  (source: "KColoring", target: "QUBO"),
+  (source: "KColoring", target: "DecisionQUBO"),
   (source: "MaximumSetPacking", target: "QUBO"),
   (
     source: "KSatisfiability",
-    target: "QUBO",
+    target: "DecisionQUBO",
     source-variant: (k: "K3"),
     target-variant: (weight: "i64"),
   ),
   (source: "ILP", target: "QUBO"),
-  (source: "Satisfiability", target: "MaximumIndependentSet"),
-  (source: "Satisfiability", target: "Maximum2Satisfiability"),
+  (source: "Satisfiability", target: "DecisionMaximumIndependentSet"),
+  (source: "Satisfiability", target: "DecisionMaximum2Satisfiability"),
   (source: "Satisfiability", target: "KColoring"),
-  (source: "Satisfiability", target: "MinimumDominatingSet"),
+  (source: "Satisfiability", target: "DecisionMinimumDominatingSet"),
   (source: "Satisfiability", target: "KSatisfiability"),
   (source: "CircuitSAT", target: "Satisfiability"),
-  (source: "CircuitSAT", target: "SpinGlass"),
+  (source: "CircuitSAT", target: "DecisionSpinGlass"),
   (source: "Factoring", target: "CircuitSAT"),
   (source: "MaximumSetPacking", target: "ILP"),
   (source: "MaximumMatching", target: "ILP"),
@@ -17201,47 +17223,6 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Given a Hamiltonian circuit witness, inspect the two endpoints of each source vertex-path. Set $x_v = 1$ iff both path endpoints are adjacent to selector vertices in the cycle; otherwise set $x_v = 0$. The resulting indicator vector is a valid source-side vertex cover.
 ]
 
-#let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
-#let ksat_mvc_sol = ksat_mvc.solutions.at(0)
-#reduction-rule("KSatisfiability", "MinimumVertexCover",
-  example: true,
-  example-caption: [3-SAT with $n = #ksat_mvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(ksat_mvc.source) + " -o ksat.json",
-      "pred reduce ksat.json --via route.json -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + cli-config(ksat_mvc_sol.source_config),
-    )
-
-    *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_mvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses: #{ksat_mvc.source.instance.clauses.enumerate().map(((j, c)) => {
-      let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
-      [$c_#j = (#lits.join($or$))$]
-    }).join(", ")}. A satisfying assignment is $(#fmt-values(ksat_mvc_sol.source_config))$, i.e.\ #{range(ksat_mvc.source.instance.num_vars).map(i => {
-      let v = ksat_mvc_sol.source_config.at(i)
-      if v { $x_#(i+1) = 1$ } else { $x_#(i+1) = 0$ }
-    }).join(", ")}.
-
-    *Step 2 -- Truth-setting edges.* For each variable $x_i$, create vertices $u_i$ (index $2(i-1)$) and $overline(u)_i$ (index $2(i-1)+1$) connected by a truth-setting edge. This gives $2n = #(2 * ksat_mvc.source.instance.num_vars)$ literal vertices and $n = #ksat_mvc.source.instance.num_vars$ edges.
-
-    *Step 3 -- Clause triangles and communication edges.* For each clause $c_j$, create a triangle of 3 vertices at indices $2n + 3j, 2n + 3j + 1, 2n + 3j + 2$, connected by 3 internal edges. Each triangle vertex $t^j_k$ is also connected to its literal vertex by a communication edge (3 per clause). Total: $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ clause vertices, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ triangle edges, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ communication edges.
-
-    *Step 4 -- Target graph dimensions.* The resulting graph has $|V| = 2n + 3m = #ksat_mvc.target.instance.graph.num_vertices$ vertices and $|E| = n + 6m = #ksat_mvc.target.instance.graph.edges.len()$ edges, with unit weights.
-
-    *Step 5 -- Verify a solution.* The satisfying assignment $(#fmt-values(ksat_mvc_sol.source_config))$ maps to a vertex cover of size $n + 2m = #(ksat_mvc.source.instance.num_vars + 2 * sat-num-clauses(ksat_mvc.source.instance))$. The target configuration is $(#fmt-values(ksat_mvc_sol.target_config))$: the cover selects #ksat_mvc_sol.target_config.filter(x => x).len() vertices. For each truth-setting edge, exactly one endpoint is in the cover #sym.checkmark. For each clause triangle, exactly two of three vertices are covered #sym.checkmark. Each communication edge has at least one endpoint in the cover #sym.checkmark.
-
-    *Multiplicity:* The fixture stores one canonical witness. Other valid covers correspond to different satisfying assignments of the formula.
-  ],
-)[
-  Each variable contributes a truth-setting edge; each clause contributes a satisfaction-testing triangle. The formula is satisfiable iff the graph has a vertex cover of size $n + 2m$.
-][
-  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, construct $G = (V, E)$ with $|V| = 2n + 3m$. For each variable $x_i$: vertices $u_i$ (index $2i$) and $overline(u)_i$ (index $2i+1$) with edge $(u_i, overline(u)_i)$. For each clause $c_j$: triangle vertices $t^j_0, t^j_1, t^j_2$ at indices $2n + 3j, 2n+3j+1, 2n+3j+2$. Communication edges connect each $t^j_k$ to the literal vertex of its $k$-th literal.
-
-  _Correctness._ ($arrow.r.double$) A satisfying assignment selects literal vertices ($n$ total) and two triangle vertices per clause ($2m$ total), covering all edges. ($arrow.l.double$) A cover of size $n + 2m$ must include exactly one literal vertex per variable and two triangle vertices per clause; the uncovered triangle vertex's communication edge forces the corresponding literal to be true.
-
-  _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
-]
-
 #let ksat_mono = load-example("KSatisfiability", "MonochromaticTriangle")
 #let ksat_mono_sol = ksat_mono.solutions.at(0)
 #reduction-rule("KSatisfiability", "MonochromaticTriangle",
@@ -17778,13 +17759,13 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
 ]
 
-#let hc_sc = load-example("HamiltonianCircuit", "StackerCrane")
+#let hc_sc = load-example("HamiltonianCircuit", "DecisionStackerCrane")
 #let hc_sc_sol = hc_sc.solutions.at(0)
 #let hc_sc_n = graph-num-vertices(hc_sc.source.instance)
 #let hc_sc_source_edges = hc_sc.source.instance.graph.edges
-#let hc_sc_target_arcs = hc_sc.target.instance.arcs
-#let hc_sc_target_edges = hc_sc.target.instance.edges
-#reduction-rule("HamiltonianCircuit", "StackerCrane",
+#let hc_sc_target_arcs = hc_sc.target.instance.inner.arcs
+#let hc_sc_target_edges = hc_sc.target.instance.inner.edges
+#reduction-rule("HamiltonianCircuit", "DecisionStackerCrane",
   example: true,
   example-caption: [Cycle $C_#hc_sc_n$ ($n = #hc_sc_n$): vertex splitting to Stacker Crane],
   extra: [
@@ -17797,7 +17778,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_sc_n$ on vertices ${0, dots, #(hc_sc_n - 1)}$ with #hc_sc_source_edges.len() edges: #hc_sc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#fmt-values(hc_sc_sol.source_config)]$.\
 
-    *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
+    *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.inner.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
 
     *Step 3 -- Verify a solution.* The stored target configuration $[#fmt-values(hc_sc_sol.target_config)]$ is a permutation of arcs. Following this order: arc #hc_sc_sol.target_config.at(0) serves $(#hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(0) arrow #hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(1))$, then a connector edge leads to the next arc, and so on. The tour traverses $#hc_sc_target_arcs.len()$ arcs (cost $#hc_sc_target_arcs.len()$) and $#hc_sc_target_arcs.len()$ connector edges (cost $#hc_sc_target_arcs.len()$), for total cost $2 dot #hc_sc_n = #(hc_sc_n * 2)$. Recovering the source witness: arc $i$ corresponds to vertex $i$, so the permutation $[#fmt-values(hc_sc_sol.source_config)]$ is the Hamiltonian circuit #sym.checkmark\
 
@@ -17817,10 +17798,10 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Evaluate once, apply the same aggregate certificate predicate, and reject non-certifying tours with an extraction error. Otherwise the service permutation is the source vertex order. The target evaluator permits service arcs on connector paths; the proof remains valid because equality forces each connector to be a single undirected edge. No target-definition change is required.
 ]
 
-#let hc_rp = load-example("HamiltonianCircuit", "RuralPostman")
+#let hc_rp = load-example("HamiltonianCircuit", "DecisionRuralPostman")
 #let hc_rp_sol = hc_rp.solutions.at(0)
 #let hc_rp_n = graph-num-vertices(hc_rp.source.instance)
-#reduction-rule("HamiltonianCircuit", "RuralPostman",
+#reduction-rule("HamiltonianCircuit", "DecisionRuralPostman",
   example: true,
   example-caption: [Cycle $C_#hc_rp_n$ ($n = #hc_rp_n$): vertex splitting to Rural Postman],
   extra: [
@@ -17833,9 +17814,9 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* The canonical HC instance is a cycle $C_#hc_rp_n$ with $n = #hc_rp_n$ vertices and $|E| = #graph-num-edges(hc_rp.source.instance)$ edges. The stored witness is the permutation $(#fmt-values(hc_rp_sol.source_config))$.
 
-    *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance) edges: #hc_rp.target.instance.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance) - hc_rp.target.instance.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
+    *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance.inner)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance.inner) edges: #hc_rp.target.instance.inner.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance.inner) - hc_rp.target.instance.inner.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
 
-    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#fmt-values(hc_rp_sol.target_config))$. The tour traverses all #hc_rp.target.instance.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#fmt-values(hc_rp_sol.target_config))$. The tour traverses all #hc_rp.target.instance.inner.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. The $#hc_rp_n$-cycle has $#hc_rp_n$ rotations $times$ 2 reflections $= #(2 * hc_rp_n)$ directed Hamiltonian circuits.
   ],
@@ -17878,9 +17859,9 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ After validating target feasibility, select original vertex $i$ exactly when its outgoing arc has flow 1. The auxiliary path is omitted. Repeated source edges add repeated constraints and do not change the proof. Allocation counts and the shifted threshold are checked before construction; no source solver is invoked during construction or extraction.
 ]
 
-#let hc_qa = load-example("HamiltonianCircuit", "QuadraticAssignment")
+#let hc_qa = load-example("HamiltonianCircuit", "DecisionQuadraticAssignment")
 #let hc_qa_sol = hc_qa.solutions.at(0)
-#reduction-rule("HamiltonianCircuit", "QuadraticAssignment",
+#reduction-rule("HamiltonianCircuit", "DecisionQuadraticAssignment",
   example: true,
   example-caption: [Cycle graph $C_#hc_qa.source.instance.graph.num_vertices$ ($n = #hc_qa.source.instance.graph.num_vertices$, $|E| = #hc_qa.source.instance.graph.edges.len()$)],
   extra: [
@@ -17893,7 +17874,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$.
 
-    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 0$ if ${k,l} in E$, $d[k][l] = 1$ for distinct non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
+    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 0$ if ${k,l} in E$, $d[k][l] = 1$ for distinct non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.inner.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.inner.distance_matrix.len()$ locations.
 
     *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#fmt-values(hc_qa_sol.source_config))$. The QAP permutation is the same: $(#fmt-values(hc_qa_sol.target_config))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 0 = 0$. Total cost $= 0$ #sym.checkmark
 
@@ -18356,9 +18337,9 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 5. PartitionIntoCliques → MinimumCoveringByCliques (#889)
-#let pic_mcbc = load-example("PartitionIntoCliques", "MinimumCoveringByCliques")
+#let pic_mcbc = load-example("PartitionIntoCliques", "DecisionMinimumCoveringByCliques")
 #let pic_mcbc_sol = pic_mcbc.solutions.at(0)
-#reduction-rule("PartitionIntoCliques", "MinimumCoveringByCliques",
+#reduction-rule("PartitionIntoCliques", "DecisionMinimumCoveringByCliques",
   example: true,
   example-caption: [$n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edges, $K = #pic_mcbc.source.instance.num_cliques$],
   extra: [
@@ -18371,7 +18352,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edge, and clique bound $K = #pic_mcbc.source.instance.num_cliques$. The stored partition witness is $(#fmt-values(pic_mcbc_sol.source_config))$, namely the cliques ${0,1}$ and ${2}$.
 
-    *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance)$ vertices and $#graph-num-edges(pic_mcbc.target.instance)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
+    *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance.inner)$ vertices and $#graph-num-edges(pic_mcbc.target.instance.inner)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
 
     *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len()$ target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#fmt-values(pic_mcbc_sol.source_config))$ #sym.checkmark.
 
@@ -18776,9 +18757,9 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 12. Partition → SequencingToMinimizeTardyTaskWeight (#471)
-#let part_stw = load-example("Partition", "SequencingToMinimizeTardyTaskWeight")
+#let part_stw = load-example("Partition", "DecisionSequencingToMinimizeTardyTaskWeight")
 #let part_stw_sol = part_stw.solutions.at(0)
-#reduction-rule("Partition", "SequencingToMinimizeTardyTaskWeight",
+#reduction-rule("Partition", "DecisionSequencingToMinimizeTardyTaskWeight",
   example: true,
   example-caption: [#part_stw.source.instance.sizes.len() elements, total $= #part_stw.source.instance.sizes.sum()$],
   extra: [
@@ -18790,9 +18771,9 @@ The following table shows concrete target-variable counts for example instances,
     )
 
     #{
-      let lengths = part_stw.target.instance.lengths
-      let weights = part_stw.target.instance.weights
-      let deadline = part_stw.target.instance.deadlines.at(0)
+      let lengths = part_stw.target.instance.inner.lengths
+      let weights = part_stw.target.instance.inner.weights
+      let deadline = part_stw.target.instance.inner.deadlines.at(0)
       let on-time-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
       let tardy-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
       [
@@ -18833,11 +18814,11 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 12. Partition → OpenShopScheduling (#481)
-#let part_oss = load-example("Partition", "OpenShopScheduling")
+#let part_oss = load-example("Partition", "DecisionOpenShopScheduling")
 #let part_oss_sol = part_oss.solutions.at(0)
-#reduction-rule("Partition", "OpenShopScheduling",
+#reduction-rule("Partition", "DecisionOpenShopScheduling",
   example: true,
-  example-caption: [#part_oss.source.instance.sizes.len() elements, $m = #part_oss.target.instance.num_machines$ machines],
+  example-caption: [#part_oss.source.instance.sizes.len() elements, $m = #part_oss.target.instance.inner.num_machines$ machines],
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_oss.source) + " -o partition.json",
@@ -18848,7 +18829,7 @@ The following table shows concrete target-variable counts for example instances,
 
     #{
       let q = part_oss.source.instance.sizes.sum() / 2
-      let p = part_oss.target.instance.processing_times
+      let p = part_oss.target.instance.inner.processing_times
       let left-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
       let right-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
       [
@@ -18887,9 +18868,9 @@ The following table shows concrete target-variable counts for example instances,
   _Aggregation and extraction._ Map a finite optimum equal to $D$ to true and all other values to false. Validate a target configuration once, apply this same certificate, then identify the middle machine and select its element jobs completing by $Q$. Reject invalid schedules and feasible schedules that do not attain the certificate. The existing checked target constructor validates its total horizon $3(S+Q)$ before computing $D$, so the smaller nonnegative certificate is representable. Target construction failures retain their formal error type.
 ]
 // 13. NAESatisfiability → MaxCut (#166)
-#let nae_mc = load-example("NAESatisfiability", "MaxCut")
+#let nae_mc = load-example("NAESatisfiability", "DecisionMaxCut")
 #let nae_mc_sol = nae_mc.solutions.at(0)
-#reduction-rule("NAESatisfiability", "MaxCut",
+#reduction-rule("NAESatisfiability", "DecisionMaxCut",
   example: true,
   example-caption: [$n = #nae_mc.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_mc.source.instance)$ clauses, $M = #(sat-num-clauses(nae_mc.source.instance) + 1)$],
   extra: [
@@ -18904,12 +18885,12 @@ The following table shows concrete target-variable counts for example instances,
       let n = nae_mc.source.instance.num_vars
       let m = sat-num-clauses(nae_mc.source.instance)
       let big-m = m + 1
-      let clause-edge-count = graph-num-edges(nae_mc.target.instance) - n
+      let clause-edge-count = graph-num-edges(nae_mc.target.instance.inner) - n
       let cut-value = n * big-m + 2 * m
       [
         *Step 1 -- Source instance.* NAE-SAT with $n = #n$ variables and $m = #m$ clauses. The implementation uses forcing weight $M = m + 1 = #big-m$.
 
-        *Step 2 -- Construct the weighted graph.* Variable gadgets contribute #n heavy edges of weight $M$. Because the canonical fixture has 3 literals per clause, each clause contributes one unit-weight triangle, so the target has #clause-edge-count unit-weight clause edges and $#graph-num-edges(nae_mc.target.instance)$ edges total on $#graph-num-vertices(nae_mc.target.instance)$ vertices.
+        *Step 2 -- Construct the weighted graph.* Variable gadgets contribute #n heavy edges of weight $M$. Because the canonical fixture has 3 literals per clause, each clause contributes one unit-weight triangle, so the target has #clause-edge-count unit-weight clause edges and $#graph-num-edges(nae_mc.target.instance.inner)$ edges total on $#graph-num-vertices(nae_mc.target.instance.inner)$ vertices.
 
         *Step 3 -- Verify the canonical witness.* Source assignment $(#fmt-values(nae_mc_sol.source_config))$ induces target cut $(#fmt-values(nae_mc_sol.target_config))$. All #n heavy edges are cut, and each of the #m clause triangles has a 1-2 split contributing 2, so the total cut weight is $#cut-value$ #sym.checkmark.
       ]
@@ -19379,9 +19360,9 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 17. HamiltonianPathBetweenTwoVertices → LongestPath (#359)
-#let hpbtv_lp = load-example("HamiltonianPathBetweenTwoVertices", "LongestPath")
+#let hpbtv_lp = load-example("HamiltonianPathBetweenTwoVertices", "DecisionLongestPath")
 #let hpbtv_lp_sol = hpbtv_lp.solutions.at(0)
-#reduction-rule("HamiltonianPathBetweenTwoVertices", "LongestPath",
+#reduction-rule("HamiltonianPathBetweenTwoVertices", "DecisionLongestPath",
   example: true,
   example-caption: [$n = #graph-num-vertices(hpbtv_lp.source.instance)$ vertices, $s = #hpbtv_lp.source.instance.source_vertex$, $t = #hpbtv_lp.source.instance.target_vertex$],
   extra: [
@@ -19407,7 +19388,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Correctness._ ($arrow.r.double$) A Hamiltonian $s$-$t$ path has $n - 1$ edges of length 1 each, giving total length $n - 1 = K$. ($arrow.l.double$) A simple $s'$-$t'$ path of length $>= K = n - 1$ has $>= n - 1$ edges. Since a simple path on $n$ vertices can have at most $n - 1$ edges, it has exactly $n - 1$ edges and visits all vertices -- it is a Hamiltonian $s$-$t$ path.
 
-  _Solution extraction._ Evaluate the target configuration once and apply the aggregate predicate: the value must be finite and equal to $n-1$. Reject infeasible selections and shorter paths before traversing any edges. The target feasibility check guarantees a single connected simple path from $s$ to $t$; its $n-1$ edges visit all $n$ vertices. Start at $s$ and repeatedly take the neighbor other than the preceding vertex. This terminates at $t$ and yields the source permutation without repetitions. The same argument applies to every supplied target configuration, independently of any caller claim of optimality. An absent target maximum or a proven maximum below $n-1$ certifies a NO source instance. The source requires distinct valid endpoints, so $n>=2$; no empty-graph or equal-endpoint convention is introduced. The target value resolves to `Max<i64>` because unit weight `One` has sum type `i64`. Checked evaluation errors are propagated, and the threshold comparison uses exact integer conversion.
+  _Solution extraction._ Evaluate the target configuration once and apply the aggregate predicate: the value must be finite and equal to $n-1$. Reject infeasible selections and shorter paths before traversing any edges. The target feasibility check guarantees a single connected simple path from $s$ to $t$; its $n-1$ edges visit all $n$ vertices. Start at $s$ and repeatedly take the neighbor other than the preceding vertex. This terminates at $t$ and yields the source permutation without repetitions. The same argument applies to every supplied target configuration, independently of any caller claim of optimality. An absent target maximum or a proven maximum below $n-1$ certifies a NO source instance. The source requires distinct valid endpoints, so $n>=2$; no empty-graph or equal-endpoint convention is introduced. The inner value is `Max<i64>` because unit weight `One` has sum type `i64`; the decision target evaluates to `Or` with bound $n-1$. Checked evaluation errors are propagated, and the threshold comparison uses exact integer conversion.
 ]
 
 // 18. GraphPartitioning → MaxCut (from main codebase)

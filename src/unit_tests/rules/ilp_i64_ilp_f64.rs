@@ -2,6 +2,9 @@ use super::*;
 use crate::models::algebraic::{IntegerVariable, ObjectiveSense};
 use crate::rules::{ReductionGraph, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
+use crate::traits::Problem;
 use crate::types::MAX_EXACT_F64_INTEGER;
 
 #[test]
@@ -25,7 +28,14 @@ fn test_ilp_i64_coefficients_to_f64_closed_loop() {
     );
     let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![1, 0]
     );
 }
@@ -73,12 +83,20 @@ fn test_ilp_integer_coefficients_preserve_large_exact_constraint() {
         .is_feasible(&target_solution)
         .unwrap());
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         target_solution
     );
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
-    );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
 }
 
 #[test]

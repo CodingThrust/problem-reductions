@@ -1,5 +1,6 @@
 use super::*;
 use crate::rules::{ReduceTo, ReductionError, ReductionGraph, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::types::MAX_EXACT_F64_INTEGER;
 
 #[test]
@@ -14,7 +15,15 @@ fn test_qubo_i64_to_f64_closed_loop() {
             .matrix()
     );
     assert_eq!(
-        reduction.extract_solution(&vec![true, false]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![true, false].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false]
     );
 }

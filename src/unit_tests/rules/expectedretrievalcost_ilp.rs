@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -48,7 +49,14 @@ fn test_expectedretrievalcost_to_ilp_bf_vs_ilp() {
     let bf_cost = problem.expected_cost(&bf_witness).unwrap().unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_cost = problem.expected_cost(&extracted).unwrap().unwrap();
 
     // ILP cost should match BF optimal cost
@@ -75,7 +83,17 @@ fn test_solution_extraction() {
                 target[reduction.z_var(r, sector, other, other_sector)] = 1;
             }
         }
-        assert_eq!(reduction.extract_solution(&target).unwrap(), assignment);
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &problem,
+                    SolveOutcome::optimal(reduction.target_problem(), target.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
+            assignment
+        );
         assert_eq!(
             reduction
                 .target_problem()
@@ -96,7 +114,14 @@ fn test_expectedretrievalcost_to_ilp_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
     assert!(
         matches!(value, Min(Some(_))),

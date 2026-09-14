@@ -14,6 +14,8 @@ use crate::models::graph::MinimumVertexCover;
 use crate::models::set::ComparativeContainment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Identity witness map for the signed-weight containment construction.
@@ -30,11 +32,18 @@ impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        Ok(target_solution.clone())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { solution, .. } => {
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
     }
 }
 

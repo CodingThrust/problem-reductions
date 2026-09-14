@@ -12,6 +12,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::misc::MinimumDiscretePlanarInverseKinematics;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 fn block_offsets(block_sizes: &[usize]) -> Vec<usize> {
     let mut offsets = Vec::with_capacity(block_sizes.len());
@@ -43,10 +45,44 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
 
     /// Decode a qualifying optimum after the energy relation establishes source
     /// feasibility. Such an optimum is one-hot and obeys every allowed pair.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Ok(SolveOutcome::Infeasible);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Err(crate::rules::ExtractionError::InsufficientSolutionQuality);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(self
             .block_offsets
             .iter()
@@ -61,17 +97,8 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     }
 }
 
-impl crate::rules::AggregateReductionResult
-    for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO
-{
-    type Source = MinimumDiscretePlanarInverseKinematics;
-    type Target = QUBO<f64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<f64>) -> crate::types::Min<f64> {
+impl ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
+    fn map_value(&self, value: crate::types::Min<f64>) -> crate::types::Min<f64> {
         crate::types::Min(
             value
                 .0
@@ -81,7 +108,7 @@ impl crate::rules::AggregateReductionResult
     }
 }
 
-#[reduction(aggregate = custom, transform = exact {
+#[reduction(transform = exact {
     num_vars = "num_orientation_samples",
 })]
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {

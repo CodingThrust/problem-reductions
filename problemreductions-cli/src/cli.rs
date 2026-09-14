@@ -209,12 +209,12 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
-    /// Extract a source-space solution from a reduction bundle and a target-space config
+    /// Recover a source result from a reduction bundle and an external target result
     #[command(after_help = "\
 Examples:
-  pred extract bundle.json --config '[1,0,1,0]'
-  pred extract bundle.json --config '[1,0,1,0]' -o source.json
-  cat bundle.json | pred extract - --config '[1,0,1,0]'
+  pred extract bundle.json --result target-result.json
+  pred extract bundle.json --result target-result.json -o source.json
+  cat bundle.json | pred extract - --result target-result.json
 
 Use this when an external solver has solved the bundle's target problem
 (e.g. a QUBO sampler, a neutral-atom platform, a QAOA runtime) and you want
@@ -335,11 +335,11 @@ pub struct ReduceArgs {
 
 #[derive(clap::Args)]
 pub struct ExtractArgs {
-    /// Reduction bundle JSON (from `pred reduce`). Use - for stdin.
+    /// Reduction bundle JSON (from pred reduce).
     pub input: PathBuf,
-    /// Target problem solution encoded as JSON (for example, [1,0,1,0])
+    /// JSON result file from the target solver, with an explicit solve status.
     #[arg(long)]
-    pub config: String,
+    pub result: PathBuf,
 }
 
 #[derive(clap::Args)]

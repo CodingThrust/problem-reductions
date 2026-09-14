@@ -1,37 +1,56 @@
 use super::*;
 use crate::models::algebraic::ILP;
+use crate::models::decision::Decision;
 use crate::models::misc::{OpenShopScheduling, Partition};
+use crate::rules::ReductionResult;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
+use crate::types::OptimizationValue;
 
 fn solve_target(target: &OpenShopScheduling) -> Vec<usize> {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(target).expect("ILP reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("open-shop target should be feasible");
-    reduction.extract_solution(&ilp_solution).unwrap()
+    reduction
+        .recover_result(
+            target,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution")
 }
 
 #[test]
 fn test_partition_to_open_shop_scheduling_closed_loop() {
     let source = Partition::new(vec![1, 2, 3]).unwrap();
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
-    let target_solution = solve_target(reduction.target_problem());
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap();
+    let target_solution = solve_target(reduction.target_problem().inner());
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_partition_to_open_shop_scheduling_structure() {
     let source = Partition::new(vec![1, 2, 3]).unwrap();
-    let reduction =
-        ReduceTo::<OpenShopScheduling>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_eq!(target.num_jobs(), 4);
-    assert_eq!(target.num_machines(), 3);
+    assert_eq!(target.inner().num_jobs(), 4);
+    assert_eq!(target.inner().num_machines(), 3);
     assert_eq!(
-        target.processing_times(),
+        target.inner().processing_times(),
         &[vec![1, 1, 1], vec![2, 2, 2], vec![3, 3, 3], vec![3, 3, 3]]
     );
 }
@@ -39,9 +58,16 @@ fn test_partition_to_open_shop_scheduling_structure() {
 #[test]
 fn test_partition_to_open_shop_scheduling_extract_solution() {
     let source = Partition::new(vec![1, 2, 3]).unwrap();
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
-    let target_solution = solve_target(reduction.target_problem());
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap();
+    let target_solution = solve_target(reduction.target_problem().inner());
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 3);
     assert!(source.evaluate(&extracted).unwrap());
 }
@@ -49,22 +75,23 @@ fn test_partition_to_open_shop_scheduling_extract_solution() {
 #[test]
 fn test_partition_to_open_shop_scheduling_odd_total_is_not_satisfying() {
     let source = Partition::new(vec![2, 4, 5]).unwrap();
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
-    let best = solve_target(reduction.target_problem());
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &best), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-    );
+    let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap();
+    let best = solve_target(reduction.target_problem().inner());
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&best)
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
 fn test_partition_to_open_shop_scheduling_preserves_construction_overflow() {
     let source = Partition::new(vec![1_i64 << 61, 1_i64 << 61]).unwrap();
-    let error = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap_err();
+    let error = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap_err();
     assert!(matches!(
         error,
         crate::rules::ReductionError::Construction {
             source_problem: "Partition",
-            target_problem: "OpenShopScheduling",
+            target_problem: "DecisionOpenShopScheduling",
             cause: crate::registry::ConstructionError::IntegerOverflow(_),
         }
     ));
@@ -72,7 +99,6 @@ fn test_partition_to_open_shop_scheduling_preserves_construction_overflow() {
 
 #[test]
 fn test_partition_to_open_shop_all_small_partitions_and_machine_orders() {
-    use crate::rules::AggregateReductionResult;
     let permutations = [
         [0, 1, 2],
         [0, 2, 1],
@@ -91,10 +117,14 @@ fn test_partition_to_open_shop_all_small_partitions_and_machine_orders() {
                 })
                 .collect();
             let source = Partition::new(sizes.clone()).unwrap();
-            let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
-            let target = AggregateReductionResult::target_problem(&reduction);
+            let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap();
+            let target = crate::rules::ReductionResult::target_problem(&reduction);
             assert!(
-                !AggregateReductionResult::extract_value(&reduction, crate::types::Min(None)).0
+                !crate::types::Or(OptimizationValue::meets_bound(
+                    &(crate::types::Min(None)),
+                    crate::rules::ReductionResult::target_problem(&reduction).bound()
+                ))
+                .0
             );
             for mask in 0..(1usize << n) {
                 let assignment: Vec<_> = (0..n).map(|i| mask & (1 << i) != 0).collect();
@@ -118,41 +148,70 @@ fn test_partition_to_open_shop_all_small_partitions_and_machine_orders() {
                             assert_eq!(time, (phase + 1) * half);
                         }
                     }
-                    let value = target.evaluate(&schedule).unwrap();
+                    let value = target.inner().evaluate(&schedule).unwrap();
                     assert_eq!(value, crate::types::Min(Some(3 * half as i64)));
-                    assert!(AggregateReductionResult::extract_value(&reduction, value).0);
-                    assert_eq!(reduction.extract_solution(&schedule).unwrap(), assignment);
-                    let delayed: Vec<_> = schedule.iter().map(|&time| time + 1).collect();
-                    assert!(target.evaluate(&delayed).unwrap().0.is_some());
                     assert!(
-                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &delayed), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                        crate::types::Or(OptimizationValue::meets_bound(
+                            &(value),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        ))
+                        .0
                     );
+                    assert_eq!(
+                        reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), schedule.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution"),
+                        assignment
+                    );
+                    let delayed: Vec<_> = schedule.iter().map(|&time| time + 1).collect();
+                    assert!(target.inner().evaluate(&delayed).unwrap().0.is_some());
+                    assert!(!ReductionResult::target_problem(&reduction)
+                        .evaluate(&delayed)
+                        .unwrap()
+                        .is_valid());
                 }
             }
-            assert!(
-                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; (n + 1) * 3]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-            );
-            assert!(
-                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; (n + 1) * 3 + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-            );
+            assert!(!ReductionResult::target_problem(&reduction)
+                .evaluate(&vec![0; (n + 1) * 3])
+                .unwrap()
+                .is_valid());
+            assert!(matches!(
+                ReductionResult::target_problem(&reduction)
+                    .inner()
+                    .evaluate(&vec![0; (n + 1) * 3 + 1]),
+                Err(InvalidConfiguration(_))
+            ));
         }
     }
 }
 
 #[test]
 fn test_partition_to_open_shop_odd_singleton_certificate() {
-    use crate::rules::AggregateReductionResult;
     let source = Partition::new(vec![1]).unwrap();
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap();
     let schedule = vec![0, 1, 2, 0, 0, 0];
     let value = ReductionResult::target_problem(&reduction)
+        .inner()
         .evaluate(&schedule)
         .unwrap();
     assert_eq!(value, crate::types::Min(Some(3)));
-    assert!(!AggregateReductionResult::extract_value(&reduction, value).0);
     assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &schedule), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        !crate::types::Or(OptimizationValue::meets_bound(
+            &(value),
+            crate::rules::ReductionResult::target_problem(&reduction).bound()
+        ))
+        .0
     );
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&schedule)
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
@@ -160,16 +219,30 @@ fn test_partition_to_open_shop_odd_singleton_certificate() {
 fn test_partition_to_open_shop_certificate_near_horizon_limit() {
     let size = i64::MAX / 9;
     let source = Partition::new(vec![size, size]).unwrap();
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<Decision<OpenShopScheduling>>::reduce_to(&source).unwrap();
     let a = usize::try_from(size).unwrap();
     let schedule = vec![0, a, 2 * a, 2 * a, 0, a, a, 2 * a, 0];
     assert_eq!(
-        reduction.target_problem().evaluate(&schedule).unwrap(),
+        reduction
+            .target_problem()
+            .inner()
+            .evaluate(&schedule)
+            .unwrap(),
         crate::types::Min(Some(3 * size))
     );
     assert!(
         source
-            .evaluate(&reduction.extract_solution(&schedule).unwrap())
+            .evaluate(
+                &reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), schedule.clone())
+                            .unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
+            )
             .unwrap()
             .0
     );

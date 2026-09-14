@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -28,7 +29,14 @@ fn test_knapsack_to_qubo_single_item() {
 
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(qubo).unwrap();
-    let extracted = reduction.extract_solution(&best_target[0]).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &knapsack,
+            SolveOutcome::optimal(reduction.target_problem(), best_target[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true]);
 }
 
@@ -42,7 +50,14 @@ fn test_knapsack_to_qubo_infeasible_rejected() {
     let best_target = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &best_target {
-        let source_sol = reduction.extract_solution(sol).unwrap();
+        let source_sol = reduction
+            .recover_result(
+                &knapsack,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let eval = knapsack.evaluate(&source_sol).unwrap();
         assert!(
             eval.is_valid(),
@@ -61,7 +76,14 @@ fn test_knapsack_to_qubo_empty() {
 
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(qubo).unwrap();
-    let extracted = reduction.extract_solution(&best_target[0]).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &knapsack,
+            SolveOutcome::optimal(reduction.target_problem(), best_target[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, false]);
 }
 

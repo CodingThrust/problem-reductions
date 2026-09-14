@@ -2,7 +2,7 @@
 
 use crate::expr::Expr;
 use crate::parameters::{ParameterRelation, ParameterTransform, ParameterTransformError};
-use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
+use crate::rules::traits::DynReductionResult;
 use std::any::Any;
 use std::collections::HashSet;
 
@@ -132,32 +132,19 @@ impl From<ParameterTransformError> for ParameterContractError {
     }
 }
 
-/// Interpret an accepted target optimum using this execution's mathematical relation.
-pub type InterpretOptimum = dyn Fn(&dyn Any) -> crate::rules::ExtractionResult<bool>;
-
-/// One executed witness reduction, with optional value mapping over the same state.
+/// One executed reduction, shared by all paths using this prefix.
 #[derive(Clone)]
 pub struct ExecutedStep {
-    /// Target access and witness recovery for this execution.
     pub witness: std::rc::Rc<dyn DynReductionResult>,
-    /// Value recovery sharing the witness result allocation, when supported.
-    pub aggregate: Option<std::rc::Rc<dyn DynAggregateReductionResult>>,
-    /// Solver completion only: whether the mapped optimum supplies a source witness.
-    pub interpret_optimum: Option<std::rc::Rc<InterpretOptimum>>,
 }
 
 /// Witness/config reduction executor stored in the inventory.
 pub type ReduceFn = fn(&dyn Any) -> Result<ExecutedStep, crate::rules::ReductionError>;
 
-/// Aggregate/value reduction executor stored in the inventory.
-pub type AggregateReduceFn =
-    fn(&dyn Any) -> Result<Box<dyn DynAggregateReductionResult>, crate::rules::ReductionError>;
-
 /// Execution capabilities carried by a reduction edge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EdgeCapabilities {
     pub witness: bool,
-    pub aggregate: bool,
     /// Turing (multi-query) reduction: solving the source requires multiple
     /// adaptive queries to the target (e.g., binary search over a decision bound).
     #[serde(default)]
@@ -165,14 +152,9 @@ pub struct EdgeCapabilities {
 }
 
 impl EdgeCapabilities {
-    pub(crate) const fn from_executors(
-        reduce_fn: Option<ReduceFn>,
-        reduce_aggregate_fn: Option<AggregateReduceFn>,
-        turing: bool,
-    ) -> Self {
+    pub(crate) const fn from_executors(reduce_fn: Option<ReduceFn>, turing: bool) -> Self {
         Self {
             witness: reduce_fn.is_some(),
-            aggregate: reduce_aggregate_fn.is_some(),
             turing,
         }
     }
@@ -197,12 +179,6 @@ pub struct ReductionEntry {
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
     /// and returns one `ExecutedStep` sharing the result, or the edge's `ReductionError`.
     pub reduce_fn: Option<ReduceFn>,
-    /// Type-erased aggregate reduction executor.
-    /// Takes a `&dyn Any` (must be `&SourceType`), calls
-    /// `ReduceToAggregate::reduce_to_aggregate()`, and returns either a boxed
-    /// `DynAggregateReductionResult` or the edge's `ReductionError`.
-    pub reduce_aggregate_fn: Option<AggregateReduceFn>,
-    /// Whether this is a Turing (multi-query) reduction.
     pub turing: bool,
 }
 
@@ -224,7 +200,7 @@ impl ReductionEntry {
 
     /// Return the modes backed by this entry's executors.
     pub fn capabilities(&self) -> EdgeCapabilities {
-        EdgeCapabilities::from_executors(self.reduce_fn, self.reduce_aggregate_fn, self.turing)
+        EdgeCapabilities::from_executors(self.reduce_fn, self.turing)
     }
 
     /// Check if this reduction involves only the base (unweighted) variants.

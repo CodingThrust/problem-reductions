@@ -93,10 +93,20 @@ For a problem file, JSON inspection includes `parameter_values`, the model's act
 pred path MIS QUBO --json -o paths.json
 python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json
 pred reduce problem.json --via path.json -o reduced.json
-pred extract reduced.json --config '[1,0,1,0]'
+pred extract reduced.json --result target-result.json
 ```
 
-The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input. `extract` maps a target-space configuration back to the source.
+The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input. `extract` recovers the complete source result from an external target result:
+
+```json
+{"status":"optimal","solution":[true,false,true,false],"evaluation":"Min(-2)"}
+```
+
+The example shape assumes a Boolean target solution; use the actual target's
+solution representation. Use `feasible` when optimality is not established, or
+`{"status":"infeasible"}` when the target solver proves infeasibility.
+The command checks the target witness and recomputes its evaluation. Insufficient
+candidate quality is an error, not a source NO answer.
 
 ## Solve
 

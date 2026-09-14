@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::MixedGraph;
 use crate::traits::Problem;
@@ -23,7 +24,14 @@ fn test_mixedchinesepostman_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap().0.is_some());
 }
@@ -45,7 +53,14 @@ fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = source.evaluate(&extracted).unwrap();
 
     assert_eq!(
@@ -71,7 +86,14 @@ fn test_mixedchinesepostman_to_ilp_weighted() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = source.evaluate(&extracted).unwrap();
 
     assert_eq!(
@@ -93,7 +115,14 @@ fn test_mixedchinesepostman_to_ilp_with_isolated_vertices() {
     );
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
     let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source.evaluate(&extracted).unwrap().0, Some(69));
 }

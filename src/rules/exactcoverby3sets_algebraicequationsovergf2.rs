@@ -4,6 +4,8 @@ use crate::models::algebraic::AlgebraicEquationsOverGF2;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionX3CToAlgebraicEquationsOverGF2 {
@@ -18,11 +20,18 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        Ok(target_solution.to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { solution, .. } => {
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
     }
 }
 

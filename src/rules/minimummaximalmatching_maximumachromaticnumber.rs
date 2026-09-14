@@ -10,13 +10,15 @@
 use crate::models::graph::{MaximumAchromaticNumber, MinimumMaximalMatching};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 
 /// Result of reducing `MinimumMaximalMatching<BipartiteGraph>` to
 /// `MaximumAchromaticNumber<SimpleGraph>`.
 ///
 /// Stores the target problem along with the source edge list (in unified vertex
-/// coordinates) so that `extract_solution` can map a target coloring back to a
+/// coordinates) so that `recover_result` can map a target coloring back to a
 /// maximal matching of the source graph.
 #[derive(Debug, Clone)]
 pub struct ReductionMMMToAchromatic {
@@ -42,10 +44,32 @@ impl ReductionResult for ReductionMMMToAchromatic {
     /// size 2, i.e., a source edge. A source edge `(u, v)` belongs to the
     /// extracted matching iff `u` and `v` share a color, which we detect in a
     /// single pass over `source_edges`.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionMMMToAchromatic {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             self.source_edges
                 .iter()

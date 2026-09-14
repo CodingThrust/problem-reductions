@@ -1,6 +1,9 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::traits::EvaluationError::InvalidConfiguration;
+use crate::traits::Problem;
 
 #[test]
 fn test_partition_to_subsetsum_closed_loop() {
@@ -66,7 +69,8 @@ fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
     let source = Partition::new(vec![1, 1, 2, 2]).unwrap();
     let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false, true, false]), Ok(value) if { value.is_valid() })
-    );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![false, true, false]),
+        Err(InvalidConfiguration(_))
+    ));
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -49,7 +50,14 @@ fn test_preemptivescheduling_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = p.evaluate(&extracted).unwrap();
     assert!(
         value.0.is_some(),
@@ -75,7 +83,14 @@ fn test_preemptivescheduling_to_ilp_medium_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = p.evaluate(&extracted).unwrap();
     assert!(
         value.0.is_some(),
@@ -114,7 +129,14 @@ fn test_preemptivescheduling_to_ilp_extract_solution() {
     let reduction: ReductionPSToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = vec![1, 0, 0, 1, 2]; // last element is M
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![vec![true, false], vec![false, true]]);
     assert_eq!(p.evaluate(&extracted).unwrap(), Min(Some(2)));
 }

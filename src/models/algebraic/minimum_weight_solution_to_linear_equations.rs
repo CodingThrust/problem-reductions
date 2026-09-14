@@ -72,23 +72,7 @@ struct MinimumWeightSolutionCreateSpec {
 impl TryFrom<MinimumWeightSolutionCreateSpec> for MinimumWeightSolutionToLinearEquations {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightSolutionCreateSpec) -> Result<Self, Self::Error> {
-        let first = spec
-            .matrix
-            .first()
-            .ok_or("matrix must have at least one row")?;
-        if first.is_empty() {
-            return Err("matrix must have at least one column".into());
-        }
-        if spec.matrix.iter().any(|row| row.len() != first.len()) {
-            return Err("all matrix rows must have the same length".into());
-        }
-        if spec.rhs.len() != spec.matrix.len() {
-            return Err("RHS length must equal number of rows".into());
-        }
-        Ok(Self {
-            matrix: spec.matrix,
-            rhs: spec.rhs,
-        })
+        Self::try_new(spec.matrix, spec.rhs)
     }
 }
 

@@ -3,6 +3,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumCoKPlex;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Max, One};
@@ -70,7 +71,14 @@ fn test_maximumcokplex_to_ilp_k_equals_1_regression() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("k=1 instance should be ILP-solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(2)));
     assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 2);
@@ -83,7 +91,14 @@ fn test_maximumcokplex_to_ilp_extract_solution_identity() {
     let reduction: ReductionCoKPlexToILP<i64> =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![1, 0, 1, 0, 1];
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![true, false, true, false, true]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(12)));

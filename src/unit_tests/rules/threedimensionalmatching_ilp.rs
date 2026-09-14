@@ -3,6 +3,7 @@ use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::models::misc::{ResourceConstrainedScheduling, ThreePartition};
 use crate::models::set::ThreeDimensionalMatching;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -96,7 +97,14 @@ fn test_threedimensionalmatching_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("direct ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![true, true, true, false, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
@@ -136,7 +144,14 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     let direct_solution = solver
         .solve(direct.target_problem())
         .expect("direct ILP should solve");
-    let direct_source = direct.extract_solution(&direct_solution).unwrap();
+    let direct_source = direct
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(direct.target_problem(), direct_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&direct_source).unwrap(), Or(true));
     assert!(direct.target_problem().num_vars() < indirect.target_problem().num_vars());

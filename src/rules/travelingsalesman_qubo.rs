@@ -10,6 +10,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use std::collections::HashMap;
 
@@ -35,10 +37,44 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
 
     /// Decode an optimum whose value relation establishes source feasibility.
     /// The energy gap guarantees a permutation using existing source edges.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Ok(SolveOutcome::Infeasible);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Err(crate::rules::ExtractionError::InsufficientSolutionQuality);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionTravelingSalesmanToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         if self.num_vertices < 3 {
             return Ok(self.small_optimum.as_ref().unwrap().0.clone());
         }
@@ -59,13 +95,8 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
     }
 }
 
-impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO {
-    type Source = TravelingSalesman<SimpleGraph, i64>;
-    type Target = QUBO<i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Min<i64> {
+impl ReductionTravelingSalesmanToQUBO {
+    fn map_value(&self, value: crate::types::Min<i64>) -> crate::types::Min<i64> {
         if self.num_vertices < 3 {
             return crate::types::Min(
                 value
@@ -83,7 +114,6 @@ impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vertices^2",
     }

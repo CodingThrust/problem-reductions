@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 use std::f64::consts::{FRAC_PI_2, PI};
@@ -48,7 +49,15 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_link() {
     assert_eq!(reduction.target_problem().num_vars(), 3);
     assert_eq!(qubo_solutions.len(), 1);
     assert_eq!(
-        reduction.extract_solution(&qubo_solutions[0]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), qubo_solutions[0].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![1]
     );
     assert!(matches!(source.evaluate(&vec![1]).unwrap(), Min(Some(v)) if v.abs() < EPS));
@@ -72,7 +81,15 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_sample_per_link() 
     assert_eq!(reduction.target_problem().num_vars(), 3);
     assert_eq!(qubo_solutions, vec![vec![true, true, true]]);
     assert_eq!(
-        reduction.extract_solution(&qubo_solutions[0]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), qubo_solutions[0].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![0, 0, 0]
     );
     assert!(matches!(source.evaluate(&vec![0, 0, 0]).unwrap(), Min(Some(v)) if v.abs() < EPS));
@@ -100,10 +117,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_empty_allowed_pairs() {
             .target_problem()
             .evaluate(&target_solution)
             .unwrap();
-        assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
-            Min(None)
-        );
+        assert_eq!(reduction.map_value(value), Min(None));
     }
 }
 
@@ -164,30 +178,42 @@ fn optimum_energy_recovers_distance_and_infeasibility() {
             .find_all_witnesses(reduction.target_problem())
             .unwrap()
         {
-            let completed = crate::solvers::complete_reduction(
-                &source,
-                &chain,
-                &crate::solvers::SolveOutcome::Optimal {
-                    solution: serde_json::to_value(&solution).unwrap(),
-                    evaluation: String::new(),
-                },
-            )
-            .unwrap();
+            let completed = chain
+                .recover_result_json(
+                    &source,
+                    SolveOutcome::Optimal {
+                        solution: serde_json::to_value(&solution).unwrap(),
+                        evaluation: String::new(),
+                    },
+                )
+                .unwrap();
             assert_eq!(
-                matches!(completed, crate::solvers::SolveOutcome::Optimal { .. }),
+                matches!(completed, SolveOutcome::Optimal { .. }),
                 expected.is_some()
             );
-            let recovered = crate::rules::AggregateReductionResult::extract_value(
-                &reduction,
-                reduction.target_problem().evaluate(&solution).unwrap(),
-            )
-            .0;
+            let recovered = reduction
+                .map_value(reduction.target_problem().evaluate(&solution).unwrap())
+                .0;
             match (expected, recovered) {
                 (Some(expected), Some(actual)) => {
                     assert!((actual - expected).abs() < EPS);
                     assert_eq!(
                         source
-                            .evaluate(&reduction.extract_solution(&solution).unwrap())
+                            .evaluate(
+                                &reduction
+                                    .recover_result(
+                                        &source,
+                                        SolveOutcome::optimal(
+                                            reduction.target_problem(),
+                                            solution.clone()
+                                        )
+                                        .unwrap()
+                                    )
+                                    .map(|result| result.into_solution().expect(
+                                        "qualifying target result must recover a source solution"
+                                    ))
+                                    .unwrap()
+                            )
                             .unwrap(),
                         Min(Some(expected))
                     );
@@ -196,10 +222,7 @@ fn optimum_energy_recovers_distance_and_infeasibility() {
                 other => panic!("source and recovered outcomes disagree: {other:?}"),
             }
         }
-        assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None)),
-            Min(None)
-        );
+        assert_eq!(reduction.map_value(Min(None)), Min(None));
     }
 }
 

@@ -173,8 +173,8 @@ def build(output, graph_path, schemas_path):
         # Rule modules are private; rustdoc publishes the shared public contracts.
         contract = (
             "rules/enum.ReductionMode.html" if edge.get("turing") else
-            "rules/trait.ReduceTo.html" if edge.get("witness") else
-            "rules/trait.ReduceToAggregate.html"
+            "rules/trait.ReductionResult.html" if edge.get("witness") else
+            "rules/struct.ReductionEntry.html"
         )
         site_edges.append({
             **edge,

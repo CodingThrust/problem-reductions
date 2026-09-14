@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -64,7 +65,14 @@ fn test_minimumcapacitatedspanningtree_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let bf_value = problem.evaluate(&best_source[0]).unwrap();
     let ilp_value = problem.evaluate(&extracted).unwrap();
@@ -83,7 +91,14 @@ fn test_minimumcapacitatedspanningtree_to_ilp_canonical_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&best_source[0]).unwrap(), Min(Some(5)));
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(5)));
@@ -110,7 +125,14 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     }
 
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true, false, true, false]
     );
 }
@@ -138,7 +160,14 @@ fn test_minimumcapacitatedspanningtree_to_ilp_star_tree() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));
     assert!(problem.is_valid_solution(&extracted).unwrap());
 }
@@ -158,7 +187,14 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(6)));
     assert!(problem.is_valid_solution(&extracted).unwrap());
 }

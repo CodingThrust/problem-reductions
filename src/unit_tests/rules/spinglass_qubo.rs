@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
@@ -226,7 +227,15 @@ fn test_qubo_to_spinglass_preserves_small_nonzero_coefficients() {
             for left in [-1, 1] {
                 for right in [-1, 1] {
                     let spins = vec![left, right];
-                    let bits = reduction.extract_solution(&spins).unwrap();
+                    let bits = reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), spins.clone())
+                                .unwrap(),
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution");
                     let source_value = source.evaluate(&bits).unwrap().0.unwrap();
                     let target_value = target.evaluate(&spins).unwrap().0.unwrap();
                     assert_eq!(source_value, target_value + offset);

@@ -3,7 +3,9 @@ use crate::models::misc::EnsembleComputation;
 use crate::rules::traits::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::{Min, One};
 
@@ -41,7 +43,14 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
     // Every extracted solution must be a valid vertex cover
     let witnesses = solver.find_all_witnesses(target).unwrap();
     for witness in &witnesses {
-        let source_config = reduction.extract_solution(witness).unwrap();
+        let source_config = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (witness).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(source_config.len(), 2);
         assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(1)));
         assert!(
@@ -105,7 +114,14 @@ fn test_extract_solution_correctness() {
     let target = reduction.target_problem();
     assert_eq!(target.evaluate(&config).unwrap(), Min(Some(2)));
 
-    let cover = reduction.extract_solution(&config).unwrap();
+    let cover = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(cover, vec![true, false]);
     assert!(is_valid_cover(&graph, &cover));
 }
@@ -123,7 +139,14 @@ fn test_extract_from_non_normalized_witness() {
     let target = reduction.target_problem();
     assert_eq!(target.evaluate(&config).unwrap(), Min(Some(2)));
 
-    let cover = reduction.extract_solution(&config).unwrap();
+    let cover = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(cover, vec![true, false]);
     assert!(is_valid_cover(&graph, &cover));
 }
@@ -155,7 +178,15 @@ fn test_minimumvertexcover_to_ensemblecomputation_zero_vertices() {
     assert_eq!(reduction.target_problem().budget(), 1);
     // No targets: even these out-of-range suffix operands have no semantics.
     assert_eq!(
-        reduction.extract_solution(&vec![usize::MAX; 2]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![usize::MAX; 2].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<bool>::new()
     );
 }
@@ -164,10 +195,15 @@ fn test_minimumvertexcover_to_ensemblecomputation_zero_vertices() {
 fn test_minimumvertexcover_to_ensemblecomputation_rejects_invalid_programs() {
     let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
-    for program in [vec![], vec![0; 6], vec![3, 0, 1, 2, 0, 1]] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &program), Ok(value) if { value.is_valid() })
-        );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
+    for program in [vec![0; 6], vec![3, 0, 1, 2, 0, 1]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&program)
+            .unwrap()
+            .is_valid());
     }
 }
 
@@ -182,7 +218,14 @@ fn test_minimumvertexcover_to_ensemblecomputation_unused_and_repeated_operations
         reduction.target_problem().evaluate(&program).unwrap(),
         Min(Some(6))
     );
-    let cover = reduction.extract_solution(&program).unwrap();
+    let cover = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), program.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(cover, vec![true, true, false, false, false]);
     assert!(is_valid_cover(source.graph(), &cover));
     assert!(cover.iter().filter(|&&v| v).count() <= 6 - 2);
@@ -245,7 +288,14 @@ fn test_minimumvertexcover_to_ensemblecomputation_all_small_pair_families() {
             let Min(Some(length)) = reduction.target_problem().evaluate(&program).unwrap() else {
                 panic!("pair-family program must compute every triple");
             };
-            let cover = reduction.extract_solution(&program).unwrap();
+            let cover = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), program.clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             let size = cover.iter().filter(|&&v| v).count();
             assert!(is_valid_cover(source.graph(), &cover));
             assert!(size <= length as usize - edges.len());
@@ -271,7 +321,14 @@ fn test_minimumvertexcover_to_ensemblecomputation_loops_and_parallel_edges() {
         reduction.target_problem().evaluate(&program).unwrap(),
         Min(Some(4))
     );
-    let cover = reduction.extract_solution(&program).unwrap();
+    let cover = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), program.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(cover, vec![true, true, false]);
     assert_eq!(source.evaluate(&cover).unwrap(), Min(Some(2)));
 
@@ -279,8 +336,17 @@ fn test_minimumvertexcover_to_ensemblecomputation_loops_and_parallel_edges() {
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     assert_eq!(
         reduction
-            .extract_solution(&vec![1, 0, usize::MAX, usize::MAX])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![1, 0, usize::MAX, usize::MAX].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true]
     );
 }

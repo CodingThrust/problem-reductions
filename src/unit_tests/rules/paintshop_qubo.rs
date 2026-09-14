@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_paintshop_to_qubo_closed_loop() {
@@ -47,7 +48,14 @@ fn test_paintshop_to_qubo_optimal_value() {
 
     // Extract solutions and verify they are optimal for the source
     for sol in &best_target {
-        let source_sol = reduction.extract_solution(sol).unwrap();
+        let source_sol = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let switches = source.count_switches(&source_sol).unwrap();
         // Optimal is 2 switches
         assert_eq!(switches, 2, "Expected 2 switches for optimal solution");

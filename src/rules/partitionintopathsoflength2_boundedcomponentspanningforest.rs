@@ -13,6 +13,8 @@
 use crate::models::graph::{BoundedComponentSpanningForest, PartitionIntoPathsOfLength2};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing PartitionIntoPathsOfLength2 to BoundedComponentSpanningForest.
@@ -33,11 +35,18 @@ impl ReductionResult for ReductionPPL2ToBCSF {
     ///
     /// Both problems use the same vertex-to-group assignment encoding,
     /// so the solution mapping is identity.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        Ok(target_solution.to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { solution, .. } => {
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
     }
 }
 

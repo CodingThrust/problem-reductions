@@ -279,3 +279,45 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/closest_vector_problem.rs"]
 mod tests;
+
+crate::decision_problem_meta!(ClosestVectorProblem<i64>, "DecisionClosestVectorProblem");
+
+inventory::submit! {
+    crate::registry::ProblemSchemaEntry {
+        name: "DecisionClosestVectorProblem", display_name: "Decision ClosestVectorProblem", aliases: &[],
+        dimensions: &[VariantDimension::new("target", "i64", &["i64"])], category: crate::registry::ProblemCategory::Algebraic, module_path: module_path!(),
+        description: "Does a feasible solution meet the objective bound?",
+        fields: &[
+        crate::registry::FieldInfo { name: "basis", type_name: "Vec<Vec<i64>>", description: "Integer basis matrix as semicolon-separated column vectors." },
+        crate::registry::FieldInfo { name: "target_vec", type_name: "Vec<i64>", description: "Target vector." },
+        crate::registry::FieldInfo { name: "bound", type_name: "BigRational", description: "Decision objective bound" },
+    ],
+    }
+}
+crate::declare_variants! {
+    default crate::models::decision::Decision<ClosestVectorProblem<i64>> => "2^(num_basis_vectors * log(num_basis_vectors))" create crate::models::decision::DecisionCreateSpec<ClosestVectorProblem<i64>>,
+}
+crate::register_decision_variant!(@edges ClosestVectorProblem<i64>, "DecisionClosestVectorProblem");
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_closest_vector_problem_to_closest_vector_problem",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+                    .expect("canonical closest-vector instance must be valid"),
+                BigRational::zero(),
+            );
+            let witness = serde_json::json!(vec![1, 1]);
+            crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem<i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

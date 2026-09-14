@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -78,7 +79,14 @@ fn test_integral_flow_bundles_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(problem.evaluate(&extracted).unwrap());
 }
@@ -89,7 +97,15 @@ fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
     let reduction: ReductionIFBToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
-        reduction.extract_solution(&satisfying_config()).unwrap(),
+        reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), satisfying_config().clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![1, 0, 1, 0, 0, 0]
     );
 }

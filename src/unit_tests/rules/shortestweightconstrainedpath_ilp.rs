@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -56,7 +57,15 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
 
     match ilp_result {
         Ok(ilp_solution) => {
-            let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &problem,
+                    SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone())
+                        .unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             let ilp_value = problem.evaluate(&extracted).unwrap();
             // Both should agree on the optimal length
             assert_eq!(ilp_value, bf_value);
@@ -78,7 +87,14 @@ fn test_solution_extraction() {
     // Handcrafted ILP solution: path 0->1->2
     // a_{0,fwd}=1, a_{0,rev}=0, a_{1,fwd}=1, a_{1,rev}=0, o_0=0, o_1=1, o_2=2
     let target_solution = vec![1, 0, 1, 0, 0, 1, 2];
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![true, true]);
     // length = 2 + 3 = 5
@@ -102,7 +118,14 @@ fn test_shortestweightconstrainedpath_to_ilp_trivial() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should solve the trivial s==t case");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![false, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));

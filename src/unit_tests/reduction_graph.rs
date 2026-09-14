@@ -6,6 +6,7 @@ use crate::models::formula::KSatisfiability;
 use crate::models::misc::Clustering;
 use crate::prelude::*;
 use crate::rules::{ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow};
+use crate::solvers::SolveOutcome;
 use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
 use crate::types::ProblemParameters;
 use crate::variant::{K3, KN};
@@ -56,7 +57,7 @@ fn symbolic_composition_propagates_num_colors_across_multiple_edges() {
                 variant: ReductionGraph::variant_to_map(&KColoring::<KN, SimpleGraph>::variant()),
             },
             ReductionStep {
-                name: QUBO::<i64>::NAME.to_string(),
+                name: Decision::<QUBO<i64>>::NAME.to_string(),
                 variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
             },
         ],
@@ -151,7 +152,7 @@ fn test_reduction_graph_discovers_registered_reductions() {
     // Specific reductions should exist
     assert!(graph.has_direct_reduction_by_name("MaximumIndependentSet", "MinimumVertexCover"));
     assert!(graph.has_direct_reduction_by_name("MaxCut", "SpinGlass"));
-    assert!(graph.has_direct_reduction_by_name("Satisfiability", "MaximumIndependentSet"));
+    assert!(graph.has_direct_reduction_by_name("Satisfiability", "DecisionMaximumIndependentSet"));
 }
 
 #[test]
@@ -191,18 +192,20 @@ fn test_find_direct_route_by_exact_variants() {
 fn test_multi_step_path() {
     let graph = ReductionGraph::new();
 
-    // Factoring -> CircuitSAT -> SpinGlass<SimpleGraph, i64> is a 2-step path
+    // Factoring -> CircuitSAT -> DecisionSpinGlass -> SpinGlass<SimpleGraph, i64> is a 3-step path
     let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i64>::variant());
     let path = graph
         .find_all_paths("Factoring", &src, "SpinGlass", &dst)
         .into_iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit CircuitSAT route should exist");
-    assert_eq!(path.len(), 2, "Should be a 2-step path");
+    assert_eq!(path.len(), 3, "Should be a 3-step path");
     assert_eq!(
         path.type_names(),
-        vec!["Factoring", "CircuitSAT", "SpinGlass"]
+        vec!["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
     );
 }
 
@@ -227,7 +230,7 @@ fn aggregate_mode_rejects_witness_only_real_edge() {
             &src,
             "MinimumVertexCover",
             &dst,
-            ReductionMode::Aggregate
+            ReductionMode::Turing
         )
         .is_empty());
 }
@@ -249,13 +252,13 @@ fn variant_reduction_supports_both_modes_public_api() {
             ReductionMode::Witness
         )
         .is_empty());
-    assert!(!graph
+    assert!(graph
         .find_all_paths_mode(
             "MaximumIndependentSet",
             &src,
             "MaximumIndependentSet",
             &dst,
-            ReductionMode::Aggregate
+            ReductionMode::Turing
         )
         .is_empty());
 }
@@ -274,7 +277,7 @@ fn value_changing_variant_cast_is_not_aggregate_capable() {
             &src,
             "MaximumSetPacking",
             &dst,
-            ReductionMode::Aggregate
+            ReductionMode::Turing
         )
         .is_empty());
 }
@@ -326,7 +329,7 @@ fn test_subsetsum_to_integerknapsack_is_proof_only() {
     assert!(!graph.has_direct_reduction_by_name_mode(
         "SubsetSum",
         "IntegerKnapsack",
-        ReductionMode::Aggregate,
+        ReductionMode::Turing,
     ));
     assert!(!graph.has_direct_reduction_by_name_mode(
         "SubsetSum",
@@ -416,7 +419,9 @@ fn test_reduction_path_display() {
     let path = graph
         .find_all_paths("Factoring", &src_var, "SpinGlass", &dst_var)
         .into_iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit CircuitSAT route");
 
     let s = format!("{path}");
@@ -791,7 +796,7 @@ fn test_has_direct_reduction_by_name_mode() {
     assert!(!graph.has_direct_reduction_by_name_mode(
         "MaximumIndependentSet",
         "MinimumVertexCover",
-        ReductionMode::Aggregate,
+        ReductionMode::Turing,
     ));
 }
 
@@ -808,7 +813,7 @@ fn test_minimumvertexcover_to_minimummaximalmatching_is_proof_only_direct_edge()
     assert!(!graph.has_direct_reduction_by_name_mode(
         "MinimumVertexCover",
         "MinimumMaximalMatching",
-        ReductionMode::Aggregate,
+        ReductionMode::Turing,
     ));
     assert!(!graph.has_direct_reduction_by_name_mode(
         "MinimumVertexCover",
@@ -856,7 +861,7 @@ fn test_find_all_paths_mode_aggregate_rejects_witness_only() {
         &src,
         "MinimumVertexCover",
         &dst,
-        ReductionMode::Aggregate,
+        ReductionMode::Turing,
     );
     assert!(paths.is_empty());
 }
@@ -868,7 +873,7 @@ fn test_decision_minimum_vertex_cover_has_both_edges() {
     assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumVertexCover",
         "MinimumVertexCover",
-        ReductionMode::Aggregate,
+        ReductionMode::Witness,
     ));
     assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumVertexCover",
@@ -884,7 +889,7 @@ fn test_decision_minimum_dominating_set_has_both_edges() {
     assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumDominatingSet",
         "MinimumDominatingSet",
-        ReductionMode::Aggregate,
+        ReductionMode::Witness,
     ));
     assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumDominatingSet",
@@ -900,15 +905,15 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
 
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinMaxMulticenter<SimpleGraph, One>,
+        Decision<MinMaxMulticenter<SimpleGraph, One>>,
     >(ReductionMode::Witness));
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinMaxMulticenter<SimpleGraph, One>,
-    >(ReductionMode::Aggregate));
+        Decision<MinMaxMulticenter<SimpleGraph, One>>,
+    >(ReductionMode::Witness));
     assert!(!graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinMaxMulticenter<SimpleGraph, One>,
+        Decision<MinMaxMulticenter<SimpleGraph, One>>,
     >(ReductionMode::Turing));
     let entries = crate::rules::registry::reduction_entries();
     let variant = Decision::<MinimumDominatingSet<SimpleGraph, One>>::variant();
@@ -916,7 +921,7 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
         .iter()
         .find(|e| {
             e.source_name == "DecisionMinimumDominatingSet"
-                && e.target_name == "MinMaxMulticenter"
+                && e.target_name == "DecisionMinMaxMulticenter"
                 && (e.source_variant_fn)() == variant
                 && (e.target_variant_fn)() == variant
         })
@@ -930,10 +935,21 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
             bound,
         );
         let step = (edge.reduce_fn.unwrap())(&source).unwrap();
-        assert_eq!(
-            step.interpret_optimum.as_ref().unwrap()(&witness).unwrap(),
-            expected
-        );
+        let target = step
+            .witness
+            .target_problem_any()
+            .downcast_ref::<Decision<MinMaxMulticenter<SimpleGraph, One>>>()
+            .unwrap();
+        let outcome = if expected {
+            SolveOutcome::optimal(target, witness).unwrap()
+        } else {
+            SolveOutcome::Infeasible
+        };
+        let recovered = step
+            .witness
+            .recover_result_dyn(&source, crate::solvers::erase_outcome(outcome))
+            .unwrap();
+        assert_eq!(!matches!(recovered, SolveOutcome::Infeasible), expected);
     }
 }
 
@@ -944,15 +960,15 @@ fn test_decision_minimum_dominating_set_to_minimum_sum_multicenter_has_direct_wi
 
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinimumSumMulticenter<SimpleGraph, i64>,
+        Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
     >(ReductionMode::Witness));
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinimumSumMulticenter<SimpleGraph, i64>,
-    >(ReductionMode::Aggregate));
+        Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
+    >(ReductionMode::Witness));
     assert!(!graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinimumSumMulticenter<SimpleGraph, i64>,
+        Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
     >(ReductionMode::Turing));
 }
 
@@ -974,7 +990,7 @@ fn test_optimization_to_decision_turing_edges() {
     assert!(!graph.has_direct_reduction_by_name_mode(
         "MinimumVertexCover",
         "DecisionMinimumVertexCover",
-        ReductionMode::Aggregate,
+        ReductionMode::Witness,
     ));
 
     // MinimumDominatingSet → DecisionMinimumDominatingSet (Turing)
@@ -993,10 +1009,10 @@ fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge(
         KSatisfiability<K3>,
         Decision<MinimumVertexCover<SimpleGraph, i64>>,
     >(ReductionMode::Witness));
-    assert!(!graph.has_direct_reduction_mode::<
+    assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
         Decision<MinimumVertexCover<SimpleGraph, i64>>,
-    >(ReductionMode::Aggregate));
+    >(ReductionMode::Witness));
     assert!(!graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
         Decision<MinimumVertexCover<SimpleGraph, i64>>,
@@ -1069,8 +1085,6 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
                 >::new(
                     crate::models::formula::Satisfiability::new(0, vec![])
                 )),
-                aggregate: None,
-                interpret_optimum: None,
             })
         }
 
@@ -1084,7 +1098,7 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
                 },
             ),
             reduce_fn: Some(reduce),
-            reduce_aggregate_fn: None,
+
             turing: false,
         }
     }

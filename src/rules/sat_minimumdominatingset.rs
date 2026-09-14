@@ -14,13 +14,15 @@
 //! - Selecting the negative literal vertex means the variable is false
 //! - Selecting the dummy vertex means the variable may be assigned either value
 
+use crate::models::decision::Decision;
 use crate::models::formula::Satisfiability;
 use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
-use crate::types::{Min, Or};
 use std::collections::BTreeMap;
 
 /// Result of reducing Satisfiability to MinimumDominatingSet.
@@ -32,20 +34,18 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone)]
 pub struct ReductionSATToDS {
     /// The target MinimumDominatingSet problem.
-    target: MinimumDominatingSet<SimpleGraph, i64>,
+    target: Decision<MinimumDominatingSet<SimpleGraph, i64>>,
     /// The number of variables in the source SAT problem.
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
     /// Original variable indices mapped to dense triangle indices.
     variables: BTreeMap<usize, usize>,
-    /// Exact minimum size certifying satisfiability.
-    target_size: i64,
 }
 
 impl ReductionResult for ReductionSATToDS {
     type Source = Satisfiability;
-    type Target = MinimumDominatingSet<SimpleGraph, i64>;
+    type Target = Decision<MinimumDominatingSet<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -58,29 +58,38 @@ impl ReductionResult for ReductionSATToDS {
     /// that original variable true. Negative, dummy and absent variables decode
     /// to false. The finite size certificate proves every clause is dominated
     /// by a selected literal and no clause vertex is selected.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionSATToDS {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut assignment = vec![false; self.num_literals];
         for (&variable, &gadget) in &self.variables {
             assignment[variable] = target_solution[3 * gadget];
         }
 
         Ok(assignment)
-    }
-}
-
-impl crate::rules::AggregateReductionResult for ReductionSATToDS {
-    type Source = Satisfiability;
-    type Target = MinimumDominatingSet<SimpleGraph, i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: Min<i64>) -> Or {
-        Or(target_value == Min(Some(self.target_size)))
     }
 }
 
@@ -96,20 +105,21 @@ impl ReductionSATToDS {
             .ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     Satisfiability,
-                    MinimumDominatingSet<SimpleGraph, i64>,
+                    Decision<MinimumDominatingSet<SimpleGraph, i64>>,
                 >("counting dominating-set vertices")
             })?;
         // All vertices may be selected, so every count up to this total must
         // fit the target objective, not only the optimum certificate.
-        <Satisfiability as ReduceTo<MinimumDominatingSet<SimpleGraph, i64>>>::exact_i64(
+        <Satisfiability as ReduceTo<Decision<MinimumDominatingSet<SimpleGraph, i64>>>>::exact_i64(
             num_vertices,
             "representing all dominating-set weights",
         )?;
-        let target_size =
-            <Satisfiability as ReduceTo<MinimumDominatingSet<SimpleGraph, i64>>>::exact_i64(
-                num_variables,
-                "representing the satisfying dominating-set cardinality",
-            )?;
+        let target_size = <Satisfiability as ReduceTo<
+            Decision<MinimumDominatingSet<SimpleGraph, i64>>,
+        >>::exact_i64(
+            num_variables,
+            "representing the satisfying dominating-set cardinality",
+        )?;
         Ok((num_vertices, target_size))
     }
 
@@ -125,13 +135,12 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
     }
 )]
-impl ReduceTo<MinimumDominatingSet<SimpleGraph, i64>> for Satisfiability {
+impl ReduceTo<Decision<MinimumDominatingSet<SimpleGraph, i64>>> for Satisfiability {
     type Result = ReductionSATToDS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -187,11 +196,10 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i64>> for Satisfiability {
         );
 
         Ok(ReductionSATToDS {
-            target,
+            target: Decision::new(target, target_size),
             num_literals: self.num_vars(),
             num_clauses,
             variables,
-            target_size,
         })
     }
 }
@@ -218,7 +226,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumDominatingSet<SimpleGraph, i64>,
+                Decision<MinimumDominatingSet<SimpleGraph, i64>>,
             >(
                 source,
                 SolutionPair {

@@ -5,6 +5,7 @@ use crate::models::set::IntegerKnapsack;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_integerknapsack_to_ilp_closed_loop() {
@@ -16,7 +17,14 @@ fn test_integerknapsack_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0, 2]);
 }
 
@@ -64,7 +72,14 @@ fn test_integerknapsack_to_ilp_zero_capacity() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("zero-capacity ILP should still be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0]);
 }
 

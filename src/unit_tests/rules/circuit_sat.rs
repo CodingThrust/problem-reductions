@@ -3,6 +3,7 @@ use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT, Satis
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn contradiction_source() -> CircuitSAT {
@@ -28,7 +29,14 @@ fn test_circuitsat_to_satisfiability_closed_loop() {
         .solve(reduction.target_problem())
         .unwrap()
         .expect("issue example should yield a SAT witness");
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), source.num_variables());
     assert!(source.evaluate(&extracted).unwrap().0);
 }

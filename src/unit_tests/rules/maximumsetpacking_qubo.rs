@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -16,7 +17,14 @@ fn test_setpacking_to_qubo_closed_loop() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 2);
     }
@@ -33,7 +41,14 @@ fn test_setpacking_to_qubo_disjoint() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         // All 3 sets should be selected
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 3);
@@ -51,7 +66,14 @@ fn test_setpacking_to_qubo_all_overlap() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 1);
     }

@@ -6,6 +6,8 @@ use crate::models::formula::{
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -289,10 +291,32 @@ impl ReductionResult for ReductionCircuitSATToSAT {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionCircuitSATToSAT {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.source_var_count].to_vec())
     }
 }
@@ -348,7 +372,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .find_all_witnesses(reduction.target_problem())
                 .expect("canonical target evaluation must succeed")
                 .into_iter()
-                .find(|candidate| reduction.extract_solution(candidate).unwrap() == source_config)
+                .find(|candidate| {
+                    reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), (candidate).to_vec())
+                                .unwrap(),
+                        )
+                        .map(|result| result.into_solution().unwrap())
+                        .unwrap()
+                        == source_config
+                })
                 .expect("canonical CircuitSAT -> Satisfiability example must be satisfiable");
 
             crate::example_db::specs::assemble_rule_example(

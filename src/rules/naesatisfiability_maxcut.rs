@@ -11,23 +11,25 @@
 //! Section 4, arXiv:1512.03127. The triangle construction is the classical
 //! NAE-3SAT to MaxCut reduction (Garey and Johnson, ND16).
 
+use crate::models::decision::Decision;
 use crate::models::formula::NAESatisfiability;
 use crate::models::graph::MaxCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 
 /// Result of reducing NAESatisfiability to MaxCut.
 #[derive(Debug, Clone)]
 pub struct ReductionNAESATToMaxCut {
-    target: MaxCut<SimpleGraph, i64>,
+    target: Decision<MaxCut<SimpleGraph, i64>>,
     source_num_vars: usize,
-    feasible_cut: i64,
 }
 
 impl ReductionResult for ReductionNAESATToMaxCut {
     type Source = NAESatisfiability;
-    type Target = MaxCut<SimpleGraph, i64>;
+    type Target = Decision<MaxCut<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -38,28 +40,37 @@ impl ReductionResult for ReductionNAESATToMaxCut {
     /// Variable x_i is assigned based on vertex 2*i: if it is in set 0
     /// (config[2*i] == 0), set x_i = false (config value 0); if in set 1,
     /// set x_i = true (config value 1).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionNAESATToMaxCut {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             (0..self.source_num_vars)
                 .map(|i| target_solution[2 * i])
                 .collect()
         })
-    }
-}
-
-impl crate::rules::AggregateReductionResult for ReductionNAESATToMaxCut {
-    type Source = NAESatisfiability;
-    type Target = MaxCut<SimpleGraph, i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Max<i64>) -> crate::types::Or {
-        crate::types::Or(value.0 == Some(self.feasible_cut))
     }
 }
 
@@ -69,9 +80,10 @@ fn nae_maxcut_parameters(
     lengths: impl ExactSizeIterator<Item = usize>,
 ) -> Result<(usize, usize, i64, i64), crate::rules::ReductionError> {
     let overflow = |operation| {
-        crate::rules::ReductionError::integer_overflow::<NAESatisfiability, MaxCut<SimpleGraph, i64>>(
-            operation,
-        )
+        crate::rules::ReductionError::integer_overflow::<
+            NAESatisfiability,
+            Decision<MaxCut<SimpleGraph, i64>>,
+        >(operation)
     };
     let weight = i64::try_from(lengths.len())
         .ok()
@@ -136,13 +148,12 @@ fn nae_maxcut_parameters(
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "2 * (num_vars + num_literals - 2 * num_clauses)",
         num_edges = "num_vars + 4 * num_literals - 7 * num_clauses",
     }
 )]
-impl ReduceTo<MaxCut<SimpleGraph, i64>> for NAESatisfiability {
+impl ReduceTo<Decision<MaxCut<SimpleGraph, i64>>> for NAESatisfiability {
     type Result = ReductionNAESATToMaxCut;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -165,7 +176,7 @@ impl ReduceTo<MaxCut<SimpleGraph, i64>> for NAESatisfiability {
                     let index = usize::try_from(literal.unsigned_abs()).map_err(|_| {
                         crate::rules::ReductionError::integer_overflow::<
                             NAESatisfiability,
-                            MaxCut<SimpleGraph, i64>,
+                            Decision<MaxCut<SimpleGraph, i64>>,
                         >("converting a literal index")
                     })? - 1;
                     // Validated literals are in 1..=n, and 2*total_variables was checked.
@@ -192,9 +203,11 @@ impl ReduceTo<MaxCut<SimpleGraph, i64>> for NAESatisfiability {
         }
 
         Ok(ReductionNAESATToMaxCut {
-            target: MaxCut::new(SimpleGraph::new(total_vertices, edges), weights),
+            target: Decision::new(
+                MaxCut::new(SimpleGraph::new(total_vertices, edges), weights),
+                feasible_cut,
+            ),
             source_num_vars: self.num_vars(),
-            feasible_cut,
         })
     }
 }
@@ -218,7 +231,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, 3, 2]),
                 ],
             );
-            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                Decision<MaxCut<SimpleGraph, i64>>,
+            >(
                 source,
                 SolutionPair {
                     // x1=T(1), x2=F(0), x3=T(1)

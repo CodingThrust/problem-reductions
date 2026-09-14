@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -39,7 +40,14 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_feasible_paper_example() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -68,7 +76,14 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_setup_time_respected() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -95,7 +110,14 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_bf_vs_ilp_small() {
         "BF and ILP should agree on feasibility"
     );
     if let Ok(ilp_solution) = ilp_result {
-        let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
     }
 }
@@ -114,6 +136,13 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_no_setup_same_compiler() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("should be feasible with no switches");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

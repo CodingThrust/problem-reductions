@@ -17,6 +17,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MinimumExternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 /// Index layout for ILP variables.
 #[derive(Debug, Clone)]
@@ -107,7 +109,7 @@ pub struct ReductionEMDCToILP {
     target: ILP<bool>,
     /// Variable layout for solution extraction.
     layout: VarLayout,
-    /// The source string (needed for extract_solution).
+    /// The source string (needed for solution recovery).
     source_string: Vec<usize>,
     /// Alphabet size.
     alphabet_size: usize,
@@ -121,10 +123,32 @@ impl ReductionResult for ReductionEMDCToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionEMDCToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.layout.n;
             let k = self.alphabet_size;
@@ -327,7 +351,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
         // 6. Literal matching: lit[i] can only be active if position i exists
         // (this is always true for i < n, so no constraint needed).
         // But we do need: if lit[i] = 1, the literal is s[i], which is automatic
-        // in the extract_solution. No additional constraint needed because the
+        // in solution recovery. No additional constraint needed because the
         // objective already penalizes literals.
 
         // Objective: minimize sum d_used[j] + sum lit[i] + h * sum ptr[i][l][d_start]
@@ -378,7 +402,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             target_config[layout.lit_var(1)] = 1;
 
             // Verify this is correct
-            let source_config = reduction.extract_solution(&target_config).unwrap();
+            let source_config = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_config.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             debug_assert_eq!(source_config[..n], [k, k]); // D empty
             debug_assert_eq!(source_config[n..], [0, 1]); // C = "ab"
 

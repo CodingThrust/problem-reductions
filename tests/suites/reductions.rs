@@ -9,6 +9,7 @@ use problemreductions::prelude::*;
 use problemreductions::rules::ReductionGraph;
 use problemreductions::solvers::BruteForceProblem as _;
 use problemreductions::solvers::ILPSolver;
+use problemreductions::solvers::SolveOutcome;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::{Min, Or};
 use problemreductions::variant::{K2, K3};
@@ -39,7 +40,14 @@ mod is_vc_reductions {
         let vc_solutions = solver.find_all_witnesses(vc_problem).unwrap();
 
         // Extract back to IS solution
-        let is_solution = result.extract_solution(&vc_solutions[0]).unwrap();
+        let is_solution = result
+            .recover_result(
+                &is_problem,
+                SolveOutcome::optimal(result.target_problem(), vc_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Solution should be valid for original problem
         assert!(is_problem.evaluate(&is_solution).unwrap().is_valid());
@@ -67,7 +75,14 @@ mod is_vc_reductions {
         let is_solutions = solver.find_all_witnesses(is_problem).unwrap();
 
         // Extract back to VC solution
-        let vc_solution = result.extract_solution(&is_solutions[0]).unwrap();
+        let vc_solution = result
+            .recover_result(
+                &vc_problem,
+                SolveOutcome::optimal(result.target_problem(), is_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Solution should be valid for original problem
         assert!(vc_problem.evaluate(&vc_solution).unwrap().is_valid());
@@ -102,8 +117,22 @@ mod is_vc_reductions {
         let solutions = solver.find_all_witnesses(final_is).unwrap();
 
         // Extract through the chain
-        let intermediate_sol = back_to_is.extract_solution(&solutions[0]).unwrap();
-        let original_sol = to_vc.extract_solution(&intermediate_sol).unwrap();
+        let intermediate_sol = back_to_is
+            .recover_result(
+                vc_problem,
+                SolveOutcome::optimal(back_to_is.target_problem(), solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
+        let original_sol = to_vc
+            .recover_result(
+                &original,
+                SolveOutcome::optimal(to_vc.target_problem(), intermediate_sol.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Should be valid
         assert!(original.evaluate(&original_sol).unwrap().is_valid());
@@ -169,7 +198,14 @@ mod is_sp_reductions {
         let sp_solutions = solver.find_all_witnesses(sp_problem).unwrap();
 
         // Extract to IS solution
-        let is_solution = result.extract_solution(&sp_solutions[0]).unwrap();
+        let is_solution = result
+            .recover_result(
+                &is_problem,
+                SolveOutcome::optimal(result.target_problem(), sp_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         assert!(is_problem.evaluate(&is_solution).unwrap().is_valid());
     }
@@ -192,7 +228,14 @@ mod is_sp_reductions {
         let is_solutions = solver.find_all_witnesses(is_problem).unwrap();
 
         // Extract to SP solution
-        let sp_solution = result.extract_solution(&is_solutions[0]).unwrap();
+        let sp_solution = result
+            .recover_result(
+                &sp_problem,
+                SolveOutcome::optimal(result.target_problem(), is_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // All sets can be packed (disjoint)
         assert_eq!(sp_solution.iter().filter(|&&selected| selected).count(), 3);
@@ -216,7 +259,14 @@ mod is_sp_reductions {
         let sp_solutions = solver.find_all_witnesses(sp_problem).unwrap();
 
         // Extract to IS solution
-        let is_solution = to_sp.extract_solution(&sp_solutions[0]).unwrap();
+        let is_solution = to_sp
+            .recover_result(
+                &original,
+                SolveOutcome::optimal(to_sp.target_problem(), sp_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Valid for original
         assert!(original.evaluate(&is_solution).unwrap().is_valid());
@@ -253,7 +303,14 @@ mod sg_qubo_reductions {
         let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
         // Extract to SG solution
-        let sg_solution = result.extract_solution(&qubo_solutions[0]).unwrap();
+        let sg_solution = result
+            .recover_result(
+                &sg,
+                SolveOutcome::optimal(result.target_problem(), qubo_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(sg_solution.len(), 2);
     }
 
@@ -273,7 +330,14 @@ mod sg_qubo_reductions {
         let sg_solutions = solver.find_all_witnesses(sg).unwrap();
 
         // Extract to QUBO solution
-        let qubo_solution = result.extract_solution(&sg_solutions[0]).unwrap();
+        let qubo_solution = result
+            .recover_result(
+                &qubo,
+                SolveOutcome::optimal(result.target_problem(), sg_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(qubo_solution.len(), 2);
     }
 
@@ -297,7 +361,14 @@ mod sg_qubo_reductions {
         let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
         // Extract QUBO solution back to SG
-        let extracted = result.extract_solution(&qubo_solutions[0]).unwrap();
+        let extracted = result
+            .recover_result(
+                &sg,
+                SolveOutcome::optimal(result.target_problem(), qubo_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Should be among optimal SG solutions (or equivalent)
         let sg_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
@@ -325,7 +396,14 @@ mod minimum_covering_by_cliques_ilp_reductions {
         let ilp_solution = ILPSolver::new()
             .solve(ilp)
             .expect("MinimumCoveringByCliques -> ILP should be solvable");
-        let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(3)));
     }
@@ -339,15 +417,24 @@ mod partition_into_cliques_covering_by_cliques_reductions {
     fn test_partition_into_cliques_to_covering_by_cliques_closed_loop() {
         let source = PartitionIntoCliques::new(SimpleGraph::empty(1), 1);
 
-        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
-            .expect("reduction should succeed");
+        let reduction = ReduceTo::<
+            problemreductions::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
+        >::reduce_to(&source)
+        .expect("reduction should succeed");
         let target = reduction.target_problem();
 
         let target_solution = BruteForce::new()
             .solve(target)
             .unwrap()
             .expect("target should be solvable");
-        let extracted = reduction.extract_solution(&target_solution).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     }
@@ -355,12 +442,14 @@ mod partition_into_cliques_covering_by_cliques_reductions {
     #[test]
     fn test_partition_into_cliques_to_covering_by_cliques_orlin_issue_counts() {
         let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
-            .expect("reduction should succeed");
+        let reduction = ReduceTo::<
+            problemreductions::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
+        >::reduce_to(&source)
+        .expect("reduction should succeed");
         let target = reduction.target_problem();
 
-        assert_eq!(target.graph().num_vertices(), 14);
-        assert_eq!(target.graph().num_edges(), 53);
+        assert_eq!(target.inner().graph().num_vertices(), 14);
+        assert_eq!(target.inner().graph().num_edges(), 53);
     }
 }
 
@@ -389,7 +478,15 @@ mod max2sat_maxcut_reductions {
 
         let solver = BruteForce::new();
         let target_solutions = solver.find_all_witnesses(target).unwrap();
-        let extracted = reduction.extract_solution(&target_solutions[0]).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solutions[0].clone())
+                    .unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(5)));
     }
@@ -421,7 +518,15 @@ mod sg_maxcut_reductions {
         let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
 
         // Extract to SG solution
-        let sg_solution = result.extract_solution(&maxcut_solutions[0]).unwrap();
+        let sg_solution = result
+            .recover_result(
+                &sg,
+                SolveOutcome::optimal(result.target_problem(), maxcut_solutions[0].clone())
+                    .unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(sg_solution.len(), 3);
     }
 
@@ -444,7 +549,14 @@ mod sg_maxcut_reductions {
         let sg_solutions = solver.find_all_witnesses(sg).unwrap();
 
         // Extract to MaxCut solution
-        let maxcut_solution = result.extract_solution(&sg_solutions[0]).unwrap();
+        let maxcut_solution = result
+            .recover_result(
+                &maxcut,
+                SolveOutcome::optimal(result.target_problem(), sg_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(maxcut_solution.len(), 3);
     }
 
@@ -469,7 +581,15 @@ mod sg_maxcut_reductions {
         let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
 
         // Extract MaxCut solution back to SG
-        let extracted = result.extract_solution(&maxcut_solutions[0]).unwrap();
+        let extracted = result
+            .recover_result(
+                &sg,
+                SolveOutcome::optimal(result.target_problem(), maxcut_solutions[0].clone())
+                    .unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Should have same energy as directly solved SG
         let direct_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
@@ -578,13 +698,25 @@ mod qubo_reductions {
 
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
-            let extracted = chain.extract_solution(sol).unwrap();
+            let extracted = chain
+                .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, QUBO<f64>>(
+                    &is,
+                    SolveOutcome::optimal(qubo, (sol).clone()).unwrap(),
+                )
+                .map(|outcome| outcome.into_solution().unwrap())
+                .unwrap();
             assert!(is.evaluate(&extracted).unwrap().is_valid());
         }
 
         // Optimal IS size should match ground truth
         let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_is_solution: Vec<bool> = chain.extract_solution(&solutions[0]).unwrap();
+        let our_is_solution: Vec<bool> = chain
+            .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, QUBO<f64>>(
+                &is,
+                SolveOutcome::optimal(qubo, solutions[0].clone()).unwrap(),
+            )
+            .map(|outcome| outcome.into_solution().unwrap())
+            .unwrap();
         let our_is_size = our_is_solution.iter().filter(|&&selected| selected).count();
         assert_eq!(our_is_size, gt_is_size);
     }
@@ -614,7 +746,9 @@ mod qubo_reductions {
             data.source.num_vertices,
             data.source.edges,
         ));
-        let reduction = ReduceTo::<QUBO>::reduce_to(&kc).expect("reduction should succeed");
+        let reduction =
+            ReduceTo::<problemreductions::models::decision::Decision<QUBO>>::reduce_to(&kc)
+                .expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables().unwrap(), data.qubo_num_vars);
@@ -623,7 +757,14 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &kc,
+                    SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert!(kc.evaluate(&extracted).unwrap());
         }
 
@@ -660,15 +801,27 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &sp,
+                    SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert!(sp.evaluate(&extracted).unwrap().is_valid());
         }
 
         // Optimal packing should match ground truth
         let gt_selected: usize = data.qubo_optimal.configs[0].iter().sum();
         let our_selected: usize = reduction
-            .extract_solution(&solutions[0])
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), solutions[0].clone()).unwrap(),
+            )
             .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution")
             .iter()
             .filter(|&&selected| selected)
             .count();
@@ -721,7 +874,9 @@ mod qubo_reductions {
             .collect();
 
         let ksat = KSatisfiability::<K2>::new(data.source.num_variables, clauses);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&ksat).expect("reduction should succeed");
+        let reduction =
+            ReduceTo::<problemreductions::models::decision::Decision<QUBO>>::reduce_to(&ksat)
+                .expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables().unwrap(), data.qubo_num_vars);
@@ -730,13 +885,27 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &ksat,
+                    SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert!(ksat.evaluate(&extracted).unwrap());
         }
 
         // Verify extracted solution matches ground truth assignment
         let gt_config = &data.qubo_optimal.configs[0];
-        let our_config = reduction.extract_solution(&solutions[0]).unwrap();
+        let our_config = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(
             our_config,
             gt_config
@@ -818,13 +987,27 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo).unwrap();
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &ilp,
+                    SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert!(ilp.evaluate(&extracted).unwrap().is_valid());
         }
 
         // Optimal assignment should match ground truth
         let gt_config = &data.qubo_optimal.configs[0];
-        let our_config = reduction.extract_solution(&solutions[0]).unwrap();
+        let our_config = reduction
+            .recover_result(
+                &ilp,
+                SolveOutcome::optimal(reduction.target_problem(), solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(
             &our_config,
             &gt_config
@@ -894,12 +1077,24 @@ mod qubo_reductions {
 
         // Extract back through the full chain to get VC solution
         for sol in &solutions {
-            let vc_sol = chain.extract_solution(sol).unwrap();
+            let vc_sol = chain
+                .recover_result::<MinimumVertexCover<SimpleGraph, i64>, QUBO<f64>>(
+                    &vc,
+                    SolveOutcome::optimal(qubo, (sol).clone()).unwrap(),
+                )
+                .map(|outcome| outcome.into_solution().unwrap())
+                .unwrap();
             assert!(vc.evaluate(&vc_sol).unwrap().is_valid());
         }
 
         // Optimal VC size should match ground truth
-        let vc_sol: Vec<bool> = chain.extract_solution(&solutions[0]).unwrap();
+        let vc_sol: Vec<bool> = chain
+            .recover_result::<MinimumVertexCover<SimpleGraph, i64>, QUBO<f64>>(
+                &vc,
+                SolveOutcome::optimal(qubo, solutions[0].clone()).unwrap(),
+            )
+            .map(|outcome| outcome.into_solution().unwrap())
+            .unwrap();
         let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
         let our_vc_size = vc_sol.iter().filter(|&&selected| selected).count();
         assert_eq!(our_vc_size, gt_vc_size);
@@ -988,7 +1183,14 @@ mod end_to_end {
             .expect("reduction should succeed");
         let vc = to_vc.target_problem();
         let vc_solutions = solver.find_all_witnesses(vc).unwrap();
-        let vc_extracted = to_vc.extract_solution(&vc_solutions[0]).unwrap();
+        let vc_extracted = to_vc
+            .recover_result(
+                &is,
+                SolveOutcome::optimal(to_vc.target_problem(), vc_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let via_vc_size = vc_extracted.iter().filter(|&&selected| selected).count();
 
         // Reduce to MaximumSetPacking and solve
@@ -996,7 +1198,14 @@ mod end_to_end {
             ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is).expect("reduction should succeed");
         let sp = to_sp.target_problem();
         let sp_solutions = solver.find_all_witnesses(sp).unwrap();
-        let sp_extracted = to_sp.extract_solution(&sp_solutions[0]).unwrap();
+        let sp_extracted = to_sp
+            .recover_result(
+                &is,
+                SolveOutcome::optimal(to_sp.target_problem(), sp_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let via_sp_size = sp_extracted.iter().filter(|&&selected| selected).count();
 
         // All should give same optimal size
@@ -1025,7 +1234,15 @@ mod end_to_end {
             ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
         let maxcut = to_maxcut.target_problem();
         let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
-        let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]).unwrap();
+        let maxcut_extracted = to_maxcut
+            .recover_result(
+                &sg,
+                SolveOutcome::optimal(to_maxcut.target_problem(), maxcut_solutions[0].clone())
+                    .unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         let via_maxcut_energy = sg.compute_energy(&maxcut_extracted).unwrap();
 
@@ -1054,8 +1271,22 @@ mod end_to_end {
         let vc_solutions = solver.find_all_witnesses(vc).unwrap();
 
         // Extract back through chain
-        let is_sol = is_to_vc.extract_solution(&vc_solutions[0]).unwrap();
-        let sp_sol = sp_to_is.extract_solution(&is_sol).unwrap();
+        let is_sol = is_to_vc
+            .recover_result(
+                is,
+                SolveOutcome::optimal(is_to_vc.target_problem(), vc_solutions[0].clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
+        let sp_sol = sp_to_is
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(sp_to_is.target_problem(), is_sol.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         // Should be valid MaximumSetPacking
         assert!(sp.evaluate(&sp_sol).unwrap().is_valid());

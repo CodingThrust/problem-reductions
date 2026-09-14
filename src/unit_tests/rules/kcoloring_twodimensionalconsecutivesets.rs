@@ -1,10 +1,12 @@
-use super::*;
 use crate::models::graph::KColoring;
 use crate::models::set::TwoDimensionalConsecutiveSets;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReduceTo;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -108,7 +110,14 @@ fn test_kcoloring_to_tdcs_extract_solution_valid() {
         .unwrap();
 
     for target_sol in &target_solutions {
-        let source_sol = reduction.extract_solution(target_sol).unwrap();
+        let source_sol = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (target_sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(source_sol.len(), 3);
         // Verify it is a valid coloring
         assert!(
@@ -127,7 +136,14 @@ fn test_kcoloring_to_tdcs_empty_graph_has_a_target_witness() {
     assert_eq!(target.alphabet_size(), 1);
     assert_eq!(target.num_subsets(), 0);
     let witness = BruteForce::new().solve(target).unwrap().unwrap();
-    let coloring = reduction.extract_solution(&witness).unwrap();
+    let coloring = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(coloring.is_empty());
     assert!(source.evaluate(&coloring).unwrap().0);
 }
@@ -145,9 +161,10 @@ fn test_kcoloring_to_tdcs_native_loops_are_no() {
         for a in 0..3 {
             for b in 0..3 {
                 for c in 0..3 {
-                    assert!(
-                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![a, b, c]), Ok(value) if { value.is_valid() })
-                    );
+                    assert!(!ReductionResult::target_problem(&reduction)
+                        .evaluate(&vec![a, b, c])
+                        .unwrap()
+                        .is_valid());
                 }
             }
         }
@@ -158,11 +175,16 @@ fn test_kcoloring_to_tdcs_native_loops_are_no() {
 fn test_kcoloring_to_tdcs_rejects_noncertificates() {
     let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
-    for config in [vec![], vec![0, 1], vec![0, 1, 3], vec![0, 0, 0]] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
-        );
+    for config in [vec![], vec![0, 1], vec![0, 1, 3]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&config),
+            Err(InvalidConfiguration(_))
+        ));
     }
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![0, 0, 0])
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
@@ -185,7 +207,14 @@ fn test_kcoloring_to_tdcs_many_groups_gaps_and_repeated_edges() {
         let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges));
         let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
         assert!(reduction.target_problem().evaluate(&grouping).unwrap().0);
-        let coloring = reduction.extract_solution(&grouping).unwrap();
+        let coloring = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), grouping.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(coloring, expected);
         assert!(source.evaluate(&coloring).unwrap().0);
     }
@@ -219,7 +248,15 @@ fn test_kcoloring_to_tdcs_all_tiny_graphs_and_target_assignments() {
                     .collect();
                 let feasible = target.evaluate(&grouping).unwrap().0;
                 if feasible {
-                    let coloring = reduction.extract_solution(&grouping).unwrap();
+                    let coloring = reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), grouping.clone())
+                                .unwrap(),
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution");
                     assert!(source.evaluate(&coloring).unwrap().0);
                     target_yes = true;
                 }

@@ -69,28 +69,8 @@ struct ExactCoverBy3SetsCreateSpec {
 
 impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
     type Error = crate::registry::ConstructionError;
-    fn try_from(mut spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
-        if !spec.universe_size.is_multiple_of(3) {
-            return Err("universe_size must be divisible by 3".into());
-        }
-        for (index, subset) in spec.subsets.iter_mut().enumerate() {
-            if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
-                return Err(format!("subset {index} contains duplicate elements").into());
-            }
-            if let Some(&element) = subset
-                .iter()
-                .find(|&&element| element >= spec.universe_size)
-            {
-                return Err(
-                    format!("subset {index} contains out-of-range element {element}").into(),
-                );
-            }
-            subset.sort();
-        }
-        Ok(Self {
-            universe_size: spec.universe_size,
-            subsets: spec.subsets,
-        })
+    fn try_from(spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.universe_size, spec.subsets)
     }
 }
 

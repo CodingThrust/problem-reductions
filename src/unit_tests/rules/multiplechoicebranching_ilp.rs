@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -18,7 +19,14 @@ fn test_multiplechoicebranching_to_ilp_closed_loop() {
         match expected {
             Some(_) => {
                 let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-                let actual = reduction.extract_solution(&target).unwrap();
+                let actual = reduction
+                    .recover_result(
+                        &problem,
+                        SolveOutcome::optimal(reduction.target_problem(), target.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(problem.evaluate(&actual).unwrap().0);
             }
             None => assert_eq!(
@@ -63,7 +71,14 @@ fn test_multiplechoicebranching_to_ilp_empty_graph() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     assert_eq!(
-        reduction.extract_solution(&target).unwrap(),
+        reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), target.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<bool>::new()
     );
 }

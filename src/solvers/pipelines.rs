@@ -125,6 +125,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("DecisionMinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "One")]),
+    ("DecisionMinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }
@@ -205,6 +206,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("HamiltonianCircuit", [("graph", "SimpleGraph")]),
+    ("DecisionLongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }
@@ -835,4 +837,71 @@ register_ilp_pipeline! {
 register_ilp_pipeline! {
     ("UndirectedTwoCommodityIntegralFlow", []),
     ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionLongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionMaximum2Satisfiability", []),
+    ("Maximum2Satisfiability", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionMinimumCoveringByCliques", [("graph", "SimpleGraph")]),
+    ("MinimumCoveringByCliques", [("graph", "SimpleGraph")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionMinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionOpenShopScheduling", []),
+    ("OpenShopScheduling", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionQUBO", [("weight", "i64")]),
+    ("QUBO", [("weight", "i64")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionQuadraticAssignment", []),
+    ("QuadraticAssignment", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionRuralPostman", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("RuralPostman", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionSequencingToMinimizeTardyTaskWeight", []),
+    ("SequencingToMinimizeTardyTaskWeight", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionSpinGlass", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("SpinGlass", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("QUBO", [("weight", "i64")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("DecisionStackerCrane", []),
+    ("StackerCrane", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -45,7 +46,14 @@ fn test_extract_solution_encodes_schedule_as_lehmer_code() {
 
     // Completion times C0 = 3, C1 = 1 imply schedule [1, 0].
     // y_{0,1} = 0 means task 1 before task 0.
-    let extracted = reduction.extract_solution(&vec![3, 1, 0]).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), vec![3, 1, 0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![1, 0]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(14)));
 }
@@ -62,7 +70,14 @@ fn test_issue_example_closed_loop() {
     let ilp = reduction.target_problem();
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![1, 3, 0, 4, 2]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(46)));
@@ -87,7 +102,14 @@ fn test_ilp_matches_bruteforce_optimum() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_metric = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(ilp_metric, brute_force_metric);
@@ -155,7 +177,14 @@ fn test_ilp_pipeline_matches_source_optimum() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let source_solution = reduction.extract_solution(&ilp_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source_solution, vec![1, 3, 0, 4, 2]);
     assert_eq!(problem.evaluate(&source_solution).unwrap(), Min(Some(46)));

@@ -8,55 +8,63 @@ use crate::models::decision::Decision;
 use crate::models::graph::{MinMaxMulticenter, MinimumDominatingSet};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{Min, One, Or};
+use crate::types::One;
 
 /// The source vertices precede the two mandatory auxiliary centers.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMinimumDominatingSetToMinMaxMulticenter {
-    target: MinMaxMulticenter<SimpleGraph, One>,
+    target: Decision<MinMaxMulticenter<SimpleGraph, One>>,
     source_num_vertices: usize,
 }
 
 impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinMaxMulticenter {
     type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinMaxMulticenter<SimpleGraph, One>;
+    type Target = Decision<MinMaxMulticenter<SimpleGraph, One>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionDecisionMinimumDominatingSetToMinMaxMulticenter {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.source_num_vertices].to_vec())
     }
 }
 
-impl crate::rules::AggregateReductionResult
-    for ReductionDecisionMinimumDominatingSetToMinMaxMulticenter
-{
-    type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinMaxMulticenter<SimpleGraph, One>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: Min<i64>) -> Or {
-        Or(target_value.0.is_some_and(|radius| radius <= 1))
-    }
-}
-
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "num_vertices + 2",
         num_edges = "num_edges",
     }
 )]
-impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
+impl ReduceTo<Decision<MinMaxMulticenter<SimpleGraph, One>>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {
     type Result = ReductionDecisionMinimumDominatingSetToMinMaxMulticenter;
@@ -72,7 +80,7 @@ impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
             centers,
         );
         Ok(ReductionDecisionMinimumDominatingSetToMinMaxMulticenter {
-            target,
+            target: Decision::new(target, 1),
             source_num_vertices: n,
         })
     }
@@ -84,7 +92,7 @@ fn multicenter_parameters(
     bound: i64,
 ) -> Result<(usize, usize), crate::rules::ReductionError> {
     type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinMaxMulticenter<SimpleGraph, One>;
+    type Target = Decision<MinMaxMulticenter<SimpleGraph, One>>;
     let overflow = || {
         crate::rules::ReductionError::integer_overflow::<Source, Target>(
             "encoding min-max multicenter parameters",
@@ -108,7 +116,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinMaxMulticenter<SimpleGraph, One>,
+                Decision<MinMaxMulticenter<SimpleGraph, One>>,
             >(
                 Decision::new(
                     MinimumDominatingSet::new(

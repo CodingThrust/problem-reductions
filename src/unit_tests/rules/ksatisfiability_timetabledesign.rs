@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::TimetableDesign;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -64,7 +65,14 @@ fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_tim
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -81,7 +89,14 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
     )
     .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -96,7 +111,14 @@ fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(target_reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible timetable");
-    let target_solution = target_reduction.extract_solution(&ilp_solution).unwrap();
+    let target_solution = target_reduction
+        .recover_result(
+            reduction.target_problem(),
+            SolveOutcome::optimal(target_reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         reduction
@@ -106,7 +128,14 @@ fn test_ksatisfiability_to_timetabledesign_closed_loop() {
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

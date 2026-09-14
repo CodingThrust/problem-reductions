@@ -100,9 +100,9 @@ Supported weight variants are `One`, `i64`, and `f64`.
 | Layer | Contract |
 |-------|----------|
 | Model (`Problem`) | Defines instances, witnesses, feasibility, and objectives in its declared mathematical representation. Evaluation is independent of backend tolerances, statuses, and enumeration capacity. |
-| Reduction (`ReduceTo`, `ReductionResult`) | Constructs the target within the rule's mathematical domain and maps target witnesses satisfying the stated preconditions to source witnesses. It owns coefficient arithmetic, parameter relationships, and mapping correctness. |
+| Reduction (`ReduceTo`, `ReductionResult`) | Constructs the target and recovers a complete source result through its mandatory `recover_result`. It owns objective relations, witness mappings, and infeasibility semantics. |
 | Backend adapter | Encodes the target, executes the backend, interprets statuses, decodes numerical results, and validates the returned witness against the original target model. |
-| Solver orchestration | Executes registered capabilities and reduction chains, interprets aggregate results, and extracts source witnesses under the reduction contracts. |
+| Solver orchestration | Executes registered capabilities and calls each stored reduction result in reverse order. |
 | CLI / MCP | Uses public construction, evaluation, and solving APIs and presents their results. |
 
 Models and rules do not repair backend results, change constraints to make a
@@ -114,79 +114,75 @@ downgrading every successful result.
 Search-space cardinalities belong to the solver capability, not the mathematical
 model. Actual model storage and witness representation constraints still apply.
 
-### Witness and aggregate reductions
+### Complete result recovery
 
-`ReductionResult::extract_solution()` maps `Target::Solution` to
-`Source::Solution`; it does not require equal `Problem::Value` types. Resolve
-concrete associated types from the implementation, then check the mathematical
-mapping and its Rust implementation rather than applying a wrapper-pair whitelist.
+Every `ReductionResult` implements `recover_result(source, target_result)`.
+It returns the source status, solution, and evaluation together. There is no
+optional interpretation callback or separate value-only execution path.
 
-For an optimization reduction, explain why target optima map to source optima.
-Opposite directions are valid when the objective relationship reverses order:
-independent-set size `k` corresponds to vertex-cover size `n-k` by complementing
-the witness. Different numeric value types do not require conversion of an
-objective that the extractor never converts. Check the domain and arithmetic of
-conversions the construction or mapping actually performs.
+| Target result | Rule's obligation |
+|---|---|
+| `Optimal { solution, evaluation }` | Recover a source optimum, or establish source infeasibility using the rule's mathematical relation |
+| `Feasible { solution, evaluation }` | Recover a feasible source solution when justified; otherwise return `InsufficientSolutionQuality` |
+| `Infeasible` | Apply the rule's infeasibility relation |
+| Evaluation, decoding, or execution error | Preserve the error; never turn it into `Infeasible` |
 
-Value-only operations use `ReduceToAggregate` / `AggregateReductionResult` and
-must justify their actual `extract_value()` relationship. Multi-query algorithms
-use the existing Turing reduction capability. A feasibility witness alone does
-not establish an optimization result without the required mathematical argument.
+`ProblemOutcome<P>` retains `P::Solution` and `P::Value` as concrete Rust types.
+`SolveOutcome::optimal` evaluates an already established optimum; it does not
+prove optimality. The solver or external caller supplies that conclusion.
+Likewise, `SolveOutcome::feasible` packages an established feasible witness.
 
-`Problem::evaluate()` defines feasibility as well as objective values. A successful
-call can return an infeasible value such as `Or(false)` or `Max(None)`; absence
-of an `EvaluationError` does not imply a valid witness. The adapter validates
-backend output before returning it. Both typed extraction and `pred extract`
-assume witnesses satisfying the reduction's documented premises; neither checks
-feasibility or optimality. JSON parsing and type conversion remain at the transport
-boundary. Evaluation may supply requested display values without acting as an
-acceptance gate. Solver orchestration interprets aggregate mappings to determine
-source outcomes before invoking witness mappings.
+For example, an independent set of size 2 in a four-vertex graph maps to a
+vertex cover of size 2. Recovery complements the solution and evaluates the
+source cover. An optimal target result produces `Optimal`; a merely feasible
+target result produces `Feasible`.
+
+For `Decision<P> -> P`, an optimum missing the bound establishes NO and recovers
+`Infeasible`. A merely feasible candidate missing it establishes no such result
+and returns `InsufficientSolutionQuality`. Penalty reductions own their analogous
+energy relationships. A decoded invalid witness alone is not a general proof
+that the source is infeasible.
 
 ### Executed reduction lifecycle
 
-A witness reduction is one algorithm with construction and reverse mapping.
-`reduce_to()` returns the target and all mapping state in one result. Each
-executed chain step constructs that result once. Its witness and optional
-aggregate `Rc` views share one allocation; obtaining another view does not
-reconstruct or copy the target. `Decision<P> -> P` stores the bound with that
-same result.
+```text
+source ──reduce_to──> stored result A ──reduce_to──> stored result B
+                           target A                    target B
+                                                          │ solve
+                                                          ▼
+source result <── A.recover_result <── B.recover_result <── target result
+```
 
-For every rule, document its instance domain, required target witness quality
-and conditions, source guarantee, and treatment of source infeasibility.
-The guarantee applies to every qualifying witness, including tied optima.
-A witness-capable edge alone does not establish a complete-solving procedure:
-composition must establish the preceding edge's witness premise.
+Each step constructs one result. `Rc` shares that result across paths with a
+common prefix; recovery never reconstructs the target. The original source and
+intermediate targets supply borrowed source references during reverse traversal.
+Rules do not need extra source-instance fields for evaluation.
 
-| Example | Required recovery |
+| Caller | Recovery entry point |
 |---|---|
-| MVC -> MIS | Complement a maximum independent set to obtain a minimum cover |
-| SAT -> MIS | With `m` clauses, optimum size `m` permits witness extraction; an optimum below `m` means UNSAT |
-| Binary ILP -> QUBO | Use the constructed energy relationship to obtain a source optimum or source infeasibility; a QUBO optimum alone does not establish ILP feasibility |
-| MVC -> MIS -> SetPacking -> ILP | Apply the stored ILP-to-packing and packing-to-MIS mappings, then the complement mapping |
-| TSP -> QUBO | Shift signed edge costs uniformly; the energy threshold distinguishes source infeasibility, and the stored offset recovers tour cost |
-| Discrete inverse kinematics -> QUBO | Restore omitted constants and compare against the gap between feasible distance and constraint penalties before decoding orientations |
-| MultiwayCut -> QUBO | Always delete negative edges; optimize nonnegative cut cost and decode an optimal terminal partition |
-| Aggregate-only operation | Map the final value without selecting any witness, including `Sum` |
+| Concrete rule | `ReductionResult::recover_result` |
+| Typed chain or executed path | `recover_result::<Source, Target>` |
+| Registered ILP pipeline | The same chain's erased recovery |
+| `pred solve bundle.json` | Solve the stored target, then recover the complete result |
+| `pred extract bundle.json --result target-result.json` | Read the external result, validate its target witness, then use the same recovery |
 
-The mathematical thresholds and objective relationships belong to the rule.
-Solver completion invokes the executed step's concrete `interpret_optimum`
-operation before its witness mapping. This operation shares the constructed
-result and does not query the model registry. Ordinary extraction uses only the
-witness mapping. Typed chain, executed path, and JSON extraction share the same
-reverse traversal; dynamic/JSON methods perform necessary representation
-conversion rather than introducing another extraction contract.
+Dynamic methods convert representations and delegate to the typed rule.
+External optimality claims belong to the external solver; parsing or evaluating
+a configuration cannot establish optimality. `pred extract` accepts explicit
+`optimal`, `feasible`, or `infeasible` status, rather than a bare configuration.
 
-`SolutionAggregate` is defined in `solvers/brute_force.rs` and exported through
-`solvers` for enumeration clients. It compares candidate and aggregate values;
-it is not a model-feasibility interface. Concrete variant declarations generate
-`DynProblem` transport implementations using the value's own `is_valid`
-semantics, without aggregation or solver-registration requirements. A concrete
-hand-registered dynamic type can use `impl_dyn_problem!` directly.
+Bound-owning `Decision<P>` targets serialize their `inner` instance and `bound`.
+Their `evaluate()` returns `Or`. The `Decision<P> -> P` bridge makes these targets
+usable with optimization backends. Each other rule must explicitly implement
+its source-result relation, including thresholds and sentinel constructions.
+Guarantees must cover every qualifying witness, including tied optima.
 
-Witness and aggregate describe what can be recovered. Turing describes a
-potentially adaptive query procedure. Exact witness recovery does not establish
-approximation or counting preservation; those require their own proofs.
+`SolutionAggregate` remains a brute-force solver capability for selecting from
+an enumeration. Mathematical wrappers such as `Min`, `Max`, `Or`, and `Sum`
+remain model values. They do not require separate reduction traits or graph
+modes. Turing reductions describe adaptive queries and remain a separate
+execution capability; exact recovery alone does not imply approximation or
+counting preservation.
 
 ### Arithmetic
 
@@ -383,49 +379,42 @@ The result struct holds the target problem and the logic to map solutions back:
 
 ```rust,ignore
 #[derive(Debug, Clone)]
-pub struct ReductionISToVC<W> {
-    target: MinimumVertexCover<SimpleGraph, W>,
+pub struct ReductionISToVC {
+    target: MinimumVertexCover<SimpleGraph, i64>,
 }
 
-impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
-    type Source = MaximumIndependentSet<SimpleGraph, W>;
-    type Target = MinimumVertexCover<SimpleGraph, W>;
+impl ReductionResult for ReductionISToVC {
+    type Source = MaximumIndependentSet<SimpleGraph, i64>;
+    type Target = MinimumVertexCover<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target { &self.target }
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_sol: &Vec<bool>,
-    ) -> crate::rules::ExtractionResult<Vec<bool>> {
-        Ok(target_sol.iter().map(|&x| !x).collect())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> ExtractionResult<ProblemOutcome<Self::Source>> {
+        Ok(match target {
+            SolveOutcome::Optimal { solution, .. } =>
+                SolveOutcome::optimal(source, solution.into_iter().map(|x| !x).collect())?,
+            SolveOutcome::Feasible { solution, .. } =>
+                SolveOutcome::feasible(source, solution.into_iter().map(|x| !x).collect())?,
+            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+        })
     }
 }
 ```
 
-### Solution extraction contract
+### Recovery contract
 
-`ReductionResult::extract_solution` maps a complete target solution satisfying
-the rule's mathematical premises into a source solution. The adapter establishes
-target validity for internal solves. External callers supply witnesses under the
-same contract. Rules requiring optimal target solutions document that requirement.
-Source YES/NO and optimization outcomes are interpreted by solver orchestration,
-not by the extraction chain. Invalid external witnesses have no mapping-correctness
-guarantee.
+Construction returns `ReductionError`; recovery returns `ExtractionError`.
+Recovery must explicitly cover each result status. Required witness quality
+comes from the rule's proof, not from which caller happens to invoke it.
 
-Do not repeat checks implied by target constraints or successful construction.
-Do not truncate or pad input, substitute values for missing data, retry another
-mapping, or add runtime acceptance checks to compensate for a rule defect.
-Keep actual mathematical case distinctions and representation errors that can
-occur for inputs satisfying the mapping's premises.
-
-Zero and sentinel values remain valid when the source model explicitly gives
-them meaning. For example, `MaximumCommonEdgeSubgraph` includes an "unmapped"
-sentinel in its source dimensions. Missing target data must never be
-interpreted as that sentinel.
-
-Each conditional in an extractor should implement a case in the reduction's
-mathematics or report an error that remains reachable under its premises.
-The external boundary handles parsing and type conversion; extraction does not
-accumulate feasibility checks, compatibility branches, or fallbacks.
+The adapter checks backend output against the target model. Recovery performs
+the mathematical reverse mapping and computes the source evaluation. Do not
+repeat conditions already guaranteed by the target, repair malformed input, or
+add a second solver to certify the supplied optimum. Mathematical sentinels
+retain their model-defined meaning; missing data is an error.
 
 The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 
@@ -486,10 +475,13 @@ Execute an explicitly selected path with `ReductionGraph::reduce_along_path`:
 ```rust,ignore
 let reduction = graph.reduce_along_path(rpath, &factoring_instance)?.unwrap();
 let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
-let source_solution = reduction.extract_solution(&target_solution)?;
+let target_result = SolveOutcome::optimal(target, target_solution)?;
+let source_result = reduction.recover_result::<Factoring, SpinGlass<SimpleGraph, f64>>(
+    &factoring_instance, target_result,
+)?;
 ```
 
-The returned `ReductionChain` stores each intermediate reduction and extracts the source solution by applying the inverse mappings in reverse order. Construction returns `ReductionError`; extraction returns `ExtractionError`.
+The returned `ReductionChain` stores each intermediate result and recovers complete results in reverse order. Construction returns `ReductionError`; recovery returns `ExtractionError`.
 
 <details>
 <summary>Parameter contracts</summary>
@@ -554,8 +546,7 @@ proved infeasibility, and `Err` reports an operational failure.
 
 `ILPSolver::solve<P>() -> Result<P::Solution, ILPSolveError>` is the typed entry
 point. Adapter failures retain their classified errors. Registry lookup,
-concrete-terminal dispatch, aggregate interpretation,
-and reduction-chain extraction belong to orchestration. Integer pipelines end
+concrete-terminal dispatch, and reduction-chain execution belong to orchestration. Integer pipelines end
 at native integer ILPs; they do not need a float-coefficient cast edge to execute.
 Explicit coefficient-conversion rules retain their own mathematical contracts.
 
@@ -574,17 +565,10 @@ non-optimal termination, and invalid results are errors, not infeasibility.
 Variable decoding tolerances belong to the adapter; they do not define source or
 target feasibility, nor a universal objective-error allowance for tests.
 
-After accepting a target optimum, orchestration must apply the reduction's
-aggregate mapping to interpret a source decision threshold. If that optimum
-cannot meet the threshold, the source answer is NO. A merely feasible witness
-or failed solve is insufficient for that conclusion. Typed solving, dynamic
-solving, and explicit CLI bundles must share the same interpretation and witness
-mapping.
-
-Fixed pipelines and explicit CLI bundles reuse the executed `ReductionChain`
-and the solver completion path. Aggregate mappings interpret an accepted target
-optimum before witness extraction. Source evaluation computes requested output
-values and propagates evaluation errors; it is not another feasibility gate.
+After accepting a target result, orchestration invokes the stored reduction
+chain's complete recovery. Every intermediate status passes through the previous
+rule. Typed solving, dynamic solving, and explicit CLI bundles share this reverse
+traversal; no caller performs its own source-threshold interpretation.
 
 ## JSON Serialization
 

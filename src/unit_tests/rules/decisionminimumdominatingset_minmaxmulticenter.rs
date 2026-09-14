@@ -1,6 +1,11 @@
 use super::*;
+use crate::models::decision::Decision;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
+use crate::types::OptimizationValue;
 
 fn decision_mds(
     n: usize,
@@ -16,34 +21,57 @@ fn decision_mds(
 #[test]
 fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
     let source = decision_mds(3, &[(0, 1), (1, 2)], 1);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    let reduction =
+        ReduceTo::<Decision<MinMaxMulticenter<SimpleGraph, One>>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
-    assert_eq!(target.num_vertices(), 5);
-    assert_eq!(target.num_edges(), 2);
-    assert_eq!(target.k(), 3);
-    for witness in BruteForce::new().find_all_witnesses(target).unwrap() {
+    assert_eq!(target.inner().num_vertices(), 5);
+    assert_eq!(target.inner().num_edges(), 2);
+    assert_eq!(target.inner().k(), 3);
+    for witness in BruteForce::new()
+        .find_all_witnesses(target.inner())
+        .unwrap()
+    {
         assert!(witness[3] && witness[4]);
         assert!(
             source
-                .evaluate(&reduction.extract_solution(&witness).unwrap())
+                .evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                )
                 .unwrap()
                 .0
         );
     }
     let source = decision_mds(4, &[(0, 1), (1, 2), (2, 3)], 1);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    let witness = BruteForce::new()
+    let reduction =
+        ReduceTo::<Decision<MinMaxMulticenter<SimpleGraph, One>>>::reduce_to(&source).unwrap();
+    assert!(BruteForce::new()
         .solve(reduction.target_problem())
         .unwrap()
+        .is_none());
+    let witness = BruteForce::new()
+        .solve(reduction.target_problem().inner())
+        .unwrap()
         .unwrap();
-    let optimum = reduction.target_problem().evaluate(&witness).unwrap();
-    assert_eq!(optimum, Min(Some(2)));
+    let optimum = reduction
+        .target_problem()
+        .inner()
+        .evaluate(&witness)
+        .unwrap();
+    assert_eq!(optimum, crate::types::Min(Some(2)));
     assert_eq!(
-        crate::rules::AggregateReductionResult::extract_value(&reduction, optimum),
-        Or(false)
-    );
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        crate::types::Or(OptimizationValue::meets_bound(
+            &(optimum),
+            crate::rules::ReductionResult::target_problem(&reduction).bound()
+        )),
+        crate::types::Or(false)
     );
 }
 
@@ -61,13 +89,14 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
             for bound in [i64::MIN, -1, 0, 1, n_i64, n_i64 + 1, i64::MAX] {
                 let source = decision_mds(n, &edges, bound);
                 let reduction =
-                    ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
+                    ReduceTo::<Decision<MinMaxMulticenter<SimpleGraph, One>>>::reduce_to(&source)
+                        .unwrap();
                 let target = reduction.target_problem();
-                assert_eq!(target.graph().edges(), edges);
-                assert_eq!(target.num_vertices(), n + 2);
-                assert_eq!(target.vertex_weights(), vec![One; n + 2]);
-                assert_eq!(target.edge_lengths(), vec![One; edges.len()]);
-                assert!((1..=n + 2).contains(&target.k()));
+                assert_eq!(target.inner().graph().edges(), edges);
+                assert_eq!(target.inner().num_vertices(), n + 2);
+                assert_eq!(target.inner().vertex_weights(), vec![One; n + 2]);
+                assert_eq!(target.inner().edge_lengths(), vec![One; edges.len()]);
+                assert!((1..=n + 2).contains(&target.inner().k()));
                 let mut source_yes = false;
                 for mask in 0..(1usize << n) {
                     let mut witness: Vec<_> = (0..n).map(|v| mask & (1 << v) != 0).collect();
@@ -75,38 +104,47 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
                         source_yes = true;
                         let mut count = witness.iter().filter(|&&b| b).count();
                         for bit in &mut witness {
-                            if !*bit && count < target.k() - 2 {
+                            if !*bit && count < target.inner().k() - 2 {
                                 *bit = true;
                                 count += 1;
                             }
                         }
                         witness.extend([true, true]);
-                        assert!(target.evaluate(&witness).unwrap().0.is_some_and(|r| r <= 1));
+                        assert!(target
+                            .inner()
+                            .evaluate(&witness)
+                            .unwrap()
+                            .0
+                            .is_some_and(|r| r <= 1));
                     }
                 }
                 let mut optimum: Option<i64> = None;
                 for mask in 0..(1usize << (n + 2)) {
                     let witness: Vec<_> = (0..n + 2).map(|v| mask & (1 << v) != 0).collect();
-                    let radius = target.evaluate(&witness).unwrap().0;
+                    let radius = target.inner().evaluate(&witness).unwrap().0;
                     if let Some(r) = radius {
                         optimum = Some(optimum.map_or(r, |old| old.min(r)));
                     }
                     if radius.is_some_and(|r| r <= 1) {
                         assert!(
                             source
-                                .evaluate(&reduction.extract_solution(&witness).unwrap())
+                                .evaluate(&reduction.recover_result(&source, SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()).unwrap().into_solution().expect("qualifying target result must recover a source solution"))
                                 .unwrap()
                                 .0
                         );
                     } else {
-                        assert!(
-                            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-                        );
+                        assert!(!ReductionResult::target_problem(&reduction)
+                            .evaluate(&witness)
+                            .unwrap()
+                            .is_valid());
                     }
                 }
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, Min(optimum)),
-                    Or(source_yes)
+                    crate::types::Or(OptimizationValue::meets_bound(
+                        &(crate::types::Min(optimum)),
+                        crate::rules::ReductionResult::target_problem(&reduction).bound()
+                    )),
+                    crate::types::Or(source_yes)
                 );
             }
         }
@@ -116,20 +154,34 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
 #[test]
 fn test_multicenter_duplicate_edges_and_malformed_witness() {
     let source = decision_mds(3, &[(0, 0), (0, 1), (0, 1)], 2);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    let reduction =
+        ReduceTo::<Decision<MinMaxMulticenter<SimpleGraph, One>>>::reduce_to(&source).unwrap();
     let witness = vec![true, false, true, true, true];
     assert_eq!(
-        reduction.extract_solution(&witness).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, true]
     );
     for bad in [vec![], vec![true; 6]] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &bad), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-        );
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction)
+                .inner()
+                .evaluate(&bad),
+            Err(InvalidConfiguration(_))
+        ));
     }
     assert_eq!(
-        crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None)),
-        Or(false)
+        crate::types::Or(OptimizationValue::meets_bound(
+            &(crate::types::Min(None)),
+            crate::rules::ReductionResult::target_problem(&reduction).bound()
+        )),
+        crate::types::Or(false)
     );
 }
 

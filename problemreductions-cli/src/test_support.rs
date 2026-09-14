@@ -1,13 +1,12 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
-use problemreductions::models::algebraic::{ObjectiveSense, ILP};
+use problemreductions::models::algebraic::ILP;
 use problemreductions::registry::{
     CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
 };
 use problemreductions::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
-use problemreductions::rules::{AggregateReductionResult, VariantReductionResult};
 use problemreductions::solvers::SolutionAggregate;
 use problemreductions::traits::Problem;
-use problemreductions::types::{Aggregate, Extremum, Max};
+use problemreductions::types::{Aggregate, Max};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -120,24 +119,6 @@ impl problemreductions::solvers::BruteForceProblem for AggregateValueTarget {
 
     fn dimension(&self, variable: usize) -> Result<usize, problemreductions::solvers::SolveError> {
         Ok([2][variable])
-    }
-}
-
-#[derive(Debug, Clone)]
-struct AggregateValueToIlpReduction {
-    target: ILP<bool>,
-}
-
-impl AggregateReductionResult for AggregateValueToIlpReduction {
-    type Source = AggregateValueSource;
-    type Target = ILP<bool>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, _target_value: Extremum<i64>) -> Max<i64> {
-        Max(Some(0))
     }
 }
 
@@ -411,16 +392,6 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
-        reduce_aggregate_fn: Some(|any: &dyn Any| {
-            let source = any
-                .downcast_ref::<AggregateValueSource>()
-                .expect("aggregate reduction downcast failed");
-            Ok(Box::new(VariantReductionResult::<AggregateValueSource, AggregateValueTarget>::new(
-                AggregateValueTarget {
-                    base: source.values.iter().sum(),
-                },
-            )))
-        }),
         turing: false,
     }
 }
@@ -451,15 +422,6 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
-        reduce_aggregate_fn: Some(|any: &dyn Any| {
-            let _source = any
-                .downcast_ref::<AggregateValueSource>()
-                .expect("aggregate ILP reduction downcast failed");
-            Ok(Box::new(AggregateValueToIlpReduction {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
-                    .expect("empty ILP is valid"),
-            }))
-        }),
         turing: false,
     }
 }

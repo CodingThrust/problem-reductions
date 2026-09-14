@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -23,7 +24,14 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_size = problem.evaluate(&extracted).unwrap();
 
     // Both should find optimal size = 2
@@ -84,7 +92,14 @@ fn test_minimummetricdimension_to_ilp_path_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
@@ -108,7 +123,14 @@ fn test_minimummetricdimension_to_ilp_complete_graph() {
     let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_size = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_size, Min(Some(3)));
@@ -123,7 +145,14 @@ fn test_minimummetricdimension_to_ilp_solution_extraction() {
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, false]);
 
     // Verify this is a valid resolving set
@@ -143,7 +172,14 @@ fn test_minimummetricdimension_to_ilp_cycle() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));

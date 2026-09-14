@@ -8,12 +8,15 @@
 //! A satisfying assignment corresponds to an independent set of size = num_clauses,
 //! where we pick exactly one literal from each clause.
 
+use crate::models::decision::Decision;
 use crate::models::formula::Satisfiability;
 use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
-use crate::types::{Max, One, Or};
+use crate::types::One;
 
 /// A literal in the SAT problem, representing a variable or its negation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,20 +57,18 @@ impl BoolVar {
 #[derive(Debug, Clone)]
 pub struct ReductionSATToIS {
     /// The target MaximumIndependentSet problem.
-    target: MaximumIndependentSet<SimpleGraph, One>,
+    target: Decision<MaximumIndependentSet<SimpleGraph, One>>,
     /// Mapping from vertex index to the literal it represents.
     literals: Vec<BoolVar>,
     /// The number of variables in the source SAT problem.
     num_source_variables: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Exact independent-set cardinality certifying satisfiability.
-    target_size: i64,
 }
 
 impl ReductionResult for ReductionSATToIS {
     type Source = Satisfiability;
-    type Target = MaximumIndependentSet<SimpleGraph, One>;
+    type Target = Decision<MaximumIndependentSet<SimpleGraph, One>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -78,10 +79,32 @@ impl ReductionResult for ReductionSATToIS {
     /// For each selected vertex (representing a literal), we set the corresponding
     /// variable to make that literal true. Variables not covered by any selected
     /// literal default to false.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionSATToIS {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut assignment = vec![false; self.num_source_variables];
         for (literal, &selected) in self.literals.iter().zip(target_solution) {
             if selected {
@@ -89,19 +112,6 @@ impl ReductionResult for ReductionSATToIS {
             }
         }
         Ok(assignment)
-    }
-}
-
-impl crate::rules::AggregateReductionResult for ReductionSATToIS {
-    type Source = Satisfiability;
-    type Target = MaximumIndependentSet<SimpleGraph, One>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: Max<i64>) -> Or {
-        Or(target_value == Max(Some(self.target_size)))
     }
 }
 
@@ -118,20 +128,20 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",
     }
 )]
-impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
+impl ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>> for Satisfiability {
     type Result = ReductionSATToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let target_size = <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
-            self.num_clauses(),
-            "representing the satisfying independent-set cardinality",
-        )?;
+        let target_size =
+            <Self as ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>>>::exact_i64(
+                self.num_clauses(),
+                "representing the satisfying independent-set cardinality",
+            )?;
         let mut literals: Vec<BoolVar> = Vec::new();
         let mut edges: Vec<(usize, usize)> = Vec::new();
 
@@ -171,11 +181,10 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
         );
 
         Ok(ReductionSATToIS {
-            target,
+            target: Decision::new(target, target_size),
             literals,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-            target_size,
         })
     }
 }
@@ -205,7 +214,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MaximumIndependentSet<SimpleGraph, One>,
+                Decision<MaximumIndependentSet<SimpleGraph, One>>,
             >(
                 sat_seven_clause_example(),
                 SolutionPair {

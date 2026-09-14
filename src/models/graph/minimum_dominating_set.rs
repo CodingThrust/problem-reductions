@@ -383,7 +383,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
             build: || {
                 use crate::example_db::specs::assemble_rule_example;
                 use crate::export::SolutionPair;
-                use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+                use crate::rules::{ReduceTo, ReductionResult};
 
                 let source = crate::models::decision::Decision::new(
                     MinimumDominatingSet::new(
@@ -392,8 +392,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
                     ),
                     2,
                 );
-                let result = source
-                    .reduce_to_aggregate()
+                let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&source)
                     .expect("reduction should succeed");
                 let target = result.target_problem();
                 let config = vec![false, false, true, true, false];
@@ -413,7 +412,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
             build: || {
                 use crate::example_db::specs::assemble_rule_example;
                 use crate::export::SolutionPair;
-                use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+                use crate::rules::{ReduceTo, ReductionResult};
 
                 let source = crate::models::decision::Decision::new(
                     MinimumDominatingSet::new(
@@ -422,8 +421,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
                     ),
                     2,
                 );
-                let result = source
-                    .reduce_to_aggregate()
+                let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, One>>::reduce_to(&source)
                     .expect("reduction should succeed");
                 let target = result.target_problem();
                 let config = vec![false, false, true, true, false];

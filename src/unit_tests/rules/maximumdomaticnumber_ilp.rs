@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::ObjectiveSense;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Max;
@@ -21,7 +22,14 @@ fn test_maximumdomaticnumber_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     // Both should find domatic number = 2
@@ -76,7 +84,14 @@ fn test_maximumdomaticnumber_to_ilp_complete_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(value, Max(Some(3)));
@@ -92,7 +107,14 @@ fn test_maximumdomaticnumber_to_ilp_single_vertex() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(value, Max(Some(1)));
@@ -111,7 +133,14 @@ fn test_maximumdomaticnumber_to_ilp_solution_extraction() {
     // x_{2,0}=1, x_{2,1}=0, x_{2,2}=0,
     // y_0=1, y_1=1, y_2=0
     let ilp_solution = vec![1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 1, 0]);
 
     // Verify this is a valid partition with 2 dominating sets

@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumEdgeWeightedKClique;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -42,7 +43,14 @@ fn test_maximumedgeweightedkclique_to_ilp_extract_solution_identity() {
     let source = issue_instance();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![1, 1, 1, 0, 1, 1, 1, 0, 0];
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, true, false]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(8)));
 }

@@ -2,6 +2,7 @@ use super::*;
 use crate::models::formula::{CNFClause, Maximum2Satisfiability};
 use crate::models::graph::MaxCut;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -67,7 +68,14 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
         let target_solution: Vec<bool> = (0..target.num_vertices())
             .map(|bit| ((mask >> bit) & 1) == 1)
             .collect();
-        let source_solution = reduction.extract_solution(&target_solution).unwrap();
+        let source_solution = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let satisfied = source.evaluate(&source_solution).unwrap().unwrap();
         let cut_weight = target.evaluate(&target_solution).unwrap().unwrap();
 
@@ -87,22 +95,49 @@ fn test_maximum2satisfiability_to_maxcut_extract_solution_uses_reference_vertex(
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![false, true, false, false])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![false, true, false, false].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, true, true]
     );
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true, true])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![true, false, true, true].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, true, true]
     );
     assert_eq!(
         source
             .evaluate(
                 &reduction
-                    .extract_solution(&vec![true, false, true, true])
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(
+                            reduction.target_problem(),
+                            vec![true, false, true, true].clone()
+                        )
+                        .unwrap()
+                    )
                     .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
             )
             .unwrap(),
         Max(Some(5))

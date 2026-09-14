@@ -13,30 +13,54 @@
 //! CNFClause uses 1-indexed signed integers: positive = variable, negative = negated.
 
 use crate::models::algebraic::QUBO;
+use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::variant::{K2, K3};
 /// Result of reducing KSatisfiability to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKSatToQUBO {
-    target: QUBO<i64>,
+    target: Decision<QUBO<i64>>,
     source_num_vars: usize,
-    zero_penalty_energy: i64,
 }
 
 impl ReductionResult for ReductionKSatToQUBO {
     type Source = KSatisfiability<K2>;
-    type Target = QUBO<i64>;
+    type Target = Decision<QUBO<i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionKSatToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
@@ -44,23 +68,44 @@ impl ReductionResult for ReductionKSatToQUBO {
 /// Result of reducing `KSatisfiability<K3>` to QUBO.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToQUBO {
-    target: QUBO<i64>,
+    target: Decision<QUBO<i64>>,
     source_num_vars: usize,
-    zero_penalty_energy: i64,
 }
 
 impl ReductionResult for Reduction3SATToQUBO {
     type Source = KSatisfiability<K3>;
-    type Target = QUBO<i64>;
+    type Target = Decision<QUBO<i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl Reduction3SATToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
@@ -312,83 +357,60 @@ fn build_qubo_matrix(
     Ok((matrix, constant))
 }
 
-impl crate::rules::AggregateReductionResult for ReductionKSatToQUBO {
-    type Source = KSatisfiability<K2>;
-    type Target = QUBO<i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(value.0 == Some(self.zero_penalty_energy))
-    }
-}
-
-impl crate::rules::AggregateReductionResult for Reduction3SATToQUBO {
-    type Source = KSatisfiability<K3>;
-    type Target = QUBO<i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(value.0 == Some(self.zero_penalty_energy))
-    }
-}
-
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vars",
     }
 )]
-impl ReduceTo<QUBO<i64>> for KSatisfiability<K2> {
+impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K2> {
     type Result = ReductionKSatToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
-        let (matrix, constant) = build_qubo_matrix(n, self.clauses(), 0).map_err(|operation| {
-            crate::rules::ReductionError::integer_overflow::<KSatisfiability<K2>, QUBO<i64>>(
-                operation,
-            )
-        })?;
+        let (matrix, constant) =
+            build_qubo_matrix(n, self.clauses(), 0).map_err(|operation| {
+                crate::rules::ReductionError::integer_overflow::<
+                    KSatisfiability<K2>,
+                    Decision<QUBO<i64>>,
+                >(operation)
+            })?;
 
         Ok(ReductionKSatToQUBO {
-            target: QUBO::from_rows(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<KSatisfiability<K2>, QUBO<i64>>(
-                    message,
-                )
-            })?,
+            target: Decision::new(
+                QUBO::from_rows(matrix)
+                    .map_err(<Self as ReduceTo<Decision<QUBO<i64>>>>::target_construction)?,
+                -constant,
+            ),
             source_num_vars: n,
-            zero_penalty_energy: -constant,
         })
     }
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vars + num_clauses",
     }
 )]
-impl ReduceTo<QUBO<i64>> for KSatisfiability<K3> {
+impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K3> {
     type Result = Reduction3SATToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let (matrix, constant) =
             build_qubo_matrix(n, self.clauses(), self.num_clauses()).map_err(|operation| {
-                crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, QUBO<i64>>(
-                    operation,
-                )
+                crate::rules::ReductionError::integer_overflow::<
+                    KSatisfiability<K3>,
+                    Decision<QUBO<i64>>,
+                >(operation)
             })?;
 
         Ok(Reduction3SATToQUBO {
-            target: QUBO::from_rows(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<KSatisfiability<K3>, QUBO<i64>>(
-                    message,
-                )
-            })?,
+            target: Decision::new(
+                QUBO::from_rows(matrix)
+                    .map_err(<Self as ReduceTo<Decision<QUBO<i64>>>>::target_construction)?,
+                -constant,
+            ),
             source_num_vars: n,
-            zero_penalty_energy: -constant,
         })
     }
 }
@@ -412,7 +434,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         CNFClause::new(vec![-3, -4]),
                     ],
                 );
-                crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
+                crate::example_db::specs::rule_example_with_witness::<_, Decision<QUBO<i64>>>(
                     source,
                     SolutionPair {
                         source_config: serde_json::json!(vec![false, true, false, true]),
@@ -436,7 +458,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         CNFClause::new(vec![3, -4, -5]),
                     ],
                 );
-                crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
+                crate::example_db::specs::rule_example_with_witness::<_, Decision<QUBO<i64>>>(
                     source,
                     SolutionPair {
                         source_config: serde_json::json!(vec![false, false, false, false, false]),

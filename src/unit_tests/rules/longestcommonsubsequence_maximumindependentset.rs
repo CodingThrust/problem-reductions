@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
 use crate::traits::Problem;
 
@@ -127,7 +128,14 @@ fn test_lcs_to_mis_extract_solution() {
         .solve(reduction.target_problem())
         .unwrap()
         .expect("should have a solution");
-    let source_sol = reduction.extract_solution(&witness).unwrap();
+    let source_sol = reduction
+        .recover_result(
+            &lcs,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // The extracted solution should be valid for the source
     let value = lcs.evaluate(&source_sol).unwrap();

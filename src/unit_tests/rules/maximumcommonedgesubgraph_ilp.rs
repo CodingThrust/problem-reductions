@@ -3,6 +3,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::{LabelledArc, LabelledDigraph, MaximumCommonEdgeSubgraph};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -64,7 +65,14 @@ fn test_maximumcommonedgesubgraph_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("matched paths ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(2)));
@@ -95,7 +103,14 @@ fn test_maximumcommonedgesubgraph_to_ilp_truncated_target() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("truncated ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));
@@ -120,7 +135,14 @@ fn test_maximumcommonedgesubgraph_to_ilp_empty_graphs() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("empty-arc ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(0)));
 }
@@ -138,7 +160,14 @@ fn test_maximumcommonedgesubgraph_to_ilp_self_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("self-loop ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));

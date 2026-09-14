@@ -1,20 +1,34 @@
 use super::*;
 use crate::models::algebraic::ClosestVectorProblem;
+use crate::models::decision::Decision;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
+use crate::types::OptimizationValue;
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_closed_loop() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let target_solution =
-        crate::solvers::customized::closest_vector_problem::solve(reduction.target_problem())
-            .unwrap();
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+    let target_solution = crate::solvers::customized::closest_vector_problem::solve(
+        reduction.target_problem().inner(),
+    )
+    .unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&source_solution).unwrap().0);
     assert_eq!(
         reduction
             .target_problem()
+            .inner()
             .evaluate(&target_solution)
             .unwrap()
             .0,
@@ -25,12 +39,12 @@ fn test_subsetsum_to_closestvectorproblem_closed_loop() {
 #[test]
 fn test_subsetsum_to_closestvectorproblem_structure() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
 
-    assert_eq!(target.num_basis_vectors(), 7);
-    assert_eq!(target.ambient_dimension(), 12);
-    assert_eq!(&target.target()[..8], &[0, 0, 0, 0, 1, 1, 1, 1]);
+    assert_eq!(target.inner().num_basis_vectors(), 7);
+    assert_eq!(target.inner().ambient_dimension(), 12);
+    assert_eq!(&target.inner().target()[..8], &[0, 0, 0, 0, 1, 1, 1, 1]);
     assert_eq!(
         ClosestVectorProblem::<i64>::variant(),
         vec![("target", "i64")]
@@ -40,17 +54,27 @@ fn test_subsetsum_to_closestvectorproblem_structure() {
 #[test]
 fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
 
     for solution in [vec![1, 0, 0, 1, 0, 0, 0], vec![1, 1, 1, 0, 1, 1, 1]] {
         assert_eq!(
-            target.evaluate(&solution).unwrap().0,
+            target.inner().evaluate(&solution).unwrap().0,
             Some(BigRational::from_integer(4.into()))
         );
         assert!(
             source
-                .evaluate(&reduction.extract_solution(&solution).unwrap())
+                .evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                )
                 .unwrap()
                 .0
         );
@@ -60,13 +84,15 @@ fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
 #[test]
 fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
     let source = SubsetSum::new(vec![2u32, 4, 6], 5u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let solution =
-        crate::solvers::customized::closest_vector_problem::solve(reduction.target_problem())
-            .unwrap();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+    let solution = crate::solvers::customized::closest_vector_problem::solve(
+        reduction.target_problem().inner(),
+    )
+    .unwrap();
     assert!(
         reduction
             .target_problem()
+            .inner()
             .evaluate(&solution)
             .unwrap()
             .unwrap()
@@ -79,29 +105,49 @@ fn test_subsetsum_to_closestvectorproblem_binary_carries_preserve_large_inputs()
     use num_bigint::BigUint;
     let size = BigUint::from(1u32) << 70usize;
     let source = SubsetSum::new(vec![size.clone()], size);
-    let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let mut witness = vec![0; result.target_problem().num_basis_vectors()];
+    let result = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+    let mut witness = vec![0; result.target_problem().inner().num_basis_vectors()];
     witness[0] = 1;
     assert_eq!(
-        result.target_problem().evaluate(&witness).unwrap(),
-        Min(Some(BigRational::from_integer(1.into())))
+        result.target_problem().inner().evaluate(&witness).unwrap(),
+        crate::types::Min(Some(BigRational::from_integer(1.into())))
     );
-    assert_eq!(result.extract_solution(&witness).unwrap(), vec![true]);
+    assert_eq!(
+        result
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(result.target_problem(), witness.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![true]
+    );
     assert!(result
         .target_problem()
+        .inner()
         .basis()
         .iter()
         .flatten()
         .all(|&x| (-2..=1).contains(&x)));
 
     let source = SubsetSum::new(vec![1u32; 40], 20u32);
-    let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let mut witness = vec![0; result.target_problem().num_basis_vectors()];
+    let result = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+    let mut witness = vec![0; result.target_problem().inner().num_basis_vectors()];
     witness[..20].fill(1);
     witness[40..].copy_from_slice(&[1, 2, 5, 10]);
     assert!(
         source
-            .evaluate(&result.extract_solution(&witness).unwrap())
+            .evaluate(
+                &result
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(result.target_problem(), witness.clone()).unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
+            )
             .unwrap()
             .0
     );
@@ -118,13 +164,13 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
         (vec![2, 4], 5),
     ] {
         let source = SubsetSum::new(sizes, target_sum);
-        let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
+        let result = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
         let target = result.target_problem();
         assert!(std::ptr::eq(
             target,
-            crate::rules::AggregateReductionResult::target_problem(&result)
+            crate::rules::ReductionResult::target_problem(&result)
         ));
-        let dimensions = target.num_basis_vectors();
+        let dimensions = target.inner().num_basis_vectors();
         let mut accepted = false;
         for index in 0..4usize.pow(dimensions as u32) {
             let mut index = index;
@@ -135,17 +181,27 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
                     x
                 })
                 .collect();
-            let value = target.evaluate(&config).unwrap();
+            let value = target.inner().evaluate(&config).unwrap();
             let certificate = value
-                == Min(Some(BigRational::from_integer(
+                == crate::types::Min(Some(BigRational::from_integer(
                     source.num_elements().into(),
                 )));
             assert_eq!(
-                crate::rules::AggregateReductionResult::extract_value(&result, value),
-                Or(certificate)
+                crate::types::Or(OptimizationValue::meets_bound(
+                    &(value),
+                    crate::rules::ReductionResult::target_problem(&result).bound()
+                )),
+                crate::types::Or(certificate)
             );
             if certificate {
-                let x = result.extract_solution(&config).unwrap();
+                let x = result
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(result.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.evaluate(&x).unwrap().0);
                 accepted = true;
             }
@@ -157,12 +213,18 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
                 .unwrap()
                 .is_some()
         );
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&result), &vec![0; dimensions + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&result, value.clone()); value.is_valid() })
-        );
+        assert!(matches!(
+            ReductionResult::target_problem(&result)
+                .inner()
+                .evaluate(&vec![0; dimensions + 1]),
+            Err(InvalidConfiguration(_))
+        ));
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&result, Min(None)),
-            Or(false)
+            crate::types::Or(OptimizationValue::meets_bound(
+                &(crate::types::Min(None)),
+                crate::rules::ReductionResult::target_problem(&result).bound()
+            )),
+            crate::types::Or(false)
         );
     }
 }

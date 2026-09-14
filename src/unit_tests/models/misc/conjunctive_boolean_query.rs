@@ -181,3 +181,87 @@ fn test_conjunctivebooleanquery_create_spec_rejects_invalid_relation_index() {
 
     assert!(result.is_err());
 }
+
+#[test]
+#[should_panic(expected = "expected arity")]
+fn new_rejects_invalid_tuple_arity() {
+    ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![0, 1]],
+        }],
+        1,
+        vec![],
+    );
+}
+
+#[test]
+#[should_panic(expected = "must be < 2")]
+fn new_rejects_invalid_tuple_domain() {
+    ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![2]],
+        }],
+        1,
+        vec![],
+    );
+}
+
+#[test]
+#[should_panic(expected = "relation index")]
+fn new_rejects_invalid_relation_index() {
+    ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![0]],
+        }],
+        1,
+        vec![(1, vec![QueryArg::Variable(0)])],
+    );
+}
+
+#[test]
+#[should_panic(expected = "expected arity")]
+fn new_rejects_invalid_argument_arity() {
+    ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![0]],
+        }],
+        1,
+        vec![(0, vec![])],
+    );
+}
+
+#[test]
+#[should_panic(expected = "num_variables")]
+fn new_rejects_invalid_variable_index() {
+    ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![0]],
+        }],
+        1,
+        vec![(0, vec![QueryArg::Variable(1)])],
+    );
+}
+
+#[test]
+#[should_panic(expected = "domain_size")]
+fn new_rejects_invalid_constant_domain() {
+    ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![0]],
+        }],
+        1,
+        vec![(0, vec![QueryArg::Constant(2)])],
+    );
+}

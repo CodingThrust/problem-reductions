@@ -32,8 +32,9 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
-fn solver_text(solver: &SolverExecution) -> String {
+pub(crate) fn solver_text(solver: &SolverExecution) -> String {
     match solver {
+        SolverExecution::External => "external".to_string(),
         SolverExecution::Customized { implementation } => format!("customized ({implementation})"),
         SolverExecution::Ilp { reduction_path } => {
             format!("ilp ({})", reduction_path.join(" -> "))
@@ -52,7 +53,7 @@ fn solve_result_text(problem: &str, result: &SolveResult) -> String {
     text
 }
 
-fn append_outcome_text(text: &mut String, outcome: &SolveOutcome) {
+pub(crate) fn append_outcome_text(text: &mut String, outcome: &SolveOutcome) {
     match outcome {
         SolveOutcome::Optimal {
             solution,
@@ -61,6 +62,15 @@ fn append_outcome_text(text: &mut String, outcome: &SolveOutcome) {
             text.push_str("\nStatus: optimal");
             text.push_str(&format!("\nSolution: {:?}", solution));
             text.push_str(&format!("\nEvaluation: {evaluation}"));
+        }
+        SolveOutcome::Feasible {
+            solution,
+            evaluation,
+        } => {
+            text.push_str("\nStatus: feasible");
+            text.push_str(&format!(
+                "\nSolution: {solution:?}\nEvaluation: {evaluation}"
+            ));
         }
         SolveOutcome::Infeasible => text.push_str("\nStatus: infeasible"),
     }

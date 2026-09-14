@@ -308,3 +308,38 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/qubo.rs"]
 mod tests;
+
+crate::decision_problem_meta!(QUBO<i64>, "DecisionQUBO");
+crate::register_decision_variant!(
+    QUBO<i64>, "DecisionQUBO", "2^num_vars", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Algebraic,
+    dims: [VariantDimension::new("weight", "i64", &["i64"])],
+    fields: [
+        crate::registry::FieldInfo { name: "matrix", type_name: "Vec<Vec<W>>", description: "Q matrix; the number of variables is its row count." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_qubo_to_qubo",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                QUBO::from_matrix(vec![vec![-1, 2, 0], vec![0, -1, 2], vec![0, 0, -1]]).unwrap(),
+                -2,
+            );
+            let witness = serde_json::json!(vec![true, false, true]);
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

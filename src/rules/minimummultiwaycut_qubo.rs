@@ -16,6 +16,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MinimumMultiwayCut to QUBO.
@@ -39,10 +41,31 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
     /// Map an optimal target assignment to an optimal edge deletion set.
     /// The penalty guarantees one-hot, terminal-pinned assignments at every
     /// optimum. All source instances are feasible by deleting every edge.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            }
+        }
+    }
+}
+
+impl ReductionMinimumMultiwayCutToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let k = self.num_terminals;
         let assignments: Vec<usize> = (0..self.num_vertices)
             .map(|vertex| {

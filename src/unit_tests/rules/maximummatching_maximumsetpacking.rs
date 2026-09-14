@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
@@ -62,7 +63,14 @@ fn test_matching_to_setpacking_solution_extraction() {
 
     // Test solution extraction is 1:1
     let sp_solution = vec![true, false, true];
-    let matching_solution = reduction.extract_solution(&sp_solution).unwrap();
+    let matching_solution = reduction
+        .recover_result(
+            &matching,
+            SolveOutcome::optimal(reduction.target_problem(), sp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(matching_solution, vec![true, false, true]);
 
     // Verify the extracted solution is valid for original MaximumMatching

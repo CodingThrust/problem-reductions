@@ -2,6 +2,7 @@ use crate::models::algebraic::AlgebraicEquationsOverGF2;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_exactcoverby3sets_to_algebraicequationsovergf2_closed_loop() {
@@ -49,8 +50,14 @@ fn test_exactcoverby3sets_to_algebraicequationsovergf2_extract_solution_is_ident
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, true, false])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![true, true, false].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true, false]
     );
 }

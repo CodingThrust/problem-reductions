@@ -2,6 +2,7 @@ use crate::models::algebraic::MinimumMatrixDomination;
 use crate::models::graph::MinimumMaximalMatching;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{BipartiteGraph, Graph};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -61,7 +62,14 @@ fn test_minimummaximalmatching_to_minimummatrixdomination_closed_loop() {
         "matrix domination has at least one optimum"
     );
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (witness).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(
             source.evaluate(&extracted).unwrap(),
             Min(Some(2)),
@@ -114,7 +122,14 @@ fn test_extract_solution_returns_maximal_matching() {
         .solve(target)
         .unwrap()
         .expect("matrix domination has an optimum");
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // The result must be a valid maximal matching of the source graph and
     // realize mm(B) = 2.
@@ -190,7 +205,14 @@ fn test_extract_solution_yg_transform_on_non_matching_eds() {
     let target = reduction.target_problem();
     assert_eq!(target.evaluate(&target_witness).unwrap(), Min(Some(2)));
 
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // The extracted configuration must be a valid maximal matching of B of
     // size 2 (= mm(B)). Crucially it cannot be {(l0, r1), (l0, r2)} because

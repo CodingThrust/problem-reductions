@@ -4,6 +4,7 @@ use crate::models::formula::CNFClause;
 use crate::models::graph::MinimumVertexCover;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -82,7 +83,28 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_extract_solution() {
         crate::types::Or(true)
     );
     assert_eq!(
-        reduction.extract_solution(&cover).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), cover.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, false, true]
+    );
+}
+
+#[test]
+fn test_ksatisfiability_to_decisionminimumvertexcover_all_negated() {
+    // (~x1 v ~x2 v ~x3) — 7 satisfying assignments
+    let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
+    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &ksat,
+        &reduction,
+        "3SAT all negated -> MVC",
     );
 }

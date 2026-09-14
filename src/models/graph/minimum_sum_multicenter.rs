@@ -444,3 +444,65 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/minimum_sum_multicenter.rs"]
 mod tests;
+
+crate::decision_problem_meta!(MinimumSumMulticenter<SimpleGraph, i64>, "DecisionMinimumSumMulticenter");
+crate::register_decision_variant!(
+    MinimumSumMulticenter<SimpleGraph, i64>, "DecisionMinimumSumMulticenter", "2^num_vertices", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "weights", type_name: "Vec<i64>", description: "" },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "" },
+        crate::registry::FieldInfo { name: "k", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_minimum_sum_multicenter_to_minimum_sum_multicenter",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                MinimumSumMulticenter::new(
+                    SimpleGraph::new(
+                        7,
+                        vec![
+                            (0, 1),
+                            (1, 2),
+                            (2, 3),
+                            (3, 4),
+                            (4, 5),
+                            (5, 6),
+                            (0, 6),
+                            (2, 5),
+                        ],
+                    ),
+                    vec![1i64; 7],
+                    vec![1i64; 8],
+                    2,
+                ),
+                6,
+            );
+            let witness = serde_json::json!(vec![false, false, true, false, false, true, false]);
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MinimumSumMulticenter<SimpleGraph, i64>,
+            >(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

@@ -101,7 +101,7 @@ pub mod prelude {
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
-    pub use crate::solvers::BruteForce;
+    pub use crate::solvers::{BruteForce, ProblemOutcome, SolveOutcome};
     pub use crate::traits::Problem;
 
     // Types

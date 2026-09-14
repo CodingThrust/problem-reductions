@@ -210,3 +210,24 @@ fn test_minimum_code_generation_unlimited_registers_paper_example() {
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.simulate(&witness).unwrap(), Some(4));
 }
+
+#[test]
+fn deserialize_rejects_invalid_operand_arcs() {
+    use serde_json::json;
+    let valid = json!({"num_vertices": 4, "left_arcs": [[0, 1]], "right_arcs": [[0, 2]]});
+    for (field, value, message) in [
+        ("left_arcs", json!([[0, 4]]), "Left arc"),
+        ("right_arcs", json!([[4, 0]]), "Right arc"),
+        ("left_arcs", json!([[0, 0]]), "Self-loop"),
+        ("right_arcs", json!([[0, 0]]), "Self-loop"),
+        ("left_arcs", json!([[0, 1], [0, 3]]), "out-degree"),
+        ("left_arcs", json!([]), "Unary vertex"),
+        ("right_arcs", json!([[1, 2], [1, 3]]), "Binary vertex"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error =
+            serde_json::from_value::<MinimumCodeGenerationUnlimitedRegisters>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}

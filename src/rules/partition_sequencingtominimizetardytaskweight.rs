@@ -1,34 +1,59 @@
 //! Reduction from Partition to Sequencing to Minimize Tardy Task Weight.
 
+use crate::models::decision::Decision;
 use crate::models::misc::{Partition, SequencingToMinimizeTardyTaskWeight};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 /// Result of reducing Partition to SequencingToMinimizeTardyTaskWeight.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
-    target: SequencingToMinimizeTardyTaskWeight,
+    target: Decision<SequencingToMinimizeTardyTaskWeight>,
 }
 
 impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
     type Source = Partition;
-    type Target = SequencingToMinimizeTardyTaskWeight;
+    type Target = Decision<SequencingToMinimizeTardyTaskWeight>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
-            let mut source_config = vec![true; self.target.num_tasks()];
+            let mut source_config = vec![true; self.target.inner().num_tasks()];
             let mut completion_time = 0i64;
 
             for &task in target_solution {
-                completion_time += self.target.lengths()[task];
-                if completion_time <= self.target.deadlines()[task] {
+                completion_time += self.target.inner().lengths()[task];
+                if completion_time <= self.target.inner().deadlines()[task] {
                     source_config[task] = false;
                 }
             }
@@ -38,28 +63,11 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
     }
 }
 
-impl crate::rules::AggregateReductionResult
-    for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
-{
-    type Source = Partition;
-    type Target = SequencingToMinimizeTardyTaskWeight;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        // The source is nonempty, so the common deadline always exists.
-        crate::types::Or(value.0 == Some(self.target.deadlines()[0]))
-    }
-}
-
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_tasks = "num_elements",
     })]
-impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
+impl ReduceTo<Decision<SequencingToMinimizeTardyTaskWeight>> for Partition {
     type Result = ReductionPartitionToSequencingToMinimizeTardyTaskWeight;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -69,7 +77,10 @@ impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
         let deadlines = vec![common_deadline; self.num_elements()];
 
         Ok(ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
-            target: SequencingToMinimizeTardyTaskWeight::new(lengths, weights, deadlines),
+            target: Decision::new(
+                SequencingToMinimizeTardyTaskWeight::new(lengths, weights, deadlines),
+                common_deadline,
+            ),
         })
     }
 }
@@ -83,7 +94,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                SequencingToMinimizeTardyTaskWeight,
+                Decision<SequencingToMinimizeTardyTaskWeight>,
             >(
                 Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {

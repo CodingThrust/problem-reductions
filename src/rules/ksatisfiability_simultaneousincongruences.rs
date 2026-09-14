@@ -4,6 +4,8 @@
 //! 1 (true) and 2 (false), then forbids each clause's unique falsifying
 //! residue class via the Chinese Remainder Theorem.
 
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use std::collections::BTreeMap;
 
 use crate::models::algebraic::SimultaneousIncongruences;
@@ -26,10 +28,32 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl Reduction3SATToSimultaneousIncongruences {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let x = *target_solution as u64;
             self.variable_primes

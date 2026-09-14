@@ -152,3 +152,30 @@ fn test_minimum_edge_cost_flow_all_witnesses_optimal() {
         assert_eq!(problem.evaluate(sol).unwrap(), Min(Some(3)));
     }
 }
+
+#[test]
+fn deserialize_rejects_invalid_flow_network_data() {
+    use serde_json::json;
+    let valid = serde_json::to_value(MinimumEdgeCostFlow::new(
+        DirectedGraph::new(2, vec![(0, 1)]),
+        vec![1],
+        vec![2],
+        0,
+        1,
+        1,
+    ))
+    .unwrap();
+    for (field, value, message) in [
+        ("prices", json!([]), "prices length"),
+        ("capacities", json!([]), "capacities length"),
+        ("source", json!(2), "source"),
+        ("sink", json!(2), "sink"),
+        ("sink", json!(0), "distinct"),
+        ("capacities", json!([-1]), "negative"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<MinimumEdgeCostFlow>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}

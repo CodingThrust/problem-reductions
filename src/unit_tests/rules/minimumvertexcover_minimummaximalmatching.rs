@@ -78,7 +78,7 @@ fn test_minimumvertexcover_to_minimummaximalmatching_has_no_runtime_modes() {
     assert!(!graph.has_direct_reduction_by_name_mode(
         "MinimumVertexCover",
         "MinimumMaximalMatching",
-        ReductionMode::Aggregate,
+        ReductionMode::Witness,
     ));
     assert!(!graph.has_direct_reduction_by_name_mode(
         "MinimumVertexCover",

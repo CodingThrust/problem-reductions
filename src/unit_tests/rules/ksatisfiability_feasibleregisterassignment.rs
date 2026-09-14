@@ -1,7 +1,10 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
+use crate::rules::ReductionResult;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Or;
 use std::collections::BTreeSet;
@@ -130,7 +133,14 @@ fn test_ksatisfiability_to_feasible_register_assignment_extract_solution() {
     let realization = forward_witness(&source, &[true, false]);
     assert!(reduction.target_problem().evaluate(&realization).unwrap().0);
 
-    let extracted = reduction.extract_solution(&realization).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), realization.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![true, false]);
 }
@@ -146,13 +156,27 @@ fn test_ksatisfiability_to_feasible_register_assignment_closed_loop_via_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(fra_to_ilp.target_problem())
         .expect("satisfiable FRA gadget should reduce to a feasible ILP");
-    let fra_solution = fra_to_ilp.extract_solution(&ilp_solution).unwrap();
+    let fra_solution = fra_to_ilp
+        .recover_result(
+            reduction.target_problem(),
+            SolveOutcome::optimal(fra_to_ilp.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         reduction.target_problem().evaluate(&fra_solution).unwrap(),
         Or(true)
     );
 
-    let extracted = reduction.extract_solution(&fra_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), fra_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -194,15 +218,23 @@ fn native_empty_clause_is_infeasible_and_empty_conjunction_is_feasible() {
             vec![2, 1, 0],
         ] {
             assert!(!reduction.target_problem().evaluate(&config).unwrap().0);
-            assert!(
-                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
-            );
+            assert!(!ReductionResult::target_problem(&reduction)
+                .evaluate(&config)
+                .unwrap()
+                .is_valid());
         }
         let source = KSatisfiability::<K3>::new(num_vars, vec![]);
         let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
         assert_eq!(reduction.target_problem().num_vertices(), 0);
         assert_eq!(
-            reduction.extract_solution(&vec![]).unwrap(),
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
             vec![false; num_vars]
         );
     }
@@ -239,7 +271,14 @@ fn short_repeated_and_mixed_clauses_have_complete_forward_witnesses() {
             if source.evaluate(&values).unwrap().0 {
                 let config = forward_witness(&source, &values);
                 assert!(reduction.target_problem().evaluate(&config).unwrap().0);
-                let extracted = reduction.extract_solution(&config).unwrap();
+                let extracted = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.evaluate(&extracted).unwrap().0);
                 for original in 0..6 {
                     assert_eq!(
@@ -284,10 +323,17 @@ fn invalid_realizations_are_rejected() {
     let source = issue_example();
     let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
     let n = reduction.target_problem().num_vertices();
-    for config in [vec![], vec![n; n], vec![0; n], (0..n).collect()] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
-        );
+    for config in [vec![], vec![n; n]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&config),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for config in [vec![0; n], (0..n).collect()] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&config)
+            .unwrap()
+            .is_valid());
     }
 }
 

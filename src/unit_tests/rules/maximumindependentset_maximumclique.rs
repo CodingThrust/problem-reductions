@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::One;
 
@@ -46,7 +47,14 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(target).unwrap();
     for sol in &best {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = source.evaluate(&extracted).unwrap();
         assert!(metric.is_valid());
     }

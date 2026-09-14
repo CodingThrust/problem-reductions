@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_minimumvertexcover_to_minimumhittingset_closed_loop() {
@@ -129,6 +130,13 @@ fn test_vc_to_hs_solution_extraction() {
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
 
     let target_solution = vec![false, true, false];
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &vc_problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, true, false]);
 }

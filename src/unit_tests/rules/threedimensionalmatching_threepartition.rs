@@ -2,7 +2,10 @@ use super::*;
 use crate::models::misc::ThreePartition;
 use crate::models::set::ThreeDimensionalMatching;
 use crate::rules::ReduceTo;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 fn reduce(
@@ -64,7 +67,14 @@ fn test_threedimensionalmatching_to_threepartition_extracts_manual_q1_witness() 
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_config).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -81,7 +91,14 @@ fn test_threedimensionalmatching_to_threepartition_closed_loop_from_known_matchi
             .unwrap()
             .0
     );
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -99,7 +116,14 @@ fn test_threedimensionalmatching_to_threepartition_round_trip_q2_minimal_matchin
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -134,12 +158,29 @@ fn test_threedimensionalmatching_to_threepartition_extracts_noncanonical_partiti
         4, 0, 0, 4, 2, 1, 3, 3, 6, 0, 6, 4, 5, 5, 2, 1, 3, 1, 6, 2, 5,
     ];
     assert!(reduction.target_problem().evaluate(&witness).unwrap().0);
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
     // Group labels have no mathematical significance.
-    let relabeled = witness.iter().map(|group| 6 - group).collect();
-    assert_eq!(reduction.extract_solution(&relabeled).unwrap(), extracted);
+    let relabeled: Vec<_> = witness.iter().map(|group| 6 - group).collect();
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), relabeled.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        extracted
+    );
 }
 
 #[test]
@@ -157,7 +198,15 @@ fn test_threedimensionalmatching_to_threepartition_equal_size_permutations() {
                 {
                     witness.swap(left, right);
                     assert!(target.evaluate(&witness).unwrap().0);
-                    let extracted = reduction.extract_solution(&witness).unwrap();
+                    let extracted = reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                .unwrap(),
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution");
                     assert!(source.evaluate(&extracted).unwrap().0);
                     exchanges += 1;
                 }
@@ -171,20 +220,24 @@ fn test_threedimensionalmatching_to_threepartition_equal_size_permutations() {
 fn test_threedimensionalmatching_to_threepartition_rejects_invalid_partitions() {
     let (_, reduction) = reduce(1, &[(0, 0, 0)]);
     let valid = reduction.build_target_witness(&[1]);
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
-    );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
     let mut invalid = valid.clone();
     invalid[0] = reduction.target_problem().num_groups();
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &invalid), Ok(value) if { value.is_valid() })
-    );
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; valid.len()]), Ok(value) if { value.is_valid() })
-    );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&invalid),
+        Err(InvalidConfiguration(_))
+    ));
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![0; valid.len()])
+        .unwrap()
+        .is_valid());
     let mut wrong_sum = valid;
     wrong_sum.swap(0, 2);
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &wrong_sum), Ok(value) if { value.is_valid() })
-    );
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&wrong_sum)
+        .unwrap()
+        .is_valid());
 }

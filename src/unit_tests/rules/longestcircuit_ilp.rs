@@ -1,5 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -56,7 +57,14 @@ fn test_longestcircuit_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(
         problem.evaluate(&extracted).unwrap().0.is_some(),
         "ILP solution should be a valid circuit"
@@ -92,7 +100,14 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(problem.evaluate(&extracted).unwrap().0.is_some());
 }
 
@@ -118,7 +133,14 @@ fn test_longestcircuit_to_ilp_cycle_excludes_any_vertex() {
         );
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
         let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-        let extracted = reduction.extract_solution(&target_solution).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted, vec![false, true, true, true]);
     }
 }
@@ -136,7 +158,14 @@ fn test_longestcircuit_to_ilp_selects_one_best_cycle() {
         let problem = LongestCircuit::new(SimpleGraph::new(6, edges), lengths);
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
         let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-        let extracted = reduction.extract_solution(&target_solution).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(
             problem.evaluate(&extracted).unwrap(),
             crate::types::Max(Some(15))

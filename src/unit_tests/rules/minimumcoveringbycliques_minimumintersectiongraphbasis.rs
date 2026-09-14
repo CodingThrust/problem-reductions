@@ -1,5 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -42,7 +43,14 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_issue_example_
 
     assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(2)));
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![0, 0, 0, 1]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(2)));
@@ -72,7 +80,14 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_empty_graph() 
     let target_solution = vec![vec![], vec![], vec![]];
     assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(0)));
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<usize>::new()
     );
     assert_eq!(source.evaluate(&vec![]).unwrap(), Min(Some(0)));

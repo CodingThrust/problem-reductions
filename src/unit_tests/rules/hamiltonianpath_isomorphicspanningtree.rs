@@ -3,6 +3,7 @@ use crate::models::graph::{HamiltonianPath, IsomorphicSpanningTree};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -87,7 +88,14 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_complete_graph() {
         .solve(result.target_problem())
         .unwrap()
         .expect("K4 should have an IST solution");
-    let extracted = result.extract_solution(&target_solution).unwrap();
+    let extracted = result
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(result.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     // Extracted solution should be a valid Hamiltonian path
     assert!(
         source.evaluate(&extracted).unwrap().0,

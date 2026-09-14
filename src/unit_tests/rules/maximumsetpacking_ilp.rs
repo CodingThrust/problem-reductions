@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Max;
@@ -52,7 +53,14 @@ fn test_maximumsetpacking_to_ilp_closed_loop() {
 
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let bf_size: usize = bf_solutions[0].iter().filter(|&&selected| selected).count();
     let ilp_size: usize = extracted.iter().filter(|&&selected| selected).count();
@@ -83,7 +91,14 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_obj, Max(Some(6)));
@@ -98,7 +113,14 @@ fn test_solution_extraction() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = vec![1, 0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, true, false]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
@@ -114,7 +136,14 @@ fn test_disjoint_sets() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![true, true, true, true]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
@@ -162,14 +191,58 @@ fn extraction_maps_feasible_witnesses_through_typed_and_dynamic_paths() {
         .find(|path| path.len() == 1)
         .unwrap();
     let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
-    assert_eq!(reduction.extract_solution(&vec![1]).unwrap(), vec![true]);
-    let extracted = reduction.extract_solution_dyn(&vec![1i64]).unwrap();
-    assert_eq!(*extracted.downcast::<Vec<bool>>().unwrap(), vec![true]);
-    // An unselected set is feasible even though it is not optimal.
-    assert_eq!(reduction.extract_solution(&vec![0]).unwrap(), vec![false]);
     assert_eq!(
-        chain.extract_solution_json(json!([0])).unwrap(),
-        json!([false])
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![1].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![true]
+    );
+    let extracted = reduction
+        .recover_result_dyn(
+            &source,
+            crate::solvers::erase_outcome(
+                SolveOutcome::optimal(reduction.target_problem(), vec![1i64]).unwrap(),
+            ),
+        )
+        .unwrap();
+    assert_eq!(
+        crate::solvers::downcast_outcome::<Vec<bool>, crate::types::Max<i64>>(extracted)
+            .unwrap()
+            .into_solution()
+            .unwrap(),
+        vec![true]
+    );
+    // An unselected set is feasible even though it is not optimal.
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::feasible(reduction.target_problem(), vec![0].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![false]
+    );
+    assert_eq!(
+        chain
+            .recover_result_json(
+                &source,
+                SolveOutcome::Feasible {
+                    solution: json!([0]),
+                    evaluation: String::new(),
+                }
+            )
+            .unwrap(),
+        SolveOutcome::Feasible {
+            solution: json!([false]),
+            evaluation: "Max(0)".into()
+        }
     );
 }
 

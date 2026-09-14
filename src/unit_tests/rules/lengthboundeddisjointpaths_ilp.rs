@@ -2,8 +2,11 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -51,7 +54,15 @@ fn test_lengthboundeddisjointpaths_to_ilp_triangle_subgraphs() {
             assert_eq!(source.evaluate(&reference).unwrap(), Max(Some(expected)));
             let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
             let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-            let extracted = reduction.extract_solution(&target_solution).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_solution.clone())
+                        .unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(expected)));
         }
     }
@@ -75,7 +86,14 @@ fn test_lengthboundeddisjointpaths_to_ilp_preserves_edge_order() {
         .target_problem()
         .is_feasible(&target_solution)
         .unwrap());
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         extracted,
         vec![
@@ -102,7 +120,14 @@ fn test_lengthboundeddisjointpaths_to_ilp_extracts_path_from_circulation() {
             .target_problem()
             .is_feasible(&target_solution)
             .unwrap());
-        let extracted = reduction.extract_solution(&target_solution).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted, vec![vec![true, false, false, false]]);
         assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));
     }
@@ -112,9 +137,14 @@ fn test_lengthboundeddisjointpaths_to_ilp_extracts_path_from_circulation() {
 fn test_lengthboundeddisjointpaths_to_ilp_rejects_invalid_target_solutions() {
     let source = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]), 0, 1, 1);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
-    for solution in [vec![], vec![2, 0, 1], vec![0, 0, 1], vec![1, 0, 0]] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &solution), Ok(value) if value.is_valid())
-        );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
+    for solution in [vec![2, 0, 1], vec![0, 0, 1], vec![1, 0, 0]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&solution)
+            .unwrap()
+            .is_valid());
     }
 }

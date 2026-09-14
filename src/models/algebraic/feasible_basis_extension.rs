@@ -80,38 +80,7 @@ struct FeasibleBasisExtensionCreateSpec {
 impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: FeasibleBasisExtensionCreateSpec) -> Result<Self, Self::Error> {
-        let m = spec.matrix.len();
-        let first = spec
-            .matrix
-            .first()
-            .ok_or("matrix must have at least one row")?;
-        let n = first.len();
-        if spec.matrix.iter().any(|row| row.len() != n) {
-            return Err("all matrix rows must have the same length".into());
-        }
-        if m >= n {
-            return Err("number of rows must be less than number of columns".into());
-        }
-        if spec.rhs.len() != m {
-            return Err("rhs length must equal number of rows".into());
-        }
-        if spec.required_columns.len() >= m {
-            return Err("required_columns length must be less than number of rows".into());
-        }
-        let mut seen = std::collections::HashSet::new();
-        for &column in &spec.required_columns {
-            if column >= n {
-                return Err(format!("required column {column} is out of bounds").into());
-            }
-            if !seen.insert(column) {
-                return Err(format!("duplicate required column {column}").into());
-            }
-        }
-        Ok(Self {
-            matrix: spec.matrix,
-            rhs: spec.rhs,
-            required_columns: spec.required_columns,
-        })
+        Self::try_new(spec.matrix, spec.rhs, spec.required_columns)
     }
 }
 

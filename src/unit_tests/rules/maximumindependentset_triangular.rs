@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::graph::MaximumIndependentSet;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
 use crate::types::One;
 
@@ -57,7 +58,14 @@ fn test_mis_simple_one_to_triangular_closed_loop() {
 
     // Map a trivial zero solution back to verify dimensions
     let zero_config = vec![false; target.graph().num_vertices()];
-    let original_solution = result.extract_solution(&zero_config).unwrap();
+    let original_solution = result
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(result.target_problem(), zero_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(original_solution.len(), 3);
 }
 
@@ -78,7 +86,14 @@ fn test_mis_simple_one_to_triangular_preserves_optimum_and_witness() {
         target.weights(),
     );
     let target_solution = crate::config::config_to_bits(&target_solution);
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(is_independent_set(
         &edges,
@@ -114,7 +129,14 @@ fn test_mis_simple_one_to_triangular_all_four_vertex_graphs() {
             target.weights(),
         );
         let target_solution = crate::config::config_to_bits(&target_solution);
-        let source_solution = reduction.extract_solution(&target_solution).unwrap();
+        let source_solution = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         assert!(
             is_independent_set(&edges, &crate::config::bits_to_config(&source_solution),),

@@ -179,3 +179,20 @@ fn test_minimum_axiom_set_paper_example() {
     assert!(metric.is_valid());
     assert_eq!(metric.unwrap(), 2);
 }
+
+#[test]
+fn deserialize_rejects_invalid_sentence_references() {
+    use serde_json::json;
+    let valid = json!({"num_sentences": 2, "true_sentences": [0, 1], "implications": [[[0], 1]]});
+    for (field, value, message) in [
+        ("true_sentences", json!([2]), "True sentence index"),
+        ("true_sentences", json!([0, 0]), "Duplicate true sentence"),
+        ("implications", json!([[[2], 1]]), "antecedent"),
+        ("implications", json!([[[0], 2]]), "consequent"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<MinimumAxiomSet>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}

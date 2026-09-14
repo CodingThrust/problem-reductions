@@ -3,7 +3,7 @@ use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::ReductionGraph;
 use problemreductions::solvers::{
     brute_force_dimensions, solve, solver_capabilities, ExactProblemKey, SolveOutcome, SolveResult,
-    SolverRequest,
+    SolverExecution, SolverRequest,
 };
 use serde_json::Value;
 use std::any::Any;
@@ -292,29 +292,15 @@ impl BundleReplay {
         })
     }
 
-    /// Map a target witness under the reduction contract and evaluate for display.
-    pub fn extract(
+    /// Recover an externally supplied or internally solved target result.
+    pub(crate) fn recover_result(
         &self,
-        target_config: &serde_json::Value,
-    ) -> Result<(serde_json::Value, String, String)> {
-        let (target_eval, _) = self.target.evaluate_dyn(target_config)?;
-        let source_config = self.chain.extract_solution_json(target_config.clone())?;
-        let (source_eval, _) = self.source.evaluate_dyn(&source_config)?;
-        Ok((source_config, source_eval, target_eval))
-    }
-
-    /// Solve the target and map the result back to the source problem.
-    ///
-    pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
-        let target_result = self.target.solve(request)?;
-        let solver = target_result.solver;
-        let target_outcome = target_result.outcome;
-        let source_outcome = problemreductions::solvers::complete_reduction(
-            &*self.source,
-            &self.chain,
-            &target_outcome,
-        )?;
-
+        target_outcome: SolveOutcome,
+        solver: SolverExecution,
+    ) -> Result<BundleSolveResult> {
+        let source_outcome = self
+            .chain
+            .recover_result_json(self.source.as_any(), target_outcome.clone())?;
         Ok(BundleSolveResult {
             source_name: self.source_name.clone(),
             target_name: self.target_name.clone(),
@@ -322,6 +308,11 @@ impl BundleReplay {
             source_outcome,
             target_outcome,
         })
+    }
+
+    pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
+        let result = self.target.solve(request)?;
+        self.recover_result(result.outcome, result.solver)
     }
 }
 
@@ -450,7 +441,21 @@ mod tests {
                         panic!("the QUBO has an optimum");
                     };
                     assert_eq!(target, json!([true, false, false]));
-                    assert_eq!(replay.extract(&target).unwrap().0, solution);
+                    assert_eq!(
+                        replay
+                            .recover_result(
+                                SolveOutcome::Optimal {
+                                    solution: target,
+                                    evaluation: String::new()
+                                },
+                                SolverExecution::External
+                            )
+                            .unwrap()
+                            .source_outcome
+                            .into_solution()
+                            .unwrap(),
+                        solution
+                    );
                 } else {
                     assert_eq!(result.source_outcome, SolveOutcome::Infeasible);
                     assert!(matches!(
@@ -463,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn bundle_maps_satisfiability_outcomes_through_the_value_relation() {
+    fn bundle_preserves_decision_target_bound_and_infeasibility() {
         for (clauses, feasible) in [
             (vec![vec![1, 1, 1], vec![-1, -1, -1]], false),
             (vec![vec![1, 1, 1], vec![1, 1, 1]], true),
@@ -485,20 +490,22 @@ mod tests {
             let route = crate::commands::reduce::parse_path_json(
                 r#"{"path":[{
                     "from":{"name":"KSatisfiability","variant":{"k":"K3"}},
-                    "to":{"name":"MinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                    "to":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
                 }]}"#,
             ).unwrap();
             let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
             let replay = BundleReplay::prepare(&bundle).unwrap();
-            let result = replay.solve(SolverRequest::BruteForce);
+            assert_eq!(replay.target.serialize_json()["bound"], json!(5));
+            let result = replay.solve(SolverRequest::BruteForce).unwrap();
+            assert_eq!(
+                matches!(result.target_outcome, SolveOutcome::Infeasible),
+                !feasible
+            );
             if feasible {
-                assert!(matches!(result.unwrap().source_outcome,
+                assert!(matches!(result.source_outcome,
                     SolveOutcome::Optimal { evaluation, .. } if evaluation == "Or(true)"));
             } else {
-                assert!(matches!(
-                    result.unwrap().source_outcome,
-                    SolveOutcome::Infeasible
-                ));
+                assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
             }
         }
     }
@@ -527,7 +534,18 @@ mod tests {
             let replay = BundleReplay::prepare(&bundle).unwrap();
             if bound == 1 {
                 assert_eq!(
-                    replay.extract(&json!([true, false])).unwrap().0,
+                    replay
+                        .recover_result(
+                            SolveOutcome::Optimal {
+                                solution: json!([true, false]),
+                                evaluation: String::new()
+                            },
+                            SolverExecution::External
+                        )
+                        .unwrap()
+                        .source_outcome
+                        .into_solution()
+                        .unwrap(),
                     json!([true, false])
                 );
             }

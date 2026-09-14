@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -17,7 +18,14 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
 
     // All QUBO solutions should extract to valid TSP solutions
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &tsp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = tsp.evaluate(&extracted).unwrap();
         assert!(metric.is_valid(), "Extracted solution should be valid");
         // K3 has only one Hamiltonian cycle (all 3 edges), cost = 1+2+3 = 6
@@ -45,7 +53,14 @@ fn test_travelingsalesman_to_qubo_k4() {
 
     // Every Hamiltonian cycle in K4 uses exactly 4 edges, so cost = 4
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &tsp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = tsp.evaluate(&extracted).unwrap();
         assert!(metric.is_valid(), "Extracted solution should be valid");
         assert_eq!(metric, Min(Some(4)));
@@ -132,38 +147,46 @@ fn signed_and_small_tours_recover_all_optima_or_infeasibility() {
             .unwrap();
         assert!(!solutions.is_empty());
         for solution in solutions {
-            let completed = crate::solvers::complete_reduction(
-                &source,
-                &chain,
-                &crate::solvers::SolveOutcome::Optimal {
-                    solution: serde_json::to_value(&solution).unwrap(),
-                    evaluation: String::new(),
-                },
-            )
-            .unwrap();
+            let completed = chain
+                .recover_result_json(
+                    &source,
+                    SolveOutcome::Optimal {
+                        solution: serde_json::to_value(&solution).unwrap(),
+                        evaluation: String::new(),
+                    },
+                )
+                .unwrap();
             assert_eq!(
-                matches!(completed, crate::solvers::SolveOutcome::Optimal { .. }),
+                matches!(completed, SolveOutcome::Optimal { .. }),
                 expected.is_some()
             );
             assert_eq!(
-                crate::rules::AggregateReductionResult::extract_value(
-                    &reduction,
-                    reduction.target_problem().evaluate(&solution).unwrap()
-                ),
+                reduction.map_value(reduction.target_problem().evaluate(&solution).unwrap()),
                 Min(expected)
             );
             if expected.is_some() {
                 assert_eq!(
                     source
-                        .evaluate(&reduction.extract_solution(&solution).unwrap())
+                        .evaluate(
+                            &reduction
+                                .recover_result(
+                                    &source,
+                                    SolveOutcome::optimal(
+                                        reduction.target_problem(),
+                                        solution.clone()
+                                    )
+                                    .unwrap()
+                                )
+                                .map(|result| result.into_solution().expect(
+                                    "qualifying target result must recover a source solution"
+                                ))
+                                .unwrap()
+                        )
                         .unwrap(),
                     Min(expected)
                 );
             }
         }
-        assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None)),
-            Min(None)
-        );
+        assert_eq!(reduction.map_value(Min(None)), Min(None));
     }
 }

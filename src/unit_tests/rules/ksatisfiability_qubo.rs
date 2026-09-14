@@ -1,8 +1,13 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::models::formula::CNFClause;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
+use crate::types::OptimizationValue;
 use crate::variant::{K2, K3};
 
 #[test]
@@ -18,7 +23,8 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
             CNFClause::new(vec![-2, -3]), // ¬x2 ∨ ¬x3
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -26,7 +32,14 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
 
     // Verify all solutions satisfy all clauses
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ksat.evaluate(&extracted).unwrap());
     }
 }
@@ -35,14 +48,22 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
 fn test_ksatisfiability_to_qubo_simple() {
     // 2 vars, 1 clause: (x1 ∨ x2) → 3 satisfying assignments
     let ksat = KSatisfiability::<K2>::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ksat.evaluate(&extracted).unwrap());
     }
 }
@@ -59,14 +80,15 @@ fn test_ksatisfiability_to_qubo_contradiction() {
             CNFClause::new(vec![-1, -1]), // ¬x1 ∨ ¬x1 = ¬x1
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
-    // Both x=0 and x=1 satisfy exactly 1 clause
-    assert_eq!(qubo_solutions.len(), 2);
+    // Neither assignment meets the satisfaction threshold.
+    assert!(qubo_solutions.is_empty());
 }
 
 #[test]
@@ -80,14 +102,22 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
             CNFClause::new(vec![1, 2]),
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ksat.evaluate(&extracted).unwrap());
     }
 }
@@ -98,7 +128,8 @@ fn test_ksatisfiability_to_qubo_structure() {
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // QUBO should have at least the original variables
@@ -120,7 +151,8 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
             CNFClause::new(vec![3, -4, -5]), // x3 ∨ ¬x4 ∨ ¬x5
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // QUBO should have 5 + 7 = 12 variables
@@ -131,7 +163,14 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 
     // Verify all extracted solutions maximize satisfied clauses
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted.len(), 5);
         let satisfied = ksat.count_satisfied(&extracted).unwrap();
         assert_eq!(satisfied, 7, "Expected all 7 clauses satisfied");
@@ -142,7 +181,8 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 fn test_k3satisfiability_to_qubo_single_clause() {
     // Single 3-SAT clause: (x1 ∨ x2 ∨ x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 3 vars + 1 auxiliary = 4 total
@@ -153,7 +193,14 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 
     // All solutions should satisfy the single clause
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted.len(), 3);
         assert!(ksat.evaluate(&extracted).unwrap());
     }
@@ -165,14 +212,22 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 fn test_k3satisfiability_to_qubo_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&ksat).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ksat.evaluate(&extracted).unwrap());
     }
     // 7 out of 8 assignments satisfy (¬x1 ∨ ¬x2 ∨ ¬x3)
@@ -181,8 +236,6 @@ fn test_k3satisfiability_to_qubo_all_negated() {
 
 #[test]
 fn test_sat_qubo_all_short_clauses_and_raw_targets() {
-    use crate::rules::AggregateReductionResult;
-    use crate::types::{Min, Or};
     macro_rules! verify {
         ($k:ty, $width:expr) => {{
             let mut clauses = vec![vec![]];
@@ -201,14 +254,14 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                         1,
                         vec![CNFClause::new(a.clone()), CNFClause::new(b.clone())],
                     );
-                    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+                    let reduction = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
                     let target = ReductionResult::target_problem(&reduction);
                     let mut minimum = i64::MAX;
-                    for mask in 0..(1 << target.num_vars()) {
-                        let witness: Vec<_> = (0..target.num_vars())
+                    for mask in 0..(1 << target.inner().num_vars()) {
+                        let witness: Vec<_> = (0..target.inner().num_vars())
                             .map(|p| mask & (1 << p) != 0)
                             .collect();
-                        let energy = target.evaluate(&witness).unwrap().0.unwrap();
+                        let energy = target.inner().evaluate(&witness).unwrap().0.unwrap();
                         let mut penalty = 0;
                         for (j, clause) in [a, b].iter().enumerate() {
                             let y: Vec<i64> = clause
@@ -226,16 +279,36 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                                 _ => unreachable!(),
                             };
                         }
-                        assert_eq!(energy - reduction.zero_penalty_energy, penalty);
                         assert_eq!(
-                            AggregateReductionResult::extract_value(&reduction, Min(Some(energy))),
-                            Or(penalty == 0)
+                            energy - *ReductionResult::target_problem(&reduction).bound(),
+                            penalty
+                        );
+                        assert_eq!(
+                            crate::types::Or(OptimizationValue::meets_bound(
+                                &(crate::types::Min(Some(energy))),
+                                crate::rules::ReductionResult::target_problem(&reduction).bound()
+                            )),
+                            crate::types::Or(penalty == 0)
                         );
                         if penalty == 0 {
-                            let decoded = reduction.extract_solution(&witness).unwrap();
+                            let decoded = reduction
+                                .recover_result(
+                                    &source,
+                                    SolveOutcome::optimal(
+                                        reduction.target_problem(),
+                                        witness.clone(),
+                                    )
+                                    .unwrap(),
+                                )
+                                .map(|result| {
+                                    result.into_solution().expect(
+                                        "qualifying target result must recover a source solution",
+                                    )
+                                })
+                                .unwrap();
                             assert!(source.evaluate(&decoded).unwrap().0);
                         } else {
-                            assert!(!matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() }));
+                            assert!(!target.evaluate(&witness).unwrap().is_valid());
                         }
                         minimum = minimum.min(energy);
                     }
@@ -243,22 +316,47 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                         .into_iter()
                         .any(|x| source.evaluate(&vec![x]).unwrap().0);
                     assert_eq!(
-                        AggregateReductionResult::extract_value(&reduction, Min(Some(minimum))),
-                        Or(sat)
+                        crate::types::Or(OptimizationValue::meets_bound(
+                            &(crate::types::Min(Some(minimum))),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        )),
+                        crate::types::Or(sat)
                     );
                     assert_eq!(
-                        AggregateReductionResult::extract_value(&reduction, Min(None)),
-                        Or(false)
+                        crate::types::Or(OptimizationValue::meets_bound(
+                            &(crate::types::Min(None)),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        )),
+                        crate::types::Or(false)
                     );
-                    assert!(!matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() }));
-                    assert!(!matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vars() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() }));
+                    assert!(matches!(
+                        target.inner().evaluate(&vec![]),
+                        Err(InvalidConfiguration(_))
+                    ));
+                    assert!(matches!(
+                        target
+                            .inner()
+                            .evaluate(&vec![false; target.inner().num_vars() + 1]),
+                        Err(InvalidConfiguration(_))
+                    ));
                 }
             }
             for n in [0, 3] {
                 let source = KSatisfiability::<$k>::new(n, vec![]);
-                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+                let reduction = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
                 assert_eq!(
-                    reduction.extract_solution(&vec![false; n]).unwrap(),
+                    reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(
+                                reduction.target_problem(),
+                                (&vec![false; n]).clone()
+                            )
+                            .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution"),
                     vec![false; n]
                 );
             }
@@ -286,24 +384,30 @@ fn test_sat_qubo_registered_aggregate_threshold() {
                     1,
                     clauses.into_iter().map(CNFClause::new).collect(),
                 );
-                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
-                let mut witness = vec![false; reduction.target.num_vars()];
+                let reduction = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
+                let mut witness = vec![false; reduction.target.inner().num_vars()];
                 witness[0] = expected;
                 let entries = crate::rules::registry::reduction_entries();
                 let edge = entries
                     .iter()
                     .find(|e| {
                         e.source_name == "KSatisfiability"
-                            && e.target_name == "QUBO"
+                            && e.target_name == "DecisionQUBO"
                             && (e.source_variant_fn)() == KSatisfiability::<$k>::variant()
                             && (e.target_variant_fn)() == QUBO::<i64>::variant()
                     })
                     .unwrap();
                 let step = (edge.reduce_fn.unwrap())(&source).unwrap();
-                assert_eq!(
-                    step.interpret_optimum.as_ref().unwrap()(&witness).unwrap(),
-                    expected
-                );
+                let outcome = if expected {
+                    SolveOutcome::optimal(reduction.target_problem(), witness).unwrap()
+                } else {
+                    SolveOutcome::Infeasible
+                };
+                let recovered = step
+                    .witness
+                    .recover_result_dyn(&source, crate::solvers::erase_outcome(outcome))
+                    .unwrap();
+                assert_eq!(!matches!(recovered, SolveOutcome::Infeasible), expected);
             }
         };
     }

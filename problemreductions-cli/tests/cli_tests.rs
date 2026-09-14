@@ -116,7 +116,7 @@ fn test_list_json_respects_category_filter() {
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let variants = json["variants"].as_array().unwrap();
-    assert_eq!(json["num_types"], 9);
+    assert_eq!(json["num_types"], 10);
     assert!(variants
         .iter()
         .all(|variant| variant["name"] != "MaximumIndependentSet"));
@@ -9598,13 +9598,23 @@ fn test_extract_roundtrip_mis_to_qubo() {
     // independent of the reduction path selected by the graph search.
     let (target_cfg, expected_source_eval) = extract_test_solve_bundle(&bundle_file);
 
+    let result_file =
+        std::env::temp_dir().join("test_extract_roundtrip_mis_to_qubo_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            target_cfg
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "--json",
             "extract",
             bundle_file.to_str().unwrap(),
-            "--config",
-            &target_cfg,
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -9616,8 +9626,8 @@ fn test_extract_roundtrip_mis_to_qubo() {
     let stdout = String::from_utf8(extract_out.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
-    assert_eq!(json["reduced_to"].as_str().unwrap(), "QUBO");
-    assert_eq!(json["solver"].as_str().unwrap(), "external");
+    assert_eq!(json["intermediate"]["problem"], "QUBO");
+    assert_eq!(json["solver"]["kind"], "external");
     // extract on pred-solve's own target config must round-trip to the same source evaluation.
     assert_eq!(json["evaluation"].as_str().unwrap(), expected_source_eval);
     assert_eq!(json["intermediate"]["problem"].as_str().unwrap(), "QUBO");
@@ -9645,6 +9655,7 @@ fn test_extract_roundtrip_mis_to_qubo() {
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -9684,13 +9695,23 @@ fn test_extract_decodes_a_qualifying_tour() {
         String::from_utf8_lossy(&reduce_out.stderr)
     );
 
+    let result_file =
+        std::env::temp_dir().join("test_extract_decodes_a_qualifying_tour_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            "[true,false,false,false,true,false,false,false,true]"
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "--json",
             "extract",
             bundle_file.to_str().unwrap(),
-            "--config",
-            "[true,false,false,false,true,false,false,false,true]",
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -9705,6 +9726,7 @@ fn test_extract_decodes_a_qualifying_tour() {
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -9724,23 +9746,34 @@ fn test_extract_rejects_plain_problem_file() {
         .unwrap();
     assert!(create_out.status.success());
 
+    let result_file =
+        std::env::temp_dir().join("test_extract_rejects_plain_problem_file_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            "[false,true,false]"
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "extract",
             problem_file.to_str().unwrap(),
-            "--config",
-            "[false,true,false]",
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("not a reduction bundle"),
+        stderr.contains("requires a reduction bundle"),
         "unexpected stderr: {stderr}"
     );
 
     std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -9773,12 +9806,22 @@ fn test_extract_rejects_wrong_config_length() {
         &bundle_file,
     );
 
+    let result_file =
+        std::env::temp_dir().join("test_extract_rejects_wrong_config_length_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            "[false,true]"
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "extract",
             bundle_file.to_str().unwrap(),
-            "--config",
-            "[false,true]",
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -9791,6 +9834,7 @@ fn test_extract_rejects_wrong_config_length() {
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -9830,12 +9874,22 @@ fn test_extract_rejects_non_boolean_solution_value() {
     bad_cfg.as_array_mut().unwrap()[0] = serde_json::json!(9);
     let bad_cfg = bad_cfg.to_string();
 
+    let result_file = std::env::temp_dir()
+        .join("test_extract_rejects_non_boolean_solution_value_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            bad_cfg
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "extract",
             bundle_file.to_str().unwrap(),
-            "--config",
-            &bad_cfg,
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -9848,6 +9902,7 @@ fn test_extract_rejects_non_boolean_solution_value() {
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -9890,12 +9945,22 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 
+    let result_file = std::env::temp_dir()
+        .join("test_extract_rejects_malformed_bundle_path_source_mismatch_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            "[false,true,false]"
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "extract",
             tampered_file.to_str().unwrap(),
-            "--config",
-            "[false,true,false]",
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -9913,6 +9978,7 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
     std::fs::remove_file(&tampered_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -9960,12 +10026,22 @@ fn test_extract_rejects_tampered_target_data() {
     // Any config long enough to reach the coherence check; it must fail before
     // config validation kicks in because prepare() runs first.
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
+    let result_file =
+        std::env::temp_dir().join("test_extract_rejects_tampered_target_data_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            target_cfg
+        ),
+    )
+    .unwrap();
     let extract_out = pred()
         .args([
             "extract",
             tampered_file.to_str().unwrap(),
-            "--config",
-            &target_cfg,
+            "--result",
+            result_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -10001,6 +10077,7 @@ fn test_extract_rejects_tampered_target_data() {
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
     std::fs::remove_file(&tampered_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
 }
 
 #[test]
@@ -10038,8 +10115,24 @@ fn test_extract_reads_bundle_from_stdin() {
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
 
+    let result_file =
+        std::env::temp_dir().join("test_extract_reads_bundle_from_stdin_target_result.json");
+    std::fs::write(
+        &result_file,
+        format!(
+            r#"{{"status":"optimal","solution":{},"evaluation":""}}"#,
+            target_cfg
+        ),
+    )
+    .unwrap();
     let mut child = pred()
-        .args(["--json", "extract", "-", "--config", &target_cfg])
+        .args([
+            "--json",
+            "extract",
+            "-",
+            "--result",
+            result_file.to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -10060,10 +10153,112 @@ fn test_extract_reads_bundle_from_stdin() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
-    assert_eq!(json["reduced_to"].as_str().unwrap(), "QUBO");
-    assert_eq!(json["solver"].as_str().unwrap(), "external");
+    assert_eq!(json["intermediate"]["problem"], "QUBO");
+    assert_eq!(json["solver"]["kind"], "external");
     assert_eq!(json["evaluation"].as_str().unwrap(), "Max(2)");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
+    std::fs::remove_file(&result_file).unwrap();
+}
+
+#[test]
+fn test_create_decision_closest_vector_preserves_rational_bound() {
+    let bound = serde_json::json!([num_bigint::BigInt::from(3), num_bigint::BigInt::from(2)]);
+    let output = pred()
+        .args([
+            "create",
+            "DecisionClosestVectorProblem",
+            "--basis",
+            "1",
+            "--target-vec",
+            "0",
+            "--bound",
+            &bound.to_string(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let instance: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(instance["type"], "DecisionClosestVectorProblem");
+    assert_eq!(instance["data"]["bound"], bound);
+    assert_eq!(instance["data"]["inner"]["basis"], serde_json::json!([[1]]));
+}
+
+#[test]
+fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
+    let directory = std::env::temp_dir().join("pred_extract_complete_results");
+    std::fs::create_dir_all(&directory).unwrap();
+    let source_file = directory.join("source.json");
+    let bundle_file = directory.join("bundle.json");
+    let result_file = directory.join("result.json");
+    let source = problemreductions::models::graph::MaximumIndependentSet::new(
+        problemreductions::topology::SimpleGraph::path(3),
+        vec![1i64; 3],
+    );
+    std::fs::write(
+        &source_file,
+        serde_json::json!({
+            "type": "MaximumIndependentSet", "variant": {"graph":"SimpleGraph", "weight":"i64"},
+            "data": source,
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let reduced = reduce_named_to_file(
+        &source_file,
+        "MIS/SimpleGraph/i64",
+        "MVC/SimpleGraph/i64",
+        &["MaximumIndependentSet", "MinimumVertexCover"],
+        &bundle_file,
+    );
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    for (solution, valid) in [
+        (vec![true, true, true], true),
+        (vec![false, false, false], false),
+    ] {
+        std::fs::write(
+            &result_file,
+            serde_json::json!({
+                "status":"feasible", "solution":solution, "evaluation":"",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let output = pred()
+            .args([
+                "--json",
+                "extract",
+                bundle_file.to_str().unwrap(),
+                "--result",
+                result_file.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(
+            output.status.success(),
+            valid,
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        if valid {
+            let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            assert_eq!(result["status"], "feasible");
+            assert_eq!(result["solution"], serde_json::json!([false, false, false]));
+            assert_eq!(result["evaluation"], "Max(0)");
+            assert_eq!(result["intermediate"]["status"], "feasible");
+            assert_eq!(result["intermediate"]["evaluation"], "Min(3)");
+        } else {
+            assert!(String::from_utf8_lossy(&output.stderr).contains("infeasible target solution"));
+        }
+    }
+    std::fs::remove_dir_all(directory).unwrap();
 }

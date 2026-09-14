@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_closed_loop() {
@@ -88,7 +89,14 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_solution_extraction
 
     // Target solution: parent array [0, 0] means tree rooted at 0 with 1->0
     let target_config = vec![0, 0];
-    let source_config = reduction.extract_solution(&target_config).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Source config should be [parent_array | identity_mapping] = [0, 0, 0, 1]
     assert_eq!(source_config, vec![0, 0, 0, 1]);

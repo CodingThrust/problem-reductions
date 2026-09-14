@@ -15,6 +15,9 @@
 use crate::models::misc::{BinPacking, Partition};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
+use crate::traits::Problem;
 
 /// Result of reducing Partition to BinPacking.
 #[derive(Debug, Clone)]
@@ -30,10 +33,48 @@ impl ReductionResult for ReductionPartitionToBinPacking {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Optimal {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Ok(SolveOutcome::Infeasible)
+                }
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Feasible {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                }
+            }
+        }
+    }
+}
+
+impl ReductionPartitionToBinPacking {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             // BinPacking may use any bin indices (0..n-1). Remap the two distinct
             // bins used in a 2-bin packing to Partition's {0, 1} assignment.

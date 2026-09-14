@@ -6,6 +6,8 @@
 //! slack equation. Squaring uses twice the linear modulus, and extraction
 //! orients every sign by the distinguished odd coordinate.
 
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::models::algebraic::QuadraticCongruences;
@@ -36,10 +38,32 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl Reduction3SATToQuadraticCongruences {
+    pub(crate) fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         // Validation gives 0 < x <= H. Each prime power divides exactly one
         // of H-x and H+x. The coordinate zero sign chooses x or -x so that
         // the odd linear target, rather than its negative, is recovered.

@@ -3,6 +3,7 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::Min;
 use crate::Problem;
@@ -70,7 +71,14 @@ fn test_hamiltoniancircuit_to_travelingsalesman_extract_solution_cycle() {
         .map(|(u, v)| cycle_edges.contains(&(u, v)) || cycle_edges.contains(&(v, u)))
         .collect();
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(4)));
     assert_eq!(extracted.len(), 4);

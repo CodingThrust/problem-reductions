@@ -262,3 +262,21 @@ fn test_minimum_code_generation_one_register_lost_value() {
     let result = problem.simulate(&config).unwrap();
     assert!(result.is_some());
 }
+
+#[test]
+fn deserialize_rejects_invalid_expression_graph() {
+    use serde_json::json;
+    let valid = json!({"num_vertices": 4, "edges": [[0, 1], [0, 2]], "num_leaves": 3});
+    for (field, value, message) in [
+        ("num_leaves", json!(5), "exceeds num_vertices"),
+        ("num_leaves", json!(2), "actual leaf count"),
+        ("edges", json!([[0, 4]]), "out of bounds"),
+        ("edges", json!([[0, 0]]), "Self-loop"),
+        ("edges", json!([[0, 1], [0, 2], [0, 3]]), "out-degree"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<MinimumCodeGenerationOneRegister>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}

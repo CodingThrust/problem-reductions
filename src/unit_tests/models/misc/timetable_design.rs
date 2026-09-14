@@ -230,3 +230,41 @@ fn test_timetable_design_paper_example_is_valid() {
     );
     assert_eq!(spec.optimal_value, serde_json::json!(true));
 }
+
+#[test]
+#[should_panic(expected = "craftsman 0 availability")]
+fn new_rejects_wrong_craftsman_period_count() {
+    TimetableDesign::new(
+        2,
+        1,
+        1,
+        vec![vec![true]],
+        vec![vec![true; 2]],
+        vec![vec![1]],
+    );
+}
+
+#[test]
+#[should_panic(expected = "task_avail has 0 rows")]
+fn new_rejects_wrong_task_count() {
+    TimetableDesign::new(2, 1, 1, vec![vec![true; 2]], vec![], vec![vec![1]]);
+}
+
+#[test]
+#[should_panic(expected = "task 0 availability")]
+fn new_rejects_wrong_task_period_count() {
+    TimetableDesign::new(
+        2,
+        1,
+        1,
+        vec![vec![true; 2]],
+        vec![vec![true]],
+        vec![vec![1]],
+    );
+}
+
+#[test]
+#[should_panic(expected = "requirements has 0 rows")]
+fn new_rejects_wrong_requirement_row_count() {
+    TimetableDesign::new(2, 1, 1, vec![vec![true; 2]], vec![vec![true; 2]], vec![]);
+}

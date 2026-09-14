@@ -1,6 +1,7 @@
 use crate::models::graph::{MaximumAchromaticNumber, MinimumMaximalMatching};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, Min};
@@ -57,7 +58,14 @@ fn test_minimummaximalmatching_to_maximumachromaticnumber_closed_loop() {
         "complement(T-tree) must admit an achromatic 4-coloring"
     );
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (witness).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(
             source.evaluate(&extracted).unwrap(),
             Min(Some(1)),
@@ -94,7 +102,14 @@ fn test_extract_solution_known_coloring() {
     // The single size-2 class {v2, v1} is the G-edge (v1, v2) =
     // unified edge (1, 3), source-edge index 1 in the edges list.
     let coloring = vec![1, 0, 3, 0, 2];
-    let extracted = reduction.extract_solution(&coloring).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), coloring.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, true, false, false]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
@@ -115,14 +130,28 @@ fn test_extract_solution_recovers_suboptimal_matchings() {
     // Source edges in unified order: (0,3), (1,3), (1,4), (2,3).
     // Edge 0 = (v0, v1) selected; edge 2 = (v2, v3) selected.
     let coloring_a = vec![0, 1, 2, 0, 1];
-    let extracted_a = reduction.extract_solution(&coloring_a).unwrap();
+    let extracted_a = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), coloring_a.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted_a, vec![true, false, true, false]);
     assert_eq!(source.evaluate(&extracted_a).unwrap(), Min(Some(2)));
 
     // Suboptimal matching {(v1, v4), (v2, v3)} -> pair v1 with v4 and v2
     // with v3; v0 takes a singleton color. Edge 2 = (v2, v3); edge 3 = (v1, v4).
     let coloring_b = vec![2, 0, 1, 1, 0];
-    let extracted_b = reduction.extract_solution(&coloring_b).unwrap();
+    let extracted_b = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), coloring_b.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted_b, vec![false, false, true, true]);
     assert_eq!(source.evaluate(&extracted_b).unwrap(), Min(Some(2)));
 }

@@ -6,55 +6,66 @@
 //! than three vertices map to a fixed positive-cost instance.
 
 use crate::models::algebraic::QuadraticAssignment;
+use crate::models::decision::Decision;
 use crate::models::graph::HamiltonianCircuit;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing HamiltonianCircuit to QuadraticAssignment.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToQuadraticAssignment {
-    target: QuadraticAssignment,
+    target: Decision<QuadraticAssignment>,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = QuadraticAssignment;
+    type Target = Decision<QuadraticAssignment>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionHamiltonianCircuitToQuadraticAssignment {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         // Zero cost makes this permutation itself a Hamiltonian circuit.
         Ok(target_solution.to_vec())
     }
 }
 
-impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
-    type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = QuadraticAssignment;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(target_value == crate::types::Min(Some(0)))
-    }
-}
-
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_facilities = "num_vertices + 3",
         num_locations = "num_vertices + 3",
     }
 )]
-impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<Decision<QuadraticAssignment>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToQuadraticAssignment;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -74,7 +85,9 @@ impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
             .collect();
 
         let target = QuadraticAssignment::new(cost_matrix, distance_matrix);
-        Ok(ReductionHamiltonianCircuitToQuadraticAssignment { target })
+        Ok(ReductionHamiltonianCircuitToQuadraticAssignment {
+            target: Decision::new(target, 0),
+        })
     }
 }
 
@@ -86,7 +99,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "hamiltoniancircuit_to_quadraticassignment",
         build: || {
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            crate::example_db::specs::rule_example_with_witness::<_, QuadraticAssignment>(
+            crate::example_db::specs::rule_example_with_witness::<_, Decision<QuadraticAssignment>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![0, 1, 2, 3]),

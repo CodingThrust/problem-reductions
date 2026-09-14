@@ -4,6 +4,7 @@ use crate::rules::kclique_conjunctivebooleanquery::ReductionKCliqueToCBQ;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Or;
@@ -73,7 +74,14 @@ fn test_solution_extraction() {
         .solve(reduction.target_problem())
         .unwrap()
         .expect("CBQ should be satisfiable");
-    let extracted = reduction.extract_solution(&cbq_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), cbq_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
     // All 3 vertices should be selected
     assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 3);
@@ -97,6 +105,13 @@ fn test_trivial_k1() {
         .solve(reduction.target_problem())
         .unwrap()
         .expect("k=1 should be feasible");
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

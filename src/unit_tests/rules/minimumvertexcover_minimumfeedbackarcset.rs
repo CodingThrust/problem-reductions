@@ -7,6 +7,7 @@ use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 #[cfg(feature = "example-db")]
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
@@ -114,7 +115,14 @@ fn test_solution_extraction() {
 
     // Target has 9 arcs; first 3 are internal. Extract should take first 3.
     let target_config = vec![true, true, false, false, false, false, false, false, false];
-    let source_config = reduction.extract_solution(&target_config).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source_config, vec![true, true, false]);
 }
 

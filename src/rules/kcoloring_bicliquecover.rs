@@ -32,6 +32,8 @@
 use crate::models::graph::{BicliqueCover, KColoring};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 use crate::variant::KN;
 use std::collections::BTreeSet;
@@ -40,7 +42,7 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone)]
 pub struct ReductionKColoringToBicliqueCover {
     target: BicliqueCover,
-    /// Number of source vertices `n`. Stored so `extract_solution` can locate
+    /// Number of source vertices `n`. Stored so `recover_result` can locate
     /// the diagonal indices of each source vertex without re-reading the
     /// reduction parameters.
     num_vertices: usize,
@@ -65,10 +67,32 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
     /// cover yields at most `q` such distinct bicliques, so the result is a
     /// proper `q`-coloring of the source.
     ///
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionKColoringToBicliqueCover {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.num_vertices;
             let k = self.target.k();

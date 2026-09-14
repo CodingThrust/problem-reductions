@@ -109,7 +109,7 @@ make papers-pull   # Pull PDFs from shared remote
 - `src/models/decision.rs` - Generic `Decision<P>` wrapper converting optimization problems to decision problems
 - `src/solvers/` - BruteForce reference solver returning problem solutions, ILP solver, decision search (binary search via Decision queries), and the exact-variant solver capability registry. Solver dispatch uses only registered customized implementations and fixed ILP pipelines; reduction-graph reachability does not imply solver availability. Run `pred inspect <instance>` to see the registered capabilities for that instance.
 - `src/traits.rs` - `Problem` trait
-- `src/rules/traits.rs` - `ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult` traits
+- `src/rules/traits.rs` - `ReduceTo<T>` and mandatory `ReductionResult::recover_result`
 - `src/registry/` - Compile-time reduction metadata collection
 - `problemreductions-cli/` - `pred` CLI tool (separate crate in workspace)
 - `src/unit_tests/` - Unit test files (mirroring `src/` structure, referenced via `#[path]`)
@@ -161,14 +161,14 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
 - `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/solution-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated against the problem-owned parameter schema. Ordinary models are constructed directly from their construction schema. When user-facing construction differs from persisted JSON, define a model-local `#[derive(CreateSpec)]` DTO plus `TryFrom<CreateSpec>`, use its generated `FIELDS` in `ProblemSchemaEntry`, and register it with `create LocalSpec`; never add model-name branches in CLI or MCP code.
 - `decision_problem_meta!` macro registers `DecisionProblemMeta` for a concrete inner type, providing the `DECISION_NAME` constant.
-- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (witness/aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `parameter_getters` parameters for problem-specific parameters.
+- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (complete-result Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `parameter_getters` parameters for problem-specific parameters.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `BruteForce::solve()` returns `Result<Option<P::Solution>, SolveError>`; `None` means exhaustive search proved infeasibility
 - `BruteForce::find_all_witnesses()` is a reference-testing helper for collecting every optimal or satisfying solution
-- Each executed witness step constructs one result and shares its witness/value views through `Rc`. Document the rule's domain, witness premise, source guarantee, and infeasibility interpretation; all tied qualifying optima must map correctly.
+- Each executed step constructs one result and shares it through `Rc`. Document the rule's domain, witness premise, source guarantee, and infeasibility interpretation; all tied qualifying optima must map correctly.
 - `SolutionAggregate` belongs to `solvers::BruteForce` witness selection. Models, pure reduction mappings, dynamic evaluation, and non-enumerative solving do not require it. See [executed lifecycle](../docs/src/design.md#executed-reduction-lifecycle).
-- `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
-- Direct `extract_solution()` maps solutions under the reduction's mathematical premises. `pred extract` has the same witness precondition. Neither validates feasibility or optimality. Transport parses/types inputs; solver orchestration interprets aggregate outcomes before mapping.
+- `ReductionResult` provides `target_problem()` and mandatory `recover_result(source, target_outcome)`. Recovery returns typed `Optimal`, `Feasible`, or `Infeasible` outcomes, including solution and evaluation. Each rule handles all statuses explicitly; no optional completion callback or separate value-only path exists.
+- `pred solve bundle.json` and `pred extract bundle.json --result target-result.json` use the same complete recovery. External results declare their status; the transport boundary validates target feasibility, while the external solver supplies the optimality claim. Insufficient witness quality is an error, never evidence of source infeasibility.
 - Decode only the reduction's defined mathematical mapping. Preserve reachable mathematical and representation errors; do not add fallback values or recovery branches for violations already excluded by the calling contract. Explicit mathematical alternatives and sentinels are allowed.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
@@ -210,9 +210,9 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Nodes come from concrete `declare_variants!` registrations
 - Same-name variant relations are explicit `#[reduction]` registrations
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
-- Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
-- `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
-- `Decision<P> → P` supplies witness and aggregate operations on one result (solve optimization, compare to bound, extract when the bound is met); `P → Decision<P>` is a Turing edge (binary search over decision bound)
+- Reduction edges carry `EdgeCapabilities { witness, turing }`; witness mode executes complete-result reductions, and Turing mode describes multi-query procedures
+- `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers complete-result reductions; proof-only and Turing edges require manual `ReductionEntry` registration
+- `Decision<P> → P` recovers the decision result from the optimized inner problem and its bound; `P → Decision<P>` is a Turing edge (binary search over decision bound)
 
 ### Extension Points
 - New models register dynamic load/serialize metadata through `declare_variants!` and, when finite enumeration exists, register it separately through `register_brute_force!`; neither belongs in CLI match arms
@@ -221,7 +221,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - **Each construction input has one name and one concrete type per variant.** Do not add compatibility aliases or infer types from flag names. `CreateSpec` field names render as `snake_case → kebab-case` in CLI and remain `snake_case` in MCP. Add a reusable codec only for a genuinely new transport representation, never a model-name parser branch.
 - **Random generation is optional and variant-owned.** Not every model has a useful, well-defined random-instance distribution. Add `RandomGenerate` only when the generator has clear semantics and a concrete use (for example, testing or examples); never invent arbitrary bounds or distributions merely to make every model support `--random`. Implement it beside the model (normally through `impl_random_generate!` and a typed `CreateSpec` input DTO), then add `random` only to the applicable `declare_variants!` entries. CLI and MCP discover the exact variant's inputs and callback; never add a model-name random dispatch or advertise random generation on an unsupported variant.
 - **Decision variants** of optimization problems use `Decision<P>` wrapper. Add via: (1) `decision_problem_meta!` for the inner type, (2) inherent methods on `Decision<Inner>`, (3) `register_decision_variant!` with `dims`, `fields`, `parameter_getters`. The generated construction spec accepts flat inner fields plus `bound`; persisted JSON remains `{inner: {...}, bound}`. `Decision<P>` delegates canonical parameters to `P`; its objective bound is semantic instance data, not a problem parameter.
-- Aggregate-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers solution-mapping reductions today; this edge capability does not imply that a problem may solve successfully without a `Solution`
+- Proof-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers solution-mapping reductions today; this edge capability does not imply that a problem may solve successfully without a `Solution`
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
 - Canonical model examples live in `src/example_db/model_builders.rs`; rule examples live beside their rules and are collected by `src/rules/mod.rs`
@@ -244,13 +244,12 @@ fields to issue templates. Changes to issue templates require user approval.
 ### Reduction and Solver Boundary
 
 Follow the canonical [responsibility boundaries](../docs/src/design.md#responsibility-boundaries),
-[witness/aggregate contracts](../docs/src/design.md#witness-and-aggregate-reductions),
+[complete recovery contracts](../docs/src/design.md#complete-result-recovery),
 and [validation policy](../docs/src/design.md#validation-evidence).
 Models own mathematical semantics; rules own construction and witness mappings;
 adapters own numerical transport, termination interpretation, and returned-target
 validation. Orchestration uses those results and maps solutions under the rules' premises.
-External extraction parses and types submitted witnesses and assumes the rule's mathematical premises. Solver completion interprets the rule's value relationship before mapping; extraction does not validate feasibility or optimality. Fix shared paths and update all callers rather
-than adding model-specific branches or independent backend optimality checks.
+External recovery parses complete target results and validates target witnesses. Rules own the mathematical interpretation of optimum values, source infeasibility, and insufficient feasible candidates. Solver and CLI callers invoke the same mandatory recovery; they do not add model-specific interpretation branches.
 
 In ILP tests, only `ILPSolveError::Infeasible` means infeasibility. Other errors
 must fail with their details. Solver integration failures must be distinguished

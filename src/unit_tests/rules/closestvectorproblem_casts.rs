@@ -1,5 +1,6 @@
 use super::*;
 use crate::rules::{ReduceTo, ReductionError, ReductionGraph, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::types::MAX_EXACT_F64_INTEGER;
 
 #[test]
@@ -9,7 +10,17 @@ fn test_closestvectorproblem_i64_to_f64_closed_loop() {
 
     assert_eq!(reduction.target_problem().basis(), source.basis());
     assert_eq!(reduction.target_problem().target(), &[3.0, 2.0]);
-    assert_eq!(reduction.extract_solution(&vec![1, 1]).unwrap(), vec![1, 1]);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![1, 1].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![1, 1]
+    );
 }
 
 #[test]

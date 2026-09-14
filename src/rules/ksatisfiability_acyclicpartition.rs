@@ -10,6 +10,8 @@ use crate::models::graph::{AcyclicPartition, KClique};
 use crate::reduction;
 use crate::rules::ksatisfiability_kclique::Reduction3SATToKClique;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{DirectedGraph, Graph, SimpleGraph};
 use crate::variant::K3;
 
@@ -29,16 +31,38 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl Reduction3SATToAcyclicPartition {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let source_label = target_solution[self.source_vertex];
         let selected = target_solution[..self.sat_to_clique.target_problem().num_vertices()]
             .iter()
             .map(|&label| label == source_label)
             .collect();
-        self.sat_to_clique.extract_solution(&selected)
+        self.sat_to_clique.map_solution(&selected)
     }
 }
 

@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -45,7 +46,14 @@ fn test_disjointconnectingpaths_to_ilp_forbids_using_another_pairs_terminal() {
         .is_feasible(&colliding_flow)
         .unwrap());
     let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -64,7 +72,14 @@ fn test_disjointconnectingpaths_to_ilp_discards_disconnected_circulation() {
         .target_problem()
         .is_feasible(&target_solution)
         .unwrap());
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, false, false, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }

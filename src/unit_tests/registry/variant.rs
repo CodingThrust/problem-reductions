@@ -381,6 +381,10 @@ fn unit_variants_construct_without_unit_inputs() {
                 json!({"graph":graph,"bound":1})
             }
             "MaxCut" => json!({"graph":[[0,1],[1,2]]}),
+            "DecisionLongestPath" => {
+                json!({"graph":[[0,1],[1,2]],"source_vertex":0,"target_vertex":2,"bound":2})
+            }
+            "DecisionMinMaxMulticenter" => json!({"graph":[[0,1],[1,2]],"k":1,"bound":1}),
             "LongestPath" => json!({"graph":[[0,1],[1,2]],"source_vertex":0,"target_vertex":2}),
             "MinMaxMulticenter" => json!({"graph":[[0,1],[1,2]],"k":1}),
             "MixedChinesePostman" => json!({"graph":[[0,1],[1,2]],"arcs":[[2,0]]}),

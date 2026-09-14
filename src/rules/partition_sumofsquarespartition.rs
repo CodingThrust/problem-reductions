@@ -7,11 +7,9 @@
 //! instance is YES iff the optimal target witness is a balanced split, in
 //! which case `Partition::evaluate(extracted_witness) = Or(true)`.
 //!
-//! The target `SumOfSquaresPartition` model has no `J` bound field — it is a
-//! pure minimisation (`Value = Min<i64>`). We therefore implement the rule in
-//! the witness-style form used by `partition_multiprocessorscheduling.rs`:
-//! the optimal target witness directly recovers the source YES/NO answer via
-//! `source.evaluate(extract_solution(target_witness))`.
+//! Recovery uses this optimum correspondence: a balanced optimum yields a source
+//! solution; an unbalanced optimum proves source infeasibility. An unbalanced
+//! candidate without optimality returns `InsufficientSolutionQuality`.
 //!
 //! Solution extraction is the identity (group assignment in the target is the
 //! subset assignment in the source). Small inputs with `|A| < 2` use a
@@ -23,6 +21,9 @@
 use crate::models::misc::{Partition, SumOfSquaresPartition};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
+use crate::traits::Problem;
 
 /// Result of reducing Partition to SumOfSquaresPartition.
 #[derive(Debug, Clone)]
@@ -45,10 +46,48 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
     /// Solution extraction preserves the source elements. The sentinel target
     /// appends elements, so only the prefix corresponding to actual source
     /// elements is mapped back.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Optimal {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Ok(SolveOutcome::Infeasible)
+                }
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Feasible {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                }
+            }
+        }
+    }
+}
+
+impl ReductionPartitionToSumOfSquaresPartition {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.source_n]
             .iter()
             .map(|&group| group == 1)

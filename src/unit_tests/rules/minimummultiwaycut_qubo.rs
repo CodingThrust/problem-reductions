@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -35,7 +36,17 @@ fn signed_cut_weights_preserve_every_target_optimum() {
         for solution in solutions {
             assert_eq!(
                 source
-                    .evaluate(&reduction.extract_solution(&solution).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap(),
                 Min(Some(optimum))
             );
@@ -59,7 +70,14 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
 
     // All QUBO optimal solutions should extract to valid source solutions with cost 8
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = source.evaluate(&extracted).unwrap();
         assert_eq!(metric, Min(Some(8)));
     }
@@ -81,7 +99,14 @@ fn test_minimummultiwaycut_to_qubo_small() {
 
     // All solutions should extract to valid cuts
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = source.evaluate(&extracted).unwrap();
         // With 2 terminals and path 0-1-2, minimum cut is 1 (cut either edge)
         assert_eq!(metric, Min(Some(1)));

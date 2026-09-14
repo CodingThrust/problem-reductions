@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
@@ -35,7 +36,14 @@ fn test_solution_extraction_no_ancilla() {
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
 
     let mc_sol = vec![false, true];
-    let extracted = reduction.extract_solution(&mc_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &sg,
+            SolveOutcome::optimal(reduction.target_problem(), mc_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![-1, 1]);
 }
 
@@ -47,12 +55,26 @@ fn test_solution_extraction_with_ancilla() {
 
     // A false ancilla represents spin -1, so flip to normalize it to +1.
     let mc_sol = vec![false, true, false];
-    let extracted = reduction.extract_solution(&mc_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &sg,
+            SolveOutcome::optimal(reduction.target_problem(), mc_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![1, -1]);
 
     // A true ancilla already represents spin +1.
     let mc_sol = vec![false, true, true];
-    let extracted = reduction.extract_solution(&mc_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &sg,
+            SolveOutcome::optimal(reduction.target_problem(), mc_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![-1, 1]);
 }
 

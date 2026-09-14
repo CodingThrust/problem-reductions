@@ -1,7 +1,10 @@
 use super::*;
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 
 #[test]
 fn test_ilp_to_qubo_closed_loop() {
@@ -25,12 +28,26 @@ fn test_ilp_to_qubo_closed_loop() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ilp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     // Optimal should be [1, 0, 1]
-    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
+    let best = reduction
+        .recover_result(
+            &ilp,
+            SolveOutcome::optimal(reduction.target_problem(), qubo_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(best, vec![1, 0, 1]);
 }
 
@@ -53,11 +70,25 @@ fn test_ilp_to_qubo_minimize() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ilp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
-    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
+    let best = reduction
+        .recover_result(
+            &ilp,
+            SolveOutcome::optimal(reduction.target_problem(), qubo_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(best, vec![1, 0, 0]);
 }
 
@@ -83,7 +114,14 @@ fn test_ilp_to_qubo_equality() {
     assert_eq!(qubo_solutions.len(), 3);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ilp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ilp.is_feasible(&extracted).unwrap());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
@@ -111,12 +149,26 @@ fn test_ilp_to_qubo_ge_with_slack() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ilp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     // Optimal: exactly one variable = 1
-    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
+    let best = reduction
+        .recover_result(
+            &ilp,
+            SolveOutcome::optimal(reduction.target_problem(), qubo_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(best.iter().sum::<i64>(), 1);
 }
 
@@ -142,12 +194,26 @@ fn test_ilp_to_qubo_le_with_slack() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ilp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     // Optimal: exactly 2 of 3 variables = 1 (3 solutions)
-    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
+    let best = reduction
+        .recover_result(
+            &ilp,
+            SolveOutcome::optimal(reduction.target_problem(), qubo_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(best.iter().sum::<i64>(), 2);
 }
 
@@ -169,7 +235,6 @@ fn test_ilp_to_qubo_structure() {
 
 #[test]
 fn test_ilp_qubo_all_small_rows_and_target_assignments() {
-    use crate::rules::AggregateReductionResult;
     use crate::Problem;
     for n in 0usize..=3 {
         for mut code in 0..3usize.pow(n as u32) {
@@ -195,7 +260,7 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
                             ILP::<bool>::new(n, vec![row.clone()], objective.clone(), sense)
                                 .unwrap();
                         let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
-                        let target = AggregateReductionResult::target_problem(&reduction);
+                        let target = crate::rules::ReductionResult::target_problem(&reduction);
                         let penalty =
                             objective.iter().map(|(_, c)| c.abs()).sum::<i64>() + rhs.abs() + 1;
                         let constant = penalty * rhs * rhs;
@@ -215,20 +280,29 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
                             // Independently detect zero squared-residual penalty.
                             let certifies = source_value.is_valid()
                                 && energy.0.unwrap() + constant == normalized_objective;
-                            let extracted_value =
-                                AggregateReductionResult::extract_value(&reduction, energy);
+                            let extracted_value = reduction.map_value(energy);
                             assert_eq!(extracted_value.is_valid(), certifies);
                             if certifies {
-                                let solution = reduction.extract_solution(&config).unwrap();
+                                let solution = reduction
+                                    .recover_result(
+                                        &source,
+                                        SolveOutcome::optimal(
+                                            reduction.target_problem(),
+                                            config.clone(),
+                                        )
+                                        .unwrap(),
+                                    )
+                                    .unwrap()
+                                    .into_solution()
+                                    .expect(
+                                        "qualifying target result must recover a source solution",
+                                    );
                                 assert_eq!(source.evaluate(&solution).unwrap(), source_value);
                                 assert_eq!(extracted_value, source_value);
                             }
                         }
                         let best = BruteForce::new().solve(target).unwrap().unwrap();
-                        let actual = AggregateReductionResult::extract_value(
-                            &reduction,
-                            target.evaluate(&best).unwrap(),
-                        );
+                        let actual = reduction.map_value(target.evaluate(&best).unwrap());
                         let mut expected = match sense {
                             ObjectiveSense::Minimize => crate::types::Extremum::minimize(None),
                             ObjectiveSense::Maximize => crate::types::Extremum::maximize(None),
@@ -243,9 +317,16 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
                             .unwrap();
                         }
                         assert_eq!(actual, expected);
-                        assert!(
-                            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vars() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-                        );
+                        assert!(matches!(
+                            ReductionResult::target_problem(&reduction).evaluate(&vec![
+                                false;
+                                target
+                                    .num_vars(
+                                    )
+                                    + 1
+                            ]),
+                            Err(InvalidConfiguration(_))
+                        ));
                     }
                 }
             }
@@ -255,7 +336,6 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
 
 #[test]
 fn test_ilp_qubo_inconsistent_rows_and_absent_aggregate() {
-    use crate::rules::AggregateReductionResult;
     use crate::Problem;
     for sense in [ObjectiveSense::Minimize, ObjectiveSense::Maximize] {
         let source = ILP::<bool>::new(
@@ -273,25 +353,15 @@ fn test_ilp_qubo_inconsistent_rows_and_absent_aggregate() {
             let value = ReductionResult::target_problem(&reduction)
                 .evaluate(&config)
                 .unwrap();
-            assert!(!AggregateReductionResult::extract_value(&reduction, value).is_valid());
-            assert!(
-                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
-            );
+            assert!(!reduction.map_value(value).is_valid());
         }
-        assert!(
-            !AggregateReductionResult::extract_value(&reduction, crate::types::Min(None))
-                .is_valid()
-        );
-        assert!(!AggregateReductionResult::extract_value(
-            &reduction,
-            crate::types::Min(Some(i64::MIN))
-        )
-        .is_valid());
-        assert!(!AggregateReductionResult::extract_value(
-            &reduction,
-            crate::types::Min(Some(i64::MAX))
-        )
-        .is_valid());
+        assert!(!reduction.map_value(crate::types::Min(None)).is_valid());
+        assert!(!reduction
+            .map_value(crate::types::Min(Some(i64::MIN)))
+            .is_valid());
+        assert!(!reduction
+            .map_value(crate::types::Min(Some(i64::MAX)))
+            .is_valid());
     }
 }
 

@@ -103,6 +103,17 @@ register_customized_solver!(
     |problem| super::closest_vector_problem::solve(problem).map(Some)
 );
 
+register_customized_solver!(
+    crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem<i64>>,
+    "cvp-sphere-enumeration",
+    |problem: &crate::models::decision::Decision<
+        crate::models::algebraic::ClosestVectorProblem<i64>,
+    >| {
+        let solution = super::closest_vector_problem::solve(problem.inner())?;
+        Ok(problem.evaluate(&solution)?.0.then_some(solution))
+    }
+);
+
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 ///
 /// Uses iterative deepening by cardinality to guarantee the first solution

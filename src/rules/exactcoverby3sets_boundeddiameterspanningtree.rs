@@ -35,6 +35,8 @@ use crate::models::graph::BoundedDiameterSpanningTree;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use std::collections::HashSet;
 
@@ -94,10 +96,32 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     /// 2..2+m (right after the forced-center path edges). For a YES-instance,
     /// the optimal target witness selects exactly q of these edges, which
     /// correspond to the q chosen subsets.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionX3CToBoundedDiameterSpanningTree {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let m = self.source_num_subsets;
             let root_to_set_offset = 2;
@@ -151,12 +175,12 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Se
             edges.push((0, s_index(i)));
             weights.push(2);
         }
-        // Invariant: extract_solution reads edges[2..2 + m] to recover the
+        // Invariant: the reverse mapping reads edges[2..2 + m] to recover the
         // selected subsets. If this loop is ever reordered or moved, the
         // extractor must be updated to match.
         debug_assert!(
             (0..m).all(|i| edges[2 + i] == (0, s_index(i))),
-            "root-to-set edges must occupy indices 2..2+m for extract_solution to work"
+            "root-to-set edges must occupy indices 2..2+m for solution recovery to work"
         );
 
         // Set-to-element edges. Subsets are already sorted in `ExactCoverBy3Sets::new`.

@@ -1,59 +1,44 @@
 use crate::dispatch::{read_input, BundleReplay, ReductionBundle};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
+use problemreductions::solvers::{SolveOutcome, SolverExecution};
 use std::path::Path;
 
-/// Extract a source-space configuration from a target-space configuration and a reduction bundle.
-///
-/// This lets external solvers (that solved the bundle's target problem on their own)
-/// recover a solution in the original source problem space without having to
-/// re-solve through `pred solve`.
-pub fn extract(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()> {
-    let content = read_input(input)?;
-    let json: serde_json::Value =
-        serde_json::from_str(&content).context("Input is not valid JSON")?;
-
-    if !(json.get("source").is_some() && json.get("target").is_some() && json.get("path").is_some())
-    {
-        anyhow::bail!(
-            "Input is not a reduction bundle.\n\
-             `pred extract` requires a bundle produced by `pred reduce`.\n\
-             Got a plain problem file; did you mean `pred evaluate`?"
-        );
-    }
-
-    let bundle: ReductionBundle =
-        serde_json::from_value(json).context("Failed to parse reduction bundle")?;
-
-    let target_config: serde_json::Value =
-        serde_json::from_str(config_str).context("Target config is not valid JSON")?;
-
+/// Recover the source result from an external solver's explicit target result.
+pub fn extract(input: &Path, result_path: &Path, out: &OutputConfig) -> Result<()> {
+    let bundle: ReductionBundle = serde_json::from_str(&read_input(input)?)
+        .context("pred extract requires a reduction bundle produced by pred reduce")?;
+    let mut target: SolveOutcome = serde_json::from_str(&read_input(result_path)?)
+        .context("Target result must declare optimal, feasible, or infeasible status")?;
     let replay = BundleReplay::prepare(&bundle)?;
-
-    let (source_config, source_eval, target_eval) = replay.extract(&target_config)?;
-
+    match &mut target {
+        SolveOutcome::Optimal {
+            solution,
+            evaluation,
+        }
+        | SolveOutcome::Feasible {
+            solution,
+            evaluation,
+        } => {
+            let (value, feasible) = replay.target.evaluate_dyn(solution)?;
+            anyhow::ensure!(
+                feasible,
+                "external result contains an infeasible target solution"
+            );
+            *evaluation = value;
+        }
+        SolveOutcome::Infeasible => {}
+    }
+    let result = replay.recover_result(target, SolverExecution::External)?;
     out.emit(
         || {
-            format!(
-                "Problem: {}\nSolver: external (via {})\nSolution: {:?}\nEvaluation: {}",
-                replay.source_name, replay.target_name, source_config, source_eval,
-            )
+            let mut text = format!(
+                "Problem: {}\nSolver: external (via {})",
+                result.source_name, result.target_name
+            );
+            super::solve::append_outcome_text(&mut text, &result.source_outcome);
+            text
         },
-        || {
-            // Schema aligned with `pred solve` on a bundle. `solver` is "external"
-            // because pred did not run the solver that produced the target config.
-            Ok(serde_json::json!({
-                "problem": replay.source_name,
-                "solver": "external",
-                "reduced_to": replay.target_name,
-                "solution": source_config,
-                "evaluation": source_eval,
-                "intermediate": {
-                    "problem": replay.target_name,
-                    "solution": target_config,
-                    "evaluation": target_eval,
-                },
-            }))
-        },
+        || Ok(result.to_json()),
     )
 }

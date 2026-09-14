@@ -37,6 +37,8 @@ use crate::models::algebraic::MinimumMatrixDomination;
 use crate::models::graph::MinimumMaximalMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{BipartiteGraph, Graph};
 
 /// Result of reducing `MinimumMaximalMatching<BipartiteGraph>` to
@@ -44,7 +46,7 @@ use crate::topology::{BipartiteGraph, Graph};
 ///
 /// Holds the constructed target matrix-domination instance together with a copy
 /// of the source bipartite-matching problem. The source copy is used by
-/// `extract_solution` to perform the Yannakakis-Gavril conversion from an edge
+/// `recover_result` to perform the Yannakakis-Gavril conversion from an edge
 /// dominating set to an equally-sized maximal matching.
 #[derive(Debug, Clone)]
 pub struct ReductionMMMToMatrixDomination {
@@ -92,10 +94,32 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
     /// undominated edge, for a total of `O(|F|^3)` time. The result is a
     /// matching that is an EDS, i.e. an independent EDS, which is precisely a
     /// maximal matching.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionMMMToMatrixDomination {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let graph = self.source.graph();
             let edges = graph.edges();

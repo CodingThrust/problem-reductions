@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Reduce(args) => commands::reduce::reduce(&args.input, &args.via, &out),
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
-        Commands::Extract(args) => commands::extract::extract(&args.input, &args.config, &out),
+        Commands::Extract(args) => commands::extract::extract(&args.input, &args.result, &out),
         #[cfg(feature = "mcp")]
         Commands::Mcp => mcp::run(),
         Commands::Completions { shell } => {

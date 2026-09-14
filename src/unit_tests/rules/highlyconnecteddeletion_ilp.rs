@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::HighlyConnectedDeletion;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -70,7 +71,14 @@ fn test_highlyconnecteddeletion_to_ilp_extract_solution_decode() {
     target_solution[3] = 1; // singleton {3}
     target_solution[4] = 1; // triangle {0,1,2}
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Edges in input order: (0,1), (0,2), (1,2) all inside the triangle (kept);
     // (2,3) crosses clusters and is deleted.

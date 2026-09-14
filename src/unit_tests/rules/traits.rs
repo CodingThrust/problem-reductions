@@ -1,7 +1,5 @@
-use crate::rules::traits::{
-    AggregateReductionResult, DynAggregateReductionResult, ReduceTo, ReduceToAggregate,
-    ReductionResult,
-};
+use crate::rules::traits::{DynReductionResult, ReduceTo, ReductionResult};
+use crate::solvers::{downcast_outcome, erase_outcome, SolveOutcome};
 use crate::traits::Problem;
 use crate::types::Sum;
 use serde_json::json;
@@ -75,10 +73,33 @@ impl ReductionResult for TestReduction {
     fn target_problem(&self) -> &TargetProblem {
         &self.target
     }
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_config: &<Self::Target as Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as Problem>::Solution> {
+        source: &Self::Source,
+        target: crate::solvers::ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<crate::solvers::ProblemOutcome<Self::Source>> {
+        match target {
+            crate::solvers::SolveOutcome::Infeasible => {
+                Ok(crate::solvers::SolveOutcome::Infeasible)
+            }
+            crate::solvers::SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(crate::solvers::SolveOutcome::optimal(source, solution)?)
+            }
+            crate::solvers::SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(crate::solvers::SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl TestReduction {
+    fn map_solution(
+        &self,
+        target_config: &<<Self as ReductionResult>::Target as Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<<Self as ReductionResult>::Source as Problem>::Solution>
+    {
         Ok(target_config.to_vec())
     }
 }
@@ -102,7 +123,18 @@ fn test_reduction() {
         target.evaluate(&vec![1, 1]).unwrap(),
         crate::types::Max(Some(2))
     );
-    assert_eq!(result.extract_solution(&vec![1, 0]).unwrap(), vec![1, 0]);
+    assert_eq!(
+        result
+            .recover_result(
+                &source,
+                crate::solvers::SolveOutcome::optimal(result.target_problem(), vec![1, 0].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![1, 0]
+    );
 }
 
 #[test]
@@ -126,15 +158,32 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
         })
         .unwrap();
     let step = (edge.reduce_fn.unwrap())(&source).unwrap();
-    let interpret = step.interpret_optimum.as_ref().unwrap();
-    let value = interpret(&vec![true, false]).unwrap();
-    assert!(!value);
+    let target = step
+        .witness
+        .target_result_from_json(SolveOutcome::Optimal {
+            solution: json!([true, false]),
+            evaluation: String::new(),
+        })
+        .unwrap();
     assert!(matches!(
-        interpret(&vec![true]),
+        step.witness.recover_result_dyn(&source, target).unwrap(),
+        SolveOutcome::Infeasible
+    ));
+    assert!(matches!(
+        step.witness.target_result_from_json(SolveOutcome::Optimal {
+            solution: json!([true]),
+            evaluation: String::new(),
+        }),
         Err(ExtractionError::Evaluation(_))
     ));
     assert!(matches!(
-        interpret(&vec![1i64, 0]),
+        step.witness.recover_result_dyn(
+            &source,
+            erase_outcome(SolveOutcome::Optimal {
+                solution: vec![1i64, 0],
+                evaluation: crate::types::Min(Some(1i64)),
+            })
+        ),
         Err(ExtractionError::InvalidTargetSolution(_))
     ));
 }
@@ -200,7 +249,7 @@ struct TestAggregateReduction {
     offset: u64,
 }
 
-impl AggregateReductionResult for TestAggregateReduction {
+impl ReductionResult for TestAggregateReduction {
     type Source = AggregateSourceProblem;
     type Target = AggregateTargetProblem;
 
@@ -208,15 +257,29 @@ impl AggregateReductionResult for TestAggregateReduction {
         &self.target
     }
 
-    fn extract_value(&self, target_value: Sum<u64>) -> Sum<u64> {
-        Sum(target_value.0 + self.offset)
+    fn recover_result(
+        &self,
+        source: &Self::Source,
+        target: crate::solvers::ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<crate::solvers::ProblemOutcome<Self::Source>> {
+        Ok(match target {
+            SolveOutcome::Optimal { mut solution, .. } => {
+                solution[0] += self.offset as usize;
+                SolveOutcome::optimal(source, solution)?
+            }
+            SolveOutcome::Feasible { mut solution, .. } => {
+                solution[0] += self.offset as usize;
+                SolveOutcome::feasible(source, solution)?
+            }
+            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+        })
     }
 }
 
-impl ReduceToAggregate<AggregateTargetProblem> for AggregateSourceProblem {
+impl ReduceTo<AggregateTargetProblem> for AggregateSourceProblem {
     type Result = TestAggregateReduction;
 
-    fn reduce_to_aggregate(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         Ok(TestAggregateReduction {
             target: AggregateTargetProblem,
             offset: 3,
@@ -227,13 +290,21 @@ impl ReduceToAggregate<AggregateTargetProblem> for AggregateSourceProblem {
 #[test]
 fn test_aggregate_reduction_extracts_value() {
     let source = AggregateSourceProblem;
-    let result =
-        <AggregateSourceProblem as ReduceToAggregate<AggregateTargetProblem>>::reduce_to_aggregate(
-            &source,
-        )
+    let result = <AggregateSourceProblem as ReduceTo<AggregateTargetProblem>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert_eq!(result.extract_value(Sum(7)), Sum(10));
+    assert_eq!(
+        result
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(result.target_problem(), vec![7]).unwrap()
+            )
+            .unwrap(),
+        SolveOutcome::Optimal {
+            solution: vec![10],
+            evaluation: Sum(10)
+        }
+    );
 }
 
 #[test]
@@ -242,11 +313,26 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
         target: AggregateTargetProblem,
         offset: 2,
     };
-    let dyn_result: &dyn DynAggregateReductionResult = &result;
+    let dyn_result: &dyn DynReductionResult = &result;
 
     assert!(dyn_result
         .target_problem_any()
         .downcast_ref::<AggregateTargetProblem>()
         .is_some());
-    assert_eq!(dyn_result.extract_value_dyn(json!(7)), json!(9));
+    let target = dyn_result
+        .target_result_from_json(SolveOutcome::Optimal {
+            solution: json!([7]),
+            evaluation: "Sum(7)".into(),
+        })
+        .unwrap();
+    let recovered = dyn_result
+        .recover_result_dyn(&AggregateSourceProblem, target)
+        .unwrap();
+    assert_eq!(
+        downcast_outcome::<Vec<usize>, Sum<u64>>(recovered).unwrap(),
+        SolveOutcome::Optimal {
+            solution: vec![9],
+            evaluation: Sum(9)
+        }
+    );
 }

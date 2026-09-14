@@ -7,6 +7,7 @@ use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 #[cfg(feature = "example-db")]
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
@@ -82,8 +83,17 @@ fn test_identity_solution_extraction() {
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true, false, true])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![true, false, true, false, true].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, true, false, true]
     );
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 use num_traits::ToPrimitive;
@@ -25,7 +26,17 @@ fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
     );
     assert_eq!(
         source
-            .evaluate(&reduction.extract_solution(&solution).unwrap())
+            .evaluate(
+                &reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                            .unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
+            )
             .unwrap(),
         Or(true)
     );
@@ -58,7 +69,16 @@ fn test_native_clauses_and_arbitrary_crt_signs() {
                 .collect();
             let witness = witness_value_from_alphas(&signs, &construction.thetas);
             let valid = reduction.target_problem().evaluate(&witness).unwrap().0;
-            let extracted = reduction.extract_solution(&witness);
+            let extracted = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+                )
+                .map(|result| {
+                    result
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                });
             if valid {
                 let extracted = extracted.unwrap();
                 assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
@@ -85,7 +105,18 @@ fn test_native_clauses_and_arbitrary_crt_signs() {
                     reduction.target_problem().evaluate(&witness).unwrap(),
                     Or(true)
                 );
-                assert_eq!(reduction.extract_solution(&witness).unwrap(), assignment);
+                assert_eq!(
+                    reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution"),
+                    assignment
+                );
                 expected.insert(assignment);
             } else {
                 assert!(build_alphas(&construction, &assignment).is_none());
@@ -155,7 +186,13 @@ fn test_normalization_preserves_free_variables_and_formula() {
     let assignment = [true, true, true, true, false];
     let witness = witness_config_for_assignment(&redundant, &assignment).unwrap();
     assert_eq!(
-        second.extract_solution(&witness).unwrap(),
+        second
+            .recover_result(
+                &redundant,
+                SolveOutcome::optimal(second.target_problem(), witness).unwrap()
+            )
+            .map(|outcome| outcome.into_solution().unwrap())
+            .unwrap(),
         vec![false, true, false, false, false]
     );
     assert!(witness_config_for_assignment(&redundant, &[]).is_none());
@@ -175,9 +212,6 @@ fn test_rejects_infeasible_and_out_of_bound_integers() {
         reduction.target.c() + 1u32,
     ] {
         assert_eq!(reduction.target.evaluate(&witness).unwrap(), Or(false));
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { value.is_valid() })
-        );
     }
 }
 

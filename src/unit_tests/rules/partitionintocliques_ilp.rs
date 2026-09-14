@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -19,7 +20,14 @@ fn test_partitionintocliques_to_ilp_closed_loop() {
     let target_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("two disjoint edges form two cliques");
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&source_solution).unwrap(), Or(true));
 }

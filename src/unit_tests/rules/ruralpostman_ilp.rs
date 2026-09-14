@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -23,7 +24,14 @@ fn test_ruralpostman_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap().0.is_some());
 }
@@ -49,7 +57,14 @@ fn test_ruralpostman_to_ilp_optimization() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let ilp_value = source.evaluate(&extracted).unwrap();
     assert!(ilp_value.0.is_some(), "ILP solution must be valid");
@@ -79,7 +94,14 @@ fn test_ruralpostman_empty_required_set_extracts_zero_multiplicities() {
     );
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![0, 0]);
     assert_eq!(source.evaluate(&extracted).unwrap().0, Some(0));

@@ -205,8 +205,6 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
 /// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
-/// - `aggregate = identity` or `aggregate = custom` — register the reduction result's
-///   `AggregateReductionResult` implementation alongside its witness extractor
 ///
 /// ## Syntax
 /// ```ignore
@@ -239,7 +237,6 @@ struct ReductionAttrs {
     relation: Option<ParameterRelationAttr>,
     fields: Option<Vec<(String, String)>>,
     unavailable: Option<Vec<(String, String)>>,
-    aggregate: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -255,7 +252,6 @@ impl syn::parse::Parse for ReductionAttrs {
             relation: None,
             fields: None,
             unavailable: None,
-            aggregate: false,
         };
 
         while !input.is_empty() {
@@ -304,16 +300,6 @@ impl syn::parse::Parse for ReductionAttrs {
                     let content;
                     syn::braced!(content in input);
                     attrs.unavailable = Some(parse_unavailable_fields(&content)?);
-                }
-                "aggregate" => {
-                    let value: syn::Ident = input.parse()?;
-                    if value != "identity" && value != "custom" {
-                        return Err(syn::Error::new(
-                            value.span(),
-                            "expected `identity` or `custom`",
-                        ));
-                    }
-                    attrs.aggregate = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -517,44 +503,6 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    let reduce_aggregate_fn = if attrs.aggregate {
-        quote! {
-            Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError> {
-                let src = src.downcast_ref::<#source_type>().ok_or_else(
-                    crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
-                )?;
-                let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
-                Ok(Box::new(result))
-            })
-        }
-    } else {
-        quote! { None }
-    };
-
-    let aggregate_view = if attrs.aggregate {
-        quote! { Some(result.clone()) }
-    } else {
-        quote! { None }
-    };
-
-    let interpret_optimum = if attrs.aggregate {
-        quote! {
-            Some({
-                let result = result.clone();
-                std::rc::Rc::new(move |solution: &dyn std::any::Any| {
-                    let solution = solution.downcast_ref::<<#target_type as crate::traits::Problem>::Solution>()
-                        .ok_or_else(|| crate::rules::ExtractionError::invalid("target solution type mismatch"))?;
-                    let target = crate::rules::ReductionResult::target_problem(result.as_ref());
-                    let value = crate::traits::Problem::evaluate(target, solution)?;
-                    let value = crate::rules::AggregateReductionResult::extract_value(result.as_ref(), value);
-                    Ok(value.is_valid())
-                })
-            })
-        }
-    } else {
-        quote! { None }
-    };
-
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
@@ -603,12 +551,9 @@ fn generate_reduction_entry(
                     let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
                     let result = std::rc::Rc::new(result);
                     Ok(crate::rules::registry::ExecutedStep {
-                        aggregate: #aggregate_view,
-                        interpret_optimum: #interpret_optimum,
                         witness: result,
                     })
                 }),
-                reduce_aggregate_fn: #reduce_aggregate_fn,
                 turing: false,
             }
         }
@@ -1308,24 +1253,25 @@ mod tests {
         let implementation: syn::ItemImpl = syn::parse_quote! {
             impl ReduceTo<Target> for Source {}
         };
-        for (declaration, enabled) in [
-            (quote! {}, false),
-            (quote! { aggregate = identity, }, true),
-            (quote! { aggregate = custom, }, true),
-        ] {
-            let attrs: ReductionAttrs = syn::parse2(quote! {
-                #declaration transform = exact { num_vertices = "num_vertices" }
-            })
-            .unwrap();
-            let tokens = generate_reduction_entry(&attrs, &implementation)
-                .unwrap()
-                .to_string();
-            assert_eq!(tokens.contains("reduce_aggregate_fn : Some"), enabled);
-        }
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            aggregate = unknown, transform = exact { num_vertices = "num_vertices" }
+        let attrs: ReductionAttrs = syn::parse2(quote! {
+            transform = exact { num_vertices = "num_vertices" }
         })
-        .is_err());
+        .unwrap();
+        let tokens = generate_reduction_entry(&attrs, &implementation)
+            .unwrap()
+            .to_string();
+        assert!(tokens.contains("reduce_fn : Some"));
+        assert!(tokens.contains("ExecutedStep"));
+        for declaration in [
+            quote! { aggregate = identity },
+            quote! { aggregate = custom },
+            quote! { aggregate = unknown },
+        ] {
+            assert!(syn::parse2::<ReductionAttrs>(quote! {
+                #declaration, transform = exact { num_vertices = "num_vertices" }
+            })
+            .is_err());
+        }
     }
 
     #[test]

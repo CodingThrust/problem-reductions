@@ -437,3 +437,57 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/rural_postman.rs"]
 mod tests;
+
+crate::decision_problem_meta!(RuralPostman<SimpleGraph, i64>, "DecisionRuralPostman");
+crate::register_decision_variant!(
+    RuralPostman<SimpleGraph, i64>, "DecisionRuralPostman", "2^num_vertices * num_vertices^2", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "" },
+        crate::registry::FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_rural_postman_to_rural_postman",
+        build: || {
+            let graph = SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 4),
+                    (4, 5),
+                    (5, 0),
+                    (0, 3),
+                    (1, 4),
+                ],
+            );
+            let source = crate::models::decision::Decision::new(
+                RuralPostman::new(graph, vec![1, 1, 1, 1, 1, 1, 2, 2], vec![0, 2, 4]),
+                6,
+            );
+            let witness = serde_json::json!(vec![1, 1, 1, 1, 1, 1, 0, 0]);
+            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

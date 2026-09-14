@@ -1,5 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -37,7 +38,14 @@ fn test_qubo_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &qubo,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = qubo.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
@@ -56,7 +64,14 @@ fn test_qubo_to_ilp_diagonal_only() {
     assert!(ilp.constraints().is_empty());
 
     let best = ILPSolver::new().solve(ilp).unwrap();
-    let extracted = reduction.extract_solution(&best).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &qubo,
+            SolveOutcome::optimal(reduction.target_problem(), best.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, true]);
 }
 
@@ -79,6 +94,13 @@ fn test_qubo_to_ilp_3var() {
     assert_eq!(ilp.constraints().len(), 6);
 
     let best = ILPSolver::new().solve(ilp).unwrap();
-    let extracted = reduction.extract_solution(&best).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &qubo,
+            SolveOutcome::optimal(reduction.target_problem(), best.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, true]);
 }

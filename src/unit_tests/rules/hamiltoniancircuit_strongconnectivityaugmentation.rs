@@ -3,6 +3,7 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::Problem;
 
@@ -90,7 +91,14 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_extract_solution() 
 
     assert!(target.is_valid_solution(&target_config).unwrap());
 
-    let extracted = reduction.extract_solution(&target_config).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 4);
     assert!(
         source.evaluate(&extracted).unwrap().is_valid(),

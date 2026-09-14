@@ -7,6 +7,7 @@ use crate::models::graph::IntegralFlowHomologousArcs;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn issue_example() -> Satisfiability {
@@ -65,7 +66,14 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_assignment_en
     let satisfying_flow = reduction.encode_assignment(&satisfying_assignment);
     assert!(target.evaluate(&satisfying_flow).unwrap().0);
     assert_eq!(
-        reduction.extract_solution(&satisfying_flow).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), satisfying_flow.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         satisfying_assignment
     );
 

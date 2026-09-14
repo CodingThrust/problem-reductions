@@ -2,6 +2,7 @@ use problemreductions::models::algebraic::SimultaneousIncongruences;
 use problemreductions::models::formula::{CNFClause, KSatisfiability};
 use problemreductions::rules::{ReduceTo, ReductionResult};
 use problemreductions::solvers::BruteForce;
+use problemreductions::solvers::SolveOutcome;
 use problemreductions::variant::K3;
 use problemreductions::Problem;
 
@@ -27,7 +28,14 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
         .solve(target)
         .unwrap()
         .expect("target should be satisfiable");
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap());
 }

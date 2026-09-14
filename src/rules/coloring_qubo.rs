@@ -9,25 +9,27 @@
 //! QUBO has n*K variables.
 
 use crate::models::algebraic::QUBO;
+use crate::models::decision::Decision;
 use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing KColoring to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKColoringToQUBO<K: KValue> {
-    target: QUBO<i64>,
+    target: Decision<QUBO<i64>>,
     num_vertices: usize,
     num_colors: usize,
-    feasible_energy: i64,
     _phantom: std::marker::PhantomData<K>,
 }
 
 impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
     type Source = KColoring<K, SimpleGraph>;
-    type Target = QUBO<i64>;
+    type Target = Decision<QUBO<i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -35,12 +37,34 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
 
     /// Decode a target witness at `feasible_energy` into a proper coloring.
     /// At that energy all nonnegative penalties vanish, including one-hot.
-    /// An optimum above the threshold means the source is uncolorable and
-    /// is interpreted through `extract_value` before witness extraction.
-    fn extract_solution(
+    /// The target decision bound selects exactly zero-penalty colorings.
+    /// An uncolorable source produces an infeasible decision target.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl<K: KValue> ReductionKColoringToQUBO<K> {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok((0..self.num_vertices)
             .map(|vertex| {
                 (0..self.num_colors)
@@ -51,28 +75,16 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
     }
 }
 
-impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKColoringToQUBO<K> {
-    type Source = KColoring<K, SimpleGraph>;
-    type Target = QUBO<i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(value.0 == Some(self.feasible_energy))
-    }
-}
-
 /// Check dimensions and the omitted constant before allocating the matrix.
 fn coloring_qubo_parameters<K: KValue>(
     n: usize,
     k: usize,
 ) -> Result<(usize, i64, i64), crate::rules::ReductionError> {
     let overflow = |operation| {
-        crate::rules::ReductionError::integer_overflow::<KColoring<K, SimpleGraph>, QUBO<i64>>(
-            operation,
-        )
+        crate::rules::ReductionError::integer_overflow::<
+            KColoring<K, SimpleGraph>,
+            Decision<QUBO<i64>>,
+        >(operation)
     };
     let nq = n
         .checked_mul(k)
@@ -99,9 +111,10 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
     let n = problem.graph().num_vertices();
     let edges = problem.graph().edges();
     let overflow = |operation| {
-        crate::rules::ReductionError::integer_overflow::<KColoring<K, SimpleGraph>, QUBO<i64>>(
-            operation,
-        )
+        crate::rules::ReductionError::integer_overflow::<
+            KColoring<K, SimpleGraph>,
+            Decision<QUBO<i64>>,
+        >(operation)
     };
     let (nq, penalty, feasible_energy) = coloring_qubo_parameters::<K>(n, k)?;
 
@@ -159,26 +172,28 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
     }
 
     Ok(ReductionKColoringToQUBO {
-        target: QUBO::from_rows(matrix).map_err(|message| {
-            crate::rules::ReductionError::construction::<KColoring<K, SimpleGraph>, QUBO<i64>>(
-                message,
-            )
-        })?,
+        target: Decision::new(
+            QUBO::from_rows(matrix).map_err(
+                crate::rules::ReductionError::construction::<
+                    KColoring<K, SimpleGraph>,
+                    Decision<QUBO<i64>>,
+                >,
+            )?,
+            feasible_energy,
+        ),
         num_vertices: n,
         num_colors: k,
-        feasible_energy,
         _phantom: std::marker::PhantomData,
     })
 }
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vertices * num_colors",
     }
 )]
-impl ReduceTo<QUBO<i64>> for KColoring<KN, SimpleGraph> {
+impl ReduceTo<Decision<QUBO<i64>>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToQUBO<KN>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -189,7 +204,7 @@ impl ReduceTo<QUBO<i64>> for KColoring<KN, SimpleGraph> {
 // Additional concrete impls for tests (not registered in reduction graph)
 macro_rules! impl_kcoloring_to_qubo {
     ($($ktype:ty),+) => {$(
-        impl ReduceTo<QUBO<i64>> for KColoring<$ktype, SimpleGraph> {
+        impl ReduceTo<Decision<QUBO<i64>>> for KColoring<$ktype, SimpleGraph> {
             type Result = ReductionKColoringToQUBO<$ktype>;
             fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
                 reduce_kcoloring_to_qubo(self)
@@ -210,7 +225,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let (n, edges) = crate::topology::small_graphs::house();
             let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges), 3);
-            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, Decision<QUBO<i64>>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![1, 2, 2, 1, 0]),

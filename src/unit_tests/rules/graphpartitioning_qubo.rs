@@ -80,3 +80,26 @@ fn test_graphpartitioning_to_qubo_canonical_example_spec() {
     assert_eq!(example.target.instance["matrix"]["nrows"], 6);
     assert!(!example.solutions.is_empty());
 }
+
+#[test]
+fn odd_partition_recovers_infeasibility_from_every_qubo_optimum() {
+    use crate::solvers::{BruteForce, SolveOutcome};
+    let source = GraphPartitioning::new(SimpleGraph::new(1, vec![]));
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    let optima = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
+    assert_eq!(optima.len(), 2);
+    for solution in optima {
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), solution).unwrap()
+                )
+                .unwrap(),
+            SolveOutcome::Infeasible
+        );
+    }
+}

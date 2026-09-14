@@ -8,7 +8,7 @@ impl_variant_reduction!(
     KSatisfiability,
     <K2> => <KN>,
     fields: [num_vars, num_clauses, num_literals],
-    aggregate: identity,
+
     |src| KSatisfiability::new_allow_less(src.num_vars(), src.clauses().to_vec())
 );
 
@@ -16,6 +16,6 @@ impl_variant_reduction!(
     KSatisfiability,
     <K3> => <KN>,
     fields: [num_vars, num_clauses, num_literals],
-    aggregate: identity,
+
     |src| KSatisfiability::new_allow_less(src.num_vars(), src.clauses().to_vec())
 );

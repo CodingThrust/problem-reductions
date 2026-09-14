@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -16,7 +17,14 @@ fn test_numericalmatchingwithtargetsums_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -75,7 +83,14 @@ fn test_numericalmatchingwithtargetsums_to_ilp_single_pair() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("single-pair ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
@@ -95,7 +110,14 @@ fn test_numericalmatchingwithtargetsums_to_ilp_compatible_triples_only() {
     assert_eq!(ilp.num_vars(), 2);
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 1]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

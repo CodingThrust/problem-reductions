@@ -54,6 +54,9 @@ fn decision_reductions_check_target_optimum_before_extracting_witness() {
                         ("Or(true)".into(), true)
                     );
                 }
+                SolveOutcome::Feasible { .. } => {
+                    panic!("exact solver returned only a feasible incumbent")
+                }
                 SolveOutcome::Infeasible => assert!(!expected, "{name}, {backend:?}"),
             }
         }
@@ -426,7 +429,7 @@ fn solve_outcome_has_disjoint_json_states() {
         })
     );
     assert_eq!(
-        serde_json::to_value(SolveOutcome::Infeasible).unwrap(),
+        serde_json::to_value(SolveOutcome::<serde_json::Value, String>::Infeasible).unwrap(),
         serde_json::json!({"status": "infeasible"})
     );
 }
@@ -607,6 +610,65 @@ fn unit_dominating_decision_ilp_matches_all_three_vertex_graphs() {
             .collect();
         for bound in 0..=4 {
             check_unit_dominating_decision(3, &edges, bound);
+        }
+    }
+}
+
+#[test]
+fn decision_closest_vector_solver_preserves_bound_after_serialization() {
+    use crate::models::algebraic::ClosestVectorProblem;
+    use crate::models::decision::Decision;
+    use crate::models::misc::SubsetSum;
+    use crate::rules::{ReduceTo, ReductionResult};
+
+    for (weights, sum, expected) in [(vec![1u32, 2], 3u32, true), (vec![2, 4], 3, false)] {
+        let source = SubsetSum::new(weights, sum);
+        let reduction =
+            ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        let loaded = load_dyn(
+            <Decision<ClosestVectorProblem<i64>>>::NAME,
+            &BTreeMap::from([("target".into(), "i64".into())]),
+            serde_json::to_value(target).unwrap(),
+        )
+        .unwrap();
+        let result = solve(&loaded, SolverRequest::Default).unwrap();
+        assert_eq!(
+            result.solver,
+            SolverExecution::Customized {
+                implementation: "cvp-sphere-enumeration"
+            }
+        );
+        match result.outcome {
+            SolveOutcome::Feasible { .. } => {
+                panic!("exact solver returned only a feasible incumbent")
+            }
+            SolveOutcome::Infeasible => assert!(!expected),
+            SolveOutcome::Optimal { solution, .. } => {
+                assert!(expected);
+                let solution = serde_json::from_value(solution).unwrap();
+                assert!(target.evaluate(&solution).unwrap().0);
+                assert!(
+                    source
+                        .evaluate(
+                            &reduction
+                                .recover_result(
+                                    &source,
+                                    SolveOutcome::optimal(
+                                        reduction.target_problem(),
+                                        solution.clone()
+                                    )
+                                    .unwrap()
+                                )
+                                .map(|result| result.into_solution().expect(
+                                    "qualifying target result must recover a source solution"
+                                ))
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .0
+                );
+            }
         }
     }
 }

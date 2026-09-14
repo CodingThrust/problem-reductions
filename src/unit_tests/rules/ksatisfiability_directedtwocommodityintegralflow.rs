@@ -7,6 +7,7 @@ use crate::models::formula::CNFClause;
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -45,7 +46,14 @@ fn solve_target_via_ilp(
         Err(crate::solvers::ILPSolveError::Infeasible) => return None,
         Err(error) => panic!("ILP execution failed: {error}"),
     };
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(
         problem.evaluate(&extracted).unwrap().0,
         "decoded flow must be feasible"
@@ -99,7 +107,17 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
     let assignment = vec![true, true, false];
     let flow = reduction.encode_assignment(&assignment);
     assert!(reduction.target_problem().evaluate(&flow).unwrap().0);
-    assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), flow.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        assignment
+    );
 }
 
 #[test]
@@ -120,7 +138,14 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

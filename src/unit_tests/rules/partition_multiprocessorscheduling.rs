@@ -2,6 +2,7 @@ use super::*;
 use crate::models::misc::Partition;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn reduce_partition(sizes: &[i64]) -> (Partition, ReductionPartitionToMPS) {
@@ -84,7 +85,14 @@ fn test_partition_to_multiprocessorscheduling_solution_extraction() {
     let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         // Solution length should match number of elements
         assert_eq!(extracted.len(), source.num_elements());
         // Extracted solution should satisfy source if target is satisfied

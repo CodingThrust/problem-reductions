@@ -23,15 +23,18 @@
 //!   b-vertices and a-vertices does not admit a perfect matching corresponding
 //!   to a Hamiltonian circuit), so cost > 2n.
 
+use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianCircuit, RuralPostman};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing HamiltonianCircuit to RuralPostman.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToRuralPostman {
-    target: RuralPostman<SimpleGraph, i64>,
+    target: Decision<RuralPostman<SimpleGraph, i64>>,
     /// Number of vertices in the original graph.
     n: usize,
     /// Edges of the original graph (for solution extraction).
@@ -40,16 +43,38 @@ pub struct ReductionHamiltonianCircuitToRuralPostman {
 
 impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = RuralPostman<SimpleGraph, i64>;
+    type Target = Decision<RuralPostman<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionHamiltonianCircuitToRuralPostman {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             // The target solution is edge multiplicities.
             // Required edges are indices 0..n (the {v_i^a, v_i^b} edges).
@@ -96,28 +121,14 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
     }
 }
 
-impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToRuralPostman {
-    type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = RuralPostman<SimpleGraph, i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(self.n >= 3 && value.0 == Some(2 * self.n as i64))
-    }
-}
-
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "2 * num_vertices",
         num_edges = "num_vertices + 2 * num_edges",
         num_required_edges = "num_vertices",
     }
 )]
-impl ReduceTo<RuralPostman<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<Decision<RuralPostman<SimpleGraph, i64>>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToRuralPostman;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -152,7 +163,17 @@ impl ReduceTo<RuralPostman<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph
         let target = RuralPostman::new(target_graph, edge_weights, required_edges);
 
         Ok(ReductionHamiltonianCircuitToRuralPostman {
-            target,
+            target: Decision::new(
+                target,
+                if n < 3 {
+                    -1
+                } else {
+                    <Self as ReduceTo<Decision<RuralPostman<SimpleGraph, i64>>>>::exact_i64(
+                        2 * n,
+                        "encoding the route bound",
+                    )?
+                },
+            ),
             n,
             source_edges,
         })
@@ -176,7 +197,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   2->0: bwd edge of source edge 2=(0,2), idx=8
             // Required edges all have multiplicity 1.
             // target_config = [1, 1, 1, 1, 0, 1, 0, 0, 1]
-            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i64>>(
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                Decision<RuralPostman<SimpleGraph, i64>>,
+            >(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![0, 1, 2]),

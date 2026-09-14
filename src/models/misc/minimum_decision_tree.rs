@@ -74,38 +74,7 @@ struct MinimumDecisionTreeCreateSpec {
 impl TryFrom<MinimumDecisionTreeCreateSpec> for MinimumDecisionTree {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDecisionTreeCreateSpec) -> Result<Self, Self::Error> {
-        if spec.num_objects < 2 {
-            return Err("num_objects must be at least 2".into());
-        }
-        if spec.num_tests == 0 {
-            return Err("num_tests must be positive".into());
-        }
-        if spec.test_matrix.len() != spec.num_tests {
-            return Err("test_matrix row count must equal num_tests".into());
-        }
-        if spec
-            .test_matrix
-            .iter()
-            .any(|row| row.len() != spec.num_objects)
-        {
-            return Err("each test_matrix row must have num_objects columns".into());
-        }
-        for a in 0..spec.num_objects {
-            for b in a + 1..spec.num_objects {
-                if !(0..spec.num_tests)
-                    .any(|test| spec.test_matrix[test][a] != spec.test_matrix[test][b])
-                {
-                    return Err(
-                        format!("objects {a} and {b} are not distinguished by any test").into(),
-                    );
-                }
-            }
-        }
-        Ok(Self {
-            test_matrix: spec.test_matrix,
-            num_objects: spec.num_objects,
-            num_tests: spec.num_tests,
-        })
+        Self::try_new(spec.test_matrix, spec.num_objects, spec.num_tests)
     }
 }
 

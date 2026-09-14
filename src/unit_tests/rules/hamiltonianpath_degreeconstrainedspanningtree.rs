@@ -1,6 +1,7 @@
 use crate::models::graph::{DegreeConstrainedSpanningTree, HamiltonianPath};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -52,7 +53,14 @@ fn test_hamiltonianpath_to_degreeconstrainedspanningtree_extract_solution_recons
         &[(0, 1), (1, 2), (2, 3)],
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![0, 1, 2, 3]);
     assert!(source.evaluate(&extracted).unwrap());

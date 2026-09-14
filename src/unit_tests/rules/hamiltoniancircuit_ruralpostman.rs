@@ -1,10 +1,11 @@
+use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianCircuit, RuralPostman};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
-use crate::types::Min;
 use crate::Problem;
 
 fn triangle_hc() -> HamiltonianCircuit<SimpleGraph> {
@@ -18,10 +19,10 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_closed_loop() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> RuralPostman (triangle)",
@@ -31,10 +32,10 @@ fn test_hamiltoniancircuit_to_ruralpostman_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_closed_loop_cycle4() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> RuralPostman (cycle4)",
@@ -44,19 +45,19 @@ fn test_hamiltoniancircuit_to_ruralpostman_closed_loop_cycle4() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_structure() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 3 vertices -> 6 vertices
-    assert_eq!(target.num_vertices(), 6);
+    assert_eq!(target.inner().num_vertices(), 6);
     // 3 required edges + 2*3 connectivity edges = 9
-    assert_eq!(target.num_edges(), 9);
+    assert_eq!(target.inner().num_edges(), 9);
     // 3 required edges (one per vertex)
-    assert_eq!(target.num_required_edges(), 3);
+    assert_eq!(target.inner().num_required_edges(), 3);
 
     // All edges have weight 1
-    let weights = target.edge_lengths();
+    let weights = target.inner().edge_lengths();
     for (i, &w) in weights.iter().enumerate() {
         assert_eq!(w, 1, "edge {i} should have weight 1");
     }
@@ -65,23 +66,23 @@ fn test_hamiltoniancircuit_to_ruralpostman_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_structure_cycle4() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 4 vertices -> 8 vertices
-    assert_eq!(target.num_vertices(), 8);
+    assert_eq!(target.inner().num_vertices(), 8);
     // 4 required edges + 2*4 connectivity edges = 12
-    assert_eq!(target.num_edges(), 12);
+    assert_eq!(target.inner().num_edges(), 12);
     // 4 required edges
-    assert_eq!(target.num_required_edges(), 4);
+    assert_eq!(target.inner().num_required_edges(), 4);
 }
 
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_optimal_cost() {
     // Triangle has a Hamiltonian circuit, so optimal RPP cost should be 2n = 6
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
@@ -89,8 +90,12 @@ fn test_hamiltoniancircuit_to_ruralpostman_optimal_cost() {
         .unwrap()
         .expect("should find a solution");
 
-    let metric = target.evaluate(&best).unwrap();
-    assert_eq!(metric, Min(Some(6)), "optimal cost should be 2n=6");
+    let metric = target.inner().evaluate(&best).unwrap();
+    assert_eq!(
+        metric,
+        crate::types::Min(Some(6)),
+        "optimal cost should be 2n=6"
+    );
 }
 
 #[test]
@@ -99,7 +104,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
     let n = source.num_vertices();
     assert_eq!(n, 4);
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -110,7 +115,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
     // The RPP optimal cost should exceed 2n = 8
     let best = BruteForce::new().solve(target).unwrap();
     if let Some(config) = best {
-        let metric = target.evaluate(&config).unwrap();
+        let metric = target.inner().evaluate(&config).unwrap();
         assert!(
             metric.is_valid(),
             "best RPP solution should be a valid circuit"
@@ -127,7 +132,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
     let target = reduction.target_problem();
@@ -136,7 +141,14 @@ fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
         .unwrap()
         .expect("should find a solution");
 
-    let extracted = reduction.extract_solution(&best).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), best.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         extracted.len(),
         3,
@@ -155,20 +167,30 @@ fn aggregate_distinguishes_hamiltonian_tour_cost() {
         (vec![(0, 1), (1, 2)], false),
     ] {
         let source = HamiltonianCircuit::new(SimpleGraph::new(3, edges));
-        let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let reduction =
+            ReduceTo::<Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
-        let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();
+        let solution = crate::solvers::ILPSolver::new()
+            .solve(target.inner())
+            .unwrap();
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(
-                &reduction,
-                target.evaluate(&solution).unwrap()
-            ),
+            target.evaluate(&solution).unwrap(),
             crate::types::Or(expected)
         );
         if expected {
             assert!(
                 source
-                    .evaluate(&reduction.extract_solution(&solution).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap()
                     .0
             );

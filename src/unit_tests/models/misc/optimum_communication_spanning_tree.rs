@@ -221,3 +221,47 @@ fn test_ocst_canonical_example() {
     );
     assert_eq!(spec.optimal_value, serde_json::json!(20));
 }
+
+#[test]
+fn deserialize_rejects_invalid_communication_matrices() {
+    use serde_json::json;
+    let valid = json!({"edge_weights": [[0, 1], [1, 0]], "requirements": [[0, 1], [1, 0]]});
+    for (field, value, message) in [
+        ("requirements", json!([[0]]), "same size"),
+        (
+            "edge_weights",
+            json!([[0], [1, 0]]),
+            "edge_weights must be square",
+        ),
+        (
+            "requirements",
+            json!([[0], [1, 0]]),
+            "requirements must be square",
+        ),
+        (
+            "edge_weights",
+            json!([[1, 1], [1, 0]]),
+            "diagonal of edge_weights",
+        ),
+        (
+            "requirements",
+            json!([[1, 1], [1, 0]]),
+            "diagonal of requirements",
+        ),
+        (
+            "edge_weights",
+            json!([[0, -1], [-1, 0]]),
+            "edge_weights must be non-negative",
+        ),
+        (
+            "requirements",
+            json!([[0, -1], [-1, 0]]),
+            "requirements must be non-negative",
+        ),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<OptimumCommunicationSpanningTree>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}

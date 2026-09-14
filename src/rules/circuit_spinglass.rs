@@ -6,10 +6,13 @@
 //! Each logic gate is encoded as a SpinGlass Hamiltonian where the ground
 //! states correspond to valid input/output combinations.
 
+use crate::models::decision::Decision;
 use crate::models::formula::{Assignment, BooleanExpr, BooleanOp, CircuitSAT};
 use crate::models::graph::SpinGlass;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::types::WeightElement;
 use num_traits::Zero;
@@ -209,45 +212,52 @@ where
 #[derive(Debug, Clone)]
 pub struct ReductionCircuitToSG {
     /// The target SpinGlass problem.
-    target: SpinGlass<SimpleGraph, i64>,
+    target: Decision<SpinGlass<SimpleGraph, i64>>,
     /// Mapping from source variable names to spin indices.
     variable_map: HashMap<String, usize>,
     /// Source variable names in order.
     source_variables: Vec<String>,
-    /// Sum of the individual gate and equality ground energies.
-    zero_penalty_energy: i64,
 }
 
 impl ReductionResult for ReductionCircuitToSG {
     type Source = CircuitSAT;
-    type Target = SpinGlass<SimpleGraph, i64>;
+    type Target = Decision<SpinGlass<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionCircuitToSG {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(self
             .source_variables
             .iter()
             .map(|variable| target_solution[self.variable_map[variable]] == 1)
             .collect())
-    }
-}
-
-impl crate::rules::AggregateReductionResult for ReductionCircuitToSG {
-    type Source = CircuitSAT;
-    type Target = SpinGlass<SimpleGraph, i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(value.0 == Some(self.zero_penalty_energy))
     }
 }
 
@@ -483,13 +493,12 @@ fn process_assignment(
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_spins = "num_variables + 3 * num_expression_nodes",
         num_interactions = "6 * num_expression_nodes + num_assignment_outputs",
     }
 )]
-impl ReduceTo<SpinGlass<SimpleGraph, i64>> for CircuitSAT {
+impl ReduceTo<Decision<SpinGlass<SimpleGraph, i64>>> for CircuitSAT {
     type Result = ReductionCircuitToSG;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -498,23 +507,19 @@ impl ReduceTo<SpinGlass<SimpleGraph, i64>> for CircuitSAT {
         // Process each assignment in the circuit
         for assignment in &self.circuit().assignments {
             process_assignment(assignment, &mut builder).map_err(
-                crate::rules::ReductionError::construction::<
-                    CircuitSAT,
-                    SpinGlass<SimpleGraph, i64>,
-                >,
+                <Self as ReduceTo<Decision<SpinGlass<SimpleGraph, i64>>>>::target_construction,
             )?;
         }
 
         let (target, variable_map, zero_penalty_energy) = builder.build().map_err(
-            crate::rules::ReductionError::construction::<CircuitSAT, SpinGlass<SimpleGraph, i64>>,
+            <Self as ReduceTo<Decision<SpinGlass<SimpleGraph, i64>>>>::target_construction,
         )?;
         let source_variables = self.variable_names().to_vec();
 
         Ok(ReductionCircuitToSG {
-            target,
+            target: Decision::new(target, zero_penalty_energy),
             variable_map,
             source_variables,
-            zero_penalty_energy,
         })
     }
 }
@@ -553,7 +558,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "circuitsat_to_spinglass",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i64>>(
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                Decision<SpinGlass<SimpleGraph, i64>>,
+            >(
                 full_adder_circuit_sat(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![

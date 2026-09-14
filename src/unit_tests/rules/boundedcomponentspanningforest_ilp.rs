@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -31,7 +32,14 @@ fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         source.evaluate(&extracted).unwrap().0,
@@ -47,7 +55,14 @@ fn test_extract_solution() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -68,7 +83,14 @@ fn test_single_component() {
     let ilp_sol = solver
         .solve(ilp)
         .expect("single component should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

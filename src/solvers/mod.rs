@@ -3,9 +3,12 @@
 mod brute_force;
 pub(crate) mod customized;
 pub mod decision_search;
+mod outcome;
 mod pipelines;
 mod registry;
 mod resolver;
+pub(crate) use outcome::{downcast_outcome, erase_outcome, ErasedOutcome};
+pub use outcome::{ProblemOutcome, SolveOutcome};
 
 pub mod ilp;
 
@@ -16,9 +19,7 @@ pub use registry::{
     brute_force_dimensions, solver_capabilities, CustomizedSolverCapability, ExactProblemKey,
     IlpSolverCapability, RegistryBuildError, SolverCapabilities,
 };
-pub use resolver::{
-    complete_reduction, solve, SolveOutcome, SolveResult, SolverExecution, SolverRequest,
-};
+pub use resolver::{solve, SolveResult, SolverExecution, SolverRequest};
 
 pub use ilp::{ILPSolveError, ILPSolver};
 

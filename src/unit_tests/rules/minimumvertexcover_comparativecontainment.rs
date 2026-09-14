@@ -1,6 +1,9 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 #[test]
@@ -22,7 +25,17 @@ fn test_minimumvertexcover_to_comparativecontainment_closed_loop() {
             .unwrap();
         assert!(
             source
-                .evaluate(&reduction.extract_solution(&witness).unwrap())
+                .evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                )
                 .unwrap()
                 .0
         );
@@ -85,11 +98,27 @@ fn test_signed_containment_all_small_graphs_and_witnesses() {
                         let valid = source.evaluate(&witness).unwrap().0;
                         assert_eq!(target.evaluate(&witness).unwrap().0, valid);
                         if valid {
-                            assert_eq!(reduction.extract_solution(&witness).unwrap(), witness);
-                        } else {
-                            assert!(
-                                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { value.is_valid() })
+                            assert_eq!(
+                                reduction
+                                    .recover_result(
+                                        &source,
+                                        SolveOutcome::optimal(
+                                            reduction.target_problem(),
+                                            witness.clone()
+                                        )
+                                        .unwrap()
+                                    )
+                                    .map(|result| result.into_solution().expect(
+                                        "qualifying target result must recover a source solution"
+                                    ))
+                                    .unwrap(),
+                                witness
                             );
+                        } else {
+                            assert!(!ReductionResult::target_problem(&reduction)
+                                .evaluate(&witness)
+                                .unwrap()
+                                .is_valid());
                         }
                     }
                 }
@@ -109,11 +138,22 @@ fn test_signed_containment_duplicate_edges_and_invalid_length() {
     );
     let reduction = ReduceTo::<ComparativeContainment<i64>>::reduce_to(&source).unwrap();
     let witness = vec![true, false, false];
-    assert_eq!(reduction.extract_solution(&witness).unwrap(), witness);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        witness
+    );
     for bad in [vec![], vec![true; 4]] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &bad), Ok(value) if { value.is_valid() })
-        );
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&bad),
+            Err(InvalidConfiguration(_))
+        ));
     }
 }
 

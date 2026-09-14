@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -122,7 +123,7 @@ fn test_cvp_real_target_preserves_its_stored_rational_value() {
         .outcome;
     assert_eq!(
         outcome,
-        crate::solvers::SolveOutcome::Optimal {
+        SolveOutcome::Optimal {
             solution: serde_json::json!([0]),
             evaluation: "Min(1/16)".into(),
         }

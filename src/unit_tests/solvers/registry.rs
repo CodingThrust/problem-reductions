@@ -86,22 +86,42 @@ fn generic_decision_ilp_reports_no_but_preserves_extraction_errors() {
             self.0.inner()
         }
 
-        fn extract_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
-            Err(ExtractionError::invalid("broken witness decoder"))
+        fn recover_result(
+            &self,
+            source: &Self::Source,
+            target: crate::solvers::ProblemOutcome<Self::Target>,
+        ) -> crate::rules::ExtractionResult<crate::solvers::ProblemOutcome<Self::Source>> {
+            match target {
+                crate::solvers::SolveOutcome::Infeasible => {
+                    Ok(crate::solvers::SolveOutcome::Infeasible)
+                }
+                crate::solvers::SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
+                } => {
+                    if !crate::types::OptimizationValue::meets_bound(&evaluation, source.bound()) {
+                        return Ok(crate::solvers::SolveOutcome::Infeasible);
+                    }
+                    let solution = self.map_solution(&solution)?;
+                    Ok(crate::solvers::SolveOutcome::optimal(source, solution)?)
+                }
+                crate::solvers::SolveOutcome::Feasible {
+                    solution,
+                    evaluation,
+                } => {
+                    if !crate::types::OptimizationValue::meets_bound(&evaluation, source.bound()) {
+                        return Err(ExtractionError::InsufficientSolutionQuality);
+                    }
+                    let solution = self.map_solution(&solution)?;
+                    Ok(crate::solvers::SolveOutcome::feasible(source, solution)?)
+                }
+            }
         }
     }
 
-    impl crate::rules::AggregateReductionResult for BrokenExtractor {
-        type Source = Decision<Inner>;
-        type Target = Inner;
-        fn target_problem(&self) -> &Inner {
-            self.0.inner()
-        }
-        fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-            crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                &value,
-                self.0.bound(),
-            ))
+    impl BrokenExtractor {
+        fn map_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
+            Err(ExtractionError::invalid("broken witness decoder"))
         }
     }
 
@@ -121,22 +141,7 @@ fn generic_decision_ilp_reports_no_but_preserves_extraction_errors() {
     pipeline.reducers[0] = |source| {
         let source = source.downcast_ref::<Decision<Inner>>().unwrap();
         let result = std::rc::Rc::new(BrokenExtractor(source.clone()));
-        Ok(crate::rules::registry::ExecutedStep {
-            aggregate: Some(result.clone()),
-            interpret_optimum: Some({
-                let result = result.clone();
-                std::rc::Rc::new(move |solution: &dyn std::any::Any| {
-                    let solution = solution.downcast_ref::<Vec<bool>>().unwrap();
-                    let value = result.0.inner().evaluate(solution)?;
-                    Ok(crate::rules::AggregateReductionResult::extract_value(
-                        result.as_ref(),
-                        value,
-                    )
-                    .is_valid())
-                })
-            }),
-            witness: result,
-        })
+        Ok(crate::rules::registry::ExecutedStep { witness: result })
     };
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
@@ -604,10 +609,10 @@ fn solver_capability_registry_ambiguous_exact_edge_is_rejected() {
 
 #[test]
 fn native_terminal_dispatch_rejects_non_ilp_values() {
-    assert_eq!(
+    assert!(matches!(
         solve_ilp_terminal(&42_i64, &HighsAdapter::new(None)),
         Err(crate::solvers::ILPSolveError::UnsupportedProblemType)
-    );
+    ));
 }
 
 #[test]

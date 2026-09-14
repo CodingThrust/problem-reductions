@@ -14,11 +14,14 @@ use std::sync::OnceLock;
 fn solve_ilp_terminal(
     source: &dyn Any,
     adapter: &HighsAdapter,
-) -> Result<Vec<i64>, super::ILPSolveError> {
+) -> Result<super::ErasedOutcome, super::ILPSolveError> {
     macro_rules! dispatch {
         ($($v:ty, $c:ty);* $(;)?) => { $(
             if let Some(ilp) = source.downcast_ref::<ILP<$v, $c>>() {
-                return adapter.solve(ilp).map_err(Into::into);
+                let solution = adapter.solve(ilp)?;
+                let outcome = super::SolveOutcome::optimal(ilp, solution)
+                    .map_err(crate::rules::ExtractionError::from)?;
+                return Ok(super::erase_outcome(outcome));
             }
         )* };
     }
@@ -145,15 +148,37 @@ impl CompiledIlpPipeline {
             Option<&dyn DynReductionResult>,
         ) -> Result<R, super::ILPSolveError>,
     ) -> Result<R, super::ILPSolveError> {
-        if self.reducers.is_empty() {
-            return finish(Box::new(solve_ilp_terminal(source, adapter)?), None);
-        }
-
-        let chain = crate::rules::ReductionChain::execute(source, &self.reducers)?;
-        let target_solution = solve_ilp_terminal(chain.target_problem_any(), adapter)?;
-        let source_solution = super::resolver::complete_chain(&chain, &target_solution)?
-            .ok_or(super::ILPSolveError::Infeasible)?;
-        finish(source_solution, Some(chain.steps[0].witness.as_ref()))
+        let chain = if self.reducers.is_empty() {
+            None
+        } else {
+            Some(crate::rules::ReductionChain::execute(
+                source,
+                &self.reducers,
+            )?)
+        };
+        let target_problem = chain
+            .as_ref()
+            .map_or(source, |chain| chain.target_problem_any());
+        let target = match solve_ilp_terminal(target_problem, adapter) {
+            Ok(outcome) => outcome,
+            Err(super::ILPSolveError::Infeasible) => super::SolveOutcome::Infeasible,
+            Err(error) => return Err(error),
+        };
+        let recovered = match &chain {
+            Some(chain) => chain.recover_erased(source, target)?,
+            None => target,
+        };
+        let source_solution = match recovered {
+            super::SolveOutcome::Optimal { solution, .. } => solution,
+            super::SolveOutcome::Infeasible => return Err(super::ILPSolveError::Infeasible),
+            super::SolveOutcome::Feasible { .. } => {
+                return Err(crate::rules::ExtractionError::InsufficientSolutionQuality.into())
+            }
+        };
+        finish(
+            source_solution,
+            chain.as_ref().map(|chain| chain.steps[0].witness.as_ref()),
+        )
     }
 
     pub(crate) fn solve(

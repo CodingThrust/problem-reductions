@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::misc::OpenShopScheduling;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -63,7 +64,14 @@ fn test_openshopscheduling_to_ilp_closed_loop_small() {
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
 
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = p.evaluate(&extracted).unwrap();
     assert!(
         value.0.is_some(),
@@ -82,7 +90,14 @@ fn test_openshopscheduling_to_ilp_closed_loop_medium() {
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
 
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = p.evaluate(&extracted).unwrap();
     assert!(
         value.0.is_some(),
@@ -102,7 +117,14 @@ fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
     let reduction: ReductionOSSToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let target_solution = vec![1, 0, 0, 1, 1, 0, 1, 0, 3];
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 1, 1, 0]);
     assert_eq!(p.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
@@ -118,7 +140,14 @@ fn test_openshopscheduling_to_ilp_single_job() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = p.evaluate(&extracted).unwrap();
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(7)));
@@ -133,7 +162,14 @@ fn test_openshopscheduling_to_ilp_single_machine() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &p,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = p.evaluate(&extracted).unwrap();
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(6)));

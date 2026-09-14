@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -24,7 +25,14 @@ fn test_minimumhittingset_to_ilp_bf_vs_ilp() {
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
     assert_eq!(bf_value, ilp_value);
     assert!(ilp_value.is_valid());
@@ -36,7 +44,14 @@ fn test_solution_extraction() {
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = vec![0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, true, false]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }

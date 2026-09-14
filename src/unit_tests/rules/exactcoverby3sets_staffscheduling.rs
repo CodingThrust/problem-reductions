@@ -1,9 +1,10 @@
-use super::*;
 use crate::models::misc::StaffScheduling;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -56,7 +57,14 @@ fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
     let solutions = solver.find_all_witnesses(target).unwrap();
     // Each satisfying target config should extract to selecting all 3 subsets
     for sol in &solutions {
-        let extracted = result.extract_solution(sol).unwrap();
+        let extracted = result
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(result.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(
             source.evaluate(&extracted).unwrap().0,
             "Extracted solution must be valid"
@@ -65,7 +73,16 @@ fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
     // There should be exactly one satisfying assignment (up to extraction)
     let extracted_solutions: Vec<Vec<bool>> = solutions
         .iter()
-        .map(|s| result.extract_solution(s).unwrap())
+        .map(|s| {
+            result
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(result.target_problem(), (s).clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution")
+        })
         .collect();
     assert!(
         extracted_solutions
@@ -83,16 +100,24 @@ fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
 
     // StaffScheduling config: [1, 1, 0, 0] means 1 worker on schedule 0 and 1 on schedule 1
     let target_config = vec![1, 1, 0, 0];
-    let extracted = result.extract_solution(&target_config).unwrap();
+    let extracted = result
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(result.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, false, false]);
 
     // Verify the extracted solution is valid in the source
     assert!(source.evaluate(&extracted).unwrap().0);
 
     // No workers cannot cover the required shifts.
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&result), &vec![0, 0, 0, 0]), Ok(value) if { value.is_valid() })
-    );
+    assert!(!ReductionResult::target_problem(&result)
+        .evaluate(&vec![0, 0, 0, 0])
+        .unwrap()
+        .is_valid());
 }
 
 #[test]

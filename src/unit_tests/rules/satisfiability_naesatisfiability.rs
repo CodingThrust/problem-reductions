@@ -1,6 +1,9 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 #[test]
@@ -68,8 +71,17 @@ fn test_solution_extraction_sentinel_false() {
 
     // target_solution: [1, 0, 1, 0] means x1=true, x2=false, x3=true, sentinel=false
     let extracted = reduction
-        .extract_solution(&vec![true, false, true, false])
-        .unwrap();
+        .recover_result(
+            &sat,
+            SolveOutcome::optimal(
+                reduction.target_problem(),
+                vec![true, false, true, false].clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, true]);
 }
 
@@ -81,8 +93,17 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![false, false, false])
-            .unwrap(),
+            .recover_result(
+                &sat,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![false, false, false].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, false]
     );
 
@@ -90,12 +111,16 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
         .target_problem()
         .evaluate(&vec![false, false])
         .is_err());
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false, false, false, false]), Ok(value) if { value.is_valid() })
-    );
-    assert!(crate::rules::DynReductionResult::target_solution_from_json(
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![false, false, false, false]),
+        Err(InvalidConfiguration(_))
+    ));
+    assert!(crate::rules::DynReductionResult::target_result_from_json(
         &reduction,
-        serde_json::json!([false, 2, false])
+        SolveOutcome::Optimal {
+            solution: serde_json::json!([false, 2, false]),
+            evaluation: String::new()
+        }
     )
     .is_err());
 }
@@ -111,8 +136,17 @@ fn test_solution_extraction_sentinel_true() {
     // target_solution: [0, 1, 0, 1] means x1=false, x2=true, x3=false, sentinel=true
     // Complement: x1=true, x2=false, x3=true
     let extracted = reduction
-        .extract_solution(&vec![false, true, false, true])
-        .unwrap();
+        .recover_result(
+            &sat,
+            SolveOutcome::optimal(
+                reduction.target_problem(),
+                vec![false, true, false, true].clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, true]);
 }
 
@@ -210,7 +244,14 @@ fn test_all_satisfying_assignments_map_back() {
     let nae_solutions = solver.find_all_witnesses(naesat).unwrap();
 
     for nae_sol in &nae_solutions {
-        let sat_sol = reduction.extract_solution(nae_sol).unwrap();
+        let sat_sol = reduction
+            .recover_result(
+                &sat,
+                SolveOutcome::optimal(reduction.target_problem(), (nae_sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(sat_sol.len(), 2);
         assert!(
             sat.evaluate(&sat_sol).unwrap().0,

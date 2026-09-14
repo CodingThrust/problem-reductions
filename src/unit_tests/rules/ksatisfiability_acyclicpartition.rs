@@ -3,7 +3,9 @@ use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::graph::AcyclicPartition;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -23,41 +25,62 @@ fn test_ksatisfiability_to_acyclicpartition_closed_loop() {
             count += 1;
             assert!(
                 source
-                    .evaluate(&reduction.extract_solution(&labels).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), labels.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap()
                     .0
             );
-            let renamed = labels.iter().map(|&x| if x == 0 { 8 } else { 3 }).collect();
+            let renamed: Vec<_> = labels.iter().map(|&x| if x == 0 { 8 } else { 3 }).collect();
             assert!(
                 source
-                    .evaluate(&reduction.extract_solution(&renamed).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), renamed.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap()
                     .0
             );
         } else {
-            assert!(
-                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &labels), Ok(value) if { value.is_valid() })
-            );
+            assert!(!ReductionResult::target_problem(&reduction)
+                .evaluate(&labels)
+                .unwrap()
+                .is_valid());
         }
     }
     assert_eq!(count, 3);
 }
 
 #[test]
-fn test_acyclicpartition_extraction_rejects_invalid_targets() {
+fn test_acyclicpartition_target_rejects_invalid_assignments() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
     let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
-    for labels in [
-        vec![],
-        vec![0; 8],
-        vec![0; 10],
-        vec![9; 9],
-        vec![0; 9],
-        vec![2, 1, 1, 0, 0, 1, 1, 0, 1],
-    ] {
-        assert!(
-            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &labels), Ok(value) if { value.is_valid() })
-        );
+    for labels in [vec![], vec![0; 8], vec![0; 10], vec![9; 9]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&labels),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for labels in [vec![0; 9], vec![2, 1, 1, 0, 0, 1, 1, 0, 1]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&labels)
+            .unwrap()
+            .is_valid());
     }
 }
 
@@ -73,7 +96,17 @@ fn test_acyclicpartition_native_empty_and_short_clauses() {
         for labels in witnesses {
             assert!(
                 source
-                    .evaluate(&reduction.extract_solution(&labels).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), labels.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap()
                     .0
             );
@@ -138,7 +171,17 @@ fn test_ksatisfiability_to_acyclicpartition_multi_variable_closed_loop() {
         assert!(reduction.target_problem().evaluate(&labels).unwrap().0);
         assert!(
             source
-                .evaluate(&reduction.extract_solution(&labels).unwrap())
+                .evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), labels.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                )
                 .unwrap()
                 .0
         );

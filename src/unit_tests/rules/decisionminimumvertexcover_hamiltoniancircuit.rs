@@ -3,6 +3,7 @@ use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianCircuit, MinimumVertexCover};
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -49,7 +50,14 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_closed_loop() {
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, cover);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -69,7 +77,14 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 3);
     assert!(!extracted[2]);
     assert!(source.evaluate(&extracted).unwrap().0);
@@ -90,7 +105,14 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers
         .solve(target)
         .unwrap()
         .expect("triangle should have a Hamiltonian circuit");
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -129,7 +151,14 @@ fn unit_cover_bound_handles_negative_and_empty_graphs() {
         let witness = BruteForce::new().solve(reduction.target_problem()).unwrap();
         assert_eq!(witness.is_some(), expected);
         if let Some(witness) = witness {
-            let cover = reduction.extract_solution(&witness).unwrap();
+            let cover = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert!(source.evaluate(&cover).unwrap().0);
         }
     }

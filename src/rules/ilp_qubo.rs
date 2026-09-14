@@ -14,6 +14,8 @@
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 /// Result of reducing binary ILP to QUBO.
 #[derive(Debug, Clone)]
@@ -35,10 +37,44 @@ impl ReductionResult for ReductionILPToQUBO {
     }
 
     /// Extract only the original variables (discard slack).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Ok(SolveOutcome::Infeasible);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Err(crate::rules::ExtractionError::InsufficientSolutionQuality);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionILPToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.num_original_vars]
             .iter()
             .map(|&value| i64::from(value))
@@ -46,15 +82,8 @@ impl ReductionResult for ReductionILPToQUBO {
     }
 }
 
-impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
-    type Source = ILP<bool>;
-    type Target = QUBO<i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Extremum<i64> {
+impl ReductionILPToQUBO {
+    fn map_value(&self, value: crate::types::Min<i64>) -> crate::types::Extremum<i64> {
         let objective = value
             .0
             .filter(|&energy| {
@@ -71,7 +100,6 @@ impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = unavailable {
         num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
     }

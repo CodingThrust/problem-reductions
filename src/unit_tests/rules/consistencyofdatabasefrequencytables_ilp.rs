@@ -3,6 +3,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -55,7 +56,14 @@ fn test_cdft_to_ilp_solution_encoding_round_trip() {
     let reduction: ReductionCDFTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = reduction.encode_source_solution(&small_yes_witness());
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, small_yes_witness());
 }
 
@@ -96,7 +104,14 @@ fn test_consistency_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(problem.evaluate(&extracted).unwrap());
 }
 
@@ -129,7 +144,14 @@ fn test_cdft_to_ilp_issue_instance_closed_loop() {
     let target_solution = solver
         .solve(reduction.target_problem())
         .expect("ILP solver should find a feasible solution for the issue instance");
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(
         problem.evaluate(&source_solution).unwrap(),
         "extracted source solution must satisfy the original CDFT instance"
@@ -142,6 +164,13 @@ fn test_cdft_to_ilp_issue_instance_encoding_round_trip() {
     let reduction: ReductionCDFTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = reduction.encode_source_solution(&issue_witness());
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, issue_witness());
 }

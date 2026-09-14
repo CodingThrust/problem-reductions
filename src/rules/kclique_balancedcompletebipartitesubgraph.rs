@@ -8,6 +8,8 @@
 use crate::models::graph::{BalancedCompleteBipartiteSubgraph, KClique};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 
 /// Result of reducing KClique to BalancedCompleteBipartiteSubgraph.
@@ -34,10 +36,32 @@ impl ReductionResult for ReductionKCliqueToBCBS {
     /// The k-clique is S = {v in V : v not in A'}, i.e., the original vertices
     /// NOT selected on the left side. For each original vertex v (0..n-1),
     /// the source selection is the negation of the target's left-side selection.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
+
+impl ReductionKCliqueToBCBS {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             (0..self.num_original_vertices)
                 .map(|v| !target_solution[v])

@@ -3,6 +3,7 @@ use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::models::misc::Partition;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_partition_to_integralflowwithmultipliers_closed_loop() {
@@ -85,8 +86,17 @@ fn test_partition_to_integralflowwithmultipliers_extract_solution() {
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, true, false, true, false]
     );
 }

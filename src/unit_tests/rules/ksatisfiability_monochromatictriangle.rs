@@ -3,8 +3,10 @@ use crate::models::algebraic::{LinearConstraint, ILP};
 use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::graph::MonochromaticTriangle;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{ILPSolveError, ILPSolver};
 use crate::topology::SimpleGraph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -70,10 +72,40 @@ fn test_ksatisfiability_to_monochromatic_triangle_all_source_projections() {
             match ILPSolver::new().solve(&fixed) {
                 Ok(solution) => {
                     assert!(source.evaluate(&assignment).unwrap().0);
-                    let coloring = to_ilp.extract_solution(&solution).unwrap();
-                    assert_eq!(reduction.extract_solution(&coloring).unwrap(), assignment);
-                    let swapped = coloring.iter().map(|value| !value).collect();
-                    assert_eq!(reduction.extract_solution(&swapped).unwrap(), assignment);
+                    let coloring = to_ilp
+                        .recover_result(
+                            reduction.target_problem(),
+                            SolveOutcome::optimal(to_ilp.target_problem(), solution.clone())
+                                .unwrap(),
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution");
+                    assert_eq!(
+                        reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), coloring.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution"),
+                        assignment
+                    );
+                    let swapped: Vec<_> = coloring.iter().map(|value| !value).collect();
+                    assert_eq!(
+                        reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), swapped.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution"),
+                        assignment
+                    );
                 }
                 Err(ILPSolveError::Infeasible) => assert!(!source.evaluate(&assignment).unwrap().0),
                 Err(error) => panic!("unexpected solver error: {error}"),
@@ -95,13 +127,24 @@ fn test_ksatisfiability_to_monochromatic_triangle_closed_loop() {
     let coloring = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     assert!(
         source
-            .evaluate(&reduction.extract_solution(&coloring).unwrap())
+            .evaluate(
+                &reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), coloring.clone())
+                            .unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
+            )
             .unwrap()
             .0
     );
-    assert!(
-        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
-    );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -156,7 +199,21 @@ fn test_ksatisfiability_to_monochromatic_triangle_short_and_repeated_literals() 
                 assert!(feasible);
                 assert!(
                     source
-                        .evaluate(&reduction.extract_solution(&coloring).unwrap())
+                        .evaluate(
+                            &reduction
+                                .recover_result(
+                                    &source,
+                                    SolveOutcome::optimal(
+                                        reduction.target_problem(),
+                                        coloring.clone()
+                                    )
+                                    .unwrap()
+                                )
+                                .map(|result| result.into_solution().expect(
+                                    "qualifying target result must recover a source solution"
+                                ))
+                                .unwrap()
+                        )
                         .unwrap()
                         .0
                 );
@@ -173,7 +230,14 @@ fn test_ksatisfiability_to_monochromatic_triangle_zero_variables() {
     let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source).unwrap();
     let coloring = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     assert_eq!(
-        reduction.extract_solution(&coloring).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), coloring.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<bool>::new()
     );
 }

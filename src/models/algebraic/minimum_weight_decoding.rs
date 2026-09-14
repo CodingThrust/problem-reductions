@@ -73,23 +73,7 @@ struct MinimumWeightDecodingCreateSpec {
 impl TryFrom<MinimumWeightDecodingCreateSpec> for MinimumWeightDecoding {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightDecodingCreateSpec) -> Result<Self, Self::Error> {
-        let first = spec
-            .matrix
-            .first()
-            .ok_or("matrix must have at least one row")?;
-        if first.is_empty() {
-            return Err("matrix must have at least one column".into());
-        }
-        if spec.matrix.iter().any(|row| row.len() != first.len()) {
-            return Err("all matrix rows must have the same length".into());
-        }
-        if spec.target.len() != spec.matrix.len() {
-            return Err("Target length must equal number of rows".into());
-        }
-        Ok(Self {
-            matrix: spec.matrix,
-            target: spec.target,
-        })
+        Self::try_new(spec.matrix, spec.target)
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 
 fn integer_ilp(
     bounds: &[(i64, i64)],
@@ -27,7 +28,14 @@ fn solve_via_bool(source: &ILP<i64>) -> Option<(Vec<i64>, i64)> {
         Err(crate::solvers::ILPSolveError::Infeasible) => return None,
         Err(error) => panic!("ILP execution failed: {error}"),
     };
-    let source_solution = reduction.extract_solution(&witness).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(
         source.is_feasible(&source_solution).unwrap(),
         "decoded integer ILP solution must be feasible"

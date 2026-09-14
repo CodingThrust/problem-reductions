@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 include!("../jl_helpers.rs");
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
@@ -84,7 +85,14 @@ fn test_unsatisfiable_formula() {
     // OR no valid coloring exists that extracts to a satisfying SAT assignment
     let mut found_satisfying = false;
     for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol).unwrap();
+        let sat_sol = reduction
+            .recover_result(
+                &sat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         if sat.is_satisfying(&sat_sol) {
             found_satisfying = true;
             break;
@@ -201,7 +209,14 @@ fn test_single_literal_clauses() {
 
     let mut found_correct = false;
     for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol).unwrap();
+        let sat_sol = reduction
+            .recover_result(
+                &sat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         if sat_sol == vec![true, true] {
             found_correct = true;
             break;
@@ -282,7 +297,14 @@ fn test_manual_coloring_extraction() {
     let valid_coloring = vec![0, 1, 2, 0, 1];
 
     assert_eq!(coloring.graph().num_vertices(), 5);
-    let extracted = reduction.extract_solution(&valid_coloring).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &sat,
+            SolveOutcome::optimal(reduction.target_problem(), valid_coloring.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     // x1 should be true (1) because vertex 3 has color 0 which equals TRUE vertex's color
     assert_eq!(extracted, vec![true]);
 }
@@ -298,14 +320,28 @@ fn test_extraction_with_different_color_assignment() {
     // Different valid coloring: TRUE=2, FALSE=0, AUX=1
     // x1 must have color 2 (TRUE), NOT_x1 must have color 0 (FALSE)
     let coloring_permuted = vec![2, 0, 1, 2, 0];
-    let extracted = reduction.extract_solution(&coloring_permuted).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &sat,
+            SolveOutcome::optimal(reduction.target_problem(), coloring_permuted.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     // x1 should still be true because its color equals TRUE vertex's color
     assert_eq!(extracted, vec![true]);
 
     // Another permutation: TRUE=1, FALSE=2, AUX=0
     // x1 has color 1 (TRUE), NOT_x1 has color 2 (FALSE)
     let coloring_permuted2 = vec![1, 2, 0, 1, 2];
-    let extracted2 = reduction.extract_solution(&coloring_permuted2).unwrap();
+    let extracted2 = reduction
+        .recover_result(
+            &sat,
+            SolveOutcome::optimal(reduction.target_problem(), coloring_permuted2.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted2, vec![true]);
 }
 
@@ -335,7 +371,14 @@ fn test_jl_parity_sat_to_coloring() {
         let target_sol = ilp_solver
             .solve(target)
             .expect("ILP should find a coloring");
-        let extracted = result.extract_solution(&target_sol).unwrap();
+        let extracted = result
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(result.target_problem(), target_sol.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let best_source: HashSet<Vec<bool>> = BruteForce::new()
             .find_all_witnesses(&source)
             .unwrap()

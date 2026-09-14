@@ -3,6 +3,7 @@ use crate::models::algebraic::BMF;
 use crate::models::graph::BicliqueCover;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -33,7 +34,14 @@ fn test_bmf_to_bicliquecover_closed_loop_all_ones() {
         .solve(target)
         .unwrap()
         .expect("target has feasible biclique cover");
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), bf_source);
     assert!(problem.is_exact(&extracted).unwrap());
@@ -54,7 +62,14 @@ fn test_bmf_to_bicliquecover_closed_loop_identity() {
         .solve(target)
         .unwrap()
         .expect("target has feasible biclique cover");
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), bf_source);
     assert!(problem.is_exact(&extracted).unwrap());
