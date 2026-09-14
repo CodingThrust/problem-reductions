@@ -475,8 +475,12 @@ impl Problem for TimetableDesign {
 }
 
 impl crate::solvers::BruteForceProblem for TimetableDesign {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.config_len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.config_len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

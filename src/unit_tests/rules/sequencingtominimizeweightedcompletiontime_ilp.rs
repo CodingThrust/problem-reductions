@@ -104,8 +104,9 @@ fn test_cyclic_precedence_instance_is_infeasible() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert!(
-        ILPSolver::new().solve(ilp).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "cyclic precedences should make the ILP infeasible"
     );
 }

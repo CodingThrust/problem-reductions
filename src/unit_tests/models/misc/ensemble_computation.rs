@@ -15,8 +15,11 @@ fn test_ensemble_computation_creation() {
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_subsets(), 2);
     assert_eq!(problem.budget(), 4);
-    assert_eq!(problem.num_variables(), 8);
-    assert_eq!(problem.dimensions(), vec![8; 8]);
+    assert_eq!(problem.num_variables().unwrap(), 8);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![8; 8]
+    );
     assert_eq!(
         <EnsembleComputation as Problem>::NAME,
         "EnsembleComputation"

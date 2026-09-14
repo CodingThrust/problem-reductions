@@ -183,8 +183,12 @@ where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -240,7 +244,11 @@ where
     const DECISION_NAME: &'static str = "DecisionMinimumVertexCover";
 }
 
-impl Decision<MinimumVertexCover<SimpleGraph, i64>> {
+impl<W> Decision<MinimumVertexCover<SimpleGraph, W>>
+where
+    W: WeightElement + crate::variant::VariantParam,
+    W::Sum: std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
+{
     /// Number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.inner().num_vertices()
@@ -249,11 +257,6 @@ impl Decision<MinimumVertexCover<SimpleGraph, i64>> {
     /// Number of edges in the underlying graph.
     pub fn num_edges(&self) -> usize {
         self.inner().num_edges()
-    }
-
-    /// Decision bound as a nonnegative integer.
-    pub fn k(&self) -> usize {
-        (*self.bound()).try_into().unwrap_or(0)
     }
 }
 
@@ -298,13 +301,14 @@ crate::register_decision_variant!(
     category: crate::registry::ProblemCategory::Graph,
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-        VariantDimension::new("weight", "i64", &["i64"]),
+        VariantDimension::new("weight", "i64", &["i64", "One"]),
     ],
     fields: [
         FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
         FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
         FieldInfo { name: "bound", type_name: "W::Sum", description: "Decision bound (maximum allowed cover cost)" },
     ],
+    additional: [MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices"],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
     random
 );
@@ -325,52 +329,73 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(feature = "example-db")]
 pub(crate) fn decision_canonical_model_example_specs(
 ) -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "decision_minimum_vertex_cover_simplegraph",
-        instance: Box::new(crate::models::decision::Decision::new(
-            MinimumVertexCover::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
-                vec![1i64; 4],
-            ),
-            2,
-        )),
-        optimal_config: serde_json::json!(vec![true, false, true, false]),
-        optimal_value: serde_json::json!(true),
-    }]
-}
-
-#[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "decision_minimum_vertex_cover_to_minimum_vertex_cover",
-        build: || {
-            use crate::example_db::specs::assemble_rule_example;
-            use crate::export::SolutionPair;
-            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
-
-            let source = crate::models::decision::Decision::new(
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "decision_minimum_vertex_cover_simplegraph",
+            instance: Box::new(crate::models::decision::Decision::new(
                 MinimumVertexCover::new(
                     SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
                     vec![1i64; 4],
                 ),
                 2,
-            );
-            let result = source
-                .reduce_to_aggregate()
-                .expect("reduction should succeed");
-            let target = result.target_problem();
-            let config = vec![true, false, true, false];
-            assemble_rule_example(
-                &source,
-                target,
-                vec![SolutionPair {
-                    source_config: serde_json::json!(config.clone()),
-                    target_config: serde_json::json!(config),
-                }],
-            )
+            )),
+            optimal_config: serde_json::json!(vec![true, false, true, false]),
+            optimal_value: serde_json::json!(true),
         },
-    }]
+        crate::example_db::specs::ModelExampleSpec {
+            id: "decision_minimum_vertex_cover_unit",
+            instance: Box::new(Decision::new(
+                MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
+                1,
+            )),
+            optimal_config: serde_json::json!([false, true, false]),
+            optimal_value: serde_json::json!(true),
+        },
+    ]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::example_db::specs::{rule_example_with_witness, RuleExampleSpec};
+    use crate::export::SolutionPair;
+    vec![
+        RuleExampleSpec {
+            id: "decision_minimum_vertex_cover_to_minimum_vertex_cover",
+            build: || {
+                let source = Decision::new(
+                    MinimumVertexCover::new(
+                        SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+                        vec![1i64; 4],
+                    ),
+                    2,
+                );
+                rule_example_with_witness::<_, MinimumVertexCover<SimpleGraph, i64>>(
+                    source,
+                    SolutionPair {
+                        source_config: serde_json::json!([true, false, true, false]),
+                        target_config: serde_json::json!([true, false, true, false]),
+                    },
+                )
+            },
+        },
+        RuleExampleSpec {
+            id: "decision_minimum_vertex_cover_unit_to_minimum_vertex_cover",
+            build: || {
+                let source = Decision::new(
+                    MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
+                    1,
+                );
+                rule_example_with_witness::<_, MinimumVertexCover<SimpleGraph, One>>(
+                    source,
+                    SolutionPair {
+                        source_config: serde_json::json!([false, true, false]),
+                        target_config: serde_json::json!([false, true, false]),
+                    },
+                )
+            },
+        },
+    ]
 }
 
 /// Check if a set of vertices forms a vertex cover.

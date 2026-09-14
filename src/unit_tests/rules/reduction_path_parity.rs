@@ -131,7 +131,7 @@ fn test_jl_parity_factoring_to_spinglass_path() {
 
     // Verify reduction produces a valid SpinGlass problem
     assert!(
-        target.num_variables() > 0,
+        target.num_variables().unwrap() > 0,
         "SpinGlass should have variables"
     );
 

@@ -43,8 +43,11 @@ fn test_consecutive_ones_matrix_augmentation_basic() {
     assert_eq!(problem.num_rows(), 4);
     assert_eq!(problem.num_cols(), 5);
     assert_eq!(problem.bound(), 2);
-    assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dimensions(), vec![5; 5]);
+    assert_eq!(problem.num_variables().unwrap(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5; 5]
+    );
     assert_eq!(
         <ConsecutiveOnesMatrixAugmentation as Problem>::NAME,
         "ConsecutiveOnesMatrixAugmentation"

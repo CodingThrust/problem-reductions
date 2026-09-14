@@ -60,8 +60,9 @@ fn test_precedenceconstrainedscheduling_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionPCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible scheduling instance should produce infeasible ILP"
     );
 }

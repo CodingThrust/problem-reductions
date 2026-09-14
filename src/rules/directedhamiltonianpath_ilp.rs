@@ -34,13 +34,11 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.num_vertices;
             // Decode one-hot assignment: permutation[k] = v where x_{v,k} = 1
 
-            one_hot_decode(target_solution, n, n, 0)?
+            one_hot_decode(target_solution, n, n, 0)
         })
     }
 }

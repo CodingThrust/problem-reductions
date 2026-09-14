@@ -28,7 +28,7 @@ pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()
     let config: serde_json::Value =
         serde_json::from_str(config_str).context("Config is not valid JSON")?;
 
-    let result = problem.evaluate_dyn(&config)?;
+    let (result, _) = problem.evaluate_dyn(&config)?;
 
     out.emit(
         || result.to_string(),

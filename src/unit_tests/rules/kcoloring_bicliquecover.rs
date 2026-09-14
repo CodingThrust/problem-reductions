@@ -262,7 +262,9 @@ fn test_kcoloring_to_bicliquecover_native_loops_are_infeasible() {
             assert_eq!(target.graph().left_edges(), &[(0, 0)]);
             assert!(target.evaluate(&vec![]).unwrap().0.is_none());
             assert!(BruteForce::new().solve(target).unwrap().is_none());
-            assert!(reduction.extract_solution(&vec![]).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+            );
             if q == 0 {
                 assert!(source.evaluate(&vec![0; n]).is_err());
             } else {
@@ -304,7 +306,9 @@ fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
         vec![vec![true; 8]; 4],
         vec![vec![false; 8]; 4],
     ] {
-        assert!(reduction.extract_solution(&invalid).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &invalid), Ok(value) if { value.is_valid() })
+        );
     }
     let valid = forward_witness(&source, &[0, 1]);
     assert!(target.evaluate(&valid).unwrap().0.is_some());
@@ -355,9 +359,8 @@ fn test_kcoloring_to_bicliquecover_all_single_vertex_target_configs() {
                 })
                 .collect();
             let value = target.evaluate(&config).unwrap();
-            let decoded = reduction.extract_solution(&config);
-            assert_eq!(decoded.is_ok(), value.0.is_some());
-            if let Ok(coloring) = decoded {
+            if value.0.is_some() {
+                let coloring = reduction.extract_solution(&config).unwrap();
                 feasible = true;
                 assert!(source.evaluate(&coloring).unwrap().0);
             }

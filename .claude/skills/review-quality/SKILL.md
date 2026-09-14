@@ -67,13 +67,18 @@ Only check these if the diff touches `problemreductions-cli/`:
 
 ## Step 5: Evaluate Test Quality
 
+Read the canonical [validation policy](../../../docs/src/design.md#validation-evidence).
 Flag tests that:
-- **Only check types/shapes, not values**: e.g., `assert!(result.is_some())` without checking the solution is correct
-- **Mirror the implementation**: Tests recomputing the same formula as the code prove nothing
-- **Lack adversarial cases**: Only happy path. Tests must include infeasible configs and boundary cases
-- **Use trivial instances only**: Single-edge or 2-node tests may pass with bugs. Need 5+ vertex instances
-- **Closed-loop without verification**: Must verify extracted solution is **optimal** (compare brute-force on both source and target)
-- **Assert count too low**: 1-2 asserts for non-trivial code is insufficient
+
+- Check only types/shapes when the behavior requires a semantic value or witness assertion.
+- Mirror the implementation without an independent expected result.
+- Miss a concrete construction branch, infeasible configuration, or representation risk relevant to the change.
+- Fail to check the reduction's stated mapping or objective relationship. Use explicit witnesses or small exhaustive oracles as appropriate; arbitrary feasible witnesses need not be optimal.
+- Treat backend failures as mathematical counterexamples, or relax tolerances to make integration tests pass.
+- Duplicate shared backend decoding/precision checks across rules.
+
+Use the smallest instances that distinguish correct from incorrect behavior.
+Judge assertions by what they establish, not vertex, assertion, or test counts.
 
 ## Output Format
 
@@ -110,3 +115,18 @@ Flag tests that:
 ### Summary
 - [list of all ISSUE items as bullet points with severity]
 ```
+
+## Reduction lifecycle responsibilities
+
+Apply the canonical [executed lifecycle](../../../docs/src/design.md#executed-reduction-lifecycle).
+State the rule's instance domain, qualifying-witness premise, source guarantee,
+and infeasibility interpretation. Check every qualifying tied optimum in small
+exhaustive cases where ties are relevant. A witness flag alone does not prove
+complete solvability or that adjacent path premises compose.
+
+Construct each executed result once and share target, witness, value, and
+completion state. Outcome interpretation uses the rule's mathematical relation;
+ordinary extraction assumes its premises. Keep necessary dynamic/JSON conversion
+and reachable representation failures, but no checked/unchecked extraction or
+pure forwarding wrappers. Do not add `SolutionAggregate` bounds to models or
+mathematical mappings; it belongs to brute-force witness selection.

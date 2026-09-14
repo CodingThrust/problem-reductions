@@ -21,23 +21,15 @@ pub(crate) fn solve<T: ClosestVectorTarget>(
         .map(|column| {
             column
                 .iter()
-                .map(|&entry| {
-                    crate::types::i64_to_exact_f64(entry)?;
-                    Ok(BigRational::from_integer(entry.into()))
-                })
-                .collect::<Result<Vec<_>, SolveError>>()
+                .map(|&entry| BigRational::from_integer(entry.into()))
+                .collect()
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<Vec<_>>>();
     let target = problem
         .target()
         .iter()
-        .map(|coordinate| {
-            let value = coordinate.to_f64().map_err(SolveError::Evaluation)?;
-            BigRational::from_float(value).ok_or_else(|| {
-                SolveError::NonFiniteResult("converting a CVP target to an exact rational".into())
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(ClosestVectorTarget::to_rational)
+        .collect::<Vec<_>>();
 
     let (mu, norms, alpha) = gram_schmidt(&basis, &target);
     let mut best_squared = (0..n).map(|i| &norms[i] * &alpha[i] * &alpha[i]).sum();
@@ -118,7 +110,6 @@ fn enumerate(
         center.round().to_integer().to_i64().ok_or_else(|| {
             SolveError::IntegerOverflow("rounding a CVP enumeration center".into())
         })?;
-    crate::types::i64_to_exact_f64(candidate)?;
     let nearest = BigRational::from_integer(candidate.into());
     let mut step = if center > nearest { 1_i64 } else { -1 };
 
@@ -127,7 +118,6 @@ fn enumerate(
     // branch uses the improved incumbent rather than a fixed initial interval.
     loop {
         coefficients[level] = candidate;
-        crate::types::i64_to_exact_f64(candidate)?;
         let delta = BigRational::from_integer(candidate.into()) - &center;
         let next_squared = &partial_squared + &norms[level] * &delta * &delta;
         if next_squared >= *best_squared {
@@ -152,9 +142,15 @@ fn enumerate(
             break;
         }
         // Differences +1,-2,+3,... (or -1,+2,-3,...) alternate around the center.
-        // Exact f64 coefficient transport keeps these i64 updates below 2^55.
-        candidate += step;
-        step = -step - step.signum();
+        candidate = candidate.checked_add(step).ok_or_else(|| {
+            SolveError::IntegerOverflow("advancing a CVP enumeration coefficient".into())
+        })?;
+        step = step
+            .checked_neg()
+            .and_then(|value| value.checked_sub(step.signum()))
+            .ok_or_else(|| {
+                SolveError::IntegerOverflow("advancing a CVP enumeration step".into())
+            })?;
     }
     Ok(())
 }

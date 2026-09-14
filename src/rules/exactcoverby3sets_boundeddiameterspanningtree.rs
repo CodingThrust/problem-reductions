@@ -98,14 +98,6 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target edge selection is not a feasible bounded-diameter spanning tree",
-            ));
-        }
-
         Ok({
             let m = self.source_num_subsets;
             let root_to_set_offset = 2;

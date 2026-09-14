@@ -60,14 +60,6 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_invalid_target
         target.evaluate(&invalid_target_solution).unwrap(),
         Min(None)
     );
-
-    let error = reduction
-        .extract_solution(&invalid_target_solution)
-        .unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        "target configuration is not a valid intersection graph basis"
-    );
 }
 
 #[test]

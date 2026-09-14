@@ -143,7 +143,9 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_small_graphs() {
         assert_eq!(target.num_potential_edges(), 0);
         assert_eq!(*target.budget(), 0);
         assert!(!target.evaluate(&vec![]).unwrap().0);
-        assert!(reduction.extract_solution(&vec![]).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
+        );
         assert!(BruteForce::new().solve(&source).unwrap().is_none());
         assert!(BruteForce::new().solve(target).unwrap().is_none());
     }
@@ -173,9 +175,8 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_all_graphs_and_certific
             for mask in 0..1usize << pairs.len() {
                 let config: Vec<_> = (0..pairs.len()).map(|i| mask & (1 << i) != 0).collect();
                 let feasible = reduction.target_problem().evaluate(&config).unwrap().0;
-                let extracted = reduction.extract_solution(&config);
-                assert_eq!(extracted.is_ok(), feasible);
-                if let Ok(circuit) = extracted {
+                if feasible {
+                    let circuit = reduction.extract_solution(&config).unwrap();
                     assert!(source.evaluate(&circuit).unwrap().0);
                     target_yes = true;
                 }
@@ -194,10 +195,18 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_rejects_infeasible_cert
     let reduction =
         ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source).unwrap();
     // A spanning cycle made only of non-edges exceeds the budget and is not a source cycle.
-    assert!(reduction.extract_solution(&vec![true; 3]).is_err());
-    assert!(reduction.extract_solution(&vec![false; 3]).is_err());
-    assert!(reduction.extract_solution(&vec![true; 2]).is_err());
-    assert!(reduction.extract_solution(&vec![true; 4]).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![true; 3]), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; 3]), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![true; 2]), Ok(value) if { value.is_valid() })
+    );
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![true; 4]), Ok(value) if { value.is_valid() })
+    );
     let source = HamiltonianCircuit::new(SimpleGraph::complete(6));
     let reduction =
         ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source).unwrap();
@@ -208,5 +217,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_rejects_infeasible_cert
         .iter()
         .map(|&(u, v, _)| (u < 3) == (v < 3))
         .collect();
-    assert!(reduction.extract_solution(&config).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+    );
 }

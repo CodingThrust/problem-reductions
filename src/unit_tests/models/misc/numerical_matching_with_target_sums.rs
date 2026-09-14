@@ -17,8 +17,11 @@ fn test_nmts_creation() {
     assert_eq!(problem.sizes_y(), &[2, 5, 3]);
     assert_eq!(problem.targets(), &[3, 7, 12]);
     assert_eq!(problem.num_pairs(), 3);
-    assert_eq!(problem.dimensions(), vec![3; 3]);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 3]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 3);
     assert_eq!(
         <NumericalMatchingWithTargetSums as Problem>::NAME,
         "NumericalMatchingWithTargetSums"

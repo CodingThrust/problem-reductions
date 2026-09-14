@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -10,7 +9,10 @@ fn test_creation() {
     assert_eq!(problem.loop_length(), 6);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.variables(), &[(0, 3), (2, 3), (4, 3)]);
-    assert_eq!(problem.dimensions(), vec![3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3]
+    );
 }
 
 #[test]

@@ -414,7 +414,7 @@ impl McpServer {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let problem = load_problem(&pj.problem_type, &pj.variant, pj.data)?;
 
-        let result = problem.evaluate_dyn(config)?;
+        let (result, _) = problem.evaluate_dyn(config)?;
         let json = serde_json::json!({
             "problem": problem.problem_name(),
             "config": config,

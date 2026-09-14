@@ -271,7 +271,9 @@ fn empty_formula_and_empty_clause_have_opposite_fixed_targets() {
             vec![2, 1, 0],
         ] {
             assert!(!reduction.target_problem().evaluate(&config).unwrap().0);
-            assert!(reduction.extract_solution(&config).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+            );
         }
     }
 }
@@ -293,7 +295,9 @@ fn reject_invalid_orderings_and_accept_every_rotation() {
         );
     }
     for config in [vec![], vec![0; n], vec![n; n], (0..n).collect()] {
-        assert!(reduction.extract_solution(&config).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

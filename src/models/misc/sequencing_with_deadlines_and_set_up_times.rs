@@ -39,7 +39,7 @@ inventory::submit! {
 /// This is problem SS14 in Garey & Johnson (1979), written
 /// $1 | s_{ij} | \text{feasibility}$.
 ///
-/// Configurations are direct permutation encodings with `dims() = [n; n]`:
+/// Configurations are direct permutation encodings with `coordinate cardinalities = [n; n]`:
 /// each position holds the index of the task scheduled at that position.
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]
@@ -239,9 +239,12 @@ impl Problem for SequencingWithDeadlinesAndSetUpTimes {
 }
 
 impl crate::solvers::BruteForceProblem for SequencingWithDeadlinesAndSetUpTimes {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.num_tasks();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
     }
 }
 

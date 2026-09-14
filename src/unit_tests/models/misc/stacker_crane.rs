@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_lengths_and_checks_inferred_vertex_counts() {
@@ -40,7 +39,10 @@ fn test_stacker_crane_creation_and_metadata() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 5);
     assert_eq!(problem.num_edges(), 7);
-    assert_eq!(problem.dimensions(), vec![5; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5; 5]
+    );
     assert_eq!(<StackerCrane as Problem>::NAME, "StackerCrane");
     assert!(<StackerCrane as Problem>::variant().is_empty());
 }

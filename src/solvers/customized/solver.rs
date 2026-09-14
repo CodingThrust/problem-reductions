@@ -70,12 +70,12 @@ register_customized_solver!(
 register_customized_solver!(GroupingBySwapping, "symbol-block-order", |problem| Ok(
     super::grouping_by_swapping::solve(problem)
 ));
-register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| Ok(
-    super::shortest_common_superstring::solve(problem)
-));
-register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| Ok(
-    super::minimum_decision_tree::solve(problem)
-));
+register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| {
+    super::shortest_common_superstring::solve(problem).map(Some)
+});
+register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| {
+    super::minimum_decision_tree::solve(problem).map(Some)
+});
 register_customized_solver!(
     MinimumCostCirculation,
     "negative-cycle-canceling",

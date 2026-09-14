@@ -84,7 +84,11 @@ fn test_subgraphisomorphism_to_ilp_infeasible() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(result.is_err(), "K3 in path should be infeasible");
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
+        "K3 in path should be infeasible"
+    );
 }
 
 #[test]

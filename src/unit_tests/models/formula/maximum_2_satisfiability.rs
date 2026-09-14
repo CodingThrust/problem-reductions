@@ -1,7 +1,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -25,7 +24,10 @@ fn test_maximum_2_satisfiability_creation() {
     let problem = issue_instance();
     assert_eq!(problem.num_vars(), 4);
     assert_eq!(problem.num_clauses(), 7);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
 }
 
 #[test]

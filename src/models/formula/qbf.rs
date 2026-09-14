@@ -187,8 +187,12 @@ impl Problem for QuantifiedBooleanFormulas {
 }
 
 impl crate::solvers::BruteForceProblem for QuantifiedBooleanFormulas {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(0)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(0)
     }
 }
 

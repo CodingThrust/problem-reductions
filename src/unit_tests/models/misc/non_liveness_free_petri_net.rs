@@ -29,8 +29,11 @@ fn test_non_liveness_free_petri_net_basic() {
     assert_eq!(problem.num_transitions(), 3);
     assert_eq!(problem.num_arcs(), 6);
     assert_eq!(problem.initial_token_sum(), 1);
-    assert_eq!(problem.dimensions(), vec![2; 3]);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 3]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 3);
     assert_eq!(
         <NonLivenessFreePetriNet as Problem>::NAME,
         "NonLivenessFreePetriNet"

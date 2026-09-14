@@ -101,7 +101,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
             ),
             Or(false)
         );
-        assert!(reduction.extract_solution(&target_solution).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &target_solution), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        );
     }
 }
 
@@ -144,12 +146,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                     }
                     let accepted =
                         crate::rules::AggregateReductionResult::extract_value(&reduction, value).0;
-                    match reduction.extract_solution(&placement) {
-                        Ok(witness) => {
-                            assert!(accepted);
-                            assert_eq!(source.evaluate(&witness).unwrap(), Or(true));
-                        }
-                        Err(_) => assert!(!accepted),
+                    if accepted {
+                        let witness = reduction.extract_solution(&placement).unwrap();
+                        assert_eq!(source.evaluate(&witness).unwrap(), Or(true));
                     }
                 }
                 assert_eq!(
@@ -157,9 +156,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                     Or(source_yes),
                     "n={n}, edges={edges:?}, K={bound}"
                 );
-                assert!(reduction
-                    .extract_solution(&vec![false; target.num_vertices() + 1])
-                    .is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vertices() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                );
             }
         }
     }

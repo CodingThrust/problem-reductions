@@ -35,14 +35,12 @@ impl ReductionResult for ReductionLCSToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
             self.max_length,
             self.alphabet_size + 1,
             0,
-        )?
+        )
         .into_iter()
         .map(|symbol| (symbol < self.alphabet_size).then_some(symbol))
         .collect())

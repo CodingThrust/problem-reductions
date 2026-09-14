@@ -11,8 +11,11 @@ fn test_three_dimensional_matching_creation() {
     );
     assert_eq!(problem.universe_size(), 3);
     assert_eq!(problem.num_triples(), 5);
-    assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2]
+    );
 }
 
 #[test]

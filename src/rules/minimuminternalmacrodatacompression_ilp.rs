@@ -99,8 +99,6 @@ impl ReductionResult for ReductionIMDCToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.layout.n;
             let k = self.alphabet_size;

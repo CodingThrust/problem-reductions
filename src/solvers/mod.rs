@@ -11,18 +11,22 @@ pub mod ilp;
 
 #[doc(hidden)]
 pub use brute_force::BruteForceRegistration;
-pub use brute_force::{BruteForce, BruteForceProblem};
+pub use brute_force::{cartesian_dimensions, BruteForce, BruteForceProblem, SolutionAggregate};
 pub use registry::{
     brute_force_dimensions, solver_capabilities, CustomizedSolverCapability, ExactProblemKey,
     IlpSolverCapability, RegistryBuildError, SolverCapabilities,
 };
-pub use resolver::{solve, SolveOutcome, SolveResult, SolverExecution, SolverRequest};
+pub use resolver::{
+    complete_reduction, solve, SolveOutcome, SolveResult, SolverExecution, SolverRequest,
+};
 
 pub use ilp::{ILPSolveError, ILPSolver};
 
 /// Failure while solving a valid problem instance.
 #[derive(Debug, thiserror::Error)]
 pub enum SolveError {
+    #[error(transparent)]
+    Extraction(#[from] crate::rules::ExtractionError),
     #[error("configuration evaluation failed: {0}")]
     Evaluation(#[from] crate::traits::EvaluationError),
     #[error("aggregate combination failed: {0}")]
@@ -31,8 +35,8 @@ pub enum SolveError {
     MissingRegistration(String),
     #[error("invalid reference-solver registration: {0}")]
     RegistrationTypeMismatch(String),
-    #[error("brute-force search space cardinality exceeds usize for dimensions {0:?}")]
-    SearchSpaceOverflow(Vec<usize>),
+    #[error("cannot allocate solver storage: {0}")]
+    Allocation(#[from] std::collections::TryReserveError),
     #[error("integer overflow while {0}")]
     IntegerOverflow(String),
     #[error("inexact integer-to-float conversion: {0}")]
@@ -51,4 +55,10 @@ pub enum SolveError {
         #[source]
         source: ILPSolveError,
     },
+}
+
+impl From<std::num::TryFromIntError> for SolveError {
+    fn from(error: std::num::TryFromIntError) -> Self {
+        Self::IntegerOverflow(error.to_string())
+    }
 }

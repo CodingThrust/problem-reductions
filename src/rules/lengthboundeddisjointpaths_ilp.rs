@@ -40,22 +40,12 @@ impl ReductionResult for ReductionLBDPToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let m = self.edges.len();
         let flow_vars_per_k = 2 * m;
         let activation_offset = self.num_paths * flow_vars_per_k;
         let mut result = vec![vec![false; m]; self.num_paths];
         for (k, path) in result.iter_mut().enumerate() {
             if target_solution[activation_offset + k] == 0 {
-                if target_solution[k * flow_vars_per_k..(k + 1) * flow_vars_per_k]
-                    .iter()
-                    .any(|&flow| flow != 0)
-                {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "inactive path slot contains flow",
-                    ));
-                }
                 continue;
             }
             let mut adjacency = vec![Vec::new(); self.num_vertices];
@@ -86,12 +76,7 @@ impl ReductionResult for ReductionLBDPToILP {
                 }
             }
             let mut vertex = self.sink;
-            while vertex != self.source {
-                let (previous, edge) = predecessor[vertex].ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "active path flow does not connect source to sink",
-                    )
-                })?;
+            while let Some((previous, edge)) = predecessor[vertex] {
                 path[edge] = true;
                 vertex = previous;
             }

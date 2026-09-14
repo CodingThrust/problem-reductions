@@ -40,8 +40,6 @@ impl ReductionResult for ReductionDCPToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let mut result = vec![false; self.edges.len()];
         for (k, &(source, sink)) in self.terminal_pairs.iter().enumerate() {
             let offset = k * self.num_edge_vars_per_commodity;
@@ -71,12 +69,7 @@ impl ReductionResult for ReductionDCPToILP {
                 }
             }
             let mut vertex = sink;
-            while vertex != source {
-                let (previous, edge) = predecessor[vertex].ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "commodity flow does not connect its terminal pair",
-                    )
-                })?;
+            while let Some((previous, edge)) = predecessor[vertex] {
                 result[edge] = true;
                 vertex = previous;
             }

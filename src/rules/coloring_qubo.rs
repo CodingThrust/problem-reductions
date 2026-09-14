@@ -33,34 +33,21 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
         &self.target
     }
 
-    /// Decode one-hot: for each vertex, find which color bit is 1.
+    /// Decode a target witness at `feasible_energy` into a proper coloring.
+    /// At that energy all nonnegative penalties vanish, including one-hot.
+    /// An optimum above the threshold means the source is uncolorable and
+    /// is interpreted through `extract_value` before witness extraction.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target QUBO configuration does not certify a proper coloring",
-            ));
-        }
-
-        (0..self.num_vertices)
+        Ok((0..self.num_vertices)
             .map(|vertex| {
-                let mut selected = (0..self.num_colors)
-                    .filter(|&color| target_solution[vertex * self.num_colors + color]);
-                match (selected.next(), selected.next()) {
-                    (Some(color), None) => Ok(color),
-                    (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "assignment row {vertex} has no selected color"
-                    ))),
-                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "assignment row {vertex} has multiple selected colors"
-                    ))),
-                }
+                (0..self.num_colors)
+                    .find(|&color| target_solution[vertex * self.num_colors + color])
+                    .unwrap()
             })
-            .collect()
+            .collect())
     }
 }
 
@@ -125,7 +112,7 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
         .checked_mul(4)
         .ok_or_else(|| overflow("computing a one-hot interaction coefficient"))?;
 
-    let mut matrix = vec![vec![0i64; nq]; nq];
+    let mut matrix = vec![std::collections::BTreeMap::new(); nq];
 
     // Twice the former half-integral objective keeps every coefficient integral.
     // One-hot penalty: 2P*sum_v (1 - sum_c x_{v,c})^2
@@ -136,7 +123,8 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
         for c in 0..k {
             let idx = v * k + c;
             // Diagonal: -2P
-            matrix[idx][idx] = matrix[idx][idx]
+            let coefficient = matrix[idx].entry(idx).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_add(diagonal_penalty)
                 .ok_or_else(|| overflow("adding a coloring diagonal coefficient"))?;
         }
@@ -145,7 +133,8 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
             for c2 in (c1 + 1)..k {
                 let idx1 = v * k + c1;
                 let idx2 = v * k + c2;
-                matrix[idx1][idx2] = matrix[idx1][idx2]
+                let coefficient = matrix[idx1].entry(idx2).or_insert(0i64);
+                *coefficient = coefficient
                     .checked_add(one_hot_interaction)
                     .ok_or_else(|| overflow("adding a one-hot interaction coefficient"))?;
             }
@@ -162,14 +151,15 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
             } else {
                 (idx_v, idx_u)
             };
-            matrix[i][j] = matrix[i][j]
+            let coefficient = matrix[i].entry(j).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_add(penalty)
                 .ok_or_else(|| overflow("adding an edge-conflict coefficient"))?;
         }
     }
 
     Ok(ReductionKColoringToQUBO {
-        target: QUBO::from_matrix(matrix).map_err(|message| {
+        target: QUBO::from_rows(matrix).map_err(|message| {
             crate::rules::ReductionError::construction::<KColoring<K, SimpleGraph>, QUBO<i64>>(
                 message,
             )

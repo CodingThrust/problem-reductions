@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_edge_weights() {
@@ -55,7 +54,12 @@ fn test_creation() {
     assert_eq!(problem.root(), 0);
     assert_eq!(problem.requirements(), &[0, 1, 1, 1, 1]);
     assert_eq!(*problem.capacity(), 3);
-    assert_eq!(problem.dimensions().len(), 8);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        8
+    );
     assert!(problem.is_weighted());
 }
 

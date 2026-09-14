@@ -58,8 +58,6 @@ impl ReductionResult for ReductionSTSCToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.n;
             let k = self.bound;
@@ -88,19 +86,7 @@ impl ReductionResult for ReductionSTSCToILP {
                         .filter(|&j| target_solution[idx_s(n, k, t, j)] == 1)
                         .map(|j| current_len + j),
                 );
-                match selected.as_slice() {
-                    [operation] => ops.push(*operation),
-                    [] => {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "edit step {t} has no selected operation"
-                        )))
-                    }
-                    _ => {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "edit step {t} has multiple selected operations"
-                        )))
-                    }
-                }
+                ops.push(selected.into_iter().sum());
             }
             ops
         })

@@ -29,8 +29,11 @@ fn test_minimum_cardinality_key_creation() {
     let problem = instance1();
     assert_eq!(problem.num_attributes(), 6);
     assert_eq!(problem.num_dependencies(), 4);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 }
 
 #[test]

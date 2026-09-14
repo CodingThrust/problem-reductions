@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_invalid_terminals() {
@@ -20,7 +19,12 @@ use crate::types::Min;
 fn test_minimummultiwaycut_creation() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
-    assert_eq!(problem.dimensions().len(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        6
+    );
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 6);
     assert_eq!(problem.num_terminals(), 3);

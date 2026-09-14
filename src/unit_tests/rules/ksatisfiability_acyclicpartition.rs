@@ -35,7 +35,9 @@ fn test_ksatisfiability_to_acyclicpartition_closed_loop() {
                     .0
             );
         } else {
-            assert!(reduction.extract_solution(&labels).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &labels), Ok(value) if { value.is_valid() })
+            );
         }
     }
     assert_eq!(count, 3);
@@ -53,7 +55,9 @@ fn test_acyclicpartition_extraction_rejects_invalid_targets() {
         vec![0; 9],
         vec![2, 1, 1, 0, 0, 1, 1, 0, 1],
     ] {
-        assert!(reduction.extract_solution(&labels).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &labels), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

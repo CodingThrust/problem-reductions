@@ -1,8 +1,8 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::types::One;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {

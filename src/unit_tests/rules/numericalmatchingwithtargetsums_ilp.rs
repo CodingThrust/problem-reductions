@@ -55,8 +55,9 @@ fn test_numericalmatchingwithtargetsums_to_ilp_unsatisfiable() {
     let problem = NumericalMatchingWithTargetSums::new(vec![1, 2], vec![3, 4], vec![10, 20]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let result = ILPSolver::new().solve(reduction.target_problem());
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Unsatisfiable instance should have no ILP solution"
     );
 }

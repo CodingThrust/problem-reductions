@@ -9,13 +9,12 @@ use crate::traits::Problem;
 fn decision_mvc(
     num_vertices: usize,
     edges: &[(usize, usize)],
-    weights: &[i64],
     k: i64,
-) -> Decision<MinimumVertexCover<SimpleGraph, i64>> {
+) -> Decision<MinimumVertexCover<SimpleGraph, One>> {
     Decision::new(
         MinimumVertexCover::new(
             SimpleGraph::new(num_vertices, edges.to_vec()),
-            weights.to_vec(),
+            vec![One; num_vertices],
         ),
         k,
     )
@@ -23,7 +22,7 @@ fn decision_mvc(
 
 #[test]
 fn test_decisionminimumvertexcover_to_hamiltoniancircuit_structure_counts() {
-    let source = decision_mvc(3, &[(0, 1), (1, 2)], &[1, 1, 1], 1);
+    let source = decision_mvc(3, &[(0, 1), (1, 2)], 1);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -35,7 +34,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_structure_counts() {
 
 #[test]
 fn test_decisionminimumvertexcover_to_hamiltoniancircuit_closed_loop() {
-    let source = decision_mvc(3, &[(0, 1), (1, 2)], &[1, 1, 1], 1);
+    let source = decision_mvc(3, &[(0, 1), (1, 2)], 1);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -57,7 +56,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_closed_loop() {
 
 #[test]
 fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertices() {
-    let source = decision_mvc(3, &[(0, 1)], &[1, 1, 1], 1);
+    let source = decision_mvc(3, &[(0, 1)], 1);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -79,7 +78,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
 #[test]
 fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers_all_active_vertices(
 ) {
-    let source = decision_mvc(3, &[(0, 1), (1, 2)], &[1, 1, 1], 3);
+    let source = decision_mvc(3, &[(0, 1), (1, 2)], 3);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -97,7 +96,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers
 
 #[test]
 fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_no_when_k_zero() {
-    let source = decision_mvc(2, &[(0, 1)], &[1, 1], 0);
+    let source = decision_mvc(2, &[(0, 1)], 0);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -107,11 +106,31 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_no_when_k_zero() 
 }
 
 #[test]
-fn test_decisionminimumvertexcover_to_hamiltoniancircuit_rejects_non_unit_weights() {
-    let source = decision_mvc(2, &[(0, 1)], &[2, 1], 1);
-    let error = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::rules::ReductionError::InvalidTarget { .. }
-    ));
+fn hamiltonian_edge_registers_only_unit_weight_vertex_cover() {
+    let sources = inventory::iter::<crate::rules::ReductionEntry>
+        .into_iter()
+        .filter(|entry| {
+            entry.source_name == "DecisionMinimumVertexCover"
+                && entry.target_name == "HamiltonianCircuit"
+        })
+        .map(|entry| (entry.source_variant_fn)())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        sources,
+        vec![Decision::<MinimumVertexCover<SimpleGraph, One>>::variant()]
+    );
+}
+
+#[test]
+fn unit_cover_bound_handles_negative_and_empty_graphs() {
+    for (bound, expected) in [(-1, false), (0, true), (i64::MAX, true)] {
+        let source = decision_mvc(2, &[], bound);
+        let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap();
+        let witness = BruteForce::new().solve(reduction.target_problem()).unwrap();
+        assert_eq!(witness.is_some(), expected);
+        if let Some(witness) = witness {
+            let cover = reduction.extract_solution(&witness).unwrap();
+            assert!(source.evaluate(&cover).unwrap().0);
+        }
+    }
 }

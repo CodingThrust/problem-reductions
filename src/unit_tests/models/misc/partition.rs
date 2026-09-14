@@ -1,6 +1,5 @@
 use crate::models::misc::Partition;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -9,7 +8,10 @@ fn test_partition_basic() {
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.sizes(), &[3, 1, 1, 2, 2, 1]);
     assert_eq!(problem.total_sum(), 10);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 }
 
 #[test]

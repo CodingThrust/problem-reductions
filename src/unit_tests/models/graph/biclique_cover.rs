@@ -85,7 +85,7 @@ fn test_biclique_cover_creation() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.k(), 2);
-    assert_eq!(problem.num_variables(), 8); // 4 vertices * 2 bicliques
+    assert_eq!(problem.num_variables().unwrap(), 8); // 4 vertices * 2 bicliques
 }
 
 #[test]
@@ -243,7 +243,10 @@ fn test_biclique_problem() {
     let problem = BicliqueCover::new(graph, 1);
 
     // dims: 4 vertices * 1 biclique = 4 binary variables
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2]
+    );
 
     // Valid cover: vertex 0 and vertex 2 in biclique 0
     // Config: [v0_b0=1, v1_b0=0, v2_b0=1, v3_b0=0]
@@ -311,7 +314,12 @@ fn test_complexity_includes_number_of_bicliques() {
         .find(|entry| entry.name == "BicliqueCover")
         .expect("BicliqueCover variant should be registered");
 
-    assert_eq!(problem.dimensions().len(), 8);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        8
+    );
     assert_eq!(
         (entry.complexity_eval_fn)(&problem as &dyn std::any::Any),
         256.0

@@ -113,11 +113,6 @@ impl ClosestSubstring {
             .map(|string| string.len() - substring_length + 1)
             .try_fold(0_usize, usize::checked_add)
             .ok_or("total number of windows exceeds usize")?;
-        strings
-            .iter()
-            .map(|string| string.len() - substring_length + 1)
-            .try_fold(1_usize, usize::checked_mul)
-            .ok_or("window-choice count exceeds usize")?;
         Ok(Self {
             alphabet_size,
             strings,
@@ -157,16 +152,6 @@ impl ClosestSubstring {
             .map(|s| s.len() - self.substring_length + 1)
             .sum()
     }
-
-    /// Returns `prod_i W_i`, the number of distinct window-selection tuples.
-    ///
-    pub fn num_window_choice_product(&self) -> usize {
-        self.strings
-            .iter()
-            .map(|s| s.len() - self.substring_length + 1)
-            .try_fold(1usize, usize::checked_mul)
-            .expect("validated window-choice count must fit usize")
-    }
 }
 
 impl Problem for ClosestSubstring {
@@ -180,7 +165,6 @@ impl Problem for ClosestSubstring {
         ("substring_length", substring_length),
         ("total_length", total_length),
         ("total_num_windows", total_num_windows),
-        ("num_window_choice_product", num_window_choice_product),
     ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -235,16 +219,22 @@ impl Problem for ClosestSubstring {
 }
 
 impl crate::solvers::BruteForceProblem for ClosestSubstring {
-    fn dimensions(&self) -> Vec<usize> {
-        let ell = self.substring_length;
-        let mut dims = vec![self.alphabet_size; ell];
-        dims.extend(self.strings.iter().map(|s| s.len() - ell + 1));
-        dims
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.substring_length + self.strings.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        if variable < self.substring_length {
+            Ok(self.alphabet_size)
+        } else {
+            Ok(self.strings[variable - self.substring_length].len() - self.substring_length + 1)
+        }
     }
 }
 
 crate::declare_variants! {
-    default ClosestSubstring => "alphabet_size ^ substring_length * num_window_choice_product",
+    // AM-GM bounds the product of window counts by their mean raised to num_strings.
+    default ClosestSubstring => "alphabet_size ^ substring_length * (total_num_windows / num_strings)^num_strings",
 }
 
 crate::register_brute_force! {

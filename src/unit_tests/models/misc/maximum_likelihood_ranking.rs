@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -15,7 +14,10 @@ fn test_maximum_likelihood_ranking_creation() {
     assert_eq!(problem.num_items(), 4);
     assert_eq!(problem.matrix(), &matrix);
     assert_eq!(problem.comparison_count(), 5);
-    assert_eq!(problem.dimensions(), vec![4; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 4]
+    );
     assert_eq!(
         <MaximumLikelihoodRanking as Problem>::NAME,
         "MaximumLikelihoodRanking"
@@ -148,7 +150,10 @@ fn test_maximum_likelihood_ranking_single_item() {
     let problem = MaximumLikelihoodRanking::new(vec![vec![0]]);
     assert_eq!(problem.num_items(), 1);
     assert_eq!(problem.comparison_count(), 0);
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
 }
 

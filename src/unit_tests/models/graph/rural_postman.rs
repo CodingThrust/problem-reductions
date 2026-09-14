@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -42,8 +41,16 @@ fn test_rural_postman_creation() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_required_edges(), 3);
-    assert_eq!(problem.dimensions().len(), 8);
-    assert!(problem.dimensions().iter().all(|&d| d == 3));
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        8
+    );
+    assert!(crate::solvers::cartesian_dimensions(&problem)
+        .unwrap()
+        .iter()
+        .all(|&d| d == 3));
 }
 
 #[test]

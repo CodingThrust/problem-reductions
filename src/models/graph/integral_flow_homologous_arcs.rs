@@ -84,14 +84,8 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
                 return Err("homologous pair arc index is out of range".into());
             }
         }
-        for &c in &capacities {
-            if usize::try_from(c)
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-            {
-                return Err("capacity is too large".into());
-            }
+        if capacities.iter().any(|&capacity| capacity < 0) {
+            return Err("capacities must be nonnegative".into());
         }
         Ok(Self {
             graph: DirectedGraph::new(count, spec.arcs),
@@ -135,15 +129,10 @@ impl IntegralFlowHomologousArcs {
             assert!(b < num_arcs, "homologous arc index {b} out of range");
         }
 
-        for &capacity in &capacities {
-            assert!(
-                usize::try_from(capacity)
-                    .ok()
-                    .and_then(|value| value.checked_add(1))
-                    .is_some(),
-                "capacities must fit into usize for dims()"
-            );
-        }
+        assert!(
+            capacities.iter().all(|&capacity| capacity >= 0),
+            "capacities must be nonnegative"
+        );
 
         Self {
             graph,
@@ -248,13 +237,6 @@ impl IntegralFlowHomologousArcs {
 
         Ok(crate::types::Or(balances[self.sink] >= self.requirement))
     }
-
-    fn domain_size(capacity: i64) -> usize {
-        usize::try_from(capacity)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .expect("capacity already validated to fit into usize")
-    }
 }
 
 impl Problem for IntegralFlowHomologousArcs {
@@ -281,11 +263,12 @@ impl Problem for IntegralFlowHomologousArcs {
 }
 
 impl crate::solvers::BruteForceProblem for IntegralFlowHomologousArcs {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .map(|&capacity| Self::domain_size(capacity))
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(i128::from(self.capacities[variable]) + 1)?)
     }
 }
 

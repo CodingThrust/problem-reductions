@@ -38,8 +38,9 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
     // Two tasks that can't both fit: both need time 0-1, but overlap
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![2, 2]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible SWRTD should produce infeasible ILP"
     );
 }
@@ -51,8 +52,9 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_rejects_empty_start_window
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![14], vec![0], vec![13]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "a task longer than its release-deadline window must make the ILP infeasible"
     );
 }

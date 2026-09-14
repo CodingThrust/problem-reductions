@@ -25,9 +25,9 @@ fn test_simultaneous_incongruences_creation_and_accessors() {
     assert_eq!(p.num_pairs(), 4);
     assert_eq!(p.pairs(), &[(2, 2), (1, 3), (2, 5), (3, 7)]);
     // lcm(2,3,5,7) = 210
-    assert_eq!(p.lcm_moduli(), 210);
-    assert_eq!(p.dimensions(), vec![210]);
-    assert_eq!(p.num_variables(), 1);
+    assert_eq!(p.lcm_moduli().unwrap(), 210);
+    assert_eq!(crate::solvers::cartesian_dimensions(&p).unwrap(), vec![210]);
+    assert_eq!(p.num_variables().unwrap(), 1);
     assert_eq!(
         <SimultaneousIncongruences as Problem>::NAME,
         "SimultaneousIncongruences"
@@ -49,7 +49,7 @@ fn test_simultaneous_incongruences_evaluate_no() {
     let p = covering_system();
     // pairs (2,2) and (1,2): together require x≡0 (mod 2) AND x≡1 (mod 2),
     // which is impossible.
-    let lcm = p.lcm_moduli();
+    let lcm = p.lcm_moduli().unwrap();
     assert_eq!(lcm, 2);
     // All x in {0,1} should fail
     for x in 0..lcm {
@@ -72,8 +72,8 @@ fn test_simultaneous_incongruences_evaluate_invalid_config() {
 fn test_simultaneous_incongruences_empty_pairs() {
     let p = SimultaneousIncongruences::new(vec![]).unwrap();
     assert_eq!(p.num_pairs(), 0);
-    assert_eq!(p.lcm_moduli(), 1);
-    assert_eq!(p.dimensions(), vec![1]);
+    assert_eq!(p.lcm_moduli().unwrap(), 1);
+    assert_eq!(crate::solvers::cartesian_dimensions(&p).unwrap(), vec![1]);
     // Any x (here x=0) satisfies vacuously
     assert_eq!(p.evaluate(&0).unwrap(), Or(true));
 }
@@ -130,4 +130,20 @@ fn test_simultaneous_incongruences_paper_example() {
     let solver = BruteForce::new();
     let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
+}
+
+#[test]
+fn period_overflow_does_not_restrict_model_evaluation() {
+    let problem = SimultaneousIncongruences::new(vec![(1, i64::MAX), (1, i64::MAX - 1)]).unwrap();
+    let restored: SimultaneousIncongruences =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(restored.evaluate(&0).unwrap(), Or(true));
+    assert_eq!(restored.evaluate(&-1).unwrap(), Or(false));
+    assert_eq!(restored.parameters(), problem.parameters());
+    assert!(matches!(
+        crate::solvers::cartesian_dimensions(&restored),
+        Err(crate::solvers::SolveError::Evaluation(
+            crate::traits::EvaluationError::IntegerOverflow(_)
+        ))
+    ));
 }

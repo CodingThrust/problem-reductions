@@ -1,6 +1,5 @@
 use crate::models::misc::Clustering;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Helper: build the 6-element two-group instance from the issue.
@@ -23,7 +22,10 @@ fn test_clustering_creation() {
     assert_eq!(problem.num_clusters(), 2);
     assert_eq!(problem.diameter_bound(), 1);
     assert_eq!(problem.distances().len(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 }
 
 #[test]

@@ -158,17 +158,6 @@ impl MinimumExternalMacroDataCompression {
         &self.string
     }
 
-    /// Returns the number of valid pointers into D (|s|*(|s|+1)/2).
-    fn num_pointers(&self) -> usize {
-        let n = self.string.len();
-        n * (n + 1) / 2
-    }
-
-    /// Returns the C-slot domain size: alphabet_size + 1 (empty) + num_pointers.
-    fn c_domain_size(&self) -> usize {
-        self.alphabet_size + 1 + self.num_pointers()
-    }
-
     /// Decode a pointer index (offset from alphabet_size+1) into (start, len)
     /// in the dictionary. Pointers are enumerated as:
     /// index 0 -> (0, 1), 1 -> (0, 2), ..., n-1 -> (0, n),
@@ -322,13 +311,22 @@ impl Problem for MinimumExternalMacroDataCompression {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumExternalMacroDataCompression {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.string.len();
-        let d_domain = self.alphabet_size + 1; // symbols + empty
-        let c_domain = self.c_domain_size(); // symbols + empty + pointers
-        let mut dims = vec![d_domain; n]; // D-slots
-        dims.extend(vec![c_domain; n]); // C-slots
-        dims
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2 * self.string.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        if variable < self.string.len() {
+            Ok((self.alphabet_size).checked_add(1usize).ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a search coordinate size".into(),
+                )
+            })?)
+        } else {
+            let n = self.string.len() as u128;
+            let cardinality = self.alphabet_size as u128 + 1 + n * (n + 1) / 2;
+            Ok(usize::try_from(cardinality)?)
+        }
     }
 }
 

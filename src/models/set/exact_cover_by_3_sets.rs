@@ -239,8 +239,12 @@ impl Problem for ExactCoverBy3Sets {
 }
 
 impl crate::solvers::BruteForceProblem for ExactCoverBy3Sets {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.subsets.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.subsets.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

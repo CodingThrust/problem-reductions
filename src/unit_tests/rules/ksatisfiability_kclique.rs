@@ -147,7 +147,9 @@ fn test_kclique_all_two_clause_formulas_and_target_selections() {
                             .0
                     );
                 } else {
-                    assert!(reduction.extract_solution(&witness).is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { value.is_valid() })
+                    );
                 }
             }
             assert_eq!(source_yes, target_yes);
@@ -169,7 +171,9 @@ fn test_kclique_rejects_malformed_or_non_clique_selections() {
         vec![true, true, false, false, true],
         vec![true, false, true, false, true],
     ] {
-        assert!(reduction.extract_solution(&bad).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &bad), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

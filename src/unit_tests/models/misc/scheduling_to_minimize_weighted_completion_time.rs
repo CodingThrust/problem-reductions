@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_task_weights() {
@@ -28,7 +27,10 @@ fn test_scheduling_min_wct_creation() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.lengths(), &[1, 2, 3, 4, 5]);
     assert_eq!(problem.weights(), &[6, 4, 3, 2, 1]);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
     assert_eq!(
         <SchedulingToMinimizeWeightedCompletionTime as Problem>::NAME,
         "SchedulingToMinimizeWeightedCompletionTime"
@@ -195,7 +197,10 @@ fn test_scheduling_min_wct_single_processor() {
 #[test]
 fn test_scheduling_min_wct_three_processors() {
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![3, 3, 3], vec![1, 1, 1], 3);
-    assert_eq!(problem.dimensions(), vec![3; 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 3]
+    );
     // One task per processor: each completes at 3, WCT = 3*1 + 3*1 + 3*1 = 9
     assert_eq!(problem.evaluate(&vec![0, 1, 2]).unwrap(), Min(Some(9)));
     // All on one processor: C(t0)=3, C(t1)=6, C(t2)=9, WCT = 3+6+9 = 18

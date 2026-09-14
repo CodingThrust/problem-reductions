@@ -30,14 +30,8 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
-            let x = u64::try_from(*target_solution).map_err(|_| {
-                crate::rules::ExtractionError::invalid(
-                    "target value cannot be represented in the CRT implementation domain",
-                )
-            })?;
+            let x = *target_solution as u64;
             self.variable_primes
                 .iter()
                 .map(|&prime| x % prime == 1)

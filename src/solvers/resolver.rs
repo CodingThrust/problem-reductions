@@ -45,6 +45,51 @@ pub enum SolveOutcome {
     Infeasible,
 }
 
+/// Interpret aggregate outcomes before mapping each accepted target optimum.
+pub(crate) fn complete_chain(
+    chain: &crate::rules::ReductionChain,
+    target_solution: &dyn std::any::Any,
+) -> crate::rules::ExtractionResult<Option<Box<dyn std::any::Any>>> {
+    let mut solution: Option<Box<dyn std::any::Any>> = None;
+    for step in chain.steps.iter().rev() {
+        let input = solution.as_deref().unwrap_or(target_solution);
+        if let Some(interpret) = &step.interpret_optimum {
+            if !interpret(input)? {
+                return Ok(None);
+            }
+        }
+        solution = Some(step.witness.extract_solution_dyn(input)?);
+    }
+    Ok(Some(solution.expect("reduction chain has no steps")))
+}
+
+/// Map a completed target solve through an executed reduction chain.
+///
+/// The target outcome must come from a completed solve, not merely a feasible
+/// assignment: only an accepted optimum can establish a source decision's NO.
+pub fn complete_reduction(
+    source: &dyn crate::registry::DynProblem,
+    chain: &crate::rules::ReductionChain,
+    target: &SolveOutcome,
+) -> Result<SolveOutcome, super::SolveError> {
+    let SolveOutcome::Optimal { solution, .. } = target else {
+        return Ok(SolveOutcome::Infeasible);
+    };
+    let last = chain.steps.last().expect("reduction chain has no steps");
+    let target_solution = last.witness.target_solution_from_json(solution.clone())?;
+    let Some(solution) = complete_chain(chain, target_solution.as_ref())? else {
+        return Ok(SolveOutcome::Infeasible);
+    };
+    let solution = chain.steps[0]
+        .witness
+        .source_solution_json(solution.as_ref())?;
+    let (evaluation, _) = source.evaluate_dyn(&solution)?;
+    Ok(SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    })
+}
+
 fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
     ExactProblemKey::new(problem.problem_name(), problem.variant_map())
 }
@@ -54,10 +99,13 @@ fn solve_customized(
     registration: &'static CustomizedSolverRegistration,
 ) -> Result<SolveResult, super::SolveError> {
     let outcome = match (registration.solve_fn)(problem.as_any())? {
-        Some(solution) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&solution)?,
-            solution,
-        },
+        Some(solution) => {
+            let (evaluation, _) = problem.evaluate_dyn(&solution)?;
+            SolveOutcome::Optimal {
+                evaluation,
+                solution,
+            }
+        }
         None => SolveOutcome::Infeasible,
     };
     Ok(SolveResult {
@@ -72,11 +120,17 @@ fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
-        Ok(solution) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&solution)?,
-            solution,
-        },
+    let outcome = match pipeline.solve(
+        problem.as_any(),
+        &super::ilp::adapter::HighsAdapter::new(None),
+    ) {
+        Ok(solution) => {
+            let (evaluation, _) = problem.evaluate_dyn(&solution)?;
+            SolveOutcome::Optimal {
+                evaluation,
+                solution,
+            }
+        }
         Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
         Err(source) => {
             return Err(super::SolveError::IlpSolve {

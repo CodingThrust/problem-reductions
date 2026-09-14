@@ -4,8 +4,8 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
-fn issue_instance() -> ClosestSubstring {
-    // The #1033 canonical example: q = 2, ell = 3, three length-5 binary strings.
+fn canonical_instance() -> ClosestSubstring {
+    // Canonical example: q = 2, ell = 3, three length-5 binary strings.
     ClosestSubstring::new(
         2,
         vec![
@@ -20,24 +20,26 @@ fn issue_instance() -> ClosestSubstring {
 
 #[test]
 fn test_closest_substring_creation() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     assert_eq!(problem.alphabet_size(), 2);
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.substring_length(), 3);
     assert_eq!(problem.total_length(), 15);
     assert_eq!(problem.total_num_windows(), 9);
-    assert_eq!(problem.num_window_choice_product(), 27);
     // dims: 3 center slots (each of size 2) + one window-position slot per
     // string (each of size W_i = 5 - 3 + 1 = 3).
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 3, 3, 3]);
-    assert_eq!(problem.num_variables(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 3, 3, 3]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 6);
     assert_eq!(<ClosestSubstring as Problem>::NAME, "ClosestSubstring");
     assert_eq!(<ClosestSubstring as Problem>::variant(), vec![]);
 }
 
 #[test]
 fn test_closest_substring_evaluate_at_optimum() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     // Center [0,1,0] with window picks (0, 1, 0):
     //   s_1[0..3] = [0,0,0], d_H([0,1,0], [0,0,0]) = 1
     //   s_2[1..4] = [0,1,0], d_H = 0
@@ -51,7 +53,7 @@ fn test_closest_substring_evaluate_at_optimum() {
 
 #[test]
 fn test_closest_substring_evaluate_all_zero_windows() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     // c = [0,0,0], windows (0, 0, 0):
     //   s_1[0..3] = [0,0,0]  d = 0
     //   s_2[0..3] = [1,0,1]  d = 2
@@ -65,7 +67,7 @@ fn test_closest_substring_evaluate_all_zero_windows() {
 
 #[test]
 fn test_closest_substring_evaluate_at_111_center() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     // Any center [1,1,1] has Hamming distance >= 1 to every length-3 binary
     // string that contains at least one 0. All windows of s_1, s_2, s_3
     // contain at least one zero, so the radius is at least 1.
@@ -79,7 +81,7 @@ fn test_closest_substring_evaluate_at_111_center() {
 
 #[test]
 fn test_closest_substring_evaluate_invalid_length() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     assert!(matches!(
         problem.evaluate(&vec![0, 0, 0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -92,7 +94,7 @@ fn test_closest_substring_evaluate_invalid_length() {
 
 #[test]
 fn test_closest_substring_bruteforce_finds_optimum() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     let solver = BruteForce::new();
     // 8 centers * 27 window combinations = 216 configurations; optimum is 1.
     assert_eq!(
@@ -112,7 +114,7 @@ fn test_closest_substring_bruteforce_finds_optimum() {
 fn test_closest_substring_specializes_to_closest_string() {
     // When substring_length == string_length, each input string has exactly
     // one window (W_i = 1) and the problem reduces to ClosestString on the
-    // same instance. Use the #1032 canonical (4 binary strings of length 3),
+    // same instance. Use four binary strings of length 3,
     // whose optimum radius is 2.
     let problem = ClosestSubstring::new(
         2,
@@ -120,8 +122,10 @@ fn test_closest_substring_specializes_to_closest_string() {
         3,
     )
     .unwrap();
-    assert_eq!(problem.num_window_choice_product(), 1);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 1, 1, 1, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 1, 1, 1, 1]
+    );
     let solver = BruteForce::new();
     assert_eq!(
         problem
@@ -161,13 +165,16 @@ fn test_closest_substring_rejects_out_of_alphabet_symbol() {
 
 #[test]
 fn test_closest_substring_serialization() {
-    let problem = issue_instance();
+    let problem = canonical_instance();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ClosestSubstring = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.strings(), problem.strings());
     assert_eq!(restored.substring_length(), problem.substring_length());
-    assert_eq!(restored.dimensions(), problem.dimensions());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&restored).unwrap(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap()
+    );
     assert_eq!(
         restored.evaluate(&vec![0, 1, 0, 0, 1, 0]).unwrap(),
         problem.evaluate(&vec![0, 1, 0, 0, 1, 0]).unwrap()

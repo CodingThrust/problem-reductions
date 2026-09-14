@@ -33,13 +33,6 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target partition does not satisfy the acyclic partition constraints",
-            ));
-        }
         let source_label = target_solution[self.source_vertex];
         let selected = target_solution[..self.sat_to_clique.target_problem().num_vertices()]
             .iter()

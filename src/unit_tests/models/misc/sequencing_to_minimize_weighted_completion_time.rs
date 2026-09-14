@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -17,7 +16,10 @@ fn test_sequencing_to_minimize_weighted_completion_time_basic() {
     assert_eq!(problem.weights(), &[3, 5, 1, 4, 2]);
     assert_eq!(problem.precedences(), &[(0, 2), (1, 4)]);
     assert_eq!(problem.num_precedences(), 2);
-    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 3, 2, 1]
+    );
     assert_eq!(
         <SequencingToMinimizeWeightedCompletionTime as Problem>::NAME,
         "SequencingToMinimizeWeightedCompletionTime"
@@ -129,7 +131,10 @@ fn test_sequencing_to_minimize_weighted_completion_time_empty() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![], vec![], vec![]);
 
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
@@ -137,7 +142,10 @@ fn test_sequencing_to_minimize_weighted_completion_time_empty() {
 fn test_sequencing_to_minimize_weighted_completion_time_single_task() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![3], vec![2], vec![]);
 
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(6)));
 }
 

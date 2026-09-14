@@ -227,8 +227,12 @@ impl Problem for GroupingBySwapping {
 }
 
 impl crate::solvers::BruteForceProblem for GroupingBySwapping {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.string_len(); self.budget]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.budget)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.string_len())
     }
 }
 

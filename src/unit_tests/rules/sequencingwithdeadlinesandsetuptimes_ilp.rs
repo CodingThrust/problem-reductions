@@ -49,8 +49,9 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_infeasible() {
     let problem =
         SequencingWithDeadlinesAndSetUpTimes::new(vec![2, 2], vec![1, 1], vec![0, 0], vec![0]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible instance should produce infeasible ILP"
     );
 }

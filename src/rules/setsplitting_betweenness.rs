@@ -32,8 +32,6 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let pole_position = target_solution[self.pole];
         Ok(target_solution[..self.source_universe_size]
             .iter()

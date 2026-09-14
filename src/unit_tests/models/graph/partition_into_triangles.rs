@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -25,7 +24,10 @@ fn test_partitionintotriangles_basic() {
 
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 9);
-    assert_eq!(problem.dimensions(), vec![3; 9]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 9]
+    );
 
     // Valid partition: vertices 0,1,2 in group 0; 3,4,5 in group 1; 6,7,8 in group 2
     assert!(problem.evaluate(&vec![0, 0, 0, 1, 1, 1, 2, 2, 2]).unwrap());
@@ -44,7 +46,10 @@ fn test_partitionintotriangles_no_solution() {
     let problem = PartitionIntoTriangles::new(graph);
 
     assert_eq!(problem.num_vertices(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 
     // No valid partition exists since there are no triangles
     let solver = BruteForce::new();

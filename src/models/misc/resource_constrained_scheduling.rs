@@ -254,8 +254,12 @@ impl Problem for ResourceConstrainedScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for ResourceConstrainedScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.deadline as usize; self.num_tasks()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(self.deadline)?)
     }
 }
 

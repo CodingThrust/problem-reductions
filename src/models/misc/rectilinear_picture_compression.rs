@@ -297,8 +297,12 @@ impl Problem for RectilinearPictureCompression {
 }
 
 impl crate::solvers::BruteForceProblem for RectilinearPictureCompression {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.maximal_rects.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.maximal_rects.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

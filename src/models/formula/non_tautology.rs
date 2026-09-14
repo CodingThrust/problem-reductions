@@ -177,8 +177,12 @@ impl Problem for NonTautology {
 }
 
 impl crate::solvers::BruteForceProblem for NonTautology {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vars)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

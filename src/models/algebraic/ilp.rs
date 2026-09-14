@@ -6,9 +6,7 @@
 
 use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{EvaluationError, Problem};
-use crate::types::{
-    i64_to_exact_f64, Extremum, NumericArithmeticError, NumericSize, WeightElement,
-};
+use crate::types::{Extremum, NumericArithmeticError, NumericSize, WeightElement};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -80,19 +78,14 @@ impl ILPCoefficient for f64 {
     const NAME: &'static str = "f64";
 
     fn from_integer(value: i64) -> Result<Self, EvaluationError> {
-        i64_to_exact_f64(value).map_err(|_| {
-            EvaluationError::InexactFloatConversion(
-                "transporting an integer variable into an f64 ILP expression".into(),
-            )
-        })
+        Ok(value as f64)
     }
 
     fn satisfies(lhs: Self, comparison: Comparison, rhs: Self) -> bool {
-        let tolerance = 1e-9 * lhs.abs().max(rhs.abs()).max(1.0);
         match comparison {
-            Comparison::Le => lhs <= rhs + tolerance,
-            Comparison::Ge => lhs >= rhs - tolerance,
-            Comparison::Eq => (lhs - rhs).abs() <= tolerance,
+            Comparison::Le => lhs <= rhs,
+            Comparison::Ge => lhs >= rhs,
+            Comparison::Eq => lhs == rhs,
         }
     }
 }

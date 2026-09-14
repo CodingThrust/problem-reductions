@@ -76,10 +76,8 @@ impl TryFrom<PrecedenceConstrainedSchedulingCreateSpec> for PrecedenceConstraine
                 .to_string()
                 .into());
         }
-        if spec.deadline < 0 || usize::try_from(spec.deadline).is_err() {
-            return Err("deadline must be nonnegative and fit usize"
-                .to_string()
-                .into());
+        if spec.deadline < 0 {
+            return Err("deadline must be nonnegative".to_string().into());
         }
         let precedences = spec.precedences.unwrap_or_default();
         if let Some(&(pred, succ)) = precedences
@@ -121,10 +119,7 @@ impl PrecedenceConstrainedScheduling {
             );
             assert!(deadline > 0, "deadline must be > 0 when there are tasks");
         }
-        assert!(
-            deadline >= 0 && usize::try_from(deadline).is_ok(),
-            "deadline must be nonnegative and fit usize"
-        );
+        assert!(deadline >= 0, "deadline must be nonnegative");
         for &(i, j) in &precedences {
             assert!(
                 i < num_tasks && j < num_tasks,
@@ -194,24 +189,26 @@ impl Problem for PrecedenceConstrainedScheduling {
                         "schedule length does not match the tasks".into(),
                     ));
                 }
-                let deadline =
-                    usize::try_from(self.deadline).expect("validated deadline must fit usize");
-                if config.iter().any(|&v| v >= deadline) {
+                if config
+                    .iter()
+                    .any(|&v| v as i128 >= i128::from(self.deadline))
+                {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "schedule contains an out-of-range time slot".into(),
                     ));
                 }
                 // Check processor capacity: at most num_processors tasks per time slot
-                let mut slot_count = vec![0usize; deadline];
+                let mut slot_count = std::collections::BTreeMap::new();
                 for &slot in config {
-                    slot_count[slot] += 1;
-                    if slot_count[slot] > self.num_processors {
+                    let count = slot_count.entry(slot).or_insert(0usize);
+                    *count += 1;
+                    if *count > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
                 }
                 // Check precedence constraints: for (i, j), slot[j] >= slot[i] + 1
                 for &(i, j) in &self.precedences {
-                    if config[j] < config[i] + 1 {
+                    if config[j] <= config[i] {
                         return Ok(crate::types::Or(false));
                     }
                 }
@@ -222,11 +219,12 @@ impl Problem for PrecedenceConstrainedScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for PrecedenceConstrainedScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![
-            usize::try_from(self.deadline).expect("validated deadline must fit usize");
-            self.num_tasks
-        ]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(self.deadline)?)
     }
 }
 

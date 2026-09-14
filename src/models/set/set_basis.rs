@@ -201,8 +201,14 @@ impl Problem for SetBasis {
 }
 
 impl crate::solvers::BruteForceProblem for SetBasis {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.k * self.universe_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.k).checked_mul(self.universe_size).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

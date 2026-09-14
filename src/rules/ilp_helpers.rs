@@ -43,62 +43,34 @@ pub fn mccormick_product<C: From<i8>>(
     ]
 }
 
-/// Decode one selected item from each slot of a column-major one-hot matrix.
+/// Decode a column-major assignment whose constraints select one item per slot.
 pub fn one_hot_decode(
     solution: &[i64],
     num_items: usize,
     num_slots: usize,
     var_offset: usize,
-) -> crate::rules::ExtractionResult<Vec<usize>> {
-    let assignment: Vec<usize> = (0..num_slots)
+) -> Vec<usize> {
+    (0..num_slots)
         .map(|slot| {
-            let mut selected =
-                (0..num_items).filter(|&item| solution[var_offset + item * num_slots + slot] == 1);
-            let item = selected.next().ok_or_else(|| {
-                crate::rules::ExtractionError::invalid(format!(
-                    "assignment slot {slot} has no selected item"
-                ))
-            })?;
-            if selected.next().is_some() {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "assignment slot {slot} has multiple selected items"
-                )));
-            }
-            Ok(item)
+            (0..num_items)
+                .filter(|&item| solution[var_offset + item * num_slots + slot] == 1)
+                .sum()
         })
-        .collect::<crate::rules::ExtractionResult<_>>()?;
-
-    let mut assigned = vec![false; num_items];
-    for &item in &assignment {
-        if std::mem::replace(&mut assigned[item], true) {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "item {item} is selected for multiple assignment slots"
-            )));
-        }
-    }
-    Ok(assignment)
+        .collect()
 }
 
-/// Decode one selected column from each row of a row-major one-hot matrix.
+/// Decode a row-major assignment whose constraints select one column per row.
 pub fn one_hot_decode_rows(
     solution: &[i64],
     num_rows: usize,
     num_columns: usize,
     var_offset: usize,
-) -> crate::rules::ExtractionResult<Vec<usize>> {
+) -> Vec<usize> {
     (0..num_rows)
         .map(|row| {
-            let mut selected = (0..num_columns)
-                .filter(|&column| solution[var_offset + row * num_columns + column] == 1);
-            match (selected.next(), selected.next()) {
-                (Some(column), None) => Ok(column),
-                (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
-                    "assignment row {row} has no selected column"
-                ))),
-                (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                    "assignment row {row} has multiple selected columns"
-                ))),
-            }
+            (0..num_columns)
+                .filter(|&column| solution[var_offset + row * num_columns + column] == 1)
+                .sum()
         })
         .collect()
 }

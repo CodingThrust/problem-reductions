@@ -261,8 +261,15 @@ impl Problem for SequencingWithinIntervals {
 }
 
 impl crate::solvers::BruteForceProblem for SequencingWithinIntervals {
-    fn dimensions(&self) -> Vec<usize> {
-        self.start_slot_counts().collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self
+            .start_slot_counts()
+            .nth(variable)
+            .expect("coordinate index is in range"))
     }
 }
 

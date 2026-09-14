@@ -59,8 +59,11 @@ fn test_conjunctive_query_foldability_creation() {
     let problem = yes_instance();
     // dims = [domain_size + num_distinguished + num_undistinguished; num_undistinguished]
     //       = [0 + 1 + 3; 3] = [4, 4, 4]
-    assert_eq!(problem.dimensions(), vec![4, 4, 4]);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4, 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 3);
     assert_eq!(
         <ConjunctiveQueryFoldability as Problem>::NAME,
         "ConjunctiveQueryFoldability"
@@ -117,7 +120,10 @@ fn test_conjunctive_query_foldability_serialization() {
     let problem = yes_instance();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ConjunctiveQueryFoldability = serde_json::from_value(json).unwrap();
-    assert_eq!(restored.dimensions(), problem.dimensions());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&restored).unwrap(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap()
+    );
     assert_eq!(restored.domain_size(), problem.domain_size());
     assert_eq!(restored.num_distinguished(), problem.num_distinguished());
     assert_eq!(
@@ -174,7 +180,10 @@ fn test_conjunctive_query_foldability_with_constants() {
         ],
     );
     // dims = [1+1+1; 1] = [3]
-    assert_eq!(problem.dimensions(), vec![3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3]
+    );
     // σ(u→x): index for X(0) = domain_size + 0 = 1
     assert!(problem.evaluate(&vec![1]).unwrap());
     // σ(u→c0): index for C(0) = 0 → R(c0, c0) ∧ R(c0, x) ≠ Q2
@@ -286,7 +295,10 @@ fn test_conjunctive_query_foldability_no_undistinguished() {
         vec![(0, vec![X(0), X(0)])],
         vec![(0, vec![X(0), X(0)])],
     );
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

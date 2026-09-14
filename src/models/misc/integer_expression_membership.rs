@@ -245,8 +245,12 @@ impl Problem for IntegerExpressionMembership {
 }
 
 impl crate::solvers::BruteForceProblem for IntegerExpressionMembership {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_union_nodes()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_union_nodes())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

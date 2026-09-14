@@ -96,8 +96,9 @@ fn test_no_hamiltonian_cycle_infeasible() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Path graph should have no Hamiltonian cycle"
     );
 }
@@ -181,11 +182,13 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
         for variable in 0..witness.len() {
             let mut invalid = witness.clone();
             invalid[variable] = 2;
-            assert!(result.extract_solution(&invalid).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(result.target_problem(), &invalid), Ok(value) if value.is_valid())
+            );
         }
-        assert!(result
-            .extract_solution(&witness[..witness.len() - 1].to_vec())
-            .is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(result.target_problem(), &witness[..witness.len() - 1].to_vec()), Ok(value) if value.is_valid())
+        );
     }
 }
 
@@ -196,12 +199,18 @@ fn test_bottleneck_ilp_maximum_must_be_used_and_dominate() {
     let mut config = tour_witness(&source, &[0, 1, 2, 3], &[0, 3, 5, 2]);
     let selector = 4 * 4 + 2 * 6 * 4;
     config[selector..].fill(0);
-    assert!(result.extract_solution(&config).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(result.target_problem(), &config), Ok(value) if value.is_valid())
+    );
     config[selector] = 1; // used, but lower than the maximum edge
-    assert!(result.extract_solution(&config).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(result.target_problem(), &config), Ok(value) if value.is_valid())
+    );
     config[selector] = 0;
     config[selector + 1] = 1; // unused
-    assert!(result.extract_solution(&config).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(result.target_problem(), &config), Ok(value) if value.is_valid())
+    );
 }
 
 #[test]

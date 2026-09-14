@@ -31,9 +31,12 @@ fn test_kth_largest_m_tuple_creation() {
     assert_eq!(p.k(), 14);
     assert_eq!(p.bound(), 12);
     assert_eq!(p.num_sets(), 3);
-    assert_eq!(p.total_tuples(), 18);
-    assert_eq!(p.dimensions(), Vec::<usize>::new());
-    assert_eq!(p.num_variables(), 0);
+    assert_eq!(p.num_elements(), 8);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        Vec::<usize>::new()
+    );
+    assert_eq!(p.num_variables().unwrap(), 0);
     assert_eq!(<KthLargestMTuple as Problem>::NAME, "KthLargestMTuple");
     assert_eq!(<KthLargestMTuple as Problem>::variant(), vec![]);
 }
@@ -136,7 +139,7 @@ fn test_kth_largest_m_tuple_all_qualify() {
         p.evaluate(&solver.solve(&p).unwrap().unwrap()).unwrap(),
         Or(true)
     );
-    assert_eq!(p.total_tuples(), 1);
+    assert_eq!(p.num_elements(), 2);
 }
 
 #[test]
@@ -169,8 +172,11 @@ fn test_kth_largest_m_tuple_many_singleton_sets_do_not_use_call_stack() {
 }
 
 #[test]
-#[should_panic(expected = "total tuple count exceeds usize")]
-fn test_kth_largest_m_tuple_total_tuples_overflow_panics() {
-    let p = KthLargestMTuple::new(vec![vec![1, 2]; usize::BITS as usize], 1, 1);
-    p.total_tuples();
+fn tuple_product_does_not_restrict_parameters_or_evaluation() {
+    let p = KthLargestMTuple::new(vec![vec![1, 2]; 64], 1, 1);
+    assert_eq!(p.num_elements(), 128);
+    assert_eq!(p.evaluate(&()).unwrap(), Or(true));
+    let restored: KthLargestMTuple =
+        serde_json::from_value(serde_json::to_value(&p).unwrap()).unwrap();
+    assert_eq!(p.parameters(), restored.parameters());
 }

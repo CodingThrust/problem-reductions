@@ -42,16 +42,6 @@ fn decision_reductions_check_target_optimum_before_extracting_witness() {
             SolverRequest::Default,
         ] {
             let result = solve(&problem, backend);
-            if matches!(
-                &result,
-                Err(crate::solvers::SolveError::IlpSolve {
-                    source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                    ..
-                })
-            ) {
-                assert!(!expected, "{name}, {backend:?}");
-                continue;
-            }
             match result.unwrap().outcome {
                 SolveOutcome::Optimal {
                     solution,
@@ -59,7 +49,10 @@ fn decision_reductions_check_target_optimum_before_extracting_witness() {
                 } => {
                     assert!(expected, "{name}, {backend:?}");
                     assert_eq!(evaluation, "Or(true)");
-                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                    assert_eq!(
+                        problem.evaluate_dyn(&solution).unwrap(),
+                        ("Or(true)".into(), true)
+                    );
                 }
                 SolveOutcome::Infeasible => assert!(!expected, "{name}, {backend:?}"),
             }
@@ -85,16 +78,6 @@ fn hamiltonian_ilp_matches_exhaustive_search_on_small_graphs() {
         .unwrap();
         let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
         let actual = solve(&problem, SolverRequest::Ilp);
-        if matches!(
-            &actual,
-            Err(crate::solvers::SolveError::IlpSolve {
-                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                ..
-            })
-        ) {
-            assert!(matches!(reference.outcome, SolveOutcome::Infeasible));
-            continue;
-        }
         let actual = actual.unwrap();
         assert_eq!(
             matches!(actual.outcome, SolveOutcome::Infeasible),
@@ -102,7 +85,10 @@ fn hamiltonian_ilp_matches_exhaustive_search_on_small_graphs() {
             "graph {mask}"
         );
         if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
-            assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+            assert_eq!(
+                problem.evaluate_dyn(&solution).unwrap(),
+                ("Or(true)".into(), true)
+            );
         }
     }
 }
@@ -153,19 +139,6 @@ fn generic_decision_ilp_compares_inner_optimum_with_bound() {
                 SolverRequest::Default,
             ] {
                 let result = solve(&loaded, backend);
-                if bound < optimum && backend != SolverRequest::BruteForce {
-                    assert!(
-                        matches!(
-                            result,
-                            Err(crate::solvers::SolveError::IlpSolve {
-                                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                                ..
-                            })
-                        ),
-                        "{name}, {bound}, {backend:?}"
-                    );
-                    continue;
-                }
                 let result = result.unwrap();
                 if bound < optimum {
                     assert_eq!(
@@ -182,7 +155,10 @@ fn generic_decision_ilp_compares_inner_optimum_with_bound() {
                         panic!("expected a witness for {name}, {bound}, {backend:?}");
                     };
                     assert_eq!(evaluation, "Or(true)");
-                    assert_eq!(loaded.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                    assert_eq!(
+                        loaded.evaluate_dyn(&solution).unwrap(),
+                        ("Or(true)".into(), true)
+                    );
                 }
             }
         }
@@ -239,19 +215,6 @@ fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
                 .unwrap();
                 let reference = solve(&loaded, SolverRequest::BruteForce).unwrap();
                 let actual = solve(&loaded, SolverRequest::Ilp);
-                if matches!(reference.outcome, SolveOutcome::Infeasible) {
-                    assert!(
-                        matches!(
-                            actual,
-                            Err(crate::solvers::SolveError::IlpSolve {
-                                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                                ..
-                            })
-                        ),
-                        "{name}, graph {mask}, bound {bound}"
-                    );
-                    continue;
-                }
                 let actual = actual.unwrap();
                 assert_eq!(
                     matches!(actual.outcome, SolveOutcome::Infeasible),
@@ -259,7 +222,10 @@ fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
                     "{name}, graph {mask}, bound {bound}"
                 );
                 if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
-                    assert_eq!(loaded.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                    assert_eq!(
+                        loaded.evaluate_dyn(&solution).unwrap(),
+                        ("Or(true)".into(), true)
+                    );
                 }
             }
         }
@@ -365,7 +331,7 @@ fn deterministic_solver_dispatch_customized_infeasibility_does_not_fall_back() {
 }
 
 #[test]
-fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
+fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
     let problem = ILP::<bool>::new(0, vec![], vec![], ObjectiveSense::Minimize).unwrap();
     let loaded = load_dyn(
         ILP::<bool>::NAME,
@@ -381,7 +347,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
     assert_eq!(
         result.solver,
         SolverExecution::Ilp {
-            reduction_path: vec!["ILP<i64, bool>".to_string(), "ILP<f64, bool>".to_string()]
+            reduction_path: vec!["ILP<i64, bool>".to_string()]
         }
     );
     assert!(matches!(
@@ -498,7 +464,6 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
             "MaximumIndependentSet<SimpleGraph, i64>",
             "MaximumSetPacking<i64>",
             "ILP<i64, bool>",
-            "ILP<f64, bool>",
         ]
     );
 }
@@ -589,22 +554,6 @@ fn check_unit_dominating_decision(num_vertices: usize, edges: &[(usize, usize)],
     let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
     for backend in [SolverRequest::Ilp, SolverRequest::Default] {
         let actual = solve(&problem, backend);
-        if matches!(reference.outcome, SolveOutcome::Infeasible) {
-            assert!(
-                matches!(
-                    actual,
-                    Err(crate::solvers::SolveError::IlpSolve {
-                        source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                        ..
-                    }) | Ok(crate::solvers::SolveResult {
-                        outcome: SolveOutcome::Infeasible,
-                        ..
-                    })
-                ),
-                "n={num_vertices}, edges={edges:?}, bound={bound}"
-            );
-            continue;
-        }
         let actual = actual.unwrap();
         let SolverExecution::Ilp { reduction_path } = &actual.solver else {
             panic!("expected the registered ILP pipeline");
@@ -626,7 +575,10 @@ fn check_unit_dominating_decision(num_vertices: usize, edges: &[(usize, usize)],
         } = actual.outcome
         {
             assert_eq!(evaluation, "Or(true)");
-            assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+            assert_eq!(
+                problem.evaluate_dyn(&solution).unwrap(),
+                ("Or(true)".into(), true)
+            );
         }
     }
 }

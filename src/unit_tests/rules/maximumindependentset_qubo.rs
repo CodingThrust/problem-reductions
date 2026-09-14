@@ -42,7 +42,7 @@ fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
         path.type_names(),
         vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
     );
-    assert_eq!(qubo.num_variables(), 4);
+    assert_eq!(qubo.num_variables().unwrap(), 4);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -77,7 +77,7 @@ fn test_maximumindependentset_to_qubo_via_path_empty_graph() {
     let (_, chain) = reduce_mis_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
-    assert_eq!(qubo.num_variables(), 3);
+    assert_eq!(qubo.num_variables().unwrap(), 3);
 
     let solver = BruteForce::new();
     let qubo_solution = solver

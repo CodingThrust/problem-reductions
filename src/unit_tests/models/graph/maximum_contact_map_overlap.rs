@@ -20,8 +20,11 @@ fn test_maximum_contact_map_overlap_creation() {
     assert_eq!(problem.num_contacts_1(), 2);
     assert_eq!(problem.num_contacts_2(), 3);
     // dims must be [|V_2| + 1; |V_1|] = [6; 4].
-    assert_eq!(problem.dimensions(), vec![6; 4]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6; 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
     // Contacts get normalized so the smaller endpoint comes first.
     let contacts_2 = problem.contacts_2();
     assert!(contacts_2.contains(&(0, 2)));

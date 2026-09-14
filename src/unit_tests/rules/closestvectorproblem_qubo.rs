@@ -59,7 +59,10 @@ fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
     }
     let solution = reduction.extract_solution(&bits).unwrap();
     assert_eq!(solution, vec![1; size]);
-    assert_eq!(source.evaluate(&solution).unwrap().0, Some(0.0));
+    assert_eq!(
+        source.evaluate(&solution).unwrap().0,
+        Some(num_rational::BigRational::zero())
+    );
 }
 
 #[test]
@@ -73,7 +76,10 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(source_solution, vec![1, 1]);
-    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(0.0));
+    assert_eq!(
+        source.evaluate(&source_solution).unwrap().0,
+        Some(num_rational::BigRational::zero())
+    );
     assert_eq!(reduction.target_problem().num_vars(), 11);
 }
 
@@ -82,10 +88,10 @@ fn test_closestvectorproblem_to_qubo_coefficients() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
     let qubo = reduction.target_problem();
 
-    assert_eq!(qubo.get(0, 0), Some(&-248));
-    assert_eq!(qubo.get(0, 1), Some(&16));
-    assert_eq!(qubo.get(0, 6), Some(&4));
-    assert_eq!(qubo.get(6, 6), Some(&-241));
+    assert_eq!(qubo.get(0, 0), Some(-248));
+    assert_eq!(qubo.get(0, 1), Some(16));
+    assert_eq!(qubo.get(0, 6), Some(4));
+    assert_eq!(qubo.get(6, 6), Some(-241));
 }
 
 #[test]
@@ -146,7 +152,7 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "ClosestVectorProblem");
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["num_vars"], 11);
+    assert_eq!(example.target.instance["matrix"]["nrows"], 11);
     assert_eq!(
         example.solutions[0].source_config,
         serde_json::json!([1, 1])
@@ -155,4 +161,22 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
         example.solutions[0].target_config,
         serde_json::to_value(canonical_bits()).unwrap()
     );
+}
+
+#[test]
+fn qubo_energy_matches_squared_distance_up_to_the_dropped_constant() {
+    let source = ClosestVectorProblem::new(vec![vec![2]], vec![1_i64]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    assert_eq!(target.num_vars(), 3);
+    // The all-zero encoding represents x=-2, with squared distance (-4-1)^2=25.
+    for index in 0..8 {
+        let bits = (0..3).map(|bit| index & (1 << bit) != 0).collect();
+        let coefficient = reduction.extract_solution(&bits).unwrap();
+        let energy = target.evaluate(&bits).unwrap().unwrap();
+        assert_eq!(
+            source.squared_distance(&coefficient).unwrap(),
+            num_rational::BigRational::from_integer((energy + 25).into())
+        );
+    }
 }

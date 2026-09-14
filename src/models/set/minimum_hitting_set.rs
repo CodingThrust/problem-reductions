@@ -168,8 +168,12 @@ impl Problem for MinimumHittingSet {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumHittingSet {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.universe_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.universe_size)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

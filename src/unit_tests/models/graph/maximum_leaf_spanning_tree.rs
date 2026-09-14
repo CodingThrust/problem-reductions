@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
 /// Issue #897 example: 6 vertices, 9 edges.
@@ -29,8 +28,16 @@ fn test_maximum_leaf_spanning_tree_creation() {
     assert_eq!(problem.graph().num_edges(), 9);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 9);
-    assert_eq!(problem.dimensions().len(), 9);
-    assert!(problem.dimensions().iter().all(|&d| d == 2));
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        9
+    );
+    assert!(crate::solvers::cartesian_dimensions(&problem)
+        .unwrap()
+        .iter()
+        .all(|&d| d == 2));
 }
 
 #[test]
@@ -128,7 +135,10 @@ fn test_maximum_leaf_spanning_tree_small_path() {
     // Path graph P3: 0-1-2, only spanning tree is the path itself -> 2 leaves
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaximumLeafSpanningTree::new(graph);
-    assert_eq!(problem.dimensions(), vec![2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2]
+    );
     let config = vec![true, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));
 }

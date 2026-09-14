@@ -37,7 +37,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
 - [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Merges main, walks through agentic review bullets with human, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
-- [verify-reduction](skills/verify-reduction/SKILL.md) -- Standalone mathematical verification of a reduction rule: Typst proof, constructor Python (≥5000 checks), adversary Python (≥5000 independent checks). Reports verdict, no artifacts saved. Also called as a subroutine by `/add-rule` (default behavior).
+- [verify-reduction](skills/verify-reduction/SKILL.md) -- Standalone mathematical verification of a reduction rule: Typst proof, constructor Python, and independent adversary Python with coverage justified by the construction. Reports verdict, no artifacts saved. Also called as a subroutine by `/add-rule` (default behavior).
 - [update-papers](skills/update-papers/SKILL.md) -- Update research paper collection: download new papers from references.bib, retry failed downloads, sync to Google Drive, regenerate index.md.
 - [find-solver](skills/find-solver/SKILL.md) -- Interactive guide: match a real-world problem to a library model, explore reduction paths, recommend solvers (built-in + external), and generate a solution doc.
 - [find-problem](skills/find-problem/SKILL.md) -- Reverse of find-solver: given a solver for a model, discover what other problems it can handle via incoming reductions, ranked by effective complexity.
@@ -107,7 +107,7 @@ make papers-pull   # Pull PDFs from shared remote
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
 - `src/models/decision.rs` - Generic `Decision<P>` wrapper converting optimization problems to decision problems
-- `src/solvers/` - BruteForce reference solver returning problem solutions, ILP solver (feature-gated), decision search (binary search via Decision queries), and the exact-variant solver capability registry. Solver dispatch uses only registered customized implementations and fixed ILP pipelines; reduction-graph reachability does not imply solver availability. Run `pred inspect <instance>` to see the registered capabilities for that instance.
+- `src/solvers/` - BruteForce reference solver returning problem solutions, ILP solver, decision search (binary search via Decision queries), and the exact-variant solver capability registry. Solver dispatch uses only registered customized implementations and fixed ILP pipelines; reduction-graph reachability does not imply solver availability. Run `pred inspect <instance>` to see the registered capabilities for that instance.
 - `src/traits.rs` - `Problem` trait
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
@@ -134,7 +134,7 @@ Problem (core trait — all problems must implement)
 ```
 
 `BruteForceProblem` is a separate reference-solver capability. Its
-`dimensions()` method describes only the finite Cartesian coordinate space used
+fallible `num_variables()` and `dimension(variable)` methods describe only the finite Cartesian coordinate space used
 by the registered brute-force implementation.
 
 **Objective problems** (e.g., `MaximumIndependentSet`) typically use `Value = Max<W::Sum>`, `Min<W::Sum>`, or `Extremum<W::Sum>`.
@@ -161,13 +161,15 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
 - `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/solution-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated against the problem-owned parameter schema. Ordinary models are constructed directly from their construction schema. When user-facing construction differs from persisted JSON, define a model-local `#[derive(CreateSpec)]` DTO plus `TryFrom<CreateSpec>`, use its generated `FIELDS` in `ProblemSchemaEntry`, and register it with `create LocalSpec`; never add model-name branches in CLI or MCP code.
 - `decision_problem_meta!` macro registers `DecisionProblemMeta` for a concrete inner type, providing the `DECISION_NAME` constant.
-- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `parameter_getters` parameters for problem-specific parameters.
+- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (witness/aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `parameter_getters` parameters for problem-specific parameters.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `BruteForce::solve()` returns `Result<Option<P::Solution>, SolveError>`; `None` means exhaustive search proved infeasibility
 - `BruteForce::find_all_witnesses()` is a reference-testing helper for collecting every optimal or satisfying solution
+- Each executed witness step constructs one result and shares its witness/value views through `Rc`. Document the rule's domain, witness premise, source guarantee, and infeasibility interpretation; all tied qualifying optima must map correctly.
+- `SolutionAggregate` belongs to `solvers::BruteForce` witness selection. Models, pure reduction mappings, dynamic evaluation, and non-enumerative solving do not require it. See [executed lifecycle](../docs/src/design.md#executed-reduction-lifecycle).
 - `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
-- Every direct `extract_solution()` must call `validate_target_solution()` once before decoding; composed extractors delegate validation to the first direct decoder.
-- Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
+- Direct `extract_solution()` maps solutions under the reduction's mathematical premises. `pred extract` has the same witness precondition. Neither validates feasibility or optimality. Transport parses/types inputs; solver orchestration interprets aggregate outcomes before mapping.
+- Decode only the reduction's defined mathematical mapping. Preserve reachable mathematical and representation errors; do not add fallback values or recovery branches for violations already excluded by the calling contract. Explicit mathematical alternatives and sentinels are allowed.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i64`, `f64` — all implement `WeightElement` trait
@@ -210,7 +212,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
 - `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
-- `Decision<P> → P` is an aggregate-only edge (solve optimization, compare to bound); `P → Decision<P>` is a Turing edge (binary search over decision bound)
+- `Decision<P> → P` supplies witness and aggregate operations on one result (solve optimization, compare to bound, extract when the bound is met); `P → Decision<P>` is a Turing edge (binary search over decision bound)
 
 ### Extension Points
 - New models register dynamic load/serialize metadata through `declare_variants!` and, when finite enumeration exists, register it separately through `register_brute_force!`; neither belongs in CLI match arms
@@ -228,21 +230,32 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 
 ### Numeric Contract
 
-Follow the [numeric types and arithmetic standard](../docs/src/design.md#numeric-types-and-arithmetic)
-for every model and reduction. `usize` is reserved for in-memory indices,
-collection lengths, and brute-force dimensions; canonical problem parameters
-are `u64`; signed mathematical integers use `i64`; and approximate
-real values use finite `f64`. Before implementation, identify each numeric
-input and domain, each computed total and result type, the largest supported
-value, every range/sign-changing conversion, overflow behavior, and whether
-arithmetic is exact or approximate. Use `TryFrom` at range boundaries and
-checked arithmetic for derived values that may overflow. Rust construction,
-serde, CLI, and MCP must enforce the same range.
+Follow the [numeric contract](../docs/src/design.md#numeric-types-and-arithmetic)
+for models and reductions. Identify numeric domains, stored result types,
+conversion boundaries, and overflow behavior before implementation. Rust
+construction, serde, CLI, and MCP must use the same model validation; backend
+transport limits must not narrow that model domain.
 
 Issue contributors provide the mathematical definition, domains, and
 constraints; implementers derive the Rust representation. Do not require issue
 authors to choose implementation types or add implementation-specific numeric
 fields to issue templates. Changes to issue templates require user approval.
+
+### Reduction and Solver Boundary
+
+Follow the canonical [responsibility boundaries](../docs/src/design.md#responsibility-boundaries),
+[witness/aggregate contracts](../docs/src/design.md#witness-and-aggregate-reductions),
+and [validation policy](../docs/src/design.md#validation-evidence).
+Models own mathematical semantics; rules own construction and witness mappings;
+adapters own numerical transport, termination interpretation, and returned-target
+validation. Orchestration uses those results and maps solutions under the rules' premises.
+External extraction parses and types submitted witnesses and assumes the rule's mathematical premises. Solver completion interprets the rule's value relationship before mapping; extraction does not validate feasibility or optimality. Fix shared paths and update all callers rather
+than adding model-specific branches or independent backend optimality checks.
+
+In ILP tests, only `ILPSolveError::Infeasible` means infeasibility. Other errors
+must fail with their details. Solver integration failures must be distinguished
+from model or reduction errors; do not require backend precision stress tests
+in every rule. See the design document for the shared search-representation contract.
 
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
@@ -270,7 +283,7 @@ fields to issue templates. Changes to issue templates require user approval.
 
 ### Coverage
 
-New code must have >95% test coverage. Run `make coverage` to check.
+New code must have >95% test coverage. Run `make coverage` to check. This is a hard gate: do not waive it, lower the threshold, or add exclusions to make a change pass. `make coverage` checks committed and uncommitted changed lines against `origin/main` using the workspace LCOV report; set `COVERAGE_BASE` when reviewing against another base. Whole-repository coverage is a separate metric.
 
 ### Naming
 
@@ -286,7 +299,9 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
 
-Model review automation checks for a dedicated test file under `src/unit_tests/models/...` with at least 3 test functions. The exact split of coverage is judged per model during review.
+Model review checks for a dedicated test file under `src/unit_tests/models/...`
+and evaluates its semantic coverage under the [validation policy](../docs/src/design.md#validation-evidence).
+Do not impose minimum test-function, assertion, vertex, or generated-check counts.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart

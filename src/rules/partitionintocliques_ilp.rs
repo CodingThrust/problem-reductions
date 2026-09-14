@@ -25,19 +25,12 @@ impl ReductionResult for ReductionPartitionIntoCliquesToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        (0..self.num_vertices)
-            .map(|vertex| {
-                (0..self.num_cliques)
-                    .find(|&clique| target_solution[vertex * self.num_cliques + clique] == 1)
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target solution does not assign vertex {vertex} to a clique"
-                        ))
-                    })
-            })
-            .collect()
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_cliques,
+            0,
+        ))
     }
 }
 

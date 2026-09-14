@@ -319,12 +319,14 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
 }
 
 impl crate::solvers::BruteForceProblem for DirectedTwoCommodityIntegralFlow {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .chain(self.capacities.iter())
-            .map(|&c| (c as usize) + 1)
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2 * self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(
+            i128::from(self.capacities[variable % self.capacities.len()]) + 1,
+        )?)
     }
 }
 

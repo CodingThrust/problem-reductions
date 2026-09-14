@@ -212,9 +212,12 @@ impl Problem for MinimumRegisterSufficiencyForLoops {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumRegisterSufficiencyForLoops {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.variables.len();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.variables.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.variables.len())
     }
 }
 

@@ -92,7 +92,9 @@ fn test_ksatisfiability_to_register_sufficiency_rejects_invalid_snapshot_order()
 
     let positions = positions_from_order(&order, target.num_vertices());
     assert_eq!(target.evaluate(&positions).unwrap(), Or(false));
-    assert!(reduction.extract_solution(&positions).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &positions), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]
@@ -163,7 +165,9 @@ fn test_ksatisfiability_to_registersufficiency_closed_loop_boundaries() {
                 assert_eq!(extracted, vec![false; declared]);
                 assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
             } else {
-                assert!(reduction.extract_solution(&vec![0]).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0]), Ok(value) if { value.is_valid() })
+                );
             }
         }
     }
@@ -217,7 +221,9 @@ fn test_short_repeated_and_tautological_clauses() {
                             assert_eq!(decoded[i], original[i]);
                         }
                     } else {
-                        assert!(reduction.extract_solution(&positions).is_err());
+                        assert!(
+                            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &positions), Ok(value) if { value.is_valid() })
+                        );
                     }
                 }
             }

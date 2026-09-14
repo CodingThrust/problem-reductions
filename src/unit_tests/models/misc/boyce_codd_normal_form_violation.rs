@@ -38,8 +38,11 @@ fn test_bcnf_creation() {
     assert_eq!(problem.num_attributes(), 6);
     assert_eq!(problem.num_functional_deps(), 3);
     assert_eq!(problem.num_target_attributes(), 6);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(problem.target_subset(), &[0, 1, 2, 3, 4, 5]);
     assert_eq!(problem.functional_deps().len(), 3);
 }

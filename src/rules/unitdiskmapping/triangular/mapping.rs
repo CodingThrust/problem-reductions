@@ -310,28 +310,22 @@ pub fn map_config_back(
     result: &MappingResult,
     grid_config: &[usize],
 ) -> crate::rules::ExtractionResult<Vec<usize>> {
-    map_config_back_internal(result, grid_config)
-        .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
-}
-
-fn map_config_back_internal(
-    result: &MappingResult,
-    grid_config: &[usize],
-) -> Result<Vec<usize>, ReductionError> {
     if grid_config.len() != result.positions.len() {
-        return Err(mapping_invalid(
+        return Err(crate::rules::ExtractionError::invalid(
             "grid configuration length must match the mapped vertex count",
         ));
     }
-    let positions = position_index(result)?;
+    let positions = position_index(result)
+        .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))?;
 
-    super::super::weighted::trace_centers(result)?
+    super::super::weighted::trace_centers(result)
+        .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))?
         .into_iter()
         .map(|center| {
             positions
                 .get(&center)
                 .map(|&index| grid_config[index])
-                .ok_or(mapping_invalid(
+                .ok_or(crate::rules::ExtractionError::invalid(
                     "a traced center is missing from the mapped graph",
                 ))
         })

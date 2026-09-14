@@ -317,8 +317,12 @@ impl Problem for ConjunctiveBooleanQuery {
 }
 
 impl crate::solvers::BruteForceProblem for ConjunctiveBooleanQuery {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.domain_size; self.num_variables]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_variables)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.domain_size)
     }
 }
 

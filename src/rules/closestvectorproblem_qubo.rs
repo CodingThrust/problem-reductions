@@ -41,28 +41,17 @@ impl ReductionResult for ReductionCVPToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         self.encodings
             .iter()
             .map(|encoding| {
-                let offset = encoding.weights.iter().enumerate().try_fold(
-                    0_i64,
-                    |offset, (index, &weight)| {
-                        if target_solution[encoding.start + index] {
-                            offset.checked_add(weight)
-                        } else {
-                            Some(offset)
-                        }
-                    },
-                );
-                offset
-                    .and_then(|offset| encoding.lower.checked_add(offset))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "decoded closest-vector coefficient overflows i64",
-                        )
-                    })
+                let offset: i64 = encoding
+                    .weights
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, _)| target_solution[encoding.start + index])
+                    .map(|(_, &weight)| weight)
+                    .sum();
+                Ok(encoding.lower + offset)
             })
             .collect()
     }
@@ -110,9 +99,7 @@ fn determinant(matrix: &[Vec<i64>]) -> Result<i64, crate::rules::ReductionError>
 }
 
 fn coefficient_bounds(problem: &Source) -> Result<Vec<i64>, crate::rules::ReductionError> {
-    let rows = problem
-        .independent_rows()
-        .map_err(crate::rules::ReductionError::construction::<Source, Target>)?;
+    let rows = problem.independent_rows();
     let size = problem.num_basis_vectors();
     if size == 0 {
         return Ok(Vec::new());
@@ -293,7 +280,7 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
                     .map(move |&weight| (coefficient, weight))
             })
             .collect::<Vec<_>>();
-        let mut integer_matrix = vec![vec![0_i64; total_bits]; total_bits];
+        let mut integer_matrix = vec![std::collections::BTreeMap::new(); total_bits];
         for u in 0..total_bits {
             let (coefficient_u, weight_u) = bit_terms[u];
             let quadratic = gram[coefficient_u][coefficient_u]
@@ -304,22 +291,27 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
                 .checked_mul(weight_u)
                 .and_then(|value| value.checked_mul(2))
                 .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
-            integer_matrix[u][u] = quadratic
-                .checked_add(linear_term)
-                .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
+            integer_matrix[u].insert(
+                u,
+                quadratic
+                    .checked_add(linear_term)
+                    .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?,
+            );
 
-            for v in (u + 1)..total_bits {
-                let (coefficient_v, weight_v) = bit_terms[v];
-                integer_matrix[u][v] = gram[coefficient_u][coefficient_v]
+            for (v, &(coefficient_v, weight_v)) in bit_terms.iter().enumerate().skip(u + 1) {
+                let coefficient = gram[coefficient_u][coefficient_v]
                     .checked_mul(weight_u)
                     .and_then(|value| value.checked_mul(weight_v))
                     .and_then(|value| value.checked_mul(2))
                     .ok_or_else(|| overflow("computing a closest-vector QUBO interaction"))?;
+                if coefficient != 0 {
+                    integer_matrix[u].insert(v, coefficient);
+                }
             }
         }
 
         Ok(ReductionCVPToQUBO {
-            target: QUBO::from_matrix(integer_matrix)
+            target: QUBO::from_rows(integer_matrix)
                 .map_err(crate::rules::ReductionError::construction::<Source, Target>)?,
             encodings,
         })

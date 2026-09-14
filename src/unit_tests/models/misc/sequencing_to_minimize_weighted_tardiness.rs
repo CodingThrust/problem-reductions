@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_vector_length_mismatch() {
@@ -47,7 +46,10 @@ fn test_sequencing_to_minimize_weighted_tardiness_basic() {
     assert_eq!(problem.deadlines(), &[5, 8, 4, 15, 10]);
     assert_eq!(problem.bound(), 13);
     assert_eq!(problem.num_tasks(), 5);
-    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 3, 2, 1]
+    );
     assert_eq!(
         <SequencingToMinimizeWeightedTardiness as Problem>::NAME,
         "SequencingToMinimizeWeightedTardiness"

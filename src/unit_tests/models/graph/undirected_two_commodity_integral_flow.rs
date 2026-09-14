@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_validates_capacity_shape() {
@@ -72,7 +71,7 @@ fn test_undirected_two_commodity_integral_flow_creation() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(
-        problem.dimensions(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3]
     );
 }

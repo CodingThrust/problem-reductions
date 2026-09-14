@@ -1,8 +1,8 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_cnf_clause_creation() {
@@ -40,7 +40,7 @@ fn test_sat_creation() {
     );
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_clauses(), 2);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables().unwrap(), 3);
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn test_is_satisfying_assignment_defaults() {
 #[test]
 fn test_num_variables() {
     let problem = Satisfiability::new(5, vec![CNFClause::new(vec![1])]);
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(problem.num_variables().unwrap(), 5);
 }
 
 #[test]

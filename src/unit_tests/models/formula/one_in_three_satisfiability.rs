@@ -15,8 +15,11 @@ fn test_one_in_three_satisfiability_creation() {
     );
     assert_eq!(problem.num_vars(), 4);
     assert_eq!(problem.num_clauses(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2]
+    );
 }
 
 #[test]

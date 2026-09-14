@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::registry::load_dyn;
+use crate::solvers::{BruteForce, SolveOutcome, SolverExecution, SolverRequest};
 use crate::traits::Problem;
 
 #[test]
@@ -43,6 +44,50 @@ fn test_subset_dp_minimum_decision_tree_handles_eight_objects() {
         .map(|bit| (0..8).map(|object| object & (1 << bit) != 0).collect())
         .collect();
     let problem = MinimumDecisionTree::new(matrix, 8, 3);
-    let solution = solve(&problem).unwrap();
+    let loaded = load_dyn(
+        MinimumDecisionTree::NAME,
+        &Default::default(),
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
+    let result = crate::solvers::solve(&loaded, SolverRequest::Default).unwrap();
+    assert!(matches!(
+        result.solver,
+        SolverExecution::Customized {
+            implementation: "subset-dp"
+        }
+    ));
+    let SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    } = result.outcome
+    else {
+        panic!("the instance has a solution");
+    };
+    assert_eq!(evaluation, "Min(24)");
+    let solution = serde_json::from_value(solution).unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap().0, Some(24));
+}
+
+#[test]
+fn subset_dp_reports_mask_and_table_representation_errors() {
+    for n in [usize::BITS as usize, usize::BITS as usize - 1] {
+        let tests = (n.ilog2() + 1) as usize;
+        let matrix = (0..tests)
+            .map(|bit| (0..n).map(|object| object & (1 << bit) != 0).collect())
+            .collect();
+        let problem = MinimumDecisionTree::new(matrix, n, tests);
+        let loaded = load_dyn(
+            MinimumDecisionTree::NAME,
+            &Default::default(),
+            serde_json::to_value(&problem).unwrap(),
+        )
+        .unwrap();
+        let error = crate::solvers::solve(&loaded, SolverRequest::Default).unwrap_err();
+        if n == usize::BITS as usize {
+            assert!(matches!(error, SolveError::IntegerOverflow(_)));
+        } else {
+            assert!(matches!(error, SolveError::Allocation(_)));
+        }
+    }
 }

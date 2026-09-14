@@ -33,14 +33,6 @@ impl ReductionResult for ReductionHPBTVToLP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target path does not certify a Hamiltonian source-target path",
-            ));
-        }
-
         let mut adjacency = vec![Vec::new(); self.target.num_vertices()];
         for (&selected, (u, v)) in target_solution.iter().zip(self.target.graph().edges()) {
             if selected {

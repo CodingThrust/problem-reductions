@@ -308,8 +308,12 @@ impl Problem for MinimumTardinessSequencing<One> {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumTardinessSequencing<One> {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks() - variable)
     }
 }
 
@@ -382,8 +386,12 @@ impl Problem for MinimumTardinessSequencing<i64> {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumTardinessSequencing<i64> {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks() - variable)
     }
 }
 

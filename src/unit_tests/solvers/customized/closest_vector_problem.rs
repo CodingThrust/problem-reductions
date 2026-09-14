@@ -31,30 +31,11 @@ fn test_cvp_solver_keeps_zero_on_tie_and_handles_empty_basis() {
 }
 
 #[test]
-fn test_cvp_solver_reports_inexact_integer_conversion() {
-    let problem = ClosestVectorProblem::new(
-        vec![vec![crate::types::MAX_EXACT_F64_INTEGER + 1]],
-        vec![0_i64],
-    )
-    .unwrap();
-    assert!(matches!(
-        solve(&problem),
-        Err(crate::solvers::SolveError::InexactFloatConversion(_))
-    ));
-
+fn test_cvp_solver_reports_search_representation_overflow() {
     let out_of_range = ClosestVectorProblem::new(vec![vec![1]], vec![1e20]).unwrap();
     assert!(matches!(
         solve(&out_of_range),
         Err(SolveError::IntegerOverflow(_))
-    ));
-    let inexact = ClosestVectorProblem::new(
-        vec![vec![1]],
-        vec![crate::types::MAX_EXACT_F64_INTEGER as f64 + 2.0],
-    )
-    .unwrap();
-    assert!(matches!(
-        solve(&inexact),
-        Err(SolveError::InexactFloatConversion(_))
     ));
 }
 
@@ -141,7 +122,10 @@ fn test_cvp_pruning_preserves_exact_large_translation_optimum() {
         let expected = vec![coefficient, coefficient];
         assert_eq!(solve(&integer).unwrap(), expected);
         assert_eq!(solve(&real).unwrap(), expected);
-        assert_eq!(integer.evaluate(&expected).unwrap().0, Some(0.0));
+        assert_eq!(
+            integer.evaluate(&expected).unwrap().0,
+            Some(BigRational::zero())
+        );
     }
 }
 

@@ -35,8 +35,11 @@ fn test_maximum_edge_weighted_k_clique_creation() {
     assert_eq!(problem.num_edges(), 5);
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.edge_weights(), &[5, 4, -1, 1, 0]);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
     assert!(problem.graph().has_edge(0, 1));
     assert!(!problem.graph().has_edge(2, 3));
 }

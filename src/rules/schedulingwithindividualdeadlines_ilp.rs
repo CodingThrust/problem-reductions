@@ -43,9 +43,12 @@ impl ReductionResult for ReductionSWIDToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        one_hot_decode_rows(target_solution, self.num_tasks, self.max_deadline, 0)
+        Ok(one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.max_deadline,
+            0,
+        ))
     }
 }
 

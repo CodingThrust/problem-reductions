@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -25,7 +24,10 @@ fn test_optimallineararrangement_basic() {
     let problem = issue_example();
 
     // Check dims: 6 variables, each with domain size 6
-    assert_eq!(problem.dimensions(), vec![6, 6, 6, 6, 6, 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6, 6, 6, 6, 6, 6]
+    );
 
     // Identity arrangement: f(i) = i
     // Cost: |0-1| + |1-2| + |2-3| + |3-4| + |4-5| + |0-3| + |2-5| = 1+1+1+1+1+3+3 = 11
@@ -143,7 +145,10 @@ fn test_optimallineararrangement_single_vertex() {
     let graph = SimpleGraph::new(1, vec![]);
     let problem = OptimalLinearArrangement::new(graph);
 
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
     assert_eq!(problem.total_edge_length(&[0]).unwrap(), Some(0));
 }

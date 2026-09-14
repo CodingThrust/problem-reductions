@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_capacities_and_validates_paths() {
@@ -76,7 +75,10 @@ fn test_path_constrained_network_flow_creation() {
 #[test]
 fn test_path_constrained_network_flow_dims_use_path_bottlenecks() {
     let problem = yes_instance();
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2]
+    );
 }
 
 #[test]

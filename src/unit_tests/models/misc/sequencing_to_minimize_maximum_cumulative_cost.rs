@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_precedences() {
@@ -32,7 +31,10 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_creation() {
     );
     assert_eq!(problem.num_tasks(), 6);
     assert_eq!(problem.num_precedences(), 6);
-    assert_eq!(problem.dimensions(), vec![6, 5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6, 5, 4, 3, 2, 1]
+    );
     assert_eq!(
         <SequencingToMinimizeMaximumCumulativeCost as Problem>::NAME,
         "SequencingToMinimizeMaximumCumulativeCost"
@@ -128,7 +130,10 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_solver_aggregate() {
 fn test_sequencing_to_minimize_maximum_cumulative_cost_empty_instance() {
     let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     // Empty schedule: no tasks, max cumulative cost is 0.
     let val = problem.evaluate(&vec![]).unwrap();
     assert_eq!(val, Min(Some(0)));

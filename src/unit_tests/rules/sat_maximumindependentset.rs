@@ -1,10 +1,10 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::models::formula::CNFClause;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_boolvar_creation() {
@@ -230,7 +230,9 @@ fn test_jl_parity_sat_to_independentset() {
                     .solve(result.target_problem())
                     .unwrap()
                     .expect("SAT->IS: target should have an optimal solution");
-                assert!(result.extract_solution(&target_solution).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&result), &target_solution), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&result, value); value.is_valid() })
+                );
                 assert_eq!(
                     crate::rules::AggregateReductionResult::extract_value(
                         &result,
@@ -292,22 +294,19 @@ fn test_sat_to_independentset_all_certificates() {
                     crate::rules::AggregateReductionResult::extract_value(&reduction, value),
                     Or(certificate)
                 );
-                match reduction.extract_solution(&config) {
-                    Ok(assignment) => {
-                        assert!(certificate);
-                        assert_eq!(source.evaluate(&assignment).unwrap(), Or(true));
-                        accepted = true;
-                    }
-                    Err(_) => assert!(!certificate),
+                if certificate {
+                    let assignment = reduction.extract_solution(&config).unwrap();
+                    assert_eq!(source.evaluate(&assignment).unwrap(), Or(true));
+                    accepted = true;
                 }
             }
             assert_eq!(
                 accepted,
                 BruteForce::new().solve(&source).unwrap().is_some()
             );
-            assert!(reduction
-                .extract_solution(&vec![false; target.num_vertices() + 1])
-                .is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![false; target.num_vertices() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
         }
     }
     for num_vars in [0, 3] {

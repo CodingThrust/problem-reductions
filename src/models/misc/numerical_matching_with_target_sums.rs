@@ -173,9 +173,12 @@ impl Problem for NumericalMatchingWithTargetSums {
 }
 
 impl crate::solvers::BruteForceProblem for NumericalMatchingWithTargetSums {
-    fn dimensions(&self) -> Vec<usize> {
-        let m = self.num_pairs();
-        vec![m; m]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_pairs())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_pairs())
     }
 }
 

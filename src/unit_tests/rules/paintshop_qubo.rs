@@ -56,27 +56,26 @@ fn test_paintshop_to_qubo_optimal_value() {
 
 #[test]
 fn test_paintshop_to_qubo_matrix_structure() {
-    // Issue example: verify the Q matrix matches expected values
+    // Verify the Q matrix matches expected values
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
-    let m = qubo.matrix();
-    // From the issue:
+    // Expected coefficients:
     // Q = [ -1,  -2,   2,   2 ]
     //     [  0,   2,  -2,   0 ]
     //     [  0,   0,   1,  -2 ]
     //     [  0,   0,   0,   0 ]
-    assert_eq!(m[0][0], -1);
-    assert_eq!(m[0][1], -2);
-    assert_eq!(m[0][2], 2);
-    assert_eq!(m[0][3], 2);
-    assert_eq!(m[1][1], 2);
-    assert_eq!(m[1][2], -2);
-    assert_eq!(m[1][3], 0);
-    assert_eq!(m[2][2], 1);
-    assert_eq!(m[2][3], -2);
-    assert_eq!(m[3][3], 0);
+    assert_eq!(qubo.get(0, 0).unwrap(), -1);
+    assert_eq!(qubo.get(0, 1).unwrap(), -2);
+    assert_eq!(qubo.get(0, 2).unwrap(), 2);
+    assert_eq!(qubo.get(0, 3).unwrap(), 2);
+    assert_eq!(qubo.get(1, 1).unwrap(), 2);
+    assert_eq!(qubo.get(1, 2).unwrap(), -2);
+    assert_eq!(qubo.get(1, 3).unwrap(), 0);
+    assert_eq!(qubo.get(2, 2).unwrap(), 1);
+    assert_eq!(qubo.get(2, 3).unwrap(), -2);
+    assert_eq!(qubo.get(3, 3).unwrap(), 0);
 }
 
 #[test]
@@ -113,6 +112,6 @@ fn test_paintshop_to_qubo_canonical_example_spec() {
     assert_eq!(example.source.problem, "PaintShop");
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.source.instance["num_cars"], 4);
-    assert_eq!(example.target.instance["num_vars"], 4);
+    assert_eq!(example.target.instance["matrix"]["nrows"], 4);
     assert!(!example.solutions.is_empty());
 }

@@ -171,7 +171,11 @@ fn test_infeasible_target_too_large() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
 
-    assert!(result.is_err(), "Should be infeasible");
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
+        "Should be infeasible"
+    );
 }
 
 #[test]
@@ -215,7 +219,8 @@ fn test_solution_extraction() {
     // z_00 = p_0 * q_0 = 0, z_01 = p_0 * q_1 = 0
     // z_10 = p_1 * q_0 = 1, z_11 = p_1 * q_1 = 1
     // Variables: [p0, p1, q0, q1, z00, z01, z10, z11, c0, c1, c2, c3]
-    let ilp_solution = vec![0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0];
+    // Each product column already matches 0110, so every carry is zero.
+    let ilp_solution = vec![0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, (BigUint::from(2u32), BigUint::from(3u32)));
@@ -277,7 +282,10 @@ fn test_oversized_biguint_target_makes_ilp_infeasible() {
     let target = BigUint::from(1u32) << 70;
     let problem = Factoring::with_factor_bits(target, 2, 2);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

@@ -22,52 +22,26 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target schedule does not certify a balanced partition",
-            ));
-        }
-
         Ok({
             let num_elements = self.target.num_jobs() - 1;
             let mut source_config = vec![false; num_elements];
             let m = self.target.num_machines();
             let start_times = target_solution
                 .chunks_exact(m)
-                .map(|times| {
-                    times
-                        .iter()
-                        .map(|&time| {
-                            i64::try_from(time).map_err(|_| {
-                                crate::rules::ExtractionError::invalid(
-                                    "target schedule time does not fit i64",
-                                )
-                            })
-                        })
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|times| times.iter().map(|&time| time as i64).collect::<Vec<_>>())
+                .collect::<Vec<_>>();
             let special_job = num_elements;
             let half_sum = self.target.processing_times()[special_job][0];
 
             // Find the middle machine where the special job starts at half_sum
-            let middle_machine = (0..m)
-                .find(|&machine| start_times[special_job][machine] == half_sum)
-                .ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "target schedule has no machine at the partition boundary",
-                    )
-                })?;
+            let middle_machine: usize = (0..m)
+                .filter(|&machine| start_times[special_job][machine] == half_sum)
+                .sum();
             let pivot = start_times[special_job][middle_machine];
 
             for (job, slot) in source_config.iter_mut().enumerate() {
                 let completion = start_times[job][middle_machine]
-                    .checked_add(self.target.processing_times()[job][middle_machine])
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid("target schedule time overflows i64")
-                    })?;
+                    + self.target.processing_times()[job][middle_machine];
                 if completion <= pivot {
                     *slot = true;
                 }

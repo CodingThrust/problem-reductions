@@ -100,12 +100,10 @@ fn test_closeststring_to_ilp_rejects_missing_one_hot_symbol() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars()];
 
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "center position 0 has no selected symbol"
+    assert!(
+        !crate::traits::Problem::evaluate(reduction.target_problem(), &target_solution)
+            .unwrap()
+            .is_valid()
     );
 }
 

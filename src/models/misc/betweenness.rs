@@ -170,8 +170,12 @@ impl Problem for Betweenness {
 }
 
 impl crate::solvers::BruteForceProblem for Betweenness {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_elements; self.num_elements]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_elements)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_elements)
     }
 }
 

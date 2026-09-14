@@ -10,9 +10,9 @@ fn create_spec_rejects_weight_count_mismatch() {
     });
     assert!(result.is_err());
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_maximal_is_creation() {
@@ -22,8 +22,11 @@ fn test_maximal_is_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(problem.num_variables().unwrap(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
 }
 
 #[test]

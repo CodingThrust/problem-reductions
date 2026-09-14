@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -19,7 +18,10 @@ fn test_sequencing_with_deadlines_and_set_up_times_creation() {
     assert_eq!(problem.deadlines(), &[4, 11, 3, 16, 7]);
     assert_eq!(problem.compilers(), &[0, 1, 0, 1, 0]);
     assert_eq!(problem.setup_times(), &[1, 2]);
-    assert_eq!(problem.dimensions(), vec![5, 5, 5, 5, 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 5, 5, 5, 5]
+    );
     assert_eq!(
         <SequencingWithDeadlinesAndSetUpTimes as Problem>::NAME,
         "SequencingWithDeadlinesAndSetUpTimes"

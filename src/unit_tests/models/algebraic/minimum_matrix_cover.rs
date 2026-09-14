@@ -12,11 +12,14 @@ fn test_minimum_matrix_cover_creation() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ];
-    let problem = MinimumMatrixCover::new(matrix.clone());
+    let problem = MinimumMatrixCover::new(matrix.clone()).unwrap();
     assert_eq!(problem.num_rows(), 4);
     assert_eq!(problem.matrix(), &matrix);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
 }
 
 #[test]
@@ -29,7 +32,7 @@ fn test_minimum_matrix_cover_evaluate_all_minus() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ];
-    let problem = MinimumMatrixCover::new(matrix);
+    let problem = MinimumMatrixCover::new(matrix).unwrap();
     let value = problem.evaluate(&vec![false, false, false, false]).unwrap();
     // Sum of all entries = 0+3+1+0 + 3+0+0+2 + 1+0+0+4 + 0+2+4+0 = 20
     assert_eq!(value, Min(Some(20)));
@@ -43,7 +46,7 @@ fn test_minimum_matrix_cover_evaluate_mixed() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ];
-    let problem = MinimumMatrixCover::new(matrix);
+    let problem = MinimumMatrixCover::new(matrix).unwrap();
 
     // Config [0,1,1,0] → f=(-1,+1,+1,-1)
     // Compute: Σ a_ij * f(i) * f(j)
@@ -64,7 +67,7 @@ fn test_minimum_matrix_cover_evaluate_mixed() {
 
 #[test]
 fn test_minimum_matrix_cover_evaluate_invalid() {
-    let problem = MinimumMatrixCover::new(vec![vec![0, 1], vec![1, 0]]);
+    let problem = MinimumMatrixCover::new(vec![vec![0, 1], vec![1, 0]]).unwrap();
 
     // Wrong length
     assert!(matches!(
@@ -86,7 +89,7 @@ fn test_minimum_matrix_cover_solver() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ];
-    let problem = MinimumMatrixCover::new(matrix);
+    let problem = MinimumMatrixCover::new(matrix).unwrap();
     let solver = BruteForce::new();
 
     let value_solution = solver.solve(&problem).unwrap().unwrap();
@@ -103,7 +106,7 @@ fn test_minimum_matrix_cover_solver() {
 #[test]
 fn test_minimum_matrix_cover_serialization() {
     let matrix = vec![vec![0, 1], vec![1, 0]];
-    let problem = MinimumMatrixCover::new(matrix);
+    let problem = MinimumMatrixCover::new(matrix).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MinimumMatrixCover = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.num_rows(), 2);
@@ -114,7 +117,7 @@ fn test_minimum_matrix_cover_serialization() {
 fn test_minimum_matrix_cover_1x1() {
     // 1×1 matrix: only one variable, f(1) = ±1
     // value = a_11 * f(1)^2 = a_11 regardless of sign
-    let problem = MinimumMatrixCover::new(vec![vec![5]]);
+    let problem = MinimumMatrixCover::new(vec![vec![5]]).unwrap();
     assert_eq!(problem.evaluate(&vec![false]).unwrap(), Min(Some(5)));
     assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(Some(5)));
 
@@ -136,7 +139,7 @@ fn test_minimum_matrix_cover_paper_example() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ];
-    let problem = MinimumMatrixCover::new(matrix);
+    let problem = MinimumMatrixCover::new(matrix).unwrap();
     let solver = BruteForce::new();
 
     // Verify the claimed optimal from the issue
@@ -166,4 +169,18 @@ fn test_minimum_matrix_cover_canonical_example_spec() {
         spec.optimal_config,
         serde_json::json!([false, true, true, false])
     );
+}
+
+#[test]
+fn construction_and_deserialization_enforce_nonnegative_square_matrices() {
+    for matrix in [vec![vec![-1]], vec![vec![0, 1]], vec![vec![0, 1], vec![1]]] {
+        assert!(matches!(
+            MinimumMatrixCover::new(matrix.clone()),
+            Err(ConstructionError::InvalidInput(_))
+        ));
+        assert!(serde_json::from_value::<MinimumMatrixCover>(
+            serde_json::json!({"matrix": matrix})
+        )
+        .is_err());
+    }
 }

@@ -33,14 +33,12 @@ impl ReductionResult for ReductionSPToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_sets",
         num_constraints = "universe_size",
     },

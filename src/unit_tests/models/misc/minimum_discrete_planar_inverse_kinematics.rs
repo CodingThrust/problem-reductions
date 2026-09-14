@@ -25,8 +25,11 @@ fn test_minimum_discrete_planar_inverse_kinematics_creation() {
     assert_eq!(problem.target_point(), (2.0, 1.0));
     assert_eq!(problem.orientation_samples().len(), 2);
     assert_eq!(problem.allowed_pairs().len(), 1);
-    assert_eq!(problem.dimensions(), vec![2, 2]);
-    assert_eq!(problem.num_variables(), 2);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 2);
     assert_eq!(problem.num_orientation_samples(), 4);
 }
 
@@ -116,7 +119,10 @@ fn test_minimum_discrete_planar_inverse_kinematics_serialization() {
         problem.orientation_samples()
     );
     assert_eq!(restored.allowed_pairs(), problem.allowed_pairs());
-    assert_eq!(restored.dimensions(), problem.dimensions());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&restored).unwrap(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap()
+    );
 }
 
 #[test]

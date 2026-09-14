@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_capacities() {
     let problem = IntegralFlowHomologousArcs::try_from(IntegralFlowHomologousArcsCreateSpec {
@@ -50,7 +49,10 @@ fn test_integral_flow_homologous_arcs_creation() {
     assert_eq!(problem.requirement(), 2);
     assert_eq!(problem.max_capacity(), 1);
     assert_eq!(problem.homologous_pairs(), &[(2, 5), (4, 3)]);
-    assert_eq!(problem.dimensions(), vec![2; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
 }
 
 #[test]
@@ -141,7 +143,10 @@ fn test_integral_flow_homologous_arcs_non_unit_capacity() {
     // equal flow. R=2 is satisfiable: f=[2,2].
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = IntegralFlowHomologousArcs::new(graph, vec![3, 3], 0, 2, 2, vec![(0, 1)]);
-    assert_eq!(problem.dimensions(), vec![4, 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4]
+    );
     assert_eq!(problem.max_capacity(), 3);
     assert!(problem.evaluate(&vec![2, 2]).unwrap());
     assert!(problem.evaluate(&vec![3, 3]).unwrap());

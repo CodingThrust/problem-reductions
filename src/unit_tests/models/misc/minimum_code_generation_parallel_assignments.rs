@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -10,7 +9,10 @@ fn test_minimum_code_generation_parallel_assignments_creation() {
     assert_eq!(problem.num_variables(), 4);
     assert_eq!(problem.num_assignments(), 4);
     assert_eq!(problem.assignments(), &assignments);
-    assert_eq!(problem.dimensions(), vec![4; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 4]
+    );
     assert_eq!(
         <MinimumCodeGenerationParallelAssignments as Problem>::NAME,
         "MinimumCodeGenerationParallelAssignments"

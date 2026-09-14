@@ -108,8 +108,9 @@ fn test_no_hamiltonian_cycle_infeasible() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
 
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Path graph should have no Hamiltonian cycle (infeasible ILP)"
     );
 }

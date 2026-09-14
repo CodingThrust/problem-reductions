@@ -51,7 +51,9 @@ fn test_partition_to_open_shop_scheduling_odd_total_is_not_satisfying() {
     let source = Partition::new(vec![2, 4, 5]).unwrap();
     let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source).unwrap();
     let best = solve_target(reduction.target_problem());
-    assert!(reduction.extract_solution(&best).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &best), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
 }
 
 #[test]
@@ -122,13 +124,17 @@ fn test_partition_to_open_shop_all_small_partitions_and_machine_orders() {
                     assert_eq!(reduction.extract_solution(&schedule).unwrap(), assignment);
                     let delayed: Vec<_> = schedule.iter().map(|&time| time + 1).collect();
                     assert!(target.evaluate(&delayed).unwrap().0.is_some());
-                    assert!(reduction.extract_solution(&delayed).is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &delayed), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                    );
                 }
             }
-            assert!(reduction.extract_solution(&vec![0; (n + 1) * 3]).is_err());
-            assert!(reduction
-                .extract_solution(&vec![0; (n + 1) * 3 + 1])
-                .is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; (n + 1) * 3]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; (n + 1) * 3 + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
         }
     }
 }
@@ -144,7 +150,9 @@ fn test_partition_to_open_shop_odd_singleton_certificate() {
         .unwrap();
     assert_eq!(value, crate::types::Min(Some(3)));
     assert!(!AggregateReductionResult::extract_value(&reduction, value).0);
-    assert!(reduction.extract_solution(&schedule).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &schedule), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
 }
 
 #[test]

@@ -138,21 +138,13 @@ impl OpenShopScheduling {
                     "operation count overflows usize".into(),
                 )
             })?;
-        let horizon = processing_times
+        processing_times
             .iter()
             .flatten()
             .try_fold(0i64, |total, &time| total.checked_add(time))
             .ok_or_else(|| {
                 crate::registry::ConstructionError::IntegerOverflow(
                     "schedule horizon overflows i64".into(),
-                )
-            })?;
-        usize::try_from(horizon)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .ok_or_else(|| {
-                crate::registry::ConstructionError::IntegerOverflow(
-                    "schedule horizon domain overflows usize".into(),
                 )
             })?;
         Ok(Self {
@@ -177,16 +169,8 @@ impl OpenShopScheduling {
     }
 
     /// Return the sum of all processing times, a valid serial-schedule horizon.
-    pub fn schedule_horizon(&self) -> usize {
-        self.processing_times
-            .iter()
-            .flatten()
-            .try_fold(0usize, |total, &time| {
-                usize::try_from(time)
-                    .ok()
-                    .and_then(|time| total.checked_add(time))
-            })
-            .expect("processing times must fit the brute-force schedule horizon")
+    pub fn schedule_horizon(&self) -> i64 {
+        self.processing_times.iter().flatten().sum()
     }
 
     fn finish_time(
@@ -284,12 +268,12 @@ impl Problem for OpenShopScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for OpenShopScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        let domain = self
-            .schedule_horizon()
-            .checked_add(1)
-            .expect("schedule horizon overflow");
-        vec![domain; self.num_jobs() * self.num_machines]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_jobs() * self.num_machines)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(i128::from(self.schedule_horizon()) + 1)?)
     }
 }
 

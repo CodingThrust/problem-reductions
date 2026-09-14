@@ -1,7 +1,6 @@
 use crate::models::decision::Decision;
 use crate::models::graph::{MaximumIndependentSet, MinimumDominatingSet, MinimumVertexCover};
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, Or};
@@ -84,7 +83,10 @@ fn test_decision_max_evaluate() {
 #[test]
 fn test_decision_dims() {
     let decision = Decision::new(triangle_mvc(), 2);
-    assert_eq!(decision.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&decision).unwrap(),
+        vec![2, 2, 2]
+    );
 }
 
 #[test]
@@ -319,8 +321,13 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     assert_eq!((edge.parameter_declarations_fn)().fields.len(), 2);
     let witness = vec![true, false, true];
     let reduced = (edge.reduce_fn.unwrap())(&decision).unwrap();
+    assert!(std::ptr::eq(
+        reduced.witness.target_problem_any(),
+        reduced.aggregate.as_ref().unwrap().target_problem_any(),
+    ));
     assert_eq!(
         *reduced
+            .witness
             .extract_solution_dyn(&witness)
             .unwrap()
             .downcast::<Vec<bool>>()
@@ -333,12 +340,8 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     ));
     let aggregate = (edge.reduce_aggregate_fn.unwrap())(&decision).unwrap();
     assert_eq!(
-        *aggregate
-            .extract_value_from_solution_dyn(&witness)
-            .unwrap()
-            .downcast::<Or>()
-            .unwrap(),
-        Or(true)
+        aggregate.extract_value_dyn(serde_json::json!(2)),
+        serde_json::json!(true)
     );
     assert!(matches!(
         (edge.reduce_aggregate_fn.unwrap())(decision.inner()),
@@ -355,4 +358,48 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     assert!(reverse.turing);
     assert!(reverse.reduce_fn.is_none());
     assert_eq!((reverse.parameter_declarations_fn)().fields.len(), 2);
+}
+
+#[test]
+fn unit_vertex_cover_uses_registered_construction_and_solver() {
+    use crate::models::decision::DecisionCreateSpec;
+    type Unit = MinimumVertexCover<SimpleGraph, One>;
+    let spec: DecisionCreateSpec<Unit> = serde_json::from_value(serde_json::json!({
+        "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]}, "bound": 1
+    }))
+    .unwrap();
+    let problem: Decision<Unit> = spec.into();
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert_eq!(solution, vec![false, true, false]);
+    assert_eq!(problem.evaluate(&solution), Ok(Or(true)));
+    let restored: Decision<Unit> =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(restored.evaluate(&solution), Ok(Or(true)));
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_edges(), 2);
+}
+
+#[test]
+fn decision_executed_result_maps_witness_and_bound_together() {
+    use crate::rules::{AggregateReductionResult, ReduceTo, ReductionResult};
+    use crate::types::Min;
+
+    let witness = vec![true, true, false];
+    for bound in [1, 2] {
+        let decision = Decision::new(triangle_mvc(), bound);
+        let result =
+            <Decision<_> as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&decision)
+                .unwrap();
+        let target = ReductionResult::target_problem(&result);
+        assert!(std::ptr::eq(
+            target,
+            AggregateReductionResult::target_problem(&result),
+        ));
+        let value = target.evaluate(&witness).unwrap();
+        assert_eq!(result.extract_value(value), Or(bound == 2));
+        assert_eq!(result.extract_value(Min(None)), Or(false));
+        if bound == 2 {
+            assert_eq!(result.extract_solution(&witness).unwrap(), witness);
+        }
+    }
 }

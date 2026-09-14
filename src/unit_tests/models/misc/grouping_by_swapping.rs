@@ -22,8 +22,11 @@ fn test_grouping_by_swapping_basic() {
     assert_eq!(problem.string(), &[0, 1, 2, 0, 1, 2]);
     assert_eq!(problem.budget(), 5);
     assert_eq!(problem.string_len(), 6);
-    assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dimensions(), vec![6; 5]);
+    assert_eq!(problem.num_variables().unwrap(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6; 5]
+    );
     assert_eq!(<GroupingBySwapping as Problem>::NAME, "GroupingBySwapping");
     assert_eq!(<GroupingBySwapping as Problem>::variant(), vec![]);
 

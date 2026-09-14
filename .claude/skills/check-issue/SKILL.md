@@ -192,10 +192,10 @@ If the algorithm is a high-level sketch rather than an implementable procedure �
 
 ### 4d: Example Quality
 
-- **Non-trivial**: Must have enough structure to exercise the reduction meaningfully (not just 2 vertices)
+- **Meaningful structure**: Exercise the defining constraints or reduction gadgets; explain what an incorrect implementation would get wrong.
 - **Brute-force solvable**: Small enough to verify by hand or with `pred solve`
 - **Fully worked**: Shows the source instance, the reduction construction step by step, and the target instance — not just "apply the reduction to get..."
-- **Round-trip testable**: The example must be complex enough to validate correctness via a closed-loop test: reduce the source instance → solve the target → extract the solution back → verify it is optimal for the source. A too-simple example (e.g., a single edge, a trivially satisfiable formula) can pass the round trip even with a buggy reduction. The example should have multiple feasible solutions with different objective values so that only a correct reduction maps to the true optimum. Rule of thumb: the source instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
+- **Round-trip testable**: Choose examples that can expose a concrete construction, evaluation, objective-mapping, or extraction defect under the [canonical validation policy](../../../docs/src/design.md#validation-evidence). Explain the expected outcome independently of backend success. There is no fixed number of feasible alternatives that establishes correctness.
 
 ---
 
@@ -242,7 +242,7 @@ Read the `size_fields` and any variant getters, then enumerate corner cases the 
 | Set systems | empty universe, empty subsets, identical subsets, universe element appearing in no subset |
 | Algebraic | zero matrix, identity, singular matrix |
 
-Then trace the **issue's** algorithm by hand against at least 2 corner cases that are not the worked example:
+Then trace the **issue's** algorithm by hand on relevant corner cases beyond the worked example, chosen to test concrete assumptions:
 
 1. Pick a corner case from the table above that the source model actually allows.
 2. Simulate the issue's construction step by step.
@@ -404,13 +404,13 @@ The formal definition must be **precise and implementable**:
 
 ### 4d: Example Quality
 
-- **Non-trivial**: Enough vertices/variables to exercise constraints meaningfully (not just a triangle)
+- **Meaningful structure**: Exercise the defining constraints or reduction gadgets; explain what an incorrect implementation would get wrong.
 - **Exercises core structure**: Examples must use the defining features of the problem. For instance, a "MultivariateQuadratic" example that only has linear terms does not exercise the quadratic structure → **Fail**. If the problem's name or definition highlights a specific structural feature (quadratic, k-colorable, bipartite, etc.), at least one example must exercise that feature.
 - **Expected outcome provided**:
   - Satisfaction problems must include a concrete valid / satisfying solution and say why it is valid
   - Optimization problems must include a concrete optimal solution and the optimal objective value
 - **Detailed enough for paper**: This example will appear in the paper — it needs to be illustrative
-- **Round-trip testable**: The example must be complex enough that a round-trip test (construct instance → solve → verify) can catch implementation bugs. A too-simple instance (e.g., 2 vertices, a single clause) may have a trivially correct solution that passes even with a wrong implementation. The example should have multiple feasible configurations with different objective values (for optimization) or a mix of satisfying and non-satisfying configurations (for satisfaction problems), so that correctness is meaningfully tested. Rule of thumb: the instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
+- **Round-trip testable**: Choose examples that can expose a concrete construction, evaluation, objective-mapping, or extraction defect under the [canonical validation policy](../../../docs/src/design.md#validation-evidence). Explain the expected outcome independently of backend success. There is no fixed number of feasible alternatives that establishes correctness.
 - **ILP-testable when claimed**: If the issue advertises a direct ILP path, the example should be rich enough to support strong ILP closed-loop tests rather than a degenerate "any formulation passes" case.
 
 ### 4e: Representation Feasibility

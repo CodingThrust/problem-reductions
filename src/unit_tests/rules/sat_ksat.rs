@@ -1,9 +1,9 @@
 use super::*;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::variant::K3;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_sat_to_3sat_exact_size() {

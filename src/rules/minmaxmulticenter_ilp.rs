@@ -49,8 +49,6 @@ impl ReductionResult for ReductionMMCToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(target_solution[..self.num_vertices]
             .iter()
             .map(|&value| value == 1)

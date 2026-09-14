@@ -23,6 +23,7 @@ use crate::variant::K3;
 pub struct Reduction3SATToMVC {
     target: MinimumVertexCover<SimpleGraph, i64>,
     source_num_vars: usize,
+    target_bound: i64,
 }
 
 impl ReductionResult for Reduction3SATToMVC {
@@ -37,15 +38,13 @@ impl ReductionResult for Reduction3SATToMVC {
     ///
     /// Vertex layout: indices 0..2n are literal vertices (even = positive,
     /// odd = negated). For variable i, vertex 2*i is u_i and vertex 2*i+1
-    /// is not-u_i. Each truth-setting edge forces exactly one of these two
-    /// into any minimum vertex cover. If u_i is in the cover, set x_i = 1;
+    /// is not-u_i. A cover meeting the n + 2m bound contains exactly one of these two
+    /// for each variable. If u_i is in the cover, set x_i = 1;
     /// if not-u_i is in the cover, set x_i = 0.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             (0..self.source_num_vars)
                 .map(|i| {
@@ -57,7 +56,21 @@ impl ReductionResult for Reduction3SATToMVC {
     }
 }
 
+impl crate::rules::AggregateReductionResult for Reduction3SATToMVC {
+    type Source = KSatisfiability<K3>;
+    type Target = MinimumVertexCover<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0.is_some_and(|cost| cost <= self.target_bound))
+    }
+}
+
 #[reduction(
+    aggregate = custom,
     transform = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 6 * num_clauses",
@@ -69,6 +82,16 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for KSatisfiability<K3> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let m = self.num_clauses();
+        let target_bound = m
+            .checked_mul(2)
+            .and_then(|value| value.checked_add(n))
+            .and_then(|value| i64::try_from(value).ok())
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    KSatisfiability<K3>,
+                    MinimumVertexCover<SimpleGraph, i64>,
+                >("computing the target cover bound")
+            })?;
         let total_vertices = 2 * n + 3 * m;
         let mut edges: Vec<(usize, usize)> = Vec::with_capacity(n + 6 * m);
 
@@ -107,6 +130,7 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for KSatisfiability<K3> {
         Ok(Reduction3SATToMVC {
             target,
             source_num_vars: n,
+            target_bound,
         })
     }
 }

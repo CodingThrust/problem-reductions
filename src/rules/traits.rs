@@ -160,14 +160,6 @@ impl ExtractionError {
 
 pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
 
-/// Validate a typed target solution and return its evaluated value for reuse.
-pub(crate) fn validate_target_solution<P: Problem>(
-    target: &P,
-    solution: &P::Solution,
-) -> ExtractionResult<P::Value> {
-    Ok(target.evaluate(solution)?)
-}
-
 /// Result of reducing a source problem to a target problem.
 ///
 /// This trait encapsulates the target problem and provides methods
@@ -184,7 +176,9 @@ pub trait ReductionResult {
     /// Extract a solution from target problem space to source problem space.
     ///
     /// # Arguments
-    /// * `target_solution` - A solution to the target problem
+    /// * `target_solution` - A target solution satisfying this reduction's
+    ///   mathematical premises, including optimality when required. The solver
+    ///   or external caller establishes these premises before extraction.
     ///
     /// # Returns
     /// The corresponding solution in the source problem space
@@ -308,7 +302,6 @@ where
     }
 
     fn extract_solution(&self, target_solution: &T::Solution) -> ExtractionResult<S::Solution> {
-        validate_target_solution(self.target_problem(), target_solution)?;
         Ok(target_solution.clone())
     }
 }
@@ -404,21 +397,13 @@ pub trait DynAggregateReductionResult {
     fn target_problem_any(&self) -> &dyn Any;
     /// Extract an aggregate value from target space to source space.
     fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value;
-    /// Map the value of a target solution without erasing the source value's type.
-    /// The caller must establish that the solution realizes the target aggregate
-    /// before interpreting the result as the source aggregate.
-    fn extract_value_from_solution_dyn(
-        &self,
-        target_solution: &dyn Any,
-    ) -> ExtractionResult<Box<dyn Any>>;
 }
 
 impl<R: AggregateReductionResult + 'static> DynAggregateReductionResult for R
 where
     R::Target: 'static,
-    <R::Target as Problem>::Solution: 'static,
     <R::Target as Problem>::Value: Serialize + DeserializeOwned,
-    <R::Source as Problem>::Value: Serialize + 'static,
+    <R::Source as Problem>::Value: Serialize,
 {
     fn target_problem_any(&self) -> &dyn Any {
         self.target_problem() as &dyn Any
@@ -430,22 +415,6 @@ where
         let source_value = self.extract_value(target_value);
         serde_json::to_value(source_value)
             .expect("DynAggregateReductionResult source value serialize failed")
-    }
-
-    fn extract_value_from_solution_dyn(
-        &self,
-        target_solution: &dyn Any,
-    ) -> ExtractionResult<Box<dyn Any>> {
-        let target_solution = target_solution
-            .downcast_ref::<<R::Target as Problem>::Solution>()
-            .ok_or_else(|| {
-                ExtractionError::invalid(format!(
-                    "target solution type mismatch: expected {}",
-                    std::any::type_name::<<R::Target as Problem>::Solution>()
-                ))
-            })?;
-        let target_value = self.target_problem().evaluate(target_solution)?;
-        Ok(Box::new(self.extract_value(target_value)))
     }
 }
 

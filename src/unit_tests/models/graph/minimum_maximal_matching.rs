@@ -11,7 +11,7 @@ fn test_minimum_maximal_matching_creation() {
     let problem = MinimumMaximalMatching::new(graph);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables().unwrap(), 3);
 }
 
 #[test]

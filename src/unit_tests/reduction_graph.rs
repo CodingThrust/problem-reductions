@@ -929,14 +929,10 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
             MinimumDominatingSet::new(SimpleGraph::path(4), vec![One; 4]),
             bound,
         );
-        let aggregate = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
+        let step = (edge.reduce_fn.unwrap())(&source).unwrap();
         assert_eq!(
-            *aggregate
-                .extract_value_from_solution_dyn(&witness)
-                .unwrap()
-                .downcast::<Or>()
-                .unwrap(),
-            Or(expected)
+            step.interpret_optimum.as_ref().unwrap()(&witness).unwrap(),
+            expected
         );
     }
 }
@@ -1064,16 +1060,18 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
     fn edge() -> ReductionEdgeData {
         fn reduce(
             _source: &dyn std::any::Any,
-        ) -> std::result::Result<
-            Box<dyn crate::rules::DynReductionResult>,
-            crate::rules::ReductionError,
-        > {
-            Ok(Box::new(crate::rules::VariantReductionResult::<
-                crate::models::formula::Satisfiability,
-                crate::models::formula::Satisfiability,
-            >::new(
-                crate::models::formula::Satisfiability::new(0, vec![]),
-            )))
+        ) -> std::result::Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError>
+        {
+            Ok(crate::rules::registry::ExecutedStep {
+                witness: std::rc::Rc::new(crate::rules::VariantReductionResult::<
+                    crate::models::formula::Satisfiability,
+                    crate::models::formula::Satisfiability,
+                >::new(
+                    crate::models::formula::Satisfiability::new(0, vec![])
+                )),
+                aggregate: None,
+                interpret_optimum: None,
+            })
         }
 
         ReductionEdgeData {

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -26,7 +25,10 @@ fn test_hamiltonian_circuit_basic() {
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 9);
-    assert_eq!(problem.dimensions(), vec![6; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6; 6]
+    );
 
     // Valid Hamiltonian circuit: 0->1->2->5->4->3->0
     // Edges used: (0,1), (1,2), (2,5), (5,4), (4,3), (3,0) -- all present
@@ -129,7 +131,10 @@ fn test_hamiltonian_circuit_serialization() {
     let json = serde_json::to_string(&problem).unwrap();
     let restored: HamiltonianCircuit<SimpleGraph> = serde_json::from_str(&json).unwrap();
 
-    assert_eq!(problem.dimensions(), restored.dimensions());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        crate::solvers::cartesian_dimensions(&restored).unwrap()
+    );
 
     // Valid circuit gives the same result on both instances
     assert_eq!(

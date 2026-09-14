@@ -10,8 +10,11 @@ fn test_creation_and_getters() {
     assert_eq!(problem.num_points(), 3);
     assert!((problem.radius() - 1.5).abs() < f64::EPSILON);
     assert_eq!(problem.points().len(), 3);
-    assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dimensions(), vec![2; 3]);
+    assert_eq!(problem.num_variables().unwrap(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 3]
+    );
 }
 
 #[test]

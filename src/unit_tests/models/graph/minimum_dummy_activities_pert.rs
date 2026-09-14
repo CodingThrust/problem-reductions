@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_cycle() {
@@ -43,7 +42,10 @@ fn test_minimum_dummy_activities_pert_creation() {
     let problem = issue_problem();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 5);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
 }
 
 #[test]

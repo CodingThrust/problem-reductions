@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_zero_internal_multiplier() {
     assert!(
@@ -69,7 +68,7 @@ fn test_integral_flow_with_multipliers_creation_accessors_and_dimensions() {
     assert_eq!(problem.multipliers(), &[1, 2, 3, 4, 5, 6, 4, 1]);
     assert_eq!(problem.capacities(), &[1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4]);
     assert_eq!(
-        problem.dimensions(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![2, 2, 2, 2, 2, 2, 3, 4, 5, 6, 7, 5]
     );
 }

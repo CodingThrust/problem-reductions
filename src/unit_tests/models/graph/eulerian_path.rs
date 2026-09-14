@@ -21,8 +21,11 @@ fn test_eulerian_path_creation() {
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_arcs(), 4);
     // m = 4 position variables, each with domain {0..3}.
-    assert_eq!(problem.dimensions(), vec![4, 4, 4, 4]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4, 4, 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
 }
 
 #[test]
@@ -103,8 +106,11 @@ fn test_eulerian_path_empty_arcs_instance() {
     // m = 0 (only isolated vertices): dims = [] and the empty witness is valid.
     let graph = DirectedGraph::new(3, vec![]);
     let problem = EulerianPath::new(graph);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
-    assert_eq!(problem.num_variables(), 0);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
+    assert_eq!(problem.num_variables().unwrap(), 0);
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Or(true));
 
     let solver = BruteForce::new();

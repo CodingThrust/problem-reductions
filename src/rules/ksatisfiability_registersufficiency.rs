@@ -296,13 +296,6 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ordering does not satisfy the register bound and dependencies",
-            ));
-        }
         let mut assignment = vec![false; self.source_num_vars];
         let Some(layout) = &self.layout else {
             // Only the empty-conjunction target has a feasible witness here.
@@ -311,12 +304,6 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         let cutoff = target_solution[layout.w(layout.num_vars - 1)];
         for (variable, &original) in self.source_variables.iter().enumerate() {
             let positive = target_solution[layout.x_pos(variable)] < cutoff;
-            let negative = target_solution[layout.x_neg(variable)] < cutoff;
-            if positive && negative {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "both literals of variable {original} precede the extraction cutoff"
-                )));
-            }
             assignment[original] = positive;
         }
         Ok(assignment)

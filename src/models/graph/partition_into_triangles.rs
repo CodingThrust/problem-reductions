@@ -168,9 +168,12 @@ impl<G> crate::solvers::BruteForceProblem for PartitionIntoTriangles<G>
 where
     G: Graph + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let q = self.graph.num_vertices() / 3;
-        vec![q; self.graph.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices() / 3)
     }
 }
 

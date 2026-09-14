@@ -3,6 +3,7 @@
 //! This module provides a `TruthTable` type for representing boolean functions
 //! and their truth tables, useful for constructing logic gadgets in reductions.
 
+use crate::registry::ConstructionError;
 use bitvec::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -45,10 +46,8 @@ impl<'de> Deserialize<'de> for TruthTable {
         D: serde::Deserializer<'de>,
     {
         let serde_repr = TruthTableSerde::deserialize(deserializer)?;
-        Ok(TruthTable {
-            num_inputs: serde_repr.num_inputs,
-            outputs: serde_repr.outputs.into_iter().collect(),
-        })
+        Self::from_outputs(serde_repr.num_inputs, serde_repr.outputs)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -57,42 +56,64 @@ impl TruthTable {
     ///
     /// The outputs vector must have exactly 2^num_inputs elements.
     /// Index i corresponds to the input where the j-th bit represents variable j.
-    pub fn from_outputs(num_inputs: usize, outputs: Vec<bool>) -> Self {
-        let expected_len = 1 << num_inputs;
-        assert_eq!(
-            outputs.len(),
-            expected_len,
-            "outputs length must be 2^num_inputs = {}, got {}",
-            expected_len,
-            outputs.len()
-        );
-
-        let bits: BitVec = outputs.into_iter().collect();
-        Self {
+    pub fn from_outputs(num_inputs: usize, outputs: Vec<bool>) -> Result<Self, ConstructionError> {
+        let expected_len = Self::row_count(num_inputs)?;
+        if outputs.len() != expected_len {
+            return Err(ConstructionError::InvalidInput(format!(
+                "outputs length must be 2^num_inputs = {expected_len}, got {}",
+                outputs.len()
+            )));
+        }
+        let mut bits = Self::allocate_outputs(expected_len)?;
+        for (mut bit, output) in bits.iter_mut().zip(outputs) {
+            *bit = output;
+        }
+        Ok(Self {
             num_inputs,
             outputs: bits,
-        }
+        })
     }
 
-    /// Create a truth table from a function.
-    ///
-    /// The function takes a slice of booleans (the input) and returns the output.
-    pub fn from_function<F>(num_inputs: usize, f: F) -> Self
+    /// Create a truth table by evaluating a function for each input combination.
+    pub fn from_function<F>(num_inputs: usize, f: F) -> Result<Self, ConstructionError>
     where
         F: Fn(&[bool]) -> bool,
     {
-        let num_rows = 1 << num_inputs;
-        let mut outputs = BitVec::with_capacity(num_rows);
-
+        let num_rows = Self::row_count(num_inputs)?;
+        let mut outputs = Self::allocate_outputs(num_rows)?;
+        let mut input = vec![false; num_inputs];
         for i in 0..num_rows {
-            let input: Vec<bool> = (0..num_inputs).map(|j| (i >> j) & 1 == 1).collect();
-            outputs.push(f(&input));
+            for (j, bit) in input.iter_mut().enumerate() {
+                *bit = (i >> j) & 1 == 1;
+            }
+            outputs.set(i, f(&input));
         }
-
-        Self {
+        Ok(Self {
             num_inputs,
             outputs,
-        }
+        })
+    }
+
+    fn row_count(num_inputs: usize) -> Result<usize, ConstructionError> {
+        u32::try_from(num_inputs)
+            .ok()
+            .and_then(|shift| 1usize.checked_shl(shift))
+            .filter(|&rows| rows <= BitSlice::<usize, Lsb0>::MAX_BITS)
+            .ok_or_else(|| {
+                ConstructionError::IntegerOverflow("representing truth-table rows".into())
+            })
+    }
+
+    fn allocate_outputs(num_rows: usize) -> Result<BitVec, ConstructionError> {
+        let words = num_rows.div_ceil(usize::BITS as usize);
+        let mut storage = Vec::<usize>::new();
+        storage.try_reserve_exact(words).map_err(|error| {
+            ConstructionError::Conversion(format!("allocating truth-table storage: {error}"))
+        })?;
+        storage.resize(words, 0);
+        let mut outputs = BitVec::from_vec(storage);
+        outputs.truncate(num_rows);
+        Ok(outputs)
     }
 
     /// Get the number of input variables.
@@ -102,7 +123,7 @@ impl TruthTable {
 
     /// Get the number of rows (2^num_inputs).
     pub fn num_rows(&self) -> usize {
-        1 << self.num_inputs
+        self.outputs.len()
     }
 
     /// Evaluate the truth table for a given input.
@@ -183,39 +204,39 @@ impl TruthTable {
     }
 
     /// Create an AND gate truth table.
-    pub fn and(num_inputs: usize) -> Self {
+    pub fn and(num_inputs: usize) -> Result<Self, ConstructionError> {
         Self::from_function(num_inputs, |input| input.iter().all(|&b| b))
     }
 
     /// Create an OR gate truth table.
-    pub fn or(num_inputs: usize) -> Self {
+    pub fn or(num_inputs: usize) -> Result<Self, ConstructionError> {
         Self::from_function(num_inputs, |input| input.iter().any(|&b| b))
     }
 
     /// Create a NOT gate truth table (1 input).
     pub fn not() -> Self {
-        Self::from_outputs(1, vec![true, false])
+        Self::from_outputs(1, vec![true, false]).expect("NOT has two rows")
     }
 
     /// Create an XOR gate truth table.
-    pub fn xor(num_inputs: usize) -> Self {
+    pub fn xor(num_inputs: usize) -> Result<Self, ConstructionError> {
         Self::from_function(num_inputs, |input| {
             input.iter().filter(|&&b| b).count() % 2 == 1
         })
     }
 
     /// Create a NAND gate truth table.
-    pub fn nand(num_inputs: usize) -> Self {
+    pub fn nand(num_inputs: usize) -> Result<Self, ConstructionError> {
         Self::from_function(num_inputs, |input| !input.iter().all(|&b| b))
     }
 
     /// Create a NOR gate truth table.
-    pub fn nor(num_inputs: usize) -> Self {
+    pub fn nor(num_inputs: usize) -> Result<Self, ConstructionError> {
         Self::from_function(num_inputs, |input| !input.iter().any(|&b| b))
     }
 
     /// Create an XNOR gate truth table.
-    pub fn xnor(num_inputs: usize) -> Self {
+    pub fn xnor(num_inputs: usize) -> Result<Self, ConstructionError> {
         Self::from_function(num_inputs, |input| {
             input.iter().filter(|&&b| b).count().is_multiple_of(2)
         })
@@ -225,7 +246,7 @@ impl TruthTable {
     /// Input 0 is 'a', input 1 is 'b'.
     pub fn implies() -> Self {
         // Index 0: [F,F] -> T, Index 1: [T,F] -> F, Index 2: [F,T] -> T, Index 3: [T,T] -> T
-        Self::from_outputs(2, vec![true, false, true, true])
+        Self::from_outputs(2, vec![true, false, true, true]).expect("implication has four rows")
     }
 
     /// Combine two truth tables using AND.

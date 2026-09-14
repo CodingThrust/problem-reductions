@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -11,7 +10,10 @@ fn test_hamiltonian_path_basic() {
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.dimensions(), vec![4, 4, 4, 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4, 4, 4]
+    );
 
     // Valid path: 0->1->2->3
     assert!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap());

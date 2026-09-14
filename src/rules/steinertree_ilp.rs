@@ -30,14 +30,6 @@ impl ReductionResult for ReductionSteinerTreeToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .value
-            .is_none()
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
         Ok(target_solution[..self.num_edges]
             .iter()
             .map(|&value| value == 1)
@@ -61,7 +53,7 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let (num_vars, num_constraints) = tree_ilp_sizes(n, m, self.terminals().len())?;
-        // The source constructor requires at least two distinct terminals.
+        // The source constructor requires at least one terminal.
         let root = self.terminals()[0];
         let edges = self.graph().edges();
         let vertex_var = |v: usize| m + v;
@@ -132,7 +124,7 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
     }
 }
 
-/// Bounds for all offsets and allocation sizes; n >= 2 is a source invariant.
+/// Bounds for all offsets and allocation sizes; n >= 1 is a source invariant.
 fn tree_ilp_sizes(
     n: usize,
     m: usize,

@@ -7,6 +7,8 @@ use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+use sprs::CsMat;
+use std::collections::BTreeMap;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -56,12 +58,24 @@ inventory::submit! {
 /// assert!(solutions.contains(&vec![false, true]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    try_from = "QuboData<W>",
+    bound(deserialize = "W: WeightElement + Deserialize<'de>")
+)]
 pub struct QUBO<W = i64> {
-    /// Number of variables.
-    num_vars: usize,
-    /// Q matrix stored as upper triangular (row-major).
-    /// `Q[i][j]` for i <= j represents the coefficient of x_i * x_j
-    matrix: Vec<Vec<W>>,
+    matrix: CsMat<W>,
+}
+
+#[derive(Deserialize)]
+struct QuboData<W> {
+    matrix: CsMat<W>,
+}
+
+impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
+    type Error = ConstructionError;
+    fn try_from(data: QuboData<W>) -> Result<Self, Self::Error> {
+        Self::from_sparse(data.matrix)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -95,12 +109,61 @@ impl<W: WeightElement> QUBO<W> {
                 "QUBO matrix row {row} has length {actual}, expected {num_vars}"
             )));
         }
-        for (row, values) in matrix.iter().enumerate() {
-            for (column, value) in values.iter().enumerate() {
-                value.validate_element(&format!("QUBO coefficient at ({row}, {column})"))?;
+        Self::from_rows(
+            matrix
+                .into_iter()
+                .map(|row| row.into_iter().enumerate())
+                .collect(),
+        )
+    }
+
+    /// Create a QUBO from a square sparse matrix. Only its upper triangle is evaluated.
+    pub fn from_sparse(matrix: CsMat<W>) -> Result<Self, ConstructionError> {
+        if matrix.rows() != matrix.cols() {
+            return Err(ConstructionError::Conversion(
+                "QUBO matrix must be square".into(),
+            ));
+        }
+        let matrix = matrix.into_csr();
+        for (row, values) in matrix.outer_iterator().enumerate() {
+            for (column, value) in values.iter() {
+                value
+                    .validate_element("QUBO coefficient")
+                    .map_err(|error| match error {
+                        ConstructionError::NonFiniteFloat(message) => {
+                            ConstructionError::NonFiniteFloat(format!(
+                                "{message} at ({row}, {column})"
+                            ))
+                        }
+                        error => error,
+                    })?;
             }
         }
-        Ok(Self { num_vars, matrix })
+        Ok(Self { matrix })
+    }
+
+    // Rows collect assignments and checked additions before compression. No library
+    // duplicate summation may replace the rule's numeric operations.
+    pub(crate) fn from_rows(
+        rows: Vec<impl IntoIterator<Item = (usize, W)>>,
+    ) -> Result<Self, ConstructionError> {
+        let n = rows.len();
+        let mut offsets = Vec::with_capacity(n + 1);
+        let mut indices = Vec::new();
+        let mut values = Vec::new();
+        offsets.push(0);
+        for row in rows {
+            for (column, value) in row {
+                if !value.to_sum().is_zero() {
+                    indices.push(column);
+                    values.push(value);
+                }
+            }
+            offsets.push(values.len());
+        }
+        let matrix = CsMat::try_new((n, n), offsets, indices, values)
+            .map_err(|(_, _, _, error)| ConstructionError::Conversion(error.to_string()))?;
+        Self::from_sparse(matrix)
     }
 
     /// Create a QUBO from linear and quadratic terms.
@@ -113,11 +176,11 @@ impl<W: WeightElement> QUBO<W> {
         quadratic: Vec<((usize, usize), W)>,
     ) -> Result<Self, ConstructionError> {
         let num_vars = linear.len();
-        let mut matrix = vec![vec![W::default(); num_vars]; num_vars];
+        let mut matrix = vec![BTreeMap::new(); num_vars];
 
         // Set diagonal (linear terms)
         for (i, val) in linear.into_iter().enumerate() {
-            matrix[i][i] = val;
+            matrix[i].insert(i, val);
         }
 
         // Set off-diagonal (quadratic terms)
@@ -128,30 +191,34 @@ impl<W: WeightElement> QUBO<W> {
                 )));
             }
             if i < j {
-                matrix[i][j] = val;
+                matrix[i].insert(j, val);
             } else {
-                matrix[j][i] = val;
+                matrix[j].insert(i, val);
             }
         }
 
-        Self::from_matrix(matrix)
+        Self::from_rows(matrix)
     }
 }
 
 impl<W> QUBO<W> {
     /// Get the number of variables.
     pub fn num_vars(&self) -> usize {
-        self.num_vars
+        self.matrix.rows()
     }
 
     /// Get the Q matrix.
-    pub fn matrix(&self) -> &[Vec<W>] {
+    pub fn matrix(&self) -> &CsMat<W> {
         &self.matrix
     }
 
-    /// Get a specific matrix element `Q[i][j]`.
-    pub fn get(&self, i: usize, j: usize) -> Option<&W> {
-        self.matrix.get(i).and_then(|row| row.get(j))
+    /// Get a coefficient, returning zero for an unstored entry and None outside the matrix.
+    pub fn get(&self, i: usize, j: usize) -> Option<W>
+    where
+        W: Clone + Zero,
+    {
+        (i < self.num_vars() && j < self.num_vars())
+            .then(|| self.matrix.get(i, j).cloned().unwrap_or_else(W::zero))
     }
 }
 
@@ -169,31 +236,26 @@ where
         &self,
         solution: &Self::Solution,
     ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
-        if solution.len() != self.num_vars {
+        if solution.len() != self.num_vars() {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
                 format!(
                     "solution has {} variables, expected {}",
                     solution.len(),
-                    self.num_vars
+                    self.matrix.rows()
                 ),
             ));
         }
         let mut value = W::Sum::zero();
 
-        for i in 0..self.num_vars {
+        for (i, row) in self.matrix.outer_iterator().enumerate() {
             if !solution[i] {
                 continue;
             }
-
-            for (j, &selected) in solution.iter().enumerate().skip(i) {
-                if !selected {
-                    continue;
-                }
-
-                if let Some(q_ij) = self.matrix.get(i).and_then(|row| row.get(j)) {
+            for (j, coefficient) in row.iter() {
+                if j >= i && solution[j] {
                     value = W::checked_add_to_sum(
                         value,
-                        q_ij.to_sum(),
+                        coefficient.to_sum(),
                         "summing selected QUBO coefficients",
                     )?;
                 }
@@ -212,8 +274,12 @@ impl<W> crate::solvers::BruteForceProblem for QUBO<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vars())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

@@ -58,12 +58,19 @@ fn test_solution_extraction() {
 
     // element 0→g0, element 1→g1, element 2→g1, element 3→g0
     // x_{0,0}=1,x_{0,1}=0, x_{1,0}=0,x_{1,1}=1, x_{2,0}=0,x_{2,1}=1, x_{3,0}=1,x_{3,1}=0
-    // Set x vars, leave z vars as 0 for extraction test
+    // Set assignment variables and their within-group products.
     let mut ilp_solution = vec![0_i64; 4 * 2 + 4 * 4 * 2];
     ilp_solution[0] = 1; // x_{0,0}
     ilp_solution[3] = 1; // x_{1,1}
     ilp_solution[5] = 1; // x_{2,1}
     ilp_solution[6] = 1; // x_{3,0}
+    for (group, members) in [(0, [0, 3]), (1, [1, 2])] {
+        for i in members {
+            for j in members {
+                ilp_solution[8 + (i * 4 + j) * 2 + group] = 1;
+            }
+        }
+    }
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 1, 0]);
 }

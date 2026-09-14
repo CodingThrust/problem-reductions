@@ -340,8 +340,12 @@ impl<W> crate::solvers::BruteForceProblem for ComparativeContainment<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.universe_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.universe_size)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

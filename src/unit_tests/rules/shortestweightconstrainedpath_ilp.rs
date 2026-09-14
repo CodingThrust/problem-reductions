@@ -61,10 +61,11 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
             // Both should agree on the optimal length
             assert_eq!(ilp_value, bf_value);
         }
-        Err(_) => {
+        Err(crate::solvers::ILPSolveError::Infeasible) => {
             // ILP found no feasible solution; brute force should agree
             assert_eq!(bf_value, Min(None));
         }
+        Err(error) => panic!("ILP execution failed: {error}"),
     }
 }
 

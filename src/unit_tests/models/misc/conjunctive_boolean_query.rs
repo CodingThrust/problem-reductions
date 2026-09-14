@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Helper to build the issue example instance.
@@ -37,7 +36,10 @@ fn test_conjunctivebooleanquery_basic() {
     assert_eq!(problem.num_relations(), 2);
     assert_eq!(problem.num_variables(), 2);
     assert_eq!(problem.num_conjuncts(), 3);
-    assert_eq!(problem.dimensions(), vec![6, 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6, 6]
+    );
     assert_eq!(
         <ConjunctiveBooleanQuery as Problem>::NAME,
         "ConjunctiveBooleanQuery"

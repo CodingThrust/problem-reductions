@@ -369,7 +369,6 @@
   "ShortestCommonSuperstring": [Shortest Common Superstring],
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
-  "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "MinimumAxiomSet": [Minimum Axiom Set],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
@@ -1342,7 +1341,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("DecisionMinimumVertexCover")
+  let x = load-model-example("DecisionMinimumVertexCover", variant: (graph: "SimpleGraph", weight: "i64"))
   let inner = x.instance.inner
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -3219,11 +3218,13 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let steiner-verts = tree-verts.filter(v => not terminals.contains(v))
   [
     #problem-def("SteinerTree")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $T subset.eq V$ with $|T| >= 2$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_.
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ$ and a set of terminal vertices $T subset.eq V$ with $|T| >= 1$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_.
     ][
     One of Karp's 21 NP-complete problems @karp1972, foundational in network design with applications in telecommunications backbone routing, VLSI chip interconnect, pipeline planning, and phylogenetic tree construction. When $T = V$, the problem reduces to the minimum spanning tree (polynomial). The NP-hardness arises from choosing which Steiner vertices to include.
 
-    The best known exact algorithm runs in $O^*(3^(|T|) dot n + 2^(|T|) dot n^2)$ time via Dreyfus--Wagner dynamic programming over terminal subsets @dreyfuswagner1971. Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
+    For nonnegative weights, Dreyfus--Wagner runs in $O^*(3^(|T|) dot n + 2^(|T|) dot n^2)$ time using dynamic programming over terminal subsets @dreyfuswagner1971. Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
+
+    For signed weights, enumerating the $2^(n-|T|)$ nonterminal subsets and computing a minimum spanning tree on each induced graph gives an $O(2^(n-|T|) n^2)$ exact algorithm. Selected edges must still form a single acyclic tree; disconnected negative edges and cycles are invalid. With one terminal, the zero-edge tree at that terminal is feasible, but a tree containing negative edges can have lower cost.
 
     // Find the unique direct terminal-terminal edge (both endpoints in T, not in the optimal tree)
     #let terminal-set = terminals
@@ -3809,74 +3810,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 
-#{
-  let x = load-model-example("SteinerTreeInGraphs")
-  let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.edges
-  let ne = edges.len()
-  let terminals = x.instance.terminals
-  let weights = x.instance.edge_weights
-  let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let opt-weight = metric-value(sol.metric)
-  // Derive tree edges from optimal config
-  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
-  let tree-edges = tree-edge-indices.map(i => edges.at(i))
-  // Steiner vertices: non-terminal vertices that appear in tree edges
-  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
-  [
-    #problem-def("SteinerTreeInGraphs")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
-    ][
-    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
-
-    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
-
-    #pred-commands(
-      "pred create --example SteinerTreeInGraphs -o steiner-tree-in-graphs.json",
-      "pred solve steiner-tree-in-graphs.json",
-      "pred evaluate steiner-tree-in-graphs.json --config " + cli-config(x.optimal_config),
-    )
-
-    #figure({
-      // Graph: 6 vertices arranged in two rows (layout positions)
-      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
-      canvas(length: 1cm, {
-        import draw: *
-        // Edge (0,2) idx=1 would otherwise pass straight through the collinear
-        // vertex $v_1$ at $(1.5, 1)$, so route it as a quadratic Bezier arc above.
-        let arc-ctrl = ("1": (1.5, 1.85))
-        for (idx, (u, v)) in edges.enumerate() {
-          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
-          let stk = if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) }
-          let key = str(idx)
-          if key in arc-ctrl {
-            let c = arc-ctrl.at(key)
-            bezier(verts.at(u), verts.at(v), c, stroke: stk)
-            let mx = 0.25 * verts.at(u).at(0) + 0.5 * c.at(0) + 0.25 * verts.at(v).at(0)
-            let my = 0.25 * verts.at(u).at(1) + 0.5 * c.at(1) + 0.25 * verts.at(v).at(1)
-            draw.content((mx, my + 0.18), text(7pt, fill: luma(80))[#weights.at(idx)])
-          } else {
-            g-edge(verts.at(u), verts.at(v), stroke: stk)
-            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
-            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
-            draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
-          }
-        }
-        for (k, pos) in verts.enumerate() {
-          let is-terminal = terminals.contains(k)
-          let is-steiner = steiner-verts.contains(k)
-          g-node(pos, name: "v" + str(k),
-            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
-            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
-            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-        }
-      })
-    },
-    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
-    ) <fig:steiner-tree-example>
-    ]
-  ]
-}
 
 #{
   let x = load-model-example("MinimumSumMulticenter")
@@ -4945,10 +4878,21 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 
+// Expand small sparse QUBO examples only for typesetting their matrices.
+#let qubo-matrix(instance) = {
+  let m = instance.matrix
+  range(m.nrows).map(i => {
+    let row = range(m.ncols).map(_ => 0)
+    for k in range(m.indptr.at(i), m.indptr.at(i + 1)) {
+      row.at(m.indices.at(k)) = m.data.at(k)
+    }
+    row
+  })
+}
 #{
   let x = load-model-example("QUBO")
-  let n = x.instance.num_vars
-  let Q = x.instance.matrix
+  let n = x.instance.matrix.nrows
+  let Q = qubo-matrix(x.instance)
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
   let fstar = metric-value(sol.metric)
@@ -5436,21 +5380,20 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let basis = x.instance.basis
   let target = x.instance.target
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let dist = metric-value(sol.metric)
   let coords = sol.config
   // Compute B*x: sum over j of coords[j] * basis[j]
   let dim = basis.at(0).len()
   let bx = range(dim).map(d => coords.enumerate().fold(0.0, (acc, (j, c)) => acc + c * basis.at(j).at(d)))
   // Format basis vectors
   let fmt-vec(v) = $paren.l #v.map(e => str(e)).join(", ") paren.r^top$
-  let dist-rounded = calc.round(dist, digits: 3)
+  let distance-squared = range(dim).fold(0, (total, d) => total + calc.pow(bx.at(d) - target.at(d), 2))
   [
     #problem-def("ClosestVectorProblem")[
-      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2^2$.
     ][
-      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. Finite `f64` targets are interpreted as their exact binary rational values. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. Model evaluation returns the squared distance as an exact rational, preserving the minimizers of Euclidean distance. Finite `f64` targets are interpreted as their exact binary rational values. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
-      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with distance #dist-rounded.
+      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with squared distance #distance-squared.
 
       #pred-commands(
         "pred create --example ClosestVectorProblem -o closest-vector-problem.json",
@@ -5485,7 +5428,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           content((rel: (-0.3, 0), to: "b2.mid"), text(7pt)[$bold(b)_2$])
           content((rel: (0.45, 0.3), to: "p" + str(coords.at(0)) + str(coords.at(1))), text(7pt)[$bold(B)(#coords.map(c => str(c)).join(","))^top$])
         }),
-        caption: [2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", "). Target $bold(t) = #fmt-vec(target)$ (red) and closest lattice point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ (blue). Distance $approx #dist-rounded$.],
+        caption: [2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", "). Target $bold(t) = #fmt-vec(target)$ (red) and closest lattice point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ (blue). Squared distance $#distance-squared$.],
       ) <fig:cvp-example>
     ]
   ]
@@ -7604,7 +7547,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       $ min_(c, p_1, dots, p_n) max_(1 lt.eq i lt.eq n) d_H (c, s_i [p_i .. p_i + ell)), $
       where $d_H$ is the Hamming distance and $s_i [p_i .. p_i + ell)$ is the length-$ell$ substring of $s_i$ starting at position $p_i$.
     ][
-      Introduced by #cite(<lima2002closeststring>, form: "prose"), who showed that the decision version is NP-complete (even over the binary alphabet) and gave the first polynomial-time approximation scheme. Closest Substring strictly generalizes Closest String: the special case $ell = |s_i|$ for all $i$ forces a unique window in each string and recovers Closest String. The registered exact baseline enumerates every center in $Sigma^ell$ together with every tuple of window starts, giving $O(q^ell dot product_i (|s_i| - ell + 1))$ configurations.
+      Introduced by #cite(<lima2002closeststring>, form: "prose"), who showed that the decision version is NP-complete (even over the binary alphabet) and gave the first polynomial-time approximation scheme. Closest Substring strictly generalizes Closest String: the special case $ell = |s_i|$ for all $i$ forces a unique window in each string and recovers Closest String. The registered exact baseline enumerates every center in $Sigma^ell$ together with every tuple of window starts, giving $O(q^ell dot product_i (|s_i| - ell + 1))$ configurations. Writing $W = sum_i (|s_i| - ell + 1)$, AM–GM bounds this count by $q^ell (W/n)^n$; the registered complexity uses this bound without storing the product as an instance parameter.
 
       *Example.* Let $Sigma = {0, 1}$ ($q = #alphabet-size$), $ell = #ell$, and consider the $n = #n$ binary strings
       $s_1 = #fmt-str(strings.at(0))$, $s_2 = #fmt-str(strings.at(1))$, $s_3 = #fmt-str(strings.at(2))$.
@@ -8097,7 +8040,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("KthLargestMTuple")[
       Given $m$ finite sets $X_1, dots, X_m$ of positive integers, a bound $B in ZZ^+$, and a threshold $K in ZZ^+$, count the number of distinct $m$-tuples $(x_1, dots, x_m) in X_1 times dots.c times X_m$ satisfying $sum_(i=1)^m x_i >= B$. The answer is _yes_ iff this count is at least $K$.
     ][
-      The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
+      The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so AM–GM gives the registered catalog bound `(num_elements / num_sets)^num_sets * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
 
       *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#fmt-values(s)}$]).join([, ]). The Cartesian product has $#total$ tuples. Exactly #k tuples have sum at least #bound, so the answer is _yes_ (count $= K$). The evaluator enumerates the Cartesian product internally and stops once it has found $K$ qualifying tuples.
 
@@ -11978,7 +11921,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   let basis = cvp_qubo.source.instance.basis
   let target = cvp_qubo.source.instance.target
   let coords = cvp_qubo_sol.source_config
-  let matrix = cvp_qubo.target.instance.matrix
+  let matrix = qubo-matrix(cvp_qubo.target.instance)
   let bits = cvp_qubo_sol.target_config
   let lower = (-23, -14)
   let anchor = range(target.len()).map(d => lower.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
@@ -12005,7 +11948,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
         *Step 2 -- Derive a safe box.* Here $A=((2,1),(0,2))$, $norm(bold(t))_1=5$, and the selected-row bounds are $bold(C)=(8,7)$. Since $op("adj")(A)=((2,-1),(0,2))$, the reduction obtains $M_1=23$ and $M_2=14$.
 
-        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.num_vars variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
+        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.matrix.nrows variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
 
         *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq, so $B bold(x)=bold(t)$ #sym.checkmark.
 
@@ -12252,7 +12195,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
         together with target $ bold(t) = (#fmt-values(ss-cvp-target-vec))^top $
         in the standard CVP model, with no coefficient bounds.
 
-        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the Euclidean distance is $sqrt(4) = 2$.
+        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the squared-distance objective is $4$.
 
         *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
       ],
@@ -12261,15 +12204,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     ][
       _Construction._ Let $n$ be the number of items, and let $b >= 1$ be the maximum bit length of their nonnegative sizes and target $T$. Write $s_(i,j), t_j in {0,1}$ for bit $j$ of size $s_i$ and target $T$. Introduce integer coefficients $x_0, dots, x_(n-1)$ and carries $c_1, dots, c_(b-1)$, with fixed boundary values $c_0=c_b=0$. The displacement vector consists of $x_i$ for all items, then $x_i-1$ for all items, then residuals
       $ r_j = sum_(i=0)^(n-1) s_(i,j) x_i + c_j - 2 c_(j+1) - t_j $
-      in descending bit order. These linear expressions define the integer basis columns and a target containing only zeros and ones. Carry columns are also ordered by descending bit index. The first $n$ coordinate rows form an identity on item columns; the remaining carry block has unit pivots in this order. Consequently the full-column-rank check has no exponentially growing pivots.
+      in descending bit order. These linear expressions define the integer basis columns and a target containing only zeros and ones. Carry columns are also ordered by descending bit index. The first $n$ coordinate rows form an identity on item columns; the remaining carry block has unit pivots in this order. This triangular block together with the item identity proves full column rank.
 
       _Correctness._ Every integer vector satisfies
       $ norm(bold(B) bold(z)-bold(t))_2^2 = sum_i (x_i^2 + (x_i-1)^2) + sum_j r_j^2 >= n. $
-      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the optimum is $sqrt(n)$ exactly for YES instances. Empty item lists and target zero use the same construction.
+      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the squared-distance optimum is $n$ exactly for YES instances. Empty item lists and target zero use the same construction.
 
-      _Solution extraction._ Validate the target configuration once and require a finite distance exactly $sqrt(n)$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal distance proves NO and provides no source witness.
+      _Solution extraction._ Validate the target configuration once and require squared distance exactly $n$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal distance proves NO and provides no source witness.
 
-      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. On a 64-bit platform this bounds $n < 2^30$; the threshold and the unit squared-distance gap remain distinguishable in the target's floating-point evaluation. The paired coordinates and boundary carry equations also ensure every threshold witness has exactly evaluated small integer residuals. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. The model evaluates squared distances in exact rational arithmetic and the solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -12441,7 +12384,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
-#let ks_qubo_num_slack = ks_qubo.target.instance.num_vars - ks_qubo_num_items
+#let ks_qubo_num_slack = ks_qubo.target.instance.matrix.nrows - ks_qubo_num_items
 #let ks_qubo_penalty = 1 + ks_qubo.source.instance.values.fold(0, (a, b) => a + b)
 #let ks_qubo_selected = ks_qubo_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let ks_qubo_sel_weight = ks_qubo_selected.fold(0, (a, i) => a + ks_qubo.source.instance.weights.at(i))
@@ -12460,7 +12403,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 2 -- Introduce slack variables.* The inequality $sum_i w_i x_i lt.eq C$ becomes an equality by adding $B = #ks_qubo_num_slack$ binary slack bits that encode unused capacity:
     $ #ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) = #ks_qubo.source.instance.capacity $
-    This gives $n + B = #ks_qubo_num_items + #ks_qubo_num_slack = #ks_qubo.target.instance.num_vars$ QUBO variables.
+    This gives $n + B = #ks_qubo_num_items + #ks_qubo_num_slack = #ks_qubo.target.instance.matrix.nrows$ QUBO variables.
 
     *Step 3 -- Add the penalty objective.* With penalty $P = 1 + sum_i v_i = #ks_qubo_penalty$, the QUBO minimizes
     $ H = -(#ks_qubo.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$)) + #ks_qubo_penalty (#ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) - #ks_qubo.source.instance.capacity)^2 $
@@ -12501,7 +12444,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 2 -- One-hot variables.* Introduce one binary selector per sampled orientation:
     $ underbrace(y_(1,0) y_(1,1), "link 1") #h(6pt) underbrace(y_(2,0) y_(2,1), "link 2") $
-    The QUBO therefore has $2 + 2 = #mdpik_qubo.target.instance.num_vars$ variables.
+    The QUBO therefore has $2 + 2 = #mdpik_qubo.target.instance.matrix.nrows$ variables.
 
     *Step 3 -- Quadratic energy.* The geometric coefficients are $c = (2, 0, 1, 0)$ for the $x$-coordinate and $s = (0, 2, 0, 1)$ for the $y$-coordinate, so the position term is
     $ (2 y_(1,0) + y_(2,0) - 2)^2 + (2 y_(1,1) + y_(2,1) - 1)^2. $
@@ -12515,18 +12458,18 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Construction._ For each link $j in {1, dots, n}$ and sample index $a in {0, dots, m_j - 1}$, introduce a binary variable $y_(j,a) in {0,1}$ with the intended meaning "$y_(j,a) = 1$ iff link $j$ chooses orientation $phi_(j,a)$." Define
   $ c_(j,a) = l_j cos phi_(j,a), quad s_(j,a) = l_j sin phi_(j,a). $
   Let
-  $ P = 1 + (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2. $
+  $ D = (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2, quad P = 2(1 + D). $
   The QUBO objective is the sum of three terms:
   $
     H = underbrace((sum_(j,a) c_(j,a) y_(j,a) - g_x)^2 + (sum_(j,a) s_(j,a) y_(j,a) - g_y)^2)_"position error"
       + underbrace(P sum_(j=1)^n (sum_(a=0)^(m_j - 1) y_(j,a) - 1)^2)_"one-hot"
       + underbrace(P sum_(j=2)^n sum_((a,b) in.not A_j) y_(j-1,a) y_(j,b))_"forbidden pairs".
   $
-  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. As usual, the additive constant $g_x^2 + g_y^2$ is dropped.
+  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. The implementation drops the full additive constant $C = g_x^2 + g_y^2 + n P$, including the one-hot constants.
 
-  _Correctness._ ($arrow.r.double$) Any feasible inverse-kinematics configuration $a_1, dots, a_n$ maps to the one-hot assignment with $y_(j,a_j) = 1$ and all other selectors $0$. Every one-hot penalty vanishes, every consecutive pair lies in the relevant admissible set, and the remaining QUBO objective equals the squared end-effector distance up to the dropped additive constant. ($arrow.l.double$) If some link is not one-hot, then $(sum_a y_(j,a) - 1)^2 >= 1$, so the assignment pays at least $P$. If every link is one-hot but some consecutive pair is forbidden, then exactly one forbidden-pair monomial is active at that junction, again contributing at least $P$. By definition of $P$, every decoded source configuration has squared distance at most $P - 1$, while the dropped-constant geometric term is bounded below by $-(g_x^2 + g_y^2)$. Therefore every violating assignment has strictly larger energy than every feasible source assignment. Among the penalty-zero assignments, minimizing $H$ is exactly minimizing the source squared distance.
+  _Correctness._ ($arrow.r.double$) Any feasible inverse-kinematics configuration $a_1, dots, a_n$ maps to the one-hot assignment with $y_(j,a_j) = 1$ and all other selectors $0$. Every one-hot penalty vanishes, every consecutive pair lies in the relevant admissible set, and the remaining QUBO objective equals the squared end-effector distance up to the dropped additive constant. ($arrow.l.double$) If some link is not one-hot, then $(sum_a y_(j,a) - 1)^2 >= 1$, so the assignment pays at least $P$. If every link is one-hot but some consecutive pair is forbidden, then exactly one forbidden-pair monomial is active at that junction, again contributing at least $P$. Every feasible assignment has $H <= D$, whereas every violating assignment has $H >= P$. Thus a feasible source has only qualifying optima; if the source is infeasible, every target assignment has $H >= P$. Among the penalty-zero assignments, minimizing $H$ is exactly minimizing the source squared distance.
 
-  _Solution extraction._ For each link block $j$, read the unique active selector $y_(j,a) = 1$ and output its sample index $a$. If the decoded index vector violates an admissible-pair constraint, the source evaluator rejects it with `Min(None)`.
+  _Value recovery and extraction._ For target optimum $E$, compare $E$ to $3(1+D)/2 - C$, which lies strictly between the feasible and infeasible energy ranges. An optimum above this separator yields `Min(None)` for the source. Otherwise the source optimum is $E+C$, and each block has a unique active selector whose sample index is the source witness. Value recovery precedes extraction; extraction does not recheck one-hot or pair feasibility. Floating-point results follow the numerical contract; the scaled penalty leaves a gap proportional to the coefficient scale, and nonfinite construction arithmetic is an error.
 ]
 
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
@@ -12564,23 +12507,22 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     *Step 6 -- Verify a solution.* The QUBO ground state $bold(x) = (#fmt-values(mwc_qubo_sol.target_config))$ decodes to the partition: vertex 0 in component 0, vertices 1--3 in component 1, vertex 4 in component 2. Cut edges: $\{#mwc_qubo_cut_indices.map(i => "(" + str(mwc_qubo_edges.at(i).at(0)) + "," + str(mwc_qubo_edges.at(i).at(1)) + ")").join(", ")\}$ with total weight #mwc_qubo_cut_indices.map(i => str(mwc_qubo_weights.at(i))).join(" + ") $= #mwc_qubo_cut_cost$ #sym.checkmark.
   ],
 )[
-  The multiway cut problem requires a partition of vertices into $k$ components — one per terminal — minimizing the total weight of edges crossing components. The penalty method (@sec:penalty-method) encodes two constraints as QUBO penalties: (1) each vertex belongs to exactly one component (one-hot), and (2) each terminal is pinned to its own component. The cut-cost Hamiltonian counts edge weight across distinct components. Reference: @Heidari2022.
+  A multiway cut deletes edges to separate every terminal pair. For signed weights, every negative edge is deleted first; the remaining nonnegative problem is represented by a terminal-labelled partition. The penalty method (@sec:penalty-method) enforces one label per vertex and pins each terminal to its own label. Reference for the partition encoding: @Heidari2022.
 ][
-  _Construction._ Given $G = (V, E)$ with $n = |V|$, edge weights $w: E -> RR_(>0)$, and $k$ terminals $T = {t_0, ..., t_(k-1)}$. Introduce $n k$ binary variables $x_(u,t) in {0,1}$ (indexed by $u dot k + t$), where $x_(u,t) = 1$ means vertex $u$ is in terminal $t$'s component. Let $alpha = 1 + sum_(e in E) w(e)$.
+  _Construction._ Given $G = (V, E)$ with integer weights $w: E -> ZZ$ and $k >= 2$ distinct terminals, let $w^+(e) = max(w(e), 0)$ and $C_- = sum_(e: w(e) < 0) w(e)$. Introduce $n k$ binary variables $x_(u,t)$, where label $t$ indicates the terminal group of vertex $u$. Let $alpha = 1 + sum_(e in E) w^+(e)$.
 
-  The QUBO Hamiltonian is $H = H_A + H_B$ where:
+  The Hamiltonian is $H = H_A + H_B$, with
   $ H_A = alpha (sum_(u in V) (1 - sum_(t=0)^(k-1) x_(u,t))^2 + sum_(i=0)^(k-1) sum_(s != i) x_(t_i, s)) $
-  The first term is a _one-hot constraint_ ensuring each vertex is assigned to exactly one component. The second term _pins_ each terminal $t_i$ to position $i$ by penalizing any other assignment. Expanding the one-hot term using $x^2 = x$:
-  $ Q_(u k+t, u k+t) = -alpha, quad Q_(u k+s, u k+t) = 2 alpha quad (s < t) $
-  Terminal pinning adds $alpha$ to the diagonal $Q_(t_i k+s, t_i k+s)$ for $s != i$, canceling the one-hot incentive.
+  and
+  $ H_B = sum_((u,v) in E) sum_(s != t) w^+(u,v) x_(u,s) x_(v,t). $
+  The implemented QUBO omits the constant $n alpha$ from $H_A$.
 
-  The cut-cost Hamiltonian:
-  $ H_B = sum_((u,v) in E) sum_(s != t) w(u,v) dot x_(u,s) dot x_(v,t) $
-  counts the total weight of edges whose endpoints lie in different components.
+  _Correctness._ Deleting a negative edge strictly reduces cost and cannot reconnect terminals, so every source optimum deletes all negative edges. Both Hamiltonian terms are nonnegative for every binary assignment. A pinned one-hot assignment exists and has energy at most $sum_e w^+(e) < alpha$; any constraint violation costs at least $alpha$. Thus every target optimum is pinned and one-hot.
 
-  _Correctness._ ($arrow.r.double$) A valid multiway cut with cost $C$ maps to a QUBO solution with $H_A = 0$ (valid partition with correct terminal pinning) and $H_B = C$. ($arrow.l.double$) If $H_A > 0$, the penalty $alpha > sum_e w(e)$ exceeds the entire cut-cost range, so any QUBO minimizer has $H_A = 0$, encoding a valid partition. Among valid partitions, $H_B$ equals the cut cost, and the minimizer achieves the minimum multiway cut.
+  Given any feasible deletion set, label each remaining connected component by its terminal, choosing any label for components without a terminal. Every nonnegative edge crossing labels was already deleted. Conversely, deleting all negative edges and every edge crossing labels separates the terminals. These two directions show that the minimum partition cost plus $C_-$ is exactly the minimum source cost. Consequently every QUBO optimum recovers a source optimum, whose value is the QUBO optimum plus $n alpha + C_-$. All source instances are feasible because deleting all edges separates distinct terminals.
 
-  _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
+  _Solution extraction._ Find the selected label of each vertex. Delete edge $(u,v)$ exactly when $w(u,v) < 0$ or its endpoint labels differ. Extraction assumes an optimal target witness; it does not check the one-hot constraints again. Integer coefficient overflow is reported by construction.
+
 ]
 
 #reduction-rule("GraphPartitioning", "QUBO")[
@@ -12616,8 +12558,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred solve bundle.json",
       "pred evaluate qubo.json --config " + cli-config(qubo_ilp_sol.source_config),
     )
-    Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
-    Target: #qubo_ilp.target.instance.variables.len() ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.variables.len() - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
+    Source: $n = #qubo_ilp.source.instance.matrix.nrows$ binary variables, 3 off-diagonal terms \
+    Target: #qubo_ilp.target.instance.variables.len() ILP variables ($#qubo_ilp.source.instance.matrix.nrows$ original $+ #(qubo_ilp.target.instance.variables.len() - qubo_ilp.source.instance.matrix.nrows)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
     Canonical optimal witness: $bold(x) = (#fmt-values(qubo_ilp_sol.source_config))$ #sym.checkmark
   ],
 )[
@@ -14005,7 +13947,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + cli-config(tsp_qubo_sol.source_config),
     )
-    *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.num_vars$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
+    *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.matrix.nrows$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
     $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) underbrace(x_(2,0) x_(2,1) x_(2,2), "vertex 2") $
 
     *Step 2 -- Penalize invalid permutations.* The penalty $A = 1 + |w_(01)| + |w_(02)| + |w_(12)| = 1 + 1 + 2 + 3 = 7$ ensures any row/column constraint violation outweighs any tour cost. Row constraints (each vertex at exactly one position) and column constraints (each position has one vertex) contribute diagonal $-7$ and off-diagonal $+14$ within each group.\
@@ -14019,15 +13961,18 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).
 ][
-  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and edge weights $w_(u v)$. Let $A = 1 + sum_((u,v) in E) |w_(u v)|$ be the penalty coefficient.
+  _Construction._ For $n >= 3$, discard self-loops and retain one cheapest edge per endpoint pair; a Hamiltonian cycle on at least three vertices uses neither a loop nor two parallel edges. Let $b = min(0, min_e w(e))$, using $b=0$ if no edges remain. Define $c(e)=w(e)-b >= 0$ and $A=1+sum_e c(e)$.
 
-  _Variables:_ Binary $x_(v,p) in {0, 1}$ for vertex $v in V$ and position $p in {0, dots, n-1}$. QUBO variable index: $v dot n + p$.
+  _Variables:_ Binary $x_(v,p)$ indicates that vertex $v$ occupies position $p$, with index $v n+p$. The Hamiltonian is
+  $ H = A sum_v (1-sum_p x_(v,p))^2 + A sum_p (1-sum_v x_(v,p))^2 + sum_(u<v) c_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n)), $
+  where $c_(u v)=A$ for an absent edge. The implementation drops the constant $2n A$.
 
-  _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E) w_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $w_(u v)$.
+  _Correctness._ Every term is nonnegative, including on assignments that are not permutations. A valid source tour gives a permutation of shifted cost at most $sum_e c(e)<A$. A non-permutation pays at least $A$ in constraints; a permutation using an absent edge pays at least $A$ in its objective. Thus the optimum of $H$ is below $A$ exactly when the source is feasible. Every tour has $n$ edges, so shifting weights changes all valid tour costs by the same $-n b$ and preserves every optimum.
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix satisfying $H_A = H_B = 0$; the $H_C$ terms sum to the tour cost. ($arrow.l.double$) The minimum-energy state has $H_A = H_B = 0$ (penalty $A$ exceeds any tour cost), so it encodes a valid permutation; $H_C$ equals the tour cost, selecting the shortest tour.
+  _Value recovery and extraction._ For target optimum $E$, if $E >= A-2n A$, return source infeasibility. Otherwise the source optimum is $E+2n A+n b$. Read the unique vertex at each position and select the stored cheapest edge between consecutive vertices. This maps every qualifying optimum; extraction does not certify permutation or edge feasibility again. Checked construction arithmetic reports coefficients that cannot be represented in the integer QUBO.
 
-  _Solution extraction._ From QUBO solution $x^*$, for each position $p$ find the unique vertex $v$ with $x^*_(v n + p) = 1$. Map consecutive position pairs to edge indices.
+  _Small instances._ The source witness is a connected edge set with degree two at every vertex. For $n=1$ its optimum is the cheapest self-loop, if one exists. For $n=2$ it is the two cheapest parallel edges joining the vertices, if two exist. For $n=0$ the source has no cycle. These cases are solved during construction by selecting the one or two smallest relevant edge weights in linear time. The target is a zero objective on $n^2$ variables; every target optimum maps to the stored source optimum or infeasibility. This preserves the source model's accepted graph domain.
+
 ]
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
@@ -15231,24 +15176,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   Thus feasibility is equivalent in both directions and the constant offset preserves every optimum. Zero lengths and repeated or self-loop required arcs do not alter the argument. When $m=1$, the product is $x_(0,0)^2=x_(0,0)$ and still enforces a reachable return. When $m=0$, both models have the empty solution with value zero.
 
   _Solution extraction._ For each position $p$, return the unique $i$ with $x_(i,p)=1$, using the existing one-hot decoder. There are $m^2+m^3$ binary variables and $2m+3m^3+m r$ constraints, where $r$ is the number of unreachable ordered required-arc pairs; hence at most $2m+4m^3$ constraints.
-]
-
-#reduction-rule("SteinerTreeInGraphs", "ILP")[
-  Select edges and certify terminal connectivity by sending one unit of flow from a root terminal to every other terminal through the selected subgraph.
-][
-  _Construction._ Fix a root terminal $r in R$. Variables: binary $y_(u,v)$ for each undirected edge $\{u,v\}$ and nonnegative flow variables $f^t_(u,v)$ on each directed edge orientation for every terminal $t in R backslash {r}$. The ILP is:
-  $
-    min quad & sum_({u,v} in E) w_(u,v) y_(u,v) \
-    "subject to" quad & sum_(u) f^t_(u,v) - sum_(w) f^t_(v,w) = b_(t,v) quad forall t in R backslash {r}, v in V \
-    & f^t_(u,v) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
-    & f^t_(v,u) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
-    & y_(u,v) in {0, 1}, f^t_(u,v) in ZZ_(>=0),
-  $
-  where $b_(t,v) = -1$ if $v = r$, $b_(t,v) = 1$ if $v = t$, and $b_(t,v) = 0$ otherwise.
-
-  _Correctness._ ($arrow.r.double$) A Steiner tree supports a unit flow from the root to every other terminal using exactly its selected edges, with the same total weight. ($arrow.l.double$) Any feasible ILP solution selects a connected subgraph spanning all terminals, and with nonnegative edge weights an optimum solution is a minimum-weight Steiner tree.
-
-  _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
 ]
 
 // Scheduling
@@ -16609,12 +16536,14 @@ Problems parameterized by graph type, weight type, target type, or clause width 
   _Solution extraction._ Return the target configuration unchanged.
 ]
 
+The numerical variant embeddings below preserve individual stored coefficients or coordinates. Their algebraic identities describe the formal objectives. Floating-point model evaluation still follows finite `f64` arithmetic and can round intermediate expressions; a lossless scalar embedding does not certify backend optimality. CVP instead evaluates its stored coordinates with exact rational squared distances.
+
 #reduction-rule("SpinGlass", "SpinGlass")[
   An Ising spin-glass instance with integer couplings and fields ($J_(i j), h_i in ZZ$) converts to the floating-point variant ($J_(i j), h_i in RR$) through exact `i64_to_exact_f64` embeddings. The graph topology is preserved.
 ][
   _Construction._ Given $"SpinGlass"(G, bold(J), bold(h))$ with $J_(i j) in ZZ$ and $h_i in ZZ$, construct $"SpinGlass"(G, bold(J)', bold(h)')$ with $J'_(i j) = J_(i j) in RR$ and $h'_i = h_i in RR$.
 
-  _Correctness._ The spin-glass Hamiltonian $H(bold(s)) = sum_((i,j) in E) J_(i j) s_i s_j + sum_i h_i s_i$ is preserved exactly under the integer-to-float embedding (no rounding). Spin configurations and the objective value are unchanged.
+  _Correctness._ The spin-glass Hamiltonian $H(bold(s)) = sum_((i,j) in E) J_(i j) s_i s_j + sum_i h_i s_i$ is the same formal Hamiltonian under the coefficient embedding. Spin configurations are unchanged.
 
   _Solution extraction._ Return the target configuration unchanged.
 ]
@@ -16634,9 +16563,9 @@ Problems parameterized by graph type, weight type, target type, or clause width 
 #reduction-rule("ClosestVectorProblem", "ClosestVectorProblem")[
   An integer-target CVP instance converts to the floating-target variant by embedding every target coordinate with `i64_to_exact_f64`. The integer lattice basis is copied unchanged.
 ][
-  _Construction._ Given $(B, bold(t))$ with $B in ZZ^(m times n)$ and $bold(t) in ZZ^m$, construct $(B, bold(t)')$ with $t'_i = "f64"(t_i)$ for every exactly representable coordinate $|t_i| lt.eq 2^53 - 1$.
+  _Construction._ Given $(B, bold(t))$ with $B in ZZ^(m times n)$ and $bold(t) in ZZ^m$, construct $(B, bold(t)')$ with $t'_i = "f64"(t_i)$ when every target coordinate satisfies $abs(t_i) <= 2^53 - 1$, the supported conversion range.
 
-  _Correctness._ Exact coordinate conversion gives $bold(t)' = bold(t)$ in $RR^m$. Therefore $norm(B bold(x) - bold(t)')_2 = norm(B bold(x) - bold(t))_2$ for every $bold(x) in ZZ^n$, so the minimizers coincide.
+  _Correctness._ Exact coordinate conversion gives $bold(t)' = bold(t)$ in $RR^m$. Therefore $norm(B bold(x) - bold(t)')_2^2 = norm(B bold(x) - bold(t))_2^2$ for every $bold(x) in ZZ^n$, so the minimizers coincide.
 
   _Solution extraction._ Return the integer coefficient vector unchanged.
 ]
@@ -16644,7 +16573,7 @@ Problems parameterized by graph type, weight type, target type, or clause width 
 #reduction-rule("QUBO", "QUBO")[
   An integer QUBO converts to the floating-coefficient variant by embedding every matrix coefficient with `i64_to_exact_f64`.
 ][
-  _Construction._ Given $Q in ZZ^(n times n)$, construct $Q' in RR^(n times n)$ with $Q'_(i j) = "f64"(Q_(i j))$ for every exactly representable coefficient $|Q_(i j)| lt.eq 2^53 - 1$.
+  _Construction._ Given $Q in ZZ^(n times n)$, construct $Q' in RR^(n times n)$ with $Q'_(i j) = "f64"(Q_(i j))$ when every matrix coefficient satisfies $abs(Q_(i j)) <= 2^53 - 1$, the supported conversion range.
 
   _Correctness._ For every binary vector $bold(x)$, exact coefficient conversion gives $bold(x)^top Q' bold(x) = bold(x)^top Q bold(x)$. The objective ordering and minimizers are preserved.
 
@@ -16907,11 +16836,11 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("ILP", "ILP")[
   ILP variants convert between binary and bounded integer variable domains and between exact-integer and floating-point coefficients. Binary variables embed directly into integer variables. A finitely bounded integer variable is encoded by binary variables with truncated positional weights. Integer coefficients are embedded only when every stored coefficient and right-hand side has an exact `f64` representation.
 ][
-  _Construction._ For the binary-to-integer edge, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge rejects variables without two finite bounds. For the coefficient edge, copy the variable bounds and optimization direction and convert each entry of the constraint matrix, right-hand side, and objective independently; reject the instance if any integer lies outside the exactly representable `f64` integer range.
+  _Construction._ For the binary-to-integer edge, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge rejects variables without two finite bounds. For the coefficient edge, copy the variable bounds and optimization direction and convert each entry of the constraint matrix, right-hand side, and objective independently; reject the instance if any converted integer is outside the supported range $[-(2^53 - 1), 2^53 - 1]$.
 
   _Correctness._ The binary-to-integer embedding changes no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and objective values. Exact conversion preserves every stored coefficient, so it constructs the same formal linear objective and constraints over the same integer variables.
 
-  _Solution extraction._ Binary-to-integer and coefficient conversions preserve the assignment; coefficient conversion additionally checks the assignment against the source integer ILP. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
+  _Solution extraction._ Binary-to-integer and coefficient conversions preserve the assignment after the standard target-solution validation. Numerical solver accuracy is independent of the mathematical coefficient conversion. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
@@ -17263,7 +17192,7 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical Hamiltonian circuit. Rotating or reversing that same cycle yields equivalent target witnesses with the same extracted cover.
   ],
 )[
-  Garey and Johnson's Theorem 3.4 replaces each source edge by a 12-vertex cover-testing gadget and uses $k$ selector vertices to choose $k$ source vertices whose incident gadget-paths together cover every gadget @garey1979. In the unit-weight decision setting, the constructed graph is Hamiltonian iff the source graph has a vertex cover of size at most $k$.
+  Garey and Johnson's Theorem 3.4 replaces each source edge by a 12-vertex cover-testing gadget and uses $k$ selector vertices to choose $k$ source vertices whose incident gadget-paths together cover every gadget @garey1979. The registered source uses the `One` weight variant of Decision Minimum Vertex Cover. The constructed graph is Hamiltonian iff the source graph has a vertex cover of size at most $k$.
 ][
   _Construction._ Let the source be a unit-weight Decision Minimum Vertex Cover instance $(G = (V, E), k)$ with $G$ simple. For each edge $e = {u, v} in E$, create a gadget with vertices $(u, e, i)$ and $(v, e, i)$ for $1 <= i <= 6$. Add the two 6-chains on the $u$-side and $v$-side together with the four cross edges ${(u, e, 3), (v, e, 1)}$, ${(v, e, 3), (u, e, 1)}$, ${(u, e, 6), (v, e, 4)}$, and ${(v, e, 6), (u, e, 4)}$. For every source vertex $v$, order its incident edges as $e_(v[1]), dots, e_(v[deg(v)])$ and connect ${(v, e_(v[i]), 6), (v, e_(v[i+1]), 1)}$ for $1 <= i < deg(v)$, forming one path that contains exactly the gadget copies labeled by $v$. Finally add selector vertices $a_1, dots, a_k$ and join each selector to both endpoints of every non-isolated vertex-path. Thus the theorem branch has $k + 12|E|$ vertices and $14|E| + sum_(v in V^+) (deg(v)-1) + 2k|V^+|$ edges, where $V^+ = {v in V : deg(v) > 0}$.
 
@@ -19556,36 +19485,22 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Bienstock, Goemans, Simchi-Levi, Williamson @BienstockGoemansSimchiLeviWilliamson1993 introduced the prize/penalty framework for prize-collecting network design; Tuncbag and coauthors @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB used the same artificial-root idea to translate PCSF into a rooted prize-collecting Steiner tree on biological networks. The combined construction recorded here adds a per-vertex auxiliary-terminal gadget that compiles the remaining omitted-prize term `beta * p(v)` into ordinary Steiner-tree edge costs, so the target is a plain (unweighted-prize) Steiner Tree instance.
 ][
-  _Construction._ Given a PCSF instance with graph $G = (V, E)$, edge costs $c$, vertex prizes $p$, and parameters $beta >= 0$, $omega >= 0$, let $V_p = {v in V : p(v) > 0}$ and $k = |V_p|$. Build the target graph $H = (V_H, E_H)$ with weights $c_H$ and terminal set $T_H$ as follows.
+  _Construction._ Given a PCSF instance with graph $G=(V,E)$, nonnegative edge costs $c$, nonnegative prizes $p$, and $beta, omega >= 0$, let $V_p={v in V:p(v)>0}$, $k=|V_p|$, and $M=omega+1$. Add an artificial root $r$ and one auxiliary terminal $t_v$ for each $v in V_p$. Keep every original edge with its cost, add $(r,v)$ of cost $omega$ for every original vertex, and add $(v,t_v)$ of cost $M$ and $(r,t_v)$ of cost $M+beta p(v)$. The terminal set is ${r} union {t_v:v in V_p}$.
 
-  1. Add a fresh artificial root $r$: $V_H = V union {r} union {t_v : v in V_p}$.
-  2. Keep every original edge $e in E$ with $c_H(e) = c(e)$.
-  3. For every $v in V$, add a root-attachment edge $(r, v)$ with $c_H((r, v)) = omega$.
-  4. For every prized vertex $v in V_p$, add an include-edge $(v, t_v)$ with cost $0$ and an omit-edge $(r, t_v)$ with cost $beta dot p(v)$.
-  5. Set $T_H = {r} union {t_v : v in V_p}$. Original vertices $V$ and the new gadget terminals coexist; only $r$ and the $t_v$ are terminals.
+  _Forward bound._ Given any source forest $F$, attach each component once to $r$. For each prized vertex, choose its include edge if selected and its omit edge otherwise. The auxiliary terminals are leaves; the result is a tree spanning all terminals, with cost $f(F)+k M$. Thus $"OPT"_T <= "OPT"_F+k M$.
 
-  Solve $"SteinerTree"(H, c_H, T_H)$ to obtain a minimum-weight tree $T^*$ spanning $T_H$.
+  _Reverse bound._ In an optimal target tree, every auxiliary terminal is a leaf. If both edges at $t_v$ were selected, delete $(r,t_v)$ and add $(r,v)$. The latter edge cannot already be selected, since those three edges would form a cycle. The replacement reconnects the two components created by deletion and decreases cost by $M+beta p(v)-omega >= 1$, a contradiction.
 
-  _Witness extraction._ From $T^*$ recover the PCSF witness $(V_F, E_F)$ by
+  Extract original selected edges, their endpoints, and each prized vertex whose include edge is selected. This is a feasible source forest. After deleting the auxiliary leaves, each original component has exactly one root attachment, by connectivity and acyclicity. Extraction may discard isolated zero-prize vertices, which cannot increase cost because $omega>=0$. Every omitted positive prize has its omit edge selected; omit edges at vertices retained by original edges only add nonnegative target cost. Therefore $f(F) <= "cost"(T)-k M$. Together with the forward bound, this proves $"OPT"_T="OPT"_F+k M$ and optimality of every extracted optimal target witness.
 
-  $ E_F = T^* inter E(G), quad V_F = { v in V : (v, t_v) in T^* } union { "endpoints of edges in" E_F }. $
+  _Witness extraction._ Return
+  $ E_F=T inter E(G), quad V_F={v:(v,t_v) in T} union {"endpoints of edges in" E_F}. $
+  No source optimization is performed during extraction.
 
-  Equivalently, deleting $r$ and the gadget vertices ${t_v}$ from $T^*$ leaves a disjoint union of trees on $V$; $V_F$ is the set of original vertices touched by this restricted forest, and $E_F$ is exactly $T^* inter E(G)$. Both directions are consistent because:
+  _Overhead._ The exact counts remain $|V_H|=n+k+1$, $|E_H|=m+n+2k$, and $|T_H|=k+1$. Coefficients are computed with checked integer arithmetic in the native representation.
 
-  - any prized vertex $v$ in $V_F$ pays the cost-$0$ include-edge $(v, t_v)$ to reach $t_v$ inside $T^*$;
-  - any prized vertex $v$ omitted from $V_F$ has $t_v$ joined to the tree exclusively through $(r, t_v)$, paying $beta dot p(v)$.
+  _Boundary cases._ With no positive prizes, only $r$ is a terminal and its zero-edge tree maps to the empty forest. The proof also covers $beta=0$ and $omega=0$, including ties. For two adjacent vertices with edge cost zero, prizes $(1,2)$, $beta=1$, and $omega=5$, the source optimum is the empty forest of cost $3$; the target optimum selects both omit edges and costs $3+2 dot 6=15$.
 
-  _Correctness._ ($arrow.r.double$) Given any feasible source forest $F$, attach each connected component of $F$ to $r$ via exactly one root-attachment edge (cost $omega$ per component) and resolve each gadget locally: take $(v, t_v)$ if $v in V_F$, else $(r, t_v)$. The resulting subgraph of $H$ is connected, spans $T_H$, and is a tree because every gadget is paid by exactly one of its two edges and the only chord that could close a cycle is removed by the choice of a single root-attachment edge per component. Its cost equals
-
-  $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + 0 = f'(F). $
-
-  ($arrow.l.double$) Conversely, given an optimal Steiner tree $T^*$, the restriction $E_F = T^* inter E(G)$ is acyclic (subset of a tree) and respects the PCSF feasibility constraint that selected edges only touch selected vertices, because every endpoint $v$ of an edge in $E_F$ is forced into $V_F$ by the extraction rule. Each connected component of $F$ corresponds to a maximal subtree of $T^*$ confined to $V$, and any optimal $T^*$ uses exactly one root-attachment edge per component (a second incident root edge could be replaced by a cheaper internal path, contradicting optimality). Each prized vertex $v in V_F$ is reached by $T^*$ via original edges, so the include-edge $(v, t_v)$ is selected for free; each omitted prized vertex contributes the omit-edge $(r, t_v)$ of cost $beta dot p(v)$. Summing the contributions reproduces $f'(F)$, so $"cost"_H(T^*) = f'(F^*)$ at optima and the extracted forest is optimal for PCSF.
-
-  _Overhead._ With $n = |V|$, $m = |E|$, and $k = |V_p|$:
-  $ |V_H| = n + k + 1, quad |E_H| = m + n + 2 k, quad |T_H| = k + 1. $
-  Every quantity is linear in the source instance size, so the reduction is a polynomial-time transformation.
-
-  _Remark._ The artificial-root edges all share cost $omega$. Tuncbag et al. originally used this construction with $omega = c$ for any positive scalar $c$ acting as a per-component penalty; we follow that convention. When $omega = 0$, root-attachment edges become free and the construction degenerates: any rooted spanning tree of the prized-vertex closure achieves the same cost, but the witness-extraction recipe still recovers a feasible (cost-equivalent) PCSF forest, possibly with a different component count.
 ]
 
 #pagebreak()

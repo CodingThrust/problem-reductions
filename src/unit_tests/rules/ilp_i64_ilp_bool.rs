@@ -22,8 +22,16 @@ fn integer_ilp(
 
 fn solve_via_bool(source: &ILP<i64>) -> Option<(Vec<i64>, i64)> {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(source).expect("reduction should succeed");
-    let witness = ILPSolver::new().solve(reduction.target_problem()).ok()?;
+    let witness = match ILPSolver::new().solve(reduction.target_problem()) {
+        Ok(solution) => solution,
+        Err(crate::solvers::ILPSolveError::Infeasible) => return None,
+        Err(error) => panic!("ILP execution failed: {error}"),
+    };
     let source_solution = reduction.extract_solution(&witness).unwrap();
+    assert!(
+        source.is_feasible(&source_solution).unwrap(),
+        "decoded integer ILP solution must be feasible"
+    );
     let objective = source.evaluate_objective(&source_solution).unwrap();
     Some((source_solution, objective))
 }
@@ -39,8 +47,7 @@ fn test_ilp_i64_to_ilp_bool_closed_loop() {
         vec![(0, -5), (1, -6)],
         ObjectiveSense::Minimize,
     );
-    let (solution, objective) = solve_via_bool(&source).unwrap();
-    assert!(source.is_feasible(&solution).unwrap());
+    let (_, objective) = solve_via_bool(&source).unwrap();
     assert_eq!(objective, -27);
 }
 
@@ -52,8 +59,7 @@ fn test_ilp_i64_to_ilp_bool_maximize() {
         vec![(0, 3), (1, 5)],
         ObjectiveSense::Maximize,
     );
-    let (solution, objective) = solve_via_bool(&source).unwrap();
-    assert!(source.is_feasible(&solution).unwrap());
+    let (_, objective) = solve_via_bool(&source).unwrap();
     assert_eq!(objective, 24);
 }
 
@@ -98,8 +104,7 @@ fn test_ilp_i64_to_ilp_bool_equality_constraint() {
         vec![(0, 1)],
         ObjectiveSense::Minimize,
     );
-    let (solution, objective) = solve_via_bool(&source).unwrap();
-    assert!(source.is_feasible(&solution).unwrap());
+    let (_, objective) = solve_via_bool(&source).unwrap();
     assert_eq!(objective, 1);
 }
 
@@ -130,7 +135,10 @@ fn test_ilp_i64_to_ilp_bool_infeasible() {
         ObjectiveSense::Minimize,
     );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

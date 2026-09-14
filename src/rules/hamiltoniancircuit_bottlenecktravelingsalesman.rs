@@ -27,9 +27,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToBottleneckTravelingSalesma
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
+        Ok(crate::rules::graph_helpers::edges_to_cycle_order(
+            self.target.graph(),
+            target_solution,
+        ))
     }
 }
 

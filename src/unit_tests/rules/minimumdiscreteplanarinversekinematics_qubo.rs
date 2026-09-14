@@ -96,8 +96,14 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_empty_allowed_pairs() {
     assert!(solver.solve(&source).unwrap().is_none());
     assert!(!qubo_solutions.is_empty(), "QUBO solver found no solutions");
     for target_solution in qubo_solutions {
-        let extracted = reduction.extract_solution(&target_solution).unwrap();
-        assert_eq!(source.evaluate(&extracted).unwrap(), Min(None));
+        let value = reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap();
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+            Min(None)
+        );
     }
 }
 
@@ -115,7 +121,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_canonical_example_spec() 
         "MinimumDiscretePlanarInverseKinematics"
     );
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["num_vars"], 4);
+    assert_eq!(example.target.instance["matrix"]["nrows"], 4);
     assert_eq!(
         example.solutions[0].source_config,
         serde_json::json!([0, 1])
@@ -124,4 +130,90 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_canonical_example_spec() 
         example.solutions[0].target_config,
         serde_json::json!([true, false, false, true])
     );
+}
+
+#[test]
+fn optimum_energy_recovers_distance_and_infeasibility() {
+    for source in [
+        worked_example(),
+        MinimumDiscretePlanarInverseKinematics::new(
+            vec![1.0, 1.0, 1.0],
+            (0.0, 0.0),
+            vec![vec![0.0, PI]; 3],
+            vec![vec![(0, 0)], vec![(1, 0)]],
+        )
+        .unwrap(),
+    ] {
+        let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
+        let entry = inventory::iter::<crate::rules::ReductionEntry>
+            .into_iter()
+            .find(|entry| {
+                entry.source_name == "MinimumDiscretePlanarInverseKinematics"
+                    && entry.target_name == "QUBO"
+            })
+            .unwrap();
+        let chain =
+            crate::rules::ReductionChain::execute(&source, &[entry.reduce_fn.unwrap()]).unwrap();
+
+        let solver = BruteForce::new();
+        let expected = solver
+            .solve(&source)
+            .unwrap()
+            .map(|solution| source.evaluate(&solution).unwrap().0.unwrap());
+        for solution in solver
+            .find_all_witnesses(reduction.target_problem())
+            .unwrap()
+        {
+            let completed = crate::solvers::complete_reduction(
+                &source,
+                &chain,
+                &crate::solvers::SolveOutcome::Optimal {
+                    solution: serde_json::to_value(&solution).unwrap(),
+                    evaluation: String::new(),
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                matches!(completed, crate::solvers::SolveOutcome::Optimal { .. }),
+                expected.is_some()
+            );
+            let recovered = crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                reduction.target_problem().evaluate(&solution).unwrap(),
+            )
+            .0;
+            match (expected, recovered) {
+                (Some(expected), Some(actual)) => {
+                    assert!((actual - expected).abs() < EPS);
+                    assert_eq!(
+                        source
+                            .evaluate(&reduction.extract_solution(&solution).unwrap())
+                            .unwrap(),
+                        Min(Some(expected))
+                    );
+                }
+                (None, None) => {}
+                other => panic!("source and recovered outcomes disagree: {other:?}"),
+            }
+        }
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None)),
+            Min(None)
+        );
+    }
+}
+
+#[test]
+fn nonfinite_energy_relation_is_a_construction_error() {
+    let source = MinimumDiscretePlanarInverseKinematics::new(
+        vec![1e200],
+        (0.0, 0.0),
+        vec![vec![0.0]],
+        vec![],
+    )
+    .unwrap();
+    assert!(matches!(
+        ReduceTo::<QUBO<f64>>::reduce_to(&source),
+        Err(crate::rules::ReductionError::NonFiniteResult { .. })
+    ));
 }

@@ -5,6 +5,45 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn signed_cut_weights_preserve_every_target_optimum() {
+    let solver = BruteForce::new();
+    for weights in [
+        vec![-1, -1, -1],
+        vec![-3, 2, 1],
+        vec![0, -1, 2],
+        vec![i64::MIN, 0, 0],
+    ] {
+        let source = MinimumMultiwayCut::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            vec![0, 1],
+            weights,
+        );
+        let optimum = (0..8)
+            .filter_map(|bits| {
+                source
+                    .evaluate(&(0..3).map(|i| bits & (1 << i) != 0).collect())
+                    .unwrap()
+                    .0
+            })
+            .min()
+            .unwrap();
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        let solutions = solver
+            .find_all_witnesses(reduction.target_problem())
+            .unwrap();
+        assert!(!solutions.is_empty());
+        for solution in solutions {
+            assert_eq!(
+                source
+                    .evaluate(&reduction.extract_solution(&solution).unwrap())
+                    .unwrap(),
+                Min(Some(optimum))
+            );
+        }
+    }
+}
+
+#[test]
 fn test_minimummultiwaycut_to_qubo_closed_loop() {
     // 5 vertices, terminals {0,2,4}, 6 edges with weights [2,3,1,2,4,5]
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
@@ -56,7 +95,7 @@ fn test_minimummultiwaycut_to_qubo_sizes() {
     let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
-    assert_eq!(reduction.target_problem().num_variables(), 15);
+    assert_eq!(reduction.target_problem().num_variables().unwrap(), 15);
 }
 
 #[test]

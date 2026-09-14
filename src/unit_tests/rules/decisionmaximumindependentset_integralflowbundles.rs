@@ -102,7 +102,9 @@ fn test_decision_ifb_loops_parallel_edges_and_invalid_witnesses() {
         vec![1, 1, 0, 0, 1, 1, 1, 1], // self-loop
         vec![0, 0, 2, 2, 1, 1, 1, 1], // path capacity
     ] {
-        assert!(reduction.extract_solution(&flow).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &flow), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

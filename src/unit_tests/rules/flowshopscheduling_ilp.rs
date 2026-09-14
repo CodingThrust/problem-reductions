@@ -33,8 +33,9 @@ fn test_flowshopscheduling_to_ilp_infeasible() {
     // 2 machines, 3 jobs with large processing times, very tight deadline
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5], vec![5, 5]], 6);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible FSS should produce infeasible ILP"
     );
 }

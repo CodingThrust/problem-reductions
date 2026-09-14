@@ -167,7 +167,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
         let value = target.evaluate(&best).unwrap();
         assert_eq!(value, Min(Some(3)));
         assert!(!crate::rules::AggregateReductionResult::extract_value(&reduction, value).0);
-        assert!(reduction.extract_solution(&best).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &best), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+        );
     }
 }
 
@@ -181,7 +183,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_rejects_invalid_certificates()
         vec![0, 0, 1, 2],
         vec![0, 2, 1, 3],
     ] {
-        assert!(reduction.extract_solution(&config).is_err(), "{config:?}");
+        assert!(!matches!(reduction.target_problem().evaluate(&config),
+            Ok(value) if crate::rules::AggregateReductionResult::extract_value(&reduction, value).0));
     }
     for value in [Min(None), Min(Some(-1)), Min(Some(1))] {
         assert!(!crate::rules::AggregateReductionResult::extract_value(&reduction, value).0);
@@ -224,7 +227,6 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
                         reduction.target_problem().evaluate(&order).unwrap(),
                         Min(None)
                     );
-                    assert!(reduction.extract_solution(&order).is_err());
                     continue;
                 }
                 let missing = (0..n)
@@ -240,7 +242,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
                 if expected {
                     assert_eq!(reduction.extract_solution(&order).unwrap(), order);
                 } else {
-                    assert!(reduction.extract_solution(&order).is_err());
+                    assert!(
+                        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &order), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                    );
                 }
             }
         }

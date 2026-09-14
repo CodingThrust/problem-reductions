@@ -85,12 +85,10 @@ fn test_highlyconnecteddeletion_to_ilp_rejects_unassigned_vertex() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars()];
 
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "vertex 0 has no selected cluster"
+    assert!(
+        !crate::traits::Problem::evaluate(reduction.target_problem(), &target_solution)
+            .unwrap()
+            .is_valid()
     );
 }
 
@@ -124,4 +122,17 @@ fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
     assert_eq!(large_cluster_count, 2);
 
     assert_bf_vs_ilp(&source, &reduction);
+}
+
+#[test]
+fn subset_mask_limit_belongs_to_the_reduction() {
+    let source = HighlyConnectedDeletion::new(SimpleGraph::new(64, vec![]));
+    assert_eq!(
+        source.evaluate(&vec![]).unwrap(),
+        crate::types::Min(Some(0))
+    );
+    assert!(matches!(
+        ReduceTo::<ILP<bool>>::reduce_to(&source),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
 }

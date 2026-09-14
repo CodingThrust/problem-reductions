@@ -247,8 +247,12 @@ impl Problem for EquilibriumPoint {
 }
 
 impl crate::solvers::BruteForceProblem for EquilibriumPoint {
-    fn dimensions(&self) -> Vec<usize> {
-        self.range_sets.iter().map(|m| m.len()).collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.range_sets.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.range_sets[variable].len())
     }
 }
 

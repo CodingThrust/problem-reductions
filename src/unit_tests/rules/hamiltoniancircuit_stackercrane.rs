@@ -157,19 +157,18 @@ fn test_stackercrane_certificate_for_all_small_configurations() {
                     crate::rules::AggregateReductionResult::extract_value(&reduction, value).0,
                     expected
                 );
-                let decoded = reduction.extract_solution(&config);
-                assert_eq!(
-                    decoded.is_ok(),
-                    expected,
-                    "n={n}, mask={mask}, config={config:?}"
-                );
-                if let Ok(order) = decoded {
+                if expected {
+                    let order = reduction.extract_solution(&config).unwrap();
                     assert!(source.evaluate(&order).unwrap().0);
                 }
             }
-            assert!(reduction.extract_solution(&vec![0; n + 1]).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; n + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
             if n > 0 {
-                assert!(reduction.extract_solution(&vec![n; n]).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![n; n]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                );
             }
         }
     }

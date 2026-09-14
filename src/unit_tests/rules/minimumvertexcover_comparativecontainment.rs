@@ -87,7 +87,9 @@ fn test_signed_containment_all_small_graphs_and_witnesses() {
                         if valid {
                             assert_eq!(reduction.extract_solution(&witness).unwrap(), witness);
                         } else {
-                            assert!(reduction.extract_solution(&witness).is_err());
+                            assert!(
+                                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { value.is_valid() })
+                            );
                         }
                     }
                 }
@@ -109,7 +111,9 @@ fn test_signed_containment_duplicate_edges_and_invalid_length() {
     let witness = vec![true, false, false];
     assert_eq!(reduction.extract_solution(&witness).unwrap(), witness);
     for bad in [vec![], vec![true; 4]] {
-        assert!(reduction.extract_solution(&bad).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &bad), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

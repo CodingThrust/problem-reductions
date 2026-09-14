@@ -132,8 +132,12 @@ impl Problem for CosineProductIntegration {
 }
 
 impl crate::solvers::BruteForceProblem for CosineProductIntegration {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_coefficients()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_coefficients())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

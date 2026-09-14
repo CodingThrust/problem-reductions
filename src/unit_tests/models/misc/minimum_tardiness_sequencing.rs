@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::One;
 
@@ -17,7 +16,10 @@ fn test_minimum_tardiness_sequencing_basic() {
     assert_eq!(problem.deadlines(), &[5, 5, 5, 3, 3]);
     assert_eq!(problem.precedences(), &[(0, 3), (1, 3), (1, 4), (2, 4)]);
     assert_eq!(problem.num_precedences(), 4);
-    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 3, 2, 1]
+    );
     assert_eq!(
         <MinimumTardinessSequencing<One> as Problem>::NAME,
         "MinimumTardinessSequencing"
@@ -126,14 +128,20 @@ fn test_minimum_tardiness_sequencing_serialization() {
 fn test_minimum_tardiness_sequencing_empty() {
     let problem = MinimumTardinessSequencing::<One>::new(0, vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]
 fn test_minimum_tardiness_sequencing_single_task() {
     let problem = MinimumTardinessSequencing::<One>::new(1, vec![1], vec![]);
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
 
     let problem_tardy = MinimumTardinessSequencing::<One>::new(1, vec![0], vec![]);

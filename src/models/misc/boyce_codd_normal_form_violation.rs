@@ -269,8 +269,12 @@ impl Problem for BoyceCoddNormalFormViolation {
 }
 
 impl crate::solvers::BruteForceProblem for BoyceCoddNormalFormViolation {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.target_subset.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.target_subset.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

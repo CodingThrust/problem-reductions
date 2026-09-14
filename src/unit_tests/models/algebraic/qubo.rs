@@ -1,31 +1,31 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_qubo_from_matrix() {
     let problem = QUBO::from_matrix(vec![vec![1, 2], vec![0, 3]]).unwrap();
     assert_eq!(problem.num_vars(), 2);
-    assert_eq!(problem.get(0, 0), Some(&1));
-    assert_eq!(problem.get(0, 1), Some(&2));
-    assert_eq!(problem.get(1, 1), Some(&3));
+    assert_eq!(problem.get(0, 0), Some(1));
+    assert_eq!(problem.get(0, 1), Some(2));
+    assert_eq!(problem.get(1, 1), Some(3));
 }
 
 #[test]
 fn test_qubo_new() {
     let problem = QUBO::new(vec![1.0, 2.0], vec![((0, 1), 3.0)]).unwrap();
-    assert_eq!(problem.get(0, 0), Some(&1.0));
-    assert_eq!(problem.get(1, 1), Some(&2.0));
-    assert_eq!(problem.get(0, 1), Some(&3.0));
+    assert_eq!(problem.get(0, 0), Some(1.0));
+    assert_eq!(problem.get(1, 1), Some(2.0));
+    assert_eq!(problem.get(0, 1), Some(3.0));
 }
 
 #[test]
 fn test_num_variables() {
     let problem = QUBO::<f64>::from_matrix(vec![vec![0.0; 5]; 5]).unwrap();
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(problem.num_variables().unwrap(), 5);
 }
 
 #[test]
@@ -37,8 +37,8 @@ fn test_matrix_access() {
     ])
     .unwrap();
     let matrix = problem.matrix();
-    assert_eq!(matrix.len(), 3);
-    assert_eq!(matrix[0], vec![1.0, 2.0, 3.0]);
+    assert_eq!(matrix.rows(), 3);
+    assert_eq!(matrix.outer_view(0).unwrap().data(), &[1.0, 2.0, 3.0]);
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_qubo_rejects_invalid_configurations() {
 fn test_qubo_new_reverse_indices() {
     // Test the case where (j, i) is provided with i < j
     let problem = QUBO::new(vec![1.0, 2.0], vec![((1, 0), 3.0)]).unwrap(); // j > i
-    assert_eq!(problem.get(0, 1), Some(&3.0)); // Should be stored at (0, 1)
+    assert_eq!(problem.get(0, 1), Some(3.0)); // Should be stored at (0, 1)
 }
 
 #[test]
@@ -157,8 +157,8 @@ fn test_qubo_f64_create_spec() {
     })
     .unwrap();
 
-    assert_eq!(problem.get(0, 0), Some(&0.5));
-    assert_eq!(problem.get(0, 1), Some(&-1.25));
+    assert_eq!(problem.get(0, 0), Some(0.5));
+    assert_eq!(problem.get(0, 1), Some(-1.25));
 }
 
 #[test]
@@ -172,10 +172,10 @@ fn test_qubo_rejects_non_square_matrix() {
 
 #[test]
 fn test_qubo_rejects_non_finite_coefficients() {
-    let error = QUBO::from_matrix(vec![vec![f64::NAN]]).unwrap_err();
+    let error = QUBO::from_matrix(vec![vec![0.0, f64::NAN], vec![0.0, 0.0]]).unwrap_err();
     assert!(matches!(
         error,
-        crate::registry::ConstructionError::NonFiniteFloat(_)
+        crate::registry::ConstructionError::NonFiniteFloat(message) if message.contains("(0, 1)")
     ));
     let error = QUBO::new(vec![f64::INFINITY], vec![]).unwrap_err();
     assert!(matches!(
@@ -201,4 +201,82 @@ fn test_integer_qubo_reports_objective_overflow() {
         problem.evaluate(&vec![true, true]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))
     ));
+}
+
+#[test]
+fn sparse_storage_preserves_every_assignment_and_sum_order() {
+    let integer = vec![
+        vec![3, -5, 0, 2],
+        vec![99, 0, 7, -4],
+        vec![0, 0, -6, 0],
+        vec![0, 0, 0, 1],
+    ];
+    let floating = vec![
+        vec![1e16, 1.0, -1e16, 0.0],
+        vec![99.0, 0.5, 0.0, -0.25],
+        vec![0.0, 0.0, -2.0, 0.0],
+        vec![0.0, 0.0, 0.0, 1.0],
+    ];
+    let int_problem = QUBO::from_matrix(integer.clone()).unwrap();
+    let float_problem = QUBO::from_matrix(floating.clone()).unwrap();
+    for mask in 0..16 {
+        let solution: Vec<bool> = (0..4).map(|i| mask & (1 << i) != 0).collect();
+        let mut int_value = 0i64;
+        let mut float_value = 0.0f64;
+        for i in 0..4 {
+            for j in i..4 {
+                if solution[i] && solution[j] {
+                    int_value = int_value.checked_add(integer[i][j]).unwrap();
+                    float_value += floating[i][j];
+                }
+            }
+        }
+        assert_eq!(
+            int_problem.evaluate(&solution).unwrap(),
+            Min(Some(int_value))
+        );
+        assert_eq!(
+            float_problem
+                .evaluate(&solution)
+                .unwrap()
+                .unwrap()
+                .to_bits(),
+            float_value.to_bits()
+        );
+    }
+}
+
+#[test]
+fn sparse_qubo_keeps_unused_variables_and_last_assignment() {
+    let problem = QUBO::new(
+        vec![0i64; 10_000],
+        vec![((2, 7), i64::MAX), ((7, 2), 5), ((9, 9), 3), ((9, 9), 0)],
+    )
+    .unwrap();
+    assert_eq!(problem.num_vars(), 10_000);
+    assert_eq!(problem.matrix().nnz(), 1);
+    assert_eq!(problem.get(9, 9), Some(0));
+    assert_eq!(problem.get(2, 7), Some(5));
+    let json = serde_json::to_string(&problem).unwrap();
+    assert!(json.len() < 100_000);
+    let restored: QUBO<i64> = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored.matrix(), problem.matrix());
+    let mut solution = vec![false; 10_000];
+    solution[2] = true;
+    solution[7] = true;
+    assert_eq!(restored.evaluate(&solution).unwrap(), Min(Some(5)));
+}
+
+#[test]
+fn sparse_qubo_validates_shape_values_and_serialized_structure() {
+    assert!(QUBO::from_sparse(CsMat::<i64>::zero((2, 3))).is_err());
+    let invalid = CsMat::new((1, 1), vec![0, 1], vec![0], vec![f64::INFINITY]);
+    assert!(QUBO::from_sparse(invalid).is_err());
+    let column_matrix = CsMat::new_csc((2, 2), vec![0, 1, 2], vec![0, 0], vec![2i64, 3]);
+    let problem = QUBO::from_sparse(column_matrix).unwrap();
+    assert!(problem.matrix().is_csr());
+    assert_eq!(problem.evaluate(&vec![true, true]).unwrap(), Min(Some(5)));
+    let mut json = serde_json::to_value(&problem).unwrap();
+    json["matrix"]["indptr"] = serde_json::json!([0, 3, 2]);
+    assert!(serde_json::from_value::<QUBO<i64>>(json).is_err());
 }

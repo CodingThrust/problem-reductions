@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_deadline_count_mismatch() {
@@ -42,7 +41,10 @@ fn test_scheduling_with_individual_deadlines_basic() {
     );
     assert_eq!(problem.num_precedences(), 5);
     assert_eq!(problem.max_deadline(), 3);
-    assert_eq!(problem.dimensions(), vec![2, 1, 2, 2, 3, 3, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 1, 2, 2, 3, 3, 2]
+    );
     assert_eq!(
         <SchedulingWithIndividualDeadlines as Problem>::NAME,
         "SchedulingWithIndividualDeadlines"

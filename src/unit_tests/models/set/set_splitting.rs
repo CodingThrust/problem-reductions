@@ -9,7 +9,7 @@ fn test_set_splitting_creation() {
     let problem = SetSplitting::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_subsets(), 3);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(problem.num_variables().unwrap(), 4);
 }
 
 #[test]

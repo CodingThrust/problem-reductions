@@ -17,7 +17,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_eq!(target.lcm_moduli(), 15);
+    assert_eq!(target.lcm_moduli().unwrap(), 15);
     assert_eq!(target.num_pairs(), 6);
 
     let solver = BruteForce::new();

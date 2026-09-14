@@ -96,7 +96,21 @@ macro_rules! register_decision_variant {
                         >)?;
                     let result =
                         <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceTo<$inner>>::reduce_to(source)?;
-                    Ok(Box::new(result))
+                    let result = std::rc::Rc::new(result);
+                    Ok($crate::rules::registry::ExecutedStep {
+                        aggregate: Some(result.clone()),
+                        interpret_optimum: Some({
+                            let result = result.clone();
+                            std::rc::Rc::new(move |solution: &dyn std::any::Any| {
+                                let solution = solution.downcast_ref::<<$inner as $crate::traits::Problem>::Solution>()
+                                    .ok_or_else(|| $crate::rules::ExtractionError::invalid("target solution type mismatch"))?;
+                                let target = $crate::rules::ReductionResult::target_problem(result.as_ref());
+                                let value = $crate::traits::Problem::evaluate(target, solution)?;
+                                Ok($crate::rules::AggregateReductionResult::extract_value(result.as_ref(), value).is_valid())
+                            })
+                        }),
+                        witness: result,
+                    })
                 }),
                 reduce_aggregate_fn: Some(|any| {
                     let source = any
@@ -317,12 +331,21 @@ where
     P: DecisionProblemMeta + crate::solvers::BruteForceProblem,
     P::Value: OptimizationValue,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        self.inner.dimensions()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        self.inner.num_variables()
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        self.inner.dimension(variable)
     }
 }
 
-/// Aggregate reduction result for `Decision<P> -> P`.
+/// Executed reduction from `Decision<P>` to its optimization problem.
+///
+/// The target and decision bound belong to the same execution. An optimum
+/// meeting the bound supplies a decision witness; an optimum missing the bound
+/// establishes NO through `extract_value`. Witness extraction copies a target
+/// witness that meets the bound and does not repeat the comparison.
 #[derive(Debug, Clone)]
 pub struct DecisionToOptimizationResult<P>
 where
@@ -368,25 +391,11 @@ where
     }
 }
 
-/// Witness reduction result for `Decision<P> -> P`.
-///
-/// The configuration spaces are identical — a config that is optimal for
-/// `P` and meets the bound is a valid `Decision<P>` witness. The
-/// `extract_solution` is the identity function.
-#[derive(Debug, Clone)]
-pub struct DecisionToOptimizationWitnessResult<P>
-where
-    P: Problem,
-    P::Value: OptimizationValue,
-{
-    target: P,
-}
-
-impl<P> ReductionResult for DecisionToOptimizationWitnessResult<P>
+impl<P> ReductionResult for DecisionToOptimizationResult<P>
 where
     P: DecisionProblemMeta + 'static,
     P::Solution: Clone,
-    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+    P::Value: OptimizationValue,
 {
     type Source = Decision<P>;
     type Target = P;
@@ -399,8 +408,6 @@ where
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(target_solution.clone())
     }
 }
@@ -409,13 +416,14 @@ impl<P> ReduceTo<P> for Decision<P>
 where
     P: DecisionProblemMeta + Clone + 'static,
     P::Solution: Clone,
-    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+    P::Value: OptimizationValue,
 {
-    type Result = DecisionToOptimizationWitnessResult<P>;
+    type Result = DecisionToOptimizationResult<P>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(DecisionToOptimizationWitnessResult {
+        Ok(DecisionToOptimizationResult {
             target: self.inner.clone(),
+            bound: self.bound.clone(),
         })
     }
 }

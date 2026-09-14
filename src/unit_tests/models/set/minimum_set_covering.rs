@@ -1,9 +1,9 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_minimum_set_covering_create_spec_uses_subsets_input() {
@@ -23,7 +23,7 @@ fn test_set_covering_creation() {
     let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 3);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables().unwrap(), 3);
 }
 
 #[test]

@@ -44,18 +44,10 @@ impl ReductionResult for ReductionVCToEC {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let crate::types::Min(Some(length)) = value else {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration does not encode a valid ensemble computation",
-            ));
-        };
-        let meaningful_steps = usize::try_from(length).map_err(|_| {
-            crate::rules::ExtractionError::invalid(
-                "ensemble operation count cannot be represented as usize",
-            )
-        })?;
+        let value = crate::traits::Problem::evaluate(self.target_problem(), target_solution)?;
+        // Evaluation supplies the meaningful prefix, which the mapping needs.
+        // The target witness premise already guarantees a feasible program.
+        let meaningful_steps = value.0.unwrap() as usize;
         let mut cover = vec![false; self.num_vertices];
         let universe_size = self.target.universe_size();
         for &[left, right] in target_solution

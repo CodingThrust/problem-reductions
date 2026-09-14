@@ -13,9 +13,9 @@
 //! sign encoding (`config[i] = 1 ⇔ f(i) = +1 ⇔ i ∈ S`).
 //!
 //! **Precondition:** all edge weights must be nonnegative. The reduction
-//! panics on any negative weight, since `MinimumMatrixCover` requires a
+//! returns an error on any negative weight, since `MinimumMatrixCover` requires a
 //! nonnegative integer matrix. Negative-weight `MaxCut` instances are out
-//! of scope and must use a different (preprocessing) reduction.
+//! of scope for this reduction.
 //!
 //! Reference: Garey & Johnson, *Computers and Intractability* (1979),
 //! Appendix A1.2, MS13 ("Transformation from MAXIMUM CUT").
@@ -52,8 +52,6 @@ impl ReductionResult for ReductionMaxCutToMMC {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok(target_solution.to_vec())
     }
 }
@@ -79,13 +77,13 @@ impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
                     "edge ({u}, {v}) has negative weight {w}"
                 )));
             }
-            let w64 = w;
-            matrix[u][v] = w64;
-            matrix[v][u] = w64;
+            matrix[u][v] = w;
+            matrix[v][u] = w;
         }
 
         Ok(ReductionMaxCutToMMC {
-            target: MinimumMatrixCover::new(matrix),
+            target: MinimumMatrixCover::new(matrix)
+                .map_err(<Self as ReduceTo<MinimumMatrixCover>>::target_construction)?,
         })
     }
 }

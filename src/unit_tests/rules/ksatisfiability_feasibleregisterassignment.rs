@@ -170,8 +170,9 @@ fn test_ksatisfiability_to_feasible_register_assignment_unsatisfiable_instance()
     let fra_to_ilp = ReduceTo::<ILP<i64>>::reduce_to(reduction.target_problem())
         .expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(fra_to_ilp.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(fra_to_ilp.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "an unsatisfiable source formula should yield an infeasible FRA instance"
     );
 }
@@ -193,7 +194,9 @@ fn native_empty_clause_is_infeasible_and_empty_conjunction_is_feasible() {
             vec![2, 1, 0],
         ] {
             assert!(!reduction.target_problem().evaluate(&config).unwrap().0);
-            assert!(reduction.extract_solution(&config).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+            );
         }
         let source = KSatisfiability::<K3>::new(num_vars, vec![]);
         let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
@@ -282,7 +285,9 @@ fn invalid_realizations_are_rejected() {
     let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
     let n = reduction.target_problem().num_vertices();
     for config in [vec![], vec![n; n], vec![0; n], (0..n).collect()] {
-        assert!(reduction.extract_solution(&config).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

@@ -15,7 +15,7 @@ use crate::topology::DirectedGraph;
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToIntegralFlowWithMultipliers {
     target: IntegralFlowWithMultipliers,
-    item_arc_count: Option<usize>,
+    item_arc_count: usize,
 }
 
 impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
@@ -31,14 +31,7 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         Ok({
-            let item_arc_count = self.item_arc_count.ok_or_else(|| {
-                crate::rules::ExtractionError::invalid(
-                    "the fixed infeasible target instance has no extractable witness",
-                )
-            })?;
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-            target_solution[..item_arc_count]
+            target_solution[..self.item_arc_count]
                 .iter()
                 .map(|&flow| flow > 0)
                 .collect()
@@ -67,7 +60,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
             return Ok(ReductionPartitionToIntegralFlowWithMultipliers {
                 target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1),
-                item_arc_count: None,
+                item_arc_count: source_n,
             });
         }
 
@@ -106,7 +99,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
                 capacities,
                 half_sum,
             ),
-            item_arc_count: Some(source_n),
+            item_arc_count: source_n,
         })
     }
 }

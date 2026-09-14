@@ -317,12 +317,25 @@ impl Problem for JobShopScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for JobShopScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        self.flatten_tasks()
-            .machine_task_ids
-            .into_iter()
-            .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()))
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        let mut offset = variable;
+        for processor in 0..self.num_processors {
+            let count = self
+                .jobs
+                .iter()
+                .flatten()
+                .filter(|&&(machine, _)| machine == processor)
+                .count();
+            if offset < count {
+                return Ok(count - offset);
+            }
+            offset -= count;
+        }
+        unreachable!("coordinate index is in range")
     }
 }
 

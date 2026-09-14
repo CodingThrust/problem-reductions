@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_item_weights() {
@@ -21,7 +20,10 @@ fn test_knapsack_basic() {
     assert_eq!(problem.weights(), &[2, 3, 4, 5]);
     assert_eq!(problem.values(), &[3, 4, 5, 7]);
     assert_eq!(problem.capacity(), 7);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(<Knapsack as Problem>::NAME, "Knapsack");
     assert_eq!(<Knapsack as Problem>::variant(), vec![]);
 }
@@ -97,7 +99,10 @@ fn test_knapsack_evaluate_invalid_variable_value() {
 fn test_knapsack_empty_instance() {
     let problem = Knapsack::new(vec![], vec![], 10);
     assert_eq!(problem.num_items(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 

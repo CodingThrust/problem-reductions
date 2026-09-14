@@ -86,8 +86,9 @@ fn test_schedulingwithindividualdeadlines_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionSWIDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible instance should yield infeasible ILP"
     );
 }

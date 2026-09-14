@@ -83,8 +83,9 @@ fn test_hamiltonianpath_to_ilp_no_path() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Disconnected graph should have no Hamiltonian path"
     );
 }

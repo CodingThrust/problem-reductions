@@ -1,7 +1,7 @@
 use crate::rules::{ReductionChain, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolutionAggregate;
 use crate::traits::Problem;
-use crate::types::SolutionAggregate;
 use std::collections::HashSet;
 
 fn verify_optimization_round_trip<Source, TargetSolution, Extract>(
@@ -227,6 +227,7 @@ where
     R: ReductionResult,
     R::Source: Problem + 'static,
     R::Target: Problem<Solution = Vec<i64>> + 'static,
+    <R::Target as Problem>::Value: SolutionAggregate,
     <R::Source as Problem>::Value: SolutionAggregate + std::fmt::Debug + PartialEq,
 {
     use crate::solvers::ILPSolver;
@@ -288,8 +289,12 @@ mod tests {
     }
 
     impl crate::solvers::BruteForceProblem for ToyExtremumProblem {
-        fn dimensions(&self) -> Vec<usize> {
-            vec![2, 2]
+        fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+            Ok(2usize)
+        }
+
+        fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+            Ok([2, 2][variable])
         }
     }
 
@@ -322,8 +327,12 @@ mod tests {
     }
 
     impl crate::solvers::BruteForceProblem for ToyOrProblem {
-        fn dimensions(&self) -> Vec<usize> {
-            vec![2, 2]
+        fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+            Ok(2usize)
+        }
+
+        fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+            Ok([2, 2][variable])
         }
     }
 
@@ -380,8 +389,6 @@ mod tests {
             target_solution: &<Self::Target as crate::traits::Problem>::Solution,
         ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
         {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
             Ok(target_solution.to_vec())
         }
     }
@@ -403,8 +410,6 @@ mod tests {
             target_solution: &<Self::Target as crate::traits::Problem>::Solution,
         ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
         {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
             Ok(target_solution.to_vec())
         }
     }
@@ -426,8 +431,6 @@ mod tests {
             target_solution: &<Self::Target as crate::traits::Problem>::Solution,
         ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
         {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
             Ok(target_solution.to_vec())
         }
     }
@@ -449,8 +452,6 @@ mod tests {
             target_solution: &<Self::Target as crate::traits::Problem>::Solution,
         ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
         {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
             Ok(target_solution.to_vec())
         }
     }

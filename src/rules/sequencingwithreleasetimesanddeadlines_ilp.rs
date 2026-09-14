@@ -33,14 +33,12 @@ impl ReductionResult for ReductionSWRTDToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.num_tasks;
             let horizon = self.time_horizon;
             // For each task, find the start time
             let starts =
-                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, horizon, 0)?;
+                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, horizon, 0);
             let mut start_times: Vec<_> = starts.into_iter().enumerate().collect();
             // Sort by start time (break ties by task index)
             start_times.sort_by_key(|&(j, t)| (t, j));

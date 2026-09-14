@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -35,7 +34,10 @@ fn test_lcs_basic() {
     assert_eq!(problem.sum_squared_lengths(), 216);
     assert_eq!(problem.sum_triangular_lengths(), 126);
     assert_eq!(problem.num_transitions(), 5);
-    assert_eq!(problem.dimensions(), vec![3; 6]); // alphabet_size + 1 = 3, max_length = 6
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 6]
+    ); // alphabet_size + 1 = 3, max_length = 6
     assert_eq!(
         <LongestCommonSubsequence as Problem>::NAME,
         "LongestCommonSubsequence"
@@ -156,8 +158,11 @@ fn test_lcs_empty_string_max_length_zero() {
     // When all strings are empty or any string is empty, max_length = 0
     let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]);
     assert_eq!(problem.max_length(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new()); // empty config space
-                                                           // Empty config is the only valid config; LCS length is 0
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    ); // empty config space
+       // Empty config is the only valid config; LCS length is 0
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 

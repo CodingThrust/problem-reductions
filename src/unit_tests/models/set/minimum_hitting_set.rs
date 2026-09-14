@@ -41,8 +41,11 @@ fn test_minimum_hitting_set_creation_accessors_and_dimensions() {
 
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 2);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(problem.num_variables().unwrap(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(problem.sets(), &[vec![1, 2], vec![3]]);
     assert_eq!(problem.get_set(0), Some(&vec![1, 2]));
     assert_eq!(problem.get_set(1), Some(&vec![3]));

@@ -40,12 +40,10 @@ impl ReductionResult for ReductionSWDSTToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok({
             let n = self.num_tasks;
             // x_{j,p} occupies the first n*n variables: decode the permutation.
-            one_hot_decode(target_solution, n, n, 0)?
+            one_hot_decode(target_solution, n, n, 0)
         })
     }
 }

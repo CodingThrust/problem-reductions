@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_indistinguishable_objects() {
@@ -33,8 +32,16 @@ fn test_minimum_decision_tree_creation() {
     let problem = issue_instance();
     assert_eq!(problem.num_objects(), 4);
     assert_eq!(problem.num_tests(), 3);
-    assert_eq!(problem.dimensions().len(), 7); // 2^(4-1) - 1 = 7
-    assert_eq!(problem.dimensions(), vec![4; 7]); // 3 tests + 1 sentinel = 4 choices
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        7
+    ); // 2^(4-1) - 1 = 7
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 7]
+    ); // 3 tests + 1 sentinel = 4 choices
 }
 
 #[test]
@@ -111,8 +118,13 @@ fn test_minimum_decision_tree_two_objects() {
         2,
         1,
     );
-    assert_eq!(problem.dimensions().len(), 1); // 2^(2-1) - 1 = 1 slot
-                                               // Test at root, both objects go to leaves at depth 1
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        1
+    ); // 2^(2-1) - 1 = 1 slot
+       // Test at root, both objects go to leaves at depth 1
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(2))); // depth 1 + depth 1
     assert_eq!(problem.evaluate(&vec![1]).unwrap(), Min(None)); // sentinel=1 is leaf at root, both objects at same leaf
 }

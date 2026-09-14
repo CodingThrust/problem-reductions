@@ -265,8 +265,12 @@ impl Problem for AdditionalKey {
 }
 
 impl crate::solvers::BruteForceProblem for AdditionalKey {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.relation_attrs.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.relation_attrs.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

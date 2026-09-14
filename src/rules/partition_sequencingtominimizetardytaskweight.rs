@@ -22,26 +22,12 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target schedule does not certify a balanced partition",
-            ));
-        }
-
         Ok({
             let mut source_config = vec![true; self.target.num_tasks()];
             let mut completion_time = 0i64;
 
             for &task in target_solution {
-                completion_time = completion_time
-                    .checked_add(self.target.lengths()[task])
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target schedule completion time overflows i64",
-                        )
-                    })?;
+                completion_time += self.target.lengths()[task];
                 if completion_time <= self.target.deadlines()[task] {
                     source_config[task] = false;
                 }

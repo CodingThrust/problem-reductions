@@ -163,10 +163,13 @@ paper:
 	cargo run --features "$(TEST_FEATURES)" --example export_schemas
 	typst compile --root . docs/paper/reductions.typ docs/paper/reductions.pdf
 
-# Generate coverage report (requires: cargo install cargo-llvm-cov)
+# Check changed-line coverage against the PR base, including uncommitted changes.
+COVERAGE_BASE ?= origin/main
+# Requires cargo-llvm-cov and uv.
 coverage:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	cargo llvm-cov --workspace --html --open
+	cargo llvm-cov --workspace --lcov --output-path target/coverage.lcov
+	uvx diff-cover target/coverage.lcov --compare-branch $(COVERAGE_BASE) --fail-under 95 --total-percent-float --format html:target/coverage-diff.html
 
 # Clean build artifacts
 clean:

@@ -21,8 +21,11 @@ fn test_square_tiling_basic() {
     assert_eq!(problem.num_tiles(), 4);
     assert_eq!(problem.grid_size(), 2);
     assert_eq!(problem.tiles().len(), 4);
-    assert_eq!(problem.dimensions(), vec![4; 4]);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 4]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 4);
     assert_eq!(<SquareTiling as Problem>::NAME, "SquareTiling");
     assert_eq!(<SquareTiling as Problem>::variant(), vec![]);
 }

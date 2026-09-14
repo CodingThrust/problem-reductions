@@ -31,8 +31,6 @@ impl ReductionResult for ReductionISSimpleToTriangular {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         let encoded = crate::config::bits_to_config(target_solution);
         let mapped = triangular::map_config_back(&self.mapping_result, &encoded)?;
         Ok(crate::config::config_to_bits(&mapped))

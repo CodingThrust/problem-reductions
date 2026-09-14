@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -22,7 +21,10 @@ fn test_minimumgraphbandwidth_creation() {
     let problem = star_example();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.dimensions(), vec![4, 4, 4, 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4, 4, 4]
+    );
 }
 
 #[test]
@@ -106,7 +108,10 @@ fn test_minimumgraphbandwidth_serialization() {
 fn test_minimumgraphbandwidth_single_vertex() {
     let graph = SimpleGraph::new(1, vec![]);
     let problem = MinimumGraphBandwidth::new(graph);
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
     assert_eq!(problem.bandwidth(&[0]).unwrap(), Some(0));
 }

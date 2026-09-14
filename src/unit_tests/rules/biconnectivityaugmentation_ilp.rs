@@ -142,7 +142,9 @@ fn test_biconnectivityaugmentation_to_ilp_empty_negative_budget() {
                     .is_some(),
                 budget >= 0
             );
-            assert_eq!(reduction.extract_solution(&vec![]).is_ok(), budget >= 0);
+            if budget >= 0 {
+                assert!(reduction.extract_solution(&vec![]).unwrap().is_empty());
+            }
         }
     }
 }
@@ -160,12 +162,18 @@ fn test_biconnectivityaugmentation_to_ilp_signed_cost_and_certificate_bounds() {
                 .unwrap()
                 .0
         );
-        assert!(reduction.extract_solution(&vec![0; z.len()]).is_err());
-        assert!(reduction.extract_solution(&vec![1; z.len() + 1]).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &vec![0; z.len()]), Ok(value) if value.is_valid())
+        );
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &vec![1; z.len() + 1]), Ok(value) if value.is_valid())
+        );
         for value in [-1, 2] {
             let mut bad = z.clone();
             bad[0] = value;
-            assert!(reduction.extract_solution(&bad).is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(reduction.target_problem(), &bad), Ok(value) if value.is_valid())
+            );
         }
     }
 }

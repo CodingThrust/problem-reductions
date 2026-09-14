@@ -214,8 +214,12 @@ impl Problem for ThreePartition {
 }
 
 impl crate::solvers::BruteForceProblem for ThreePartition {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_groups(); self.num_elements()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_elements())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_groups())
     }
 }
 

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -26,7 +25,10 @@ fn test_bounded_diameter_spanning_tree_creation() {
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.weight_bound(), &5);
     assert_eq!(problem.diameter_bound(), 3);
-    assert_eq!(problem.dimensions(), vec![2; 7]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 7]
+    );
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.edge_list().len(), 7);
     assert_eq!(problem.edge_weights().len(), 7);

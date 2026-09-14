@@ -135,12 +135,12 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_
     );
     assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(4)));
 
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "target cover does not certify the source clique bound"
+    assert!(
+        !crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            target.evaluate(&target_solution).unwrap()
+        )
+        .0
     );
 }
 
@@ -191,12 +191,16 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
                     assert!(source.evaluate(&decoded).unwrap().0);
                 }
             } else {
-                assert!(reduction.extract_solution(&witness).is_err());
+                assert!(
+                    !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &witness), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+                );
             }
-            assert!(reduction.extract_solution(&vec![0; witness.len()]).is_err());
-            assert!(reduction
-                .extract_solution(&vec![0; witness.len() + 1])
-                .is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; witness.len()]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0; witness.len() + 1]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
             let q = layout.num_directed_pairs();
             assert_eq!(target.num_vertices(), 2 * n + 2 * q + 4);
             assert_eq!(target.num_edges(), (n + q) * (n + q) + 4 * n + 7 * q + 2);

@@ -238,8 +238,14 @@ impl Problem for Factoring {
 }
 
 impl crate::solvers::BruteForceProblem for Factoring {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.m + self.n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.m).checked_add(self.n).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

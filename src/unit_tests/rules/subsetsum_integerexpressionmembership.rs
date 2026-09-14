@@ -52,11 +52,9 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
             .unwrap(),
         issue_example_source_config()
     );
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![true, false, false, true])
-            .unwrap(),
-        vec![true, false, false, true]
+    // Selecting 1 and 8 does not reach the source target 11.
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![true, false, false, true]), Ok(value) if { value.is_valid() })
     );
 }
 

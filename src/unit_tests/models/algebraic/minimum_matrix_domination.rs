@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -22,7 +21,10 @@ fn test_minimum_matrix_domination_creation() {
     assert_eq!(problem.num_rows(), 6);
     assert_eq!(problem.num_cols(), 6);
     assert_eq!(problem.num_ones(), 10);
-    assert_eq!(problem.dimensions(), vec![2; 10]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 10]
+    );
     assert_eq!(
         <MinimumMatrixDomination as Problem>::NAME,
         "MinimumMatrixDomination"
@@ -152,7 +154,10 @@ fn test_minimum_matrix_domination_single_row() {
 fn test_minimum_matrix_domination_empty_matrix() {
     let problem = MinimumMatrixDomination::new(vec![]);
     assert_eq!(problem.num_ones(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     // Empty config: vacuously valid with 0 selected
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }

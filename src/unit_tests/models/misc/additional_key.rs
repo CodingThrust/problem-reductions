@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Instance 1: 6 attributes, cyclic FDs, 3 known keys.
@@ -31,7 +30,10 @@ fn test_additional_key_creation() {
     assert_eq!(problem.num_dependencies(), 5);
     assert_eq!(problem.num_relation_attrs(), 6);
     assert_eq!(problem.num_known_keys(), 3);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2, 2]
+    );
     assert_eq!(<AdditionalKey as Problem>::NAME, "AdditionalKey");
     assert_eq!(<AdditionalKey as Problem>::variant(), vec![]);
     // Data getters

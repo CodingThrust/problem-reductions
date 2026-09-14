@@ -31,8 +31,6 @@ impl ReductionResult for ReductionMFDTSToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
         Ok((0..self.num_inputs)
             .map(|input| {
                 (0..self.num_outputs)

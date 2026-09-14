@@ -64,7 +64,7 @@ fn test_setpacking_to_qubo_structure() {
     let qubo = reduction.target_problem();
 
     // QUBO should have same number of variables as sets
-    assert_eq!(qubo.num_variables(), 3);
+    assert_eq!(qubo.num_variables().unwrap(), 3);
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn test_setpacking_to_qubo_penalty_strict_at_large_weights() {
     let source =
         MaximumSetPacking::with_weights(vec![vec![0], vec![0]], vec![weight, weight]).unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
-    assert!(reduction.target_problem().matrix()[0][1] > weight);
+    assert!(reduction.target_problem().matrix()[[0, 1]] > weight);
     crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,

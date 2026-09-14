@@ -10,7 +10,10 @@ fn test_integer_knapsack_basic() {
     assert_eq!(problem.values(), &[4, 5, 7, 3, 9]);
     assert_eq!(problem.capacity(), 15);
     // dims: floor(15/3)+1=6, floor(15/4)+1=4, floor(15/5)+1=4, floor(15/2)+1=8, floor(15/7)+1=3
-    assert_eq!(problem.dimensions(), vec![6, 4, 4, 8, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6, 4, 4, 8, 3]
+    );
     assert_eq!(<IntegerKnapsack as Problem>::NAME, "IntegerKnapsack");
     assert_eq!(<IntegerKnapsack as Problem>::variant(), vec![]);
 }
@@ -65,20 +68,19 @@ fn test_integer_knapsack_evaluate_wrong_config_length() {
 }
 
 #[test]
-fn test_integer_knapsack_evaluate_out_of_domain() {
+fn test_integer_knapsack_evaluate_single_item_overweight() {
     let problem = IntegerKnapsack::new(vec![3, 4], vec![4, 5], 10).unwrap();
-    // dims = [4, 3], so config [4, 0] is out of domain for item 0
-    assert!(matches!(
-        problem.evaluate(&vec![4, 0]),
-        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
-    ));
+    assert_eq!(problem.evaluate(&vec![4, 0]).unwrap(), Max(None));
 }
 
 #[test]
 fn test_integer_knapsack_empty_instance() {
     let problem = IntegerKnapsack::new(vec![], vec![], 10).unwrap();
     assert_eq!(problem.num_items(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 
@@ -107,7 +109,10 @@ fn test_integer_knapsack_serialization() {
 #[test]
 fn test_integer_knapsack_zero_capacity() {
     let problem = IntegerKnapsack::new(vec![1, 2], vec![10, 20], 0).unwrap();
-    assert_eq!(problem.dimensions(), vec![1, 1]); // floor(0/1)+1=1, floor(0/2)+1=1
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1, 1]
+    ); // floor(0/1)+1=1, floor(0/2)+1=1
     assert_eq!(problem.evaluate(&vec![0, 0]).unwrap(), Max(Some(0)));
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap().unwrap();
@@ -118,7 +123,10 @@ fn test_integer_knapsack_zero_capacity() {
 #[test]
 fn test_integer_knapsack_dimension_uses_structural_range() {
     let problem = IntegerKnapsack::new(vec![1], vec![1], i64::MAX).unwrap();
-    assert_eq!(problem.dimensions(), vec![1_usize << 63]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1_usize << 63]
+    );
 }
 
 #[test]
@@ -126,7 +134,10 @@ fn test_integer_knapsack_single_item() {
     // Single item size=3, value=5, capacity=7
     // Max multiplicity: floor(7/3)=2, dims=[3]
     let problem = IntegerKnapsack::new(vec![3], vec![5], 7).unwrap();
-    assert_eq!(problem.dimensions(), vec![3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3]
+    );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Max(Some(0)));
     assert_eq!(problem.evaluate(&vec![1]).unwrap(), Max(Some(5)));
     assert_eq!(problem.evaluate(&vec![2]).unwrap(), Max(Some(10)));
@@ -231,7 +242,7 @@ fn test_integer_knapsack_deserialization_rejects_invalid_fields() {
 
 #[test]
 fn test_integer_knapsack_paper_example() {
-    // From issue #532: 5 items, sizes=[3,4,5,2,7], values=[4,5,7,3,9], B=15
+    // 5 items, sizes=[3,4,5,2,7], values=[4,5,7,3,9], B=15
     // Optimal=22 with c=(0,0,1,5,0) or c=(1,0,0,6,0)
     let problem = IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15).unwrap();
 

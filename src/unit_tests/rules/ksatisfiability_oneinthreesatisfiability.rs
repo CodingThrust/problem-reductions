@@ -181,7 +181,9 @@ fn test_oneinthree_rejects_infeasible_target_assignments() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1; 3])]);
     let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).unwrap();
     for config in [vec![], vec![false; 9], vec![true; 9], vec![false; 10]] {
-        assert!(reduction.extract_solution(&config).is_err());
+        assert!(
+            !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &config), Ok(value) if { value.is_valid() })
+        );
     }
 }
 

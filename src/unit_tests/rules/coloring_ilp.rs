@@ -126,8 +126,9 @@ fn test_ilp_infeasible_triangle_2_colors() {
 
     // ILP should be infeasible
     let result = ilp_solver.solve(ilp);
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Triangle with 2 colors should be infeasible"
     );
 }
@@ -216,7 +217,11 @@ fn test_complete_graph_k4_with_3_colors_infeasible() {
 
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
-    assert!(result.is_err(), "K4 with 3 colors should be infeasible");
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
+        "K4 with 3 colors should be infeasible"
+    );
 }
 
 #[test]

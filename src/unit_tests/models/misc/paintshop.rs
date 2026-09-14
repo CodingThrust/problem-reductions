@@ -1,15 +1,15 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_paintshop_creation() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
     assert_eq!(problem.num_cars(), 2);
     assert_eq!(problem.sequence_len(), 4);
-    assert_eq!(problem.num_variables(), 2);
+    assert_eq!(problem.num_variables().unwrap(), 2);
 }
 
 #[test]

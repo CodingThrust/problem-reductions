@@ -47,24 +47,15 @@ impl ReductionResult for ReductionSWIToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        self.task_layout
+        Ok(self
+            .task_layout
             .iter()
-            .enumerate()
-            .map(|(task, &(base, count))| {
-                let mut selected = (0..count).filter(|&offset| target_solution[base + offset] == 1);
-                match (selected.next(), selected.next()) {
-                    (Some(offset), None) => Ok(offset),
-                    (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "task {task} has no selected start time"
-                    ))),
-                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "task {task} has multiple selected start times"
-                    ))),
-                }
+            .map(|&(base, count)| {
+                (0..count)
+                    .filter(|&offset| target_solution[base + offset] == 1)
+                    .sum()
             })
-            .collect()
+            .collect())
     }
 }
 

@@ -54,7 +54,10 @@ fn float_constraints_use_float_arithmetic() {
     )
     .unwrap();
 
-    assert!(ilp.is_feasible(&[1, 1]).unwrap());
+    assert!(!ilp.is_feasible(&[1, 1]).unwrap());
+    assert!(LinearConstraint::eq(vec![(0, 0.1), (1, 0.2)], 0.1 + 0.2)
+        .is_satisfied(&[1, 1])
+        .unwrap());
     assert_eq!(ilp.evaluate_objective(&[1, 0]).unwrap(), 0.5);
 }
 

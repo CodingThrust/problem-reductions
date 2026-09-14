@@ -13,8 +13,11 @@ fn test_consecutive_sets_creation() {
     assert_eq!(problem.alphabet_size(), 6);
     assert_eq!(problem.num_subsets(), 5);
     assert_eq!(problem.bound_k(), 6);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![7; 6]); // alphabet_size + 1 = 7
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![7; 6]
+    ); // alphabet_size + 1 = 7
 }
 
 #[test]

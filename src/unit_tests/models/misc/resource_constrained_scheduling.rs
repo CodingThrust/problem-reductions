@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -17,9 +16,17 @@ fn test_resource_constrained_scheduling_creation() {
     assert_eq!(problem.resource_bounds(), &[20]);
     assert_eq!(problem.deadline(), 2);
     assert_eq!(problem.num_resources(), 1);
-    assert_eq!(problem.dimensions().len(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        6
+    );
     // Each variable has domain {0, 1} (deadline = 2)
-    assert!(problem.dimensions().iter().all(|&d| d == 2));
+    assert!(crate::solvers::cartesian_dimensions(&problem)
+        .unwrap()
+        .iter()
+        .all(|&d| d == 2));
 }
 
 #[test]
@@ -115,7 +122,10 @@ fn test_resource_constrained_scheduling_empty_tasks() {
     let problem =
         ResourceConstrainedScheduling::new(2, vec![10], Vec::<Vec<i64>>::new(), 3).unwrap();
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

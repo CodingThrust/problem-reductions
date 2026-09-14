@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn yes_instance(bound: i64) -> RootedTreeStorageAssignment {
@@ -21,7 +20,10 @@ fn test_rooted_tree_storage_assignment_creation() {
         problem.subsets(),
         &[vec![0, 2], vec![1, 3], vec![0, 4], vec![2, 4]]
     );
-    assert_eq!(problem.dimensions(), vec![5; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5; 5]
+    );
 }
 
 #[test]

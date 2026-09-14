@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_nonpositive_edge_values() {
@@ -53,7 +52,10 @@ fn test_shortest_weight_constrained_path_creation() {
     assert_eq!(problem.source_vertex(), 0);
     assert_eq!(problem.target_vertex(), 5);
     assert_eq!(*problem.weight_bound(), 8);
-    assert_eq!(problem.dimensions(), vec![2; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
     assert!(problem.is_weighted());
 }
 

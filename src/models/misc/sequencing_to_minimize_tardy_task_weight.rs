@@ -31,7 +31,7 @@ inventory::submit! {
 /// This is the weighted generalization of minimizing the number of tardy tasks
 /// (problem SS8 in Garey & Johnson, 1979, written $1 || sum w_j U_j$).
 ///
-/// Configurations are direct permutation encodings with `dims() = [n; n]`:
+/// Configurations are direct permutation encodings with `coordinate cardinalities = [n; n]`:
 /// each position holds the index of the task scheduled at that position.
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]
@@ -221,9 +221,12 @@ impl Problem for SequencingToMinimizeTardyTaskWeight {
 }
 
 impl crate::solvers::BruteForceProblem for SequencingToMinimizeTardyTaskWeight {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.num_tasks();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
     }
 }
 

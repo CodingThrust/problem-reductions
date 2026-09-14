@@ -29,7 +29,7 @@ mod maximum_independent_set {
         );
         assert_eq!(problem.graph().num_vertices(), 4);
         assert_eq!(problem.graph().num_edges(), 3);
-        assert_eq!(problem.num_variables(), 4);
+        assert_eq!(problem.num_variables().unwrap(), 4);
     }
 
     #[test]
@@ -268,7 +268,7 @@ mod minimum_vertex_cover {
         );
         assert_eq!(problem.graph().num_vertices(), 4);
         assert_eq!(problem.graph().num_edges(), 3);
-        assert_eq!(problem.num_variables(), 4);
+        assert_eq!(problem.num_variables().unwrap(), 4);
     }
 
     #[test]
@@ -502,7 +502,10 @@ mod integral_flow_homologous_arcs {
         );
         assert_eq!(problem.num_vertices(), 6);
         assert_eq!(problem.num_arcs(), 8);
-        assert_eq!(problem.dimensions(), vec![2; 8]);
+        assert_eq!(
+            crate::solvers::cartesian_dimensions(&problem).unwrap(),
+            vec![2; 8]
+        );
     }
 }
 
@@ -519,7 +522,7 @@ mod kcoloring {
         assert_eq!(problem.graph().num_vertices(), 4);
         assert_eq!(problem.graph().num_edges(), 3);
         assert_eq!(problem.num_colors(), 3);
-        assert_eq!(problem.num_variables(), 4);
+        assert_eq!(problem.num_variables().unwrap(), 4);
     }
 
     #[test]

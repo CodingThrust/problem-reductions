@@ -89,10 +89,10 @@ fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
     // Verify the extracted solution is valid in the source
     assert!(source.evaluate(&extracted).unwrap().0);
 
-    // Config with 0 workers everywhere should extract to all-zero (no subsets selected)
-    let empty_config = vec![0, 0, 0, 0];
-    let extracted_empty = result.extract_solution(&empty_config).unwrap();
-    assert_eq!(extracted_empty, vec![false, false, false, false]);
+    // No workers cannot cover the required shifts.
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&result), &vec![0, 0, 0, 0]), Ok(value) if { value.is_valid() })
+    );
 }
 
 #[test]

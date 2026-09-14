@@ -18,8 +18,11 @@ fn test_exact_cover_by_3_sets_creation() {
     assert_eq!(problem.universe_size(), 6);
     assert_eq!(problem.num_subsets(), 3);
     assert_eq!(problem.num_sets(), 3);
-    assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2]
+    );
 }
 
 #[test]

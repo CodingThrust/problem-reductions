@@ -65,7 +65,9 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_odd_total_is_unsat
         )
         .0
     );
-    assert!(reduction.extract_solution(&best).is_err());
+    assert!(
+        !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &best), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+    );
 }
 
 #[cfg(feature = "example-db")]
@@ -152,9 +154,8 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
                 }
                 let certified =
                     crate::rules::AggregateReductionResult::extract_value(&reduction, value).0;
-                let extracted = reduction.extract_solution(&schedule);
-                assert_eq!(extracted.is_ok(), certified);
-                if let Ok(bits) = extracted {
+                if certified {
+                    let bits = reduction.extract_solution(&schedule).unwrap();
                     assert!(source.evaluate(&bits).unwrap().0);
                 }
             }
@@ -166,10 +167,12 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
                 .0,
                 source_feasible
             );
-            assert!(reduction.extract_solution(&vec![]).is_err());
-            assert!(reduction
-                .extract_solution(&vec![n as usize; n as usize])
-                .is_err());
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
+            assert!(
+                !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![n as usize; n as usize]), Ok(value) if { let value = crate::rules::AggregateReductionResult::extract_value(&reduction, value); value.is_valid() })
+            );
             assert!(
                 !crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None),).0
             );
@@ -195,9 +198,8 @@ fn test_partition_to_tardy_weight_full_i64_domain() {
             crate::rules::AggregateReductionResult::extract_value(&reduction, value).0,
             balanced
         );
-        let extracted = reduction.extract_solution(&schedule);
-        assert_eq!(extracted.is_ok(), balanced);
-        if let Ok(bits) = extracted {
+        if balanced {
+            let bits = reduction.extract_solution(&schedule).unwrap();
             assert!(source.evaluate(&bits).unwrap().0);
         }
     }

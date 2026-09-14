@@ -32,10 +32,6 @@ fn generic_decision_ilp_respects_maximization_bounds() {
                 name: "ILP",
                 variant: BOOL_VARIANT,
             },
-            StaticProblemStep {
-                name: "ILP",
-                variant: FLOAT_BOOL_VARIANT,
-            },
         ],
     };
     let registry = build_registry(
@@ -54,11 +50,11 @@ fn generic_decision_ilp_respects_maximization_bounds() {
     );
     for bound in [0, 1, 2] {
         let decision = Decision::new(inner.clone(), bound);
-        let result = pipeline.solve(&decision, &crate::solvers::ILPSolver::new());
+        let result = pipeline.solve(&decision, &HighsAdapter::new(None));
         if bound > 1 {
             assert!(matches!(
                 result,
-                Err(crate::solvers::ILPSolveError::UnresolvedDecision(_))
+                Err(crate::solvers::ILPSolveError::Infeasible)
             ));
             assert!(BruteForce::new().solve(&decision).unwrap().is_none());
             continue;
@@ -72,26 +68,40 @@ fn generic_decision_ilp_respects_maximization_bounds() {
 }
 
 #[test]
-fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
+fn generic_decision_ilp_reports_no_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::{ExtractionError, ReductionResult};
-    use crate::solvers::{ILPSolveError, ILPSolver};
+    use crate::solvers::ILPSolveError;
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 
     type Inner = MinimumVertexCover<SimpleGraph, i64>;
-    struct BrokenExtractor(Inner);
+    struct BrokenExtractor(Decision<Inner>);
     impl ReductionResult for BrokenExtractor {
         type Source = Decision<Inner>;
         type Target = Inner;
 
         fn target_problem(&self) -> &Inner {
-            &self.0
+            self.0.inner()
         }
 
         fn extract_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
             Err(ExtractionError::invalid("broken witness decoder"))
+        }
+    }
+
+    impl crate::rules::AggregateReductionResult for BrokenExtractor {
+        type Source = Decision<Inner>;
+        type Target = Inner;
+        fn target_problem(&self) -> &Inner {
+            self.0.inner()
+        }
+        fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &value,
+                self.0.bound(),
+            ))
         }
     }
 
@@ -108,17 +118,33 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
         path: original.path.clone(),
         reducers: original.reducers.clone(),
     };
-    pipeline.reducers[0].0 = |source| {
+    pipeline.reducers[0] = |source| {
         let source = source.downcast_ref::<Decision<Inner>>().unwrap();
-        Ok(Box::new(BrokenExtractor(source.inner().clone())))
+        let result = std::rc::Rc::new(BrokenExtractor(source.clone()));
+        Ok(crate::rules::registry::ExecutedStep {
+            aggregate: Some(result.clone()),
+            interpret_optimum: Some({
+                let result = result.clone();
+                std::rc::Rc::new(move |solution: &dyn std::any::Any| {
+                    let solution = solution.downcast_ref::<Vec<bool>>().unwrap();
+                    let value = result.0.inner().evaluate(solution)?;
+                    Ok(crate::rules::AggregateReductionResult::extract_value(
+                        result.as_ref(),
+                        value,
+                    )
+                    .is_valid())
+                })
+            }),
+            witness: result,
+        })
     };
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
-        pipeline.solve(&Decision::new(inner.clone(), 0), &ILPSolver::new()),
-        Err(ILPSolveError::UnresolvedDecision(_))
+        pipeline.solve(&Decision::new(inner.clone(), 0), &HighsAdapter::new(None)),
+        Err(ILPSolveError::Infeasible)
     ));
     assert!(matches!(
-        pipeline.solve(&Decision::new(inner, 1), &ILPSolver::new()),
+        pipeline.solve(&Decision::new(inner, 1), &HighsAdapter::new(None)),
         Err(ILPSolveError::Extraction(ExtractionError::Reduction { message, .. }))
             if message == "broken witness decoder"
     ));
@@ -406,11 +432,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        [
-            "MaximumClique<SimpleGraph, i64>",
-            "ILP<i64, bool>",
-            "ILP<f64, bool>"
-        ]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<i64, bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -435,10 +457,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let ilp_itself =
         solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
-    assert_eq!(
-        ilp_itself.ilp.unwrap().path_labels(),
-        ["ILP<i64, bool>", "ILP<f64, bool>"]
-    );
+    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<i64, bool>"]);
 }
 
 #[test]
@@ -538,18 +557,12 @@ fn solver_capability_registry_ignores_unrelated_reduction_edges() {
         minimal_pipeline
             .reducers
             .iter()
-            .map(|(reducer, aggregate)| (
-                *reducer as usize,
-                aggregate.map(|reduce| reduce as usize)
-            ))
+            .map(|reducer| *reducer as usize)
             .collect::<Vec<_>>(),
         expanded_pipeline
             .reducers
             .iter()
-            .map(|(reducer, aggregate)| (
-                *reducer as usize,
-                aggregate.map(|reduce| reduce as usize)
-            ))
+            .map(|reducer| *reducer as usize)
             .collect::<Vec<_>>()
     );
 }
@@ -587,4 +600,35 @@ fn solver_capability_registry_ambiguous_exact_edge_is_rejected() {
         error,
         RegistryBuildError::InvalidEdge { matches: 2, .. }
     ));
+}
+
+#[test]
+fn native_terminal_dispatch_rejects_non_ilp_values() {
+    assert_eq!(
+        solve_ilp_terminal(&42_i64, &HighsAdapter::new(None)),
+        Err(crate::solvers::ILPSolveError::UnsupportedProblemType)
+    );
+}
+
+#[test]
+fn registered_pipelines_stop_at_the_first_native_ilp() {
+    let registry = solver_capability_registry().unwrap();
+    for pipeline in registry.ilp.values() {
+        assert!(pipeline.path.last().unwrap().is_supported_ilp());
+        assert!(pipeline.path[..pipeline.path.len() - 1]
+            .iter()
+            .all(|step| !step.is_supported_ilp()));
+    }
+    for variable in ["bool", "i64"] {
+        for coefficient in ["i64", "f64"] {
+            let key = ExactProblemKey::new(
+                "ILP",
+                BTreeMap::from([
+                    ("variable".into(), variable.into()),
+                    ("coefficient".into(), coefficient.into()),
+                ]),
+            );
+            assert_eq!(registry.lookup(&key).ilp.unwrap().path(), &[key]);
+        }
+    }
 }

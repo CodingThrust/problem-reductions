@@ -9,7 +9,9 @@ fn test_qubo_i64_to_f64_closed_loop() {
 
     assert_eq!(
         reduction.target_problem().matrix(),
-        &[vec![1.0, -2.0], vec![0.0, 3.0]]
+        QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 3.0]])
+            .unwrap()
+            .matrix()
     );
     assert_eq!(
         reduction.extract_solution(&vec![true, false]).unwrap(),

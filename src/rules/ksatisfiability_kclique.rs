@@ -33,13 +33,6 @@ impl ReductionResult for Reduction3SATToKClique {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target selection is not a clique meeting the threshold",
-            ));
-        }
         // Variables absent from the selected literals are free; choose false.
         let mut assignment = vec![false; self.source_num_vars];
         for (&selected, &(variable, positive)) in target_solution[..self.literal_assignments.len()]

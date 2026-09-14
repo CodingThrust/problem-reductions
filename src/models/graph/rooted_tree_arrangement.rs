@@ -160,9 +160,16 @@ impl<G> crate::solvers::BruteForceProblem for RootedTreeArrangement<G>
 where
     G: Graph + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; 2 * n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (2usize)
+            .checked_mul(self.graph.num_vertices())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+            })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
     }
 }
 

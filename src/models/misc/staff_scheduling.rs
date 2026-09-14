@@ -50,14 +50,8 @@ impl TryFrom<StaffSchedulingCreateSpec> for StaffScheduling {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: StaffSchedulingCreateSpec) -> Result<Self, Self::Error> {
-        if usize::try_from(spec.num_workers)
-            .ok()
-            .and_then(|workers| workers.checked_add(1))
-            .is_none()
-        {
-            return Err("num_workers must be nonnegative and encodable by dims()"
-                .to_string()
-                .into());
+        if spec.num_workers < 0 {
+            return Err("num_workers must be nonnegative".into());
         }
         for (schedule_index, schedule) in spec.schedules.iter().enumerate() {
             if schedule.len() != spec.requirements.len() {
@@ -101,13 +95,7 @@ impl StaffScheduling {
         requirements: Vec<i64>,
         num_workers: i64,
     ) -> Self {
-        assert!(
-            usize::try_from(num_workers)
-                .ok()
-                .and_then(|workers| workers.checked_add(1))
-                .is_some(),
-            "num_workers must be nonnegative and encodable by dims()"
-        );
+        assert!(num_workers >= 0, "num_workers must be nonnegative");
 
         let num_periods = requirements.len();
         for (index, schedule) in schedules.iter().enumerate() {
@@ -165,13 +153,10 @@ impl StaffScheduling {
         self.schedules.len()
     }
 
-    fn worker_limit(&self) -> usize {
-        usize::try_from(self.num_workers)
-            .expect("validated nonnegative worker count must fit usize")
-    }
-
     fn worker_counts_valid(&self, config: &[usize]) -> bool {
-        config.iter().all(|&count| count <= self.worker_limit())
+        config
+            .iter()
+            .all(|&count| count as i128 <= i128::from(self.num_workers))
     }
 
     fn within_budget(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
@@ -255,8 +240,12 @@ impl Problem for StaffScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for StaffScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.worker_limit() + 1; self.num_schedules()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_schedules())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(i128::from(self.num_workers) + 1)?)
     }
 }
 
