@@ -138,3 +138,15 @@ fn test_setcovering_paper_example() {
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }
+
+#[test]
+fn construction_and_json_reject_invalid_data() {
+    assert!(MinimumSetCovering::<i64>::try_new(2, vec![vec![2]]).is_err());
+    assert!(MinimumSetCovering::try_with_weights(2, vec![vec![0]], Vec::<i64>::new()).is_err());
+    for json in [
+        serde_json::json!({"universe_size":2,"sets":[[2]],"weights":[1]}),
+        serde_json::json!({"universe_size":2,"sets":[[0]],"weights":[]}),
+    ] {
+        assert!(serde_json::from_value::<MinimumSetCovering<i64>>(json).is_err());
+    }
+}

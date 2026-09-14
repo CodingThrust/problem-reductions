@@ -214,3 +214,11 @@ fn test_minimum_feedback_arc_set_accessors() {
     problem.set_weights(vec![2, 3, 4]);
     assert_eq!(problem.weights(), &[2, 3, 4]);
 }
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = DirectedGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(MinimumFeedbackArcSet::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumFeedbackArcSet<i64>>(json).is_err());
+}

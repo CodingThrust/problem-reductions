@@ -30,6 +30,7 @@ inventory::submit! {
 /// - `f2(u, v)`
 /// - `f2(v, u)`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "UndirectedTwoCommodityIntegralFlowData")]
 pub struct UndirectedTwoCommodityIntegralFlow {
     graph: SimpleGraph,
     capacities: Vec<i64>,
@@ -39,6 +40,34 @@ pub struct UndirectedTwoCommodityIntegralFlow {
     sink_2: usize,
     requirement_1: i64,
     requirement_2: i64,
+}
+
+#[derive(Deserialize)]
+struct UndirectedTwoCommodityIntegralFlowData {
+    graph: SimpleGraph,
+    capacities: Vec<i64>,
+    source_1: usize,
+    sink_1: usize,
+    source_2: usize,
+    sink_2: usize,
+    requirement_1: i64,
+    requirement_2: i64,
+}
+
+impl TryFrom<UndirectedTwoCommodityIntegralFlowData> for UndirectedTwoCommodityIntegralFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: UndirectedTwoCommodityIntegralFlowData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.capacities,
+            data.source_1,
+            data.sink_1,
+            data.source_2,
+            data.sink_2,
+            data.requirement_1,
+            data.requirement_2,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -129,31 +158,7 @@ impl UndirectedTwoCommodityIntegralFlow {
         requirement_1: i64,
         requirement_2: i64,
     ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_edges(),
-            "capacities length must match graph num_edges"
-        );
-
-        let num_vertices = graph.num_vertices();
-        for (label, vertex) in [
-            ("source_1", source_1),
-            ("sink_1", sink_1),
-            ("source_2", source_2),
-            ("sink_2", sink_2),
-        ] {
-            assert!(
-                vertex < num_vertices,
-                "{label} must be less than num_vertices ({num_vertices})"
-            );
-        }
-
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
-
-        Self {
+        Self::try_new(
             graph,
             capacities,
             source_1,
@@ -162,7 +167,53 @@ impl UndirectedTwoCommodityIntegralFlow {
             sink_2,
             requirement_1,
             requirement_2,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn try_new(
+        graph: SimpleGraph,
+        capacities: Vec<i64>,
+        source_1: usize,
+        sink_1: usize,
+        source_2: usize,
+        sink_2: usize,
+        requirement_1: i64,
+        requirement_2: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_edges() {
+            return Err("capacities length must match graph num_edges".into());
         }
+
+        let num_vertices = graph.num_vertices();
+        for (label, vertex) in [
+            ("source_1", source_1),
+            ("sink_1", sink_1),
+            ("source_2", source_2),
+            ("sink_2", sink_2),
+        ] {
+            if !(vertex < num_vertices) {
+                return Err(
+                    format!("{label} must be less than num_vertices ({num_vertices})").into(),
+                );
+            }
+        }
+
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
+
+        Ok(Self {
+            graph,
+            capacities,
+            source_1,
+            sink_1,
+            source_2,
+            sink_2,
+            requirement_1,
+            requirement_2,
+        })
     }
 
     pub fn graph(&self) -> &SimpleGraph {

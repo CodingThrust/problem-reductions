@@ -33,10 +33,25 @@ inventory::submit! {
 ///
 /// where d(v, V') is the shortest-path distance from v to the nearest copy in V'.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MultipleCopyFileAllocationData")]
 pub struct MultipleCopyFileAllocation {
     graph: SimpleGraph,
     usage: Vec<i64>,
     storage: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct MultipleCopyFileAllocationData {
+    graph: SimpleGraph,
+    usage: Vec<i64>,
+    storage: Vec<i64>,
+}
+
+impl TryFrom<MultipleCopyFileAllocationData> for MultipleCopyFileAllocation {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MultipleCopyFileAllocationData) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.usage, data.storage)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -94,21 +109,25 @@ impl TryFrom<MultipleCopyFileAllocationCreateSpec> for MultipleCopyFileAllocatio
 impl MultipleCopyFileAllocation {
     /// Create a new Multiple Copy File Allocation instance.
     pub fn new(graph: SimpleGraph, usage: Vec<i64>, storage: Vec<i64>) -> Self {
-        assert_eq!(
-            usage.len(),
-            graph.num_vertices(),
-            "usage length must match graph num_vertices"
-        );
-        assert_eq!(
-            storage.len(),
-            graph.num_vertices(),
-            "storage length must match graph num_vertices"
-        );
-        Self {
+        Self::try_new(graph, usage, storage).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: SimpleGraph,
+        usage: Vec<i64>,
+        storage: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if usage.len() != graph.num_vertices() {
+            return Err("usage length must match graph num_vertices".into());
+        }
+        if storage.len() != graph.num_vertices() {
+            return Err("storage length must match graph num_vertices".into());
+        }
+        Ok(Self {
             graph,
             usage,
             storage,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

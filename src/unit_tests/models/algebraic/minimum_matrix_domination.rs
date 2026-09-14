@@ -205,3 +205,20 @@ fn test_minimum_matrix_domination_inconsistent_rows() {
     let matrix = vec![vec![true, false], vec![true]];
     MinimumMatrixDomination::new(matrix);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<MinimumMatrixDomination>(
+        serde_json::json!({"matrix":[[true],[]]})
+    )
+    .is_err());
+}
+
+#[test]
+fn deserialize_rebuilds_nonzero_positions() {
+    let model: MinimumMatrixDomination = serde_json::from_value(serde_json::json!({
+        "matrix": [[true, false], [false, true]], "ones": [[99, 99]]
+    }))
+    .unwrap();
+    assert_eq!(model.ones(), &[(0, 0), (1, 1)]);
+}

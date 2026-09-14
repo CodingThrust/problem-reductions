@@ -165,3 +165,11 @@ fn test_quadratic_assignment_solver() {
         Min(Some(56))
     );
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<QuadraticAssignment>(
+        serde_json::json!({"cost_matrix":[[1]],"distance_matrix":[[]]})
+    )
+    .is_err());
+}

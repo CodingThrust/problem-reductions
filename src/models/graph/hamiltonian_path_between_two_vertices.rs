@@ -68,12 +68,31 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct HamiltonianPathBetweenTwoVertices<G> {
     graph: G,
     source_vertex: usize,
     target_vertex: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct HamiltonianPathBetweenTwoVerticesData<G> {
+    graph: G,
+    source_vertex: usize,
+    target_vertex: usize,
+}
+
+impl<'de, G> Deserialize<'de> for HamiltonianPathBetweenTwoVertices<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = HamiltonianPathBetweenTwoVerticesData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.source_vertex, data.target_vertex)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -97,24 +116,35 @@ impl<G: Graph> HamiltonianPathBetweenTwoVertices<G> {
     ///
     /// Panics if `source_vertex` or `target_vertex` is out of range, or if they are equal.
     pub fn new(graph: G, source_vertex: usize, target_vertex: usize) -> Self {
+        Self::try_new(graph, source_vertex, target_vertex).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        source_vertex: usize,
+        target_vertex: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = graph.num_vertices();
-        assert!(
-            source_vertex < n,
-            "source_vertex {source_vertex} out of range for graph with {n} vertices"
-        );
-        assert!(
-            target_vertex < n,
-            "target_vertex {target_vertex} out of range for graph with {n} vertices"
-        );
-        assert_ne!(
-            source_vertex, target_vertex,
-            "source_vertex and target_vertex must be distinct"
-        );
-        Self {
+        if !(source_vertex < n) {
+            return Err(format!(
+                "source_vertex {source_vertex} out of range for graph with {n} vertices"
+            )
+            .into());
+        }
+        if !(target_vertex < n) {
+            return Err(format!(
+                "target_vertex {target_vertex} out of range for graph with {n} vertices"
+            )
+            .into());
+        }
+        if source_vertex == target_vertex {
+            return Err("source_vertex and target_vertex must be distinct".into());
+        }
+        Ok(Self {
             graph,
             source_vertex,
             target_vertex,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

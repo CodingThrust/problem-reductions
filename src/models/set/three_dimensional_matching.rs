@@ -56,11 +56,26 @@ inventory::submit! {
 /// assert!(problem.evaluate(&solutions[0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ThreeDimensionalMatchingData")]
 pub struct ThreeDimensionalMatching {
     /// Size of each set W, X, Y (elements are 0..universe_size).
     universe_size: usize,
     /// Set M of triples (w, x, y) where w, x, y are in 0..universe_size.
     triples: Vec<(usize, usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct ThreeDimensionalMatchingData {
+    universe_size: usize,
+    triples: Vec<(usize, usize, usize)>,
+}
+
+impl TryFrom<ThreeDimensionalMatchingData> for ThreeDimensionalMatching {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ThreeDimensionalMatchingData) -> Result<Self, Self::Error> {
+        Self::try_new(data.universe_size, data.triples)
+    }
 }
 
 impl ThreeDimensionalMatching {
@@ -70,33 +85,25 @@ impl ThreeDimensionalMatching {
     ///
     /// Panics if any triple contains an element outside 0..universe_size.
     pub fn new(universe_size: usize, triples: Vec<(usize, usize, usize)>) -> Self {
-        for (i, &(w, x, y)) in triples.iter().enumerate() {
-            assert!(
-                w < universe_size,
-                "Triple {} has w-coordinate {} which is outside 0..{}",
-                i,
-                w,
-                universe_size
-            );
-            assert!(
-                x < universe_size,
-                "Triple {} has x-coordinate {} which is outside 0..{}",
-                i,
-                x,
-                universe_size
-            );
-            assert!(
-                y < universe_size,
-                "Triple {} has y-coordinate {} which is outside 0..{}",
-                i,
-                y,
-                universe_size
-            );
+        Self::try_new(universe_size, triples).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        universe_size: usize,
+        triples: Vec<(usize, usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, &(w, x, y)) in triples.iter().enumerate() {
+            if w >= universe_size || x >= universe_size || y >= universe_size {
+                return Err(format!(
+                    "triple {index} contains a coordinate outside 0..{universe_size}"
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             universe_size,
             triples,
-        }
+        })
     }
 
     /// Get the universe size (q).

@@ -199,3 +199,11 @@ fn create_spec_uses_edge_weights_and_defaults_to_one() {
     assert_eq!(problem.weights(), vec![1]);
     assert_eq!(MaximumMatchingCreateSpec::FIELDS[2].name, "edge_weights");
 }
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(MaximumMatching::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "edge_weights": []});
+    assert!(serde_json::from_value::<MaximumMatching<SimpleGraph, i64>>(json).is_err());
+}

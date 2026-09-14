@@ -24,8 +24,8 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ProductionPlanningCreateSpec")]
 pub struct ProductionPlanning {
-    #[serde(deserialize_with = "positive_usize::deserialize")]
     num_periods: usize,
     demands: Vec<i64>,
     capacities: Vec<i64>,
@@ -74,7 +74,7 @@ impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
         if spec.capacities.iter().any(|&capacity| capacity < 0) {
             return Err("capacities must be nonnegative".into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.num_periods,
             spec.demands,
             spec.capacities,
@@ -82,7 +82,7 @@ impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
             spec.production_costs,
             spec.inventory_costs,
             spec.cost_bound,
-        ))
+        )
     }
 }
 
@@ -96,32 +96,7 @@ impl ProductionPlanning {
         inventory_costs: Vec<i64>,
         cost_bound: i64,
     ) -> Self {
-        assert!(num_periods > 0, "num_periods must be positive");
-        for len in [
-            demands.len(),
-            capacities.len(),
-            setup_costs.len(),
-            production_costs.len(),
-            inventory_costs.len(),
-        ] {
-            assert_eq!(
-                len, num_periods,
-                "all per-period vectors must have length num_periods"
-            );
-        }
-        assert!(
-            demands
-                .iter()
-                .chain(&capacities)
-                .chain(&setup_costs)
-                .chain(&production_costs)
-                .chain(&inventory_costs)
-                .all(|&value| value >= 0),
-            "demands, capacities, and costs must be nonnegative"
-        );
-        assert!(cost_bound >= 0, "cost bound must be nonnegative");
-
-        Self {
+        Self::try_new(
             num_periods,
             demands,
             capacities,
@@ -129,7 +104,56 @@ impl ProductionPlanning {
             production_costs,
             inventory_costs,
             cost_bound,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_periods: usize,
+        demands: Vec<i64>,
+        capacities: Vec<i64>,
+        setup_costs: Vec<i64>,
+        production_costs: Vec<i64>,
+        inventory_costs: Vec<i64>,
+        cost_bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if num_periods == 0 {
+            return Err("num_periods must be positive".into());
         }
+        for len in [
+            demands.len(),
+            capacities.len(),
+            setup_costs.len(),
+            production_costs.len(),
+            inventory_costs.len(),
+        ] {
+            if len != num_periods {
+                return Err("all per-period vectors must have length num_periods".into());
+            }
+        }
+        if !(demands
+            .iter()
+            .chain(&capacities)
+            .chain(&setup_costs)
+            .chain(&production_costs)
+            .chain(&inventory_costs)
+            .all(|&value| value >= 0))
+        {
+            return Err("demands, capacities, and costs must be nonnegative".into());
+        }
+        if !(cost_bound >= 0) {
+            return Err("cost bound must be nonnegative".into());
+        }
+
+        Ok(Self {
+            num_periods,
+            demands,
+            capacities,
+            setup_costs,
+            production_costs,
+            inventory_costs,
+            cost_bound,
+        })
     }
 
     pub fn num_periods(&self) -> usize {
@@ -304,22 +328,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         optimal_config: serde_json::json!(vec![3, 0, 4, 1]),
         optimal_value: serde_json::json!(true),
     }]
-}
-
-mod positive_usize {
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<usize, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = usize::deserialize(deserializer)?;
-        if value == 0 {
-            return Err(D::Error::custom("expected positive integer, got 0"));
-        }
-        Ok(value)
-    }
 }
 
 #[cfg(test)]

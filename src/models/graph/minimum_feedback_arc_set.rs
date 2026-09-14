@@ -55,12 +55,28 @@ inventory::submit! {
 /// // Minimum FAS has size 1 (remove any single arc to break the cycle)
 /// assert_eq!(solution.iter().filter(|&&selected| selected).count(), 1);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumFeedbackArcSet<W> {
     /// The directed graph.
     graph: DirectedGraph,
     /// Weights for each arc.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumFeedbackArcSetData<W> {
+    graph: DirectedGraph,
+    weights: Vec<W>,
+}
+
+impl<'de, W> Deserialize<'de> for MinimumFeedbackArcSet<W>
+where
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumFeedbackArcSetData::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -78,19 +94,22 @@ impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i64> {
         if weights.len() != count {
             return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
         }
-        Ok(Self::new(spec.graph, weights))
+        Self::try_new(spec.graph, weights)
     }
 }
 
 impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     /// Create a Minimum Feedback Arc Set problem from a directed graph with given weights.
     pub fn new(graph: DirectedGraph, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_arcs(),
-            "weights length must match graph num_arcs"
-        );
-        Self { graph, weights }
+        Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        weights: Vec<W>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &weights)?;
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -111,6 +130,16 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
             "weights length must match graph num_arcs"
         );
         self.weights = weights;
+    }
+
+    fn check_weights(
+        graph: &DirectedGraph,
+        weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_arcs() {
+            return Err("weights length must match graph num_arcs".into());
+        }
+        Ok(())
     }
 
     /// Check if a configuration is a valid feedback arc set.

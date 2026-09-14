@@ -25,9 +25,24 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "JobShopSchedulingData")]
 pub struct JobShopScheduling {
     num_processors: usize,
     jobs: Vec<Vec<(usize, i64)>>,
+}
+
+#[derive(Deserialize)]
+struct JobShopSchedulingData {
+    num_processors: usize,
+    jobs: Vec<Vec<(usize, i64)>>,
+}
+
+impl TryFrom<JobShopSchedulingData> for JobShopScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: JobShopSchedulingData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_processors, data.jobs)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -97,40 +112,42 @@ struct FlattenedTasks {
 
 impl JobShopScheduling {
     pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, i64)>>) -> Self {
-        let num_tasks: usize = jobs.iter().map(Vec::len).sum();
-        if num_tasks > 0 {
-            assert!(
-                num_processors > 0,
-                "num_processors must be positive when tasks are present"
-            );
+        Self::try_new(num_processors, jobs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_processors: usize,
+        jobs: Vec<Vec<(usize, i64)>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if jobs.iter().any(|job| !job.is_empty()) && !(num_processors > 0) {
+            return Err("num_processors must be positive when tasks are present".into());
         }
-        assert!(
-            jobs.iter().flatten().all(|&(_, length)| length >= 0),
-            "operation lengths must be nonnegative"
-        );
+        if !(jobs.iter().flatten().all(|&(_, length)| length >= 0)) {
+            return Err("operation lengths must be nonnegative".into());
+        }
 
         for (job_index, job) in jobs.iter().enumerate() {
             for (task_index, &(processor, _length)) in job.iter().enumerate() {
-                assert!(
-                    processor < num_processors,
-                    "job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}"
-                );
+                if !(processor < num_processors) {
+                    return Err(format!("job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}").into());
+                }
             }
 
             for (task_index, pair) in job.windows(2).enumerate() {
-                assert_ne!(
-                    pair[0].0,
-                    pair[1].0,
-                    "job {job_index} tasks {task_index} and {} must use different processors",
-                    task_index + 1
-                );
+                if pair[0].0 == pair[1].0 {
+                    return Err(format!(
+                        "job {job_index} tasks {task_index} and {} must use different processors",
+                        task_index + 1
+                    )
+                    .into());
+                }
             }
         }
 
-        Self {
+        Ok(Self {
             num_processors,
             jobs,
-        }
+        })
     }
 
     pub fn num_processors(&self) -> usize {

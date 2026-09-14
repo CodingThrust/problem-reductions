@@ -31,11 +31,26 @@ inventory::submit! {
 /// find a subset `K ⊆ A` of minimum cardinality such that the closure of `K`
 /// under `F` equals `A` (i.e., `K` is a key).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCardinalityKeyData")]
 pub struct MinimumCardinalityKey {
     /// Number of attributes (elements are `0..num_attributes`).
     num_attributes: usize,
     /// Functional dependencies as `(lhs, rhs)` pairs.
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCardinalityKeyData {
+    num_attributes: usize,
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+}
+
+impl TryFrom<MinimumCardinalityKeyData> for MinimumCardinalityKey {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumCardinalityKeyData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_attributes, data.dependencies)
+    }
 }
 
 impl MinimumCardinalityKey {
@@ -45,27 +60,30 @@ impl MinimumCardinalityKey {
     ///
     /// Panics if any attribute index in a dependency lies outside the attribute set.
     pub fn new(num_attributes: usize, dependencies: Vec<(Vec<usize>, Vec<usize>)>) -> Self {
-        let mut dependencies = dependencies;
-        for (dep_index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
+        Self::try_new(num_attributes, dependencies).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_attributes: usize,
+        mut dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
             lhs.sort_unstable();
             lhs.dedup();
             rhs.sort_unstable();
             rhs.dedup();
-            for &attr in lhs.iter().chain(rhs.iter()) {
-                assert!(
-                    attr < num_attributes,
-                    "Dependency {} contains attribute {} which is outside attribute set of size {}",
-                    dep_index,
-                    attr,
-                    num_attributes
-                );
+            if let Some(attribute) = lhs
+                .iter()
+                .chain(rhs.iter())
+                .find(|&&attribute| attribute >= num_attributes)
+            {
+                return Err(format!("dependency {index} contains attribute {attribute} outside attribute set of size {num_attributes}").into());
             }
         }
-
-        Self {
+        Ok(Self {
             num_attributes,
             dependencies,
-        }
+        })
     }
 
     /// Return the number of attributes.

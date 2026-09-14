@@ -7845,7 +7845,7 @@ fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("expected positive integer, got 0"),
+        stderr.contains("num_processors must be positive"),
         "stderr: {stderr}"
     );
 

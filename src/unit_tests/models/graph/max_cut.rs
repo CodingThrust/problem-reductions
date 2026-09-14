@@ -178,3 +178,11 @@ fn create_specs_use_edge_weights_for_both_weight_variants() {
     assert_eq!(unit.edge_weights(), vec![One]);
     assert_eq!(MaxCutI64CreateSpec::FIELDS[2].name, "edge_weights");
 }
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(MaxCut::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "edge_weights": []});
+    assert!(serde_json::from_value::<MaxCut<SimpleGraph, i64>>(json).is_err());
+}

@@ -29,6 +29,7 @@ inventory::submit! {
 /// capacities, flow conservation at non-terminal vertices, every homologous-pair
 /// equality constraint, and the required net inflow at the sink.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowHomologousArcsData")]
 pub struct IntegralFlowHomologousArcs {
     graph: DirectedGraph,
     capacities: Vec<i64>,
@@ -36,6 +37,30 @@ pub struct IntegralFlowHomologousArcs {
     sink: usize,
     requirement: i64,
     homologous_pairs: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowHomologousArcsData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    source: usize,
+    sink: usize,
+    requirement: i64,
+    homologous_pairs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<IntegralFlowHomologousArcsData> for IntegralFlowHomologousArcs {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowHomologousArcsData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.capacities,
+            data.source,
+            data.sink,
+            data.requirement,
+            data.homologous_pairs,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -107,41 +132,64 @@ impl IntegralFlowHomologousArcs {
         requirement: i64,
         homologous_pairs: Vec<(usize, usize)>,
     ) -> Self {
-        let num_vertices = graph.num_vertices();
-        let num_arcs = graph.num_arcs();
-
-        assert_eq!(
-            capacities.len(),
-            num_arcs,
-            "capacities length must match graph.num_arcs()"
-        );
-        assert!(
-            source < num_vertices,
-            "source ({source}) must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) must be less than num_vertices ({num_vertices})"
-        );
-
-        for &(a, b) in &homologous_pairs {
-            assert!(a < num_arcs, "homologous arc index {a} out of range");
-            assert!(b < num_arcs, "homologous arc index {b} out of range");
-        }
-
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
-
-        Self {
+        Self::try_new(
             graph,
             capacities,
             source,
             sink,
             requirement,
             homologous_pairs,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        capacities: Vec<i64>,
+        source: usize,
+        sink: usize,
+        requirement: i64,
+        homologous_pairs: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let num_vertices = graph.num_vertices();
+        let num_arcs = graph.num_arcs();
+
+        if capacities.len() != num_arcs {
+            return Err("capacities length must match graph.num_arcs()".into());
         }
+        if !(source < num_vertices) {
+            return Err(format!(
+                "source ({source}) must be less than num_vertices ({num_vertices})"
+            )
+            .into());
+        }
+        if !(sink < num_vertices) {
+            return Err(
+                format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
+            );
+        }
+
+        for &(a, b) in &homologous_pairs {
+            if !(a < num_arcs) {
+                return Err(format!("homologous arc index {a} out of range").into());
+            }
+            if !(b < num_arcs) {
+                return Err(format!("homologous arc index {b} out of range").into());
+            }
+        }
+
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
+
+        Ok(Self {
+            graph,
+            capacities,
+            source,
+            sink,
+            requirement,
+            homologous_pairs,
+        })
     }
 
     pub fn graph(&self) -> &DirectedGraph {

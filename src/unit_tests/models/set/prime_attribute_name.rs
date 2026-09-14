@@ -213,3 +213,11 @@ fn test_prime_attribute_name_empty_lhs() {
 fn test_prime_attribute_name_dep_out_of_range() {
     PrimeAttributeName::new(3, vec![(vec![0], vec![5])], 0);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json =
+        serde_json::json!({"num_attributes":3,"dependencies":[[[],[1]]],"query_attribute":0});
+    assert!(serde_json::from_value::<PrimeAttributeName>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("PrimeAttributeName", &Default::default(), json).is_err());
+}

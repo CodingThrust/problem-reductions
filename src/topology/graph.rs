@@ -116,21 +116,28 @@ impl SimpleGraph {
     ///
     /// Panics if any edge references a vertex index >= num_vertices.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
+        Self::try_new(num_vertices, edges).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub(crate) fn try_new(
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let mut inner = UnGraph::new_undirected();
         for _ in 0..num_vertices {
             inner.add_node(());
         }
         for (u, v) in edges {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "edge ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "edge ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
             inner.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
         }
-        Self { inner }
+        Ok(Self { inner })
     }
 
     /// Creates an empty graph with the given number of vertices.
@@ -279,7 +286,7 @@ impl<'de> Deserialize<'de> for SimpleGraph {
             edges: Vec<(usize, usize)>,
         }
         let data = GraphData::deserialize(deserializer)?;
-        Ok(SimpleGraph::new(data.num_vertices, data.edges))
+        SimpleGraph::try_new(data.num_vertices, data.edges).map_err(serde::de::Error::custom)
     }
 }
 

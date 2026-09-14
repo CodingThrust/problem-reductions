@@ -155,11 +155,26 @@ impl IntExpr {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegerExpressionMembershipData")]
 pub struct IntegerExpressionMembership {
     /// The recursive expression tree.
     expression: IntExpr,
     /// The target integer K.
     target: i64,
+}
+
+#[derive(Deserialize)]
+struct IntegerExpressionMembershipData {
+    expression: IntExpr,
+    target: i64,
+}
+
+impl TryFrom<IntegerExpressionMembershipData> for IntegerExpressionMembership {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: IntegerExpressionMembershipData) -> Result<Self, Self::Error> {
+        Self::try_new(data.expression, data.target)
+    }
 }
 
 impl IntegerExpressionMembership {
@@ -169,12 +184,20 @@ impl IntegerExpressionMembership {
     /// * `expression` - The integer expression tree
     /// * `target` - The target integer K
     pub fn new(expression: IntExpr, target: i64) -> Self {
-        assert!(target > 0, "target must be a positive integer (got 0)");
-        assert!(
-            expression.all_atoms_positive(),
-            "all Atom values must be positive (> 0)"
-        );
-        Self { expression, target }
+        Self::try_new(expression, target).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        expression: IntExpr,
+        target: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if target <= 0 {
+            return Err("target must be a positive integer (got 0)".into());
+        }
+        if !(expression.all_atoms_positive()) {
+            return Err("all Atom values must be positive (> 0)".into());
+        }
+        Ok(Self { expression, target })
     }
 
     /// Returns a reference to the expression tree.

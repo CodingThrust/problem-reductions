@@ -247,3 +247,15 @@ fn test_rectilinear_picture_compression_empty_row_panics() {
 fn test_rectilinear_picture_compression_inconsistent_rows_panics() {
     RectilinearPictureCompression::new(vec![vec![true, false], vec![true]], 1);
 }
+
+#[test]
+fn deserialize_rejects_invalid_matrix_before_building_rectangles() {
+    for matrix in [vec![], vec![vec![]], vec![vec![true], vec![]]] {
+        assert!(
+            serde_json::from_value::<RectilinearPictureCompression>(serde_json::json!({
+                "matrix": matrix, "bound": 1
+            }))
+            .is_err()
+        );
+    }
+}

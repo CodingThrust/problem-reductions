@@ -58,6 +58,7 @@ inventory::submit! {
 ///     .unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BoyceCoddNormalFormViolationData")]
 pub struct BoyceCoddNormalFormViolation {
     /// Total number of attributes (elements are `0..num_attributes`).
     num_attributes: usize,
@@ -65,6 +66,24 @@ pub struct BoyceCoddNormalFormViolation {
     functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
     /// Target subset `A'` of attributes to test for BCNF violation.
     target_subset: Vec<usize>,
+}
+
+#[derive(Deserialize)]
+struct BoyceCoddNormalFormViolationData {
+    num_attributes: usize,
+    functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
+    target_subset: Vec<usize>,
+}
+
+impl TryFrom<BoyceCoddNormalFormViolationData> for BoyceCoddNormalFormViolation {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: BoyceCoddNormalFormViolationData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_attributes,
+            data.functional_deps,
+            data.target_subset,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -107,7 +126,7 @@ impl TryFrom<BoyceCoddNormalFormViolationCreateSpec> for BoyceCoddNormalFormViol
             )
             .into());
         }
-        Ok(Self::new(spec.n, spec.subsets, spec.target))
+        Self::try_new(spec.n, spec.subsets, spec.target)
     }
 }
 
@@ -129,27 +148,32 @@ impl BoyceCoddNormalFormViolation {
         functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
         target_subset: Vec<usize>,
     ) -> Self {
-        assert!(!target_subset.is_empty(), "target_subset must be non-empty");
+        Self::try_new(num_attributes, functional_deps, target_subset)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_attributes: usize,
+        functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
+        target_subset: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if target_subset.is_empty() {
+            return Err("target_subset must be non-empty".into());
+        }
 
         let mut functional_deps = functional_deps;
         for (fd_index, (lhs, rhs)) in functional_deps.iter_mut().enumerate() {
-            assert!(
-                !lhs.is_empty(),
-                "Functional dependency {} has an empty LHS",
-                fd_index
-            );
+            if lhs.is_empty() {
+                return Err(format!("Functional dependency {} has an empty LHS", fd_index).into());
+            }
             lhs.sort_unstable();
             lhs.dedup();
             rhs.sort_unstable();
             rhs.dedup();
             for &attr in lhs.iter().chain(rhs.iter()) {
-                assert!(
-                    attr < num_attributes,
-                    "Functional dependency {} contains attribute {} which is out of range (num_attributes = {})",
-                    fd_index,
-                    attr,
-                    num_attributes
-                );
+                if !(attr < num_attributes) {
+                    return Err(format!("Functional dependency {} contains attribute {} which is out of range (num_attributes = {})", fd_index, attr, num_attributes).into());
+                }
             }
         }
 
@@ -157,19 +181,16 @@ impl BoyceCoddNormalFormViolation {
         target_subset.sort_unstable();
         target_subset.dedup();
         for &attr in &target_subset {
-            assert!(
-                attr < num_attributes,
-                "target_subset contains attribute {} which is out of range (num_attributes = {})",
-                attr,
-                num_attributes
-            );
+            if !(attr < num_attributes) {
+                return Err(format!("target_subset contains attribute {} which is out of range (num_attributes = {})", attr, num_attributes).into());
+            }
         }
 
-        Self {
+        Ok(Self {
             num_attributes,
             functional_deps,
             target_subset,
-        }
+        })
     }
 
     /// Return the total number of attributes.

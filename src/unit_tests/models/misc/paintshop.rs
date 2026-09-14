@@ -154,3 +154,26 @@ fn test_paintshop_paper_example() {
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }
+
+#[test]
+fn deserialize_rebuilds_occurrence_metadata() {
+    let expected = PaintShop::try_new(vec!["a", "b", "a", "b"]).unwrap();
+    let mut json = serde_json::to_value(&expected).unwrap();
+    json["is_first"] = serde_json::json!([false]);
+    json["num_cars"] = serde_json::json!(99);
+    let restored: PaintShop = serde_json::from_value(json).unwrap();
+    assert_eq!(
+        serde_json::to_value(restored).unwrap(),
+        serde_json::to_value(expected).unwrap()
+    );
+}
+
+#[test]
+fn deserialize_rejects_invalid_car_indices_and_counts() {
+    for indices in [vec![0, 1], vec![0]] {
+        assert!(serde_json::from_value::<PaintShop>(serde_json::json!({
+            "sequence_indices": indices, "car_labels": ["a"]
+        }))
+        .is_err());
+    }
+}

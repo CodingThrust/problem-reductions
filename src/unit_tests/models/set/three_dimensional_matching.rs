@@ -155,3 +155,12 @@ fn test_three_dimensional_matching_duplicate_coordinates() {
     assert!(!problem.evaluate(&vec![true, false, true]).unwrap()); // T0+T2: w={0,0} not distinct
     assert!(!problem.evaluate(&vec![false, true, true]).unwrap()); // T1+T2: x={1,1} not distinct
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":2,"triples":[[0,2,0]]});
+    assert!(serde_json::from_value::<ThreeDimensionalMatching>(json.clone()).is_err());
+    assert!(
+        crate::registry::load_dyn("ThreeDimensionalMatching", &Default::default(), json).is_err()
+    );
+}

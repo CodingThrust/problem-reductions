@@ -63,6 +63,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumAxiomSetData")]
 pub struct MinimumAxiomSet {
     /// Total number of sentences |S|.
     num_sentences: usize,
@@ -70,6 +71,20 @@ pub struct MinimumAxiomSet {
     true_sentences: Vec<usize>,
     /// Implication rules: each (antecedents, consequent).
     implications: Vec<(Vec<usize>, usize)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumAxiomSetData {
+    num_sentences: usize,
+    true_sentences: Vec<usize>,
+    implications: Vec<(Vec<usize>, usize)>,
+}
+
+impl TryFrom<MinimumAxiomSetData> for MinimumAxiomSet {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumAxiomSetData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_sentences, data.true_sentences, data.implications)
+    }
 }
 
 impl MinimumAxiomSet {
@@ -85,37 +100,53 @@ impl MinimumAxiomSet {
         true_sentences: Vec<usize>,
         implications: Vec<(Vec<usize>, usize)>,
     ) -> Self {
+        Self::try_new(num_sentences, true_sentences, implications)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_sentences: usize,
+        true_sentences: Vec<usize>,
+        implications: Vec<(Vec<usize>, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         // Validate true sentences
         for &s in &true_sentences {
-            assert!(
-                s < num_sentences,
-                "True sentence index {s} out of range [0, {num_sentences})"
-            );
+            if !(s < num_sentences) {
+                return Err(
+                    format!("True sentence index {s} out of range [0, {num_sentences})").into(),
+                );
+            }
         }
         // Check no duplicates
         let mut seen = vec![false; num_sentences];
         for &s in &true_sentences {
-            assert!(!seen[s], "Duplicate true sentence index {s}");
+            if !(!seen[s]) {
+                return Err(format!("Duplicate true sentence index {s}").into());
+            }
             seen[s] = true;
         }
         // Validate implications
         for (antecedents, consequent) in &implications {
             for &a in antecedents {
-                assert!(
-                    a < num_sentences,
-                    "Implication antecedent {a} out of range [0, {num_sentences})"
-                );
+                if !(a < num_sentences) {
+                    return Err(format!(
+                        "Implication antecedent {a} out of range [0, {num_sentences})"
+                    )
+                    .into());
+                }
             }
-            assert!(
-                *consequent < num_sentences,
-                "Implication consequent {consequent} out of range [0, {num_sentences})"
-            );
+            if !(*consequent < num_sentences) {
+                return Err(format!(
+                    "Implication consequent {consequent} out of range [0, {num_sentences})"
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             num_sentences,
             true_sentences,
             implications,
-        }
+        })
     }
 
     /// Returns the total number of sentences |S|.

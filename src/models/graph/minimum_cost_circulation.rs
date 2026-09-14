@@ -85,6 +85,7 @@ inventory::submit! {
 /// assert_eq!(problem.total_cost(&witness).unwrap(), -5);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCostCirculationData")]
 pub struct MinimumCostCirculation {
     /// The directed multigraph G = (V, A).
     graph: DirectedGraph,
@@ -92,6 +93,20 @@ pub struct MinimumCostCirculation {
     capacities: Vec<i64>,
     /// Signed cost a(a) for each arc.
     costs: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCostCirculationData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    costs: Vec<i64>,
+}
+
+impl TryFrom<MinimumCostCirculationData> for MinimumCostCirculation {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCostCirculationData) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.capacities, data.costs)
+    }
 }
 
 impl MinimumCostCirculation {
@@ -106,27 +121,35 @@ impl MinimumCostCirculation {
     ///
     /// Note: costs are signed and **may be negative**.
     pub fn new(graph: DirectedGraph, capacities: Vec<i64>, costs: Vec<i64>) -> Self {
+        Self::try_new(graph, capacities, costs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        capacities: Vec<i64>,
+        costs: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let m = graph.num_arcs();
-        assert_eq!(
-            capacities.len(),
-            m,
-            "capacities length ({}) must match num_arcs ({m})",
-            capacities.len()
-        );
-        assert_eq!(
-            costs.len(),
-            m,
-            "costs length ({}) must match num_arcs ({m})",
-            costs.len()
-        );
-        for (i, &c) in capacities.iter().enumerate() {
-            assert!(c >= 0, "capacity[{i}] = {c} is negative");
+        if capacities.len() != m {
+            return Err(format!(
+                "capacities length ({}) must match num_arcs ({m})",
+                capacities.len()
+            )
+            .into());
         }
-        Self {
+        if costs.len() != m {
+            return Err(format!("costs length ({}) must match num_arcs ({m})", costs.len()).into());
+        }
+        for (i, &c) in capacities.iter().enumerate() {
+            if !(c >= 0) {
+                return Err(format!("capacity[{i}] = {c} is negative").into());
+            }
+        }
+        Ok(Self {
             graph,
             capacities,
             costs,
-        }
+        })
     }
 
     /// Get a reference to the underlying directed graph.

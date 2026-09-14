@@ -58,3 +58,19 @@ fn test_bipartite_graph_invalid_left_index() {
 fn test_bipartite_graph_invalid_right_index() {
     BipartiteGraph::new(2, 2, vec![(0, 2)]);
 }
+
+#[test]
+fn deserialize_checks_partition_endpoints_and_total_size() {
+    for edges in [vec![(1, 0)], vec![(0, 1)]] {
+        assert!(serde_json::from_value::<BipartiteGraph>(serde_json::json!({
+            "left_size": 1, "right_size": 1, "edges": edges
+        }))
+        .is_err());
+    }
+    assert!(BipartiteGraph::try_new(usize::MAX, 1, vec![]).is_err());
+    let graph: BipartiteGraph = serde_json::from_value(serde_json::json!({
+        "left_size": 1, "right_size": 1, "edges": [[0, 0]]
+    }))
+    .unwrap();
+    assert_eq!(graph.edges(), vec![(0, 1)]);
+}

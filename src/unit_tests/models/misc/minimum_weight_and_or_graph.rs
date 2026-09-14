@@ -207,3 +207,16 @@ fn test_minimum_weight_and_or_graph_paper_example() {
         vec![true, true, false, true, false, true]
     );
 }
+
+#[test]
+fn deserialize_rejects_invalid_graph_before_building_outgoing_arcs() {
+    for (arcs, source) in [(vec![(2, 1)], 0), (vec![(0, 1)], 2)] {
+        assert!(
+            serde_json::from_value::<MinimumWeightAndOrGraph>(serde_json::json!({
+                "num_vertices": 2, "arcs": arcs, "source": source,
+                "gate_types": [true, null], "arc_weights": [1]
+            }))
+            .is_err()
+        );
+    }
+}

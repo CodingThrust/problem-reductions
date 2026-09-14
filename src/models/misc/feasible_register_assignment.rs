@@ -90,15 +90,13 @@ impl<'de> Deserialize<'de> for FeasibleRegisterAssignment {
         D: Deserializer<'de>,
     {
         let data = FeasibleRegisterAssignmentData::deserialize(deserializer)?;
-        let (dependencies, dependents) = Self::build_adjacency(data.num_vertices, &data.arcs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            num_registers: data.num_registers,
-            assignment: data.assignment,
-            dependencies,
-            dependents,
-        })
+        Self::try_new(
+            data.num_vertices,
+            data.arcs,
+            data.num_registers,
+            data.assignment,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -116,47 +114,57 @@ impl FeasibleRegisterAssignment {
         num_registers: usize,
         assignment: Vec<usize>,
     ) -> Self {
+        Self::try_new(num_vertices, arcs, num_registers, assignment)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        num_registers: usize,
+        assignment: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for &(v, u) in &arcs {
-            assert!(
-                v < num_vertices && u < num_vertices,
-                "Arc ({}, {}) out of bounds for {} vertices",
-                v,
-                u,
-                num_vertices
-            );
-            assert!(v != u, "Self-loop ({}, {}) not allowed in a DAG", v, u);
+            if !(v < num_vertices && u < num_vertices) {
+                return Err(format!(
+                    "Arc ({}, {}) out of bounds for {} vertices",
+                    v, u, num_vertices
+                )
+                .into());
+            };
+            if v == u {
+                return Err(format!("Self-loop ({}, {}) not allowed in a DAG", v, u).into());
+            };
         }
-        assert_eq!(
-            assignment.len(),
-            num_vertices,
-            "Assignment length {} does not match num_vertices {}",
-            assignment.len(),
-            num_vertices
-        );
-        if num_vertices > 0 {
-            assert!(
-                num_registers > 0,
-                "num_registers must be positive when there are vertices"
-            );
+        if assignment.len() != num_vertices {
+            return Err(format!(
+                "Assignment length {} does not match num_vertices {}",
+                assignment.len(),
+                num_vertices
+            )
+            .into());
+        };
+        if num_vertices > 0 && num_registers == 0 {
+            return Err("num_registers must be positive when there are vertices".into());
         }
         for (v, &r) in assignment.iter().enumerate() {
-            assert!(
-                r < num_registers,
-                "Assignment[{}] = {} is out of bounds for {} registers",
-                v,
-                r,
-                num_registers
-            );
+            if !(r < num_registers) {
+                return Err(format!(
+                    "Assignment[{}] = {} is out of bounds for {} registers",
+                    v, r, num_registers
+                )
+                .into());
+            };
         }
         let (dependencies, dependents) = Self::build_adjacency(num_vertices, &arcs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             num_registers,
             assignment,
             dependencies,
             dependents,
-        }
+        })
     }
 
     /// Build dependency and dependent adjacency lists from arcs.

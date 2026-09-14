@@ -35,10 +35,7 @@ fn test_partitionintocliques_aggregate_applies_gadget_offset() {
 
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
-    let source: PartitionIntoCliques<SimpleGraph> = serde_json::from_value(serde_json::json!({
-        "graph": {"num_vertices": 0, "edges": []}, "num_cliques": 0
-    }))
-    .unwrap();
+    let source = PartitionIntoCliques::new(SimpleGraph::empty(1), 1);
     let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -154,11 +151,15 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
         (3, vec![(0, 1), (1, 0), (0, 0)]),
     ] {
         for bound in [0, 1, n, n + 1, usize::MAX] {
-            let source: PartitionIntoCliques<SimpleGraph> =
-                serde_json::from_value(serde_json::json!({
+            let source =
+                serde_json::from_value::<PartitionIntoCliques<SimpleGraph>>(serde_json::json!({
                     "graph": {"num_vertices": n, "edges": edges}, "num_cliques": bound
-                }))
-                .unwrap();
+                }));
+            if bound == 0 || bound > n {
+                assert!(source.is_err());
+                continue;
+            }
+            let source = source.unwrap();
             let reduction =
                 ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source).unwrap();
             let target = ReductionResult::target_problem(&reduction);

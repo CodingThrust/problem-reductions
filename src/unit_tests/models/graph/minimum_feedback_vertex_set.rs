@@ -244,3 +244,11 @@ fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
         .is_err()
     );
 }
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = DirectedGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(MinimumFeedbackVertexSet::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumFeedbackVertexSet<i64>>(json).is_err());
+}

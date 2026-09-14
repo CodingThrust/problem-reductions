@@ -40,10 +40,28 @@ inventory::submit! {
 ///
 /// A valid configuration must select edges that form exactly one connected
 /// simple circuit using only edges from `graph`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LongestCircuit<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct LongestCircuitData<G, W: WeightElement> {
+    graph: G,
+    edge_lengths: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for LongestCircuit<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = LongestCircuitData::<G, W>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.edge_lengths).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -74,7 +92,7 @@ impl TryFrom<LongestCircuitCreateSpec> for LongestCircuit<SimpleGraph, i64> {
         if edge_lengths.iter().any(|&length| length <= 0) {
             return Err("edge_weights must be positive".to_string().into());
         }
-        Ok(Self::new(graph, edge_lengths))
+        Self::try_new(graph, edge_lengths)
     }
 }
 
@@ -117,22 +135,15 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
     /// Panics if the number of edge lengths does not match the graph's edge
     /// count, or if any edge length is non-positive.
     pub fn new(graph: G, edge_lengths: Vec<W>) -> Self {
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        let zero = W::Sum::zero();
-        assert!(
-            edge_lengths
-                .iter()
-                .all(|length| length.to_sum() > zero.clone()),
-            "All edge lengths must be positive (> 0)"
-        );
-        Self {
+        Self::try_new(graph, edge_lengths).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_lengths: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_lengths)?;
+        Ok(Self {
             graph,
             edge_lengths,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -160,6 +171,19 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
             "All edge lengths must be positive (> 0)"
         );
         self.edge_lengths = edge_lengths;
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("edge_lengths length must match num_edges".into());
+        }
+        if !weights
+            .iter()
+            .all(|weight| weight.to_sum() > W::Sum::zero())
+        {
+            return Err("All edge lengths must be positive (> 0)".into());
+        }
+        Ok(())
     }
 
     /// Replace the edge lengths via the generic weight-management naming.

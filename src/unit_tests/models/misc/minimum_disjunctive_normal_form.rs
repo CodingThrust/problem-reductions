@@ -146,3 +146,14 @@ fn test_minimum_dnf_wrong_config_length() {
 fn test_minimum_dnf_all_false() {
     MinimumDisjunctiveNormalForm::new(2, vec![false, false, false, false]);
 }
+
+#[test]
+fn deserialize_rebuilds_prime_implicants() {
+    let model: MinimumDisjunctiveNormalForm = serde_json::from_value(serde_json::json!({
+        "num_variables": 2, "truth_table": [false, true, true, false],
+        "prime_implicants": [], "minterms": [99]
+    }))
+    .unwrap();
+    assert_eq!(model.minterms(), &[1, 2]);
+    assert_eq!(model.num_prime_implicants(), 2);
+}

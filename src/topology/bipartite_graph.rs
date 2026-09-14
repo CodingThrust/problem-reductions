@@ -22,11 +22,26 @@ use serde::{Deserialize, Serialize};
 /// assert!(g.has_edge(0, 2)); // left 0 -> right 0 (unified index 2)
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "BipartiteGraphData")]
 pub struct BipartiteGraph {
     left_size: usize,
     right_size: usize,
     /// Edges in bipartite-local coordinates: (left_index, right_index).
     edges: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct BipartiteGraphData {
+    left_size: usize,
+    right_size: usize,
+    edges: Vec<(usize, usize)>,
+}
+
+impl TryFrom<BipartiteGraphData> for BipartiteGraph {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: BipartiteGraphData) -> Result<Self, Self::Error> {
+        Self::try_new(data.left_size, data.right_size, data.edges)
+    }
 }
 
 impl BipartiteGraph {
@@ -42,25 +57,36 @@ impl BipartiteGraph {
     ///
     /// Panics if any edge references an out-of-bounds left or right vertex index.
     pub fn new(left_size: usize, right_size: usize, edges: Vec<(usize, usize)>) -> Self {
+        Self::try_new(left_size, right_size, edges).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub(crate) fn try_new(
+        left_size: usize,
+        right_size: usize,
+        edges: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        left_size
+            .checked_add(right_size)
+            .ok_or("bipartite vertex count overflows usize")?;
         for &(u, v) in &edges {
-            assert!(
-                u < left_size,
-                "left vertex {} out of bounds (left_size={})",
-                u,
-                left_size
-            );
-            assert!(
-                v < right_size,
-                "right vertex {} out of bounds (right_size={})",
-                v,
-                right_size
-            );
+            if !(u < left_size) {
+                return Err(
+                    format!("left vertex {} out of bounds (left_size={})", u, left_size).into(),
+                );
+            }
+            if !(v < right_size) {
+                return Err(format!(
+                    "right vertex {} out of bounds (right_size={})",
+                    v, right_size
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             left_size,
             right_size,
             edges,
-        }
+        })
     }
 
     /// Returns the number of vertices in the left partition.

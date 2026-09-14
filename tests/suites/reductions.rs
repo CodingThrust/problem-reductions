@@ -337,10 +337,7 @@ mod partition_into_cliques_covering_by_cliques_reductions {
 
     #[test]
     fn test_partition_into_cliques_to_covering_by_cliques_closed_loop() {
-        let source: PartitionIntoCliques<SimpleGraph> = serde_json::from_value(serde_json::json!({
-            "graph": {"num_vertices": 0, "edges": []}, "num_cliques": 0
-        }))
-        .unwrap();
+        let source = PartitionIntoCliques::new(SimpleGraph::empty(1), 1);
 
         let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
             .expect("reduction should succeed");

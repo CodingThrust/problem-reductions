@@ -10,6 +10,101 @@ use crate::Problem;
 use std::any::Any;
 use std::collections::BTreeMap;
 
+#[test]
+fn timetable_construction_and_loading_reject_inconsistent_dimensions() {
+    let input = serde_json::json!({
+        "num_periods": 1, "num_craftsmen": 1, "num_tasks": 1,
+        "craftsman_avail": [[true]], "task_avail": [[true]], "requirements": [[1]]
+    });
+    let variant = BTreeMap::new();
+    crate::registry::construct_dyn("TimetableDesign", &variant, input.clone()).unwrap();
+    load_dyn("TimetableDesign", &variant, input.clone()).unwrap();
+    for field in ["craftsman_avail", "task_avail", "requirements"] {
+        for value in [serde_json::json!([]), serde_json::json!([[]])] {
+            let mut invalid = input.clone();
+            invalid[field] = value;
+            let error =
+                crate::registry::construct_dyn("TimetableDesign", &variant, invalid.clone())
+                    .err()
+                    .expect("inconsistent dimensions must fail");
+            assert!(error.to_string().contains(field), "{error}");
+            let error = load_dyn("TimetableDesign", &variant, invalid).unwrap_err();
+            assert!(error.to_string().contains(field), "{error}");
+        }
+    }
+}
+
+#[test]
+fn graph_construction_and_loading_reject_inconsistent_fields() {
+    use serde_json::json;
+    let variant = BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    for (name, input, mutations) in [
+        (
+            "MinMaxMulticenter",
+            json!({"graph": [[0,1]], "k": 1}),
+            vec![
+                ("weights", "vertex_weights", json!([])),
+                ("edge_weights", "edge_lengths", json!([])),
+            ],
+        ),
+        (
+            "MinimumSumMulticenter",
+            json!({"graph": [[0,1]], "k": 1}),
+            vec![
+                ("weights", "vertex_weights", json!([])),
+                ("edge_weights", "edge_lengths", json!([])),
+            ],
+        ),
+        (
+            "BoundedDiameterSpanningTree",
+            json!({"graph": [[0,1]], "weight_bound": 1, "diameter_bound": 1}),
+            vec![
+                ("edge_weights", "edge_weights", json!([])),
+                ("edge_weights", "edge_weights", json!([0])),
+                ("weight_bound", "weight_bound", json!(0)),
+                ("diameter_bound", "diameter_bound", json!(0)),
+            ],
+        ),
+        (
+            "RuralPostman",
+            json!({"graph": [[0,1]], "required_edges": [0]}),
+            vec![
+                ("edge_weights", "edge_lengths", json!([])),
+                ("required_edges", "required_edges", json!([1])),
+            ],
+        ),
+        (
+            "MinimumMultiwayCut",
+            json!({"graph": {"num_vertices": 2, "edges": [[0,1]]}, "terminals": [0,1], "edge_weights": [1]}),
+            vec![
+                ("edge_weights", "edge_weights", json!([])),
+                ("terminals", "terminals", json!([0, 2])),
+            ],
+        ),
+    ] {
+        let problem = crate::registry::construct_dyn(name, &variant, input.clone()).unwrap();
+        let stored = problem.serialize_json();
+        load_dyn(name, &variant, stored.clone()).unwrap();
+        for (create_field, stored_field, value) in mutations {
+            let mut invalid = input.clone();
+            invalid[create_field] = value.clone();
+            assert!(
+                crate::registry::construct_dyn(name, &variant, invalid).is_err(),
+                "{name}: {create_field}"
+            );
+            let mut invalid = stored.clone();
+            invalid[stored_field] = value;
+            assert!(
+                load_dyn(name, &variant, invalid).is_err(),
+                "{name}: {stored_field}"
+            );
+        }
+    }
+}
+
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct SolutionProblem {
     weights: Vec<u64>,

@@ -63,10 +63,24 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "OptimumCommunicationSpanningTreeData")]
 pub struct OptimumCommunicationSpanningTree {
     num_vertices: usize,
     edge_weights: Vec<Vec<i64>>,
     requirements: Vec<Vec<i64>>,
+}
+
+#[derive(Deserialize)]
+struct OptimumCommunicationSpanningTreeData {
+    edge_weights: Vec<Vec<i64>>,
+    requirements: Vec<Vec<i64>>,
+}
+
+impl TryFrom<OptimumCommunicationSpanningTreeData> for OptimumCommunicationSpanningTree {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: OptimumCommunicationSpanningTreeData) -> Result<Self, Self::Error> {
+        Self::try_new(data.edge_weights, data.requirements)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -108,7 +122,7 @@ impl TryFrom<OptimumCommunicationSpanningTreeCreateSpec> for OptimumCommunicatio
                 }
             }
         }
-        Ok(Self::new(edge_weights, spec.requirements))
+        Self::try_new(edge_weights, spec.requirements)
     }
 }
 
@@ -125,73 +139,94 @@ impl OptimumCommunicationSpanningTree {
     /// Panics if the matrices are not square, not the same size, have nonzero
     /// diagonals, are not symmetric, or contain negative entries.
     pub fn new(edge_weights: Vec<Vec<i64>>, requirements: Vec<Vec<i64>>) -> Self {
+        Self::try_new(edge_weights, requirements).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        edge_weights: Vec<Vec<i64>>,
+        requirements: Vec<Vec<i64>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = edge_weights.len();
-        assert!(n >= 2, "must have at least 2 vertices");
-        assert_eq!(
-            requirements.len(),
-            n,
-            "requirements matrix must have same size as edge_weights"
-        );
+        if !(n >= 2) {
+            return Err("must have at least 2 vertices".into());
+        }
+        if requirements.len() != n {
+            return Err("requirements matrix must have same size as edge_weights".into());
+        }
 
         for (i, row) in edge_weights.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                n,
-                "edge_weights must be square: row {i} has length {} but expected {n}",
-                row.len()
-            );
-            assert_eq!(
-                row[i], 0,
-                "diagonal of edge_weights must be zero: edge_weights[{i}][{i}] = {}",
-                row[i]
-            );
+            if row.len() != n {
+                return Err(format!(
+                    "edge_weights must be square: row {i} has length {} but expected {n}",
+                    row.len()
+                )
+                .into());
+            }
+            if row[i] != 0 {
+                return Err(format!(
+                    "diagonal of edge_weights must be zero: edge_weights[{i}][{i}] = {}",
+                    row[i]
+                )
+                .into());
+            }
         }
 
         for (i, row) in requirements.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                n,
-                "requirements must be square: row {i} has length {} but expected {n}",
-                row.len()
-            );
-            assert_eq!(
-                row[i], 0,
-                "diagonal of requirements must be zero: requirements[{i}][{i}] = {}",
-                row[i]
-            );
+            if row.len() != n {
+                return Err(format!(
+                    "requirements must be square: row {i} has length {} but expected {n}",
+                    row.len()
+                )
+                .into());
+            }
+            if row[i] != 0 {
+                return Err(format!(
+                    "diagonal of requirements must be zero: requirements[{i}][{i}] = {}",
+                    row[i]
+                )
+                .into());
+            }
         }
 
         // Check symmetry and non-negativity
         for i in 0..n {
             for j in (i + 1)..n {
-                assert_eq!(
-                    edge_weights[i][j], edge_weights[j][i],
-                    "edge_weights must be symmetric: w[{i}][{j}]={} != w[{j}][{i}]={}",
-                    edge_weights[i][j], edge_weights[j][i]
-                );
-                assert!(
-                    edge_weights[i][j] >= 0,
-                    "edge_weights must be non-negative: w[{i}][{j}]={}",
-                    edge_weights[i][j]
-                );
-                assert_eq!(
-                    requirements[i][j], requirements[j][i],
-                    "requirements must be symmetric: r[{i}][{j}]={} != r[{j}][{i}]={}",
-                    requirements[i][j], requirements[j][i]
-                );
-                assert!(
-                    requirements[i][j] >= 0,
-                    "requirements must be non-negative: r[{i}][{j}]={}",
-                    requirements[i][j]
-                );
+                if edge_weights[i][j] != edge_weights[j][i] {
+                    return Err(format!(
+                        "edge_weights must be symmetric: w[{i}][{j}]={} != w[{j}][{i}]={}",
+                        edge_weights[i][j], edge_weights[j][i]
+                    )
+                    .into());
+                }
+                if !(edge_weights[i][j] >= 0) {
+                    return Err(format!(
+                        "edge_weights must be non-negative: w[{i}][{j}]={}",
+                        edge_weights[i][j]
+                    )
+                    .into());
+                }
+                if requirements[i][j] != requirements[j][i] {
+                    return Err(format!(
+                        "requirements must be symmetric: r[{i}][{j}]={} != r[{j}][{i}]={}",
+                        requirements[i][j], requirements[j][i]
+                    )
+                    .into());
+                }
+                if !(requirements[i][j] >= 0) {
+                    return Err(format!(
+                        "requirements must be non-negative: r[{i}][{j}]={}",
+                        requirements[i][j]
+                    )
+                    .into());
+                }
             }
         }
 
-        Self {
+        Ok(Self {
             num_vertices: n,
             edge_weights,
             requirements,
-        }
+        })
     }
 
     /// Returns the number of vertices.

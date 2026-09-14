@@ -175,3 +175,15 @@ fn test_feasible_register_assignment_same_register_pair_count() {
     let problem = FeasibleRegisterAssignment::new(5, vec![], 3, vec![0, 1, 0, 2, 0]);
     assert_eq!(problem.num_same_register_pairs(), 3);
 }
+
+#[test]
+fn deserialize_rejects_invalid_indices_before_building_adjacency() {
+    for (arcs, assignment) in [(vec![(0, 2)], vec![0, 0]), (vec![(0, 1)], vec![0, 1])] {
+        assert!(
+            serde_json::from_value::<FeasibleRegisterAssignment>(serde_json::json!({
+                "num_vertices": 2, "arcs": arcs, "num_registers": 1, "assignment": assignment
+            }))
+            .is_err()
+        );
+    }
+}

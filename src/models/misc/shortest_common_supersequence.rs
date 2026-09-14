@@ -55,10 +55,25 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ShortestCommonSupersequenceData")]
 pub struct ShortestCommonSupersequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+struct ShortestCommonSupersequenceData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ShortestCommonSupersequenceData> for ShortestCommonSupersequence {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ShortestCommonSupersequenceData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.strings)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -114,17 +129,29 @@ impl ShortestCommonSupersequence {
     /// Panics if `strings` is empty, or if `alphabet_size` is 0 and any input
     /// string is non-empty.
     pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
-        assert!(!strings.is_empty(), "must have at least one string");
-        let max_length: usize = strings.iter().map(|s| s.len()).sum();
-        assert!(
-            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
-            "alphabet_size must be > 0 when any input string is non-empty"
-        );
-        Self {
+        Self::try_new(alphabet_size, strings).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("must have at least one string".into());
+        }
+        let max_length = strings.iter().try_fold(0usize, |total, string| {
+            total
+                .checked_add(string.len())
+                .ok_or("maximum string length overflows usize")
+        })?;
+        if !(alphabet_size > 0 || strings.iter().all(|s| s.is_empty())) {
+            return Err("alphabet_size must be > 0 when any input string is non-empty".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
             max_length,
-        }
+        })
     }
 
     /// Returns the alphabet size.

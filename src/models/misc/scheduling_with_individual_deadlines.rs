@@ -29,11 +29,32 @@ inventory::submit! {
 /// satisfies `sigma(u) + 1 <= sigma(v)` and no time slot hosts more than
 /// `num_processors` tasks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SchedulingWithIndividualDeadlinesData")]
 pub struct SchedulingWithIndividualDeadlines {
     num_tasks: usize,
     num_processors: usize,
     deadlines: Vec<i64>,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct SchedulingWithIndividualDeadlinesData {
+    num_tasks: usize,
+    num_processors: usize,
+    deadlines: Vec<i64>,
+    precedences: Vec<(usize, usize)>,
+}
+
+impl TryFrom<SchedulingWithIndividualDeadlinesData> for SchedulingWithIndividualDeadlines {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SchedulingWithIndividualDeadlinesData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_tasks,
+            data.num_processors,
+            data.deadlines,
+            data.precedences,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,12 +93,12 @@ impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndi
             )
             .into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.num_tasks,
             spec.num_processors,
             spec.deadlines,
             precedences,
-        ))
+        )
     }
 }
 
@@ -88,36 +109,45 @@ impl SchedulingWithIndividualDeadlines {
         deadlines: Vec<i64>,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
-        assert_eq!(
-            deadlines.len(),
-            num_tasks,
-            "deadlines length must equal num_tasks"
-        );
-        assert!(
-            deadlines.iter().all(|&deadline| deadline >= 0),
-            "deadlines must be nonnegative"
-        );
+        Self::try_new(num_tasks, num_processors, deadlines, precedences)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_tasks: usize,
+        num_processors: usize,
+        deadlines: Vec<i64>,
+        precedences: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if deadlines.len() != num_tasks {
+            return Err("deadlines length must equal num_tasks".into());
+        }
+        if !(deadlines.iter().all(|&deadline| deadline >= 0)) {
+            return Err("deadlines must be nonnegative".into());
+        }
         for &(pred, succ) in &precedences {
-            assert!(
-                pred < num_tasks,
-                "predecessor index {} out of range (num_tasks = {})",
-                pred,
-                num_tasks
-            );
-            assert!(
-                succ < num_tasks,
-                "successor index {} out of range (num_tasks = {})",
-                succ,
-                num_tasks
-            );
+            if !(pred < num_tasks) {
+                return Err(format!(
+                    "predecessor index {} out of range (num_tasks = {})",
+                    pred, num_tasks
+                )
+                .into());
+            }
+            if !(succ < num_tasks) {
+                return Err(format!(
+                    "successor index {} out of range (num_tasks = {})",
+                    succ, num_tasks
+                )
+                .into());
+            }
         }
 
-        Self {
+        Ok(Self {
             num_tasks,
             num_processors,
             deadlines,
             precedences,
-        }
+        })
     }
 
     pub fn num_tasks(&self) -> usize {

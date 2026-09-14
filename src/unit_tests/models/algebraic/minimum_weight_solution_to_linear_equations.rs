@@ -162,3 +162,13 @@ fn test_minimum_weight_solution_rhs_mismatch() {
     let matrix = vec![vec![1, 2], vec![3, 4]];
     MinimumWeightSolutionToLinearEquations::new(matrix, vec![1]);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(
+        serde_json::from_value::<MinimumWeightSolutionToLinearEquations>(
+            serde_json::json!({"matrix":[[1]],"rhs":[]})
+        )
+        .is_err()
+    );
+}

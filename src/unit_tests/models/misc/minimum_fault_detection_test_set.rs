@@ -196,3 +196,15 @@ fn test_minimum_fault_detection_test_set_paper_example() {
         vec![vec![true, false], vec![false, true]]
     );
 }
+
+#[test]
+fn deserialize_rejects_invalid_vertices_before_building_coverage() {
+    for (arcs, inputs) in [(vec![(0, 2)], vec![0]), (vec![(0, 1)], vec![2])] {
+        assert!(
+            serde_json::from_value::<MinimumFaultDetectionTestSet>(serde_json::json!({
+                "num_vertices": 2, "arcs": arcs, "inputs": inputs, "outputs": [1]
+            }))
+            .is_err()
+        );
+    }
+}

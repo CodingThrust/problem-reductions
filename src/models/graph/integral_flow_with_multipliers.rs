@@ -23,6 +23,7 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowWithMultipliersData")]
 pub struct IntegralFlowWithMultipliers {
     graph: DirectedGraph,
     source: usize,
@@ -30,6 +31,30 @@ pub struct IntegralFlowWithMultipliers {
     multipliers: Vec<i64>,
     capacities: Vec<i64>,
     requirement: i64,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowWithMultipliersData {
+    graph: DirectedGraph,
+    source: usize,
+    sink: usize,
+    multipliers: Vec<i64>,
+    capacities: Vec<i64>,
+    requirement: i64,
+}
+
+impl TryFrom<IntegralFlowWithMultipliersData> for IntegralFlowWithMultipliers {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowWithMultipliersData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.source,
+            data.sink,
+            data.multipliers,
+            data.capacities,
+            data.requirement,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -106,47 +131,59 @@ impl IntegralFlowWithMultipliers {
         capacities: Vec<i64>,
         requirement: i64,
     ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_arcs(),
-            "capacities length must match graph num_arcs"
-        );
-        assert_eq!(
-            multipliers.len(),
-            graph.num_vertices(),
-            "multipliers length must match graph num_vertices"
-        );
+        Self::try_new(graph, source, sink, multipliers, capacities, requirement)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        source: usize,
+        sink: usize,
+        multipliers: Vec<i64>,
+        capacities: Vec<i64>,
+        requirement: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_arcs() {
+            return Err("capacities length must match graph num_arcs".into());
+        }
+        if multipliers.len() != graph.num_vertices() {
+            return Err("multipliers length must match graph num_vertices".into());
+        }
 
         let num_vertices = graph.num_vertices();
-        assert!(
-            source < num_vertices,
-            "source ({source}) must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) must be less than num_vertices ({num_vertices})"
-        );
-        assert_ne!(source, sink, "source and sink must be distinct");
+        if !(source < num_vertices) {
+            return Err(format!(
+                "source ({source}) must be less than num_vertices ({num_vertices})"
+            )
+            .into());
+        }
+        if !(sink < num_vertices) {
+            return Err(
+                format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
+            );
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
 
         for (vertex, &multiplier) in multipliers.iter().enumerate() {
-            if vertex != source && vertex != sink {
-                assert!(multiplier > 0, "non-terminal multipliers must be positive");
+            if vertex != source && vertex != sink && !(multiplier > 0) {
+                return Err("non-terminal multipliers must be positive".into());
             }
         }
 
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
 
-        Self {
+        Ok(Self {
             graph,
             source,
             sink,
             multipliers,
             capacities,
             requirement,
-        }
+        })
     }
 
     pub fn graph(&self) -> &DirectedGraph {

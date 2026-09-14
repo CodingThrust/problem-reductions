@@ -87,15 +87,8 @@ impl<'de> Deserialize<'de> for MinimumFaultDetectionTestSet {
         D: Deserializer<'de>,
     {
         let data = MinimumFaultDetectionTestSetData::deserialize(deserializer)?;
-        let coverage =
-            Self::build_coverage(data.num_vertices, &data.arcs, &data.inputs, &data.outputs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            inputs: data.inputs,
-            outputs: data.outputs,
-            coverage,
-        })
+        Self::try_new(data.num_vertices, data.arcs, data.inputs, data.outputs)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -112,42 +105,56 @@ impl MinimumFaultDetectionTestSet {
         inputs: Vec<usize>,
         outputs: Vec<usize>,
     ) -> Self {
-        assert!(!inputs.is_empty(), "Inputs must not be empty");
-        assert!(!outputs.is_empty(), "Outputs must not be empty");
+        Self::try_new(num_vertices, arcs, inputs, outputs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        inputs: Vec<usize>,
+        outputs: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if inputs.is_empty() {
+            return Err("Inputs must not be empty".into());
+        };
+        if outputs.is_empty() {
+            return Err("Outputs must not be empty".into());
+        };
         for (i, &(u, v)) in arcs.iter().enumerate() {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "Arc {} ({}, {}) out of bounds for {} vertices",
-                i,
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "Arc {} ({}, {}) out of bounds for {} vertices",
+                    i, u, v, num_vertices
+                )
+                .into());
+            };
         }
         for &inp in &inputs {
-            assert!(
-                inp < num_vertices,
-                "Input vertex {} out of bounds for {} vertices",
-                inp,
-                num_vertices
-            );
+            if !(inp < num_vertices) {
+                return Err(format!(
+                    "Input vertex {} out of bounds for {} vertices",
+                    inp, num_vertices
+                )
+                .into());
+            };
         }
         for &out in &outputs {
-            assert!(
-                out < num_vertices,
-                "Output vertex {} out of bounds for {} vertices",
-                out,
-                num_vertices
-            );
+            if !(out < num_vertices) {
+                return Err(format!(
+                    "Output vertex {} out of bounds for {} vertices",
+                    out, num_vertices
+                )
+                .into());
+            };
         }
         let coverage = Self::build_coverage(num_vertices, &arcs, &inputs, &outputs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             inputs,
             outputs,
             coverage,
-        }
+        })
     }
 
     /// Compute forward reachability from a given vertex using BFS on the DAG.

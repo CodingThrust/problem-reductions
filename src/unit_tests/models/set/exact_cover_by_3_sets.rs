@@ -172,3 +172,28 @@ fn test_exact_cover_by_3_sets_element_out_of_range() {
 fn test_exact_cover_by_3_sets_duplicate_elements() {
     ExactCoverBy3Sets::new(6, vec![[0, 0, 1]]);
 }
+
+#[test]
+fn construction_and_json_reject_invalid_triples() {
+    for (universe_size, subsets) in [
+        (5, vec![[0, 1, 2]]),
+        (6, vec![[0, 1, 7]]),
+        (6, vec![[0, 0, 1]]),
+    ] {
+        assert!(ExactCoverBy3Sets::try_new(universe_size, subsets.clone()).is_err());
+        let json = serde_json::json!({"universe_size": universe_size, "subsets": subsets});
+        assert!(serde_json::from_value::<ExactCoverBy3Sets>(json.clone()).is_err());
+        assert!(crate::registry::load_dyn("ExactCoverBy3Sets", &Default::default(), json).is_err());
+    }
+}
+
+#[test]
+fn construction_and_json_sort_triples() {
+    let expected = ExactCoverBy3Sets::try_new(3, vec![[2, 0, 1]]).unwrap();
+    let loaded: ExactCoverBy3Sets = serde_json::from_value(serde_json::json!({
+        "universe_size": 3, "subsets": [[2, 0, 1]]
+    }))
+    .unwrap();
+    assert_eq!(expected.subsets(), &[[0, 1, 2]]);
+    assert_eq!(loaded.subsets(), expected.subsets());
+}

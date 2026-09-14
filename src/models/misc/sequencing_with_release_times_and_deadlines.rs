@@ -57,10 +57,27 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SequencingWithReleaseTimesAndDeadlinesData")]
 pub struct SequencingWithReleaseTimesAndDeadlines {
     lengths: Vec<i64>,
     release_times: Vec<i64>,
     deadlines: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct SequencingWithReleaseTimesAndDeadlinesData {
+    lengths: Vec<i64>,
+    release_times: Vec<i64>,
+    deadlines: Vec<i64>,
+}
+
+impl TryFrom<SequencingWithReleaseTimesAndDeadlinesData>
+    for SequencingWithReleaseTimesAndDeadlines
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SequencingWithReleaseTimesAndDeadlinesData) -> Result<Self, Self::Error> {
+        Self::try_new(data.lengths, data.release_times, data.deadlines)
+    }
 }
 
 impl SequencingWithReleaseTimesAndDeadlines {
@@ -70,25 +87,34 @@ impl SequencingWithReleaseTimesAndDeadlines {
     ///
     /// Panics if the three vectors have different lengths.
     pub fn new(lengths: Vec<i64>, release_times: Vec<i64>, deadlines: Vec<i64>) -> Self {
-        assert_eq!(lengths.len(), release_times.len());
-        assert_eq!(lengths.len(), deadlines.len());
-        assert!(
-            lengths.iter().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(
-            release_times.iter().all(|&release| release >= 0),
-            "release times must be nonnegative"
-        );
-        assert!(
-            deadlines.iter().all(|&deadline| deadline >= 0),
-            "deadlines must be nonnegative"
-        );
-        Self {
+        Self::try_new(lengths, release_times, deadlines).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        lengths: Vec<i64>,
+        release_times: Vec<i64>,
+        deadlines: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if lengths.len() != release_times.len() {
+            return Err("lengths and release_times must have the same length".into());
+        }
+        if lengths.len() != deadlines.len() {
+            return Err("lengths and deadlines must have the same length".into());
+        }
+        if !(lengths.iter().all(|&length| length >= 0)) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if !(release_times.iter().all(|&release| release >= 0)) {
+            return Err("release times must be nonnegative".into());
+        }
+        if !(deadlines.iter().all(|&deadline| deadline >= 0)) {
+            return Err("deadlines must be nonnegative".into());
+        }
+        Ok(Self {
             lengths,
             release_times,
             deadlines,
-        }
+        })
     }
 
     /// Returns the processing times.

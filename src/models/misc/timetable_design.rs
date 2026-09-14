@@ -27,6 +27,7 @@ inventory::submit! {
 /// task-next, period-last order:
 /// `idx = ((c * num_tasks) + t) * num_periods + h`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "TimetableDesignCreateSpec")]
 pub struct TimetableDesign {
     num_periods: usize,
     num_craftsmen: usize,
@@ -117,14 +118,14 @@ impl TryFrom<TimetableDesignCreateSpec> for TimetableDesign {
             )
             .into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.num_periods,
             spec.num_craftsmen,
             spec.num_tasks,
             spec.craftsman_avail,
             spec.task_avail,
             spec.requirements,
-        ))
+        )
     }
 }
 
@@ -142,68 +143,93 @@ impl TimetableDesign {
         task_avail: Vec<Vec<bool>>,
         requirements: Vec<Vec<i64>>,
     ) -> Self {
-        assert_eq!(
-            craftsman_avail.len(),
-            num_craftsmen,
-            "craftsman_avail has {} rows, expected {}",
-            craftsman_avail.len(),
-            num_craftsmen
-        );
-        for (craftsman, row) in craftsman_avail.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                num_periods,
-                "craftsman {} availability has {} periods, expected {}",
-                craftsman,
-                row.len(),
-                num_periods
-            );
-        }
-
-        assert_eq!(
-            task_avail.len(),
-            num_tasks,
-            "task_avail has {} rows, expected {}",
-            task_avail.len(),
-            num_tasks
-        );
-        for (task, row) in task_avail.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                num_periods,
-                "task {} availability has {} periods, expected {}",
-                task,
-                row.len(),
-                num_periods
-            );
-        }
-
-        assert_eq!(
-            requirements.len(),
-            num_craftsmen,
-            "requirements has {} rows, expected {}",
-            requirements.len(),
-            num_craftsmen
-        );
-        for (craftsman, row) in requirements.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                num_tasks,
-                "requirements row {} has {} tasks, expected {}",
-                craftsman,
-                row.len(),
-                num_tasks
-            );
-        }
-
-        Self {
+        Self::try_new(
             num_periods,
             num_craftsmen,
             num_tasks,
             craftsman_avail,
             task_avail,
             requirements,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_periods: usize,
+        num_craftsmen: usize,
+        num_tasks: usize,
+        craftsman_avail: Vec<Vec<bool>>,
+        task_avail: Vec<Vec<bool>>,
+        requirements: Vec<Vec<i64>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if craftsman_avail.len() != num_craftsmen {
+            return Err(format!(
+                "craftsman_avail has {} rows, expected {}",
+                craftsman_avail.len(),
+                num_craftsmen
+            )
+            .into());
         }
+        for (craftsman, row) in craftsman_avail.iter().enumerate() {
+            if row.len() != num_periods {
+                return Err(format!(
+                    "craftsman {} availability has {} periods, expected {}",
+                    craftsman,
+                    row.len(),
+                    num_periods
+                )
+                .into());
+            }
+        }
+
+        if task_avail.len() != num_tasks {
+            return Err(format!(
+                "task_avail has {} rows, expected {}",
+                task_avail.len(),
+                num_tasks
+            )
+            .into());
+        }
+        for (task, row) in task_avail.iter().enumerate() {
+            if row.len() != num_periods {
+                return Err(format!(
+                    "task {} availability has {} periods, expected {}",
+                    task,
+                    row.len(),
+                    num_periods
+                )
+                .into());
+            }
+        }
+
+        if requirements.len() != num_craftsmen {
+            return Err(format!(
+                "requirements has {} rows, expected {}",
+                requirements.len(),
+                num_craftsmen
+            )
+            .into());
+        }
+        for (craftsman, row) in requirements.iter().enumerate() {
+            if row.len() != num_tasks {
+                return Err(format!(
+                    "requirements row {} has {} tasks, expected {}",
+                    craftsman,
+                    row.len(),
+                    num_tasks
+                )
+                .into());
+            }
+        }
+
+        Ok(Self {
+            num_periods,
+            num_craftsmen,
+            num_tasks,
+            craftsman_avail,
+            task_avail,
+            requirements,
+        })
     }
 
     /// Get the number of periods.

@@ -250,3 +250,11 @@ fn test_feasible_basis_extension_duplicate_required() {
         vec![0, 0],
     );
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<FeasibleBasisExtension>(
+        serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
+    )
+    .is_err());
+}

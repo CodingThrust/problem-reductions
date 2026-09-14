@@ -53,7 +53,7 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinMaxMulticenter<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -63,6 +63,27 @@ pub struct MinMaxMulticenter<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Number of centers to place.
     k: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct MinMaxMulticenterData<G, W: WeightElement> {
+    graph: G,
+    vertex_weights: Vec<W>,
+    edge_lengths: Vec<W>,
+    k: usize,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinMaxMulticenter<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinMaxMulticenterData::<G, W>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.vertex_weights, data.edge_lengths, data.k)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! min_max_multicenter_create_spec {
@@ -122,7 +143,7 @@ macro_rules! min_max_multicenter_create_spec {
                 if spec.k == 0 || spec.k > graph.num_vertices() {
                     return Err(format!("k must be between 1 and {}", graph.num_vertices()).into());
                 }
-                Ok(Self::new(graph, vertex_weights, edge_lengths, spec.k))
+                Self::try_new(graph, vertex_weights, edge_lengths, spec.k)
             }
         }
     };
@@ -174,37 +195,47 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// - If any vertex weight or edge length is negative
     /// - If `k == 0` or `k > graph.num_vertices()`
     pub fn new(graph: G, vertex_weights: Vec<W>, edge_lengths: Vec<W>, k: usize) -> Self {
-        assert_eq!(
-            vertex_weights.len(),
-            graph.num_vertices(),
-            "vertex_weights length must match num_vertices"
-        );
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
+        Self::try_new(graph, vertex_weights, edge_lengths, k)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        vertex_weights: Vec<W>,
+        edge_lengths: Vec<W>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if vertex_weights.len() != graph.num_vertices() {
+            return Err("vertex_weights length must match num_vertices".into());
+        }
+        if edge_lengths.len() != graph.num_edges() {
+            return Err("edge_lengths length must match num_edges".into());
+        }
         let zero = W::Sum::zero();
-        assert!(
-            vertex_weights
-                .iter()
-                .all(|weight| weight.to_sum() >= zero.clone()),
-            "vertex_weights must be non-negative"
-        );
-        assert!(
-            edge_lengths
-                .iter()
-                .all(|length| length.to_sum() >= zero.clone()),
-            "edge_lengths must be non-negative"
-        );
-        assert!(k > 0, "k must be positive");
-        assert!(k <= graph.num_vertices(), "k must not exceed num_vertices");
-        Self {
+        if !(vertex_weights
+            .iter()
+            .all(|weight| weight.to_sum() >= zero.clone()))
+        {
+            return Err("vertex_weights must be non-negative".into());
+        }
+        if !(edge_lengths
+            .iter()
+            .all(|length| length.to_sum() >= zero.clone()))
+        {
+            return Err("edge_lengths must be non-negative".into());
+        }
+        if k == 0 {
+            return Err("k must be positive".into());
+        }
+        if !(k <= graph.num_vertices()) {
+            return Err("k must not exceed num_vertices".into());
+        }
+        Ok(Self {
             graph,
             vertex_weights,
             edge_lengths,
             k,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

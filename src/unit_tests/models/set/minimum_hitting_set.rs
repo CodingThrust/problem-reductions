@@ -179,3 +179,10 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":3,"sets":[[0,3]]});
+    assert!(serde_json::from_value::<MinimumHittingSet>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("MinimumHittingSet", &Default::default(), json).is_err());
+}

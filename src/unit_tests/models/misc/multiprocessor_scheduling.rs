@@ -184,7 +184,7 @@ fn test_multiprocessor_scheduling_deserialization_rejects_zero_processors() {
     }))
     .unwrap_err();
     assert!(
-        err.to_string().contains("expected positive integer, got 0"),
+        err.to_string().contains("num_processors must be positive"),
         "unexpected error: {err}"
     );
 }

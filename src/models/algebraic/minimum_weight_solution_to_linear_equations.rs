@@ -51,6 +51,7 @@ inventory::submit! {
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumWeightSolutionCreateSpec")]
 pub struct MinimumWeightSolutionToLinearEquations {
     /// The n×m integer matrix A.
     matrix: Vec<Vec<i64>>,
@@ -82,7 +83,7 @@ impl TryFrom<MinimumWeightSolutionCreateSpec> for MinimumWeightSolutionToLinearE
             return Err("all matrix rows must have the same length".into());
         }
         if spec.rhs.len() != spec.matrix.len() {
-            return Err("rhs length must equal number of rows".into());
+            return Err("RHS length must equal number of rows".into());
         }
         Ok(Self {
             matrix: spec.matrix,
@@ -99,18 +100,24 @@ impl MinimumWeightSolutionToLinearEquations {
     /// Panics if the matrix is empty, rows have inconsistent lengths,
     /// rhs length does not match the number of rows, or there are no columns.
     pub fn new(matrix: Vec<Vec<i64>>, rhs: Vec<i64>) -> Self {
-        assert!(!matrix.is_empty(), "Matrix must have at least one row");
-        let num_cols = matrix[0].len();
-        assert!(num_cols > 0, "Matrix must have at least one column");
-        for row in &matrix {
-            assert_eq!(row.len(), num_cols, "All rows must have the same length");
+        Self::try_new(matrix, rhs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        matrix: Vec<Vec<i64>>,
+        rhs: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let first = matrix.first().ok_or("matrix must have at least one row")?;
+        if first.is_empty() {
+            return Err("matrix must have at least one column".into());
         }
-        assert_eq!(
-            rhs.len(),
-            matrix.len(),
-            "RHS length must equal number of rows"
-        );
-        Self { matrix, rhs }
+        if matrix.iter().any(|row| row.len() != first.len()) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if rhs.len() != matrix.len() {
+            return Err("RHS length must equal number of rows".into());
+        }
+        Ok(Self { matrix, rhs })
     }
 
     /// Returns a reference to the matrix A.

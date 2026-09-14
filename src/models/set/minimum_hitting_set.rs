@@ -26,9 +26,24 @@ inventory::submit! {
 /// Given a universe `U` and a collection of subsets of `U`, find a minimum-size
 /// subset `H ⊆ U` such that `H` intersects every set in the collection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumHittingSetData")]
 pub struct MinimumHittingSet {
     universe_size: usize,
     sets: Vec<Vec<usize>>,
+}
+
+#[derive(Deserialize)]
+struct MinimumHittingSetData {
+    universe_size: usize,
+    sets: Vec<Vec<usize>>,
+}
+
+impl TryFrom<MinimumHittingSetData> for MinimumHittingSet {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumHittingSetData) -> Result<Self, Self::Error> {
+        Self::try_new(data.universe_size, data.sets)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -52,7 +67,7 @@ impl TryFrom<MinimumHittingSetCreateSpec> for MinimumHittingSet {
                 .into());
             }
         }
-        Ok(Self::new(spec.universe_size, spec.subsets))
+        Self::try_new(spec.universe_size, spec.subsets)
     }
 }
 
@@ -63,22 +78,24 @@ impl MinimumHittingSet {
     ///
     /// Panics if any set contains an element outside `0..universe_size`.
     pub fn new(universe_size: usize, sets: Vec<Vec<usize>>) -> Self {
-        let mut sets = sets;
-        for (set_index, set) in sets.iter_mut().enumerate() {
+        Self::try_new(universe_size, sets).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        universe_size: usize,
+        mut sets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, set) in sets.iter_mut().enumerate() {
             set.sort_unstable();
             set.dedup();
-            for &element in set.iter() {
-                assert!(
-                    element < universe_size,
-                    "Set {set_index} contains element {element} which is outside universe of size {universe_size}"
-                );
+            if let Some(element) = set.iter().find(|&&element| element >= universe_size) {
+                return Err(format!("set {index} contains element {element} outside universe of size {universe_size}").into());
             }
         }
-
-        Self {
+        Ok(Self {
             universe_size,
             sets,
-        }
+        })
     }
 
     /// Get the universe size.

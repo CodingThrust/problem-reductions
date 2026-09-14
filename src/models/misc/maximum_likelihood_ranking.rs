@@ -55,8 +55,21 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximumLikelihoodRankingData")]
 pub struct MaximumLikelihoodRanking {
     matrix: Vec<Vec<i64>>,
+}
+
+#[derive(Deserialize)]
+struct MaximumLikelihoodRankingData {
+    matrix: Vec<Vec<i64>>,
+}
+
+impl TryFrom<MaximumLikelihoodRankingData> for MaximumLikelihoodRanking {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MaximumLikelihoodRankingData) -> Result<Self, Self::Error> {
+        Self::try_new(data.matrix)
+    }
 }
 
 impl MaximumLikelihoodRanking {
@@ -67,37 +80,44 @@ impl MaximumLikelihoodRanking {
     /// or if the pairwise sums `a_ij + a_ji` are not the same constant for
     /// all `i != j`.
     pub fn new(matrix: Vec<Vec<i64>>) -> Self {
+        Self::try_new(matrix).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(matrix: Vec<Vec<i64>>) -> Result<Self, crate::registry::ConstructionError> {
         let n = matrix.len();
         for (i, row) in matrix.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                n,
-                "matrix must be square: row {i} has length {} but expected {n}",
-                row.len()
-            );
-            assert_eq!(
-                row[i], 0,
-                "diagonal entries must be zero: matrix[{i}][{i}] = {}",
-                row[i]
-            );
+            if row.len() != n {
+                return Err(format!(
+                    "matrix must be square: row {i} has length {} but expected {n}",
+                    row.len()
+                )
+                .into());
+            }
+            if row[i] != 0 {
+                return Err(format!(
+                    "diagonal entries must be zero: matrix[{i}][{i}] = {}",
+                    row[i]
+                )
+                .into());
+            }
         }
 
         let mut comparison_count = None;
         for (i, row) in matrix.iter().enumerate() {
             for (j, &entry) in row.iter().enumerate().skip(i + 1) {
-                let pair_sum = entry + matrix[j][i];
+                let pair_sum = i128::from(entry) + i128::from(matrix[j][i]);
                 match comparison_count {
                     None => comparison_count = Some(pair_sum),
-                    Some(expected) => assert_eq!(
-                        pair_sum,
-                        expected,
-                        "all off-diagonal pairs must have the same comparison count: matrix[{i}][{j}] + matrix[{j}][{i}] = {pair_sum}, expected {expected}"
-                    ),
+                    Some(expected) => {
+                        if pair_sum != expected {
+                            return Err(format!("all off-diagonal pairs must have the same comparison count: matrix[{i}][{j}] + matrix[{j}][{i}] = {pair_sum}, expected {expected}").into());
+                        }
+                    }
                 }
             }
         }
 
-        Self { matrix }
+        Ok(Self { matrix })
     }
 
     /// Returns the comparison matrix.

@@ -196,3 +196,20 @@ fn test_labelled_digraph_deduplicates_arcs() {
     );
     assert_eq!(g.num_arcs(), 2);
 }
+
+#[test]
+fn deserialize_checks_and_normalizes_labelled_arcs() {
+    assert!(
+        serde_json::from_value::<LabelledDigraph>(serde_json::json!({
+            "num_vertices": 2, "arcs": [{"src": 0, "label": 1, "dst": 2}]
+        }))
+        .is_err()
+    );
+    let graph: LabelledDigraph = serde_json::from_value(serde_json::json!({
+        "num_vertices": 2, "arcs": [
+            {"src": 0, "label": 1, "dst": 1}, {"src": 0, "label": 1, "dst": 1}
+        ]
+    }))
+    .unwrap();
+    assert_eq!(graph.arcs(), &[LabelledArc::new(0, 1, 1)]);
+}

@@ -97,11 +97,32 @@ inventory::submit! {
 
 /// The Consistency of Database Frequency Tables decision problem.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "ConsistencyOfDatabaseFrequencyTablesData")]
 pub struct ConsistencyOfDatabaseFrequencyTables {
     num_objects: usize,
     attribute_domains: Vec<usize>,
     frequency_tables: Vec<FrequencyTable>,
     known_values: Vec<KnownValue>,
+}
+
+#[derive(Deserialize)]
+struct ConsistencyOfDatabaseFrequencyTablesData {
+    num_objects: usize,
+    attribute_domains: Vec<usize>,
+    frequency_tables: Vec<FrequencyTable>,
+    known_values: Vec<KnownValue>,
+}
+
+impl TryFrom<ConsistencyOfDatabaseFrequencyTablesData> for ConsistencyOfDatabaseFrequencyTables {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: ConsistencyOfDatabaseFrequencyTablesData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_objects,
+            data.attribute_domains,
+            data.frequency_tables,
+            data.known_values,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -220,20 +241,34 @@ impl ConsistencyOfDatabaseFrequencyTables {
         frequency_tables: Vec<FrequencyTable>,
         known_values: Vec<KnownValue>,
     ) -> Self {
+        Self::try_new(
+            num_objects,
+            attribute_domains,
+            frequency_tables,
+            known_values,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_objects: usize,
+        attribute_domains: Vec<usize>,
+        frequency_tables: Vec<FrequencyTable>,
+        known_values: Vec<KnownValue>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cdft_create(
             num_objects,
             &attribute_domains,
             &frequency_tables,
             &known_values,
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
+        )?;
 
-        Self {
+        Ok(Self {
             num_objects,
             attribute_domains,
             frequency_tables,
             known_values,
-        }
+        })
     }
 
     /// Returns the number of objects.

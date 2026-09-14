@@ -47,11 +47,32 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PrecedenceConstrainedSchedulingData")]
 pub struct PrecedenceConstrainedScheduling {
     num_tasks: usize,
     num_processors: usize,
     deadline: i64,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct PrecedenceConstrainedSchedulingData {
+    num_tasks: usize,
+    num_processors: usize,
+    deadline: i64,
+    precedences: Vec<(usize, usize)>,
+}
+
+impl TryFrom<PrecedenceConstrainedSchedulingData> for PrecedenceConstrainedScheduling {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: PrecedenceConstrainedSchedulingData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_tasks,
+            data.num_processors,
+            data.deadline,
+            data.precedences,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -90,12 +111,12 @@ impl TryFrom<PrecedenceConstrainedSchedulingCreateSpec> for PrecedenceConstraine
             )
             .into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.num_tasks,
             spec.num_processors,
             spec.deadline,
             precedences,
-        ))
+        )
     }
 }
 
@@ -112,29 +133,42 @@ impl PrecedenceConstrainedScheduling {
         deadline: i64,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
+        Self::try_new(num_tasks, num_processors, deadline, precedences)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_tasks: usize,
+        num_processors: usize,
+        deadline: i64,
+        precedences: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if num_tasks > 0 {
-            assert!(
-                num_processors > 0,
-                "num_processors must be > 0 when there are tasks"
-            );
-            assert!(deadline > 0, "deadline must be > 0 when there are tasks");
+            if num_processors == 0 {
+                return Err("num_processors must be > 0 when there are tasks".into());
+            }
+            if deadline <= 0 {
+                return Err("deadline must be > 0 when there are tasks".into());
+            }
         }
-        assert!(deadline >= 0, "deadline must be nonnegative");
+        if !(deadline >= 0) {
+            return Err("deadline must be nonnegative".into());
+        }
         for &(i, j) in &precedences {
-            assert!(
-                i < num_tasks && j < num_tasks,
-                "Precedence ({}, {}) out of bounds for {} tasks",
-                i,
-                j,
-                num_tasks
-            );
+            if !(i < num_tasks && j < num_tasks) {
+                return Err(format!(
+                    "Precedence ({}, {}) out of bounds for {} tasks",
+                    i, j, num_tasks
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             num_tasks,
             num_processors,
             deadline,
             precedences,
-        }
+        })
     }
 
     /// Get the number of tasks.

@@ -27,10 +27,26 @@ inventory::submit! {
 /// adjacent swap position `i` (swap positions `i` and `i + 1`) or the special
 /// no-op value `string_len - 1`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "GroupingBySwappingData")]
 pub struct GroupingBySwapping {
     alphabet_size: usize,
     string: Vec<usize>,
     budget: usize,
+}
+
+#[derive(Deserialize)]
+struct GroupingBySwappingData {
+    alphabet_size: usize,
+    string: Vec<usize>,
+    budget: usize,
+}
+
+impl TryFrom<GroupingBySwappingData> for GroupingBySwapping {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: GroupingBySwappingData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.string, data.budget)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -93,23 +109,28 @@ impl GroupingBySwapping {
     /// Panics if the string contains a symbol outside the declared alphabet,
     /// or if the string is empty while the budget is positive.
     pub fn new(alphabet_size: usize, string: Vec<usize>, budget: usize) -> Self {
-        assert!(
-            alphabet_size > 0 || string.is_empty(),
-            "alphabet_size must be > 0 when string is non-empty"
-        );
-        assert!(
-            string.iter().all(|&symbol| symbol < alphabet_size),
-            "input symbols must be less than alphabet_size"
-        );
-        assert!(
-            !string.is_empty() || budget == 0,
-            "budget must be 0 when string is empty"
-        );
-        Self {
+        Self::try_new(alphabet_size, string, budget).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        string: Vec<usize>,
+        budget: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(alphabet_size > 0 || string.is_empty()) {
+            return Err("alphabet_size must be > 0 when string is non-empty".into());
+        }
+        if !(string.iter().all(|&symbol| symbol < alphabet_size)) {
+            return Err("input symbols must be less than alphabet_size".into());
+        }
+        if !(!string.is_empty() || budget == 0) {
+            return Err("budget must be 0 when string is empty".into());
+        }
+        Ok(Self {
             alphabet_size,
             string,
             budget,
-        }
+        })
     }
 
     /// Returns the alphabet size.

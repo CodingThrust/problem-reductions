@@ -54,46 +54,34 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumTardinessSequencing<W> {
     lengths: Vec<W>,
     deadlines: Vec<i64>,
     precedences: Vec<(usize, usize)>,
 }
 
-macro_rules! minimum_tardiness_create_spec {
-    ($name:ident, $weight:ty, $construct:expr) => {
-        #[derive(Debug, Deserialize, crate::CreateSpec)]
-        struct $name {
-            lengths: Vec<$weight>,
-            deadlines: Vec<i64>,
-            precedences: Option<Vec<(usize, usize)>>,
-        }
+#[derive(Deserialize)]
+struct MinimumTardinessSequencingData<W> {
+    lengths: Vec<W>,
+    deadlines: Vec<i64>,
+    precedences: Vec<(usize, usize)>,
+}
 
-        impl TryFrom<$name> for MinimumTardinessSequencing<$weight> {
-            type Error = crate::registry::ConstructionError;
+impl<'de> Deserialize<'de> for MinimumTardinessSequencing<One> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumTardinessSequencingData::<One>::deserialize(deserializer)?;
+        Self::try_new(data.lengths.len(), data.deadlines, data.precedences)
+            .map_err(serde::de::Error::custom)
+    }
+}
 
-            fn try_from(spec: $name) -> Result<Self, Self::Error> {
-                if spec.lengths.len() != spec.deadlines.len() {
-                    return Err("lengths and deadlines must have the same length"
-                        .to_string()
-                        .into());
-                }
-                let precedences = spec.precedences.unwrap_or_default();
-                let num_tasks = spec.lengths.len();
-                if let Some(&(pred, succ)) = precedences
-                    .iter()
-                    .find(|&&(pred, succ)| pred >= num_tasks || succ >= num_tasks)
-                {
-                    return Err(format!(
-                        "precedence ({pred}, {succ}) is out of range for {num_tasks} tasks"
-                    )
-                    .into());
-                }
-                $construct(spec.lengths, spec.deadlines, precedences)
-            }
-        }
-    };
+impl<'de> Deserialize<'de> for MinimumTardinessSequencing<i64> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumTardinessSequencingData::<i64>::deserialize(deserializer)?;
+        Self::try_with_lengths(data.lengths, data.deadlines, data.precedences)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -112,24 +100,26 @@ impl TryFrom<MinimumTardinessSequencingOneCreateSpec> for MinimumTardinessSequen
         {
             return Err("precedence indices must be within the task count".into());
         }
-        Ok(Self::new(num_tasks, spec.deadlines, precedences))
+        Self::try_new(num_tasks, spec.deadlines, precedences)
     }
 }
 
-minimum_tardiness_create_spec!(
-    MinimumTardinessSequencingI64CreateSpec,
-    i64,
-    |lengths: Vec<i64>, deadlines, precedences| {
-        if lengths.iter().any(|&length| length <= 0) {
-            return Err("all task lengths must be positive".to_string().into());
-        }
-        Ok(MinimumTardinessSequencing::with_lengths(
-            lengths,
-            deadlines,
-            precedences,
-        ))
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumTardinessSequencingI64CreateSpec {
+    lengths: Vec<i64>,
+    deadlines: Vec<i64>,
+    precedences: Option<Vec<(usize, usize)>>,
+}
+impl TryFrom<MinimumTardinessSequencingI64CreateSpec> for MinimumTardinessSequencing<i64> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(spec: MinimumTardinessSequencingI64CreateSpec) -> Result<Self, Self::Error> {
+        Self::try_with_lengths(
+            spec.lengths,
+            spec.deadlines,
+            spec.precedences.unwrap_or_default(),
+        )
     }
-);
+}
 
 impl MinimumTardinessSequencing<One> {
     /// Create a new unit-length MinimumTardinessSequencing instance.
@@ -139,17 +129,20 @@ impl MinimumTardinessSequencing<One> {
     /// Panics if `deadlines.len() != num_tasks` or if any task index in `precedences`
     /// is out of range.
     pub fn new(num_tasks: usize, deadlines: Vec<i64>, precedences: Vec<(usize, usize)>) -> Self {
-        assert_eq!(
-            deadlines.len(),
-            num_tasks,
-            "deadlines length must equal num_tasks"
-        );
-        validate_precedences(num_tasks, &precedences);
-        Self {
+        Self::try_new(num_tasks, deadlines, precedences).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_tasks: usize,
+        deadlines: Vec<i64>,
+        precedences: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        validate_task_data(num_tasks, &deadlines, &precedences)?;
+        Ok(Self {
             lengths: vec![One; num_tasks],
             deadlines,
             precedences,
-        }
+        })
     }
 }
 
@@ -165,40 +158,48 @@ impl MinimumTardinessSequencing<i64> {
         deadlines: Vec<i64>,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
-        assert_eq!(
-            lengths.len(),
-            deadlines.len(),
-            "lengths and deadlines must have the same length"
-        );
-        assert!(
-            lengths.iter().all(|&l| l > 0),
-            "all task lengths must be positive"
-        );
-        let num_tasks = lengths.len();
-        validate_precedences(num_tasks, &precedences);
-        Self {
+        Self::try_with_lengths(lengths, deadlines, precedences)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_with_lengths(
+        lengths: Vec<i64>,
+        deadlines: Vec<i64>,
+        precedences: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        validate_task_data(lengths.len(), &deadlines, &precedences)?;
+        if lengths.iter().any(|&length| length <= 0) {
+            return Err("all task lengths must be positive".into());
+        }
+        Ok(Self {
             lengths,
             deadlines,
             precedences,
-        }
+        })
     }
 }
 
-fn validate_precedences(num_tasks: usize, precedences: &[(usize, usize)]) {
-    for &(pred, succ) in precedences {
-        assert!(
-            pred < num_tasks,
-            "predecessor index {} out of range (num_tasks = {})",
-            pred,
-            num_tasks
-        );
-        assert!(
-            succ < num_tasks,
-            "successor index {} out of range (num_tasks = {})",
-            succ,
-            num_tasks
-        );
+fn validate_task_data(
+    num_tasks: usize,
+    deadlines: &[i64],
+    precedences: &[(usize, usize)],
+) -> Result<(), crate::registry::ConstructionError> {
+    if deadlines.len() != num_tasks {
+        return Err("deadlines length must equal num_tasks".into());
     }
+    for &(pred, succ) in precedences {
+        if pred >= num_tasks {
+            return Err(
+                format!("predecessor index {pred} out of range (num_tasks = {num_tasks})").into(),
+            );
+        }
+        if succ >= num_tasks {
+            return Err(
+                format!("successor index {succ} out of range (num_tasks = {num_tasks})").into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 impl<W: WeightElement> MinimumTardinessSequencing<W> {
