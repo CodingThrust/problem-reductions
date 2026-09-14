@@ -116,3 +116,51 @@ fn test_integral_flow_bundles_problem_name() {
         "IntegralFlowBundles"
     );
 }
+
+#[test]
+fn creation_and_deserialization_enforce_the_same_flow_constraints() {
+    let input = serde_json::json!({
+        "arcs": [[0, 1], [1, 2]], "num_vertices": 3,
+        "source": 0, "sink": 2, "requirement": 1,
+        "bundles": [[0], [1]], "bundle_capacities": [1, 1],
+    });
+    let problem = IntegralFlowBundles::try_from(
+        serde_json::from_value::<IntegralFlowBundlesCreateSpec>(input.clone()).unwrap(),
+    )
+    .unwrap();
+    let persisted = serde_json::to_value(&problem).unwrap();
+    let restored: IntegralFlowBundles = serde_json::from_value(persisted.clone()).unwrap();
+    assert_eq!(
+        restored.evaluate(&vec![1, 1]).unwrap(),
+        crate::types::Or(true)
+    );
+
+    for (field, value, message) in [
+        ("source", serde_json::json!(3), "source"),
+        ("sink", serde_json::json!(3), "sink"),
+        ("sink", serde_json::json!(0), "distinct"),
+        ("bundle_capacities", serde_json::json!([1]), "length"),
+        ("requirement", serde_json::json!(0), "positive"),
+        ("requirement", serde_json::json!(-1), "positive"),
+        ("bundle_capacities", serde_json::json!([0, 1]), "positive"),
+        ("bundle_capacities", serde_json::json!([-1, 1]), "positive"),
+        ("bundles", serde_json::json!([[2], [1]]), "out of range"),
+        ("bundles", serde_json::json!([[0, 0], [1]]), "duplicate"),
+        (
+            "bundles",
+            serde_json::json!([[0], []]),
+            "at least one bundle",
+        ),
+    ] {
+        let mut invalid_input = input.clone();
+        invalid_input[field] = value.clone();
+        let spec = serde_json::from_value::<IntegralFlowBundlesCreateSpec>(invalid_input).unwrap();
+        let error = IntegralFlowBundles::try_from(spec).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+
+        let mut invalid_persisted = persisted.clone();
+        invalid_persisted[field] = value;
+        let error = serde_json::from_value::<IntegralFlowBundles>(invalid_persisted).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}

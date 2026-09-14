@@ -92,57 +92,14 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
         if count < inferred {
             return Err("num_vertices is too small".into());
         }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".into());
-        }
-        if spec.bundles.len() != spec.bundle_capacities.len() {
-            return Err("bundles length must match bundle_capacities length".into());
-        }
-        if spec.requirement == 0 {
-            return Err("requirement must be positive".into());
-        }
-        let mut covered = vec![false; spec.arcs.len()];
-        let mut upper = vec![i64::MAX; spec.arcs.len()];
-        for (i, (bundle, &capacity)) in spec.bundles.iter().zip(&spec.bundle_capacities).enumerate()
-        {
-            if capacity == 0 {
-                return Err(format!("bundle capacity {i} must be positive").into());
-            }
-            let mut seen = BTreeSet::new();
-            for &arc in bundle {
-                if arc >= spec.arcs.len() {
-                    return Err(format!("bundle {i} arc is out of range").into());
-                }
-                if !seen.insert(arc) {
-                    return Err(format!("bundle {i} contains duplicate arc").into());
-                }
-                covered[arc] = true;
-                upper[arc] = upper[arc].min(capacity);
-            }
-        }
-        for (arc, &is_covered) in covered.iter().enumerate() {
-            if !is_covered {
-                return Err(format!("arc {arc} must belong to a bundle").into());
-            }
-            if usize::try_from(upper[arc])
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-            {
-                return Err(format!("arc {arc} upper bound is too large").into());
-            }
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
-            source: spec.source,
-            sink: spec.sink,
-            bundles: spec.bundles,
-            bundle_capacities: spec.bundle_capacities,
-            requirement: spec.requirement,
-        })
+        Self::try_new(
+            DirectedGraph::new(count, spec.arcs),
+            spec.source,
+            spec.sink,
+            spec.bundles,
+            spec.bundle_capacities,
+            spec.requirement,
+        )
     }
 }
 
@@ -201,7 +158,7 @@ impl IntegralFlowBundles {
             let mut seen = BTreeSet::new();
             for &arc_index in bundle {
                 if !(arc_index < num_arcs) {
-                    return Err(format!("bundle {bundle_index} references arc {arc_index}, but num_arcs is {num_arcs}").into());
+                    return Err(format!("bundle {bundle_index} arc is out of range: index {arc_index}, num_arcs {num_arcs}").into());
                 }
                 if !(seen.insert(arc_index)) {
                     return Err(format!(

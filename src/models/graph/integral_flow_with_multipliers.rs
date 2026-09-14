@@ -91,34 +91,14 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
         if count < inferred {
             return Err("num_vertices is too small".into());
         }
-        if spec.capacities.len() != spec.arcs.len() {
-            return Err("capacities length must match arcs length".into());
-        }
-        if spec.multipliers.len() != count {
-            return Err("multipliers length must match num_vertices".into());
-        }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".into());
-        }
-        for (v, &m) in spec.multipliers.iter().enumerate() {
-            if v != spec.source && v != spec.sink && m == 0 {
-                return Err("non-terminal multipliers must be positive".into());
-            }
-        }
-        if spec.capacities.iter().any(|&capacity| capacity < 0) {
-            return Err("capacities must be nonnegative".into());
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
-            source: spec.source,
-            sink: spec.sink,
-            multipliers: spec.multipliers,
-            capacities: spec.capacities,
-            requirement: spec.requirement,
-        })
+        Self::try_new(
+            DirectedGraph::new(count, spec.arcs),
+            spec.source,
+            spec.sink,
+            spec.multipliers,
+            spec.capacities,
+            spec.requirement,
+        )
     }
 }
 
@@ -147,7 +127,7 @@ impl IntegralFlowWithMultipliers {
             return Err("capacities length must match graph num_arcs".into());
         }
         if multipliers.len() != graph.num_vertices() {
-            return Err("multipliers length must match graph num_vertices".into());
+            return Err("multipliers length must match num_vertices".into());
         }
 
         let num_vertices = graph.num_vertices();

@@ -98,28 +98,14 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
             return Err("num_vertices is too small".into());
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
-        if capacities.len() != spec.arcs.len() {
-            return Err("capacities length must match arcs length".into());
-        }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        for &(a, b) in &spec.homologous_pairs {
-            if a >= spec.arcs.len() || b >= spec.arcs.len() {
-                return Err("homologous pair arc index is out of range".into());
-            }
-        }
-        if capacities.iter().any(|&capacity| capacity < 0) {
-            return Err("capacities must be nonnegative".into());
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
+        Self::try_new(
+            DirectedGraph::new(count, spec.arcs),
             capacities,
-            source: spec.source,
-            sink: spec.sink,
-            requirement: spec.requirement,
-            homologous_pairs: spec.homologous_pairs,
-        })
+            spec.source,
+            spec.sink,
+            spec.requirement,
+            spec.homologous_pairs,
+        )
     }
 }
 
