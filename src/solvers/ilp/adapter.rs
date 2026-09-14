@@ -124,19 +124,19 @@ impl HighsAdapter {
                 Ok(backend.add_integer_column(costs[index], lower..=upper))
             })
             .collect::<Result<Vec<_>, IlpBackendError>>()?;
+        let mut terms = Vec::new();
         for constraint in problem.constraints() {
-            let terms = constraint
-                .terms()
-                .iter()
-                .map(|&(index, coefficient)| Ok((columns[index], coefficient.to_backend_number()?)))
-                .collect::<Result<Vec<_>, IlpBackendError>>()?;
+            terms.clear();
+            for &(index, coefficient) in constraint.terms() {
+                terms.push((columns[index], coefficient.to_backend_number()?));
+            }
             let rhs = constraint.rhs().to_backend_number()?;
             let (lower, upper) = match constraint.comparison() {
                 Comparison::Le => (f64::NEG_INFINITY, rhs),
                 Comparison::Ge => (rhs, f64::INFINITY),
                 Comparison::Eq => (rhs, rhs),
             };
-            backend.add_row(lower..=upper, terms);
+            backend.add_row(lower..=upper, &terms);
         }
         let sense = match problem.sense() {
             ObjectiveSense::Minimize => Sense::Minimise,

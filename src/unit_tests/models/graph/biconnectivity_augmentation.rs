@@ -162,10 +162,20 @@ fn test_biconnectivity_augmentation_paper_example() {
 
 #[test]
 fn test_is_biconnected() {
-    assert!(is_biconnected(&SimpleGraph::cycle(4)));
-    assert!(is_biconnected(&SimpleGraph::complete(3)));
-    assert!(!is_biconnected(&SimpleGraph::path(4)));
-    assert!(!is_biconnected(&SimpleGraph::new(4, vec![(0, 1), (2, 3)])));
+    for (graph, expected) in [
+        (SimpleGraph::empty(0), true),
+        (SimpleGraph::empty(1), true),
+        (SimpleGraph::empty(2), false),
+        (SimpleGraph::path(2), true),
+        (SimpleGraph::cycle(4), true),
+        (SimpleGraph::complete(3), true),
+        (SimpleGraph::path(4), false),
+        (SimpleGraph::new(4, vec![(0, 1), (2, 3)]), false),
+        (SimpleGraph::new(2, vec![(0, 0), (0, 1), (0, 1)]), true),
+    ] {
+        let problem = BiconnectivityAugmentation::<_, i64>::new(graph, vec![], 0);
+        assert_eq!(problem.evaluate(&vec![]).unwrap().0, expected);
+    }
 }
 
 #[test]
