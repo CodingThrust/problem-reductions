@@ -36,7 +36,8 @@ fn yes_instance() -> IntegralFlowWithMultipliers {
             (5, 7),
             (6, 7),
         ],
-    );
+    )
+    .unwrap();
     IntegralFlowWithMultipliers::new(
         graph,
         0,
@@ -45,6 +46,7 @@ fn yes_instance() -> IntegralFlowWithMultipliers {
         vec![1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4],
         12,
     )
+    .unwrap()
 }
 
 fn yes_config() -> Vec<usize> {
@@ -52,8 +54,8 @@ fn yes_config() -> Vec<usize> {
 }
 
 fn no_instance() -> IntegralFlowWithMultipliers {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2)]);
-    IntegralFlowWithMultipliers::new(graph, 0, 3, vec![1, 2, 3, 1], vec![2, 1, 2, 5, 1], 7)
+    let graph = DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2)]).unwrap();
+    IntegralFlowWithMultipliers::new(graph, 0, 3, vec![1, 2, 3, 1], vec![2, 1, 2, 5, 1], 7).unwrap()
 }
 
 #[test]

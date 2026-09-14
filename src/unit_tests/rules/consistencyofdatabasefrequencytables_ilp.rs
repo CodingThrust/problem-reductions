@@ -13,6 +13,7 @@ fn small_yes_instance() -> ConsistencyOfDatabaseFrequencyTables {
         vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
         vec![KnownValue::new(0, 0, 0)],
     )
+    .unwrap()
 }
 
 fn small_yes_witness() -> Vec<usize> {
@@ -26,6 +27,7 @@ fn small_no_instance() -> ConsistencyOfDatabaseFrequencyTables {
         vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
         vec![KnownValue::new(0, 0, 0), KnownValue::new(1, 1, 0)],
     )
+    .unwrap()
 }
 
 #[test]
@@ -114,6 +116,7 @@ fn issue_instance() -> ConsistencyOfDatabaseFrequencyTables {
             KnownValue::new(1, 2, 1),
         ],
     )
+    .unwrap()
 }
 
 fn issue_witness() -> Vec<usize> {

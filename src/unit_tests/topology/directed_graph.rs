@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn test_directed_graph_new() {
-    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     assert_eq!(g.num_vertices(), 4);
     assert_eq!(g.num_arcs(), 3);
 }
@@ -14,13 +14,13 @@ fn test_directed_graph_empty() {
     assert_eq!(g.num_arcs(), 0);
     assert!(!g.is_empty());
 
-    let empty = DirectedGraph::new(0, vec![]);
+    let empty = DirectedGraph::new(0, vec![]).unwrap();
     assert!(empty.is_empty());
 }
 
 #[test]
 fn test_directed_graph_arcs() {
-    let g = DirectedGraph::new(3, vec![(0, 1), (2, 0)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (2, 0)]).unwrap();
     let mut arcs = g.arcs();
     arcs.sort();
     assert_eq!(arcs, vec![(0, 1), (2, 0)]);
@@ -28,7 +28,7 @@ fn test_directed_graph_arcs() {
 
 #[test]
 fn test_directed_graph_has_arc() {
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     assert!(g.has_arc(0, 1));
     assert!(g.has_arc(1, 2));
     assert!(!g.has_arc(1, 0)); // Directed: reverse not present
@@ -38,7 +38,7 @@ fn test_directed_graph_has_arc() {
 #[test]
 fn test_directed_graph_successors() {
     // 0 → 1, 0 → 2, 1 → 2
-    let g = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     let mut succ0 = g.successors(0);
     succ0.sort();
     assert_eq!(succ0, vec![1, 2]);
@@ -51,7 +51,7 @@ fn test_directed_graph_successors() {
 #[test]
 fn test_directed_graph_predecessors() {
     // 0 → 1, 0 → 2, 1 → 2
-    let g = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     assert_eq!(g.predecessors(0), Vec::<usize>::new());
     let mut pred2 = g.predecessors(2);
     pred2.sort();
@@ -61,7 +61,7 @@ fn test_directed_graph_predecessors() {
 
 #[test]
 fn test_directed_graph_degrees() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     assert_eq!(graph.out_degree(0), 2);
     assert_eq!(graph.out_degree(1), 1);
     assert_eq!(graph.out_degree(2), 0);
@@ -73,14 +73,14 @@ fn test_directed_graph_degrees() {
 #[test]
 fn test_directed_graph_is_dag_true() {
     // Simple path: 0 → 1 → 2
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     assert!(g.is_dag());
 }
 
 #[test]
 fn test_directed_graph_is_dag_false() {
     // Cycle: 0 → 1 → 2 → 0
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
     assert!(!g.is_dag());
 }
 
@@ -93,25 +93,25 @@ fn test_directed_graph_is_dag_empty() {
 #[test]
 fn test_directed_graph_is_dag_self_loop() {
     // Self-loop is a cycle
-    let g = DirectedGraph::new(2, vec![(0, 0)]);
+    let g = DirectedGraph::new(2, vec![(0, 0)]).unwrap();
     assert!(!g.is_dag());
 }
 
 #[test]
 fn test_is_strongly_connected_cycle() {
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
     assert!(g.is_strongly_connected());
 }
 
 #[test]
 fn test_is_strongly_connected_path() {
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     assert!(!g.is_strongly_connected());
 }
 
 #[test]
 fn test_is_strongly_connected_single_vertex() {
-    let g = DirectedGraph::new(1, vec![]);
+    let g = DirectedGraph::new(1, vec![]).unwrap();
     assert!(g.is_strongly_connected());
 }
 
@@ -124,7 +124,7 @@ fn test_is_strongly_connected_empty() {
 #[test]
 fn test_directed_graph_is_acyclic_subgraph() {
     // Cycle: 0->1->2->0
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
     // Keep all arcs -> has cycle
     assert!(!graph.is_acyclic_subgraph(&[true, true, true]));
     // Remove arc 2->0 -> acyclic
@@ -138,7 +138,7 @@ fn test_directed_graph_is_acyclic_subgraph() {
 #[test]
 fn test_directed_graph_induced_subgraph_basic() {
     // 0 → 1 → 2 → 0 (cycle), keep vertices 0 and 1 (drop 2)
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
     let subg = g.induced_subgraph(&[true, true, false]);
     // After dropping vertex 2: vertices 0 and 1 remain, arc (0→1) remains
     // Vertex remapping: 0→0, 1→1
@@ -153,7 +153,7 @@ fn test_directed_graph_induced_subgraph_basic() {
 fn test_directed_graph_induced_subgraph_remapping() {
     // Vertices 0, 1, 2, 3; keep 1 and 3 only
     // Arcs: 1 → 3
-    let g = DirectedGraph::new(4, vec![(0, 1), (1, 3), (2, 0)]);
+    let g = DirectedGraph::new(4, vec![(0, 1), (1, 3), (2, 0)]).unwrap();
     let subg = g.induced_subgraph(&[false, true, false, true]);
     // Vertex 1 → new index 0, vertex 3 → new index 1
     assert_eq!(subg.num_vertices(), 2);
@@ -164,7 +164,7 @@ fn test_directed_graph_induced_subgraph_remapping() {
 #[test]
 fn test_directed_graph_induced_subgraph_no_cross_arcs() {
     // Keep a subset that has no arcs between kept vertices
-    let g = DirectedGraph::new(3, vec![(0, 2), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 2), (1, 2)]).unwrap();
     // Keep 0 and 1 only — neither arc (0→2) nor (1→2) is kept (2 dropped)
     let subg = g.induced_subgraph(&[true, true, false]);
     assert_eq!(subg.num_vertices(), 2);
@@ -173,36 +173,36 @@ fn test_directed_graph_induced_subgraph_no_cross_arcs() {
 
 #[test]
 fn test_directed_graph_eq_same_order() {
-    let g1 = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
-    let g2 = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let g1 = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let g2 = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     assert_eq!(g1, g2);
 }
 
 #[test]
 fn test_directed_graph_eq_different_arc_order() {
     // Same arcs, provided in different order
-    let g1 = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let g2 = DirectedGraph::new(3, vec![(2, 0), (0, 1), (1, 2)]);
+    let g1 = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let g2 = DirectedGraph::new(3, vec![(2, 0), (0, 1), (1, 2)]).unwrap();
     assert_eq!(g1, g2);
 }
 
 #[test]
 fn test_directed_graph_ne_different_arcs() {
-    let g1 = DirectedGraph::new(3, vec![(0, 1)]);
-    let g2 = DirectedGraph::new(3, vec![(1, 0)]); // Reversed direction
+    let g1 = DirectedGraph::new(3, vec![(0, 1)]).unwrap();
+    let g2 = DirectedGraph::new(3, vec![(1, 0)]).unwrap(); // Reversed direction
     assert_ne!(g1, g2);
 }
 
 #[test]
 fn test_directed_graph_ne_different_vertices() {
-    let g1 = DirectedGraph::new(3, vec![(0, 1)]);
-    let g2 = DirectedGraph::new(4, vec![(0, 1)]);
+    let g1 = DirectedGraph::new(3, vec![(0, 1)]).unwrap();
+    let g2 = DirectedGraph::new(4, vec![(0, 1)]).unwrap();
     assert_ne!(g1, g2);
 }
 
 #[test]
 fn test_directed_graph_serialization() {
-    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
     let json = serde_json::to_string(&g).expect("serialization failed");
     let restored: DirectedGraph = serde_json::from_str(&json).expect("deserialization failed");
     assert_eq!(g, restored);
@@ -210,7 +210,7 @@ fn test_directed_graph_serialization() {
 
 #[test]
 fn test_directed_graph_json_roundtrip() {
-    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let json = serde_json::to_value(&g).unwrap();
     assert_eq!(json["num_vertices"], 4);
     let arcs: Vec<(usize, usize)> = serde_json::from_value(json["arcs"].clone()).unwrap();
@@ -221,7 +221,7 @@ fn test_directed_graph_json_roundtrip() {
 
 #[test]
 fn test_directed_graph_json_format() {
-    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let json_str = serde_json::to_string(&g).unwrap();
     assert!(!json_str.contains("edge_property"));
     assert!(!json_str.contains("node_holes"));
@@ -230,7 +230,14 @@ fn test_directed_graph_json_format() {
 }
 
 #[test]
-#[should_panic(expected = "arc (0, 5) references vertex >= num_vertices")]
 fn test_directed_graph_invalid_arc() {
-    DirectedGraph::new(3, vec![(0, 5)]);
+    assert!(DirectedGraph::new(3, vec![(0, 5)]).is_err());
+}
+
+#[test]
+fn deserialize_rejects_out_of_range_arcs() {
+    assert!(serde_json::from_value::<DirectedGraph>(serde_json::json!({
+        "num_vertices": 2, "arcs": [[2, 0]]
+    }))
+    .is_err());
 }

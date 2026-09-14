@@ -133,7 +133,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = QuadraticAssignment::new(
                 vec![vec![0, 1], vec![1, 0]],
                 vec![vec![0, 2], vec![2, 0]],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

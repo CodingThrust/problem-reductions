@@ -9,10 +9,11 @@ fn issue_yes_instance() -> ExactCoverBy3Sets {
         6,
         vec![[0, 1, 2], [0, 3, 4], [2, 4, 5], [1, 3, 5], [0, 2, 4]],
     )
+    .unwrap()
 }
 
 fn shared_zero_instance() -> ExactCoverBy3Sets {
-    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]])
+    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]).unwrap()
 }
 
 #[test]

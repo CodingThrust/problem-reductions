@@ -6,7 +6,11 @@ use crate::traits::Problem;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Path P3: 0-1-2
-    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]);
+    let problem = MaximalIS::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1, 1, 1],
+    )
+    .unwrap();
     let reduction: ReductionMxISToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -18,9 +22,10 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_maximalis_to_ilp_bf_vs_ilp() {
     let problem = MaximalIS::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction: ReductionMxISToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -41,7 +46,11 @@ fn test_maximalis_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]);
+    let problem = MaximalIS::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1, 1, 1],
+    )
+    .unwrap();
     let reduction: ReductionMxISToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -55,7 +64,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_maximalis_to_ilp_trivial() {
     // Single vertex
-    let problem = MaximalIS::new(SimpleGraph::new(1, vec![]), vec![1]);
+    let problem = MaximalIS::new(SimpleGraph::new(1, vec![]).unwrap(), vec![1]).unwrap();
     let reduction: ReductionMxISToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

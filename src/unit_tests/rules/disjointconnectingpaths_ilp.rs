@@ -12,9 +12,10 @@ fn test_disjointconnectingpaths_to_ilp_closed_loop() {
     // Path (0,2): 0 - 1 - 2 (interior vertex 1, not a terminal)
     // Path (3,5): 3 - 4 - 5 (interior vertex 4, not a terminal)
     let source = DisjointConnectingPaths::new(
-        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
         vec![(0, 2), (3, 5)],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
@@ -22,9 +23,10 @@ fn test_disjointconnectingpaths_to_ilp_closed_loop() {
 #[test]
 fn test_disjointconnectingpaths_to_ilp_bf_vs_ilp() {
     let source = DisjointConnectingPaths::new(
-        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
         vec![(0, 2), (3, 5)],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
@@ -32,9 +34,10 @@ fn test_disjointconnectingpaths_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_disjointconnectingpaths_to_ilp_forbids_using_another_pairs_terminal() {
     let source = DisjointConnectingPaths::new(
-        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (2, 4), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (2, 4), (3, 4)]).unwrap(),
         vec![(0, 1), (2, 3)],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     let mut colliding_flow = vec![0; 20];
     for index in [0, 13, 14] {
@@ -52,9 +55,10 @@ fn test_disjointconnectingpaths_to_ilp_forbids_using_another_pairs_terminal() {
 #[test]
 fn test_disjointconnectingpaths_to_ilp_discards_disconnected_circulation() {
     let source = DisjointConnectingPaths::new(
-        SimpleGraph::new(7, vec![(0, 1), (2, 3), (4, 5), (4, 6), (5, 6)]),
+        SimpleGraph::new(7, vec![(0, 1), (2, 3), (4, 5), (4, 6), (5, 6)]).unwrap(),
         vec![(0, 1), (2, 3)],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     let mut target_solution = vec![0; 20];
     for index in [0, 4, 7, 8, 12] {

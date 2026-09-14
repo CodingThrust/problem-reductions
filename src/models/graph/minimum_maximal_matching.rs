@@ -44,7 +44,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph P4: 0-1-2-3
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
 /// let problem = MinimumMaximalMatching::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -191,10 +191,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // config [0,1,0,1,0] = edges {(1,2),(3,4)} — a maximal matching of size 2.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_maximal_matching_simplegraph",
-        instance: Box::new(MinimumMaximalMatching::new(SimpleGraph::new(
-            6,
-            vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],
-        ))),
+        instance: Box::new(MinimumMaximalMatching::new(
+            SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![false, true, false, true, false]),
         optimal_value: serde_json::json!(2),
     }]

@@ -61,7 +61,7 @@ inventory::submit! {
 /// use problemreductions::{BruteForce, Problem};
 ///
 /// // V = {0,1,2}; A = [(0,1), (0,1), (1,2), (2,0)] (parallel arc (0,1)).
-/// let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
+/// let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]).unwrap();
 /// let problem = EulerianPath::new(graph);
 ///
 /// // Witness: ordering [a_0, a_2, a_3, a_1] = (0->1)->(1->2)->(2->0)->(0->1)
@@ -186,7 +186,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Canonical YES instance from the issue: V = {0,1,2},
     // A = [(0,1), (0,1), (1,2), (2,0)] (parallel arcs a_0, a_1 between 0 and 1).
     // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]).unwrap();
     let optimal_config = vec![0usize, 2, 3, 1];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "eulerian_path",

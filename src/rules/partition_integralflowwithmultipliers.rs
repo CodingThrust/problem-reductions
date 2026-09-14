@@ -57,9 +57,13 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
         let source_n = self.num_elements();
 
         if total_sum % 2 != 0 {
-            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)])
+                .map_err(<Self as ReduceTo<IntegralFlowWithMultipliers>>::target_construction)?;
             return Ok(ReductionPartitionToIntegralFlowWithMultipliers {
-                target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1),
+                target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1)
+                    .map_err(
+                        <Self as ReduceTo<IntegralFlowWithMultipliers>>::target_construction,
+                    )?,
                 item_arc_count: source_n,
             });
         }
@@ -89,7 +93,8 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
         capacities.push(half_sum);
         multipliers[relay] = 1;
 
-        let graph = DirectedGraph::new(source_n + 3, arcs);
+        let graph = DirectedGraph::new(source_n + 3, arcs)
+            .map_err(<Self as ReduceTo<IntegralFlowWithMultipliers>>::target_construction)?;
         Ok(ReductionPartitionToIntegralFlowWithMultipliers {
             target: IntegralFlowWithMultipliers::new(
                 graph,
@@ -98,7 +103,8 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
                 multipliers,
                 capacities,
                 half_sum,
-            ),
+            )
+            .map_err(<Self as ReduceTo<IntegralFlowWithMultipliers>>::target_construction)?,
             item_arc_count: source_n,
         })
     }

@@ -8,7 +8,8 @@ fn decision_mds(
     bound: i64,
 ) -> Decision<MinimumDominatingSet<SimpleGraph, One>> {
     Decision::new(
-        MinimumDominatingSet::new(SimpleGraph::new(n, edges.to_vec()), vec![One; n]),
+        MinimumDominatingSet::new(SimpleGraph::new(n, edges.to_vec()).unwrap(), vec![One; n])
+            .unwrap(),
         bound,
     )
 }

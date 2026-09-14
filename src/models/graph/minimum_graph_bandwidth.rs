@@ -51,7 +51,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Star graph S4: center 0 connected to 1, 2, 3
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
 /// let problem = MinimumGraphBandwidth::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -197,10 +197,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // placing center at position 1 achieves max stretch 2).
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_graph_bandwidth",
-        instance: Box::new(MinimumGraphBandwidth::new(SimpleGraph::new(
-            4,
-            vec![(0, 1), (0, 2), (0, 3)],
-        ))),
+        instance: Box::new(MinimumGraphBandwidth::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![1, 0, 2, 3]),
         optimal_value: serde_json::json!(2),
     }]

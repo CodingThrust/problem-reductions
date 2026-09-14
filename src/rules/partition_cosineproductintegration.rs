@@ -46,7 +46,8 @@ impl ReduceTo<CosineProductIntegration> for Partition {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let coefficients = self.sizes().to_vec();
         Ok(ReductionPartitionToCPI {
-            target: CosineProductIntegration::new(coefficients),
+            target: CosineProductIntegration::new(coefficients)
+                .map_err(<Self as ReduceTo<CosineProductIntegration>>::target_construction)?,
         })
     }
 }

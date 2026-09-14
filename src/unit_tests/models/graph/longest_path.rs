@@ -31,11 +31,13 @@ fn issue_problem() -> LongestPath<SimpleGraph, i64> {
                 (5, 6),
                 (1, 6),
             ],
-        ),
+        )
+        .unwrap(),
         vec![3, 2, 4, 1, 5, 2, 3, 2, 4, 1],
         0,
         6,
     )
+    .unwrap()
 }
 
 fn optimal_config() -> Vec<bool> {
@@ -67,10 +69,10 @@ fn test_longest_path_creation() {
     assert_eq!(problem.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
     assert!(problem.is_weighted());
 
-    problem.set_lengths(vec![1; 10]);
+    problem.set_lengths(vec![1; 10]).unwrap();
     assert_eq!(problem.edge_lengths(), &[1; 10]);
 
-    let unweighted = LongestPath::new(SimpleGraph::path(4), vec![One; 3], 0, 3);
+    let unweighted = LongestPath::new(SimpleGraph::path(4), vec![One; 3], 0, 3).unwrap();
     assert!(!unweighted.is_weighted());
 }
 
@@ -148,7 +150,7 @@ fn test_longest_path_serialization() {
 
 #[test]
 fn test_longest_path_source_equals_target_only_allows_empty_path() {
-    let problem = LongestPath::new(SimpleGraph::path(3), vec![5, 7], 1, 1);
+    let problem = LongestPath::new(SimpleGraph::path(3), vec![5, 7], 1, 1).unwrap();
 
     assert!(problem.is_valid_solution(&[false, false]));
     assert_eq!(problem.evaluate(&vec![false, false]).unwrap(), Max(Some(0)));
@@ -187,25 +189,21 @@ fn test_longest_path_problem_name() {
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
 fn test_longest_path_rejects_wrong_edge_lengths_len() {
-    LongestPath::new(SimpleGraph::path(3), vec![1], 0, 2);
+    assert!(LongestPath::new(SimpleGraph::path(3), vec![1], 0, 2).is_err());
 }
 
 #[test]
-#[should_panic(expected = "All edge lengths must be positive (> 0)")]
 fn test_longest_path_rejects_non_positive_edge_lengths() {
-    LongestPath::new(SimpleGraph::path(2), vec![0], 0, 1);
+    assert!(LongestPath::new(SimpleGraph::path(2), vec![0], 0, 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "source_vertex 3 out of bounds (graph has 3 vertices)")]
 fn test_longest_path_rejects_out_of_bounds_source() {
-    LongestPath::new(SimpleGraph::path(3), vec![1, 1], 3, 2);
+    assert!(LongestPath::new(SimpleGraph::path(3), vec![1, 1], 3, 2).is_err());
 }
 
 #[test]
-#[should_panic(expected = "target_vertex 3 out of bounds (graph has 3 vertices)")]
 fn test_longest_path_rejects_out_of_bounds_target() {
-    LongestPath::new(SimpleGraph::path(3), vec![1, 1], 0, 3);
+    assert!(LongestPath::new(SimpleGraph::path(3), vec![1, 1], 0, 3).is_err());
 }

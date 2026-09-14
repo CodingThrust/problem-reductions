@@ -6,13 +6,13 @@ use crate::topology::Graph;
 /// q = 2, m = 2: X = {0..5} with C = [{0,1,2}, {3,4,5}].
 /// Both subsets together form the unique exact cover.
 fn yes_instance_simple() -> ExactCoverBy3Sets {
-    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]])
+    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]).unwrap()
 }
 
 /// q = 2, m = 2 but the two subsets overlap on element 0,
 /// so no exact cover exists.
 fn no_instance_simple() -> ExactCoverBy3Sets {
-    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4]])
+    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4]]).unwrap()
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
     for universe in [3, usize::MAX - usize::MAX % 3] {
-        let source = ExactCoverBy3Sets::new(universe, vec![]);
+        let source = ExactCoverBy3Sets::new(universe, vec![]).unwrap();
         let reduction =
             ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
         assert_eq!(reduction.target_problem().num_vertices(), 2);
@@ -128,7 +128,7 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
             !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![]), Ok(value) if { value.is_valid() })
         );
     }
-    let source = ExactCoverBy3Sets::new(0, vec![]);
+    let source = ExactCoverBy3Sets::new(0, vec![]).unwrap();
     let reduction =
         ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
     let witness = BruteForce::new()
@@ -144,7 +144,7 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
 
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_duplicate_sets() {
-    let source = ExactCoverBy3Sets::new(3, vec![[0, 1, 2], [0, 1, 2]]);
+    let source = ExactCoverBy3Sets::new(3, vec![[0, 1, 2], [0, 1, 2]]).unwrap();
     let reduction =
         ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
     let witnesses = BruteForce::new()

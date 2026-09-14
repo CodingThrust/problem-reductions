@@ -8,7 +8,7 @@ fn create_spec_rejects_weight_count_mismatch() {
         "weights"
     );
     let result = MinimumVertexCover::try_from(MinimumVertexCoverCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         weights: Some(vec![1]),
     });
     assert!(result.is_err());
@@ -21,9 +21,10 @@ use crate::traits::Problem;
 #[test]
 fn test_vertex_cover_creation() {
     let problem = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables().unwrap(), 4);
@@ -31,26 +32,27 @@ fn test_vertex_cover_creation() {
 
 #[test]
 fn test_vertex_cover_with_weights() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
+    let problem =
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1, 2, 3]).unwrap();
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_is_vertex_cover_function() {
     assert!(is_vertex_cover(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[false, true, false]
     ));
     assert!(is_vertex_cover(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[true, false, true]
     ));
     assert!(!is_vertex_cover(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[true, false, false]
     ));
     assert!(!is_vertex_cover(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[false, false, false]
     ));
 }
@@ -61,8 +63,11 @@ fn test_complement_relationship() {
     use crate::models::graph::MaximumIndependentSet;
 
     let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![1i64; 4]);
-    let vc_problem = MinimumVertexCover::new(SimpleGraph::new(4, edges), vec![1i64; 4]);
+    let is_problem =
+        MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()).unwrap(), vec![1i64; 4])
+            .unwrap();
+    let vc_problem =
+        MinimumVertexCover::new(SimpleGraph::new(4, edges).unwrap(), vec![1i64; 4]).unwrap();
 
     let solver = BruteForce::new();
 
@@ -81,20 +86,21 @@ fn test_complement_relationship() {
 #[should_panic(expected = "selected length must match num_vertices")]
 fn test_is_vertex_cover_wrong_len() {
     // Wrong length should panic
-    is_vertex_cover(&SimpleGraph::new(3, vec![(0, 1)]), &[true, false]);
+    is_vertex_cover(&SimpleGraph::new(3, vec![(0, 1)]).unwrap(), &[true, false]);
 }
 
 #[test]
 fn test_from_graph() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::new(graph, vec![1i64, 1, 1]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumVertexCover::new(graph, vec![1i64, 1, 1]).unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
 }
 
 #[test]
 fn test_evaluate_rejects_invalid_configurations() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(2, vec![]), vec![1_i64, 1]);
+    let problem =
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![]).unwrap(), vec![1_i64, 1]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![true]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -111,14 +117,18 @@ fn test_evaluate_rejects_invalid_configurations() {
 
 #[test]
 fn test_from_graph_with_weights() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::new(graph, vec![1, 2, 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumVertexCover::new(graph, vec![1, 2, 3]).unwrap();
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_graph_accessor() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 2);
@@ -126,7 +136,11 @@ fn test_graph_accessor() {
 
 #[test]
 fn test_has_edge() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     assert!(problem.graph().has_edge(0, 1));
     assert!(problem.graph().has_edge(1, 0)); // Undirected
     assert!(problem.graph().has_edge(1, 2));
@@ -143,7 +157,8 @@ fn test_jl_parity_evaluation() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let edges = jl_parse_edges(&instance["instance"]);
         let weights = jl_parse_i64_vec(&instance["instance"]["weights"]);
-        let problem = MinimumVertexCover::new(SimpleGraph::new(nv, edges), weights);
+        let problem =
+            MinimumVertexCover::new(SimpleGraph::new(nv, edges).unwrap(), weights).unwrap();
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
@@ -174,7 +189,11 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Path graph: 0-1-2
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     // Valid: {1} covers both edges
     assert!(problem.is_valid_solution(&[false, true, false]));
     // Invalid: {0} doesn't cover edge (1,2)
@@ -183,7 +202,11 @@ fn test_is_valid_solution() {
 
 #[test]
 fn test_parameter_getters() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
 }
@@ -191,8 +214,8 @@ fn test_parameter_getters() {
 #[test]
 fn test_mvc_paper_example() {
     // Paper: house graph, VC = {v_0, v_3, v_4}, weight = 3
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-    let problem = MinimumVertexCover::new(graph, vec![1i64; 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
+    let problem = MinimumVertexCover::new(graph, vec![1i64; 5]).unwrap();
     let config = vec![true, false, false, true, true]; // {v_0, v_3, v_4}
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
@@ -201,4 +224,17 @@ fn test_mvc_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 3);
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    assert!(MinimumVertexCover::new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumVertexCover<SimpleGraph, i64>>(json.clone()).is_err());
+    let variant = std::collections::BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    assert!(crate::registry::load_dyn("MinimumVertexCover", &variant, json).is_err());
 }

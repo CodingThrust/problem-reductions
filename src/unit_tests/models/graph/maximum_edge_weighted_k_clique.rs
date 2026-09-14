@@ -4,7 +4,7 @@ use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_edge_weights() {
     let p = MaximumEdgeWeightedKClique::try_from(MaximumEdgeWeightedKCliqueCreateSpec::<i64> {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         edge_weights: None,
         k: 2,
     })
@@ -21,7 +21,7 @@ use crate::types::Max;
 /// and k = 3. Triangles are {0,1,2} (value 8) and {0,1,3} (value 6).
 fn issue_instance() -> MaximumEdgeWeightedKClique<i64> {
     MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![5, 4, -1, 1, 0],
         3,
     )
@@ -126,7 +126,7 @@ fn test_maximum_edge_weighted_k_clique_k_zero_returns_zero() {
     // With k = 0 the unique feasible config selects no vertices and the
     // induced edge set is empty, so the objective is 0.
     let problem = MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![5, 4, -1, 1, 0],
         0,
     )
@@ -154,7 +154,7 @@ fn test_maximum_edge_weighted_k_clique_k_one_returns_zero() {
     // induced edge set is empty regardless of edge weights, so all feasible
     // configurations evaluate to 0.
     let problem = MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![5, 4, -1, 1, 0],
         1,
     )
@@ -184,7 +184,7 @@ fn test_maximum_edge_weighted_k_clique_k_one_returns_zero() {
 fn test_maximum_edge_weighted_k_clique_f64_variant() {
     // f64 variant exercises the additional registered weight type.
     let problem = MaximumEdgeWeightedKClique::<f64>::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![5.0, 4.0, -1.0, 1.0, 0.0],
         3,
     )
@@ -230,7 +230,7 @@ fn test_maximum_edge_weighted_k_clique_problem_name_and_variant() {
 #[test]
 fn test_maximum_edge_weighted_k_clique_rejects_weight_length_mismatch() {
     let error = MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![1, 2, 3, 4], // length 4 != 5 edges
         3,
     )
@@ -245,7 +245,7 @@ fn test_maximum_edge_weighted_k_clique_rejects_weight_length_mismatch() {
 #[test]
 fn test_maximum_edge_weighted_k_clique_rejects_k_greater_than_n() {
     let error = MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![5, 4, -1, 1, 0],
         5,
     )
@@ -259,6 +259,6 @@ fn test_maximum_edge_weighted_k_clique_rejects_k_greater_than_n() {
 
 #[test]
 fn test_maximum_edge_weighted_k_clique_rejects_non_finite_weight() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
     assert!(MaximumEdgeWeightedKClique::new(graph, vec![f64::NAN], 2).is_err());
 }

@@ -161,7 +161,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "knapsack_to_qubo",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
-                Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7),
+                Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7).unwrap(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, true]),
                     target_config: serde_json::json!(vec![

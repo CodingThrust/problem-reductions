@@ -102,13 +102,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Simple diamond: s=0, t=3, intermediate vertices 1,2 with multiplier 1
             let source = IntegralFlowWithMultipliers::new(
-                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
                 0,
                 3,
                 vec![1, 1, 1, 1], // source/sink entries ignored
                 vec![2, 2, 2, 2],
                 2,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

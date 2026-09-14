@@ -8,6 +8,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::VariantParam;
+use petgraph::unionfind::UnionFind;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -46,14 +47,14 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Graph containing two triangles; K=2 forests suffice
-/// let graph = SimpleGraph::new(6, vec![(0,1),(1,2),(2,0),(2,3),(3,4),(4,5),(5,3)]);
-/// let problem = PartitionIntoForests::new(graph, 2);
+/// let graph = SimpleGraph::new(6, vec![(0,1),(1,2),(2,0),(2,3),(3,4),(4,5),(5,3)]).unwrap();
+/// let problem = PartitionIntoForests::new(graph, 2).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct PartitionIntoForests<G> {
     /// The underlying graph.
@@ -62,14 +63,33 @@ pub struct PartitionIntoForests<G> {
     num_forests: usize,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoForestsData<G> {
+    graph: G,
+    num_forests: usize,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoForests<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoForestsData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.num_forests).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> PartitionIntoForests<G> {
     /// Create a new Partition Into Forests instance.
     ///
-    /// # Panics
-    /// Panics if `num_forests` is zero.
-    pub fn new(graph: G, num_forests: usize) -> Self {
-        assert!(num_forests >= 1, "num_forests must be at least 1");
-        Self { graph, num_forests }
+    /// # Errors
+    /// Returns an error if `num_forests` is zero.
+    pub fn new(graph: G, num_forests: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if num_forests == 0 {
+            return Err("num_forests must be at least 1".into());
+        }
+        Ok(Self { graph, num_forests })
     }
 
     /// Get a reference to the underlying graph.
@@ -163,14 +183,7 @@ fn is_valid_forest_partition<G: Graph>(graph: &G, num_forests: usize, config: &[
     // For each forest class, verify the induced subgraph is acyclic using union-find.
     // An undirected graph is acyclic iff union-find never sees an edge (u, v) where
     // u and v already share a component.
-    let mut parent: Vec<usize> = (0..n).collect();
-
-    fn find(parent: &mut Vec<usize>, x: usize) -> usize {
-        if parent[x] != x {
-            parent[x] = find(parent, parent[x]);
-        }
-        parent[x]
-    }
+    let mut components = UnionFind::<usize>::new(n);
 
     for (u, v) in graph.edges() {
         if config[u] != config[v] {
@@ -178,12 +191,9 @@ fn is_valid_forest_partition<G: Graph>(graph: &G, num_forests: usize, config: &[
             continue;
         }
         // Both u and v are in the same class; check for cycle
-        let ru = find(&mut parent, u);
-        let rv = find(&mut parent, v);
-        if ru == rv {
+        if !components.union(u, v) {
             return false; // Cycle detected
         }
-        parent[ru] = rv; // Union
     }
 
     true
@@ -201,13 +211,17 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_forests_simplegraph",
-        instance: Box::new(PartitionIntoForests::new(
-            SimpleGraph::new(
-                6,
-                vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 5), (5, 3)],
-            ),
-            2,
-        )),
+        instance: Box::new(
+            PartitionIntoForests::new(
+                SimpleGraph::new(
+                    6,
+                    vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 5), (5, 3)],
+                )
+                .unwrap(),
+                2,
+            )
+            .unwrap(),
+        ),
         // V0={0,3}: edges from graph in class 0: none among {0,3} → forest
         // V1={1,2,4,5}: edges (1,2),(3,4) but 3∉V1; edges among V1: (1,2),(4,5) → path forest
         optimal_config: serde_json::json!(vec![0, 1, 1, 0, 1, 1]),

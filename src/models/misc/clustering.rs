@@ -53,12 +53,13 @@ inventory::submit! {
 ///     vec![3, 3, 0, 1],
 ///     vec![3, 3, 1, 0],
 /// ];
-/// let problem = Clustering::new(distances, 2, 1);
+/// let problem = Clustering::new(distances, 2, 1).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ClusteringData")]
 pub struct Clustering {
     /// Symmetric distance matrix with zero diagonal.
     distances: Vec<Vec<i64>>,
@@ -68,47 +69,68 @@ pub struct Clustering {
     diameter_bound: i64,
 }
 
+#[derive(Deserialize)]
+struct ClusteringData {
+    distances: Vec<Vec<i64>>,
+    num_clusters: usize,
+    diameter_bound: i64,
+}
+
+impl TryFrom<ClusteringData> for Clustering {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ClusteringData) -> Result<Self, Self::Error> {
+        Self::new(data.distances, data.num_clusters, data.diameter_bound)
+    }
+}
+
 impl Clustering {
     /// Create a new Clustering instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if:
+    /// Returns an error if:
     /// - `distances` is empty
     /// - `distances` is not square
     /// - `distances` is not symmetric
     /// - diagonal entries are not zero
     /// - `num_clusters` is zero
-    pub fn new(distances: Vec<Vec<i64>>, num_clusters: usize, diameter_bound: i64) -> Self {
+    pub fn new(
+        distances: Vec<Vec<i64>>,
+        num_clusters: usize,
+        diameter_bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = distances.len();
-        assert!(n > 0, "Clustering requires at least one element");
-        assert!(num_clusters > 0, "num_clusters must be at least 1");
+        if !(n > 0) {
+            return Err("Clustering requires at least one element".into());
+        }
+        if num_clusters == 0 {
+            return Err("num_clusters must be at least 1".into());
+        }
         for (i, row) in distances.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                n,
-                "Distance matrix must be square: row {i} has {} columns, expected {n}",
-                row.len()
-            );
-            assert_eq!(
-                distances[i][i], 0,
-                "Diagonal entry distances[{i}][{i}] must be 0"
-            );
+            if row.len() != n {
+                return Err(format!(
+                    "Distance matrix must be square: row {i} has {} columns, expected {n}",
+                    row.len()
+                )
+                .into());
+            }
+            if distances[i][i] != 0 {
+                return Err(format!("Diagonal entry distances[{i}][{i}] must be 0").into());
+            }
         }
         for (i, row_i) in distances.iter().enumerate() {
             for j in (i + 1)..n {
-                assert_eq!(
-                    row_i[j], distances[j][i],
-                    "Distance matrix must be symmetric: distances[{i}][{j}] = {} != distances[{j}][{i}] = {}",
-                    row_i[j], distances[j][i]
-                );
+                if row_i[j] != distances[j][i] {
+                    return Err(format!("Distance matrix must be symmetric: distances[{i}][{j}] = {} != distances[{j}][{i}] = {}", row_i[j], distances[j][i]).into());
+                }
             }
         }
-        Self {
+        Ok(Self {
             distances,
             num_clusters,
             diameter_bound,
-        }
+        })
     }
 
     /// Returns the distance matrix.
@@ -224,7 +246,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     ];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "clustering",
-        instance: Box::new(Clustering::new(distances, 2, 1)),
+        instance: Box::new(Clustering::new(distances, 2, 1).unwrap()),
         optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

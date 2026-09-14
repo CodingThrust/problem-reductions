@@ -71,12 +71,7 @@ impl TryFrom<MultipleChoiceBranchingCreateSpec> for MultipleChoiceBranching<i64>
             .transpose()?
             .unwrap_or(0);
         let num_vertices = spec.num_vertices.unwrap_or(inferred);
-        if num_vertices < inferred {
-            return Err("num_vertices is too small for arc endpoints"
-                .to_string()
-                .into());
-        }
-        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let graph = DirectedGraph::new(num_vertices, spec.arcs)?;
         let num_arcs = graph.num_arcs();
         if spec.weights.len() != num_arcs {
             return Err(format!(
@@ -391,7 +386,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (4, 5),
                     (2, 4),
                 ],
-            ),
+            )
+            .unwrap(),
             vec![3, 2, 4, 1, 2, 3, 1, 3],
             vec![vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]],
             10,

@@ -6,8 +6,8 @@ use crate::traits::Problem;
 #[test]
 fn test_isomorphicspanningtree_basic() {
     // Triangle graph, path tree
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem: IsomorphicSpanningTree<SimpleGraph> =
         IsomorphicSpanningTree::new(graph.clone(), tree.clone());
 
@@ -30,8 +30,8 @@ fn test_isomorphicspanningtree_basic() {
 fn test_isomorphicspanningtree_evaluation_yes() {
     // Host graph: 0-1, 1-2, 0-2 (triangle)
     // Tree: 0-1, 1-2 (path)
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // Identity mapping: π = [0, 1, 2]
@@ -54,8 +54,8 @@ fn test_isomorphicspanningtree_evaluation_no() {
     // Host graph: path 0-1-2-3 (edges: 0-1, 1-2, 2-3)
     // Tree: star K_{1,3} center=0, leaves=1,2,3 (edges: 0-1, 0-2, 0-3)
     // No vertex in graph has degree 3, so no valid mapping exists
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // No permutation should work
@@ -66,8 +66,8 @@ fn test_isomorphicspanningtree_evaluation_no() {
 
 #[test]
 fn test_isomorphicspanningtree_invalid_configs() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // Not a permutation: repeated value
@@ -87,8 +87,8 @@ fn test_isomorphicspanningtree_invalid_configs() {
 #[test]
 fn test_isomorphicspanningtree_solver_yes() {
     // Complete graph K4, any tree with 4 vertices should have a solution
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]); // path
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(); // path
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let solver = BruteForce::new();
@@ -107,8 +107,8 @@ fn test_isomorphicspanningtree_solver_yes() {
 #[test]
 fn test_isomorphicspanningtree_solver_no() {
     // Path graph 0-1-2-3, star tree K_{1,3}
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let solver = BruteForce::new();
@@ -121,8 +121,8 @@ fn test_isomorphicspanningtree_solver_no() {
 
 #[test]
 fn test_isomorphicspanningtree_serialization() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let json = serde_json::to_string(&problem).unwrap();
@@ -154,10 +154,11 @@ fn test_isomorphicspanningtree_caterpillar_example() {
             (5, 6),
             (1, 3),
         ],
-    );
+    )
+    .unwrap();
     // Caterpillar tree: a-b, b-c, c-d, d-e, b-f, c-g
     // Using vertex indices: 0-1, 1-2, 2-3, 3-4, 1-5, 2-6
-    let tree = SimpleGraph::new(7, vec![(0, 1), (1, 2), (2, 3), (3, 4), (1, 5), (2, 6)]);
+    let tree = SimpleGraph::new(7, vec![(0, 1), (1, 2), (2, 3), (3, 4), (1, 5), (2, 6)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // The issue gives solution: a→0, b→1, c→2, d→3, e→6, f→4, g→5
@@ -170,8 +171,8 @@ fn test_isomorphicspanningtree_paper_example() {
     // Paper example: G = K4, T = star S3 (center 0, leaves {1, 2, 3})
     // Any bijection works since K4 has all edges.
     // Identity mapping π(i) = i embeds star edges {(0,1),(0,2),(0,3)} into K4.
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]); // star S3
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(); // star S3
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // Identity mapping: π = [0, 1, 2, 3]
@@ -194,25 +195,25 @@ fn test_isomorphicspanningtree_variant() {
 #[test]
 #[should_panic(expected = "graph and tree must have the same number of vertices")]
 fn test_isomorphicspanningtree_mismatched_sizes() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     IsomorphicSpanningTree::new(graph, tree);
 }
 
 #[test]
 #[should_panic(expected = "tree must have exactly n-1 edges")]
 fn test_isomorphicspanningtree_not_a_tree() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     // Not a tree: 3 edges for 3 vertices (has a cycle)
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     IsomorphicSpanningTree::new(graph, tree);
 }
 
 #[test]
 #[should_panic(expected = "tree must be connected")]
 fn test_isomorphicspanningtree_disconnected_tree() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     IsomorphicSpanningTree::new(graph, tree);
 }
 

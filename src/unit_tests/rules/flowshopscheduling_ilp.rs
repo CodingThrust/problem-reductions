@@ -7,7 +7,7 @@ use crate::types::Or;
 #[test]
 fn test_flowshopscheduling_to_ilp_closed_loop() {
     // 2 machines, 3 jobs, deadline 10
-    let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
@@ -31,7 +31,7 @@ fn test_flowshopscheduling_to_ilp_closed_loop() {
 #[test]
 fn test_flowshopscheduling_to_ilp_infeasible() {
     // 2 machines, 3 jobs with large processing times, very tight deadline
-    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5], vec![5, 5]], 6);
+    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5], vec![5, 5]], 6).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
         ILPSolver::new().solve(reduction.target_problem()),
@@ -43,7 +43,7 @@ fn test_flowshopscheduling_to_ilp_infeasible() {
 #[test]
 fn test_flowshopscheduling_to_ilp_single_job() {
     // 2 machines, 1 job, deadline 10
-    let problem = FlowShopScheduling::new(2, vec![vec![3, 4]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![3, 4]], 10).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -54,7 +54,7 @@ fn test_flowshopscheduling_to_ilp_single_job() {
 
 #[test]
 fn test_flowshopscheduling_to_ilp_bf_vs_ilp() {
-    let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();

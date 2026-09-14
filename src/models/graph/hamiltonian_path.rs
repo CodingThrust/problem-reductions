@@ -55,7 +55,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph: 0-1-2-3
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
 /// let problem = HamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -177,19 +177,22 @@ pub(crate) fn is_valid_hamiltonian_path<G: Graph>(graph: &G, config: &[usize]) -
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_path_simplegraph",
-        instance: Box::new(HamiltonianPath::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (0, 2),
-                (1, 3),
-                (2, 3),
-                (3, 4),
-                (3, 5),
-                (4, 2),
-                (5, 1),
-            ],
-        ))),
+        instance: Box::new(HamiltonianPath::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (3, 4),
+                    (3, 5),
+                    (4, 2),
+                    (5, 1),
+                ],
+            )
+            .unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![0, 2, 4, 3, 1, 5]),
         optimal_value: serde_json::json!(true),
     }]

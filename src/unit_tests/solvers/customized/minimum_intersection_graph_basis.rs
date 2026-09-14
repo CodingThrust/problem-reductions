@@ -11,7 +11,7 @@ fn test_clique_cover_dp_minimum_intersection_graph_basis_matches_brute_force() {
             .enumerate()
             .filter_map(|(edge, pair)| (edge_mask & (1 << edge) != 0).then_some(*pair))
             .collect();
-        let problem = MinimumIntersectionGraphBasis::new(SimpleGraph::new(3, edges));
+        let problem = MinimumIntersectionGraphBasis::new(SimpleGraph::new(3, edges).unwrap());
         let expected = BruteForce::new().solve(&problem).unwrap().unwrap();
         let actual = solve(&problem).unwrap();
         assert_eq!(
@@ -23,10 +23,9 @@ fn test_clique_cover_dp_minimum_intersection_graph_basis_matches_brute_force() {
 
 #[test]
 fn test_clique_cover_dp_minimum_intersection_graph_basis_handles_overlapping_cliques() {
-    let problem = MinimumIntersectionGraphBasis::new(SimpleGraph::new(
-        5,
-        vec![(0, 1), (0, 2), (1, 2), (2, 3), (2, 4), (3, 4)],
-    ));
+    let problem = MinimumIntersectionGraphBasis::new(
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (2, 4), (3, 4)]).unwrap(),
+    );
     let solution = solve(&problem).unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap().0, Some(2));
 }
@@ -37,7 +36,7 @@ fn test_intersection_basis_handles_dense_graphs_beyond_machine_word_edges() {
         let edges = (0..n)
             .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
             .collect();
-        let problem = MinimumIntersectionGraphBasis::new(SimpleGraph::new(n, edges));
+        let problem = MinimumIntersectionGraphBasis::new(SimpleGraph::new(n, edges).unwrap());
         let solution = solve(&problem).unwrap();
         assert_eq!(problem.evaluate(&solution).unwrap().0, Some(1));
     }

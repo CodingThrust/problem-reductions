@@ -90,22 +90,12 @@ macro_rules! mixed_chinese_postman_create_spec {
                     .transpose()?
                     .unwrap_or(0);
                 let num_vertices = spec.num_vertices.unwrap_or(inferred);
-                if num_vertices < inferred {
-                    return Err(format!(
-                        "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-                    ).into());
-                }
-                for (index, &(u, v)) in spec.arcs.iter().enumerate() {
-                    if u >= num_vertices || v >= num_vertices {
-                        return Err(format!(
-                            "arc {index} endpoint is out of range for {num_vertices} vertices"
-                        ).into());
-                    }
-                }
+
+
                 let arc_weights = { $(if let Some(value) = spec.$arc_weights { value } else)? { vec![$one; spec.arcs.len()] } };
                 let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; spec.graph.len()] } };
                 MixedChinesePostman::try_new(
-                    MixedGraph::new(num_vertices, spec.arcs, spec.graph),
+                    MixedGraph::new(num_vertices, spec.arcs, spec.graph)?,
                     arc_weights,
                     edge_weights,
                 )
@@ -297,6 +287,7 @@ where
             keep[head] = true;
         }
         if !DirectedGraph::new(self.graph.num_vertices(), available)
+            .expect("available arcs use vertices of the input graph")
             .induced_subgraph(&keep)
             .is_strongly_connected()
         {
@@ -377,7 +368,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 5,
                 vec![(0, 1), (1, 2), (2, 3), (3, 0)],
                 vec![(0, 2), (1, 3), (0, 4), (4, 2)],
-            ),
+            )
+            .unwrap(),
             vec![2, 3, 1, 4],
             vec![2, 3, 1, 2],
         )),

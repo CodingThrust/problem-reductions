@@ -7,7 +7,7 @@ use crate::traits::Problem;
 fn test_reduction_creates_valid_ilp() {
     // Alphabet {0,1}, strings [0,1] and [1,0]
     // max_length = 2 + 2 = 4, k = 3 (alphabet_size + 1 for padding)
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let reduction: ReductionSCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -20,7 +20,7 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_shortestcommonsupersequence_to_ilp_closed_loop() {
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
@@ -39,7 +39,7 @@ fn test_shortestcommonsupersequence_to_ilp_closed_loop() {
 
 #[test]
 fn test_shortestcommonsupersequence_to_ilp_bf_vs_ilp() {
-    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]);
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]).unwrap();
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some());
@@ -57,7 +57,7 @@ fn test_shortestcommonsupersequence_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Single string [0,1]
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]).unwrap();
     let reduction: ReductionSCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

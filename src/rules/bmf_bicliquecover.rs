@@ -116,7 +116,11 @@ impl ReduceTo<BicliqueCover> for BMF {
                 }
             }
         }
-        let target = BicliqueCover::new(BipartiteGraph::new(m, n, edges), k);
+        let target = BicliqueCover::new(
+            BipartiteGraph::new(m, n, edges)
+                .map_err(<Self as ReduceTo<BicliqueCover>>::target_construction)?,
+            k,
+        );
         Ok(ReductionBMFToBicliqueCover { target, m, n, k })
     }
 }
@@ -129,7 +133,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "bmf_to_bicliquecover",
         build: || {
             // 2x2 all-ones, rank 1 — a single biclique covering both sides exactly.
-            let source = BMF::new(vec![vec![true, true], vec![true, true]], 1);
+            let source = BMF::new(vec![vec![true, true], vec![true, true]], 1).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,
                 SolutionPair {

@@ -17,7 +17,8 @@ fn bench_independent_set(c: &mut Criterion) {
     for n in [4, 6, 8, 10].iter() {
         // Create a path graph with n vertices
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(*n, edges), vec![1i64; *n]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(*n, edges).unwrap(), vec![1i64; *n]);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -34,7 +35,7 @@ fn bench_vertex_covering(c: &mut Criterion) {
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = MinimumVertexCover::new(SimpleGraph::new(*n, edges), vec![1i64; *n]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(*n, edges).unwrap(), vec![1i64; *n]);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -52,7 +53,7 @@ fn bench_max_cut(c: &mut Criterion) {
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
         let weights = vec![1i64; edges.len()];
-        let problem = MaxCut::new(SimpleGraph::new(*n, edges), weights);
+        let problem = MaxCut::new(SimpleGraph::new(*n, edges).unwrap(), weights);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -120,7 +121,7 @@ fn bench_set_covering(c: &mut Criterion) {
         let sets: Vec<Vec<usize>> = (0..*num_sets)
             .map(|i| vec![i, (i + 1) % *num_sets, (i + 2) % *num_sets])
             .collect();
-        let problem = MinimumSetCovering::<i64>::new(*num_sets, sets);
+        let problem = MinimumSetCovering::<i64>::new(*num_sets, sets).unwrap();
         let solver = BruteForce::new();
 
         group.bench_with_input(
@@ -139,7 +140,7 @@ fn bench_coloring(c: &mut Criterion) {
 
     for n in [3, 4, 5, 6].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = KColoring::<K3, _>::new(SimpleGraph::new(*n, edges));
+        let problem = KColoring::<K3, _>::new(SimpleGraph::new(*n, edges).unwrap());
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path_3colors", n), n, |b, _| {
@@ -157,7 +158,7 @@ fn bench_matching(c: &mut Criterion) {
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
         let weights = vec![1i64; edges.len()];
-        let problem = MaximumMatching::new(SimpleGraph::new(*n, edges), weights);
+        let problem = MaximumMatching::new(SimpleGraph::new(*n, edges).unwrap(), weights);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -178,7 +179,7 @@ fn bench_paintshop(c: &mut Criterion) {
             .flat_map(|i| vec![format!("car{}", i)])
             .chain((0..*n).map(|i| format!("car{}", i)))
             .collect();
-        let problem = PaintShop::from_strings(sequence);
+        let problem = PaintShop::from_strings(sequence).unwrap();
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("sequential", n), n, |b, _| {
@@ -197,7 +198,7 @@ fn bench_comparison(c: &mut Criterion) {
 
     // MaximumIndependentSet with 8 vertices
     let is_problem = MaximumIndependentSet::new(
-        SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]),
+        SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]).unwrap(),
         vec![1i64; 8],
     );
     group.bench_function("MaximumIndependentSet", |b| {
@@ -231,7 +232,7 @@ fn bench_comparison(c: &mut Criterion) {
 
     // MaxCut with 8 vertices
     let mc_problem = MaxCut::new(
-        SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]),
+        SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]).unwrap(),
         vec![1, 1, 1, 1],
     );
     group.bench_function("MaxCut", |b| {

@@ -8,7 +8,11 @@ use crate::types::Or;
 fn test_kclique_to_balancedcompletebipartitesubgraph_closed_loop() {
     // 4-vertex graph with edges {0,1}, {0,2}, {1,2}, {2,3}, k=3
     // Known 3-clique: {0, 1, 2}
-    let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]), 3);
+    let source = KClique::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+        3,
+    )
+    .unwrap();
     let reduction = ReduceTo::<BalancedCompleteBipartiteSubgraph>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -32,9 +36,10 @@ fn test_kclique_to_balancedcompletebipartitesubgraph_closed_loop() {
 fn test_kclique_to_bcbs_complete_graph() {
     // K4 graph, k=3 -> should find a 3-clique
     let source = KClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         3,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<BalancedCompleteBipartiteSubgraph>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -55,7 +60,11 @@ fn test_kclique_to_bcbs_complete_graph() {
 #[test]
 fn test_kclique_to_bcbs_no_clique() {
     // Path graph: 0-1-2-3, k=3 -> no 3-clique exists
-    let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 3);
+    let source = KClique::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+        3,
+    )
+    .unwrap();
     let reduction = ReduceTo::<BalancedCompleteBipartiteSubgraph>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -81,7 +90,7 @@ fn test_kclique_to_bcbs_no_clique() {
 #[test]
 fn test_kclique_to_bcbs_k_equals_2() {
     // k=2 means we need an edge
-    let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), 2);
+    let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap(), 2).unwrap();
     let reduction = ReduceTo::<BalancedCompleteBipartiteSubgraph>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -104,7 +113,7 @@ fn test_kclique_to_bcbs_k_equals_2() {
 #[test]
 fn test_kclique_to_bcbs_k_equals_1() {
     // k=1: any graph has a 1-clique (single vertex)
-    let source = KClique::new(SimpleGraph::new(3, vec![(0, 1)]), 1);
+    let source = KClique::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), 1).unwrap();
     let reduction = ReduceTo::<BalancedCompleteBipartiteSubgraph>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -140,9 +149,11 @@ fn test_kclique_to_bcbs_bipartite_counterexample() {
                 (2, 4),
                 (2, 5),
             ],
-        ),
+        )
+        .unwrap(),
         3,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<BalancedCompleteBipartiteSubgraph>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

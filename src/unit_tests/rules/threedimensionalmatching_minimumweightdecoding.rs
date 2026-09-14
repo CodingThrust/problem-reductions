@@ -13,7 +13,7 @@ fn reduce_tdm(
     ThreeDimensionalMatching,
     ReductionThreeDimensionalMatchingToMinimumWeightDecoding,
 ) {
-    let source = ThreeDimensionalMatching::new(universe_size, triples);
+    let source = ThreeDimensionalMatching::new(universe_size, triples).unwrap();
     let reduction =
         ReduceTo::<MinimumWeightDecoding>::reduce_to(&source).expect("reduction should succeed");
     (source, reduction)

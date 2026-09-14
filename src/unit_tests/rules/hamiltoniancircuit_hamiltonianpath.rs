@@ -89,7 +89,8 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_reversed() {
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_no_circuit() {
     // Path graph 0-1-2-3: no Hamiltonian circuit (vertices 0 and 3 have degree 1)
-    let source = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let source =
+        HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -119,7 +120,7 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_triangle() {
 
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_two_vertex_special_case_is_unsatisfiable() {
-    let source = HamiltonianCircuit::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let source = HamiltonianCircuit::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap());
     let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

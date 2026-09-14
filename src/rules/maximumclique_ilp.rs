@@ -91,7 +91,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "maximumclique_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::octahedral();
-            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i64; 6]);
+            let source =
+                MaximumClique::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; 6]).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

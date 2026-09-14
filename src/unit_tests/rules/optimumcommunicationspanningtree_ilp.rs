@@ -8,7 +8,7 @@ use crate::types::Min;
 fn k3_problem() -> OptimumCommunicationSpanningTree {
     let edge_weights = vec![vec![0, 1, 2], vec![1, 0, 3], vec![2, 3, 0]];
     let requirements = vec![vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]];
-    OptimumCommunicationSpanningTree::new(edge_weights, requirements)
+    OptimumCommunicationSpanningTree::new(edge_weights, requirements).unwrap()
 }
 
 fn k4_problem() -> OptimumCommunicationSpanningTree {
@@ -24,7 +24,7 @@ fn k4_problem() -> OptimumCommunicationSpanningTree {
         vec![1, 1, 0, 2],
         vec![3, 1, 2, 0],
     ];
-    OptimumCommunicationSpanningTree::new(edge_weights, requirements)
+    OptimumCommunicationSpanningTree::new(edge_weights, requirements).unwrap()
 }
 
 #[test]
@@ -150,7 +150,8 @@ fn test_ocst_zero_requirement_pairs_still_enforce_spanning_tree() {
             vec![0, 1, 0, 4],
             vec![0, 4, 4, 0],
         ],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
     let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     let extracted = reduction.extract_solution(&solution).unwrap();

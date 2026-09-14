@@ -64,7 +64,13 @@ impl ReduceTo<LongestCircuit<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGra
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
-        let target = LongestCircuit::new(SimpleGraph::new(n, edges), vec![1i64; self.num_edges()]);
+        let target = LongestCircuit::new(
+            SimpleGraph::new(n, edges).map_err(
+                <Self as ReduceTo<LongestCircuit<SimpleGraph, i64>>>::target_construction,
+            )?,
+            vec![1i64; self.num_edges()],
+        )
+        .map_err(<Self as ReduceTo<LongestCircuit<SimpleGraph, i64>>>::target_construction)?;
         Ok(ReductionHamiltonianCircuitToLongestCircuit { target })
     }
 }

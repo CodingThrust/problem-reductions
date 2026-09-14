@@ -8,26 +8,28 @@ fn feasible_instance() -> UndirectedFlowLowerBounds {
     // 3-vertex path: edges (0,1) cap=2 lower=1, (1,2) cap=2 lower=1
     // source=0, sink=2, requirement=1
     UndirectedFlowLowerBounds::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![2, 2],
         vec![1, 1],
         0,
         2,
         1,
     )
+    .unwrap()
 }
 
 fn infeasible_instance() -> UndirectedFlowLowerBounds {
     // 3-vertex path: edges (0,1) cap=2 lower=2, (1,2) cap=1 lower=0
     // source=0, sink=2, requirement=2: need 2 units but edge (1,2) cap=1 limits to 1
     UndirectedFlowLowerBounds::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![2, 1],
         vec![0, 0],
         0,
         2,
         2,
     )
+    .unwrap()
 }
 
 #[test]

@@ -252,7 +252,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             (5, 4),
             (0, 3),
         ],
-    );
+    )
+    .unwrap();
     let chosen: BTreeSet<_> = [(0, 2), (2, 3), (3, 4)]
         .into_iter()
         .map(|(u, v)| normalize_edge(u, v))

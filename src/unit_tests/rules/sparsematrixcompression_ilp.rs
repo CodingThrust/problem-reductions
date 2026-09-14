@@ -16,7 +16,8 @@ fn test_smc_to_ilp_structure() {
             vec![true, false, false, false],
         ],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -35,7 +36,8 @@ fn test_smc_to_ilp_closed_loop() {
             vec![true, false, false, false],
         ],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_bf_vs_ilp(&problem, &reduction);
@@ -51,7 +53,8 @@ fn test_smc_to_ilp_bf_vs_ilp() {
             vec![true, false, false, false],
         ],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -70,7 +73,7 @@ fn test_smc_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_smc_to_ilp_trivial() {
     // Single row, K=1
-    let problem = SparseMatrixCompression::new(vec![vec![true, false]], 1);
+    let problem = SparseMatrixCompression::new(vec![vec![true, false]], 1).unwrap();
     let reduction: ReductionSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

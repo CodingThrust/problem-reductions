@@ -9,6 +9,8 @@ use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
+use petgraph::algo::{articulation_points::articulation_points, connected_components};
+use petgraph::graph::{NodeIndex, UnGraph};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -34,7 +36,7 @@ inventory::submit! {
 /// determine whether there exists a subset of potential edges `E'` such that:
 /// - `sum_{e in E'} w(e) <= B`
 /// - `(V, E union E')` is biconnected
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(
     serialize = "G: serde::Serialize, W: serde::Serialize, W::Sum: serde::Serialize",
     deserialize = "G: serde::Deserialize<'de>, W: serde::Deserialize<'de>, W::Sum: serde::Deserialize<'de>"
@@ -49,6 +51,28 @@ where
     potential_weights: Vec<(usize, usize, W)>,
     /// Maximum total weight of selected potential edges.
     budget: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
+struct BiconnectivityAugmentationData<G, W: WeightElement> {
+    graph: G,
+    potential_weights: Vec<(usize, usize, W)>,
+    budget: W::Sum,
+}
+
+impl<'de, G, W> Deserialize<'de> for BiconnectivityAugmentation<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = BiconnectivityAugmentationData::<G, W>::deserialize(deserializer)?;
+        Self::new(data.graph, data.potential_weights, data.budget).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -82,73 +106,56 @@ impl TryFrom<BiconnectivityAugmentationCreateSpec>
             .transpose()?
             .unwrap_or(0);
         let count = spec.num_vertices.unwrap_or(inferred);
-        if count < inferred {
-            return Err("num_vertices is too small for graph endpoints".into());
-        }
-        let graph = SimpleGraph::new(count, spec.graph);
-        let mut seen = BTreeSet::new();
-        for &(u, v, _) in &spec.potential_weights {
-            if u >= count || v >= count {
-                return Err("potential edge endpoint is out of bounds".into());
-            }
-            if u == v {
-                return Err("potential edge is a self-loop".into());
-            }
-            let edge = normalize_edge(u, v);
-            if graph.has_edge(edge.0, edge.1) {
-                return Err("potential edge already exists in graph".into());
-            }
-            if !seen.insert(edge) {
-                return Err("duplicate potential edge".into());
-            }
-        }
-        Ok(Self {
-            graph,
-            potential_weights: spec.potential_weights,
-            budget: spec.budget,
-        })
+        let graph = SimpleGraph::new(count, spec.graph)?;
+        Self::new(graph, spec.potential_weights, spec.budget)
     }
 }
 
 impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
     /// Create a new biconnectivity augmentation instance.
     ///
-    /// # Panics
-    /// Panics if any potential edge references a vertex index outside the graph,
+    /// # Errors
+    /// Returns an error if any potential edge references a vertex index outside the graph,
     /// is a self-loop, duplicates another candidate edge, or already exists in
     /// the input graph.
-    pub fn new(graph: G, potential_weights: Vec<(usize, usize, W)>, budget: W::Sum) -> Self {
+    pub fn new(
+        graph: G,
+        potential_weights: Vec<(usize, usize, W)>,
+        budget: W::Sum,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
         let mut seen_potential_edges = BTreeSet::new();
         for &(u, v, _) in &potential_weights {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "potential edge ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
-            assert!(u != v, "potential edge ({}, {}) is a self-loop", u, v);
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "potential edge ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
+            if u == v {
+                return Err(format!("potential edge ({}, {}) is a self-loop", u, v).into());
+            }
             let edge = normalize_edge(u, v);
-            assert!(
-                !graph.has_edge(edge.0, edge.1),
-                "potential edge ({}, {}) already exists in the graph",
-                edge.0,
-                edge.1
-            );
-            assert!(
-                seen_potential_edges.insert(edge),
-                "potential edge ({}, {}) is duplicated",
-                edge.0,
-                edge.1
-            );
+            if !(!graph.has_edge(edge.0, edge.1)) {
+                return Err(format!(
+                    "potential edge ({}, {}) already exists in the graph",
+                    edge.0, edge.1
+                )
+                .into());
+            }
+            if !(seen_potential_edges.insert(edge)) {
+                return Err(
+                    format!("potential edge ({}, {}) is duplicated", edge.0, edge.1).into(),
+                );
+            }
         }
 
-        Self {
+        Ok(Self {
             graph,
             potential_weights,
             budget,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -189,7 +196,7 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
     fn augmented_graph(
         &self,
         config: &[bool],
-    ) -> Result<Option<SimpleGraph>, crate::traits::EvaluationError> {
+    ) -> Result<Option<UnGraph<(), ()>>, crate::traits::EvaluationError> {
         if config.len() != self.num_potential_edges() {
             return Ok(None);
         }
@@ -215,10 +222,14 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
             return Ok(None);
         }
 
-        Ok(Some(SimpleGraph::new(
-            self.num_vertices(),
-            edges.into_iter().collect(),
-        )))
+        let mut graph = UnGraph::new_undirected();
+        for _ in 0..self.num_vertices() {
+            graph.add_node(());
+        }
+        for (u, v) in edges {
+            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
+        }
+        Ok(Some(graph))
     }
 }
 
@@ -281,67 +292,9 @@ fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
     }
 }
 
-struct DfsState {
-    visited: Vec<bool>,
-    discovery_time: Vec<usize>,
-    low: Vec<usize>,
-    parent: Vec<Option<usize>>,
-    time: usize,
-    has_articulation_point: bool,
-}
-
-fn dfs_articulation_points<G: Graph>(graph: &G, vertex: usize, state: &mut DfsState) {
-    if state.has_articulation_point {
-        return;
-    }
-
-    state.visited[vertex] = true;
-    state.time += 1;
-    state.discovery_time[vertex] = state.time;
-    state.low[vertex] = state.time;
-
-    let mut child_count = 0;
-    for neighbor in graph.neighbors(vertex) {
-        if !state.visited[neighbor] {
-            child_count += 1;
-            state.parent[neighbor] = Some(vertex);
-            dfs_articulation_points(graph, neighbor, state);
-            state.low[vertex] = state.low[vertex].min(state.low[neighbor]);
-
-            if state.parent[vertex].is_none() && child_count > 1 {
-                state.has_articulation_point = true;
-                return;
-            }
-
-            if state.parent[vertex].is_some() && state.low[neighbor] >= state.discovery_time[vertex]
-            {
-                state.has_articulation_point = true;
-                return;
-            }
-        } else if state.parent[vertex] != Some(neighbor) {
-            state.low[vertex] = state.low[vertex].min(state.discovery_time[neighbor]);
-        }
-    }
-}
-
-fn is_biconnected<G: Graph>(graph: &G) -> bool {
-    let num_vertices = graph.num_vertices();
-    if num_vertices <= 1 {
-        return true;
-    }
-
-    let mut state = DfsState {
-        visited: vec![false; num_vertices],
-        discovery_time: vec![0; num_vertices],
-        low: vec![0; num_vertices],
-        parent: vec![None; num_vertices],
-        time: 0,
-        has_articulation_point: false,
-    };
-
-    dfs_articulation_points(graph, 0, &mut state);
-
-    !state.has_articulation_point && state.visited.into_iter().all(|seen| seen)
+fn is_biconnected(graph: &UnGraph<(), ()>) -> bool {
+    graph.node_count() <= 1
+        || (connected_components(graph) == 1 && articulation_points(graph).is_empty())
 }
 
 crate::declare_variants! {
@@ -356,21 +309,24 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "biconnectivity_augmentation",
-        instance: Box::new(BiconnectivityAugmentation::new(
-            SimpleGraph::path(6),
-            vec![
-                (0, 2, 1),
-                (0, 3, 2),
-                (0, 4, 3),
-                (1, 3, 1),
-                (1, 4, 2),
-                (1, 5, 3),
-                (2, 4, 1),
-                (2, 5, 2),
-                (3, 5, 1),
-            ],
-            4,
-        )),
+        instance: Box::new(
+            BiconnectivityAugmentation::new(
+                SimpleGraph::path(6),
+                vec![
+                    (0, 2, 1),
+                    (0, 3, 2),
+                    (0, 4, 3),
+                    (1, 3, 1),
+                    (1, 4, 2),
+                    (1, 5, 3),
+                    (2, 4, 1),
+                    (2, 5, 2),
+                    (3, 5, 1),
+                ],
+                4,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![
             true, false, false, true, false, false, true, false, true
         ]),
@@ -395,6 +351,7 @@ pub(crate) fn example_instance() -> BiconnectivityAugmentation<SimpleGraph, i64>
         ],
         4,
     )
+    .unwrap()
 }
 
 #[cfg(test)]

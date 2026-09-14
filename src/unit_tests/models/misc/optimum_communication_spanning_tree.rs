@@ -27,7 +27,7 @@ fn k4_problem() -> OptimumCommunicationSpanningTree {
         vec![1, 1, 0, 2],
         vec![3, 1, 2, 0],
     ];
-    OptimumCommunicationSpanningTree::new(edge_weights, requirements)
+    OptimumCommunicationSpanningTree::new(edge_weights, requirements).unwrap()
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn test_ocst_k3_equal_requirements() {
     // edge_weights: w(0,1)=1, w(0,2)=2, w(1,2)=3
     let edge_weights = vec![vec![0, 1, 2], vec![1, 0, 3], vec![2, 3, 0]];
     let requirements = vec![vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]];
-    let problem = OptimumCommunicationSpanningTree::new(edge_weights, requirements);
+    let problem = OptimumCommunicationSpanningTree::new(edge_weights, requirements).unwrap();
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 3);
 
@@ -185,27 +185,26 @@ fn test_ocst_k3_equal_requirements() {
 }
 
 #[test]
-#[should_panic(expected = "must have at least 2 vertices")]
-fn test_ocst_single_vertex_panics() {
-    OptimumCommunicationSpanningTree::new(vec![vec![0]], vec![vec![0]]);
+fn test_ocst_single_vertex_rejects() {
+    assert!(OptimumCommunicationSpanningTree::new(vec![vec![0]], vec![vec![0]]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "edge_weights must be symmetric")]
-fn test_ocst_asymmetric_weights_panics() {
-    OptimumCommunicationSpanningTree::new(
+fn test_ocst_asymmetric_weights_rejects() {
+    assert!(OptimumCommunicationSpanningTree::new(
         vec![vec![0, 1], vec![2, 0]],
         vec![vec![0, 1], vec![1, 0]],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "requirements must be symmetric")]
-fn test_ocst_asymmetric_requirements_panics() {
-    OptimumCommunicationSpanningTree::new(
+fn test_ocst_asymmetric_requirements_rejects() {
+    assert!(OptimumCommunicationSpanningTree::new(
         vec![vec![0, 1], vec![1, 0]],
         vec![vec![0, 1], vec![2, 0]],
-    );
+    )
+    .is_err());
 }
 
 #[cfg(feature = "example-db")]

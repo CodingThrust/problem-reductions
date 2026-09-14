@@ -20,9 +20,11 @@ fn test_minimumvertexcover_to_minimumhittingset_closed_loop() {
                 (4, 5),
                 (1, 4),
             ],
-        ),
+        )
+        .unwrap(),
         vec![One; 6],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
 
@@ -36,8 +38,11 @@ fn test_minimumvertexcover_to_minimumhittingset_closed_loop() {
 #[test]
 fn test_vc_to_hs_structure() {
     // Path graph 0-1-2 with edges (0,1) and (1,2)
-    let vc_problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
+    let vc_problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![One; 3],
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
@@ -56,9 +61,10 @@ fn test_vc_to_hs_structure() {
 fn test_vc_to_hs_triangle() {
     // Triangle graph: 3 vertices, 3 edges
     let vc_problem = MinimumVertexCover::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![One; 3],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
@@ -84,7 +90,8 @@ fn test_vc_to_hs_triangle() {
 #[test]
 fn test_vc_to_hs_empty_graph() {
     // Graph with no edges: no sets to hit
-    let vc_problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![One; 3]);
+    let vc_problem =
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![]).unwrap(), vec![One; 3]).unwrap();
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
@@ -97,9 +104,10 @@ fn test_vc_to_hs_empty_graph() {
 fn test_vc_to_hs_star_graph() {
     // Star graph: center vertex 0 connected to 1, 2, 3
     let vc_problem = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![One; 4],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
     let hs_problem = reduction.target_problem();
@@ -123,8 +131,11 @@ fn test_vc_to_hs_star_graph() {
 #[test]
 fn test_vc_to_hs_solution_extraction() {
     // Verify that extract_solution is identity (1:1 correspondence)
-    let vc_problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
+    let vc_problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![One; 3],
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
 

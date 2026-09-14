@@ -88,8 +88,10 @@ impl ReduceTo<MinimumFeedbackArcSet<i64>> for MinimumVertexCover<SimpleGraph, i6
             weights.push(big_m);
         }
 
-        let graph = DirectedGraph::new(2 * n, arcs);
-        let target = MinimumFeedbackArcSet::new(graph, weights);
+        let graph = DirectedGraph::new(2 * n, arcs)
+            .map_err(<Self as ReduceTo<MinimumFeedbackArcSet<i64>>>::target_construction)?;
+        let target = MinimumFeedbackArcSet::new(graph, weights)
+            .map_err(<Self as ReduceTo<MinimumFeedbackArcSet<i64>>>::target_construction)?;
 
         Ok(ReductionVCToFAS {
             target,
@@ -109,9 +111,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Triangle graph: 0-1-2-0, unit weights
             // MVC optimal = 2 vertices (e.g., {0, 1})
             let source = MinimumVertexCover::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
                 vec![1i64; 3],
-            );
+            )
+            .unwrap();
             let reduction = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source)
                 .expect("reduction should succeed");
             let target = reduction.target_problem();

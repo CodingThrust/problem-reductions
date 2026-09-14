@@ -47,13 +47,14 @@ inventory::submit! {
 ///     vec![true, false],
 ///     vec![false, true],
 /// ];
-/// let problem = BMF::new(a, 2);
+/// let problem = BMF::new(a, 2).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let witness = solver.solve(&problem).unwrap().unwrap();
 /// assert!(problem.is_exact(&witness).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BMFData")]
 pub struct BMF {
     /// The target matrix A (m x n).
     matrix: Vec<Vec<bool>>,
@@ -65,22 +66,39 @@ pub struct BMF {
     k: usize,
 }
 
+#[derive(Deserialize)]
+struct BMFData {
+    matrix: Vec<Vec<bool>>,
+    k: usize,
+}
+
+impl TryFrom<BMFData> for BMF {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BMFData) -> Result<Self, Self::Error> {
+        Self::new(data.matrix, data.k)
+    }
+}
+
 impl BMF {
     /// Create a new BMF problem.
     ///
     /// # Arguments
     /// * `matrix` - The target m x n boolean matrix
     /// * `k` - The factorization rank
-    pub fn new(matrix: Vec<Vec<bool>>, k: usize) -> Self {
+    /// # Errors
+    ///
+    /// Returns an error when matrix dimensions violate the instance definition.
+    pub fn new(
+        matrix: Vec<Vec<bool>>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let m = matrix.len();
-        let n = if m > 0 { matrix[0].len() } else { 0 };
-
-        // Validate matrix dimensions
-        for row in &matrix {
-            assert_eq!(row.len(), n, "All rows must have the same length");
+        let n = matrix.first().map_or(0, Vec::len);
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err("all matrix rows must have the same length".into());
         }
-
-        Self { matrix, m, n, k }
+        Ok(Self { matrix, m, n, k })
     }
 
     /// Get the number of rows.
@@ -282,14 +300,17 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bmf",
-        instance: Box::new(BMF::new(
-            vec![
-                vec![true, true, false],
-                vec![true, true, true],
-                vec![false, true, true],
-            ],
-            2,
-        )),
+        instance: Box::new(
+            BMF::new(
+                vec![
+                    vec![true, true, false],
+                    vec![true, true, true],
+                    vec![false, true, true],
+                ],
+                2,
+            )
+            .unwrap(),
+        ),
         // B = [[1,0],[1,1],[0,1]], C = [[1,1,0],[0,1,1]].
         // Total 1s: 4 in B + 4 in C = 8, and B * C = A exactly.
         optimal_config: serde_json::json!((

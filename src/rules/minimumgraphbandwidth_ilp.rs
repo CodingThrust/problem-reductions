@@ -145,8 +145,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumgraphbandwidth_to_ilp",
         build: || {
             // Star S4: center 0 connected to 1, 2, 3
-            let source =
-                MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
+            let source = MinimumGraphBandwidth::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
+            );
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

@@ -10,7 +10,7 @@ fn test_maximum_likelihood_ranking_creation() {
         vec![2, 1, 0, 4],
         vec![0, 2, 1, 0],
     ];
-    let problem = MaximumLikelihoodRanking::new(matrix.clone());
+    let problem = MaximumLikelihoodRanking::new(matrix.clone()).unwrap();
     assert_eq!(problem.num_items(), 4);
     assert_eq!(problem.matrix(), &matrix);
     assert_eq!(problem.comparison_count(), 5);
@@ -33,7 +33,7 @@ fn test_maximum_likelihood_ranking_evaluate_optimal() {
         vec![2, 1, 0, 4],
         vec![0, 2, 1, 0],
     ];
-    let problem = MaximumLikelihoodRanking::new(matrix);
+    let problem = MaximumLikelihoodRanking::new(matrix).unwrap();
     // Identity ranking: config[i] = i (item i is at position i)
     // Disagreement pairs where config[a] > config[b]:
     // (1,0): matrix[1][0] = 1
@@ -54,7 +54,7 @@ fn test_maximum_likelihood_ranking_evaluate_non_permutation() {
         vec![2, 1, 0, 4],
         vec![0, 2, 1, 0],
     ];
-    let problem = MaximumLikelihoodRanking::new(matrix);
+    let problem = MaximumLikelihoodRanking::new(matrix).unwrap();
     // Duplicate rank
     assert_eq!(problem.evaluate(&vec![0, 0, 2, 3]).unwrap(), Min(None));
     // Rank out of range
@@ -81,7 +81,7 @@ fn test_maximum_likelihood_ranking_evaluate_suboptimal() {
         vec![2, 1, 0, 4],
         vec![0, 2, 1, 0],
     ];
-    let problem = MaximumLikelihoodRanking::new(matrix);
+    let problem = MaximumLikelihoodRanking::new(matrix).unwrap();
     // Reversed ranking: config = [3, 2, 1, 0]
     // (item 0 at pos 3, item 1 at pos 2, item 2 at pos 1, item 3 at pos 0)
     // Pairs where config[a] > config[b]:
@@ -103,7 +103,7 @@ fn test_maximum_likelihood_ranking_solver() {
         vec![2, 1, 0, 4],
         vec![0, 2, 1, 0],
     ];
-    let problem = MaximumLikelihoodRanking::new(matrix);
+    let problem = MaximumLikelihoodRanking::new(matrix).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -121,7 +121,7 @@ fn test_maximum_likelihood_ranking_serialization() {
         vec![2, 1, 0, 4],
         vec![0, 2, 1, 0],
     ];
-    let problem = MaximumLikelihoodRanking::new(matrix.clone());
+    let problem = MaximumLikelihoodRanking::new(matrix.clone()).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MaximumLikelihoodRanking = serde_json::from_value(json).unwrap();
     assert_eq!(restored.matrix(), &matrix);
@@ -132,7 +132,7 @@ fn test_maximum_likelihood_ranking_serialization() {
 fn test_maximum_likelihood_ranking_two_items() {
     // 2 items: a_01 = 3, a_10 = 2
     let matrix = vec![vec![0, 3], vec![2, 0]];
-    let problem = MaximumLikelihoodRanking::new(matrix);
+    let problem = MaximumLikelihoodRanking::new(matrix).unwrap();
     // config [0,1]: item 0 at pos 0, item 1 at pos 1
     // Only pair where config[a] > config[b]: (1,0) -> matrix[1][0] = 2
     assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Min(Some(2)));
@@ -147,7 +147,7 @@ fn test_maximum_likelihood_ranking_two_items() {
 
 #[test]
 fn test_maximum_likelihood_ranking_single_item() {
-    let problem = MaximumLikelihoodRanking::new(vec![vec![0]]);
+    let problem = MaximumLikelihoodRanking::new(vec![vec![0]]).unwrap();
     assert_eq!(problem.num_items(), 1);
     assert_eq!(problem.comparison_count(), 0);
     assert_eq!(
@@ -158,15 +158,13 @@ fn test_maximum_likelihood_ranking_single_item() {
 }
 
 #[test]
-#[should_panic(expected = "matrix must be square")]
-fn test_maximum_likelihood_ranking_non_square_panics() {
-    MaximumLikelihoodRanking::new(vec![vec![0, 1], vec![2, 0], vec![1, 2]]);
+fn test_maximum_likelihood_ranking_non_square_rejects() {
+    assert!(MaximumLikelihoodRanking::new(vec![vec![0, 1], vec![2, 0], vec![1, 2]]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "diagonal entries must be zero")]
-fn test_maximum_likelihood_ranking_nonzero_diagonal_panics() {
-    MaximumLikelihoodRanking::new(vec![vec![1, 2], vec![3, 0]]);
+fn test_maximum_likelihood_ranking_nonzero_diagonal_rejects() {
+    assert!(MaximumLikelihoodRanking::new(vec![vec![1, 2], vec![3, 0]]).is_err());
 }
 
 #[test]
@@ -174,7 +172,7 @@ fn test_maximum_likelihood_ranking_skew_symmetric() {
     // c = 0: skew-symmetric matrix (a_ij = -a_ji)
     // Encodes a directed 3-cycle: 0->1, 1->2, 2->0
     let matrix = vec![vec![0, 1, -1], vec![-1, 0, 1], vec![1, -1, 0]];
-    let problem = MaximumLikelihoodRanking::new(matrix);
+    let problem = MaximumLikelihoodRanking::new(matrix).unwrap();
     assert_eq!(problem.comparison_count(), 0);
     // Ranking [0,1,2]: 1 backward arc (2->0, cost +1), 2 forward arcs (cost -1 each)
     // Total = 1 + (-1) + (-1) = -1 = 2*FAS - |A| = 2*1 - 3
@@ -186,9 +184,10 @@ fn test_maximum_likelihood_ranking_skew_symmetric() {
 }
 
 #[test]
-#[should_panic(expected = "all off-diagonal pairs must have the same comparison count")]
-fn test_maximum_likelihood_ranking_inconsistent_pair_sum_panics() {
-    MaximumLikelihoodRanking::new(vec![vec![0, 4, 3], vec![1, 0, 4], vec![1, 2, 0]]);
+fn test_maximum_likelihood_ranking_inconsistent_pair_sum_rejects() {
+    assert!(
+        MaximumLikelihoodRanking::new(vec![vec![0, 4, 3], vec![1, 0, 4], vec![1, 2, 0]]).is_err()
+    );
 }
 
 #[cfg(feature = "example-db")]

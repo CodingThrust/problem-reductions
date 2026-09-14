@@ -16,10 +16,11 @@ fn canonical_yes_instance() -> Clustering {
         2,
         1,
     )
+    .unwrap()
 }
 
 fn infeasible_instance() -> Clustering {
-    Clustering::new(vec![vec![0, 3, 1], vec![3, 0, 1], vec![1, 1, 0]], 1, 1)
+    Clustering::new(vec![vec![0, 3, 1], vec![3, 0, 1], vec![1, 1, 0]], 1, 1).unwrap()
 }
 
 #[test]

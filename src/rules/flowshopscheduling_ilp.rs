@@ -199,7 +199,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "flowshopscheduling_to_ilp",
         build: || {
             // 2 machines, 3 jobs, deadline 10
-            let source = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
+            let source =
+                FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

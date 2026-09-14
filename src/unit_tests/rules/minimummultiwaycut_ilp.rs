@@ -7,8 +7,8 @@ use crate::types::Min;
 
 /// Build the canonical 5-vertex, 3-terminal example from issue #185.
 fn canonical_instance() -> MinimumMultiwayCut<SimpleGraph, i64> {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5])
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap()
 }
 
 #[test]
@@ -57,8 +57,8 @@ fn test_triangle_with_3_terminals() {
     // Triangle: 3 vertices, all terminals, edges: (0,1)=1, (1,2)=2, (0,2)=3
     // All 3 edges must be cut to separate every terminal pair (complete graph).
     // Optimal cost = 1 + 2 + 3 = 6
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 1, 2], vec![1, 2, 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 1, 2], vec![1, 2, 3]).unwrap();
 
     let reduction: ReductionMMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -76,8 +76,8 @@ fn test_triangle_with_3_terminals() {
 fn test_two_terminals() {
     // Path: 0--1--2, terminals {0, 2}, weights [1, 2]
     // Optimal min s-t cut: cut edge (0,1) with cost 1
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1, 2]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1, 2]).unwrap();
 
     let reduction: ReductionMMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

@@ -118,7 +118,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "paintshop_to_qubo",
         build: || {
             // Issue example: Sequence [A, B, C, A, D, B, D, C], 4 cars
-            let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
+            let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 source,
                 SolutionPair {

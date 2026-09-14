@@ -7,7 +7,7 @@ use crate::variant::{K2, K3};
 #[test]
 fn test_kcoloring_to_qubo_closed_loop() {
     // Triangle K3, 3 colors → exactly 6 valid colorings (3! permutations)
-    let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -27,7 +27,7 @@ fn test_kcoloring_to_qubo_closed_loop() {
 #[test]
 fn test_kcoloring_to_qubo_path() {
     // Path graph: 0-1-2, 2 colors
-    let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -47,7 +47,7 @@ fn test_kcoloring_to_qubo_path() {
 fn test_kcoloring_to_qubo_reversed_edges() {
     // Edge (2, 0) triggers the idx_v < idx_u swap branch (line 104).
     // Path: 2-0-1 with reversed edge ordering
-    let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(2, 0), (0, 1)]));
+    let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(2, 0), (0, 1)]).unwrap());
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -65,7 +65,7 @@ fn test_kcoloring_to_qubo_reversed_edges() {
 
 #[test]
 fn test_kcoloring_to_qubo_sizes() {
-    let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
 
     // QUBO should have n*K = 3*3 = 9 variables
@@ -86,7 +86,8 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
                 .filter_map(|(i, &edge)| ((mask >> i) & 1 == 1).then_some(edge))
                 .collect();
             for k in 0..=3 {
-                let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges.clone()), k);
+                let source =
+                    KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges.clone()).unwrap(), k);
                 let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
                 let target = AggregateReductionResult::target_problem(&reduction);
                 assert_eq!(target.num_vars(), n * k);

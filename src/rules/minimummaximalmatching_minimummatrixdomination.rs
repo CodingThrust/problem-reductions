@@ -195,7 +195,8 @@ impl ReduceTo<MinimumMatrixDomination> for MinimumMaximalMatching<BipartiteGraph
             matrix[left_idx][m + right_idx] = true;
         }
 
-        let target = MinimumMatrixDomination::new(matrix);
+        let target = MinimumMatrixDomination::new(matrix)
+            .map_err(<Self as ReduceTo<MinimumMatrixDomination>>::target_construction)?;
 
         Ok(ReductionMMMToMatrixDomination {
             target,
@@ -237,11 +238,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Selecting target_config = [1, 0, 0, 1, 0] picks 1-entries
             // {(0, 2), (1, 3)}, which together dominate every other 1-entry by
             // shared row 0 or row 1.
-            let source = MinimumMaximalMatching::new(BipartiteGraph::new(
-                2,
-                3,
-                vec![(0, 0), (0, 1), (0, 2), (1, 1), (1, 2)],
-            ));
+            let source = MinimumMaximalMatching::new(
+                BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (0, 2), (1, 1), (1, 2)]).unwrap(),
+            );
             crate::example_db::specs::rule_example_with_witness::<_, MinimumMatrixDomination>(
                 source,
                 SolutionPair {

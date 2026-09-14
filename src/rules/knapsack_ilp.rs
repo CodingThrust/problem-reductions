@@ -73,7 +73,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "knapsack_to_ilp",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7),
+                Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7).unwrap(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![false, true, true, false]),
                     target_config: serde_json::json!(vec![0, 1, 1, 0]),

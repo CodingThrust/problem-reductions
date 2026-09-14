@@ -13,9 +13,10 @@ use crate::traits::Problem;
 
 fn weighted_cycle_cover_source() -> MinimumVertexCover<SimpleGraph, i64> {
     MinimumVertexCover::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4)]).unwrap(),
         vec![4, 1, 3, 2, 5],
     )
+    .unwrap()
 }
 
 #[test]

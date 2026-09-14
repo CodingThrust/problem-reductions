@@ -292,9 +292,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "travelingsalesman_to_qubo",
         build: || {
             let source = TravelingSalesman::new(
-                SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
                 vec![1, 2, 3],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 source,
                 SolutionPair {

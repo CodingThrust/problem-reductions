@@ -8,7 +8,8 @@ use crate::types::Or;
 #[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_closed_loop() {
     let problem =
-        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]);
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4])
+            .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&problem, &reduction);
@@ -17,7 +18,8 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_closed_loop() {
 #[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_bf_vs_ilp() {
     let problem =
-        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]);
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4])
+            .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
@@ -36,7 +38,8 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
     // Two tasks that can't both fit: both need time 0-1, but overlap
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![2, 2]);
+    let problem =
+        SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![2, 2]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
         ILPSolver::new().solve(reduction.target_problem()),
@@ -49,7 +52,7 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_rejects_empty_start_window() {
     // Task 0 cannot meet its deadline even when it starts immediately. Its
     // admissible start-time set is empty, rather than the singleton {0}.
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![14], vec![0], vec![13]);
+    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![14], vec![0], vec![13]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_eq!(
@@ -61,7 +64,7 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_rejects_empty_start_window
 
 #[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_single_task() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![3], vec![1], vec![5]);
+    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![3], vec![1], vec![5]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())

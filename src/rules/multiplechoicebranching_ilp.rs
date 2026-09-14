@@ -111,7 +111,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "multiplechoicebranching_to_ilp",
         build: || {
             let source = MultipleChoiceBranching::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![2, 3],
                 vec![vec![0], vec![1]],
                 5,

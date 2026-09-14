@@ -52,11 +52,12 @@ inventory::submit! {
 ///     7,
 ///     vec![(0,1),(0,2),(1,3),(1,4),(2,3),(2,5),(3,5),(3,6)],
 ///     3,
-/// );
+/// ).unwrap();
 /// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(8)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCodeGenerationOneRegisterData")]
 pub struct MinimumCodeGenerationOneRegister {
     /// Number of vertices |V|.
     num_vertices: usize,
@@ -64,6 +65,20 @@ pub struct MinimumCodeGenerationOneRegister {
     edges: Vec<(usize, usize)>,
     /// Number of leaf vertices (out-degree 0).
     num_leaves: usize,
+}
+
+#[derive(Deserialize)]
+struct MinimumCodeGenerationOneRegisterData {
+    num_vertices: usize,
+    edges: Vec<(usize, usize)>,
+    num_leaves: usize,
+}
+
+impl TryFrom<MinimumCodeGenerationOneRegisterData> for MinimumCodeGenerationOneRegister {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCodeGenerationOneRegisterData) -> Result<Self, Self::Error> {
+        Self::new(data.num_vertices, data.edges, data.num_leaves)
+    }
 }
 
 impl MinimumCodeGenerationOneRegister {
@@ -75,41 +90,51 @@ impl MinimumCodeGenerationOneRegister {
     /// * `edges` - Directed arcs (parent, child); parent depends on child
     /// * `num_leaves` - Number of leaf vertices (out-degree 0)
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any edge index is out of bounds, if any vertex has
+    /// Returns an error if any edge index is out of bounds, if any vertex has
     /// out-degree > 2, or if `num_leaves > num_vertices`.
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>, num_leaves: usize) -> Self {
-        assert!(
-            num_leaves <= num_vertices,
-            "num_leaves ({num_leaves}) exceeds num_vertices ({num_vertices})"
-        );
+    pub fn new(
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+        num_leaves: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(num_leaves <= num_vertices) {
+            return Err(
+                format!("num_leaves ({num_leaves}) exceeds num_vertices ({num_vertices})").into(),
+            );
+        }
         let mut out_degree = vec![0usize; num_vertices];
         for &(parent, child) in &edges {
-            assert!(
-                parent < num_vertices && child < num_vertices,
-                "Edge ({parent}, {child}) out of bounds for {num_vertices} vertices"
-            );
-            assert!(
-                parent != child,
-                "Self-loop ({parent}, {parent}) not allowed"
-            );
+            if !(parent < num_vertices && child < num_vertices) {
+                return Err(format!(
+                    "Edge ({parent}, {child}) out of bounds for {num_vertices} vertices"
+                )
+                .into());
+            }
+            if parent == child {
+                return Err(format!("Self-loop ({parent}, {parent}) not allowed").into());
+            }
             out_degree[parent] += 1;
         }
         for (v, &deg) in out_degree.iter().enumerate() {
-            assert!(deg <= 2, "Vertex {v} has out-degree {deg} > 2");
+            if !(deg <= 2) {
+                return Err(format!("Vertex {v} has out-degree {deg} > 2").into());
+            }
         }
         // Verify leaf count: leaves are vertices with out-degree 0
         let actual_leaves = out_degree.iter().filter(|&&d| d == 0).count();
-        assert_eq!(
-            actual_leaves, num_leaves,
-            "Declared num_leaves ({num_leaves}) != actual leaf count ({actual_leaves})"
-        );
-        Self {
+        if actual_leaves != num_leaves {
+            return Err(format!(
+                "Declared num_leaves ({num_leaves}) != actual leaf count ({actual_leaves})"
+            )
+            .into());
+        }
+        Ok(Self {
             num_vertices,
             edges,
             num_leaves,
-        }
+        })
     }
 
     /// Get the number of vertices.
@@ -367,20 +392,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Optimal evaluation order: v3, v2, v1, v0
         // v3 at position 0, v2 at position 1, v1 at position 2, v0 at position 3
         // So config = [3, 2, 1, 0] (internal idx 0=v0 -> pos 3, idx 1=v1 -> pos 2, ...)
-        instance: Box::new(MinimumCodeGenerationOneRegister::new(
-            7,
-            vec![
-                (0, 1),
-                (0, 2),
-                (1, 3),
-                (1, 4),
-                (2, 3),
-                (2, 5),
-                (3, 5),
-                (3, 6),
-            ],
-            3,
-        )),
+        instance: Box::new(
+            MinimumCodeGenerationOneRegister::new(
+                7,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (1, 4),
+                    (2, 3),
+                    (2, 5),
+                    (3, 5),
+                    (3, 6),
+                ],
+                3,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![3, 2, 1, 0]),
         optimal_value: serde_json::json!(8),
     }]

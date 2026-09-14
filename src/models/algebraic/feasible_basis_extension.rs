@@ -51,12 +51,13 @@ inventory::submit! {
 /// ];
 /// let rhs = vec![7, 5, 3];
 /// let required = vec![0, 1];
-/// let problem = FeasibleBasisExtension::new(matrix, rhs, required);
+/// let problem = FeasibleBasisExtension::new(matrix, rhs, required).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "FeasibleBasisExtensionCreateSpec")]
 pub struct FeasibleBasisExtension {
     matrix: Vec<Vec<i64>>,
     rhs: Vec<i64>,
@@ -79,26 +80,38 @@ struct FeasibleBasisExtensionCreateSpec {
 impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: FeasibleBasisExtensionCreateSpec) -> Result<Self, Self::Error> {
-        let m = spec.matrix.len();
-        let first = spec
-            .matrix
-            .first()
-            .ok_or("matrix must have at least one row")?;
+        Self::new(spec.matrix, spec.rhs, spec.required_columns)
+    }
+}
+
+impl FeasibleBasisExtension {
+    /// Create a new FeasibleBasisExtension instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when dimensions or indices violate the instance definition.
+    pub fn new(
+        matrix: Vec<Vec<i64>>,
+        rhs: Vec<i64>,
+        required_columns: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let m = matrix.len();
+        let first = matrix.first().ok_or("matrix must have at least one row")?;
         let n = first.len();
-        if spec.matrix.iter().any(|row| row.len() != n) {
+        if matrix.iter().any(|row| row.len() != n) {
             return Err("all matrix rows must have the same length".into());
         }
         if m >= n {
             return Err("number of rows must be less than number of columns".into());
         }
-        if spec.rhs.len() != m {
+        if rhs.len() != m {
             return Err("rhs length must equal number of rows".into());
         }
-        if spec.required_columns.len() >= m {
+        if required_columns.len() >= m {
             return Err("required_columns length must be less than number of rows".into());
         }
         let mut seen = std::collections::HashSet::new();
-        for &column in &spec.required_columns {
+        for &column in &required_columns {
             if column >= n {
                 return Err(format!("required column {column} is out of bounds").into());
             }
@@ -107,66 +120,10 @@ impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
             }
         }
         Ok(Self {
-            matrix: spec.matrix,
-            rhs: spec.rhs,
-            required_columns: spec.required_columns,
-        })
-    }
-}
-
-impl FeasibleBasisExtension {
-    /// Create a new FeasibleBasisExtension instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if:
-    /// - The matrix is empty or has inconsistent row lengths
-    /// - m >= n (must have more columns than rows)
-    /// - rhs length does not equal m
-    /// - |S| >= m (must have room for at least one additional column)
-    /// - Any required column index is out of bounds
-    /// - Required columns contain duplicates
-    pub fn new(matrix: Vec<Vec<i64>>, rhs: Vec<i64>, required_columns: Vec<usize>) -> Self {
-        let m = matrix.len();
-        assert!(m > 0, "Matrix must have at least one row");
-        let n = matrix[0].len();
-        for row in &matrix {
-            assert_eq!(row.len(), n, "All rows must have the same length");
-        }
-        assert!(
-            m < n,
-            "Number of rows ({m}) must be less than number of columns ({n})"
-        );
-        assert_eq!(
-            rhs.len(),
-            m,
-            "rhs length ({}) must equal number of rows ({m})",
-            rhs.len()
-        );
-        assert!(
-            required_columns.len() < m,
-            "|S| ({}) must be less than m ({m})",
-            required_columns.len()
-        );
-        for &col in &required_columns {
-            assert!(col < n, "Required column index {col} out of bounds (n={n})");
-        }
-        // Check for duplicates
-        let mut sorted = required_columns.clone();
-        sorted.sort_unstable();
-        for i in 1..sorted.len() {
-            assert_ne!(
-                sorted[i - 1],
-                sorted[i],
-                "Duplicate required column index {}",
-                sorted[i]
-            );
-        }
-        Self {
             matrix,
             rhs,
             required_columns,
-        }
+        })
     }
 
     /// Returns the matrix A.
@@ -485,15 +442,18 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "feasible_basis_extension",
         // 3x6 matrix, rhs=[7,5,3], required={0,1}, select col 2 -> B={0,1,2}, x=(4,5,3)>=0
-        instance: Box::new(FeasibleBasisExtension::new(
-            vec![
-                vec![1, 0, 1, 2, -1, 0],
-                vec![0, 1, 0, 1, 1, 2],
-                vec![0, 0, 1, 1, 0, 1],
-            ],
-            vec![7, 5, 3],
-            vec![0, 1],
-        )),
+        instance: Box::new(
+            FeasibleBasisExtension::new(
+                vec![
+                    vec![1, 0, 1, 2, -1, 0],
+                    vec![0, 1, 0, 1, 1, 2],
+                    vec![0, 0, 1, 1, 0, 1],
+                ],
+                vec![7, 5, 3],
+                vec![0, 1],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, false, false]), // select col 2 (first free column)
         optimal_value: serde_json::json!(true),
     }]

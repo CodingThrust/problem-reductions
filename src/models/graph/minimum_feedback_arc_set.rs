@@ -45,8 +45,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Directed cycle: 0->1->2->0
-/// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
+/// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]).unwrap();
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -55,12 +55,28 @@ inventory::submit! {
 /// // Minimum FAS has size 1 (remove any single arc to break the cycle)
 /// assert_eq!(solution.iter().filter(|&&selected| selected).count(), 1);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumFeedbackArcSet<W> {
     /// The directed graph.
     graph: DirectedGraph,
     /// Weights for each arc.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumFeedbackArcSetData<W> {
+    graph: DirectedGraph,
+    weights: Vec<W>,
+}
+
+impl<'de, W> Deserialize<'de> for MinimumFeedbackArcSet<W>
+where
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumFeedbackArcSetData::deserialize(deserializer)?;
+        Self::new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -75,22 +91,18 @@ impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i64> {
     fn try_from(spec: MinimumFeedbackArcSetCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_arcs();
         let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
-        if weights.len() != count {
-            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
-        }
-        Ok(Self::new(spec.graph, weights))
+        Self::new(spec.graph, weights)
     }
 }
 
 impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     /// Create a Minimum Feedback Arc Set problem from a directed graph with given weights.
-    pub fn new(graph: DirectedGraph, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_arcs(),
-            "weights length must match graph num_arcs"
-        );
-        Self { graph, weights }
+    pub fn new(
+        graph: DirectedGraph,
+        weights: Vec<W>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &weights)?;
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -104,13 +116,23 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     }
 
     /// Set arc weights.
-    pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(
-            weights.len(),
-            self.graph.num_arcs(),
-            "weights length must match graph num_arcs"
-        );
+    pub fn set_weights(
+        &mut self,
+        weights: Vec<W>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_weights(&self.graph, &weights)?;
         self.weights = weights;
+        Ok(())
+    }
+
+    fn check_weights(
+        graph: &DirectedGraph,
+        weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_arcs() {
+            return Err("weights length must match graph num_arcs".into());
+        }
+        Ok(())
     }
 
     /// Check if a configuration is a valid feedback arc set.
@@ -221,10 +243,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // 3-node cycle, unit weights; remove one arc to break cycle, cost = 1
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_feedback_arc_set",
-        instance: Box::new(MinimumFeedbackArcSet::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i64, 1, 1],
-        )),
+        instance: Box::new(
+            MinimumFeedbackArcSet::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
+                vec![1i64, 1, 1],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(1),
     }]

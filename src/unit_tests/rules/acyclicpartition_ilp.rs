@@ -9,12 +9,13 @@ use crate::traits::Problem;
 fn small_instance() -> AcyclicPartition<i64> {
     // Chain 0->1->2->3, unit weights, unit arc costs, B=3, K=2
     AcyclicPartition::new(
-        DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1, 1],
         vec![1, 1, 1],
         3,
         2,
     )
+    .unwrap()
 }
 
 #[test]
@@ -72,12 +73,13 @@ fn test_infeasible_instance() {
     // so 3 separate partitions with crossing cost = 3 > K=0.
     // Can't merge either since weight > B=1.
     let source = AcyclicPartition::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![1, 1, 1],
         vec![1, 1, 1],
         1,
         0,
-    );
+    )
+    .unwrap();
     let reduction: ReductionAcyclicPartitionToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -99,12 +101,13 @@ fn test_acyclicpartition_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_acyclicpartition_to_ilp_regression_direct_topological_labels() {
     let source = AcyclicPartition::new(
-        DirectedGraph::new(6, vec![(2, 1), (1, 0), (4, 3), (3, 2), (5, 4)]),
+        DirectedGraph::new(6, vec![(2, 1), (1, 0), (4, 3), (3, 2), (5, 4)]).unwrap(),
         vec![8, 3, 1, 9, 4, 4],
         vec![4, 10, 0, 7, 3],
         11,
         10,
-    );
+    )
+    .unwrap();
     let reduction: ReductionAcyclicPartitionToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()

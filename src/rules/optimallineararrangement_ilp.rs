@@ -146,8 +146,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "optimallineararrangement_to_ilp",
         build: || {
             // Path P4: 0-1-2-3 (identity permutation achieves cost 3)
-            let source =
-                OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+            let source = OptimalLinearArrangement::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+            );
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

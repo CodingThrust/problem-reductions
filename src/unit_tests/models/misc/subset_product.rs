@@ -13,7 +13,7 @@ fn buv(values: &[u32]) -> Vec<BigUint> {
 
 #[test]
 fn test_subsetproduct_basic() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.sizes(), buv(&[2, 3, 5, 7, 6, 10]).as_slice());
     assert_eq!(problem.target(), &bu(210));
@@ -27,7 +27,7 @@ fn test_subsetproduct_basic() {
 
 #[test]
 fn test_subsetproduct_evaluate_satisfying() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
     // {2, 3, 5, 7} = 210
     assert!(problem
         .evaluate(&vec![true, true, true, true, false, false])
@@ -40,7 +40,7 @@ fn test_subsetproduct_evaluate_satisfying() {
 
 #[test]
 fn test_subsetproduct_evaluate_unsatisfying() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
     // {2, 3} = 6 != 210
     assert!(!problem
         .evaluate(&vec![true, true, false, false, false, false])
@@ -57,7 +57,7 @@ fn test_subsetproduct_evaluate_unsatisfying() {
 
 #[test]
 fn test_subsetproduct_evaluate_wrong_config_length() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5], 30u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5], 30u32).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![true, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -70,7 +70,7 @@ fn test_subsetproduct_evaluate_wrong_config_length() {
 
 #[test]
 fn test_subsetproduct_evaluate_invalid_variable_value() {
-    let problem = SubsetProduct::new(vec![2u32, 3], 6u32);
+    let problem = SubsetProduct::new(vec![2u32, 3], 6u32).unwrap();
     assert!(
         crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
             .is_err()
@@ -98,7 +98,7 @@ fn test_subsetproduct_empty_instance_nonunit_target() {
 
 #[test]
 fn test_subsetproduct_brute_force() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -109,7 +109,7 @@ fn test_subsetproduct_brute_force() {
 
 #[test]
 fn test_subsetproduct_brute_force_all() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -121,7 +121,7 @@ fn test_subsetproduct_brute_force_all() {
 #[test]
 fn test_subsetproduct_unsatisfiable() {
     // Target 1000 is unreachable with these sizes
-    let problem = SubsetProduct::new(vec![2u32, 3, 5], 1000u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5], 1000u32).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
@@ -129,7 +129,7 @@ fn test_subsetproduct_unsatisfiable() {
 
 #[test]
 fn test_subsetproduct_serialization() {
-    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     assert_eq!(
         json,
@@ -154,7 +154,7 @@ fn test_subsetproduct_deserialization_rejects_numeric_json() {
 
 #[test]
 fn test_subsetproduct_single_element() {
-    let problem = SubsetProduct::new(vec![5u32], 5u32);
+    let problem = SubsetProduct::new(vec![5u32], 5u32).unwrap();
     assert!(problem.evaluate(&vec![true]).unwrap());
     assert!(!problem.evaluate(&vec![false]).unwrap());
 }
@@ -162,39 +162,36 @@ fn test_subsetproduct_single_element() {
 #[test]
 fn test_subsetproduct_all_selected() {
     // Target equals product of all elements
-    let problem = SubsetProduct::new(vec![2u32, 3, 5], 30u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5], 30u32).unwrap();
     assert!(problem.evaluate(&vec![true, true, true]).unwrap()); // 2*3*5 = 30
 }
 
 #[test]
 fn test_subsetproduct_target_one() {
     // Target 1 with non-empty set: only empty subset works (product = 1)
-    let problem = SubsetProduct::new(vec![2u32, 3, 5], 1u32);
+    let problem = SubsetProduct::new(vec![2u32, 3, 5], 1u32).unwrap();
     assert!(problem.evaluate(&vec![false, false, false]).unwrap()); // empty subset product = 1
     assert!(!problem.evaluate(&vec![true, false, false]).unwrap()); // 2 != 1
 }
 
 #[test]
-#[should_panic(expected = "positive")]
-fn test_subsetproduct_negative_sizes_panic() {
-    SubsetProduct::new(vec![-1i64, 2, 3], 4u32);
+fn test_subsetproduct_negative_sizes_is_rejected() {
+    assert!(SubsetProduct::new(vec![-1i64, 2, 3], 4u32).is_err());
 }
 
 #[test]
-#[should_panic(expected = "positive")]
-fn test_subsetproduct_zero_size_panic() {
-    SubsetProduct::new(vec![0i64, 2, 3], 4u32);
+fn test_subsetproduct_zero_size_is_rejected() {
+    assert!(SubsetProduct::new(vec![0i64, 2, 3], 4u32).is_err());
 }
 
 #[test]
-#[should_panic(expected = "positive")]
-fn test_subsetproduct_zero_target_panic() {
-    SubsetProduct::new(vec![2u32, 3], 0u32);
+fn test_subsetproduct_zero_target_is_rejected() {
+    assert!(SubsetProduct::new(vec![2u32, 3], 0u32).is_err());
 }
 
 #[test]
 fn test_subsetproduct_large_integer_input() {
-    let problem = SubsetProduct::new(vec![2i128, 3, 5, 7, 6, 10], 210i128);
+    let problem = SubsetProduct::new(vec![2i128, 3, 5, 7, 6, 10], 210i128).unwrap();
     assert!(problem
         .evaluate(&vec![true, true, true, true, false, false])
         .unwrap()); // 2*3*5*7 = 210

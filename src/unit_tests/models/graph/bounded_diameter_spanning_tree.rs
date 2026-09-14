@@ -11,11 +11,13 @@ fn example_instance() -> BoundedDiameterSpanningTree<SimpleGraph, i64> {
         SimpleGraph::new(
             5,
             vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
-        ),
+        )
+        .unwrap(),
         vec![1, 2, 1, 1, 2, 1, 1],
         5,
         3,
     )
+    .unwrap()
 }
 
 #[test]
@@ -62,11 +64,12 @@ fn test_bounded_diameter_spanning_tree_evaluate_exceeds_weight() {
 fn test_bounded_diameter_spanning_tree_evaluate_exceeds_diameter() {
     // Create instance with very tight diameter bound
     let problem = BoundedDiameterSpanningTree::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1],
         10,
         1, // diameter ≤ 1 means all vertices must be distance 1 from each other
-    );
+    )
+    .unwrap();
     // The only spanning tree is the path 0-1-2-3 with diameter 3
     assert!(!problem.evaluate(&vec![true, true, true]).unwrap());
 }
@@ -111,11 +114,12 @@ fn test_bounded_diameter_spanning_tree_infeasible() {
     // Path graph 0-1-2-3-4, all weight 1, weight bound 10 but diameter bound 2
     // Only spanning tree is the path itself with diameter 4 > 2
     let problem = BoundedDiameterSpanningTree::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![1, 1, 1, 1],
         10,
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -133,21 +137,25 @@ fn test_bounded_diameter_spanning_tree_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "diameter_bound must be at least 1")]
-fn test_bounded_diameter_spanning_tree_zero_diameter_panics() {
-    let _ = BoundedDiameterSpanningTree::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+fn test_bounded_diameter_spanning_tree_zero_diameter_rejects() {
+    assert!(BoundedDiameterSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1],
         5,
         0,
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
-fn test_bounded_diameter_spanning_tree_wrong_weights_length_panics() {
-    let _ =
-        BoundedDiameterSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1], 5, 2);
+fn test_bounded_diameter_spanning_tree_wrong_weights_length_rejects() {
+    assert!(BoundedDiameterSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1],
+        5,
+        2
+    )
+    .is_err());
 }
 #[test]
 fn create_spec_uses_edge_weights_and_defaults_to_one() {

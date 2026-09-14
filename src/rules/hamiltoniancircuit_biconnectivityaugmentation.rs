@@ -91,7 +91,7 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircu
         let n = self.num_vertices();
         if n < 3 {
             return Ok(ReductionHamiltonianCircuitToBiconnectivityAugmentation {
-                target: BiconnectivityAugmentation::new(SimpleGraph::empty(3), vec![], 0),
+                target: BiconnectivityAugmentation::new(SimpleGraph::empty(3), vec![], 0).map_err(<Self as ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>>>::target_construction)?,
                 num_vertices: n,
                 potential_edges: vec![],
             });
@@ -120,7 +120,10 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircu
             >("converting the vertex count to the target budget")
         })?;
 
-        let target = BiconnectivityAugmentation::new(initial_graph, potential_weights, budget);
+        let target = BiconnectivityAugmentation::new(initial_graph, potential_weights, budget)
+            .map_err(
+            <Self as ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>>>::target_construction,
+        )?;
 
         Ok(ReductionHamiltonianCircuitToBiconnectivityAugmentation {
             target,

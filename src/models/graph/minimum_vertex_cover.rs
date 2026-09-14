@@ -42,8 +42,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a path graph 0-1-2
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-/// let problem = MinimumVertexCover::new(graph, vec![1; 3]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+/// let problem = MinimumVertexCover::new(graph, vec![1; 3]).unwrap();
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -52,12 +52,29 @@ inventory::submit! {
 /// // Minimum vertex cover is just vertex 1
 /// assert!(solutions.contains(&vec![false, true, false]));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumVertexCover<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumVertexCoverData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumVertexCover<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumVertexCoverData::deserialize(deserializer)?;
+        Self::new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -76,27 +93,17 @@ impl<W: WeightElement> TryFrom<MinimumVertexCoverCreateSpec<W>>
         let weights = spec
             .weights
             .unwrap_or_else(|| vec![W::unit(); spec.graph.num_vertices()]);
-        if weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        Ok(Self::new(spec.graph, weights))
+        Self::new(spec.graph, weights)
     }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
     /// Create a Vertex Covering problem from a graph with given weights.
-    pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+    pub fn new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.
@@ -205,10 +212,10 @@ pub(crate) fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[bool]) -> bo
 }
 
 crate::impl_random_generate!(MinimumVertexCover<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
-    Ok(MinimumVertexCover::new(spec.graph()?, vec![1; spec.num_vertices]))
+    MinimumVertexCover::new(spec.graph()?, vec![1; spec.num_vertices])
 });
 crate::impl_random_generate!(MinimumVertexCover<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
-    Ok(MinimumVertexCover::new(spec.graph()?, vec![One; spec.num_vertices]))
+    MinimumVertexCover::new(spec.graph()?, vec![One; spec.num_vertices])
 });
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -221,7 +228,7 @@ impl TryFrom<MinimumVertexCoverOneCreateSpec> for MinimumVertexCover<SimpleGraph
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumVertexCoverOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        Ok(Self::new(spec.graph, weights))
+        Self::new(spec.graph, weights)
     }
 }
 
@@ -286,7 +293,7 @@ crate::impl_random_generate!(
         }
         .graph()?;
         Ok(Decision::new(
-            MinimumVertexCover::new(graph, vec![1; spec.num_vertices]),
+            MinimumVertexCover::new(graph, vec![1; spec.num_vertices])?,
             spec.bound,
         ))
     }
@@ -317,10 +324,13 @@ crate::register_decision_variant!(
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_vertex_cover_simplegraph",
-        instance: Box::new(MinimumVertexCover::new(
-            SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
-            vec![1i64; 5],
-        )),
+        instance: Box::new(
+            MinimumVertexCover::new(
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+                vec![1i64; 5],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, false, true, true]),
         optimal_value: serde_json::json!(3),
     }]
@@ -334,9 +344,10 @@ pub(crate) fn decision_canonical_model_example_specs(
             id: "decision_minimum_vertex_cover_simplegraph",
             instance: Box::new(crate::models::decision::Decision::new(
                 MinimumVertexCover::new(
-                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]).unwrap(),
                     vec![1i64; 4],
-                ),
+                )
+                .unwrap(),
                 2,
             )),
             optimal_config: serde_json::json!(vec![true, false, true, false]),
@@ -345,7 +356,7 @@ pub(crate) fn decision_canonical_model_example_specs(
         crate::example_db::specs::ModelExampleSpec {
             id: "decision_minimum_vertex_cover_unit",
             instance: Box::new(Decision::new(
-                MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
+                MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]).unwrap(),
                 1,
             )),
             optimal_config: serde_json::json!([false, true, false]),
@@ -365,9 +376,10 @@ pub(crate) fn decision_canonical_rule_example_specs(
             build: || {
                 let source = Decision::new(
                     MinimumVertexCover::new(
-                        SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+                        SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]).unwrap(),
                         vec![1i64; 4],
-                    ),
+                    )
+                    .unwrap(),
                     2,
                 );
                 rule_example_with_witness::<_, MinimumVertexCover<SimpleGraph, i64>>(
@@ -383,7 +395,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
             id: "decision_minimum_vertex_cover_unit_to_minimum_vertex_cover",
             build: || {
                 let source = Decision::new(
-                    MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
+                    MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]).unwrap(),
                     1,
                 );
                 rule_example_with_witness::<_, MinimumVertexCover<SimpleGraph, One>>(

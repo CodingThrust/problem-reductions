@@ -79,7 +79,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "maximummatching_to_maximumsetpacking",
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();
-            let source = MaximumMatching::unit_weights(SimpleGraph::new(n, edges));
+            let source = MaximumMatching::unit_weights(SimpleGraph::new(n, edges).unwrap());
             crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i64>>(
                 source,
                 SolutionPair {

@@ -91,20 +91,23 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "graphpartitioning_to_ilp",
         build: || {
-            let source = GraphPartitioning::new(SimpleGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 2),
-                    (1, 3),
-                    (2, 3),
-                    (2, 4),
-                    (3, 4),
-                    (3, 5),
-                    (4, 5),
-                ],
-            ));
+            let source = GraphPartitioning::new(
+                SimpleGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (1, 2),
+                        (1, 3),
+                        (2, 3),
+                        (2, 4),
+                        (3, 4),
+                        (3, 5),
+                        (4, 5),
+                    ],
+                )
+                .unwrap(),
+            );
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

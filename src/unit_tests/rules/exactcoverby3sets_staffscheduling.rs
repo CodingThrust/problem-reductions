@@ -10,7 +10,8 @@ use crate::traits::Problem;
 fn test_exactcoverby3sets_to_staffscheduling_closed_loop() {
     // Universe {0,1,2,3,4,5}, subsets [{0,1,2}, {3,4,5}, {0,3,4}, {1,2,5}]
     // Exact cover: S0={0,1,2} + S1={3,4,5}
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]);
+    let source =
+        ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]).unwrap();
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
@@ -31,7 +32,7 @@ fn test_exactcoverby3sets_to_staffscheduling_closed_loop() {
 fn test_exactcoverby3sets_to_staffscheduling_no_solution() {
     // Universe {0,1,2,3,4,5} with overlapping subsets that cannot form exact cover
     // All subsets share element 0
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]).unwrap();
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(result.target_problem()).unwrap();
@@ -45,7 +46,7 @@ fn test_exactcoverby3sets_to_staffscheduling_no_solution() {
 fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
     // Universe {0,1,2,3,4,5,6,7,8} (q=3)
     // Only one exact cover: S0 + S1 + S2
-    let source = ExactCoverBy3Sets::new(9, vec![[0, 1, 2], [3, 4, 5], [6, 7, 8]]);
+    let source = ExactCoverBy3Sets::new(9, vec![[0, 1, 2], [3, 4, 5], [6, 7, 8]]).unwrap();
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
@@ -78,7 +79,8 @@ fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
 #[test]
 fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
     // Verify extract_solution maps correctly
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]);
+    let source =
+        ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]).unwrap();
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
 
     // StaffScheduling config: [1, 1, 0, 0] means 1 worker on schedule 0 and 1 on schedule 1
@@ -98,7 +100,7 @@ fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
 #[test]
 fn test_exactcoverby3sets_to_staffscheduling_schedule_structure() {
     // Verify the schedule patterns are correctly constructed
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]).unwrap();
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 

@@ -99,7 +99,7 @@ fn test_num_variables() {
 
 #[test]
 fn test_from_graph() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem =
         SpinGlass::<SimpleGraph, f64>::from_graph(graph, vec![1.0, 2.0], vec![0.0, 0.0, 0.0])
             .unwrap();
@@ -110,7 +110,7 @@ fn test_from_graph() {
 
 #[test]
 fn test_from_graph_without_fields() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
     let problem =
         SpinGlass::<SimpleGraph, f64>::from_graph_without_fields(graph, vec![1.5]).unwrap();
     assert_eq!(problem.num_spins(), 2);

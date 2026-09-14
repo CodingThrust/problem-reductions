@@ -9,11 +9,12 @@ use crate::traits::Problem;
 fn test_reduction_creates_valid_ilp() {
     // 3-vertex path: 0 - 1 - 2, unit weights, K=1
     let problem = MinimumSumMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1i64; 3],
         vec![1i64; 2],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -34,11 +35,12 @@ fn test_minimumsummulticenter_to_ilp_bf_vs_ilp() {
     // 3-vertex path: 0 - 1 - 2, unit weights, K=1
     // Optimal: center at vertex 1, total distance = 1+0+1 = 2
     let problem = MinimumSumMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1i64; 3],
         vec![1i64; 2],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -71,11 +73,12 @@ fn test_minimumsummulticenter_to_ilp_respects_weighted_shortest_paths() {
     // Triangle with a very long direct edge 0-1:
     // the source model must use weighted shortest paths, so center 2 is optimal.
     let problem = MinimumSumMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
         vec![10i64, 10, 1],
         vec![100i64, 1, 1],
         1,
-    );
+    )
+    .unwrap();
 
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap().expect("should have a solution");
@@ -104,11 +107,12 @@ fn test_minimumsummulticenter_to_ilp_respects_weighted_shortest_paths() {
 fn test_solution_extraction() {
     // 3-vertex path: center at vertex 1
     let problem = MinimumSumMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1i64; 3],
         vec![1i64; 2],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -128,7 +132,9 @@ fn test_solution_extraction() {
 #[test]
 fn test_minimumsummulticenter_to_ilp_trivial() {
     // Single vertex, K=1: the only vertex must be the center, distance = 0
-    let problem = MinimumSumMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i64], vec![], 1);
+    let problem =
+        MinimumSumMulticenter::new(SimpleGraph::new(1, vec![]).unwrap(), vec![5i64], vec![], 1)
+            .unwrap();
     let reduction: ReductionMSMCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

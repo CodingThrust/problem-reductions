@@ -105,10 +105,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // [0,1,2,3,4,5] has total edge length 11; with k = 11 the target
             // bound is 11 - 7 = 4 and the identity column permutation works.
             let source = Decision::new(
-                OptimalLinearArrangement::new(SimpleGraph::new(
-                    6,
-                    vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
-                )),
+                OptimalLinearArrangement::new(
+                    SimpleGraph::new(
+                        6,
+                        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
+                    )
+                    .unwrap(),
+                ),
                 11,
             );
             let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)

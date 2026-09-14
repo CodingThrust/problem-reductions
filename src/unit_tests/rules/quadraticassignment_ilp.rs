@@ -7,6 +7,7 @@ fn small_qap() -> QuadraticAssignment {
         vec![vec![0, 5, 2], vec![5, 0, 3], vec![2, 3, 0]],
         vec![vec![0, 4, 1], vec![4, 0, 3], vec![1, 3, 0]],
     )
+    .unwrap()
 }
 
 #[test]
@@ -51,7 +52,8 @@ fn test_quadraticassignment_to_ilp_closed_loop() {
 #[test]
 fn test_quadraticassignment_to_ilp_2x2() {
     let problem =
-        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 2], vec![2, 0]]);
+        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 2], vec![2, 0]])
+            .unwrap();
     // BruteForce on source
     let bf = BruteForce::new();
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
@@ -91,7 +93,8 @@ fn test_quadraticassignment_to_ilp_rectangular() {
     let problem = QuadraticAssignment::new(
         vec![vec![0, 3], vec![3, 0]],
         vec![vec![0, 1, 5], vec![1, 0, 2], vec![5, 2, 0]],
-    );
+    )
+    .unwrap();
     // BruteForce on source
     let bf = BruteForce::new();
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");

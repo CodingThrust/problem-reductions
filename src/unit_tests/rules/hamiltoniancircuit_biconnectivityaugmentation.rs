@@ -78,7 +78,8 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_extract_solution() {
 #[test]
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_no_circuit() {
     // Path graph 0-1-2-3: no Hamiltonian circuit (endpoints have degree 1)
-    let source = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let source =
+        HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -134,7 +135,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_small_graphs() {
         } else {
             vec![]
         };
-        let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+        let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges).unwrap());
         let reduction =
             ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
@@ -167,7 +168,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_all_graphs_and_certific
             // Native SimpleGraph inputs can contain loops and repeated edges.
             edges.extend(edges.clone());
             edges.extend((0..n).map(|v| (v, v)));
-            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges).unwrap());
             let reduction =
                 ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
                     .unwrap();

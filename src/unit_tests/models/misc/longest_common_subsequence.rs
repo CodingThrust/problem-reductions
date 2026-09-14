@@ -15,13 +15,14 @@ fn issue_yes_instance() -> LongestCommonSubsequence {
             vec![1, 0, 1, 0, 1, 0],
         ],
     )
+    .unwrap()
 }
 
 fn issue_no_instance() -> LongestCommonSubsequence {
     // All strings have length 3, min = 3, so max_length = 3.
     // No common subsequence of any positive length exists because
     // the first string is all 0s and the second is all 1s.
-    LongestCommonSubsequence::new(2, vec![vec![0, 0, 0], vec![1, 1, 1]])
+    LongestCommonSubsequence::new(2, vec![vec![0, 0, 0], vec![1, 1, 1]]).unwrap()
 }
 
 #[test]
@@ -104,7 +105,7 @@ fn test_lcs_evaluate_interleaved_padding() {
 
 #[test]
 fn test_lcs_out_of_range_symbol() {
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]).unwrap();
     // Symbol 3 > alphabet_size (2), but 2 is padding. Symbol 3 is truly out of range.
     // Actually with alphabet_size=2, valid symbols are 0,1 and padding is 2. Symbol 3 is invalid.
     // But dims allows 0..2, so symbol 3 wouldn't normally appear. Let's test with a symbol
@@ -124,7 +125,7 @@ fn test_lcs_out_of_range_symbol() {
 #[test]
 fn test_lcs_bruteforce_finds_optimum() {
     // Small instance for brute force: alphabet {0,1}, two short strings
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]).unwrap();
     // max_length = 3, optimal LCS = [0, 1] or [1, 0], length 2
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap().expect("expected a witness");
@@ -156,7 +157,7 @@ fn test_lcs_serialization() {
 #[test]
 fn test_lcs_empty_string_max_length_zero() {
     // When all strings are empty or any string is empty, max_length = 0
-    let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]).unwrap();
     assert_eq!(problem.max_length(), 0);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -168,27 +169,25 @@ fn test_lcs_empty_string_max_length_zero() {
 
 #[test]
 fn test_lcs_all_empty_strings() {
-    let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![]]).unwrap();
     assert_eq!(problem.max_length(), 0);
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
-#[should_panic(expected = "alphabet_size must be > 0 when any input string is non-empty")]
-fn test_lcs_zero_alphabet_with_nonempty_strings_panics() {
-    LongestCommonSubsequence::new(0, vec![vec![0]]);
+fn test_lcs_zero_alphabet_with_nonempty_strings_is_rejected() {
+    assert!(LongestCommonSubsequence::new(0, vec![vec![0]]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "input symbols must be less than alphabet_size")]
-fn test_lcs_symbol_out_of_range_panics() {
-    LongestCommonSubsequence::new(2, vec![vec![0, 2]]);
+fn test_lcs_symbol_out_of_range_is_rejected() {
+    assert!(LongestCommonSubsequence::new(2, vec![vec![0, 2]]).is_err());
 }
 
 #[test]
 fn test_lcs_full_length_witness() {
     // When the LCS equals the shortest string length
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![0, 1, 0]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![0, 1, 0]]).unwrap();
     // max_length = 2, optimal LCS = [0, 1], length 2
     assert_eq!(problem.max_length(), 2);
     assert_eq!(
@@ -217,11 +216,14 @@ fn test_lcs_create_spec_derives_internal_fields() {
 }
 
 #[test]
-fn test_lcs_create_spec_rejects_all_empty_strings() {
+fn test_lcs_create_spec_accepts_empty_strings_like_constructor() {
     let result = LongestCommonSubsequence::try_from(LongestCommonSubsequenceCreateSpec {
         alphabet_size: Some(2),
         strings: vec![vec![], vec![]],
     });
 
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap().strings(),
+        &[Vec::<usize>::new(), Vec::new()]
+    );
 }

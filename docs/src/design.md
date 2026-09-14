@@ -62,6 +62,26 @@ an undeclared weight or length input is an error, even when every value is one.
 calls `P`'s registered constructor before wrapping the result. It does not repeat
 the inner input schema or deserialize construction inputs as persisted model JSON.
 
+### Construction and deserialization
+
+Model constructors own instance checks and normalization. Fallible constructors
+return `Result<Self, ConstructionError>`; Serde calls those constructors through
+`#[serde(try_from = "...")]` or a manual `Deserialize` implementation. A model's
+`CreateSpec` handles its input names, defaults, and inference, then calls the same
+constructor. Nested graphs validate their own endpoints.
+
+For example, `MaximumIndependentSet::new(SimpleGraph::path(3), vec![1, 1])`
+returns an error because three vertices require three weights. Loading the same
+instance from JSON also fails during construction, before evaluation or solving.
+Supplying three weights creates the same mathematical instance through either
+entry point. A reduction propagates target construction failures with
+`ReduceTo::target_construction`, preserving the source and target model types.
+
+Cached dimensions, adjacency lists, and other derived fields are rebuilt from
+validated inputs during deserialization. Persisted cache values do not override
+those computations. Setters that can violate an instance invariant check their
+replacement data before assigning it; failure leaves the instance unchanged.
+
 ## Numeric types and arithmetic
 
 Numeric formats are selected by semantic role:
@@ -344,12 +364,17 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <UnitDiskGraph, i64> => <SimpleGraph, i64>,
     fields: [num_vertices, num_edges],
-    |src| MaximumIndependentSet::new(
-        SimpleGraph::new(
-            src.num_vertices(),
-            Graph::edges(src.graph()),
-        ),
-        src.weights().to_vec())
+    aggregate: identity,
+    |src| {
+        let construction_error = ReductionError::construction::<
+            MaximumIndependentSet<UnitDiskGraph, i64>,
+            MaximumIndependentSet<SimpleGraph, i64>,
+        >;
+        let graph = SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph()))
+            .map_err(construction_error)?;
+        MaximumIndependentSet::new(graph, src.weights().to_vec())
+            .map_err(construction_error)?
+    }
 );
 ```
 

@@ -9,11 +9,12 @@ use crate::traits::Problem;
 fn small_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
     // Path 0-1-2-3, weights [1,2,2,1], K=2, B=4
     BoundedComponentSpanningForest::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 2, 2, 1],
         2,
         4,
     )
+    .unwrap()
 }
 
 #[test]
@@ -56,11 +57,12 @@ fn test_extract_solution() {
 fn test_single_component() {
     // All in one component
     let source = BoundedComponentSpanningForest::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1, 1],
         1,
         3,
-    );
+    )
+    .unwrap();
     let reduction: ReductionBCSFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -76,11 +78,12 @@ fn test_single_component() {
 fn test_infeasible_instance() {
     // 4 vertices, weights [3,3,3,3], K=2, B=5 -> total weight 12, max per component 5, need at least 3 components
     let source = BoundedComponentSpanningForest::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![3, 3, 3, 3],
         2,
         5,
-    );
+    )
+    .unwrap();
     let reduction: ReductionBCSFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();

@@ -7,7 +7,8 @@ use crate::types::Min;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Path P4: 4 vertices, 3 edges
-    let problem = MinimumMaximalMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem =
+        MinimumMaximalMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction: ReductionMMMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -23,7 +24,8 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_minimummaximalmatching_to_ilp_closed_loop() {
     // Path P4: optimal minimum maximal matching = 1 edge (center edge (1,2)).
-    let problem = MinimumMaximalMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem =
+        MinimumMaximalMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction: ReductionMMMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -47,10 +49,9 @@ fn test_minimummaximalmatching_to_ilp_closed_loop() {
 #[test]
 fn test_minimummaximalmatching_to_ilp_path_p6() {
     // Path P6: optimal = 2 edges.
-    let problem = MinimumMaximalMatching::new(SimpleGraph::new(
-        6,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],
-    ));
+    let problem = MinimumMaximalMatching::new(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]).unwrap(),
+    );
     let reduction: ReductionMMMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -66,7 +67,8 @@ fn test_minimummaximalmatching_to_ilp_path_p6() {
 #[test]
 fn test_minimummaximalmatching_to_ilp_triangle() {
     // Triangle: optimal = 1 (any single edge is maximal).
-    let problem = MinimumMaximalMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let problem =
+        MinimumMaximalMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
     let reduction: ReductionMMMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -82,10 +84,9 @@ fn test_minimummaximalmatching_to_ilp_triangle() {
 
 #[test]
 fn test_minimummaximalmatching_to_ilp_bf_vs_ilp() {
-    let problem = MinimumMaximalMatching::new(SimpleGraph::new(
-        6,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],
-    ));
+    let problem = MinimumMaximalMatching::new(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]).unwrap(),
+    );
     let reduction: ReductionMMMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
@@ -93,7 +94,7 @@ fn test_minimummaximalmatching_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_empty_graph() {
-    let problem = MinimumMaximalMatching::new(SimpleGraph::new(3, vec![]));
+    let problem = MinimumMaximalMatching::new(SimpleGraph::new(3, vec![]).unwrap());
     let reduction: ReductionMMMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

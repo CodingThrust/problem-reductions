@@ -28,6 +28,7 @@ fn issue_example_problem() -> ProductionPlanning {
         vec![1, 1, 1, 1, 1, 1],
         80,
     )
+    .unwrap()
 }
 
 fn tiny_solver_problem() -> ProductionPlanning {
@@ -40,6 +41,7 @@ fn tiny_solver_problem() -> ProductionPlanning {
         vec![0, 0, 0],
         5,
     )
+    .unwrap()
 }
 
 #[test]
@@ -143,9 +145,8 @@ fn test_production_planning_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "all per-period vectors must have length num_periods")]
 fn test_production_planning_rejects_length_mismatch() {
-    ProductionPlanning::new(
+    assert!(ProductionPlanning::new(
         2,
         vec![1],
         vec![1, 1],
@@ -153,11 +154,11 @@ fn test_production_planning_rejects_length_mismatch() {
         vec![1, 1],
         vec![1, 1],
         3,
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "num_periods must be positive")]
 fn test_production_planning_rejects_zero_periods() {
-    ProductionPlanning::new(0, vec![], vec![], vec![], vec![], vec![], 0);
+    assert!(ProductionPlanning::new(0, vec![], vec![], vec![], vec![], vec![], 0).is_err());
 }

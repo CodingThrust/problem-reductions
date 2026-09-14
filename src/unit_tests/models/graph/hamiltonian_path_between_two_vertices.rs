@@ -8,10 +8,11 @@ fn test_hamiltonian_path_between_two_vertices_basic() {
 
     // Path graph: 0-1-2-3, source=0, target=3
     let problem = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         0,
         3,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.source_vertex(), 0);
@@ -37,10 +38,11 @@ fn test_hamiltonian_path_between_two_vertices_basic() {
 fn test_hamiltonian_path_between_two_vertices_no_solution() {
     // C5 cycle: s=0, t=2 has no Hamiltonian s-t path (from issue #831)
     let problem = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
         0,
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(
@@ -67,10 +69,12 @@ fn test_hamiltonian_path_between_two_vertices_brute_force() {
                 (4, 5),
                 (2, 3),
             ],
-        ),
+        )
+        .unwrap(),
         0,
         5,
-    );
+    )
+    .unwrap();
 
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
@@ -92,8 +96,12 @@ fn test_hamiltonian_path_between_two_vertices_brute_force() {
 
 #[test]
 fn test_hamiltonian_path_between_two_vertices_is_valid_solution() {
-    let problem =
-        HamiltonianPathBetweenTwoVertices::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 0, 2);
+    let problem = HamiltonianPathBetweenTwoVertices::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        0,
+        2,
+    )
+    .unwrap();
     assert!(problem.is_valid_solution(&[0, 1, 2]));
     assert!(!problem.is_valid_solution(&[2, 1, 0])); // wrong direction
     assert!(!problem.is_valid_solution(&[0, 2, 1])); // no edge 0-2
@@ -101,7 +109,7 @@ fn test_hamiltonian_path_between_two_vertices_is_valid_solution() {
 
 #[test]
 fn test_hamiltonian_path_between_two_vertices_is_valid_st_path_function() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     // Valid: 0->1->2->3 with source=0, target=3
     assert!(is_valid_hamiltonian_st_path(&graph, &[0, 1, 2, 3], 0, 3));
     // Invalid: reversed (source=3 but we pass source=0)
@@ -116,8 +124,12 @@ fn test_hamiltonian_path_between_two_vertices_is_valid_st_path_function() {
 
 #[test]
 fn test_hamiltonian_path_between_two_vertices_serialization() {
-    let problem =
-        HamiltonianPathBetweenTwoVertices::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 0, 2);
+    let problem = HamiltonianPathBetweenTwoVertices::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        0,
+        2,
+    )
+    .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let deserialized: HamiltonianPathBetweenTwoVertices<SimpleGraph> =
         serde_json::from_value(json).unwrap();
@@ -145,10 +157,12 @@ fn test_hamiltonian_path_between_two_vertices_paper_example() {
                 (4, 5),
                 (2, 3),
             ],
-        ),
+        )
+        .unwrap(),
         0,
         5,
-    );
+    )
+    .unwrap();
 
     // Issue-specified solution: 0 -> 3 -> 2 -> 1 -> 4 -> 5
     assert!(problem.evaluate(&vec![0, 3, 2, 1, 4, 5]).unwrap());

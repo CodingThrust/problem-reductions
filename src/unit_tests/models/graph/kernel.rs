@@ -8,7 +8,8 @@ fn test_kernel_creation() {
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
-    );
+    )
+    .unwrap();
     let problem = Kernel::new(graph);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 7);
@@ -27,7 +28,8 @@ fn test_kernel_evaluate_valid() {
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
-    );
+    )
+    .unwrap();
     let problem = Kernel::new(graph);
     assert_eq!(
         problem
@@ -43,7 +45,8 @@ fn test_kernel_evaluate_not_independent() {
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
-    );
+    )
+    .unwrap();
     let problem = Kernel::new(graph);
     assert_eq!(
         problem
@@ -64,7 +67,8 @@ fn test_kernel_evaluate_not_absorbing() {
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
-    );
+    )
+    .unwrap();
     let problem = Kernel::new(graph);
     assert_eq!(
         problem
@@ -79,7 +83,8 @@ fn test_kernel_brute_force() {
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
-    );
+    )
+    .unwrap();
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
     let solution = solver
@@ -97,7 +102,7 @@ fn test_kernel_no_solution() {
     // Wait, let's verify: {0}: successors of 1 = {2}, not selected. Not absorbing.
     // {0,1}: arc (0,1) exists. Not independent.
     // No kernel exists for odd cycles.
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -105,7 +110,7 @@ fn test_kernel_no_solution() {
 
 #[test]
 fn test_kernel_serialization() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = Kernel::new(graph);
     let json = serde_json::to_value(&problem).unwrap();
     let deserialized: Kernel = serde_json::from_value(json).unwrap();
@@ -118,7 +123,7 @@ fn test_kernel_empty_graph() {
     // A graph with no arcs: every vertex is independent; absorption requires
     // every unselected vertex to have an arc to a selected one, but no arcs exist.
     // So the only kernel is the full vertex set (all selected → no unselected vertices to check).
-    let graph = DirectedGraph::new(3, vec![]);
+    let graph = DirectedGraph::new(3, vec![]).unwrap();
     let problem = Kernel::new(graph);
     // All selected: independent (no arcs), absorbing (no unselected vertices)
     assert_eq!(

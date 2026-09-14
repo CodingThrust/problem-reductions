@@ -1251,7 +1251,7 @@ fn test_create_production_planning_rejects_mismatched_period_lengths() {
     let err = create(&args, &out).unwrap_err();
     assert!(err
         .to_string()
-        .contains("demands has 5 entries, expected 6"));
+        .contains("all per-period vectors must have length num_periods"));
 }
 
 #[test]
@@ -2116,7 +2116,7 @@ fn test_create_balanced_complete_bipartite_subgraph_rejects_out_of_range_biedges
     };
 
     let err = create(&args, &out).unwrap_err().to_string();
-    assert!(err.contains("out of bounds for left partition size 4"));
+    assert!(err.contains("left vertex 4 out of bounds"));
 }
 
 #[test]

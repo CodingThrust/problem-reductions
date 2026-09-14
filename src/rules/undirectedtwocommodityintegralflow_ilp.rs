@@ -207,7 +207,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // s1=0, t1=3, s2=1, t2=3, R1=1, R2=1
             // f1 routes 0→2→3 (1 unit), f2 routes 1→2→3 (1 unit)
             let source = UndirectedTwoCommodityIntegralFlow::new(
-                SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]).unwrap(),
                 vec![1, 1, 2],
                 0,
                 3,
@@ -215,7 +215,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
                 1,
                 1,
-            );
+            )
+            .unwrap();
             let reduction: ReductionU2CIFToILP =
                 ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();

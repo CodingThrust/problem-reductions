@@ -46,12 +46,13 @@ inventory::submit! {
 ///     vec![2, 3, 1, 4, 2],
 ///     vec![5, 8, 4, 15, 10],
 ///     13,
-/// );
+/// ).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// assert!(solver.solve(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SequencingToMinimizeWeightedTardinessCreateSpec")]
 pub struct SequencingToMinimizeWeightedTardiness {
     lengths: Vec<i64>,
     weights: Vec<i64>,
@@ -77,61 +78,46 @@ impl TryFrom<SequencingToMinimizeWeightedTardinessCreateSpec>
     fn try_from(
         spec: SequencingToMinimizeWeightedTardinessCreateSpec,
     ) -> Result<Self, Self::Error> {
-        if spec.lengths.len() != spec.weights.len() {
-            return Err("weights length must equal lengths length"
-                .to_string()
-                .into());
-        }
-        if spec.lengths.len() != spec.deadlines.len() {
-            return Err("deadlines length must equal lengths length"
-                .to_string()
-                .into());
-        }
-        Ok(Self::new(
-            spec.lengths,
-            spec.weights,
-            spec.deadlines,
-            spec.bound,
-        ))
+        Self::new(spec.lengths, spec.weights, spec.deadlines, spec.bound)
     }
 }
 
 impl SequencingToMinimizeWeightedTardiness {
     /// Create a new weighted tardiness scheduling instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the input vectors do not have the same length.
-    pub fn new(lengths: Vec<i64>, weights: Vec<i64>, deadlines: Vec<i64>, bound: i64) -> Self {
-        assert_eq!(
-            lengths.len(),
-            weights.len(),
-            "weights length must equal lengths length"
-        );
-        assert_eq!(
-            lengths.len(),
-            deadlines.len(),
-            "deadlines length must equal lengths length"
-        );
-        assert!(
-            lengths.iter().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(
-            weights.iter().all(|&weight| weight >= 0),
-            "task weights must be nonnegative"
-        );
-        assert!(
-            deadlines.iter().all(|&deadline| deadline >= 0),
-            "deadlines must be nonnegative"
-        );
-        assert!(bound >= 0, "bound must be nonnegative");
-        Self {
+    /// Returns an error if the input vectors do not have the same length.
+    pub fn new(
+        lengths: Vec<i64>,
+        weights: Vec<i64>,
+        deadlines: Vec<i64>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if lengths.len() != weights.len() {
+            return Err("weights length must equal lengths length".into());
+        }
+        if lengths.len() != deadlines.len() {
+            return Err("deadlines length must equal lengths length".into());
+        }
+        if !(lengths.iter().all(|&length| length >= 0)) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if !(weights.iter().all(|&weight| weight >= 0)) {
+            return Err("task weights must be nonnegative".into());
+        }
+        if !(deadlines.iter().all(|&deadline| deadline >= 0)) {
+            return Err("deadlines must be nonnegative".into());
+        }
+        if !(bound >= 0) {
+            return Err("bound must be nonnegative".into());
+        }
+        Ok(Self {
             lengths,
             weights,
             deadlines,
             bound,
-        }
+        })
     }
 
     /// Returns the job lengths.
@@ -270,12 +256,15 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_to_minimize_weighted_tardiness",
-        instance: Box::new(SequencingToMinimizeWeightedTardiness::new(
-            vec![3, 4, 2, 5, 3],
-            vec![2, 3, 1, 4, 2],
-            vec![5, 8, 4, 15, 10],
-            13,
-        )),
+        instance: Box::new(
+            SequencingToMinimizeWeightedTardiness::new(
+                vec![3, 4, 2, 5, 3],
+                vec![2, 3, 1, 4, 2],
+                vec![5, 8, 4, 15, 10],
+                13,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 1, 4, 3, 2]),
         optimal_value: serde_json::json!(true),
     }]

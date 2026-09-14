@@ -45,7 +45,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph 0-1-2
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
 /// let problem = MaximumMatching::<_, i64>::unit_weights(graph);
 ///
 /// let solver = BruteForce::new();
@@ -56,12 +56,29 @@ inventory::submit! {
 ///     assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumMatching<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximumMatchingData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaximumMatching<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumMatchingData::deserialize(deserializer)?;
+        Self::new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -81,15 +98,7 @@ impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i64> {
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        Ok(Self::new(graph, edge_weights))
+        Self::new(graph, edge_weights)
     }
 }
 
@@ -121,7 +130,7 @@ fn simple_graph_from_create(
         )
         .into());
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::new(num_vertices, edges)
 }
 
 impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
@@ -130,16 +139,12 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     /// # Arguments
     /// * `graph` - The graph
     /// * `edge_weights` - Weight for each edge (in graph.edges() order)
-    pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+    pub fn new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_weights)?;
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a MaximumMatching problem with unit weights.
@@ -208,9 +213,23 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     }
 
     /// Set new weights for the problem.
-    pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+    pub fn set_weights(
+        &mut self,
+        weights: Vec<W>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_weights(&self.graph, &weights)?;
         self.edge_weights = weights;
+        Ok(())
+    }
+
+    fn check_weights(
+        graph: &G,
+        edge_weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match graph num_edges".into());
+        }
+        Ok(())
     }
 
     /// Get the weights for the problem.
@@ -301,7 +320,7 @@ where
 crate::impl_random_generate!(MaximumMatching<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     let graph = spec.graph()?;
     let weights = vec![1; graph.num_edges()];
-    Ok(MaximumMatching::new(graph, weights))
+    MaximumMatching::new(graph, weights)
 });
 
 crate::declare_variants! {
@@ -316,10 +335,9 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_matching_simplegraph",
-        instance: Box::new(MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
-            5,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-        ))),
+        instance: Box::new(MaximumMatching::<_, i64>::unit_weights(
+            SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![true, false, false, false, true, false]),
         optimal_value: serde_json::json!(2),
     }]

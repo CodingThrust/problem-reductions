@@ -5,7 +5,8 @@ use crate::traits::Problem;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // 3 items, weights [2,3,1], values [3,4,2], capacity 4, precedence (0,1)
-    let problem = PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4);
+    let problem =
+        PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4).unwrap();
     let reduction: ReductionPOKToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -16,7 +17,8 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_partiallyorderedknapsack_to_ilp_bf_vs_ilp() {
-    let problem = PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4);
+    let problem =
+        PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4).unwrap();
     let reduction: ReductionPOKToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -37,7 +39,8 @@ fn test_partiallyorderedknapsack_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4);
+    let problem =
+        PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4).unwrap();
     let reduction: ReductionPOKToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -50,7 +53,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_partiallyorderedknapsack_to_ilp_trivial() {
-    let problem = PartiallyOrderedKnapsack::new(vec![], vec![], vec![], 0);
+    let problem = PartiallyOrderedKnapsack::new(vec![], vec![], vec![], 0).unwrap();
     let reduction: ReductionPOKToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

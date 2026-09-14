@@ -18,16 +18,17 @@ fn yes_instance() -> DirectedTwoCommodityIntegralFlow {
             (3, 4),
             (3, 5),
         ],
-    );
-    DirectedTwoCommodityIntegralFlow::new(graph, vec![1; 8], 0, 4, 1, 5, 1, 1)
+    )
+    .unwrap();
+    DirectedTwoCommodityIntegralFlow::new(graph, vec![1; 8], 0, 4, 1, 5, 1, 1).unwrap()
 }
 
 /// NO instance: 4 vertices, 3 arcs (all capacity 1).
 /// s1=0, t1=3, s2=1, t2=3, R1=1, R2=1.
 /// Bottleneck at arc (2,3) with capacity 1.
 fn no_instance() -> DirectedTwoCommodityIntegralFlow {
-    let graph = DirectedGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]);
-    DirectedTwoCommodityIntegralFlow::new(graph, vec![1; 3], 0, 3, 1, 3, 1, 1)
+    let graph = DirectedGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]).unwrap();
+    DirectedTwoCommodityIntegralFlow::new(graph, vec![1; 3], 0, 3, 1, 3, 1, 1).unwrap()
 }
 
 #[test]
@@ -95,8 +96,8 @@ fn test_directed_two_commodity_integral_flow_conservation_violation() {
 
 #[test]
 fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeasible() {
-    let graph = DirectedGraph::new(3, vec![(1, 2)]);
-    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1], 0, 1, 2, 2, 1, 0);
+    let graph = DirectedGraph::new(3, vec![(1, 2)]).unwrap();
+    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1], 0, 1, 2, 2, 1, 0).unwrap();
 
     // Commodity 1 sends flow out of its sink with no incoming flow.
     let config = vec![1, 0];
@@ -105,8 +106,9 @@ fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeas
 
 #[test]
 fn test_directed_two_commodity_integral_flow_disallows_using_other_commodity_source() {
-    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]);
-    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
+    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]).unwrap();
+    let problem =
+        DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0).unwrap();
 
     // Commodity 1 reaches t1 from s2, which is illegal in the classical definition:
     // conservation must hold for commodity 1 at s2.
@@ -203,7 +205,7 @@ fn test_directed_two_commodity_integral_flow_wrong_config_length() {
 #[test]
 fn test_directed_two_commodity_integral_flow_higher_capacity() {
     // Test with capacity 2: two paths can share an arc
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = DirectedTwoCommodityIntegralFlow::new(
         graph,
         vec![2, 2], // capacity 2 on both arcs
@@ -213,7 +215,8 @@ fn test_directed_two_commodity_integral_flow_higher_capacity() {
         2,
         1,
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![3, 3, 3, 3]

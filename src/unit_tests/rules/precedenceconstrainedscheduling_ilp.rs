@@ -5,12 +5,12 @@ use crate::traits::Problem;
 
 fn feasible_instance() -> PrecedenceConstrainedScheduling {
     // 3 tasks, 2 processors, deadline 2, precedence: task 0 must complete before task 2
-    PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)])
+    PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]).unwrap()
 }
 
 fn infeasible_instance() -> PrecedenceConstrainedScheduling {
     // 3 tasks, 1 processor, deadline 2: impossible to fit all 3 tasks in 2 slots with 1 proc each
-    PrecedenceConstrainedScheduling::new(3, 1, 2, vec![])
+    PrecedenceConstrainedScheduling::new(3, 1, 2, vec![]).unwrap()
 }
 
 #[test]

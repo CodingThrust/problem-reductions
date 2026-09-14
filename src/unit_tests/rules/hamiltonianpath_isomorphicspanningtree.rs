@@ -9,10 +9,9 @@ use crate::traits::Problem;
 #[test]
 fn test_hamiltonianpath_to_isomorphicspanningtree_closed_loop() {
     // Graph with a known Hamiltonian path: 0-1-2-3-4 plus extra edges
-    let source = HamiltonianPath::new(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 3), (1, 4)],
-    ));
+    let source = HamiltonianPath::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 3), (1, 4)]).unwrap(),
+    );
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -33,7 +32,7 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_closed_loop() {
 #[test]
 fn test_hamiltonianpath_to_isomorphicspanningtree_path_graph() {
     // Simple path graph: 0-1-2-3 (trivially has a Hamiltonian path)
-    let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -55,7 +54,8 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_no_hamiltonian_path() {
     // So the path must be leaf-0-leaf-..., but after visiting 0 we can only
     // go to unvisited leaves, and from a leaf we can only go back to 0 (already visited).
     // Path: leaf-0-leaf is length 2, can't extend. No HP exists.
-    let source = HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]));
+    let source =
+        HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]).unwrap());
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -76,10 +76,9 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_no_hamiltonian_path() {
 #[test]
 fn test_hamiltonianpath_to_isomorphicspanningtree_complete_graph() {
     // Complete graph K4: every permutation is a valid Hamiltonian path
-    let source = HamiltonianPath::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let source = HamiltonianPath::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    );
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -98,7 +97,7 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_complete_graph() {
 #[test]
 fn test_hamiltonianpath_to_isomorphicspanningtree_small_triangle() {
     // Triangle: 0-1-2-0 (has Hamiltonian path, e.g. 0-1-2)
-    let source = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let source = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();

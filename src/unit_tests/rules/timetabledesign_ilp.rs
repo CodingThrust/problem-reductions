@@ -15,7 +15,8 @@ fn test_timetabledesign_to_ilp_closed_loop() {
         vec![vec![true, true], vec![true, true]],
         vec![vec![true, true], vec![true, true]],
         vec![vec![1, 0], vec![0, 1]],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&problem, &reduction);
@@ -30,7 +31,8 @@ fn test_timetabledesign_to_ilp_bf_vs_ilp() {
         vec![vec![true, true], vec![true, true]],
         vec![vec![true, true], vec![true, true]],
         vec![vec![1, 0], vec![0, 1]],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
@@ -49,7 +51,8 @@ fn test_timetabledesign_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_timetabledesign_to_ilp_infeasible() {
     // Craftsman 0 available only in period 0, but needs 2 periods of work with task 0
-    let problem = TimetableDesign::new(1, 1, 1, vec![vec![true]], vec![vec![true]], vec![vec![2]]);
+    let problem =
+        TimetableDesign::new(1, 1, 1, vec![vec![true]], vec![vec![true]], vec![vec![2]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
         ILPSolver::new().solve(reduction.target_problem()),
@@ -67,7 +70,8 @@ fn test_timetabledesign_to_ilp_identity_extraction() {
         vec![vec![true, true], vec![true, true]],
         vec![vec![true, true], vec![true, true]],
         vec![vec![1, 0], vec![0, 1]],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()

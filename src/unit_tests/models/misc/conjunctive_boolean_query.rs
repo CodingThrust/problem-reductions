@@ -26,7 +26,7 @@ fn issue_example() -> ConjunctiveBooleanQuery {
             ],
         ),
     ];
-    ConjunctiveBooleanQuery::new(6, relations, 2, conjuncts)
+    ConjunctiveBooleanQuery::new(6, relations, 2, conjuncts).unwrap()
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn test_conjunctivebooleanquery_unsatisfiable() {
         (0, vec![QueryArg::Variable(0), QueryArg::Variable(0)]),
         (0, vec![QueryArg::Variable(0), QueryArg::Constant(1)]),
     ];
-    let problem = ConjunctiveBooleanQuery::new(2, relations, 1, conjuncts);
+    let problem = ConjunctiveBooleanQuery::new(2, relations, 1, conjuncts).unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }

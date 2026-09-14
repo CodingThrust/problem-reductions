@@ -36,7 +36,7 @@ fn subset_sum_embedding(source: &SubsetSum) -> IntegerKnapsack {
 
 #[test]
 fn test_subsetsum_to_integerknapsack_forward_example() {
-    let source = SubsetSum::new(vec![3u32, 7, 1, 8, 5], 16u32);
+    let source = SubsetSum::new(vec![3u32, 7, 1, 8, 5], 16u32).unwrap();
     let target = subset_sum_embedding(&source);
     let source_witness = vec![true, false, false, true, true];
 
@@ -47,7 +47,7 @@ fn test_subsetsum_to_integerknapsack_forward_example() {
 
 #[test]
 fn test_subsetsum_to_integerknapsack_counterexample_demonstrates_gap() {
-    let source = SubsetSum::new(vec![3u32], 6u32);
+    let source = SubsetSum::new(vec![3u32], 6u32).unwrap();
     let target = subset_sum_embedding(&source);
     let solver = BruteForce::new();
 

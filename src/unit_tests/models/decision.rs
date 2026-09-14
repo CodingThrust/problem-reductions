@@ -6,13 +6,13 @@ use crate::traits::Problem;
 use crate::types::{One, Or};
 
 fn triangle_mvc() -> MinimumVertexCover<SimpleGraph, i64> {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    MinimumVertexCover::new(graph, vec![1; 3])
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    MinimumVertexCover::new(graph, vec![1; 3]).unwrap()
 }
 
 fn star_mds() -> MinimumDominatingSet<SimpleGraph, One> {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]);
-    MinimumDominatingSet::new(graph, vec![One; 5])
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]).unwrap();
+    MinimumDominatingSet::new(graph, vec![One; 5]).unwrap()
 }
 
 #[test]
@@ -67,8 +67,8 @@ fn test_decision_min_evaluate_infeasible_config() {
 
 #[test]
 fn test_decision_max_evaluate() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let mis = MaximumIndependentSet::new(graph, vec![1; 4]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    let mis = MaximumIndependentSet::new(graph, vec![1; 4]).unwrap();
     let decision = Decision::new(mis, 2);
     assert_eq!(
         decision.evaluate(&vec![true, false, true, false]).unwrap(),
@@ -305,7 +305,7 @@ fn test_decision_mis_unit_registration_and_construction() {
 #[test]
 fn test_decision_mis_unit_dynamic_identity_edges() {
     let decision = Decision::new(
-        MaximumIndependentSet::new(SimpleGraph::path(3), vec![One; 3]),
+        MaximumIndependentSet::new(SimpleGraph::path(3), vec![One; 3]).unwrap(),
         2,
     );
     let variant = Decision::<MaximumIndependentSet<SimpleGraph, One>>::variant();

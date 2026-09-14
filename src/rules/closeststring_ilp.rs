@@ -135,7 +135,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ClosestString::new(
                 2,
                 vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

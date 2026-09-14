@@ -10,6 +10,7 @@ fn issue_example_problem(k: usize) -> SetBasis {
         vec![vec![0, 1], vec![1, 2], vec![0, 2], vec![0, 1, 2]],
         k,
     )
+    .unwrap()
 }
 
 #[test]
@@ -134,20 +135,6 @@ fn test_set_basis_rejects_wrong_config_length() {
 }
 
 #[test]
-fn test_set_basis_deserialized_invalid_target_returns_false() {
-    let problem: SetBasis = serde_json::from_value(serde_json::json!({
-        "universe_size": 4,
-        "collection": [[0, 4]],
-        "k": 1
-    }))
-    .unwrap();
-
-    assert!(!problem
-        .evaluate(&vec![vec![true, false, false, false]])
-        .unwrap());
-}
-
-#[test]
 fn test_set_basis_deserialized_unsorted_target_still_evaluates_correctly() {
     let problem: SetBasis = serde_json::from_value(serde_json::json!({
         "universe_size": 2,
@@ -156,13 +143,13 @@ fn test_set_basis_deserialized_unsorted_target_still_evaluates_correctly() {
     }))
     .unwrap();
 
+    assert_eq!(problem.collection(), &[vec![0, 1]]);
     assert!(problem.evaluate(&vec![vec![true, true]]).unwrap());
 }
 
 #[test]
-#[should_panic(expected = "outside universe")]
 fn test_set_basis_rejects_out_of_range_elements() {
-    SetBasis::new(4, vec![vec![0, 4]], 1);
+    assert!(SetBasis::new(4, vec![vec![0, 4]], 1).is_err());
 }
 
 #[test]
@@ -170,7 +157,7 @@ fn test_set_basis_basis_not_subset_of_target() {
     // Basis = {{0, 2}}, target = {{0, 1}}.
     // The basis set {0, 2} is NOT a subset of {0, 1} (element 2 not in target),
     // so it should not be used, and the target cannot be covered.
-    let problem = SetBasis::new(3, vec![vec![0, 1]], 1);
+    let problem = SetBasis::new(3, vec![vec![0, 1]], 1).unwrap();
     // Config encodes basis set {0, 2}: bits [1, 0, 1]
     assert!(!problem.evaluate(&vec![vec![true, false, true]]).unwrap());
 }
@@ -185,7 +172,7 @@ fn test_set_basis_is_valid_solution() {
 #[test]
 fn test_set_basis_k_zero_empty_collection() {
     // k = 0 with empty collection: trivially satisfiable (no targets to cover).
-    let problem = SetBasis::new(3, vec![], 0);
+    let problem = SetBasis::new(3, vec![], 0).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         Vec::<usize>::new()
@@ -196,7 +183,7 @@ fn test_set_basis_k_zero_empty_collection() {
 #[test]
 fn test_set_basis_k_zero_nonempty_collection() {
     // k = 0 with non-empty collection: impossible (no basis sets to cover targets).
-    let problem = SetBasis::new(3, vec![vec![0, 1]], 0);
+    let problem = SetBasis::new(3, vec![vec![0, 1]], 0).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         Vec::<usize>::new()
@@ -207,10 +194,17 @@ fn test_set_basis_k_zero_nonempty_collection() {
 #[test]
 fn test_set_basis_empty_collection_with_k_positive() {
     // Empty collection with k > 0: trivially satisfiable (no targets to cover).
-    let problem = SetBasis::new(2, vec![], 2);
+    let problem = SetBasis::new(2, vec![], 2).unwrap();
     assert_eq!(problem.basis_size(), 2);
     assert_eq!(problem.num_sets(), 0);
     // Any valid config of length k * universe_size = 4 should satisfy.
     assert!(problem.evaluate(&vec![vec![false; 2]; 2]).unwrap());
     assert!(problem.evaluate(&vec![vec![true; 2]; 2]).unwrap());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":3,"collection":[[0,3]],"k":1});
+    assert!(serde_json::from_value::<SetBasis>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("SetBasis", &Default::default(), json).is_err());
 }

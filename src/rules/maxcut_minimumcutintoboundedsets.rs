@@ -119,12 +119,12 @@ impl ReduceTo<MinimumCutIntoBoundedSets<SimpleGraph, i64>> for MaxCut<SimpleGrap
         let size_bound = n_prime;
 
         let target = MinimumCutIntoBoundedSets::new(
-            SimpleGraph::new(big_n, edges),
+            SimpleGraph::new(big_n, edges).map_err(<Self as ReduceTo<MinimumCutIntoBoundedSets<SimpleGraph, i64>>>::target_construction)?,
             weights,
             source_vertex,
             sink_vertex,
             size_bound,
-        );
+        ).map_err(<Self as ReduceTo<MinimumCutIntoBoundedSets<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionMaxCutToMinCutBounded {
             target,
@@ -143,9 +143,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Triangle with unit weights: max cut = 2
             let source = MaxCut::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
                 vec![1i64, 1, 1],
-            );
+            )
+            .unwrap();
             let reduction =
                 ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
                     .expect("reduction should succeed");

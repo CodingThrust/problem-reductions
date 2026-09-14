@@ -103,13 +103,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "integralflowhomologousarcs_to_ilp",
         build: || {
             let source = IntegralFlowHomologousArcs::new(
-                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
                 vec![2, 2, 2, 2],
                 0,
                 3,
                 2,
                 vec![(0, 1)],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

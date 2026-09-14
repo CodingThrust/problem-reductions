@@ -46,15 +46,15 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph: 0-1-2, unit weights and lengths, K=1
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-/// let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+/// let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap().unwrap();
 /// // Center at vertex 1 gives total distance 0+1+1 = 2 (optimal)
 /// assert_eq!(solution, vec![false, true, false]);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumSumMulticenter<G, W> {
     /// The underlying graph.
     graph: G,
@@ -64,6 +64,27 @@ pub struct MinimumSumMulticenter<G, W> {
     edge_lengths: Vec<W>,
     /// Number of centers to place.
     k: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct MinimumSumMulticenterData<G, W> {
+    graph: G,
+    vertex_weights: Vec<W>,
+    edge_lengths: Vec<W>,
+    k: usize,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumSumMulticenter<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumSumMulticenterData::<G, W>::deserialize(deserializer)?;
+        Self::new(data.graph, data.vertex_weights, data.edge_lengths, data.k)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -98,29 +119,10 @@ impl TryFrom<MinimumSumMulticenterCreateSpec> for MinimumSumMulticenter<SimpleGr
         let vertex_weights = spec
             .weights
             .unwrap_or_else(|| vec![1; graph.num_vertices()]);
-        if vertex_weights.len() != graph.num_vertices() {
-            return Err(format!(
-                "weights has length {}, expected {}",
-                vertex_weights.len(),
-                graph.num_vertices()
-            )
-            .into());
-        }
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if spec.k == 0 || spec.k > graph.num_vertices() {
-            return Err(format!("k must be between 1 and {}", graph.num_vertices()).into());
-        }
-        Ok(Self::new(graph, vertex_weights, edge_lengths, spec.k))
+        Self::new(graph, vertex_weights, edge_lengths, spec.k)
     }
 }
 
@@ -149,35 +151,40 @@ fn simple_graph_from_create(
     if num_vertices < inferred {
         return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::new(num_vertices, edges)
 }
 
 impl<G: Graph, W: Clone + Default> MinimumSumMulticenter<G, W> {
     /// Create a MinimumSumMulticenter problem.
     ///
-    /// # Panics
+    /// # Errors
     /// - If `vertex_weights.len() != graph.num_vertices()`
     /// - If `edge_lengths.len() != graph.num_edges()`
     /// - If `k == 0` or `k > graph.num_vertices()`
-    pub fn new(graph: G, vertex_weights: Vec<W>, edge_lengths: Vec<W>, k: usize) -> Self {
-        assert_eq!(
-            vertex_weights.len(),
-            graph.num_vertices(),
-            "vertex_weights length must match num_vertices"
-        );
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        assert!(k > 0, "k must be positive");
-        assert!(k <= graph.num_vertices(), "k must not exceed num_vertices");
-        Self {
+    pub fn new(
+        graph: G,
+        vertex_weights: Vec<W>,
+        edge_lengths: Vec<W>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if vertex_weights.len() != graph.num_vertices() {
+            return Err("vertex_weights length must match num_vertices".into());
+        }
+        if edge_lengths.len() != graph.num_edges() {
+            return Err("edge_lengths length must match num_edges".into());
+        }
+        if k == 0 {
+            return Err("k must be positive".into());
+        }
+        if !(k <= graph.num_vertices()) {
+            return Err("k must not exceed num_vertices".into());
+        }
+        Ok(Self {
             graph,
             vertex_weights,
             edge_lengths,
             k,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -372,7 +379,7 @@ crate::impl_random_generate!(MinimumSumMulticenter<SimpleGraph, i64>, MinimumSum
         return Err(format!("k must be between 1 and {}", spec.num_vertices).into());
     }
     let lengths = vec![1; graph.num_edges()];
-    Ok(MinimumSumMulticenter::new(graph, vec![1; spec.num_vertices], lengths, k))
+    MinimumSumMulticenter::new(graph, vec![1; spec.num_vertices], lengths, k)
 });
 
 crate::declare_variants! {
@@ -387,24 +394,28 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_sum_multicenter_simplegraph",
-        instance: Box::new(MinimumSumMulticenter::new(
-            SimpleGraph::new(
-                7,
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (0, 6),
-                    (2, 5),
-                ],
-            ),
-            vec![1i64; 7],
-            vec![1i64; 8],
-            2,
-        )),
+        instance: Box::new(
+            MinimumSumMulticenter::new(
+                SimpleGraph::new(
+                    7,
+                    vec![
+                        (0, 1),
+                        (1, 2),
+                        (2, 3),
+                        (3, 4),
+                        (4, 5),
+                        (5, 6),
+                        (0, 6),
+                        (2, 5),
+                    ],
+                )
+                .unwrap(),
+                vec![1i64; 7],
+                vec![1i64; 8],
+                2,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![false, false, true, false, false, true, false]),
         optimal_value: serde_json::json!(6),
     }]

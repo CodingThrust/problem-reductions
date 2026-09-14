@@ -8,7 +8,7 @@ use crate::traits::Problem;
 #[test]
 fn test_bmf_to_bicliquecover_structure() {
     // Matrix A = [[1,0],[0,1]] => bipartite graph with edges (0,0), (1,1).
-    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let reduction: ReductionBMFToBicliqueCover =
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -21,7 +21,7 @@ fn test_bmf_to_bicliquecover_structure() {
 #[test]
 fn test_bmf_to_bicliquecover_closed_loop_all_ones() {
     // All-ones 2x2 at rank 1 — exact factorization exists.
-    let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
+    let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1).unwrap();
     let reduction: ReductionBMFToBicliqueCover =
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -42,7 +42,7 @@ fn test_bmf_to_bicliquecover_closed_loop_all_ones() {
 #[test]
 fn test_bmf_to_bicliquecover_closed_loop_identity() {
     // 2x2 identity at rank 2 — exact factorization exists.
-    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let reduction: ReductionBMFToBicliqueCover =
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -66,7 +66,7 @@ fn test_bmf_to_bicliquecover_insufficient_rank() {
     // sub-biclique semantics a single biclique covering both (0,0) and (1,1)
     // would have to be the full K_{2,2}, which requires edges (0,1) and (1,0)
     // that are not in G. So BicliqueCover is infeasible too, matching BMF.
-    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1);
+    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1).unwrap();
     let reduction: ReductionBMFToBicliqueCover =
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();

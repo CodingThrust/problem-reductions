@@ -9,7 +9,7 @@ use crate::traits::Problem;
 fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
     // 3 vertices, arcs (0,1),(1,2),(0,2), caps all 1, 2 paths, req 2
     let source = PathConstrainedNetworkFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
         0,
         2,
@@ -34,7 +34,7 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
 #[test]
 fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
     let source = PathConstrainedNetworkFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
         0,
         2,

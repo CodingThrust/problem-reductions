@@ -43,6 +43,7 @@ fn issue_instance_1_graph() -> BipartiteGraph {
             (3, 1),
         ],
     )
+    .unwrap()
 }
 
 fn issue_instance_2_graph() -> BipartiteGraph {
@@ -64,6 +65,7 @@ fn issue_instance_2_graph() -> BipartiteGraph {
             (3, 3),
         ],
     )
+    .unwrap()
 }
 
 fn issue_instance_2_witness() -> Vec<bool> {

@@ -7,13 +7,14 @@ use crate::types::Min;
 
 fn issue_instance() -> MinimumEdgeCostFlow {
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
+        DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]).unwrap(),
         vec![3, 1, 2, 0, 0, 0],
         vec![2, 2, 2, 2, 2, 2],
         0,
         4,
         3,
     )
+    .unwrap()
 }
 
 fn small_instance() -> MinimumEdgeCostFlow {
@@ -22,25 +23,27 @@ fn small_instance() -> MinimumEdgeCostFlow {
     // Arc 1: (1,2) cap=2, price=3
     // R=1 → cost = 5+3 = 8
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![5, 3],
         vec![2, 2],
         0,
         2,
         1,
     )
+    .unwrap()
 }
 
 fn infeasible_instance() -> MinimumEdgeCostFlow {
     // Cannot route 2 units through capacity-1 arcs
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1],
         vec![1, 1],
         0,
         2,
         2,
     )
+    .unwrap()
 }
 
 #[test]

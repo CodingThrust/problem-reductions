@@ -31,6 +31,7 @@ inventory::submit! {
 /// find a subset `K ⊆ A` of minimum cardinality such that the closure of `K`
 /// under `F` equals `A` (i.e., `K` is a key).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCardinalityKeyData")]
 pub struct MinimumCardinalityKey {
     /// Number of attributes (elements are `0..num_attributes`).
     num_attributes: usize,
@@ -38,34 +39,47 @@ pub struct MinimumCardinalityKey {
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
 }
 
+#[derive(Deserialize)]
+struct MinimumCardinalityKeyData {
+    num_attributes: usize,
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+}
+
+impl TryFrom<MinimumCardinalityKeyData> for MinimumCardinalityKey {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumCardinalityKeyData) -> Result<Self, Self::Error> {
+        Self::new(data.num_attributes, data.dependencies)
+    }
+}
+
 impl MinimumCardinalityKey {
     /// Create a new Minimum Cardinality Key instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any attribute index in a dependency lies outside the attribute set.
-    pub fn new(num_attributes: usize, dependencies: Vec<(Vec<usize>, Vec<usize>)>) -> Self {
-        let mut dependencies = dependencies;
-        for (dep_index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
+    /// Returns an error when the instance violates its documented input conditions.
+    pub fn new(
+        num_attributes: usize,
+        mut dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
             lhs.sort_unstable();
             lhs.dedup();
             rhs.sort_unstable();
             rhs.dedup();
-            for &attr in lhs.iter().chain(rhs.iter()) {
-                assert!(
-                    attr < num_attributes,
-                    "Dependency {} contains attribute {} which is outside attribute set of size {}",
-                    dep_index,
-                    attr,
-                    num_attributes
-                );
+            if let Some(attribute) = lhs
+                .iter()
+                .chain(rhs.iter())
+                .find(|&&attribute| attribute >= num_attributes)
+            {
+                return Err(format!("dependency {index} contains attribute {attribute} outside attribute set of size {num_attributes}").into());
             }
         }
-
-        Self {
+        Ok(Self {
             num_attributes,
             dependencies,
-        }
+        })
     }
 
     /// Return the number of attributes.
@@ -177,15 +191,18 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_cardinality_key",
-        instance: Box::new(MinimumCardinalityKey::new(
-            6,
-            vec![
-                (vec![0, 1], vec![2]),
-                (vec![0, 2], vec![3]),
-                (vec![1, 3], vec![4]),
-                (vec![2, 4], vec![5]),
-            ],
-        )),
+        instance: Box::new(
+            MinimumCardinalityKey::new(
+                6,
+                vec![
+                    (vec![0, 1], vec![2]),
+                    (vec![0, 2], vec![3]),
+                    (vec![1, 3], vec![4]),
+                    (vec![2, 4], vec![5]),
+                ],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, true, false, false, false, false]),
         optimal_value: serde_json::json!(2),
     }]

@@ -6,7 +6,7 @@ use num_bigint::BigUint;
 
 #[test]
 fn test_exactcoverby3sets_to_subsetproduct_closed_loop() {
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap();
     let reduction =
         ReduceTo::<SubsetProduct>::reduce_to(&source).expect("reduction should succeed");
 
@@ -19,7 +19,7 @@ fn test_exactcoverby3sets_to_subsetproduct_closed_loop() {
 
 #[test]
 fn test_exactcoverby3sets_to_subsetproduct_structure() {
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap();
     let reduction =
         ReduceTo::<SubsetProduct>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -35,7 +35,7 @@ fn test_exactcoverby3sets_to_subsetproduct_structure() {
 
 #[test]
 fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap();
     let reduction =
         ReduceTo::<SubsetProduct>::reduce_to(&source).expect("reduction should succeed");
 
@@ -49,7 +49,7 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
 
 #[test]
 fn test_exactcoverby3sets_to_subsetproduct_supports_large_universe() {
-    let source = ExactCoverBy3Sets::new(18, vec![[0, 1, 2], [15, 16, 17]]);
+    let source = ExactCoverBy3Sets::new(18, vec![[0, 1, 2], [15, 16, 17]]).unwrap();
     let reduction =
         ReduceTo::<SubsetProduct>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();

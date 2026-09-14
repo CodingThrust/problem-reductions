@@ -50,9 +50,9 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Host: K4 (complete graph on 4 vertices)
-/// let host = SimpleGraph::new(4, vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]);
+/// let host = SimpleGraph::new(4, vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]).unwrap();
 /// // Pattern: triangle (K3)
-/// let pattern = SimpleGraph::new(3, vec![(0,1),(0,2),(1,2)]);
+/// let pattern = SimpleGraph::new(3, vec![(0,1),(0,2),(1,2)]).unwrap();
 /// let problem = SubgraphIsomorphism::new(host, pattern);
 ///
 /// // Mapping [0, 1, 2] means pattern vertex 0->host 0, 1->1, 2->2
@@ -205,8 +205,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subgraph_isomorphism",
         instance: Box::new(SubgraphIsomorphism::new(
-            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
-            SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+            SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
         )),
         optimal_config: serde_json::json!(vec![0, 1, 2]),
         optimal_value: serde_json::json!(true),

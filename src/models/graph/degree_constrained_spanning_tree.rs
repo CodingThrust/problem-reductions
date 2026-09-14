@@ -48,14 +48,14 @@ inventory::submit! {
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
-/// let graph = SimpleGraph::new(4, vec![(0,1),(1,2),(2,3),(0,3)]);
-/// let problem = DegreeConstrainedSpanningTree::new(graph, 2);
+/// let graph = SimpleGraph::new(4, vec![(0,1),(1,2),(2,3),(0,3)]).unwrap();
+/// let problem = DegreeConstrainedSpanningTree::new(graph, 2).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct DegreeConstrainedSpanningTree<G> {
     /// The underlying graph.
@@ -66,19 +66,38 @@ pub struct DegreeConstrainedSpanningTree<G> {
     edge_list: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct DegreeConstrainedSpanningTreeData<G> {
+    graph: G,
+    max_degree: usize,
+}
+
+impl<'de, G> Deserialize<'de> for DegreeConstrainedSpanningTree<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = DegreeConstrainedSpanningTreeData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.max_degree).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> DegreeConstrainedSpanningTree<G> {
     /// Create a new Degree-Constrained Spanning Tree instance.
     ///
-    /// # Panics
-    /// Panics if `max_degree` is zero.
-    pub fn new(graph: G, max_degree: usize) -> Self {
-        assert!(max_degree >= 1, "max_degree must be at least 1");
+    /// # Errors
+    /// Returns an error if `max_degree` is zero.
+    pub fn new(graph: G, max_degree: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if max_degree == 0 {
+            return Err("max_degree must be at least 1".into());
+        }
         let edge_list = graph.edges();
-        Self {
+        Ok(Self {
             graph,
             max_degree,
             edge_list,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -216,13 +235,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     //   Degrees: 0→{2,3}=2, 1→{2,4}=2, 2→{0,1}=2, 3→{0}=1, 4→{1}=1
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "degree_constrained_spanning_tree_simplegraph",
-        instance: Box::new(DegreeConstrainedSpanningTree::new(
-            SimpleGraph::new(
-                5,
-                vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
-            ),
-            2,
-        )),
+        instance: Box::new(
+            DegreeConstrainedSpanningTree::new(
+                SimpleGraph::new(
+                    5,
+                    vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
+                )
+                .unwrap(),
+                2,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![false, true, true, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]

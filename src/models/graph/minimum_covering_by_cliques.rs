@@ -48,7 +48,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle: 3 edges can be covered by 1 clique
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
 /// let problem = MinimumCoveringByCliques::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -205,20 +205,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Config: [0, 0, 1, 1, 0, 2, 2, 3, 3]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_covering_by_cliques_simplegraph",
-        instance: Box::new(MinimumCoveringByCliques::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (1, 2),
-                (2, 3),
-                (3, 0),
-                (0, 2),
-                (4, 0),
-                (4, 1),
-                (5, 2),
-                (5, 3),
-            ],
-        ))),
+        instance: Box::new(MinimumCoveringByCliques::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 0),
+                    (0, 2),
+                    (4, 0),
+                    (4, 1),
+                    (5, 2),
+                    (5, 3),
+                ],
+            )
+            .unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![0, 0, 1, 1, 0, 2, 2, 3, 3]),
         optimal_value: serde_json::json!(4),
     }]

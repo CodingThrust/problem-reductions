@@ -8,7 +8,7 @@ fn create_spec_rejects_lower_bound_above_capacity() {
     );
     assert!(
         UndirectedFlowLowerBounds::try_from(UndirectedFlowLowerBoundsCreateSpec {
-            graph: SimpleGraph::new(2, vec![(0, 1)]),
+            graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
             capacities: vec![1],
             lower_bounds: vec![2],
             source: 0,
@@ -27,24 +27,27 @@ fn canonical_yes_instance() -> UndirectedFlowLowerBounds {
         SimpleGraph::new(
             6,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 4), (3, 5), (4, 5)],
-        ),
+        )
+        .unwrap(),
         vec![2, 2, 2, 2, 1, 3, 2],
         vec![1, 1, 0, 0, 1, 0, 1],
         0,
         5,
         3,
     )
+    .unwrap()
 }
 
 fn canonical_no_instance() -> UndirectedFlowLowerBounds {
     UndirectedFlowLowerBounds::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
         vec![2, 2, 1, 1],
         vec![2, 2, 1, 1],
         0,
         3,
         2,
     )
+    .unwrap()
 }
 
 fn yes_orientation_config() -> Vec<bool> {

@@ -11,7 +11,8 @@ use crate::variant::K3;
 #[test]
 fn test_kcoloring_to_twodimensionalconsecutivesets_closed_loop() {
     // Triangle graph: 3-colorable
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let source =
+        KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -25,7 +26,8 @@ fn test_kcoloring_to_twodimensionalconsecutivesets_closed_loop() {
 #[test]
 fn test_kcoloring_to_tdcs_target_structure() {
     // Graph with 4 vertices and 3 edges: path 0-1-2-3
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let source =
+        KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -46,10 +48,9 @@ fn test_kcoloring_to_tdcs_non_3colorable() {
     // Use K_3 + edge to make a non-3-colorable subgraph: vertex 0 connected to 1, 2;
     // vertex 1 connected to 2; all three connected to vertex 3
     // This is K4 but we only check source side (target brute-force too slow).
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let source = KColoring::<K3, _>::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    );
 
     let solver = BruteForce::new();
     let source_solutions = solver.find_all_witnesses(&source).unwrap();
@@ -66,7 +67,7 @@ fn test_kcoloring_to_tdcs_non_3colorable() {
 #[test]
 fn test_kcoloring_to_tdcs_bipartite() {
     // Path 0-1-2: bipartite, 2-colorable (hence 3-colorable)
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -80,7 +81,7 @@ fn test_kcoloring_to_tdcs_bipartite() {
 #[test]
 fn test_kcoloring_to_tdcs_single_edge() {
     // Single edge: trivially 3-colorable
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap());
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -98,7 +99,8 @@ fn test_kcoloring_to_tdcs_single_edge() {
 #[test]
 fn test_kcoloring_to_tdcs_extract_solution_valid() {
     // Triangle: verify extracted coloring is valid
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let source =
+        KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -135,7 +137,7 @@ fn test_kcoloring_to_tdcs_empty_graph_has_a_target_witness() {
 #[test]
 fn test_kcoloring_to_tdcs_native_loops_are_no() {
     for n in [1, 5] {
-        let source = KColoring::<K3, _>::new(SimpleGraph::new(n, vec![(0, 0)]));
+        let source = KColoring::<K3, _>::new(SimpleGraph::new(n, vec![(0, 0)]).unwrap());
         let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         assert_eq!(target.alphabet_size(), 3);
@@ -156,7 +158,7 @@ fn test_kcoloring_to_tdcs_native_loops_are_no() {
 
 #[test]
 fn test_kcoloring_to_tdcs_rejects_noncertificates() {
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap());
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
     for config in [vec![], vec![0, 1], vec![0, 1, 3], vec![0, 0, 0]] {
         assert!(
@@ -182,7 +184,7 @@ fn test_kcoloring_to_tdcs_many_groups_gaps_and_repeated_edges() {
             vec![0, 1],
         ),
     ] {
-        let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges));
+        let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges).unwrap());
         let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
         assert!(reduction.target_problem().evaluate(&grouping).unwrap().0);
         let coloring = reduction.extract_solution(&grouping).unwrap();
@@ -204,7 +206,7 @@ fn test_kcoloring_to_tdcs_all_tiny_graphs_and_target_assignments() {
                 .filter(|(i, _)| mask & (1 << i) != 0)
                 .map(|(_, &e)| e)
                 .collect();
-            let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges));
+            let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges).unwrap());
             let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
             let target = reduction.target_problem();
             let size = target.alphabet_size();

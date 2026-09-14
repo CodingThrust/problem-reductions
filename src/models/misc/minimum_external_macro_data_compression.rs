@@ -63,7 +63,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {a, b}, string "abab", pointer cost h=2
-/// let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
+/// let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
@@ -87,55 +87,39 @@ impl TryFrom<MinimumExternalMacroDataCompressionSerde> for MinimumExternalMacroD
     type Error = crate::registry::ConstructionError;
 
     fn try_from(value: MinimumExternalMacroDataCompressionSerde) -> Result<Self, Self::Error> {
-        if value.alphabet_size == 0 && !value.string.is_empty() {
-            return Err("alphabet_size must be > 0 when the string is non-empty"
-                .to_string()
-                .into());
-        }
-        if value
-            .string
-            .iter()
-            .any(|&symbol| symbol >= value.alphabet_size)
-        {
-            return Err("all symbols must be less than alphabet_size"
-                .to_string()
-                .into());
-        }
-        if value.pointer_cost <= 0 {
-            return Err("pointer_cost must be positive".to_string().into());
-        }
-        Ok(Self {
-            alphabet_size: value.alphabet_size,
-            string: value.string,
-            pointer_cost: value.pointer_cost,
-        })
+        Self::new(value.alphabet_size, value.string, value.pointer_cost)
     }
 }
 
 impl MinimumExternalMacroDataCompression {
     /// Create a new MinimumExternalMacroDataCompression instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `alphabet_size` is 0 and the string is non-empty, or if
+    /// Returns an error if `alphabet_size` is 0 and the string is non-empty, or if
     /// any symbol in the string is >= `alphabet_size`, or if `pointer_cost` is 0.
-    pub fn new(alphabet_size: usize, string: Vec<usize>, pointer_cost: i64) -> Self {
-        assert!(
-            alphabet_size > 0 || string.is_empty(),
-            "alphabet_size must be > 0 when the string is non-empty"
-        );
-        assert!(
-            string
-                .iter()
-                .all(|&s| s < alphabet_size || alphabet_size == 0),
-            "all symbols must be less than alphabet_size"
-        );
-        assert!(pointer_cost > 0, "pointer_cost must be positive");
-        Self {
+    pub fn new(
+        alphabet_size: usize,
+        string: Vec<usize>,
+        pointer_cost: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(alphabet_size > 0 || string.is_empty()) {
+            return Err("alphabet_size must be > 0 when the string is non-empty".into());
+        };
+        if !(string
+            .iter()
+            .all(|&s| s < alphabet_size || alphabet_size == 0))
+        {
+            return Err("all symbols must be less than alphabet_size".into());
+        };
+        if pointer_cost <= 0 {
+            return Err("pointer_cost must be positive".into());
+        };
+        Ok(Self {
             alphabet_size,
             string,
             pointer_cost,
-        }
+        })
     }
 
     /// Returns the length of the source string.
@@ -355,7 +339,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     optimal_config.extend(vec![6; 15]); // empty C-slots
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_external_macro_data_compression",
-        instance: Box::new(MinimumExternalMacroDataCompression::new(6, s, 2)),
+        instance: Box::new(MinimumExternalMacroDataCompression::new(6, s, 2).unwrap()),
         optimal_config: serde_json::to_value(optimal_config)
             .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(12),

@@ -17,8 +17,9 @@ fn example_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
             (4, 5),
             (1, 3),
         ],
-    );
-    MaximumLeafSpanningTree::new(graph)
+    )
+    .unwrap();
+    MaximumLeafSpanningTree::new(graph).unwrap()
 }
 
 #[test]
@@ -41,10 +42,9 @@ fn test_maximum_leaf_spanning_tree_creation() {
 }
 
 #[test]
-#[should_panic(expected = "graph must have at least 2 vertices")]
 fn test_maximum_leaf_spanning_tree_rejects_tiny_graph() {
-    let graph = SimpleGraph::new(1, vec![]);
-    let _ = MaximumLeafSpanningTree::new(graph);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    assert!(MaximumLeafSpanningTree::new(graph).is_err());
 }
 
 #[test]
@@ -133,8 +133,8 @@ fn test_maximum_leaf_spanning_tree_serialization() {
 #[test]
 fn test_maximum_leaf_spanning_tree_small_path() {
     // Path graph P3: 0-1-2, only spanning tree is the path itself -> 2 leaves
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumLeafSpanningTree::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MaximumLeafSpanningTree::new(graph).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![2, 2]
@@ -147,8 +147,8 @@ fn test_maximum_leaf_spanning_tree_small_path() {
 fn test_maximum_leaf_spanning_tree_star() {
     // Star K1,3: center 0, leaves 1,2,3
     // Edges: (0,1),(0,2),(0,3)
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
-    let problem = MaximumLeafSpanningTree::new(graph);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
+    let problem = MaximumLeafSpanningTree::new(graph).unwrap();
     // Only one spanning tree: all 3 edges
     let config = vec![true, true, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(3)));

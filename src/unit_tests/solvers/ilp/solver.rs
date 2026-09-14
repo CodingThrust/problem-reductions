@@ -218,7 +218,9 @@ fn test_registered_ilp_pipeline_success() {
     use crate::topology::SimpleGraph;
     use std::collections::BTreeMap;
 
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1_i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1_i64; 3])
+            .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),

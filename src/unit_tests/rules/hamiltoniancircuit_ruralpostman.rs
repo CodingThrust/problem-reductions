@@ -8,7 +8,7 @@ use crate::types::Min;
 use crate::Problem;
 
 fn triangle_hc() -> HamiltonianCircuit<SimpleGraph> {
-    HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]))
+    HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap())
 }
 
 fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
@@ -154,7 +154,7 @@ fn aggregate_distinguishes_hamiltonian_tour_cost() {
         (vec![(0, 1), (1, 2), (0, 2)], true),
         (vec![(0, 1), (1, 2)], false),
     ] {
-        let source = HamiltonianCircuit::new(SimpleGraph::new(3, edges));
+        let source = HamiltonianCircuit::new(SimpleGraph::new(3, edges).unwrap());
         let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();

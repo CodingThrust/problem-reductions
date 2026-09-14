@@ -73,18 +73,19 @@ inventory::submit! {
 /// // optimal.
 /// let graph = DirectedGraph::new(3, vec![
 ///     (0, 1), (1, 0), (0, 2), (2, 0),
-/// ]);
+/// ]).unwrap();
 /// let problem = MinimumCostCirculation::new(
 ///     graph,
 ///     vec![2, 2, 1, 1],   // capacities
 ///     vec![2, -3, 1, -4], // costs (signed)
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let witness = solver.solve(&problem).unwrap().unwrap();
 /// // Optimal cost = 2*2 + 2*(-3) + 1*1 + 1*(-4) = -5.
 /// assert_eq!(problem.total_cost(&witness).unwrap(), -5);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCostCirculationData")]
 pub struct MinimumCostCirculation {
     /// The directed multigraph G = (V, A).
     graph: DirectedGraph,
@@ -94,39 +95,57 @@ pub struct MinimumCostCirculation {
     costs: Vec<i64>,
 }
 
+#[derive(Deserialize)]
+struct MinimumCostCirculationData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    costs: Vec<i64>,
+}
+
+impl TryFrom<MinimumCostCirculationData> for MinimumCostCirculation {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCostCirculationData) -> Result<Self, Self::Error> {
+        Self::new(data.graph, data.capacities, data.costs)
+    }
+}
+
 impl MinimumCostCirculation {
     /// Create a new Minimum-Cost Circulation problem.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any of the following holds:
+    /// Returns an error if any of the following holds:
     /// - `capacities.len() != graph.num_arcs()`
     /// - `costs.len() != graph.num_arcs()`
     /// - Any capacity is negative
     ///
     /// Note: costs are signed and **may be negative**.
-    pub fn new(graph: DirectedGraph, capacities: Vec<i64>, costs: Vec<i64>) -> Self {
+    pub fn new(
+        graph: DirectedGraph,
+        capacities: Vec<i64>,
+        costs: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let m = graph.num_arcs();
-        assert_eq!(
-            capacities.len(),
-            m,
-            "capacities length ({}) must match num_arcs ({m})",
-            capacities.len()
-        );
-        assert_eq!(
-            costs.len(),
-            m,
-            "costs length ({}) must match num_arcs ({m})",
-            costs.len()
-        );
-        for (i, &c) in capacities.iter().enumerate() {
-            assert!(c >= 0, "capacity[{i}] = {c} is negative");
+        if capacities.len() != m {
+            return Err(format!(
+                "capacities length ({}) must match num_arcs ({m})",
+                capacities.len()
+            )
+            .into());
         }
-        Self {
+        if costs.len() != m {
+            return Err(format!("costs length ({}) must match num_arcs ({m})", costs.len()).into());
+        }
+        for (i, &c) in capacities.iter().enumerate() {
+            if !(c >= 0) {
+                return Err(format!("capacity[{i}] = {c} is negative").into());
+            }
+        }
+        Ok(Self {
             graph,
             capacities,
             costs,
-        }
+        })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -281,10 +300,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     //   arc 0 (0->1) = 2, arc 1 (1->0) = 2, arc 2 (0->2) = 1, arc 3 (2->0) = 1
     //   cost = 2*2 + 2*(-3) + 1*1 + 1*(-4) = 4 - 6 + 1 - 4 = -5
     let problem = MinimumCostCirculation::new(
-        crate::topology::DirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]),
+        crate::topology::DirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]).unwrap(),
         vec![2, 2, 1, 1],
         vec![2, -3, 1, -4],
-    );
+    )
+    .unwrap();
     let optimal_config = vec![2, 2, 1, 1];
     let optimal_value = problem
         .evaluate(&optimal_config)

@@ -10,7 +10,7 @@ fn issue_instance() -> MaximumEdgeWeightedKClique<i64> {
     // 4 vertices, edges (0,1),(0,2),(1,2),(0,3),(1,3) with weights [5,4,-1,1,0], k=3.
     // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
     MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
         vec![5, 4, -1, 1, 0],
         3,
     )
@@ -61,7 +61,7 @@ fn test_maximumedgeweightedkclique_to_ilp_negative_weight_excluded_via_extra_con
     // y >= x_u + x_v - 1 ensures negative-weight y's are forced to 1 when
     // both endpoints are selected.
     let source = MaximumEdgeWeightedKClique::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![-1, -1, -1],
         3,
     )

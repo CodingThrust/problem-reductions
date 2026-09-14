@@ -96,12 +96,14 @@ impl ReduceTo<AcyclicPartition<i64>> for KSatisfiability<K3> {
                 )?,
         );
         let target = AcyclicPartition::new(
-            DirectedGraph::new(target_n, arcs),
+            DirectedGraph::new(target_n, arcs)
+                .map_err(<Self as ReduceTo<AcyclicPartition<i64>>>::target_construction)?,
             weights,
             arc_costs,
             weight_bound,
             cost_bound,
-        );
+        )
+        .map_err(<Self as ReduceTo<AcyclicPartition<i64>>>::target_construction)?;
         Ok(Reduction3SATToAcyclicPartition {
             sat_to_clique,
             target,

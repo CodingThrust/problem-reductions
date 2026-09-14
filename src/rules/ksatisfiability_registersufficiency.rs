@@ -330,7 +330,8 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
             // Zero vertices need zero registers (YES); one output vertex
             // cannot be computed with zero registers (NO).
             return Ok(Reduction3SATToRegisterSufficiency {
-                target: RegisterSufficiency::new(usize::from(empty_clause), Vec::new(), 0),
+                target: RegisterSufficiency::new(usize::from(empty_clause), Vec::new(), 0)
+                    .map_err(<Self as ReduceTo<RegisterSufficiency>>::target_construction)?,
                 layout: None,
                 source_num_vars: self.num_vars(),
                 source_variables: Vec::new(),
@@ -488,7 +489,8 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
         }
 
         Ok(Reduction3SATToRegisterSufficiency {
-            target: RegisterSufficiency::new(layout.total_vertices(), arcs, layout.bound()),
+            target: RegisterSufficiency::new(layout.total_vertices(), arcs, layout.bound())
+                .map_err(<Self as ReduceTo<RegisterSufficiency>>::target_construction)?,
             layout: Some(layout),
             source_num_vars: self.num_vars(),
             source_variables,

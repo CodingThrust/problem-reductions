@@ -19,6 +19,7 @@ fn canonical_instance() -> MinimumAxiomSet {
             (vec![6, 7], 1),
         ],
     )
+    .unwrap()
 }
 
 #[test]
@@ -125,7 +126,7 @@ fn test_minimum_axiom_set_serialization() {
 fn test_minimum_axiom_set_partial_true_sentences() {
     // Only sentences 0,1,2 are true; implications: ({0}, 1), ({1}, 2)
     // Optimal: select {0} → closure {0,1,2} = T
-    let problem = MinimumAxiomSet::new(5, vec![0, 1, 2], vec![(vec![0], 1), (vec![1], 2)]);
+    let problem = MinimumAxiomSet::new(5, vec![0, 1, 2], vec![(vec![0], 1), (vec![1], 2)]).unwrap();
     assert_eq!(problem.num_sentences(), 5);
     assert_eq!(problem.num_true_sentences(), 3);
     assert_eq!(
@@ -147,7 +148,7 @@ fn test_minimum_axiom_set_partial_true_sentences() {
 fn test_minimum_axiom_set_no_implications() {
     // 3 sentences, all true, no implications
     // Only way to cover T is to select all of them
-    let problem = MinimumAxiomSet::new(3, vec![0, 1, 2], vec![]);
+    let problem = MinimumAxiomSet::new(3, vec![0, 1, 2], vec![]).unwrap();
     let result = problem.evaluate(&vec![true, true, true]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 3);

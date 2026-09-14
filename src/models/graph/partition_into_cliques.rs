@@ -46,14 +46,14 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Two triangles: 0-1-2-0 and 3-4-5-3
-/// let graph = SimpleGraph::new(6, vec![(0,1),(0,2),(1,2),(3,4),(3,5),(4,5)]);
-/// let problem = PartitionIntoCliques::new(graph, 3);
+/// let graph = SimpleGraph::new(6, vec![(0,1),(0,2),(1,2),(3,4),(3,5),(4,5)]).unwrap();
+/// let problem = PartitionIntoCliques::new(graph, 3).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct PartitionIntoCliques<G> {
     /// The underlying graph.
@@ -62,18 +62,36 @@ pub struct PartitionIntoCliques<G> {
     num_cliques: usize,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoCliquesData<G> {
+    graph: G,
+    num_cliques: usize,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoCliques<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoCliquesData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.num_cliques).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> PartitionIntoCliques<G> {
     /// Create a new Partition Into Cliques instance.
     ///
-    /// # Panics
-    /// Panics if `num_cliques` is zero or greater than `graph.num_vertices()`.
-    pub fn new(graph: G, num_cliques: usize) -> Self {
-        assert!(num_cliques >= 1, "num_cliques must be at least 1");
-        assert!(
-            num_cliques <= graph.num_vertices(),
-            "num_cliques must be at most num_vertices"
-        );
-        Self { graph, num_cliques }
+    /// # Errors
+    /// Returns an error if `num_cliques` is zero or greater than `graph.num_vertices()`.
+    pub fn new(graph: G, num_cliques: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if num_cliques == 0 {
+            return Err("num_cliques must be at least 1".into());
+        }
+        if !(num_cliques <= graph.num_vertices()) {
+            return Err("num_cliques must be at most num_vertices".into());
+        }
+        Ok(Self { graph, num_cliques })
     }
 
     /// Get a reference to the underlying graph.
@@ -187,23 +205,27 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_cliques_simplegraph",
-        instance: Box::new(PartitionIntoCliques::new(
-            SimpleGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 2),
-                    (3, 4),
-                    (3, 5),
-                    (4, 5),
-                    (0, 3),
-                    (1, 4),
-                    (2, 5),
-                ],
-            ),
-            3,
-        )),
+        instance: Box::new(
+            PartitionIntoCliques::new(
+                SimpleGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (1, 2),
+                        (3, 4),
+                        (3, 5),
+                        (4, 5),
+                        (0, 3),
+                        (1, 4),
+                        (2, 5),
+                    ],
+                )
+                .unwrap(),
+                3,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

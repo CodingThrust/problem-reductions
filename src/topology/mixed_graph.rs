@@ -12,49 +12,72 @@ use serde::{Deserialize, Serialize};
 /// so higher-level models can use that order as part of their configuration
 /// semantics, but edge-membership queries treat them as unordered pairs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MixedGraphData")]
 pub struct MixedGraph {
     num_vertices: usize,
     arcs: Vec<(usize, usize)>,
     edges: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+struct MixedGraphData {
+    num_vertices: usize,
+    arcs: Vec<(usize, usize)>,
+    edges: Vec<(usize, usize)>,
+}
+
+impl TryFrom<MixedGraphData> for MixedGraph {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MixedGraphData) -> Result<Self, Self::Error> {
+        Self::new(data.num_vertices, data.arcs, data.edges)
+    }
+}
+
 impl MixedGraph {
     /// Create a new mixed graph.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any endpoint references a vertex outside `0..num_vertices`.
-    pub fn new(num_vertices: usize, arcs: Vec<(usize, usize)>, edges: Vec<(usize, usize)>) -> Self {
+    /// Returns an error if any endpoint references a vertex outside `0..num_vertices`.
+    pub fn new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        edges: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for &(u, v) in &arcs {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "arc ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "arc ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
         }
 
         for &(u, v) in &edges {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "edge ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "edge ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
         }
 
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             edges,
-        }
+        })
     }
 
     /// Create an empty mixed graph with no arcs or undirected edges.
     pub fn empty(num_vertices: usize) -> Self {
-        Self::new(num_vertices, vec![], vec![])
+        Self {
+            num_vertices,
+            arcs: vec![],
+            edges: vec![],
+        }
     }
 
     /// Return the number of vertices.

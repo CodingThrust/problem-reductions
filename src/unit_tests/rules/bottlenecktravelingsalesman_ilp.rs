@@ -5,9 +5,10 @@ use crate::traits::Problem;
 
 fn k4_btsp() -> BottleneckTravelingSalesman {
     BottleneckTravelingSalesman::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![1, 3, 2, 4, 2, 1],
     )
+    .unwrap()
 }
 
 #[test]
@@ -51,9 +52,10 @@ fn test_bottlenecktravelingsalesman_to_ilp_closed_loop() {
 fn test_bottlenecktravelingsalesman_to_ilp_c4() {
     // C4 with varying weights: bottleneck = max weight in the only cycle
     let problem = BottleneckTravelingSalesman::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap(),
         vec![1, 2, 3, 4],
-    );
+    )
+    .unwrap();
     let bf = BruteForce::new();
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
@@ -89,9 +91,10 @@ fn test_solution_extraction() {
 fn test_no_hamiltonian_cycle_infeasible() {
     // Path graph: no Hamiltonian cycle
     let problem = BottleneckTravelingSalesman::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction: ReductionBTSPToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -169,7 +172,8 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
             vec![1, 2, 3],
         ),
     ] {
-        let source = BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges), weights);
+        let source =
+            BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges).unwrap(), weights).unwrap();
         let result = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
         let witness = tour_witness(&source, &tour, &edge_order);
         let extracted = result.extract_solution(&witness).unwrap();
@@ -216,7 +220,8 @@ fn test_bottleneck_ilp_maximum_must_be_used_and_dominate() {
 #[test]
 fn test_bottleneck_ilp_empty_and_single_edge_are_infeasible() {
     for (n, edges, weights) in [(0, vec![], vec![]), (2, vec![(0, 1)], vec![1])] {
-        let source = BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges), weights);
+        let source =
+            BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges).unwrap(), weights).unwrap();
         let result = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
         assert!(matches!(
             ILPSolver::new().solve(result.target_problem()),
@@ -235,9 +240,10 @@ fn test_bottleneck_ilp_dimensions_and_malformed_weights() {
     for (n, m) in [(usize::MAX, 0), (1, usize::MAX), (0, usize::MAX)] {
         assert!(ReductionBTSPToILP::dimensions(n, m).is_err());
     }
-    let source: BottleneckTravelingSalesman = serde_json::from_value(serde_json::json!({
-        "graph": {"num_vertices": 0, "edges": []}, "edge_weights": [1]
-    }))
-    .unwrap();
-    assert!(ReduceTo::<ILP<i64>>::reduce_to(&source).is_err());
+    assert!(
+        serde_json::from_value::<BottleneckTravelingSalesman>(serde_json::json!({
+            "graph": {"num_vertices": 0, "edges": []}, "edge_weights": [1]
+        }))
+        .is_err()
+    );
 }

@@ -183,13 +183,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3-vertex graph: edge (0,1) cap=2 lower=1, edge (1,2) cap=2 lower=1
             // source=0, sink=2, requirement=1
             let source = UndirectedFlowLowerBounds::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![2, 2],
                 vec![1, 1],
                 0,
                 2,
                 1,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

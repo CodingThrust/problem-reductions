@@ -135,7 +135,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 2, 1],
                 vec![0, 0, 2],
                 vec![3, 3, 4],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

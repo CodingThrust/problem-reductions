@@ -46,9 +46,12 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for MaximumIndependentSet<Si
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = MinimumVertexCover::new(
-            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
+            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()).map_err(
+                <Self as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::target_construction,
+            )?,
             self.weights().to_vec(),
-        );
+        )
+        .map_err(<Self as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::target_construction)?;
         Ok(ReductionISToVC { target })
     }
 }
@@ -90,9 +93,14 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i64>> for MinimumVertexCover<Si
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = MaximumIndependentSet::new(
-            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
+            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()).map_err(
+                <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, i64>>>::target_construction,
+            )?,
             self.weights().to_vec(),
-        );
+        )
+        .map_err(
+            <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, i64>>>::target_construction,
+        )?;
         Ok(ReductionVCToIS { target })
     }
 }
@@ -103,12 +111,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
     fn vc_petersen() -> MinimumVertexCover<SimpleGraph, i64> {
         let (n, edges) = crate::topology::small_graphs::petersen();
-        MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; 10])
+        MinimumVertexCover::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; 10]).unwrap()
     }
 
     fn mis_petersen() -> MaximumIndependentSet<SimpleGraph, i64> {
         let (n, edges) = crate::topology::small_graphs::petersen();
-        MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; 10])
+        MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; 10]).unwrap()
     }
 
     vec![

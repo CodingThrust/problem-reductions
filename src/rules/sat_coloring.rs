@@ -198,8 +198,13 @@ impl SATColoringConstructor {
     }
 
     /// Build the final KColoring problem.
-    fn build_coloring(&self) -> KColoring<K3, SimpleGraph> {
-        KColoring::<K3, _>::new(SimpleGraph::new(self.num_vertices, self.edges.clone()))
+    fn build_coloring(
+        &self,
+    ) -> Result<KColoring<K3, SimpleGraph>, crate::registry::ConstructionError> {
+        Ok(KColoring::<K3, _>::new(SimpleGraph::new(
+            self.num_vertices,
+            self.edges.clone(),
+        )?))
     }
 }
 
@@ -298,7 +303,9 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
             constructor.add_clause(&clause.literals);
         }
 
-        let target = constructor.build_coloring();
+        let target = constructor
+            .build_coloring()
+            .map_err(<Self as ReduceTo<KColoring<K3, SimpleGraph>>>::target_construction)?;
 
         Ok(ReductionSATToColoring {
             target,

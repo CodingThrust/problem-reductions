@@ -9,7 +9,7 @@ use crate::traits::Problem;
 fn test_mixedchinesepostman_to_ilp_closed_loop() {
     // 3 vertices, 1 directed arc, 2 undirected edges
     let source = MixedChinesePostman::new(
-        MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
+        MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]).unwrap(),
         vec![1],
         vec![1, 1],
     );
@@ -32,7 +32,7 @@ fn test_mixedchinesepostman_to_ilp_closed_loop() {
 fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
     // 3 vertices, 1 directed arc, 2 undirected edges
     let source = MixedChinesePostman::new(
-        MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
+        MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]).unwrap(),
         vec![1],
         vec![1, 1],
     );
@@ -58,7 +58,7 @@ fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
 fn test_mixedchinesepostman_to_ilp_weighted() {
     // 3 vertices, 1 arc, 2 edges with varying weights
     let source = MixedChinesePostman::new(
-        MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
+        MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]).unwrap(),
         vec![2],
         vec![3, 1],
     );
@@ -87,7 +87,8 @@ fn test_mixedchinesepostman_to_ilp_with_isolated_vertices() {
             8,
             vec![(5, 3), (1, 4), (0, 1), (2, 4), (0, 5)],
             vec![(4, 2), (0, 4), (0, 2), (1, 3)],
-        ),
+        )
+        .unwrap(),
         vec![4, 5, 1, 12, 9],
         vec![6, 1, 13, 7],
     );

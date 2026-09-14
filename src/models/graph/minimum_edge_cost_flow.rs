@@ -54,18 +54,19 @@ inventory::submit! {
 /// // 5-vertex network: s=0, t=4, R=3
 /// let graph = DirectedGraph::new(5, vec![
 ///     (0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4),
-/// ]);
+/// ]).unwrap();
 /// let problem = MinimumEdgeCostFlow::new(
 ///     graph,
 ///     vec![3, 1, 2, 0, 0, 0], // prices
 ///     vec![2, 2, 2, 2, 2, 2], // capacities
 ///     0, 4, 3,
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let witness = solver.solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&witness).unwrap(), problemreductions::types::Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumEdgeCostFlowData")]
 pub struct MinimumEdgeCostFlow {
     /// The directed graph G = (V, A).
     graph: DirectedGraph,
@@ -81,6 +82,30 @@ pub struct MinimumEdgeCostFlow {
     required_flow: i64,
 }
 
+#[derive(Deserialize)]
+struct MinimumEdgeCostFlowData {
+    graph: DirectedGraph,
+    prices: Vec<i64>,
+    capacities: Vec<i64>,
+    source: usize,
+    sink: usize,
+    required_flow: i64,
+}
+
+impl TryFrom<MinimumEdgeCostFlowData> for MinimumEdgeCostFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumEdgeCostFlowData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.graph,
+            data.prices,
+            data.capacities,
+            data.source,
+            data.sink,
+            data.required_flow,
+        )
+    }
+}
+
 impl MinimumEdgeCostFlow {
     /// Create a new Minimum Edge-Cost Flow problem.
     ///
@@ -93,9 +118,9 @@ impl MinimumEdgeCostFlow {
     /// * `sink` - Sink vertex index
     /// * `required_flow` - Minimum flow requirement R
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if:
+    /// Returns an error if:
     /// - `prices.len() != graph.num_arcs()`
     /// - `capacities.len() != graph.num_arcs()`
     /// - `source >= graph.num_vertices()`
@@ -109,35 +134,43 @@ impl MinimumEdgeCostFlow {
         source: usize,
         sink: usize,
         required_flow: i64,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = graph.num_vertices();
         let m = graph.num_arcs();
-        assert_eq!(
-            prices.len(),
-            m,
-            "prices length ({}) must match num_arcs ({m})",
-            prices.len()
-        );
-        assert_eq!(
-            capacities.len(),
-            m,
-            "capacities length ({}) must match num_arcs ({m})",
-            capacities.len()
-        );
-        assert!(source < n, "source ({source}) >= num_vertices ({n})");
-        assert!(sink < n, "sink ({sink}) >= num_vertices ({n})");
-        assert_ne!(source, sink, "source and sink must be distinct");
-        for (i, &c) in capacities.iter().enumerate() {
-            assert!(c >= 0, "capacity[{i}] = {c} is negative");
+        if prices.len() != m {
+            return Err(
+                format!("prices length ({}) must match num_arcs ({m})", prices.len()).into(),
+            );
         }
-        Self {
+        if capacities.len() != m {
+            return Err(format!(
+                "capacities length ({}) must match num_arcs ({m})",
+                capacities.len()
+            )
+            .into());
+        }
+        if !(source < n) {
+            return Err(format!("source ({source}) >= num_vertices ({n})").into());
+        }
+        if !(sink < n) {
+            return Err(format!("sink ({sink}) >= num_vertices ({n})").into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        for (i, &c) in capacities.iter().enumerate() {
+            if !(c >= 0) {
+                return Err(format!("capacity[{i}] = {c} is negative").into());
+            }
+        }
+        Ok(Self {
             graph,
             prices,
             capacities,
             source,
             sink,
             required_flow,
-        }
+        })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -323,17 +356,21 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_edge_cost_flow",
-        instance: Box::new(MinimumEdgeCostFlow::new(
-            crate::topology::DirectedGraph::new(
-                5,
-                vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)],
-            ),
-            vec![3, 1, 2, 0, 0, 0], // prices
-            vec![2, 2, 2, 2, 2, 2], // capacities
-            0,
-            4,
-            3,
-        )),
+        instance: Box::new(
+            MinimumEdgeCostFlow::new(
+                crate::topology::DirectedGraph::new(
+                    5,
+                    vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)],
+                )
+                .unwrap(),
+                vec![3, 1, 2, 0, 0, 0], // prices
+                vec![2, 2, 2, 2, 2, 2], // capacities
+                0,
+                4,
+                3,
+            )
+            .unwrap(),
+        ),
         // Optimal: route 1 unit via v2 and 2 units via v3 → cost = 1 + 2 = 3
         // config = [0, 1, 2, 0, 1, 2]
         optimal_config: serde_json::json!(vec![0, 1, 2, 0, 1, 2]),

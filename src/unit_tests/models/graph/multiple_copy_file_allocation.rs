@@ -17,8 +17,8 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 fn cycle_instance() -> MultipleCopyFileAllocation {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)]);
-    MultipleCopyFileAllocation::new(graph, vec![10; 6], vec![1; 6])
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)]).unwrap();
+    MultipleCopyFileAllocation::new(graph, vec![10; 6], vec![1; 6]).unwrap()
 }
 
 #[test]
@@ -50,10 +50,11 @@ fn test_multiple_copy_file_allocation_total_cost_and_validity() {
 #[test]
 fn test_multiple_copy_file_allocation_reports_cost_overflow() {
     let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![0, 0],
         vec![i64::MAX, 1],
-    );
+    )
+    .unwrap();
     assert!(matches!(
         problem.evaluate(&vec![true, true]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))
@@ -63,10 +64,11 @@ fn test_multiple_copy_file_allocation_reports_cost_overflow() {
 #[test]
 fn test_multiple_copy_file_allocation_uses_per_vertex_costs() {
     let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 10, 100, 1000],
         vec![3, 5, 7, 11],
-    );
+    )
+    .unwrap();
     let config = vec![true, false, true, false];
 
     assert_eq!(problem.total_cost(&config).unwrap(), Some(1020));
@@ -101,8 +103,8 @@ fn test_multiple_copy_file_allocation_invalid_configs() {
 
 #[test]
 fn test_multiple_copy_file_allocation_unreachable_component_is_invalid() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
-    let problem = MultipleCopyFileAllocation::new(graph, vec![5; 4], vec![1; 4]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
+    let problem = MultipleCopyFileAllocation::new(graph, vec![5; 4], vec![1; 4]).unwrap();
     let config = vec![true, false, false, false];
 
     assert_eq!(problem.total_cost(&config).unwrap(), None);

@@ -7,7 +7,7 @@ use crate::types::Max;
 #[test]
 fn test_maximum_achromatic_number_c6() {
     // C6 (6-cycle): achromatic number is 3
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)]);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 6);
@@ -24,7 +24,7 @@ fn test_maximum_achromatic_number_c6() {
 #[test]
 fn test_maximum_achromatic_number_improper_coloring() {
     // Adjacent vertices with the same color -> invalid
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
 
     // Vertices 0 and 1 are adjacent and share color 0
@@ -34,7 +34,7 @@ fn test_maximum_achromatic_number_improper_coloring() {
 #[test]
 fn test_maximum_achromatic_number_incomplete_coloring() {
     // Proper but not complete: color pair with no connecting edge -> invalid
-    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
 
     // Colors: 0->0, 1->1, 2->2, 3->3 — proper (no adjacent same color)
@@ -52,7 +52,7 @@ fn test_maximum_achromatic_number_solver() {
     // Possible colorings:
     // [0,1,0] -> 2 colors, proper, complete (edge between 0 and 1 classes) -> Max(2)
     // [0,1,2] -> 3 colors, proper, but colors 0 and 2 have no edge -> incomplete
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
 
     let solver = BruteForce::new();
@@ -63,7 +63,7 @@ fn test_maximum_achromatic_number_solver() {
 
 #[test]
 fn test_maximum_achromatic_number_wrong_length() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
     assert!(matches!(
         problem.evaluate(&vec![0, 1]),
@@ -74,7 +74,7 @@ fn test_maximum_achromatic_number_wrong_length() {
 #[test]
 fn test_maximum_achromatic_number_empty_graph() {
     // No vertices, no edges
-    let graph = SimpleGraph::new(0, vec![]);
+    let graph = SimpleGraph::new(0, vec![]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
@@ -82,7 +82,7 @@ fn test_maximum_achromatic_number_empty_graph() {
 #[test]
 fn test_maximum_achromatic_number_single_vertex() {
     // Single vertex, no edges: 1 color, trivially complete
-    let graph = SimpleGraph::new(1, vec![]);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Max(Some(1)));
 }
@@ -90,7 +90,7 @@ fn test_maximum_achromatic_number_single_vertex() {
 #[test]
 fn test_maximum_achromatic_number_complete_graph_k3() {
     // K3: achromatic number = 3 (each vertex gets its own color)
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let problem = MaximumAchromaticNumber::new(graph);
 
     // 3 colors: proper and complete (every color pair has an edge)

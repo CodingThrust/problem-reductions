@@ -12,7 +12,7 @@ use crate::variant::K3;
 fn test_monochromatic_triangle_sender_all_colorings() {
     let mut edges = vec![(0, 1), (2, 3)];
     add_equality_sender(&mut edges, (0, 1), (2, 3), 4);
-    let sender = MonochromaticTriangle::new(SimpleGraph::new(7, edges));
+    let sender = MonochromaticTriangle::new(SimpleGraph::new(7, edges).unwrap());
     assert_eq!(sender.num_edges(), 17);
     assert_eq!(sender.num_triangles(), 19);
     let mut extensions = [0, 0];

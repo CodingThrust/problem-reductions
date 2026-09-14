@@ -125,7 +125,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Budget = 2 + 1 = 3, universe_size = 3, a₀ = 2
             // Subsets = {{0,1,2}}
             // Optimal sequence length = K* + |E| = 1 + 1 = 2
-            let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
+            let source =
+                MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![One; 2])
+                    .unwrap();
 
             // Optimal sequence for cover {0} (2 steps):
             // Step 0: {a₀=2} ∪ {0} → z₀ = {0,2}   operands: (2, 0)

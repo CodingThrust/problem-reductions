@@ -16,13 +16,13 @@ fn graph_from_mask(n: usize, mask: usize) -> SimpleGraph {
             bit += 1;
         }
     }
-    SimpleGraph::new(n, edges)
+    SimpleGraph::new(n, edges).unwrap()
 }
 
 #[test]
 fn test_minimumvertexcover_to_minimummaximalmatching_c5_gap() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
-    let mvc = MinimumVertexCover::new(graph.clone(), vec![One; 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap();
+    let mvc = MinimumVertexCover::new(graph.clone(), vec![One; 5]).unwrap();
     let mmm = MinimumMaximalMatching::new(graph);
     let solver = BruteForce::new();
 
@@ -44,7 +44,7 @@ fn test_minimumvertexcover_to_minimummaximalmatching_forward_bound_on_small_grap
         let num_possible_edges = n * (n.saturating_sub(1)) / 2;
         for mask in 0usize..(1usize << num_possible_edges) {
             let graph = graph_from_mask(n, mask);
-            let mvc = MinimumVertexCover::new(graph.clone(), vec![One; n]);
+            let mvc = MinimumVertexCover::new(graph.clone(), vec![One; n]).unwrap();
             let mmm = MinimumMaximalMatching::new(graph);
             let mvc_value_solution = solver.solve(&mvc).unwrap().unwrap();
             let mvc_value = mvc.evaluate(&mvc_value_solution).unwrap();

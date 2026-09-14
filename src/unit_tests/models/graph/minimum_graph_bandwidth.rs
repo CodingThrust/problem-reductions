@@ -6,13 +6,13 @@ use crate::types::Min;
 
 /// Star graph S4: center 0 connected to 1, 2, 3
 fn star_example() -> MinimumGraphBandwidth<SimpleGraph> {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
     MinimumGraphBandwidth::new(graph)
 }
 
 /// Path graph P4: 0-1-2-3
 fn path_example() -> MinimumGraphBandwidth<SimpleGraph> {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     MinimumGraphBandwidth::new(graph)
 }
 
@@ -106,7 +106,7 @@ fn test_minimumgraphbandwidth_serialization() {
 
 #[test]
 fn test_minimumgraphbandwidth_single_vertex() {
-    let graph = SimpleGraph::new(1, vec![]);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
     let problem = MinimumGraphBandwidth::new(graph);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -119,7 +119,7 @@ fn test_minimumgraphbandwidth_single_vertex() {
 #[test]
 fn test_minimumgraphbandwidth_empty_graph() {
     // No edges: any permutation has bandwidth 0
-    let graph = SimpleGraph::new(3, vec![]);
+    let graph = SimpleGraph::new(3, vec![]).unwrap();
     let problem = MinimumGraphBandwidth::new(graph);
 
     let solver = BruteForce::new();
@@ -138,7 +138,7 @@ fn test_minimumgraphbandwidth_empty_graph() {
 fn test_minimumgraphbandwidth_complete_graph_k4() {
     // K4: bandwidth is always 3 (max position difference in any permutation)
     // Actually for K4, bandwidth = n-1 = 3 for any arrangement since edge (first, last) exists.
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
     let problem = MinimumGraphBandwidth::new(graph);
 
     let solver = BruteForce::new();

@@ -47,7 +47,7 @@ inventory::submit! {
 ///
 /// let graph = DirectedGraph::new(5, vec![
 ///     (0,1),(0,2),(1,3),(2,3),(3,4),(4,0),(4,1),
-/// ]);
+/// ]).unwrap();
 /// let problem = Kernel::new(graph);
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
@@ -152,7 +152,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
-    );
+    )
+    .unwrap();
     let optimal_config = vec![true, false, false, true, false];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kernel",

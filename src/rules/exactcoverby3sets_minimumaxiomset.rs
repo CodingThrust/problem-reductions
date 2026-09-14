@@ -66,7 +66,8 @@ impl ReduceTo<MinimumAxiomSet> for ExactCoverBy3Sets {
         }
 
         let target =
-            MinimumAxiomSet::new(num_sentences, (0..num_sentences).collect(), implications);
+            MinimumAxiomSet::new(num_sentences, (0..num_sentences).collect(), implications)
+                .map_err(<Self as ReduceTo<MinimumAxiomSet>>::target_construction)?;
 
         Ok(ReductionXC3SToMinimumAxiomSet {
             target,
@@ -86,7 +87,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ExactCoverBy3Sets::new(
                 6,
                 vec![[0, 1, 2], [0, 3, 4], [2, 4, 5], [1, 3, 5], [0, 2, 4]],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, MinimumAxiomSet>(
                 source,
                 SolutionPair {

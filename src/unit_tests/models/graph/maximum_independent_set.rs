@@ -17,9 +17,10 @@ use crate::traits::Problem;
 #[test]
 fn test_independent_set_creation() {
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(
@@ -32,7 +33,11 @@ fn test_independent_set_creation() {
 
 #[test]
 fn test_evaluate_reports_non_finite_weight_sum() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![]), vec![f64::MAX, f64::MAX]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(2, vec![]).unwrap(),
+        vec![f64::MAX, f64::MAX],
+    )
+    .unwrap();
 
     assert!(matches!(
         problem.evaluate(&vec![true, true]),
@@ -42,7 +47,8 @@ fn test_evaluate_reports_non_finite_weight_sum() {
 
 #[test]
 fn test_evaluate_rejects_invalid_configurations() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![]), vec![1_i64, 1]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(2, vec![]).unwrap(), vec![1_i64, 1]).unwrap();
     for solution in [vec![true], vec![true, false, false]] {
         assert!(matches!(
             problem.evaluate(&solution),
@@ -57,7 +63,9 @@ fn test_evaluate_rejects_invalid_configurations() {
 
 #[test]
 fn test_independent_set_with_weights() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1, 2, 3])
+            .unwrap();
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
     assert!(problem.is_weighted());
 }
@@ -65,14 +73,19 @@ fn test_independent_set_with_weights() {
 #[test]
 fn test_independent_set_unweighted() {
     // i64 type is always considered weighted, even with uniform values
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     assert!(problem.is_weighted());
 }
 
 #[test]
 fn test_has_edge() {
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     assert!(problem.graph().has_edge(0, 1));
     assert!(problem.graph().has_edge(1, 0)); // Undirected
     assert!(problem.graph().has_edge(1, 2));
@@ -82,31 +95,34 @@ fn test_has_edge() {
 #[test]
 fn test_is_independent_set_function() {
     assert!(is_independent_set(
-        &SimpleGraph::new(3, vec![(0, 1)]),
+        &SimpleGraph::new(3, vec![(0, 1)]).unwrap(),
         &[true, false, true]
     ));
     assert!(is_independent_set(
-        &SimpleGraph::new(3, vec![(0, 1)]),
+        &SimpleGraph::new(3, vec![(0, 1)]).unwrap(),
         &[false, true, true]
     ));
     assert!(!is_independent_set(
-        &SimpleGraph::new(3, vec![(0, 1)]),
+        &SimpleGraph::new(3, vec![(0, 1)]).unwrap(),
         &[true, true, false]
     ));
     assert!(is_independent_set(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[true, false, true]
     ));
     assert!(!is_independent_set(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[false, true, true]
     ));
 }
 
 #[test]
 fn test_edges() {
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i64; 4]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap(),
+        vec![1i64; 4],
+    )
+    .unwrap();
     let edges = problem.graph().edges();
     assert_eq!(edges.len(), 2);
     assert!(edges.contains(&(0, 1)) || edges.contains(&(1, 0)));
@@ -115,29 +131,33 @@ fn test_edges() {
 
 #[test]
 fn test_with_custom_weights() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![5, 10, 15])
+            .unwrap();
     assert_eq!(problem.weights().to_vec(), vec![5, 10, 15]);
 }
 
 #[test]
 fn test_from_graph() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::new(graph.clone(), vec![1, 2, 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MaximumIndependentSet::new(graph.clone(), vec![1, 2, 3]).unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_from_graph_with_unit_weights() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::new(graph, vec![1i64; 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MaximumIndependentSet::new(graph, vec![1i64; 3]).unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights().to_vec(), vec![1, 1, 1]);
 }
 
 #[test]
 fn test_graph_accessor() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 1);
@@ -145,7 +165,9 @@ fn test_graph_accessor() {
 
 #[test]
 fn test_weights() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![5, 10, 15])
+            .unwrap();
     assert_eq!(problem.weights(), &[5, 10, 15]);
 }
 
@@ -167,7 +189,8 @@ fn test_jl_parity_evaluation() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let edges = jl_parse_edges(&instance["instance"]);
         let weights = jl_parse_i64_vec(&instance["instance"]["weights"]);
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(nv, edges), weights);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(nv, edges).unwrap(), weights).unwrap();
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
@@ -198,8 +221,11 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Path graph: 0-1-2
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     // Valid: {0, 2} is independent
     assert!(problem.is_valid_solution(&[true, false, true]));
     // Invalid: {0, 1} are adjacent
@@ -209,9 +235,10 @@ fn test_is_valid_solution() {
 #[test]
 fn test_parameter_getters() {
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
 }
@@ -238,8 +265,9 @@ fn test_mis_paper_example() {
             (3, 8),
             (4, 9), // spokes
         ],
-    );
-    let problem = MaximumIndependentSet::new(graph, vec![1i64; 10]);
+    )
+    .unwrap();
+    let problem = MaximumIndependentSet::new(graph, vec![1i64; 10]).unwrap();
     // MIS = {1,3,5,9} -> config
     let config = vec![
         false, true, false, true, false, true, false, false, false, true,
@@ -252,4 +280,19 @@ fn test_mis_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 4);
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    assert!(MaximumIndependentSet::new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(
+        serde_json::from_value::<MaximumIndependentSet<SimpleGraph, i64>>(json.clone()).is_err()
+    );
+    let variant = std::collections::BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    assert!(crate::registry::load_dyn("MaximumIndependentSet", &variant, json).is_err());
 }

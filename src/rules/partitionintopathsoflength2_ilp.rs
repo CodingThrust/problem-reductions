@@ -127,10 +127,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partitionintopathsoflength2_to_ilp",
         build: || {
             // Two P3 paths: 0-1-2 and 3-4-5
-            let source = PartitionIntoPathsOfLength2::new(SimpleGraph::new(
-                6,
-                vec![(0, 1), (1, 2), (3, 4), (4, 5)],
-            ));
+            let source = PartitionIntoPathsOfLength2::new(
+                SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

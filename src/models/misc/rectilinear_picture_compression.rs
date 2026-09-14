@@ -54,7 +54,7 @@ inventory::submit! {
 ///     vec![false, false, true, true],
 ///     vec![false, false, true, true],
 /// ];
-/// let problem = RectilinearPictureCompression::new(matrix, 2);
+/// let problem = RectilinearPictureCompression::new(matrix, 2).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
@@ -78,31 +78,37 @@ impl<'de> Deserialize<'de> for RectilinearPictureCompression {
             bound: i64,
         }
         let inner = Inner::deserialize(deserializer)?;
-        Ok(Self::new(inner.matrix, inner.bound))
+        Self::new(inner.matrix, inner.bound).map_err(serde::de::Error::custom)
     }
 }
 
 impl RectilinearPictureCompression {
     /// Create a new RectilinearPictureCompression instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `matrix` is empty or has inconsistent row lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
-        assert!(!matrix.is_empty(), "Matrix must not be empty");
+    /// Returns an error if `matrix` is empty or has inconsistent row lengths.
+    pub fn new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if matrix.is_empty() {
+            return Err("Matrix must not be empty".into());
+        };
         let cols = matrix[0].len();
-        assert!(cols > 0, "Matrix must have at least one column");
-        assert!(
-            matrix.iter().all(|row| row.len() == cols),
-            "All rows must have the same length"
-        );
+        if !(cols > 0) {
+            return Err("Matrix must have at least one column".into());
+        };
+        if !(matrix.iter().all(|row| row.len() == cols)) {
+            return Err("All rows must have the same length".into());
+        };
         let mut instance = Self {
             matrix,
             bound,
             maximal_rects: Vec::new(),
         };
         instance.maximal_rects = instance.compute_maximal_rectangles();
-        instance
+        Ok(instance)
     }
 
     /// Returns the number of rows in the matrix.
@@ -321,15 +327,18 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Config: select both maximal rectangles (the two 2x2 blocks).
         // The maximal rectangles for this matrix are exactly:
         // (0,0,1,1) and (2,2,3,3), so config [1,1] selects both.
-        instance: Box::new(RectilinearPictureCompression::new(
-            vec![
-                vec![true, true, false, false],
-                vec![true, true, false, false],
-                vec![false, false, true, true],
-                vec![false, false, true, true],
-            ],
-            2,
-        )),
+        instance: Box::new(
+            RectilinearPictureCompression::new(
+                vec![
+                    vec![true, true, false, false],
+                    vec![true, true, false, false],
+                    vec![false, false, true, true],
+                    vec![false, false, true, true],
+                ],
+                2,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, true]),
         optimal_value: serde_json::json!(true),
     }]

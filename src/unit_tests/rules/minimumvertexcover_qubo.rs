@@ -36,9 +36,10 @@ fn reduce_vc_to_qubo(
 #[test]
 fn test_minimumvertexcover_to_qubo_via_path_closed_loop() {
     let problem = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let (path, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
@@ -68,8 +69,11 @@ fn test_minimumvertexcover_to_qubo_via_path_closed_loop() {
 
 #[test]
 fn test_minimumvertexcover_to_qubo_via_path_weighted() {
-    let problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![100, 1, 100],
+    )
+    .unwrap();
     let (_, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
@@ -87,9 +91,10 @@ fn test_minimumvertexcover_to_qubo_via_path_weighted() {
 #[test]
 fn test_minimumvertexcover_to_qubo_via_path_star_graph() {
     let problem = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let (_, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 

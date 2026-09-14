@@ -5,7 +5,7 @@ use crate::types::Or;
 
 #[test]
 fn test_partitionintocliques_to_ilp_size() {
-    let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
+    let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
 
     assert_eq!(reduction.target_problem().num_vars(), 6);
@@ -14,7 +14,8 @@ fn test_partitionintocliques_to_ilp_size() {
 
 #[test]
 fn test_partitionintocliques_to_ilp_closed_loop() {
-    let problem = PartitionIntoCliques::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), 2);
+    let problem =
+        PartitionIntoCliques::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap(), 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
     let target_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -26,7 +27,7 @@ fn test_partitionintocliques_to_ilp_closed_loop() {
 
 #[test]
 fn test_partitionintocliques_to_ilp_preserves_infeasibility() {
-    let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![]), 2);
+    let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![]).unwrap(), 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
 
     assert_eq!(

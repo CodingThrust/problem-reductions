@@ -124,8 +124,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Target: universe_size=4, subsets={{0,1},{1,2},{2,3}}, bound=5-3=2
             // Target tree: parent=[0,0,1,2], identity mapping
             // Extension cost = 0+0+0 = 0 <= 2
-            let source =
-                RootedTreeArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 5);
+            let source = RootedTreeArrangement::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+                5,
+            );
             let source_config = vec![0, 0, 1, 2, 0, 1, 2, 3];
             let target_config = vec![0, 0, 1, 2];
             crate::example_db::specs::rule_example_with_witness::<_, RootedTreeStorageAssignment>(

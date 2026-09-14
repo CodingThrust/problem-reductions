@@ -48,7 +48,7 @@ inventory::submit! {
 ///         (vec![0, 3], vec![1, 2, 4, 5]),
 ///     ],
 ///     3,
-/// );
+/// ).unwrap();
 ///
 /// // {2, 3} is a candidate key containing attribute 3
 /// assert!(problem
@@ -60,6 +60,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PrimeAttributeNameData")]
 pub struct PrimeAttributeName {
     /// Number of attributes (elements are 0..num_attributes).
     num_attributes: usize,
@@ -67,6 +68,21 @@ pub struct PrimeAttributeName {
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
     /// The query attribute index.
     query_attribute: usize,
+}
+
+#[derive(Deserialize)]
+struct PrimeAttributeNameData {
+    num_attributes: usize,
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    query_attribute: usize,
+}
+
+impl TryFrom<PrimeAttributeNameData> for PrimeAttributeName {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PrimeAttributeNameData) -> Result<Self, Self::Error> {
+        Self::new(data.num_attributes, data.dependencies, data.query_attribute)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -83,73 +99,41 @@ impl TryFrom<PrimeAttributeNameCreateSpec> for PrimeAttributeName {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: PrimeAttributeNameCreateSpec) -> Result<Self, Self::Error> {
-        if spec.query_attribute >= spec.universe_size {
-            return Err(format!(
-                "query_attribute {} is outside universe of size {}",
-                spec.query_attribute, spec.universe_size
-            )
-            .into());
-        }
-        for (dependency_index, (lhs, rhs)) in spec.dependencies.iter().enumerate() {
-            if lhs.is_empty() {
-                return Err(
-                    format!("dependencies[{dependency_index}] has an empty left side").into(),
-                );
-            }
-            if let Some(&attribute) = lhs
-                .iter()
-                .chain(rhs)
-                .find(|&&attribute| attribute >= spec.universe_size)
-            {
-                return Err(format!(
-                    "dependencies[{dependency_index}] contains attribute {attribute} outside universe of size {}",
-                    spec.universe_size
-                ).into());
-            }
-        }
-        Ok(Self::new(
-            spec.universe_size,
-            spec.dependencies,
-            spec.query_attribute,
-        ))
+        Self::new(spec.universe_size, spec.dependencies, spec.query_attribute)
     }
 }
 
 impl PrimeAttributeName {
     /// Create a new Prime Attribute Name problem.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `query_attribute >= num_attributes`, if any attribute index
-    /// in a dependency is out of range, or if any LHS is empty.
+    /// Returns an error when the instance violates its documented input conditions.
     pub fn new(
         num_attributes: usize,
         dependencies: Vec<(Vec<usize>, Vec<usize>)>,
         query_attribute: usize,
-    ) -> Self {
-        assert!(
-            query_attribute < num_attributes,
-            "Query attribute {} is outside attribute set of size {}",
-            query_attribute,
-            num_attributes
-        );
-        for (i, (lhs, rhs)) in dependencies.iter().enumerate() {
-            assert!(!lhs.is_empty(), "Dependency {} has empty LHS", i);
-            for &attr in lhs.iter().chain(rhs.iter()) {
-                assert!(
-                    attr < num_attributes,
-                    "Dependency {} references attribute {} which is outside attribute set of size {}",
-                    i,
-                    attr,
-                    num_attributes
-                );
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if query_attribute >= num_attributes {
+            return Err(format!("query attribute {query_attribute} is outside attribute set of size {num_attributes}").into());
+        }
+        for (index, (lhs, rhs)) in dependencies.iter().enumerate() {
+            if lhs.is_empty() {
+                return Err(format!("dependency {index} has an empty left side").into());
+            }
+            if let Some(attribute) = lhs
+                .iter()
+                .chain(rhs.iter())
+                .find(|&&attribute| attribute >= num_attributes)
+            {
+                return Err(format!("dependency {index} contains attribute {attribute} outside attribute set of size {num_attributes}").into());
             }
         }
-        Self {
+        Ok(Self {
             num_attributes,
             dependencies,
             query_attribute,
-        }
+        })
     }
 
     /// Get the number of attributes.
@@ -277,15 +261,18 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "prime_attribute_name",
         // Issue Example 1: 6 attributes, 3 FDs, query=3 -> YES
-        instance: Box::new(PrimeAttributeName::new(
-            6,
-            vec![
-                (vec![0, 1], vec![2, 3, 4, 5]),
-                (vec![2, 3], vec![0, 1, 4, 5]),
-                (vec![0, 3], vec![1, 2, 4, 5]),
-            ],
-            3,
-        )),
+        instance: Box::new(
+            PrimeAttributeName::new(
+                6,
+                vec![
+                    (vec![0, 1], vec![2, 3, 4, 5]),
+                    (vec![2, 3], vec![0, 1, 4, 5]),
+                    (vec![0, 3], vec![1, 2, 4, 5]),
+                ],
+                3,
+            )
+            .unwrap(),
+        ),
         // {2, 3} is a candidate key containing attribute 3
         optimal_config: serde_json::json!(vec![false, false, true, true, false, false]),
         optimal_value: serde_json::json!(true),

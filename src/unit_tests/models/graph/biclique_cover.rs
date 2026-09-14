@@ -62,7 +62,7 @@ fn test_biclique_cover_create_spec_rejects_out_of_bounds_edges() {
     assert!(matches!(
         invalid_left.unwrap_err(),
         crate::registry::ConstructionError::Conversion(message)
-            if message == "biedges[0] left vertex 1 is out of bounds for left partition size 1"
+            if message.contains("left vertex 1 out of bounds")
     ));
 
     let invalid_right = BicliqueCover::try_from(BicliqueCoverCreateSpec {
@@ -74,13 +74,13 @@ fn test_biclique_cover_create_spec_rejects_out_of_bounds_edges() {
     assert!(matches!(
         invalid_right.unwrap_err(),
         crate::registry::ConstructionError::Conversion(message)
-            if message == "biedges[0] right vertex 1 is out of bounds for right partition size 1"
+            if message.contains("right vertex 1 out of bounds")
     ));
 }
 
 #[test]
 fn test_biclique_cover_creation() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 2);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
@@ -95,14 +95,14 @@ fn test_from_matrix() {
     //  [1, 0]]
     // Edges: (0,0), (0,1), (1,0) in local coords
     let matrix = vec![vec![1, 1], vec![1, 0]];
-    let problem = BicliqueCover::from_matrix(&matrix, 2);
+    let problem = BicliqueCover::from_matrix(&matrix, 2).unwrap();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
 }
 
 #[test]
 fn test_get_biclique_memberships() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     // Config: vertex 0 in biclique 0, vertex 2 in biclique 0
     // Variables: [v0_b0, v1_b0, v2_b0, v3_b0]
@@ -116,7 +116,7 @@ fn test_get_biclique_memberships() {
 
 #[test]
 fn test_is_edge_covered() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     // Put vertex 0 and 2 in biclique 0
     let config = vec![vec![true, false, true, false]];
@@ -129,7 +129,7 @@ fn test_is_edge_covered() {
 
 #[test]
 fn test_is_valid_cover() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     // Put 0, 2, 3 in biclique 0 -> covers both edges
     let config = vec![vec![true, false, true, true]];
@@ -142,7 +142,7 @@ fn test_is_valid_cover() {
 
 #[test]
 fn test_evaluate() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
 
     // Valid cover with size 2
@@ -165,7 +165,7 @@ fn test_evaluate() {
 #[test]
 fn test_brute_force_simple() {
     // Single edge (0, 0) in local coords with k=1
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     let solver = BruteForce::new();
 
@@ -181,7 +181,7 @@ fn test_brute_force_simple() {
 fn test_brute_force_two_bicliques() {
     // Edges that need 2 bicliques to cover efficiently
     // (0,0), (1,1) in local coords - these don't share vertices
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]).unwrap();
     let problem = BicliqueCover::new(graph, 2);
     let solver = BruteForce::new();
 
@@ -193,7 +193,7 @@ fn test_brute_force_two_bicliques() {
 
 #[test]
 fn test_count_covered_edges() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     // Cover only (0,2): put 0 and 2 in biclique
     let config = vec![vec![true, false, true, false]];
@@ -225,7 +225,7 @@ fn test_is_biclique_cover_function() {
 
 #[test]
 fn test_empty_edges() {
-    let graph = BipartiteGraph::new(2, 2, vec![]);
+    let graph = BipartiteGraph::new(2, 2, vec![]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     // No edges to cover -> valid with size 0
     assert_eq!(
@@ -239,7 +239,7 @@ fn test_biclique_problem() {
     use crate::traits::Problem;
 
     // Single edge (0,0) in local coords with k=1, 2 left + 2 right vertices
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
 
     // dims: 4 vertices * 1 biclique = 4 binary variables
@@ -275,7 +275,7 @@ fn test_biclique_problem() {
     // ExtremumSense is minimize
 
     // Test with no edges: any config is valid
-    let empty_graph = BipartiteGraph::new(2, 2, vec![]);
+    let empty_graph = BipartiteGraph::new(2, 2, vec![]).unwrap();
     let empty_problem = BicliqueCover::new(empty_graph, 1);
     assert_eq!(
         empty_problem.evaluate(&vec![vec![false; 4]]).unwrap(),
@@ -287,7 +287,7 @@ fn test_biclique_problem() {
 fn test_is_valid_solution() {
     use crate::topology::BipartiteGraph;
     // Single edge (0,0) with 1 biclique
-    let graph = BipartiteGraph::new(1, 1, vec![(0, 0)]);
+    let graph = BipartiteGraph::new(1, 1, vec![(0, 0)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     // 2 vertices (left_0, right_0), 1 biclique → config length = 2
     // Valid: both vertices in biclique 0 → covers edge (0,0)
@@ -298,7 +298,7 @@ fn test_is_valid_solution() {
 
 #[test]
 fn test_parameter_getters() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]).unwrap();
     let problem = BicliqueCover::new(graph, 1);
     assert_eq!(problem.num_vertices(), 4); // 2 left + 2 right
     assert_eq!(problem.num_edges(), 2);
@@ -308,7 +308,7 @@ fn test_parameter_getters() {
 
 #[test]
 fn test_complexity_includes_number_of_bicliques() {
-    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]).unwrap();
     let problem = BicliqueCover::new(graph, 2);
     let entry = inventory::iter::<crate::registry::VariantEntry>()
         .find(|entry| entry.name == "BicliqueCover")
@@ -329,7 +329,7 @@ fn test_complexity_includes_number_of_bicliques() {
 #[test]
 fn test_biclique_paper_example() {
     // Paper: L={ℓ_1,ℓ_2}, R={r_1,r_2,r_3}, 4 edges, k=2, total size=6
-    let graph = BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]);
+    let graph = BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]).unwrap();
     let problem = BicliqueCover::new(graph, 2);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 4);

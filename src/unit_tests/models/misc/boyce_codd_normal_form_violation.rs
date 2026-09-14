@@ -14,6 +14,7 @@ fn canonical_problem() -> BoyceCoddNormalFormViolation {
         ],
         vec![0, 1, 2, 3, 4, 5],
     )
+    .unwrap()
 }
 
 #[test]
@@ -115,7 +116,8 @@ fn test_bcnf_solver_finds_violation() {
 #[test]
 fn test_bcnf_no_violation_when_fds_trivial() {
     // Only trivial FD: {0} → {0}. No non-trivial closure possible.
-    let problem = BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![0])], vec![0, 1, 2]);
+    let problem =
+        BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![0])], vec![0, 1, 2]).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
@@ -126,7 +128,8 @@ fn test_bcnf_partial_target_subset() {
     // Only test a subset of attributes.
     // FD: {0} → {1}; target = {0, 1}.
     // X = {0}: closure = {0, 1}. A' \ X = {1}. 1 ∈ closure but nothing is outside → no violation.
-    let problem = BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![1])], vec![0, 1]);
+    let problem =
+        BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![1])], vec![0, 1]).unwrap();
     assert!(!problem.evaluate(&vec![true, false]).unwrap()); // X={0}: all of A'\X = {1} ⊆ closure → no violation
     assert!(!problem.evaluate(&vec![false, false]).unwrap()); // X={}: closure={}, nothing in closure → no violation
 }
@@ -135,7 +138,8 @@ fn test_bcnf_partial_target_subset() {
 fn test_bcnf_violation_with_three_attrs_in_target() {
     // Attrs 0,1,2. FD: {0} → {1}. Target = {0, 1, 2}.
     // X = {0}: closure = {0, 1}. A' \ X = {1, 2}. 1 ∈ closure, 2 ∉ closure → BCNF violation.
-    let problem = BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![1])], vec![0, 1, 2]);
+    let problem =
+        BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![1])], vec![0, 1, 2]).unwrap();
     assert!(problem.evaluate(&vec![true, false, false]).unwrap()); // X = {0}
     assert!(!problem.evaluate(&vec![false, true, false]).unwrap()); // X = {1}: A'\X = {0,2}, closure of {1} = {1}, 0∉closure, 2∉closure → no violation
 }
@@ -156,41 +160,39 @@ fn test_bcnf_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "target_subset must be non-empty")]
 fn test_bcnf_rejects_empty_target_subset() {
-    BoyceCoddNormalFormViolation::new(3, vec![], vec![]);
+    assert!(BoyceCoddNormalFormViolation::new(3, vec![], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "empty LHS")]
 fn test_bcnf_rejects_empty_lhs_fd() {
-    BoyceCoddNormalFormViolation::new(3, vec![(vec![], vec![1])], vec![0, 1]);
+    assert!(BoyceCoddNormalFormViolation::new(3, vec![(vec![], vec![1])], vec![0, 1]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "out of range")]
 fn test_bcnf_rejects_out_of_range_fd_attr() {
-    BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![5])], vec![0, 1]);
+    assert!(BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![5])], vec![0, 1]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "out of range")]
 fn test_bcnf_rejects_out_of_range_target_attr() {
-    BoyceCoddNormalFormViolation::new(3, vec![], vec![0, 5]);
+    assert!(BoyceCoddNormalFormViolation::new(3, vec![], vec![0, 5]).is_err());
 }
 
 #[test]
 fn test_bcnf_deduplicates_fd_attrs() {
     // LHS with duplicates should be deduped without panic.
     let problem =
-        BoyceCoddNormalFormViolation::new(3, vec![(vec![0, 0], vec![1, 1])], vec![0, 1, 2]);
+        BoyceCoddNormalFormViolation::new(3, vec![(vec![0, 0], vec![1, 1])], vec![0, 1, 2])
+            .unwrap();
     assert_eq!(problem.functional_deps()[0].0, vec![0]);
     assert_eq!(problem.functional_deps()[0].1, vec![1]);
 }
 
 #[test]
 fn test_bcnf_deduplicates_target_subset() {
-    let problem = BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![1])], vec![0, 1, 0, 2]);
+    let problem =
+        BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![1])], vec![0, 1, 0, 2]).unwrap();
     assert_eq!(problem.target_subset(), &[0, 1, 2]);
     assert_eq!(problem.num_target_attributes(), 3);
 }
@@ -203,7 +205,8 @@ fn test_bcnf_fds_outside_target_subset() {
         5,
         vec![(vec![0], vec![3]), (vec![3], vec![4])],
         vec![0, 1, 2],
-    );
+    )
+    .unwrap();
     assert!(!problem.evaluate(&vec![true, false, false]).unwrap()); // X={0}: closure reaches {0,3,4} but A'\X={1,2} untouched
 }
 
@@ -221,7 +224,8 @@ fn test_bcnf_cyclic_keys_no_violation() {
             (vec![1, 3], vec![0, 2]),
         ],
         vec![0, 1, 2, 3],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(

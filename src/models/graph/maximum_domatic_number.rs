@@ -44,7 +44,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph P3: 0-1-2
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
 /// let problem = MaximumDomaticNumber::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -204,19 +204,22 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_domatic_number_simplegraph",
-        instance: Box::new(MaximumDomaticNumber::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (0, 2),
-                (0, 3),
-                (1, 4),
-                (2, 5),
-                (3, 4),
-                (3, 5),
-                (4, 5),
-            ],
-        ))),
+        instance: Box::new(MaximumDomaticNumber::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (0, 3),
+                    (1, 4),
+                    (2, 5),
+                    (3, 4),
+                    (3, 5),
+                    (4, 5),
+                ],
+            )
+            .unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![0, 1, 2, 0, 2, 1]),
         optimal_value: serde_json::json!(3),
     }]

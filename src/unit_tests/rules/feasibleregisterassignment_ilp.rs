@@ -4,7 +4,7 @@ use crate::traits::Problem;
 use crate::types::Or;
 
 fn feasible_example() -> FeasibleRegisterAssignment {
-    FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+    FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]).unwrap()
 }
 
 #[test]
@@ -37,7 +37,8 @@ fn test_feasible_register_assignment_to_ilp_closed_loop() {
 
 #[test]
 fn test_feasible_register_assignment_to_ilp_infeasible() {
-    let source = FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]);
+    let source =
+        FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(

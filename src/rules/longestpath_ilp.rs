@@ -183,8 +183,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestpath_to_ilp",
         build: || {
-            let source =
-                LongestPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3], 0, 2);
+            let source = LongestPath::new(
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+                vec![2, 3],
+                0,
+                2,
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

@@ -51,7 +51,8 @@ impl ReduceTo<BottleneckTravelingSalesman> for HamiltonianCircuit<SimpleGraph> {
             .into_iter()
             .map(|(u, v)| if self.graph().has_edge(u, v) { 1 } else { 2 })
             .collect();
-        let target = BottleneckTravelingSalesman::new(target_graph, weights);
+        let target = BottleneckTravelingSalesman::new(target_graph, weights)
+            .map_err(<Self as ReduceTo<BottleneckTravelingSalesman>>::target_construction)?;
 
         Ok(ReductionHamiltonianCircuitToBottleneckTravelingSalesman { target })
     }

@@ -131,7 +131,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ConsecutiveBlockMinimization::new(
                 vec![vec![true, false, true], vec![false, true, true]],
                 2,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

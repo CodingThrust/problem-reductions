@@ -61,7 +61,8 @@ impl ReduceTo<Clustering> for KColoring<K3, SimpleGraph> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         Ok(ReductionKColoringToClustering {
-            target: Clustering::new(build_distances(self.graph()), self.num_colors(), 0),
+            target: Clustering::new(build_distances(self.graph()), self.num_colors(), 0)
+                .map_err(<Self as ReduceTo<Clustering>>::target_construction)?,
             source_num_vertices: self.graph().num_vertices(),
         })
     }

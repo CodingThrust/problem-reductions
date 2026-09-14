@@ -13,7 +13,7 @@ fn tucker_matrix() -> Vec<Vec<bool>> {
 
 #[test]
 fn test_consecutive_ones_submatrix_basic() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_cols(), 4);
     assert_eq!(problem.bound(), 3);
@@ -30,7 +30,7 @@ fn test_consecutive_ones_submatrix_basic() {
 
 #[test]
 fn test_consecutive_ones_submatrix_evaluate_satisfying() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     // Select columns {0, 1, 3} → config [1, 1, 0, 1]
     // Permutation [1, 0, 3]:
     //   r1: 1, 1, 1 → consecutive
@@ -41,14 +41,14 @@ fn test_consecutive_ones_submatrix_evaluate_satisfying() {
 
 #[test]
 fn test_consecutive_ones_submatrix_evaluate_unsatisfying() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 4);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 4).unwrap();
     // Full Tucker matrix does NOT have C1P
     assert!(!problem.evaluate(&vec![true, true, true, true]).unwrap());
 }
 
 #[test]
 fn test_consecutive_ones_submatrix_evaluate_wrong_count() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     // Selecting 2 columns instead of 3 → false
     assert!(!problem.evaluate(&vec![true, true, false, false]).unwrap());
     // Selecting 4 columns instead of 3 → false
@@ -57,7 +57,7 @@ fn test_consecutive_ones_submatrix_evaluate_wrong_count() {
 
 #[test]
 fn test_consecutive_ones_submatrix_evaluate_wrong_config_length() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![true, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -70,7 +70,7 @@ fn test_consecutive_ones_submatrix_evaluate_wrong_config_length() {
 
 #[test]
 fn test_consecutive_ones_submatrix_evaluate_invalid_variable_value() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     assert!(crate::registry::DynProblem::evaluate_dyn(
         &problem,
         &serde_json::json!([2, false, false, true])
@@ -80,7 +80,7 @@ fn test_consecutive_ones_submatrix_evaluate_invalid_variable_value() {
 
 #[test]
 fn test_consecutive_ones_submatrix_brute_force() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -91,7 +91,7 @@ fn test_consecutive_ones_submatrix_brute_force() {
 
 #[test]
 fn test_consecutive_ones_submatrix_brute_force_all() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -103,7 +103,7 @@ fn test_consecutive_ones_submatrix_brute_force_all() {
 #[test]
 fn test_consecutive_ones_submatrix_unsatisfiable() {
     // Tucker matrix with K=4: no permutation of all 4 columns gives C1P
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 4);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 4).unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -116,7 +116,7 @@ fn test_consecutive_ones_submatrix_trivial_c1p() {
         vec![false, true, true],
         vec![true, false, false],
     ];
-    let problem = ConsecutiveOnesSubmatrix::new(matrix, 3);
+    let problem = ConsecutiveOnesSubmatrix::new(matrix, 3).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -129,7 +129,7 @@ fn test_consecutive_ones_submatrix_trivial_c1p() {
 fn test_consecutive_ones_submatrix_single_column() {
     // Any single column trivially has C1P
     let matrix = vec![vec![true, false, true], vec![false, true, false]];
-    let problem = ConsecutiveOnesSubmatrix::new(matrix, 1);
+    let problem = ConsecutiveOnesSubmatrix::new(matrix, 1).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 3); // each column works individually
@@ -143,7 +143,7 @@ fn test_consecutive_ones_submatrix_empty_rows() {
         vec![true, true, true],
         vec![true, false, true],
     ];
-    let problem = ConsecutiveOnesSubmatrix::new(matrix, 2);
+    let problem = ConsecutiveOnesSubmatrix::new(matrix, 2).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -154,7 +154,7 @@ fn test_consecutive_ones_submatrix_empty_rows() {
 
 #[test]
 fn test_consecutive_ones_submatrix_serialization() {
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     assert_eq!(
         json,
@@ -176,7 +176,7 @@ fn test_consecutive_ones_submatrix_serialization() {
 #[test]
 fn test_consecutive_ones_submatrix_paper_example() {
     // Tucker matrix with K=3: same instance as paper
-    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
+    let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3).unwrap();
     // Verify that selecting cols {0,1,3} is satisfying
     assert!(problem.evaluate(&vec![true, true, false, true]).unwrap());
 
@@ -195,14 +195,14 @@ fn test_consecutive_ones_submatrix_paper_example() {
 fn test_consecutive_ones_submatrix_k_zero() {
     // K=0: empty selection always satisfies (vacuously true)
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = ConsecutiveOnesSubmatrix::new(matrix, 0);
+    let problem = ConsecutiveOnesSubmatrix::new(matrix, 0).unwrap();
     assert!(problem.evaluate(&vec![false, false]).unwrap()); // select nothing
     assert!(!problem.evaluate(&vec![true, false]).unwrap()); // selected 1, need 0
 }
 
 #[test]
 fn test_consecutive_ones_submatrix_empty_matrix_vacuous_case() {
-    let problem = ConsecutiveOnesSubmatrix::new(vec![], 0);
+    let problem = ConsecutiveOnesSubmatrix::new(vec![], 0).unwrap();
 
     assert!(problem.matrix().is_empty());
     assert_eq!(problem.num_rows(), 0);
@@ -226,15 +226,21 @@ fn test_consecutive_ones_submatrix_complexity_metadata_matches_evaluator() {
 }
 
 #[test]
-#[should_panic(expected = "bound")]
 fn test_consecutive_ones_submatrix_k_too_large() {
     let matrix = vec![vec![true, false]];
-    ConsecutiveOnesSubmatrix::new(matrix, 3);
+    assert!(ConsecutiveOnesSubmatrix::new(matrix, 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "same length")]
 fn test_consecutive_ones_submatrix_inconsistent_rows() {
     let matrix = vec![vec![true, false], vec![true]];
-    ConsecutiveOnesSubmatrix::new(matrix, 1);
+    assert!(ConsecutiveOnesSubmatrix::new(matrix, 1).is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<ConsecutiveOnesSubmatrix>(
+        serde_json::json!({"matrix":[[true]],"bound":2})
+    )
+    .is_err());
 }

@@ -52,7 +52,7 @@ inventory::submit! {
 /// use problemreductions::{BruteForce, Problem};
 ///
 /// // Graph from issue #1020: 4 vertices, triangles {0,1,2} and {0,1,3}.
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap();
 /// let weights = vec![5_i64, 4, -1, 1, 0];
 /// let problem = MaximumEdgeWeightedKClique::new(graph, weights, 3).unwrap();
 /// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
@@ -270,7 +270,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "maximum_edge_weighted_k_clique_simplegraph",
         instance: Box::new(
             MaximumEdgeWeightedKClique::<i64>::new(
-                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
                 vec![5, 4, -1, 1, 0],
                 3,
             )

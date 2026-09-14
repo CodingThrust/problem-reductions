@@ -17,6 +17,7 @@ fn issue_graph() -> DirectedGraph {
             (5, 3),
         ],
     )
+    .unwrap()
 }
 
 fn issue_candidate_arcs() -> Vec<(usize, usize, i64)> {
@@ -55,7 +56,7 @@ fn yes_config() -> Vec<bool> {
 
 fn issue_example_already_strongly_connected() -> StrongConnectivityAugmentation<i64> {
     StrongConnectivityAugmentation::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![(0, 2, 5)],
         0,
     )
@@ -146,7 +147,7 @@ fn test_strong_connectivity_augmentation_variant() {
 #[should_panic(expected = "candidate arc (0, 1) already exists in the base graph")]
 fn test_strong_connectivity_augmentation_existing_arc_candidate_panics() {
     StrongConnectivityAugmentation::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![(0, 1, 1)],
         1,
     );
@@ -156,7 +157,7 @@ fn test_strong_connectivity_augmentation_existing_arc_candidate_panics() {
 #[should_panic(expected = "duplicate candidate arc (0, 2)")]
 fn test_strong_connectivity_augmentation_duplicate_candidate_arc_panics() {
     StrongConnectivityAugmentation::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![(0, 2, 1), (0, 2, 3)],
         3,
     );
@@ -166,7 +167,7 @@ fn test_strong_connectivity_augmentation_duplicate_candidate_arc_panics() {
 #[should_panic(expected = "candidate arc (0, 3) references vertex >= num_vertices")]
 fn test_strong_connectivity_augmentation_out_of_range_candidate_panics() {
     StrongConnectivityAugmentation::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![(0, 3, 1)],
         1,
     );

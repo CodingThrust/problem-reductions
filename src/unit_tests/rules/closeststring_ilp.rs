@@ -14,6 +14,7 @@ fn issue_instance() -> ClosestString {
         2,
         vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
     )
+    .unwrap()
 }
 
 #[test]
@@ -96,7 +97,7 @@ fn test_closeststring_to_ilp_extract_known_center() {
 
 #[test]
 fn test_closeststring_to_ilp_rejects_missing_one_hot_symbol() {
-    let source = ClosestString::new(2, vec![vec![0, 1]]);
+    let source = ClosestString::new(2, vec![vec![0, 1]]).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars()];
 
@@ -111,7 +112,7 @@ fn test_closeststring_to_ilp_rejects_missing_one_hot_symbol() {
 fn test_closeststring_to_ilp_ternary_alphabet() {
     // q = 3, m = 2, three strings forcing a nonzero radius. The optimum
     // radius is 1 (any center matches at least one position of every string).
-    let source = ClosestString::new(3, vec![vec![0, 1], vec![1, 2], vec![2, 0]]);
+    let source = ClosestString::new(3, vec![vec![0, 1], vec![1, 2], vec![2, 0]]).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -127,7 +128,7 @@ fn test_closeststring_to_ilp_single_string_zero_radius() {
     // A single input string: the center equals the input and the optimum
     // radius is 0. This guards against off-by-one errors in the radius
     // constraints.
-    let source = ClosestString::new(2, vec![vec![1, 0, 1, 1]]);
+    let source = ClosestString::new(2, vec![vec![1, 0, 1, 1]]).unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()

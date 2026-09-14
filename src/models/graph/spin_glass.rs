@@ -140,17 +140,12 @@ macro_rules! spin_glass_create_spec {
                     .transpose()?
                     .unwrap_or(0);
                 let num_vertices = spec.num_vertices.unwrap_or(inferred);
-                if num_vertices < inferred {
-                    return Err(ConstructionError::Conversion(format!(
-                        "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-                    )));
-                }
                 let couplings = spec
                     .couplings
                     .unwrap_or_else(|| vec![$one; spec.graph.len()]);
                 let fields = spec.fields.unwrap_or_else(|| vec![$zero; num_vertices]);
                 SpinGlass::from_graph(
-                    SimpleGraph::new(num_vertices, spec.graph),
+                    SimpleGraph::new(num_vertices, spec.graph)?,
                     couplings,
                     fields,
                 )
@@ -186,7 +181,7 @@ impl<W: WeightElement> SpinGlass<SimpleGraph, W> {
             .iter()
             .map(|(_, coupling)| coupling.clone())
             .collect();
-        let graph = SimpleGraph::new(num_spins, edges);
+        let graph = SimpleGraph::new(num_spins, edges)?;
         Self::from_graph(graph, couplings, fields)
     }
 

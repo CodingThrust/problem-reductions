@@ -10,10 +10,11 @@ use crate::types::One;
 fn test_hamiltonianpathbetweentwovertices_to_longestpath_closed_loop() {
     // Graph with a known Hamiltonian 0-4 path: 0-1-2-3-4 plus extra edges
     let source = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 3), (1, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 3), (1, 4)]).unwrap(),
         0,
         4,
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -34,10 +35,11 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_closed_loop() {
 fn test_hamiltonianpathbetweentwovertices_to_longestpath_path_graph() {
     // Simple path graph: 0-1-2-3 with s=0, t=3 (trivially has a Hamiltonian path)
     let source = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         0,
         3,
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -54,10 +56,11 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
     // No Hamiltonian path from 1 to 2 exists (vertices 3,4 are leaves
     // connected only to 0, so no path can visit all without revisiting 0).
     let source = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]).unwrap(),
         1,
         2,
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -78,10 +81,11 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
 fn test_hamiltonianpathbetweentwovertices_to_longestpath_complete_graph() {
     // Complete graph K4 with s=0, t=3: many Hamiltonian 0-3 paths exist
     let source = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -96,10 +100,11 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_complete_graph() {
 fn test_hamiltonianpathbetweentwovertices_to_longestpath_triangle() {
     // Triangle: 0-1-2-0, with s=0, t=2
     let source = HamiltonianPathBetweenTwoVertices::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         0,
         2,
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -133,10 +138,11 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                         continue;
                     }
                     let source = HamiltonianPathBetweenTwoVertices::new(
-                        SimpleGraph::new(n, edges.clone()),
+                        SimpleGraph::new(n, edges.clone()).unwrap(),
                         start,
                         end,
-                    );
+                    )
+                    .unwrap();
                     let reduction =
                         ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source).unwrap();
                     let target = crate::rules::AggregateReductionResult::target_problem(&reduction);

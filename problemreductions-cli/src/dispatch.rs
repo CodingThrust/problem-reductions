@@ -594,7 +594,9 @@ mod tests {
 
     #[test]
     fn test_load_problem_alias_uses_registry_dispatch() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+                .unwrap();
         let variant = BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -679,7 +681,7 @@ mod tests {
         );
         let err = loaded.err().unwrap();
         assert!(
-            err.to_string().contains("expected positive integer, got 0"),
+            err.to_string().contains("num_processors must be positive"),
             "unexpected error: {err}"
         );
     }
@@ -782,7 +784,7 @@ mod tests {
         use problemreductions::models::graph::RootedTreeArrangement;
         use problemreductions::Problem;
 
-        let problem = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
+        let problem = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 1);
         let loaded = load_problem(
             RootedTreeArrangement::<SimpleGraph>::NAME,
             &BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),

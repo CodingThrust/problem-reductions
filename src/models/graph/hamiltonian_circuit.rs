@@ -43,7 +43,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Square graph (4-cycle) has a Hamiltonian circuit
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap();
 /// let problem = HamiltonianCircuit::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -174,20 +174,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_circuit_simplegraph",
         // Prism graph (triangular prism): 6 vertices, 9 edges
-        instance: Box::new(HamiltonianCircuit::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (1, 2),
-                (2, 0),
-                (3, 4),
-                (4, 5),
-                (5, 3),
-                (0, 3),
-                (1, 4),
-                (2, 5),
-            ],
-        ))),
+        instance: Box::new(HamiltonianCircuit::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (1, 2),
+                    (2, 0),
+                    (3, 4),
+                    (4, 5),
+                    (5, 3),
+                    (0, 3),
+                    (1, 4),
+                    (2, 5),
+                ],
+            )
+            .unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![0, 1, 2, 5, 4, 3]),
         optimal_value: serde_json::json!(true),
     }]

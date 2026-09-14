@@ -7,8 +7,8 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph, k=3
-    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -21,8 +21,8 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_kclique_to_ilp_bf_vs_ilp() {
     // K4 graph, k=3 → has 3-clique
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -40,8 +40,8 @@ fn test_kclique_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -57,8 +57,8 @@ fn test_solution_extraction() {
 #[test]
 fn test_kclique_to_ilp_trivial() {
     // Empty graph (no edges), k=1 → trivially feasible (any single vertex is a 1-clique)
-    let graph = SimpleGraph::new(3, vec![]);
-    let problem = KClique::new(graph, 1);
+    let graph = SimpleGraph::new(3, vec![]).unwrap();
+    let problem = KClique::new(graph, 1).unwrap();
     let reduction: ReductionKCliqueToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

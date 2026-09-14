@@ -46,8 +46,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a triangle graph (3 vertices, 3 edges - complete graph)
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-/// let problem = MaximumClique::new(graph, vec![1; 3]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+/// let problem = MaximumClique::new(graph, vec![1; 3]).unwrap();
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -56,12 +56,29 @@ inventory::submit! {
 /// // Maximum clique in a triangle (K3) is size 3
 /// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 3));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumClique<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximumCliqueData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaximumClique<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumCliqueData::deserialize(deserializer)?;
+        Self::new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -75,27 +92,17 @@ struct MaximumCliqueCreateSpec<W> {
 impl<W: Clone + Default> TryFrom<MaximumCliqueCreateSpec<W>> for MaximumClique<SimpleGraph, W> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        Ok(Self::new(spec.graph, spec.weights))
+        Self::new(spec.graph, spec.weights)
     }
 }
 
 impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
     /// Create a MaximumClique problem from a graph with given weights.
-    pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+    pub fn new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.
@@ -213,10 +220,10 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
 }
 
 crate::impl_random_generate!(MaximumClique<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
-    Ok(MaximumClique::new(spec.graph()?, vec![1; spec.num_vertices]))
+    MaximumClique::new(spec.graph()?, vec![1; spec.num_vertices])
 });
 crate::impl_random_generate!(MaximumClique<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
-    Ok(MaximumClique::new(spec.graph()?, vec![One; spec.num_vertices]))
+    MaximumClique::new(spec.graph()?, vec![One; spec.num_vertices])
 });
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -229,7 +236,7 @@ impl TryFrom<MaximumCliqueOneCreateSpec> for MaximumClique<SimpleGraph, One> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCliqueOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        Ok(Self::new(spec.graph, weights))
+        Self::new(spec.graph, weights)
     }
 }
 
@@ -247,10 +254,13 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_clique_simplegraph",
-        instance: Box::new(MaximumClique::new(
-            SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
-            vec![1i64; 5],
-        )),
+        instance: Box::new(
+            MaximumClique::new(
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+                vec![1i64; 5],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![false, false, true, true, true]),
         optimal_value: serde_json::json!(3),
     }]

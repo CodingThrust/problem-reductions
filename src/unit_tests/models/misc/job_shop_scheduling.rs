@@ -14,10 +14,11 @@ fn issue_example() -> JobShopScheduling {
             vec![(0, 2), (1, 3), (0, 1)],
         ],
     )
+    .unwrap()
 }
 
 fn small_two_job_instance() -> JobShopScheduling {
-    JobShopScheduling::new(2, vec![vec![(0, 1), (1, 1)], vec![(1, 1), (0, 1)]])
+    JobShopScheduling::new(2, vec![vec![(0, 1), (1, 1)], vec![(1, 1), (0, 1)]]).unwrap()
 }
 
 #[test]

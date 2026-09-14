@@ -93,7 +93,7 @@ pub trait Graph: Clone + Send + Sync + 'static {
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::topology::Graph;
 ///
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
 /// assert_eq!(graph.num_vertices(), 4);
 /// assert_eq!(graph.num_edges(), 3);
 /// assert!(graph.has_edge(0, 1));
@@ -112,30 +112,37 @@ impl SimpleGraph {
     /// * `num_vertices` - Number of vertices in the graph
     /// * `edges` - List of edges as (u, v) pairs
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any edge references a vertex index >= num_vertices.
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
+    /// Returns an error if any edge references a vertex index >= num_vertices.
+    pub fn new(
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let mut inner = UnGraph::new_undirected();
         for _ in 0..num_vertices {
             inner.add_node(());
         }
         for (u, v) in edges {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "edge ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "edge ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
             inner.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
         }
-        Self { inner }
+        Ok(Self { inner })
     }
 
     /// Creates an empty graph with the given number of vertices.
     pub fn empty(num_vertices: usize) -> Self {
-        Self::new(num_vertices, vec![])
+        let mut inner = UnGraph::new_undirected();
+        for _ in 0..num_vertices {
+            inner.add_node(());
+        }
+        Self { inner }
     }
 
     /// Creates a complete graph (all vertices connected).
@@ -146,7 +153,7 @@ impl SimpleGraph {
                 edges.push((i, j));
             }
         }
-        Self::new(num_vertices, edges)
+        Self::new(num_vertices, edges).expect("generated graph endpoints are in range")
     }
 
     /// Creates a path graph (0-1-2-...-n).
@@ -154,7 +161,7 @@ impl SimpleGraph {
         let edges: Vec<_> = (0..num_vertices.saturating_sub(1))
             .map(|i| (i, i + 1))
             .collect();
-        Self::new(num_vertices, edges)
+        Self::new(num_vertices, edges).expect("generated graph endpoints are in range")
     }
 
     /// Creates a cycle graph (0-1-2-...-n-0).
@@ -164,20 +171,22 @@ impl SimpleGraph {
         }
         let mut edges: Vec<_> = (0..num_vertices - 1).map(|i| (i, i + 1)).collect();
         edges.push((num_vertices - 1, 0));
-        Self::new(num_vertices, edges)
+        Self::new(num_vertices, edges).expect("generated graph endpoints are in range")
     }
 
     /// Creates a star graph (vertex 0 connected to all others).
     pub fn star(num_vertices: usize) -> Self {
         let edges: Vec<_> = (1..num_vertices).map(|i| (0, i)).collect();
-        Self::new(num_vertices, edges)
+        Self::new(num_vertices, edges).expect("generated graph endpoints are in range")
     }
 
     /// Creates a grid graph with the given dimensions.
     ///
     /// Vertices are numbered row by row: vertex `r * cols + c` is at row `r`, column `c`.
-    pub fn grid(rows: usize, cols: usize) -> Self {
-        let num_vertices = rows * cols;
+    pub fn grid(rows: usize, cols: usize) -> Result<Self, crate::registry::ConstructionError> {
+        let num_vertices = rows
+            .checked_mul(cols)
+            .ok_or("grid vertex count overflows usize")?;
         let mut edges = Vec::new();
 
         for r in 0..rows {
@@ -279,7 +288,7 @@ impl<'de> Deserialize<'de> for SimpleGraph {
             edges: Vec<(usize, usize)>,
         }
         let data = GraphData::deserialize(deserializer)?;
-        Ok(SimpleGraph::new(data.num_vertices, data.edges))
+        SimpleGraph::new(data.num_vertices, data.edges).map_err(serde::de::Error::custom)
     }
 }
 

@@ -26,6 +26,7 @@ fn issue_example_yes() -> SequencingToMinimizeWeightedTardiness {
         vec![5, 8, 4, 15, 10],
         13,
     )
+    .unwrap()
 }
 
 fn issue_example_no() -> SequencingToMinimizeWeightedTardiness {
@@ -35,6 +36,7 @@ fn issue_example_no() -> SequencingToMinimizeWeightedTardiness {
         vec![5, 8, 4, 15, 10],
         12,
     )
+    .unwrap()
 }
 
 #[test]
@@ -76,7 +78,8 @@ fn test_sequencing_to_minimize_weighted_tardiness_reports_overflow() {
         vec![1, 1],
         vec![0, 0],
         i64::MAX,
-    );
+    )
+    .unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 1]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))

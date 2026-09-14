@@ -8,7 +8,7 @@ use crate::types::Min;
 
 #[test]
 fn test_reduction_shape_on_path_p3() {
-    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction: ReductionMinimumCoveringByCliquesToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -20,10 +20,9 @@ fn test_reduction_shape_on_path_p3() {
 
 #[test]
 fn test_minimumcoveringbycliques_to_ilp_closed_loop() {
-    let source = MinimumCoveringByCliques::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)],
-    ));
+    let source = MinimumCoveringByCliques::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction: ReductionMinimumCoveringByCliquesToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
 
@@ -41,7 +40,7 @@ fn test_minimumcoveringbycliques_to_ilp_closed_loop() {
 
 #[test]
 fn test_minimumcoveringbycliques_to_ilp_empty_graph() {
-    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![]));
+    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![]).unwrap());
     let reduction: ReductionMinimumCoveringByCliquesToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -57,10 +56,9 @@ fn test_minimumcoveringbycliques_to_ilp_empty_graph() {
 
 #[test]
 fn test_minimumcoveringbycliques_to_ilp_bf_vs_ilp() {
-    let source = MinimumCoveringByCliques::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)],
-    ));
+    let source = MinimumCoveringByCliques::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction: ReductionMinimumCoveringByCliquesToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);

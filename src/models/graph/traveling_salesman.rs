@@ -47,12 +47,29 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`)
 /// * `W` - The weight type for edges (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TravelingSalesman<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct TravelingSalesmanData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for TravelingSalesman<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = TravelingSalesmanData::deserialize(deserializer)?;
+        Self::new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,15 +89,7 @@ impl TryFrom<TravelingSalesmanCreateSpec> for TravelingSalesman<SimpleGraph, i64
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        Ok(Self::new(graph, edge_weights))
+        Self::new(graph, edge_weights)
     }
 }
 
@@ -112,21 +121,17 @@ fn simple_graph_from_create(
         )
         .into());
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::new(num_vertices, edges)
 }
 
 impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     /// Create a TravelingSalesman problem from a graph with given edge weights.
-    pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+    pub fn new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_weights)?;
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a TravelingSalesman problem with unit weights.
@@ -157,9 +162,23 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     }
 
     /// Set new weights for the problem.
-    pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+    pub fn set_weights(
+        &mut self,
+        weights: Vec<W>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_weights(&self.graph, &weights)?;
         self.edge_weights = weights;
+        Ok(())
+    }
+
+    fn check_weights(
+        graph: &G,
+        edge_weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match graph num_edges".into());
+        }
+        Ok(())
     }
 
     /// Get the weights for the problem.
@@ -335,10 +354,13 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "traveling_salesman_simplegraph",
-        instance: Box::new(TravelingSalesman::new(
-            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
-            vec![1, 3, 2, 2, 3, 1],
-        )),
+        instance: Box::new(
+            TravelingSalesman::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+                vec![1, 3, 2, 2, 3, 1],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, true, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]
@@ -347,7 +369,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 crate::impl_random_generate!(TravelingSalesman<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     let graph = spec.graph()?;
     let weights = vec![1; graph.num_edges()];
-    Ok(TravelingSalesman::new(graph, weights))
+    Ok(TravelingSalesman::new(graph, weights).unwrap())
 });
 
 crate::declare_variants! {

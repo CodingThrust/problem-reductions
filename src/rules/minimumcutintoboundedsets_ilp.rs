@@ -104,12 +104,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumcutintoboundedsets_to_ilp",
         build: || {
             let source = MinimumCutIntoBoundedSets::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                 vec![1, 1, 1],
                 0,
                 3,
                 3,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

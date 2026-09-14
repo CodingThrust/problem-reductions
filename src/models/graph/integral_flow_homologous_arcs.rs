@@ -29,6 +29,7 @@ inventory::submit! {
 /// capacities, flow conservation at non-terminal vertices, every homologous-pair
 /// equality constraint, and the required net inflow at the sink.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowHomologousArcsData")]
 pub struct IntegralFlowHomologousArcs {
     graph: DirectedGraph,
     capacities: Vec<i64>,
@@ -36,6 +37,30 @@ pub struct IntegralFlowHomologousArcs {
     sink: usize,
     requirement: i64,
     homologous_pairs: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowHomologousArcsData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    source: usize,
+    sink: usize,
+    requirement: i64,
+    homologous_pairs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<IntegralFlowHomologousArcsData> for IntegralFlowHomologousArcs {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowHomologousArcsData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.graph,
+            data.capacities,
+            data.source,
+            data.sink,
+            data.requirement,
+            data.homologous_pairs,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -57,9 +82,6 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
     fn try_from(
         spec: IntegralFlowHomologousArcsCreateSpec,
     ) -> Result<Self, crate::registry::ConstructionError> {
-        if spec.arcs.is_empty() {
-            return Err("arcs must be non-empty".into());
-        }
         let inferred = spec
             .arcs
             .iter()
@@ -69,32 +91,15 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
             .transpose()?
             .unwrap_or(0);
         let count = spec.num_vertices.unwrap_or(inferred);
-        if count < inferred {
-            return Err("num_vertices is too small".into());
-        }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
-        if capacities.len() != spec.arcs.len() {
-            return Err("capacities length must match arcs length".into());
-        }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        for &(a, b) in &spec.homologous_pairs {
-            if a >= spec.arcs.len() || b >= spec.arcs.len() {
-                return Err("homologous pair arc index is out of range".into());
-            }
-        }
-        if capacities.iter().any(|&capacity| capacity < 0) {
-            return Err("capacities must be nonnegative".into());
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
+        Self::new(
+            DirectedGraph::new(count, spec.arcs)?,
             capacities,
-            source: spec.source,
-            sink: spec.sink,
-            requirement: spec.requirement,
-            homologous_pairs: spec.homologous_pairs,
-        })
+            spec.source,
+            spec.sink,
+            spec.requirement,
+            spec.homologous_pairs,
+        )
     }
 }
 
@@ -106,42 +111,46 @@ impl IntegralFlowHomologousArcs {
         sink: usize,
         requirement: i64,
         homologous_pairs: Vec<(usize, usize)>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
         let num_arcs = graph.num_arcs();
 
-        assert_eq!(
-            capacities.len(),
-            num_arcs,
-            "capacities length must match graph.num_arcs()"
-        );
-        assert!(
-            source < num_vertices,
-            "source ({source}) must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) must be less than num_vertices ({num_vertices})"
-        );
-
-        for &(a, b) in &homologous_pairs {
-            assert!(a < num_arcs, "homologous arc index {a} out of range");
-            assert!(b < num_arcs, "homologous arc index {b} out of range");
+        if capacities.len() != num_arcs {
+            return Err("capacities length must match graph.num_arcs()".into());
+        }
+        if !(source < num_vertices) {
+            return Err(format!(
+                "source ({source}) must be less than num_vertices ({num_vertices})"
+            )
+            .into());
+        }
+        if !(sink < num_vertices) {
+            return Err(
+                format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
+            );
         }
 
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
+        for &(a, b) in &homologous_pairs {
+            if !(a < num_arcs) {
+                return Err(format!("homologous arc index {a} out of range").into());
+            }
+            if !(b < num_arcs) {
+                return Err(format!("homologous arc index {b} out of range").into());
+            }
+        }
 
-        Self {
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
+
+        Ok(Self {
             graph,
             capacities,
             source,
             sink,
             requirement,
             homologous_pairs,
-        }
+        })
     }
 
     pub fn graph(&self) -> &DirectedGraph {
@@ -284,26 +293,30 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integral_flow_homologous_arcs",
-        instance: Box::new(IntegralFlowHomologousArcs::new(
-            DirectedGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 3),
-                    (2, 3),
-                    (1, 4),
-                    (2, 4),
-                    (3, 5),
-                    (4, 5),
-                ],
-            ),
-            vec![1; 8],
-            0,
-            5,
-            2,
-            vec![(2, 5), (4, 3)],
-        )),
+        instance: Box::new(
+            IntegralFlowHomologousArcs::new(
+                DirectedGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (1, 3),
+                        (2, 3),
+                        (1, 4),
+                        (2, 4),
+                        (3, 5),
+                        (4, 5),
+                    ],
+                )
+                .unwrap(),
+                vec![1; 8],
+                0,
+                5,
+                2,
+                vec![(2, 5), (4, 3)],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![1, 1, 1, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

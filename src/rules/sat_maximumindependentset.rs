@@ -166,9 +166,14 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
         }
 
         let target = MaximumIndependentSet::new(
-            SimpleGraph::new(vertex_count, edges),
+            SimpleGraph::new(vertex_count, edges).map_err(
+                <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::target_construction,
+            )?,
             vec![One; vertex_count],
-        );
+        )
+        .map_err(
+            <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::target_construction,
+        )?;
 
         Ok(ReductionSATToIS {
             target,

@@ -20,7 +20,8 @@ fn test_hamiltonian_circuit_basic() {
             (1, 4),
             (2, 5),
         ],
-    );
+    )
+    .unwrap();
     let problem = HamiltonianCircuit::new(graph);
 
     assert_eq!(problem.num_vertices(), 6);
@@ -56,22 +57,22 @@ fn test_hamiltonian_circuit_basic() {
 #[test]
 fn test_hamiltonian_circuit_small_graphs() {
     // Empty graph (0 vertices): n < 3, no circuit possible
-    let graph = SimpleGraph::new(0, vec![]);
+    let graph = SimpleGraph::new(0, vec![]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
     assert!(!problem.evaluate(&vec![]).unwrap());
 
     // Single vertex: n < 3
-    let graph = SimpleGraph::new(1, vec![]);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
     assert!(!problem.evaluate(&vec![0]).unwrap());
 
     // Two vertices with edge: n < 3
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
     assert!(!problem.evaluate(&vec![0, 1]).unwrap());
 
     // Triangle (K3): smallest valid Hamiltonian circuit
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -82,7 +83,7 @@ fn test_hamiltonian_circuit_small_graphs() {
 #[test]
 fn test_hamiltonian_circuit_complete_graph_k4() {
     // K4: complete graph on 4 vertices
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
@@ -98,7 +99,7 @@ fn test_hamiltonian_circuit_complete_graph_k4() {
 #[test]
 fn test_hamiltonian_circuit_no_solution() {
     // Path graph on 4 vertices: no Hamiltonian circuit possible
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
@@ -109,7 +110,7 @@ fn test_hamiltonian_circuit_no_solution() {
 #[test]
 fn test_hamiltonian_circuit_solver() {
     // Cycle on 4 vertices (square): edges {0,1}, {1,2}, {2,3}, {3,0}
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
@@ -125,7 +126,7 @@ fn test_hamiltonian_circuit_solver() {
 
 #[test]
 fn test_hamiltonian_circuit_serialization() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
     let problem = HamiltonianCircuit::new(graph);
 
     let json = serde_json::to_string(&problem).unwrap();

@@ -73,7 +73,8 @@ impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
         let target = product_biguint(primes.iter().copied());
 
         Ok(ReductionX3CToSubsetProduct {
-            target: SubsetProduct::new(values, target),
+            target: SubsetProduct::new(values, target)
+                .map_err(<Self as ReduceTo<SubsetProduct>>::target_construction)?,
         })
     }
 }
@@ -86,7 +87,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "exactcoverby3sets_to_subsetproduct",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, SubsetProduct>(
-                ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]),
+                ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, true, false]),
                     target_config: serde_json::json!(vec![true, true, false]),

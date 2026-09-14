@@ -192,7 +192,12 @@ impl ReduceTo<MaxCut<SimpleGraph, i64>> for NAESatisfiability {
         }
 
         Ok(ReductionNAESATToMaxCut {
-            target: MaxCut::new(SimpleGraph::new(total_vertices, edges), weights),
+            target: MaxCut::new(
+                SimpleGraph::new(total_vertices, edges)
+                    .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?,
+                weights,
+            )
+            .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?,
             source_num_vars: self.num_vars(),
             feasible_cut,
         })

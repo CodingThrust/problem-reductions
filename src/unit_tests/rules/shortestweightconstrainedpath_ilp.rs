@@ -8,13 +8,14 @@ use crate::types::Min;
 /// 3-vertex path: 0 -- 1 -- 2, s=0, t=2.
 fn simple_path_problem() -> ShortestWeightConstrainedPath<SimpleGraph, i64> {
     ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![2, 3],
         vec![1, 2],
         0,
         2,
         4, // weight_bound
     )
+    .unwrap()
 }
 
 #[test]
@@ -37,13 +38,14 @@ fn test_reduction_creates_valid_ilp() {
 fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
     // Larger instance with multiple paths
     let problem = ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)]).unwrap(),
         vec![2, 5, 3, 1, 2], // lengths
         vec![3, 1, 2, 4, 1], // weights
         0,
         4,
         10, // weight_bound
-    );
+    )
+    .unwrap();
 
     let bf = BruteForce::new();
     let bf_value_solution = bf.solve(&problem).unwrap().unwrap();
@@ -89,13 +91,14 @@ fn test_solution_extraction() {
 fn test_shortestweightconstrainedpath_to_ilp_trivial() {
     // s == t: trivially feasible (empty path, zero length)
     let problem = ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![2, 3],
         vec![1, 2],
         1,
         1,
         4, // weight_bound
-    );
+    )
+    .unwrap();
     let reduction: ReductionSWCPToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

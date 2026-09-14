@@ -15,7 +15,7 @@ fn create_spec_uses_k_and_max_weight_inputs() {
     assert_eq!(names, ["graph", "weights", "k", "max_weight"]);
     let problem =
         BoundedComponentSpanningForest::try_from(BoundedComponentSpanningForestCreateSpec {
-            graph: SimpleGraph::new(2, vec![(0, 1)]),
+            graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
             weights: vec![1, 2],
             k: 1,
             max_weight: 3,
@@ -84,13 +84,14 @@ fn yes_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
             (1, 5),
             (2, 6),
         ],
-    );
-    BoundedComponentSpanningForest::new(graph, vec![2, 3, 1, 2, 3, 1, 2, 1], 3, 6)
+    )
+    .unwrap();
+    BoundedComponentSpanningForest::new(graph, vec![2, 3, 1, 2, 3, 1, 2, 1], 3, 6).unwrap()
 }
 
 fn no_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    BoundedComponentSpanningForest::new(graph, vec![1, 1, 1, 1, 1, 1], 2, 2)
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    BoundedComponentSpanningForest::new(graph, vec![1, 1, 1, 1, 1, 1], 2, 2).unwrap()
 }
 
 #[test]
@@ -148,7 +149,8 @@ fn test_bounded_component_spanning_forest_rejects_wrong_length() {
 
 #[test]
 fn test_bounded_component_spanning_forest_evaluate_uses_fixed_allocation_budget() {
-    let problem = BoundedComponentSpanningForest::new(SimpleGraph::empty(16), vec![1; 16], 16, 1);
+    let problem =
+        BoundedComponentSpanningForest::new(SimpleGraph::empty(16), vec![1; 16], 16, 1).unwrap();
     let config: Vec<usize> = (0..16).collect();
 
     let (is_valid, allocations) = count_allocations(|| problem.evaluate(&config).unwrap());
@@ -197,31 +199,28 @@ fn test_bounded_component_spanning_forest_paper_example() {
 }
 
 #[test]
-#[should_panic(expected = "max_components must be at least 1")]
 fn test_bounded_component_spanning_forest_rejects_zero_max_components_in_constructor() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let _ = BoundedComponentSpanningForest::new(graph, vec![1, 1], 0, 1);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    assert!(BoundedComponentSpanningForest::new(graph, vec![1, 1], 0, 1).is_err());
 }
 
 #[test]
 fn test_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let problem = BoundedComponentSpanningForest::new(graph, vec![1, 1], 5, 2);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    let problem = BoundedComponentSpanningForest::new(graph, vec![1, 1], 5, 2).unwrap();
     // K > |V| is mathematically harmless — just means fewer than K components possible
     assert_eq!(problem.max_components(), 5);
     assert!(problem.evaluate(&vec![0, 0]).unwrap());
 }
 
 #[test]
-#[should_panic(expected = "weights must be nonnegative")]
 fn test_bounded_component_spanning_forest_rejects_negative_weights_in_constructor() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let _ = BoundedComponentSpanningForest::new(graph, vec![1, -1], 1, 1);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    assert!(BoundedComponentSpanningForest::new(graph, vec![1, -1], 1, 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "max_weight must be positive")]
 fn test_bounded_component_spanning_forest_rejects_nonpositive_bound_in_constructor() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let _ = BoundedComponentSpanningForest::new(graph, vec![1, 1], 1, 0);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    assert!(BoundedComponentSpanningForest::new(graph, vec![1, 1], 1, 0).is_err());
 }

@@ -16,11 +16,12 @@ fn instance1() -> AdditionalKey {
         vec![0, 1, 2, 3, 4, 5],
         vec![vec![0, 1], vec![2, 3], vec![4, 5]],
     )
+    .unwrap()
 }
 
 /// Instance 2: 3 attributes, single FD {0}->{1,2}, known key [{0}].
 fn instance2() -> AdditionalKey {
-    AdditionalKey::new(3, vec![(vec![0], vec![1, 2])], vec![0, 1, 2], vec![vec![0]])
+    AdditionalKey::new(3, vec![(vec![0], vec![1, 2])], vec![0, 1, 2], vec![vec![0]]).unwrap()
 }
 
 #[test]
@@ -172,31 +173,26 @@ fn test_additional_key_empty_selection() {
 }
 
 #[test]
-#[should_panic(expected = "relation_attrs element")]
-fn test_additional_key_panic_relation_attrs_out_of_bounds() {
-    AdditionalKey::new(3, vec![], vec![0, 1, 5], vec![]);
+fn test_additional_key_rejects_relation_attrs_out_of_bounds() {
+    assert!(AdditionalKey::new(3, vec![], vec![0, 1, 5], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "relation_attrs contains duplicates")]
-fn test_additional_key_panic_relation_attrs_duplicates() {
-    AdditionalKey::new(3, vec![], vec![0, 1, 1], vec![]);
+fn test_additional_key_rejects_relation_attrs_duplicates() {
+    assert!(AdditionalKey::new(3, vec![], vec![0, 1, 1], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "dependency lhs attribute")]
-fn test_additional_key_panic_dependency_lhs_out_of_bounds() {
-    AdditionalKey::new(3, vec![(vec![5], vec![0])], vec![0, 1, 2], vec![]);
+fn test_additional_key_rejects_dependency_lhs_out_of_bounds() {
+    assert!(AdditionalKey::new(3, vec![(vec![5], vec![0])], vec![0, 1, 2], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "dependency rhs attribute")]
-fn test_additional_key_panic_dependency_rhs_out_of_bounds() {
-    AdditionalKey::new(3, vec![(vec![0], vec![5])], vec![0, 1, 2], vec![]);
+fn test_additional_key_rejects_dependency_rhs_out_of_bounds() {
+    assert!(AdditionalKey::new(3, vec![(vec![0], vec![5])], vec![0, 1, 2], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "known_keys attribute")]
-fn test_additional_key_panic_known_keys_out_of_bounds() {
-    AdditionalKey::new(3, vec![], vec![0, 1, 2], vec![vec![5]]);
+fn test_additional_key_rejects_known_keys_out_of_bounds() {
+    assert!(AdditionalKey::new(3, vec![], vec![0, 1, 2], vec![vec![5]]).is_err());
 }

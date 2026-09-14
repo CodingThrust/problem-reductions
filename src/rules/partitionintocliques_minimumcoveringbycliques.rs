@@ -254,7 +254,9 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
             edges.push((layout.a(idx), layout.b(idx)));
         }
 
-        let target_graph = SimpleGraph::new(target_vertices, edges);
+        let target_graph = SimpleGraph::new(target_vertices, edges).map_err(
+            <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::target_construction,
+        )?;
         let target = MinimumCoveringByCliques::new(target_graph);
 
         Ok(ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
@@ -296,7 +298,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partitionintocliques_to_minimumcoveringbycliques",
         build: || {
-            let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
+            let source =
+                PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), 2).unwrap();
             let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
                 .expect("reduction should succeed");
             let layout = OrlinLayout::new(source.graph());

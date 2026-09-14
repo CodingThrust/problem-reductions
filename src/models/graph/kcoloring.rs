@@ -44,7 +44,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
 /// let problem = KColoring::<K3, _>::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -118,7 +118,7 @@ fn simple_graph_from_create(
         )
         .into());
     }
-    Ok(SimpleGraph::new(count, edges))
+    SimpleGraph::new(count, edges)
 }
 
 impl<K: KValue> TryFrom<FixedKColoringCreateSpec> for KColoring<K, SimpleGraph> {
@@ -313,10 +313,9 @@ pub(crate) fn is_valid_coloring<G: Graph>(
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kcoloring_k3_simplegraph",
-        instance: Box::new(KColoring::<K3, _>::new(SimpleGraph::new(
-            5,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-        ))),
+        instance: Box::new(KColoring::<K3, _>::new(
+            SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![0, 1, 1, 0, 2]),
         optimal_value: serde_json::json!(true),
     }]

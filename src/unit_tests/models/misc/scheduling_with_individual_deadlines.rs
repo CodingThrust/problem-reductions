@@ -26,6 +26,7 @@ fn issue_example_problem() -> SchedulingWithIndividualDeadlines {
         vec![2, 1, 2, 2, 3, 3, 2],
         vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
     )
+    .unwrap()
 }
 
 #[test]
@@ -99,7 +100,7 @@ fn test_scheduling_with_individual_deadlines_evaluate_rejects_capacity_violation
 
 #[test]
 fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadline() {
-    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![i64::MAX], vec![]);
+    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![i64::MAX], vec![]).unwrap();
 
     let result = std::panic::catch_unwind(|| problem.evaluate(&vec![0]).unwrap());
 
@@ -108,7 +109,7 @@ fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadli
 
 #[test]
 fn test_scheduling_with_individual_deadlines_slots_can_exceed_task_count() {
-    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![3], vec![]);
+    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![3], vec![]).unwrap();
     assert!(problem.evaluate(&vec![1]).unwrap());
     assert_eq!(
         BruteForce::new().find_all_witnesses(&problem).unwrap(),
@@ -120,7 +121,8 @@ fn test_scheduling_with_individual_deadlines_slots_can_exceed_task_count() {
 
 #[test]
 fn test_scheduling_with_individual_deadlines_brute_force_satisfiable() {
-    let problem = SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 2], vec![(0, 2)]);
+    let problem =
+        SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 2], vec![(0, 2)]).unwrap();
     let solver = BruteForce::new();
 
     assert_eq!(
@@ -132,7 +134,7 @@ fn test_scheduling_with_individual_deadlines_brute_force_satisfiable() {
 
 #[test]
 fn test_scheduling_with_individual_deadlines_brute_force_unsatisfiable() {
-    let problem = SchedulingWithIndividualDeadlines::new(3, 1, vec![1, 1, 1], vec![]);
+    let problem = SchedulingWithIndividualDeadlines::new(3, 1, vec![1, 1, 1], vec![]).unwrap();
     let solver = BruteForce::new();
 
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -166,15 +168,13 @@ fn test_scheduling_with_individual_deadlines_paper_example() {
 }
 
 #[test]
-#[should_panic(expected = "deadlines length must equal num_tasks")]
 fn test_scheduling_with_individual_deadlines_mismatched_deadlines() {
-    SchedulingWithIndividualDeadlines::new(2, 1, vec![1], vec![]);
+    assert!(SchedulingWithIndividualDeadlines::new(2, 1, vec![1], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "predecessor index 4 out of range")]
 fn test_scheduling_with_individual_deadlines_invalid_precedence() {
-    SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 1], vec![(4, 1)]);
+    assert!(SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 1], vec![(4, 1)]).is_err());
 }
 #[test]
 fn create_spec_defaults_precedences_to_empty() {

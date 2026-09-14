@@ -53,7 +53,7 @@ inventory::submit! {
 ///     vec![(0, 1), (0, 2), (1, 3)],
 ///     2,
 ///     vec![0, 1, 0, 0],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
@@ -90,24 +90,22 @@ impl<'de> Deserialize<'de> for FeasibleRegisterAssignment {
         D: Deserializer<'de>,
     {
         let data = FeasibleRegisterAssignmentData::deserialize(deserializer)?;
-        let (dependencies, dependents) = Self::build_adjacency(data.num_vertices, &data.arcs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            num_registers: data.num_registers,
-            assignment: data.assignment,
-            dependencies,
-            dependents,
-        })
+        Self::new(
+            data.num_vertices,
+            data.arcs,
+            data.num_registers,
+            data.assignment,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
 impl FeasibleRegisterAssignment {
     /// Create a new Feasible Register Assignment instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any arc index is out of bounds (>= num_vertices),
+    /// Returns an error if any arc index is out of bounds (>= num_vertices),
     /// if any arc is a self-loop, if the assignment length does not
     /// match num_vertices, or if any assignment value >= num_registers.
     pub fn new(
@@ -115,48 +113,48 @@ impl FeasibleRegisterAssignment {
         arcs: Vec<(usize, usize)>,
         num_registers: usize,
         assignment: Vec<usize>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for &(v, u) in &arcs {
-            assert!(
-                v < num_vertices && u < num_vertices,
-                "Arc ({}, {}) out of bounds for {} vertices",
-                v,
-                u,
-                num_vertices
-            );
-            assert!(v != u, "Self-loop ({}, {}) not allowed in a DAG", v, u);
+            if !(v < num_vertices && u < num_vertices) {
+                return Err(format!(
+                    "Arc ({}, {}) out of bounds for {} vertices",
+                    v, u, num_vertices
+                )
+                .into());
+            };
+            if v == u {
+                return Err(format!("Self-loop ({}, {}) not allowed in a DAG", v, u).into());
+            };
         }
-        assert_eq!(
-            assignment.len(),
-            num_vertices,
-            "Assignment length {} does not match num_vertices {}",
-            assignment.len(),
-            num_vertices
-        );
-        if num_vertices > 0 {
-            assert!(
-                num_registers > 0,
-                "num_registers must be positive when there are vertices"
-            );
+        if assignment.len() != num_vertices {
+            return Err(format!(
+                "Assignment length {} does not match num_vertices {}",
+                assignment.len(),
+                num_vertices
+            )
+            .into());
+        };
+        if num_vertices > 0 && num_registers == 0 {
+            return Err("num_registers must be positive when there are vertices".into());
         }
         for (v, &r) in assignment.iter().enumerate() {
-            assert!(
-                r < num_registers,
-                "Assignment[{}] = {} is out of bounds for {} registers",
-                v,
-                r,
-                num_registers
-            );
+            if !(r < num_registers) {
+                return Err(format!(
+                    "Assignment[{}] = {} is out of bounds for {} registers",
+                    v, r, num_registers
+                )
+                .into());
+            };
         }
         let (dependencies, dependents) = Self::build_adjacency(num_vertices, &arcs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             num_registers,
             assignment,
             dependencies,
             dependents,
-        }
+        })
     }
 
     /// Build dependency and dependent adjacency lists from arcs.
@@ -326,12 +324,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "feasible_register_assignment",
         // 4 vertices, arcs: (0,1),(0,2),(1,3), K=2, assignment [0,1,0,0]
         // Valid order: v3, v1, v2, v0 -> config [3, 1, 2, 0]
-        instance: Box::new(FeasibleRegisterAssignment::new(
-            4,
-            vec![(0, 1), (0, 2), (1, 3)],
-            2,
-            vec![0, 1, 0, 0],
-        )),
+        instance: Box::new(
+            FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+                .unwrap(),
+        ),
         // config[v] = position: v0 at pos 3, v1 at pos 1, v2 at pos 2, v3 at pos 0
         // Order: v3(pos0), v1(pos1), v2(pos2), v0(pos3)
         optimal_config: serde_json::json!(vec![3, 1, 2, 0]),

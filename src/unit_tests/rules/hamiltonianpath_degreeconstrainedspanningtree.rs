@@ -18,7 +18,8 @@ fn edge_config(graph: &SimpleGraph, selected_edges: &[(usize, usize)]) -> Vec<bo
 
 #[test]
 fn test_hamiltonianpath_to_degreeconstrainedspanningtree_structure() {
-    let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]));
+    let source =
+        HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]).unwrap());
     let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -31,7 +32,8 @@ fn test_hamiltonianpath_to_degreeconstrainedspanningtree_structure() {
 
 #[test]
 fn test_hamiltonianpath_to_degreeconstrainedspanningtree_closed_loop() {
-    let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]));
+    let source =
+        HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]).unwrap());
     let reduction = ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 

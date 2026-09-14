@@ -7,7 +7,7 @@ use crate::types::Min;
 #[test]
 fn test_bmf_creation() {
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = BMF::new(matrix, 2);
+    let problem = BMF::new(matrix, 2).unwrap();
     assert_eq!(problem.rows(), 2);
     assert_eq!(problem.cols(), 2);
     assert_eq!(problem.rank(), 2);
@@ -17,7 +17,7 @@ fn test_bmf_creation() {
 #[test]
 fn test_extract_factors() {
     let matrix = vec![vec![true]];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     // Config: [b00, c00] = [1, 1]
     let solution = (vec![vec![true]], vec![vec![true]]);
     let (b, c) = problem.extract_factors(&solution);
@@ -29,7 +29,7 @@ fn test_extract_factors() {
 fn test_extract_factors_larger() {
     // 2x2 matrix with rank 1
     let matrix = vec![vec![true, true], vec![true, true]];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     // B: 2x1, C: 1x2
     // Config: [b00, b10, c00, c01] = [1, 1, 1, 1]
     let solution = (vec![vec![true], vec![true]], vec![vec![true, true]]);
@@ -62,7 +62,7 @@ fn test_boolean_product_rank2() {
 fn test_hamming_distance() {
     // Target: [[1,0], [0,1]]
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = BMF::new(matrix, 2);
+    let problem = BMF::new(matrix, 2).unwrap();
 
     // B = [[1,0], [0,1]], C = [[1,0], [0,1]] -> exact match
     // Config: [1,0,0,1, 1,0,0,1]
@@ -80,7 +80,7 @@ fn test_hamming_distance() {
 #[test]
 fn test_evaluate() {
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = BMF::new(matrix, 2);
+    let problem = BMF::new(matrix, 2).unwrap();
 
     // Exact factorization -> Min(Some(total_factor_size)) = 4 (two 1s in B, two in C)
     let config = (
@@ -96,7 +96,7 @@ fn test_evaluate() {
 
 #[test]
 fn test_evaluate_rejects_invalid_configurations() {
-    let problem = BMF::new(vec![vec![true]], 1);
+    let problem = BMF::new(vec![vec![true]], 1).unwrap();
     assert!(Problem::evaluate(&problem, &(vec![], vec![vec![true]])).is_err());
     assert!(Problem::evaluate(&problem, &(vec![vec![true]], vec![])).is_err());
     assert!(Problem::evaluate(&problem, &(vec![vec![true, false]], vec![vec![true]])).is_err());
@@ -107,7 +107,7 @@ fn test_brute_force_ones() {
     // All-ones 2x2 factors exactly at rank 1: optimal total_factor_size = 4
     // (B = [[1],[1]] has two 1s, C = [[1,1]] has two 1s).
     let matrix = vec![vec![true, true], vec![true, true]];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     let solver = BruteForce::new();
 
     let witnesses = solver.find_all_witnesses(&problem).unwrap();
@@ -122,7 +122,7 @@ fn test_brute_force_ones() {
 fn test_brute_force_identity() {
     // Identity matrix factors exactly at rank 2.
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = BMF::new(matrix, 2);
+    let problem = BMF::new(matrix, 2).unwrap();
     let solver = BruteForce::new();
 
     let witnesses = solver.find_all_witnesses(&problem).unwrap();
@@ -136,7 +136,7 @@ fn test_brute_force_insufficient_rank() {
     // Rank-1 over the 2x2 identity admits no exact factorization,
     // so every config evaluates to Min(None).
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     let solver = BruteForce::new();
 
     let witness = solver.solve(&problem).unwrap();
@@ -167,7 +167,7 @@ fn test_matrix_hamming_distance_function() {
 #[test]
 fn test_empty_matrix() {
     let matrix: Vec<Vec<bool>> = vec![];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     assert_eq!(problem.num_variables().unwrap(), 0);
     // Empty matrix factors exactly with zero factor size.
     assert_eq!(
@@ -178,7 +178,7 @@ fn test_empty_matrix() {
 
 #[test]
 fn test_rank_zero_exactness() {
-    let nonzero = BMF::new(vec![vec![true, false]], 0);
+    let nonzero = BMF::new(vec![vec![true, false]], 0).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&nonzero).unwrap(),
         Vec::<usize>::new()
@@ -191,7 +191,7 @@ fn test_rank_zero_exactness() {
         Min(None)
     );
 
-    let zero = BMF::new(vec![vec![false, false]], 0);
+    let zero = BMF::new(vec![vec![false, false]], 0).unwrap();
     assert_eq!(zero.hamming_distance(&empty_factors).unwrap(), 0);
     assert!(zero.is_exact(&empty_factors).unwrap());
     assert_eq!(
@@ -203,7 +203,7 @@ fn test_rank_zero_exactness() {
 #[test]
 fn test_is_exact() {
     let matrix = vec![vec![true]];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     assert!(problem
         .is_exact(&(vec![vec![true]], vec![vec![true]]))
         .unwrap());
@@ -218,7 +218,7 @@ fn test_bmf_problem() {
 
     // 2x2 identity matrix with rank 2
     let matrix = vec![vec![true, false], vec![false, true]];
-    let problem = BMF::new(matrix, 2);
+    let problem = BMF::new(matrix, 2).unwrap();
 
     // dims: B(2*2) + C(2*2) = 8 binary variables
     assert_eq!(
@@ -251,7 +251,7 @@ fn test_bmf_problem() {
 
     // 1x1 matrix
     let matrix = vec![vec![true]];
-    let problem = BMF::new(matrix, 1);
+    let problem = BMF::new(matrix, 1).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![2; 2]
@@ -271,7 +271,8 @@ fn test_parameter_getters() {
     let problem = BMF::new(
         vec![vec![true, false], vec![false, true], vec![true, true]],
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.m(), 3); // rows
     assert_eq!(problem.n(), 2); // cols
 }
@@ -284,7 +285,7 @@ fn test_bmf_paper_example() {
         vec![true, true, true],
         vec![false, true, true],
     ];
-    let problem = BMF::new(matrix, 2);
+    let problem = BMF::new(matrix, 2).unwrap();
     // B (3x2): [[1,0],[1,1],[0,1]], C (2x3): [[1,1,0],[0,1,1]]
     // Config: B row-major then C row-major
     // Eight 1s total -> optimal total factor size = 8.
@@ -298,4 +299,20 @@ fn test_bmf_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert!(problem.is_exact(&best).unwrap());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(
+        serde_json::from_value::<BMF>(serde_json::json!({"matrix":[[true],[]],"k":1})).is_err()
+    );
+}
+
+#[test]
+fn deserialize_rebuilds_matrix_dimensions() {
+    let model: BMF = serde_json::from_value(serde_json::json!({
+        "matrix": [[true, false]], "k": 1, "m": 99, "n": 99
+    }))
+    .unwrap();
+    assert_eq!((model.rows(), model.cols(), model.rank()), (1, 2, 1));
 }

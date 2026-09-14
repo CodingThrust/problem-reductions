@@ -97,7 +97,8 @@ impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertic
             edge_lengths,
             self.source_vertex(),
             self.target_vertex(),
-        );
+        )
+        .map_err(<Self as ReduceTo<LongestPath<SimpleGraph, One>>>::target_construction)?;
 
         Ok(ReductionHPBTVToLP { target })
     }
@@ -112,10 +113,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Path graph 0-1-2-3-4 with s=0, t=4
             let source = HamiltonianPathBetweenTwoVertices::new(
-                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
                 0,
                 4,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, LongestPath<SimpleGraph, One>>(
                 source,
                 SolutionPair {

@@ -8,7 +8,8 @@ fn test_sequencing_rtd_basic() {
         vec![3, 2, 4, 1, 2],
         vec![0, 1, 5, 0, 8],
         vec![5, 6, 10, 3, 12],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_tasks(), 5);
     assert_eq!(problem.lengths(), &[3, 2, 4, 1, 2]);
     assert_eq!(problem.release_times(), &[0, 1, 5, 0, 8]);
@@ -36,7 +37,8 @@ fn test_sequencing_rtd_evaluate_feasible() {
         vec![3, 2, 4, 1, 2],
         vec![0, 1, 5, 0, 8],
         vec![5, 6, 10, 3, 12],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Exactly one feasible schedule exists: [3, 0, 1, 2, 4].
@@ -50,7 +52,8 @@ fn test_sequencing_rtd_evaluate_infeasible_deadline() {
         vec![3, 2],
         vec![0, 0],
         vec![2, 4], // task 0 needs 3 time units but deadline is 2
-    );
+    )
+    .unwrap();
     // Order [0, 1]: t0 start=0, finish=3 > 2 -> infeasible
     assert!(!problem.evaluate(&vec![0, 1]).unwrap());
     // Order [1, 0]: t1 start=0, finish=2; t0 start=2, finish=5 > 2 -> infeasible
@@ -59,7 +62,8 @@ fn test_sequencing_rtd_evaluate_infeasible_deadline() {
 
 #[test]
 fn test_sequencing_rtd_evaluate_wrong_config_length() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]);
+    let problem =
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -72,7 +76,7 @@ fn test_sequencing_rtd_evaluate_wrong_config_length() {
 
 #[test]
 fn test_sequencing_rtd_empty_instance() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![], vec![], vec![]);
+    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![], vec![], vec![]).unwrap();
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.time_horizon(), 0);
     assert_eq!(
@@ -84,7 +88,7 @@ fn test_sequencing_rtd_empty_instance() {
 
 #[test]
 fn test_sequencing_rtd_single_task() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2], vec![1], vec![5]);
+    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2], vec![1], vec![5]).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![1]
@@ -97,7 +101,8 @@ fn test_sequencing_rtd_single_task() {
 fn test_sequencing_rtd_brute_force() {
     // Small instance: 3 tasks that fit tightly
     let problem =
-        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]);
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4])
+            .unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -108,7 +113,8 @@ fn test_sequencing_rtd_brute_force() {
 
 #[test]
 fn test_sequencing_rtd_brute_force_all() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![3, 3]);
+    let problem =
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![3, 3]).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -120,7 +126,8 @@ fn test_sequencing_rtd_brute_force_all() {
 #[test]
 fn test_sequencing_rtd_unsatisfiable() {
     // Two tasks each need 2 time units but only 3 total time available
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![3, 3]);
+    let problem =
+        SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![3, 3]).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
@@ -129,7 +136,8 @@ fn test_sequencing_rtd_unsatisfiable() {
 #[test]
 fn test_sequencing_rtd_serialization() {
     let problem =
-        SequencingWithReleaseTimesAndDeadlines::new(vec![3, 2, 4], vec![0, 1, 5], vec![5, 6, 10]);
+        SequencingWithReleaseTimesAndDeadlines::new(vec![3, 2, 4], vec![0, 1, 5], vec![5, 6, 10])
+            .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: SequencingWithReleaseTimesAndDeadlines = serde_json::from_value(json).unwrap();
     assert_eq!(restored.lengths(), problem.lengths());
@@ -140,7 +148,8 @@ fn test_sequencing_rtd_serialization() {
 #[test]
 fn test_sequencing_rtd_tight_schedule() {
     // Tasks that can only be scheduled in one specific order
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 2], vec![2, 4]);
+    let problem =
+        SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 2], vec![2, 4]).unwrap();
     // Order [0, 1]: t0 start=max(0,0)=0, finish=2<=2; t1 start=max(2,2)=2, finish=4<=4 ✓
     assert!(problem.evaluate(&vec![0, 1]).unwrap());
     // Order [1, 0]: t1 start=max(2,0)=2, finish=4<=4; t0 start=max(0,4)=4, finish=6>2 ✗
@@ -149,7 +158,8 @@ fn test_sequencing_rtd_tight_schedule() {
 
 #[test]
 fn test_sequencing_rtd_invalid_task_index() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]);
+    let problem =
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]).unwrap();
     // Task index 2 is outside 0..2.
     assert!(matches!(
         problem.evaluate(&vec![2, 0]),

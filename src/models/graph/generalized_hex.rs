@@ -32,12 +32,30 @@ inventory::submit! {
 /// The problem is represented as a zero-variable decision problem: the graph
 /// instance fully determines the question, so `evaluate([])` runs a memoized
 /// game-tree search from the initial empty board.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct GeneralizedHex<G> {
     graph: G,
     source: usize,
     target: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct GeneralizedHexData<G> {
+    graph: G,
+    source: usize,
+    target: usize,
+}
+
+impl<'de, G> Deserialize<'de> for GeneralizedHex<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = GeneralizedHexData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.source, data.target).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -54,25 +72,7 @@ impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: GeneralizedHexCreateSpec) -> Result<Self, Self::Error> {
-        let num_vertices = spec.graph.num_vertices();
-        if spec.source >= num_vertices {
-            return Err(format!(
-                "source {} is outside graph with {num_vertices} vertices",
-                spec.source
-            )
-            .into());
-        }
-        if spec.sink >= num_vertices {
-            return Err(format!(
-                "sink {} is outside graph with {num_vertices} vertices",
-                spec.sink
-            )
-            .into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string().into());
-        }
-        Ok(Self::new(spec.graph, spec.source, spec.sink))
+        Self::new(spec.graph, spec.source, spec.sink)
     }
 }
 
@@ -85,16 +85,26 @@ enum ClaimState {
 
 impl<G: Graph> GeneralizedHex<G> {
     /// Create a new Generalized Hex instance.
-    pub fn new(graph: G, source: usize, target: usize) -> Self {
+    pub fn new(
+        graph: G,
+        source: usize,
+        target: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
-        assert!(source < num_vertices, "source must be a valid graph vertex");
-        assert!(target < num_vertices, "target must be a valid graph vertex");
-        assert_ne!(source, target, "source and target must be distinct");
-        Self {
+        if !(source < num_vertices) {
+            return Err("source must be a valid graph vertex".into());
+        }
+        if !(target < num_vertices) {
+            return Err("target must be a valid graph vertex".into());
+        }
+        if source == target {
+            return Err("source and target must be distinct".into());
+        }
+        Ok(Self {
             graph,
             source,
             target,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -319,7 +329,7 @@ crate::impl_random_generate!(
     crate::random::EndpointRandomSpec,
     |spec| {
         let (source, sink) = spec.endpoints()?;
-        Ok(GeneralizedHex::new(spec.graph()?, source, sink))
+        GeneralizedHex::new(spec.graph()?, source, sink)
     }
 );
 
@@ -335,14 +345,18 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "generalized_hex_simplegraph",
-        instance: Box::new(GeneralizedHex::new(
-            SimpleGraph::new(
-                6,
-                vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4), (4, 5)],
-            ),
-            0,
-            5,
-        )),
+        instance: Box::new(
+            GeneralizedHex::new(
+                SimpleGraph::new(
+                    6,
+                    vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4), (4, 5)],
+                )
+                .unwrap(),
+                0,
+                5,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),
     }]

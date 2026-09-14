@@ -12,7 +12,8 @@ fn test_subset_dp_shortest_common_superstring_matches_brute_force() {
                 let problem = ShortestCommonSuperstring::new(
                     2,
                     vec![first.clone(), second.clone(), third.clone()],
-                );
+                )
+                .unwrap();
                 let expected = BruteForce::new().solve(&problem).unwrap().unwrap();
                 let actual = solve(&problem).unwrap();
                 assert_eq!(
@@ -35,7 +36,8 @@ fn test_subset_dp_shortest_common_superstring_handles_containment_and_scale() {
             vec![3, 0, 1],
             vec![0, 1],
         ],
-    );
+    )
+    .unwrap();
     let loaded = load_dyn(
         ShortestCommonSuperstring::NAME,
         &Default::default(),
@@ -65,7 +67,8 @@ fn test_subset_dp_shortest_common_superstring_handles_containment_and_scale() {
 fn subset_dp_reports_mask_and_table_size_overflow() {
     for count in [usize::BITS as usize, usize::BITS as usize - 1] {
         let problem =
-            ShortestCommonSuperstring::new(count, (0..count).map(|symbol| vec![symbol]).collect());
+            ShortestCommonSuperstring::new(count, (0..count).map(|symbol| vec![symbol]).collect())
+                .unwrap();
         let loaded = load_dyn(
             ShortestCommonSuperstring::NAME,
             &Default::default(),

@@ -9,8 +9,8 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // K3, path tree
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
     let reduction: ReductionISTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -23,8 +23,8 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_isomorphicspanningtree_to_ilp_closed_loop() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
     let reduction: ReductionISTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -34,8 +34,8 @@ fn test_isomorphicspanningtree_to_ilp_closed_loop() {
 
 #[test]
 fn test_isomorphicspanningtree_to_ilp_bf_vs_ilp() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
-    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap();
+    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let bf = BruteForce::new();
@@ -58,8 +58,8 @@ fn test_isomorphicspanningtree_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // K3 with path tree
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = IsomorphicSpanningTree::new(graph, tree);
     let reduction: ReductionISTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

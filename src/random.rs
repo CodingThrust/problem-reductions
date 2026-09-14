@@ -202,7 +202,7 @@ pub(crate) fn create_random_graph(
         .flat_map(|u| ((u + 1)..num_vertices).map(move |v| (u, v)))
         .filter(|_| lcg_step(&mut state) < edge_prob)
         .collect();
-    SimpleGraph::new(num_vertices, edges)
+    SimpleGraph::new(num_vertices, edges).expect("generated graph endpoints are in range")
 }
 
 /// Generate unique integer positions on a square grid.

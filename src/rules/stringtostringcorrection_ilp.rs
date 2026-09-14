@@ -381,7 +381,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "stringtostringcorrection_to_ilp",
         build: || {
             // source=[0,1,0], target=[1,0], bound=1 (delete position 0)
-            let source = StringToStringCorrection::new(2, vec![0, 1, 0], vec![1, 0], 1);
+            let source = StringToStringCorrection::new(2, vec![0, 1, 0], vec![1, 0], 1).unwrap();
             let reduction: ReductionSTSCToILP =
                 ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {

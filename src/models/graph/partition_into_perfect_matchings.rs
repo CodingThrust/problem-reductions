@@ -48,14 +48,14 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 vertices with edges: (0,1),(2,3),(0,2),(1,3)
-/// let graph = SimpleGraph::new(4, vec![(0,1),(2,3),(0,2),(1,3)]);
-/// let problem = PartitionIntoPerfectMatchings::new(graph, 2);
+/// let graph = SimpleGraph::new(4, vec![(0,1),(2,3),(0,2),(1,3)]).unwrap();
+/// let problem = PartitionIntoPerfectMatchings::new(graph, 2).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct PartitionIntoPerfectMatchings<G> {
     /// The underlying graph.
@@ -64,21 +64,39 @@ pub struct PartitionIntoPerfectMatchings<G> {
     num_matchings: usize,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoPerfectMatchingsData<G> {
+    graph: G,
+    num_matchings: usize,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoPerfectMatchings<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoPerfectMatchingsData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.num_matchings).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> PartitionIntoPerfectMatchings<G> {
     /// Create a new Partition Into Perfect Matchings instance.
     ///
-    /// # Panics
-    /// Panics if `num_matchings` is zero or greater than `graph.num_vertices()`.
-    pub fn new(graph: G, num_matchings: usize) -> Self {
-        assert!(num_matchings >= 1, "num_matchings must be at least 1");
-        assert!(
-            num_matchings <= graph.num_vertices(),
-            "num_matchings must be at most num_vertices"
-        );
-        Self {
+    /// # Errors
+    /// Returns an error if `num_matchings` is zero or greater than `graph.num_vertices()`.
+    pub fn new(graph: G, num_matchings: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if num_matchings == 0 {
+            return Err("num_matchings must be at least 1".into());
+        }
+        if !(num_matchings <= graph.num_vertices()) {
+            return Err("num_matchings must be at most num_vertices".into());
+        }
+        Ok(Self {
             graph,
             num_matchings,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -212,10 +230,13 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_perfect_matchings_simplegraph",
-        instance: Box::new(PartitionIntoPerfectMatchings::new(
-            SimpleGraph::new(4, vec![(0, 1), (2, 3), (0, 2), (1, 3)]),
-            2,
-        )),
+        instance: Box::new(
+            PartitionIntoPerfectMatchings::new(
+                SimpleGraph::new(4, vec![(0, 1), (2, 3), (0, 2), (1, 3)]).unwrap(),
+                2,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

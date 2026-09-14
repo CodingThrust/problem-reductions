@@ -76,7 +76,7 @@ inventory::submit! {
 ///
 /// // Path 0 - 1 - 2 with edge costs c(0,1)=1, c(1,2)=6 and vertex prizes
 /// // p = (5, 2, 5), beta = 1, omega = 2.
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
 /// let problem =
 ///     PrizeCollectingSteinerForest::<_, i64>::new(graph, vec![5, 2, 5], vec![1, 6], 1, 2).unwrap();
 /// // V_F = {0,1,2}, E_F = {(0,1)} gives two components {0,1} and {2}:
@@ -198,7 +198,7 @@ fn simple_graph_from_create(
             "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
         )));
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::new(num_vertices, edges)
 }
 
 impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
@@ -491,7 +491,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "prize_collecting_steiner_forest_simplegraph",
         instance: Box::new(
             PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![5, 2, 5],
                 vec![1, 6],
                 1,

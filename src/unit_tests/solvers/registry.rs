@@ -45,9 +45,10 @@ fn generic_decision_ilp_respects_maximization_bounds() {
     let source = ExactProblemKey::from_static(&PIPELINE.path[0]);
     let pipeline = registry.lookup(&source).ilp.unwrap();
     let inner = MaximumIndependentSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64; 3],
-    );
+    )
+    .unwrap();
     for bound in [0, 1, 2] {
         let decision = Decision::new(inner.clone(), bound);
         let result = pipeline.solve(&decision, &HighsAdapter::new(None));
@@ -138,7 +139,7 @@ fn generic_decision_ilp_reports_no_but_preserves_extraction_errors() {
             witness: result,
         })
     };
-    let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
+    let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![1i64; 2]).unwrap();
     assert!(matches!(
         pipeline.solve(&Decision::new(inner.clone(), 0), &HighsAdapter::new(None)),
         Err(ILPSolveError::Infeasible)

@@ -50,7 +50,8 @@ impl ReduceTo<MinimumHittingSet> for MinimumVertexCover<SimpleGraph, One> {
         // For each edge (u, v), create a 2-element subset {u, v}.
         let sets: Vec<Vec<usize>> = edges.iter().map(|&(u, v)| vec![u, v]).collect();
 
-        let target = MinimumHittingSet::new(num_vertices, sets);
+        let target = MinimumHittingSet::new(num_vertices, sets)
+            .map_err(<Self as ReduceTo<MinimumHittingSet>>::target_construction)?;
 
         Ok(ReductionVCToHS { target })
     }
@@ -77,9 +78,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         (4, 5),
                         (1, 4),
                     ],
-                ),
+                )
+                .unwrap(),
                 vec![One; 6],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, MinimumHittingSet>(
                 source,
                 SolutionPair {

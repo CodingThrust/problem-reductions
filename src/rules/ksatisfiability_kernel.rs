@@ -106,7 +106,10 @@ impl ReduceTo<Kernel> for KSatisfiability<K3> {
         }
 
         Ok(Reduction3SatToKernel {
-            target: Kernel::new(DirectedGraph::new(num_vertices, arcs)),
+            target: Kernel::new(
+                DirectedGraph::new(num_vertices, arcs)
+                    .map_err(<Self as ReduceTo<Kernel>>::target_construction)?,
+            ),
             source_num_vars: self.num_vars(),
             source_variables,
         })

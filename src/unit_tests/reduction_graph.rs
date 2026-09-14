@@ -362,7 +362,7 @@ fn test_direct_reduction_exists() {
 
 #[test]
 fn test_kcoloring_to_partitionintocliques_smoke() {
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 2);
     let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_eq!(reduction.target_problem().num_cliques(), 2);
@@ -926,7 +926,7 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
         (2, vec![false, true, true, false, true, true], true),
     ] {
         let source = Decision::new(
-            MinimumDominatingSet::new(SimpleGraph::path(4), vec![One; 4]),
+            MinimumDominatingSet::new(SimpleGraph::path(4), vec![One; 4]).unwrap(),
             bound,
         );
         let step = (edge.reduce_fn.unwrap())(&source).unwrap();

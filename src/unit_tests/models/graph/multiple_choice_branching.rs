@@ -35,7 +35,8 @@ fn yes_instance() -> MultipleChoiceBranching<i64> {
                 (4, 5),
                 (2, 4),
             ],
-        ),
+        )
+        .unwrap(),
         vec![3, 2, 4, 1, 2, 3, 1, 3],
         vec![vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]],
         10,
@@ -44,7 +45,7 @@ fn yes_instance() -> MultipleChoiceBranching<i64> {
 
 fn no_instance() -> MultipleChoiceBranching<i64> {
     MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![2, 2],
         vec![vec![0], vec![1]],
         5,
@@ -79,7 +80,7 @@ fn test_multiple_choice_branching_creation_and_accessors() {
 fn test_multiple_choice_branching_rejects_weight_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            DirectedGraph::new(2, vec![(0, 1)]).unwrap(),
             vec![1, 2],
             vec![vec![0]],
             1,
@@ -92,7 +93,7 @@ fn test_multiple_choice_branching_rejects_weight_length_mismatch() {
 fn test_multiple_choice_branching_partition_validation_out_of_range() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            DirectedGraph::new(2, vec![(0, 1)]).unwrap(),
             vec![1],
             vec![vec![1]],
             1,
@@ -105,7 +106,7 @@ fn test_multiple_choice_branching_partition_validation_out_of_range() {
 fn test_multiple_choice_branching_partition_validation_overlap() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
             vec![1, 1],
             vec![vec![0, 1], vec![1]],
             1,
@@ -118,7 +119,7 @@ fn test_multiple_choice_branching_partition_validation_overlap() {
 fn test_multiple_choice_branching_partition_validation_missing_arc() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
             vec![1, 1],
             vec![vec![0]],
             1,
@@ -168,7 +169,7 @@ fn test_multiple_choice_branching_rejects_non_binary_config_value() {
 #[test]
 fn test_multiple_choice_branching_rejects_indegree_violation() {
     let problem = MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 2), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 2), (1, 2)]).unwrap(),
         vec![2, 2],
         vec![vec![0], vec![1]],
         1,
@@ -179,7 +180,7 @@ fn test_multiple_choice_branching_rejects_indegree_violation() {
 #[test]
 fn test_multiple_choice_branching_rejects_cycle_violation() {
     let problem = MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![1, 1, 1],
         vec![vec![0], vec![1], vec![2]],
         1,
@@ -267,7 +268,7 @@ fn test_multiple_choice_branching_deserialize_rejects_invalid_partition() {
 fn test_multiple_choice_branching_set_weights_rejects_wrong_length() {
     let result = std::panic::catch_unwind(|| {
         let mut problem = MultipleChoiceBranching::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
             vec![1, 1],
             vec![vec![0], vec![1]],
             1,

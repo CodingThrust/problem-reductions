@@ -10,26 +10,28 @@ use crate::types::Min;
 /// Optimal: route via v2 (1 unit) and v3 (2 units) → cost = 1 + 2 = 3
 fn issue_instance() -> MinimumEdgeCostFlow {
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
+        DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]).unwrap(),
         vec![3, 1, 2, 0, 0, 0],
         vec![2, 2, 2, 2, 2, 2],
         0,
         4,
         3,
     )
+    .unwrap()
 }
 
 /// Small 3-vertex instance: s=0, t=2, R=2.
 /// Arc (0,1) cap=1, (1,2) cap=1 — cannot route 2 units.
 fn infeasible_instance() -> MinimumEdgeCostFlow {
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1],
         vec![1, 1],
         0,
         2,
         2,
     )
+    .unwrap()
 }
 
 #[test]
@@ -138,7 +140,15 @@ fn test_minimum_edge_cost_flow_serialization() {
 
 #[test]
 fn test_minimum_edge_cost_flow_max_capacity_empty() {
-    let problem = MinimumEdgeCostFlow::new(DirectedGraph::new(2, vec![]), vec![], vec![], 0, 1, 0);
+    let problem = MinimumEdgeCostFlow::new(
+        DirectedGraph::new(2, vec![]).unwrap(),
+        vec![],
+        vec![],
+        0,
+        1,
+        0,
+    )
+    .unwrap();
     assert_eq!(problem.max_capacity(), 0);
 }
 

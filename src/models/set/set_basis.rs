@@ -28,6 +28,7 @@ inventory::submit! {
 /// `S` such that every set in `C` can be expressed as the union of some
 /// subcollection of `B`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SetBasisData")]
 pub struct SetBasis {
     /// Size of the universe (elements are `0..universe_size`).
     universe_size: usize,
@@ -35,6 +36,21 @@ pub struct SetBasis {
     collection: Vec<Vec<usize>>,
     /// Number of basis sets to encode in a configuration.
     k: usize,
+}
+
+#[derive(Deserialize)]
+struct SetBasisData {
+    universe_size: usize,
+    collection: Vec<Vec<usize>>,
+    k: usize,
+}
+
+impl TryFrom<SetBasisData> for SetBasis {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: SetBasisData) -> Result<Self, Self::Error> {
+        Self::new(data.universe_size, data.collection, data.k)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -51,46 +67,33 @@ impl TryFrom<SetBasisCreateSpec> for SetBasis {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: SetBasisCreateSpec) -> Result<Self, Self::Error> {
-        for (set_index, set) in spec.subsets.iter().enumerate() {
-            if let Some(&element) = set.iter().find(|&&element| element >= spec.universe_size) {
-                return Err(format!(
-                    "subsets[{set_index}] contains element {element} outside universe of size {}",
-                    spec.universe_size
-                )
-                .into());
-            }
-        }
-        Ok(Self::new(spec.universe_size, spec.subsets, spec.k))
+        Self::new(spec.universe_size, spec.subsets, spec.k)
     }
 }
 
 impl SetBasis {
     /// Create a new Set Basis instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any element in `collection` lies outside the universe.
-    pub fn new(universe_size: usize, collection: Vec<Vec<usize>>, k: usize) -> Self {
-        let mut collection = collection;
-        for (set_index, set) in collection.iter_mut().enumerate() {
+    /// Returns an error when the instance violates its documented input conditions.
+    pub fn new(
+        universe_size: usize,
+        mut collection: Vec<Vec<usize>>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, set) in collection.iter_mut().enumerate() {
             set.sort_unstable();
             set.dedup();
-            for &element in set.iter() {
-                assert!(
-                    element < universe_size,
-                    "Set {} contains element {} which is outside universe of size {}",
-                    set_index,
-                    element,
-                    universe_size
-                );
+            if let Some(element) = set.iter().find(|&&element| element >= universe_size) {
+                return Err(format!("set {index} contains element {element} outside universe of size {universe_size}").into());
             }
         }
-
-        Self {
+        Ok(Self {
             universe_size,
             collection,
             k,
-        }
+        })
     }
 
     /// Return the universe size.
@@ -158,9 +161,6 @@ impl SetBasis {
     fn can_represent_target(basis: &[Vec<usize>], target: &[usize], universe_size: usize) -> bool {
         let mut target_membership = vec![false; universe_size];
         for &element in target {
-            if element >= universe_size {
-                return false;
-            }
             target_membership[element] = true;
         }
 
@@ -224,11 +224,14 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "set_basis",
-        instance: Box::new(SetBasis::new(
-            4,
-            vec![vec![0, 1], vec![1, 2], vec![0, 2], vec![0, 1, 2]],
-            3,
-        )),
+        instance: Box::new(
+            SetBasis::new(
+                4,
+                vec![vec![0, 1], vec![1, 2], vec![0, 2], vec![0, 1, 2]],
+                3,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![
             vec![false, false, true, false],
             vec![false, true, false, false],

@@ -21,9 +21,11 @@ fn k5_btsp() -> BottleneckTravelingSalesman {
                 (2, 4),
                 (3, 4),
             ],
-        ),
+        )
+        .unwrap(),
         vec![5, 4, 4, 5, 4, 1, 2, 1, 5, 4],
     )
+    .unwrap()
 }
 
 #[test]
@@ -57,7 +59,9 @@ fn test_bottleneck_traveling_salesman_creation_and_parameter_getters() {
     );
     assert!(problem.is_weighted());
 
-    problem.set_weights(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    problem
+        .set_weights(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        .unwrap();
     assert_eq!(problem.weights(), vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
@@ -81,9 +85,10 @@ fn test_bottleneck_traveling_salesman_evaluate_valid_and_invalid() {
 #[test]
 fn test_bottleneck_traveling_salesman_evaluate_disconnected_subtour_invalid() {
     let problem = BottleneckTravelingSalesman::new(
-        SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]).unwrap(),
         vec![1, 1, 1, 2, 2, 2],
-    );
+    )
+    .unwrap();
 
     let disconnected_subtour = vec![true, true, true, true, true, true];
     assert!(!problem.is_valid_solution(&disconnected_subtour));

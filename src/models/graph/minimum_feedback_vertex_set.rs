@@ -40,8 +40,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple 3-cycle: 0 → 1 → 2 → 0
-/// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-/// let problem = MinimumFeedbackVertexSet::new(graph, vec![1; 3]);
+/// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+/// let problem = MinimumFeedbackVertexSet::new(graph, vec![1; 3]).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -49,12 +49,28 @@ inventory::submit! {
 /// // Any single vertex breaks the cycle
 /// assert_eq!(solutions.len(), 3);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumFeedbackVertexSet<W> {
     /// The underlying directed graph.
     graph: DirectedGraph,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumFeedbackVertexSetData<W> {
+    graph: DirectedGraph,
+    weights: Vec<W>,
+}
+
+impl<'de, W> Deserialize<'de> for MinimumFeedbackVertexSet<W>
+where
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumFeedbackVertexSetData::deserialize(deserializer)?;
+        Self::new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -71,22 +87,18 @@ impl<W: WeightElement> TryFrom<MinimumFeedbackVertexSetCreateSpec<W>>
     fn try_from(spec: MinimumFeedbackVertexSetCreateSpec<W>) -> Result<Self, Self::Error> {
         let count = spec.graph.num_vertices();
         let weights = spec.weights.unwrap_or_else(|| vec![W::unit(); count]);
-        if weights.len() != count {
-            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
-        }
-        Ok(Self::new(spec.graph, weights))
+        Self::new(spec.graph, weights)
     }
 }
 
 impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
     /// Create a Feedback Vertex Set problem from a directed graph with given weights.
-    pub fn new(graph: DirectedGraph, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+    pub fn new(
+        graph: DirectedGraph,
+        weights: Vec<W>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &weights)?;
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -100,13 +112,23 @@ impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
     }
 
     /// Set vertex weights.
-    pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(
-            weights.len(),
-            self.graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
+    pub fn set_weights(
+        &mut self,
+        weights: Vec<W>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_weights(&self.graph, &weights)?;
         self.weights = weights;
+        Ok(())
+    }
+
+    fn check_weights(
+        graph: &DirectedGraph,
+        weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(())
     }
 
     /// Check if a configuration is a valid feedback vertex set.
@@ -204,7 +226,7 @@ impl TryFrom<MinimumFeedbackVertexSetOneCreateSpec> for MinimumFeedbackVertexSet
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumFeedbackVertexSetOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        Ok(Self::new(spec.graph, weights))
+        Self::new(spec.graph, weights)
     }
 }
 
@@ -224,22 +246,29 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![
         crate::example_db::specs::ModelExampleSpec {
             id: "minimum_feedback_vertex_set",
-            instance: Box::new(MinimumFeedbackVertexSet::new(
-                DirectedGraph::new(
-                    5,
-                    vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
-                ),
-                vec![1i64; 5],
-            )),
+            instance: Box::new(
+                MinimumFeedbackVertexSet::new(
+                    DirectedGraph::new(
+                        5,
+                        vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
+                    )
+                    .unwrap(),
+                    vec![1i64; 5],
+                )
+                .unwrap(),
+            ),
             optimal_config: serde_json::json!(vec![true, false, false, false, false]),
             optimal_value: serde_json::json!(1),
         },
         crate::example_db::specs::ModelExampleSpec {
             id: "minimum_feedback_vertex_set_unit",
-            instance: Box::new(MinimumFeedbackVertexSet::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-                vec![One; 3],
-            )),
+            instance: Box::new(
+                MinimumFeedbackVertexSet::new(
+                    DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
+                    vec![One; 3],
+                )
+                .unwrap(),
+            ),
             optimal_config: serde_json::json!(vec![true, false, false]),
             optimal_value: serde_json::json!(1),
         },

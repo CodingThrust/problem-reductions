@@ -52,7 +52,7 @@ inventory::submit! {
 ///     6,
 ///     vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
 ///     6,
-/// );
+/// ).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
@@ -62,7 +62,7 @@ inventory::submit! {
 /// assert!(problem.evaluate(&solution.unwrap()).unwrap());
 ///
 /// // Shorter strings use trailing `None` positions.
-/// let shorter = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
+/// let shorter = ConsecutiveSets::new(3, vec![vec![0, 1]], 4).unwrap();
 /// assert!(shorter
 ///     .evaluate(&vec![Some(0), Some(1), None, None])
 ///     .unwrap());
@@ -71,6 +71,7 @@ inventory::submit! {
 ///     .unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConsecutiveSetsData")]
 pub struct ConsecutiveSets {
     /// Size of the alphabet (elements are 0..alphabet_size-1).
     alphabet_size: usize,
@@ -80,39 +81,52 @@ pub struct ConsecutiveSets {
     bound_k: usize,
 }
 
+#[derive(Deserialize)]
+struct ConsecutiveSetsData {
+    alphabet_size: usize,
+    subsets: Vec<Vec<usize>>,
+    bound_k: usize,
+}
+
+impl TryFrom<ConsecutiveSetsData> for ConsecutiveSets {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ConsecutiveSetsData) -> Result<Self, Self::Error> {
+        Self::new(data.alphabet_size, data.subsets, data.bound_k)
+    }
+}
+
 impl ConsecutiveSets {
     /// Create a new Consecutive Sets problem.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `bound_k` is zero, if any subset contains duplicate elements,
-    /// or if any element is outside the alphabet.
-    pub fn new(alphabet_size: usize, subsets: Vec<Vec<usize>>, bound_k: usize) -> Self {
-        assert!(bound_k > 0, "bound_k must be positive, got 0");
-        let mut subsets = subsets;
-        for (i, subset) in subsets.iter_mut().enumerate() {
+    /// Returns an error when the instance violates its documented input conditions.
+    pub fn new(
+        alphabet_size: usize,
+        mut subsets: Vec<Vec<usize>>,
+        bound_k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if bound_k == 0 {
+            return Err("bound_k must be positive, got 0".into());
+        }
+        for (index, subset) in subsets.iter_mut().enumerate() {
             let mut seen = HashSet::with_capacity(subset.len());
-            for &elem in subset.iter() {
-                assert!(
-                    elem < alphabet_size,
-                    "Subset {} contains element {} which is outside alphabet of size {}",
-                    i,
-                    elem,
-                    alphabet_size
-                );
-                assert!(
-                    seen.insert(elem),
-                    "Subset {} contains duplicate elements",
-                    i
-                );
+            for &element in subset.iter() {
+                if element >= alphabet_size {
+                    return Err(format!("subset {index} contains element {element} outside alphabet of size {alphabet_size}").into());
+                }
+                if !seen.insert(element) {
+                    return Err(format!("subset {index} contains duplicate elements").into());
+                }
             }
             subset.sort();
         }
-        Self {
+        Ok(Self {
             alphabet_size,
             subsets,
             bound_k,
-        }
+        })
     }
 
     /// Get the alphabet size.
@@ -268,11 +282,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_sets",
         // YES instance from issue: w = [0, 4, 2, 5, 1, 3]
-        instance: Box::new(ConsecutiveSets::new(
-            6,
-            vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
-            6,
-        )),
+        instance: Box::new(
+            ConsecutiveSets::new(
+                6,
+                vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
+                6,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 4, 2, 5, 1, 3]),
         optimal_value: serde_json::json!(true),
     }]

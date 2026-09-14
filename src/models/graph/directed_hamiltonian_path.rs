@@ -45,7 +45,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple directed path: 0->1->2->3
-/// let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
 /// let problem = DirectedHamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -189,7 +189,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             (4, 5),
             (5, 1),
         ],
-    );
+    )
+    .unwrap();
     let optimal_perm = vec![0usize, 1, 3, 2, 4, 5];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "directed_hamiltonian_path",

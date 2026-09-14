@@ -26,9 +26,24 @@ inventory::submit! {
 /// Given a universe `U` and a collection of subsets of `U`, find a minimum-size
 /// subset `H ⊆ U` such that `H` intersects every set in the collection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumHittingSetData")]
 pub struct MinimumHittingSet {
     universe_size: usize,
     sets: Vec<Vec<usize>>,
+}
+
+#[derive(Deserialize)]
+struct MinimumHittingSetData {
+    universe_size: usize,
+    sets: Vec<Vec<usize>>,
+}
+
+impl TryFrom<MinimumHittingSetData> for MinimumHittingSet {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumHittingSetData) -> Result<Self, Self::Error> {
+        Self::new(data.universe_size, data.sets)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -43,42 +58,31 @@ impl TryFrom<MinimumHittingSetCreateSpec> for MinimumHittingSet {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MinimumHittingSetCreateSpec) -> Result<Self, Self::Error> {
-        for (set_index, set) in spec.subsets.iter().enumerate() {
-            if let Some(&element) = set.iter().find(|&&element| element >= spec.universe_size) {
-                return Err(format!(
-                    "subsets[{set_index}] contains element {element} outside universe of size {}",
-                    spec.universe_size
-                )
-                .into());
-            }
-        }
-        Ok(Self::new(spec.universe_size, spec.subsets))
+        Self::new(spec.universe_size, spec.subsets)
     }
 }
 
 impl MinimumHittingSet {
     /// Create a new Minimum Hitting Set instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any set contains an element outside `0..universe_size`.
-    pub fn new(universe_size: usize, sets: Vec<Vec<usize>>) -> Self {
-        let mut sets = sets;
-        for (set_index, set) in sets.iter_mut().enumerate() {
+    /// Returns an error when the instance violates its documented input conditions.
+    pub fn new(
+        universe_size: usize,
+        mut sets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, set) in sets.iter_mut().enumerate() {
             set.sort_unstable();
             set.dedup();
-            for &element in set.iter() {
-                assert!(
-                    element < universe_size,
-                    "Set {set_index} contains element {element} which is outside universe of size {universe_size}"
-                );
+            if let Some(element) = set.iter().find(|&&element| element >= universe_size) {
+                return Err(format!("set {index} contains element {element} outside universe of size {universe_size}").into());
             }
         }
-
-        Self {
+        Ok(Self {
             universe_size,
             sets,
-        }
+        })
     }
 
     /// Get the universe size.
@@ -189,18 +193,21 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_hitting_set",
-        instance: Box::new(MinimumHittingSet::new(
-            6,
-            vec![
-                vec![0, 1, 2],
-                vec![0, 3, 4],
-                vec![1, 3, 5],
-                vec![2, 4, 5],
-                vec![0, 1, 5],
-                vec![2, 3],
-                vec![1, 4],
-            ],
-        )),
+        instance: Box::new(
+            MinimumHittingSet::new(
+                6,
+                vec![
+                    vec![0, 1, 2],
+                    vec![0, 3, 4],
+                    vec![1, 3, 5],
+                    vec![2, 4, 5],
+                    vec![0, 1, 5],
+                    vec![2, 3],
+                    vec![1, 4],
+                ],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![false, true, false, true, true, false]),
         optimal_value: serde_json::json!(3),
     }]

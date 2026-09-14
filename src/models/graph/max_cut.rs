@@ -54,8 +54,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a triangle with unit weights
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-/// let problem = MaxCut::new(graph, vec![1, 1, 1]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+/// let problem = MaxCut::new(graph, vec![1, 1, 1]).unwrap();
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -67,12 +67,29 @@ inventory::submit! {
 ///     assert_eq!(size, Max(Some(2)));
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaxCut<G, W> {
     /// The underlying graph structure.
     graph: G,
     /// Weights for each edge (in the same order as graph.edges()).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaxCutData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaxCut<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaxCutData::deserialize(deserializer)?;
+        Self::new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! max_cut_create_spec {
@@ -94,15 +111,7 @@ macro_rules! max_cut_create_spec {
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
                 let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; graph.num_edges()] } };
-                if edge_weights.len() != graph.num_edges() {
-                    return Err(format!(
-                        "edge_weights has length {}, expected {}",
-                        edge_weights.len(),
-                        graph.num_edges()
-                    )
-                    .into());
-                }
-                Ok(Self::new(graph, edge_weights))
+                Self::new(graph, edge_weights)
             }
         }
     };
@@ -136,7 +145,7 @@ fn simple_graph_from_create(
     if num_vertices < inferred {
         return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::new(num_vertices, edges)
 }
 
 impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
@@ -145,16 +154,14 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     /// # Arguments
     /// * `graph` - The underlying graph
     /// * `edge_weights` - Weights for each edge (must match graph.num_edges())
-    pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+    pub fn new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match graph num_edges".into());
+        }
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a MaxCut problem with unit weights.
@@ -298,7 +305,7 @@ where
 crate::impl_random_generate!(MaxCut<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     let graph = spec.graph()?;
     let weights = vec![1; graph.num_edges()];
-    Ok(MaxCut::new(graph, weights))
+    MaxCut::new(graph, weights)
 });
 
 crate::declare_variants! {
@@ -316,22 +323,25 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![
         crate::example_db::specs::ModelExampleSpec {
             id: "max_cut_simplegraph",
-            instance: Box::new(MaxCut::<_, i64>::unweighted(SimpleGraph::new(
-                5,
-                vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-            ))),
+            instance: Box::new(MaxCut::<_, i64>::unweighted(
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+            )),
             optimal_config: serde_json::json!(vec![true, false, false, true, false]),
             optimal_value: serde_json::json!(5),
         },
         crate::example_db::specs::ModelExampleSpec {
             id: "max_cut_seven_edge_graph",
-            instance: Box::new(MaxCut::new(
-                SimpleGraph::new(
-                    5,
-                    vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
-                ),
-                vec![One; 7],
-            )),
+            instance: Box::new(
+                MaxCut::new(
+                    SimpleGraph::new(
+                        5,
+                        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
+                    )
+                    .unwrap(),
+                    vec![One; 7],
+                )
+                .unwrap(),
+            ),
             optimal_config: serde_json::json!(vec![false, true, false, true, false]),
             optimal_value: serde_json::json!(6),
         },

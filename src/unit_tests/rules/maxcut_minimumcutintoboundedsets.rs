@@ -8,9 +8,10 @@ use crate::topology::SimpleGraph;
 fn test_maxcut_to_minimumcutintoboundedsets_closed_loop() {
     // Triangle K_3 with unit weights: max cut = 2
     let source = MaxCut::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -23,7 +24,7 @@ fn test_maxcut_to_minimumcutintoboundedsets_closed_loop() {
 #[test]
 fn test_maxcut_to_minimumcutintoboundedsets_single_edge() {
     // Single edge K_2: max cut = 1
-    let source = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64]);
+    let source = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![1i64]).unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -37,9 +38,10 @@ fn test_maxcut_to_minimumcutintoboundedsets_single_edge() {
 fn test_maxcut_to_minimumcutintoboundedsets_path_p4() {
     // Path P_4: vertices 0-1-2-3, unit weights, max cut = 3 (alternate: 0,1,0,1)
     let source = MaxCut::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -53,9 +55,10 @@ fn test_maxcut_to_minimumcutintoboundedsets_path_p4() {
 fn test_maxcut_to_minimumcutintoboundedsets_weighted() {
     // Triangle with weights [1, 2, 3]: max cut = 5 (cut edges with weights 2 and 3)
     let source = MaxCut::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64, 2, 3],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -69,9 +72,10 @@ fn test_maxcut_to_minimumcutintoboundedsets_weighted() {
 fn test_maxcut_to_minimumcutintoboundedsets_target_structure() {
     // Verify the target problem structure for a 3-vertex graph
     let source = MaxCut::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -91,9 +95,10 @@ fn test_maxcut_to_minimumcutintoboundedsets_target_structure() {
 fn test_maxcut_to_minimumcutintoboundedsets_even_vertices() {
     // Even number of vertices: n=4, n'=4, N=8
     let source = MaxCut::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap(),
         vec![1i64, 1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -116,9 +121,10 @@ fn test_maxcut_to_minimumcutintoboundedsets_even_vertices() {
 fn test_maxcut_to_minimumcutintoboundedsets_extract_solution_size() {
     // Verify extract_solution returns only original vertices
     let source = MaxCut::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -132,7 +138,7 @@ fn test_maxcut_to_minimumcutintoboundedsets_extract_solution_size() {
 fn test_maxcut_to_minimumcutintoboundedsets_weight_inversion() {
     // Verify weight inversion: original edge gets W_max - w, non-edge gets W_max
     // Use n=2 to keep the target small: n'=2, N=4, K_4 has 6 edges
-    let source = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![5i64]);
+    let source = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![5i64]).unwrap();
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

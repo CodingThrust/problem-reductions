@@ -61,11 +61,11 @@ impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i64>>
         let max_components = if q == 0 { 1 } else { q };
 
         let target = BoundedComponentSpanningForest::new(
-            SimpleGraph::new(n, self.graph().edges()),
+            SimpleGraph::new(n, self.graph().edges()).map_err(<Self as ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i64>>>::target_construction)?,
             vec![1i64; n],  // unit weights
             max_components, // K = max(|V|/3, 1)
             3,              // B = 3
-        );
+        ).map_err(<Self as ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionPPL2ToBCSF { target })
     }
@@ -79,10 +79,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partitionintopathsoflength2_to_boundedcomponentspanningforest",
         build: || {
             // 6-vertex graph with two P3 paths: 0-1-2 and 3-4-5
-            let source = PartitionIntoPathsOfLength2::new(SimpleGraph::new(
-                6,
-                vec![(0, 1), (1, 2), (3, 4), (4, 5)],
-            ));
+            let source = PartitionIntoPathsOfLength2::new(
+                SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 BoundedComponentSpanningForest<SimpleGraph, i64>,

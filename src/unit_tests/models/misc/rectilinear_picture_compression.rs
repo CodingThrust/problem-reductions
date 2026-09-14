@@ -25,7 +25,7 @@ fn issue_matrix() -> Vec<Vec<bool>> {
 
 #[test]
 fn test_rectilinear_picture_compression_basic() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     assert_eq!(problem.num_rows(), 4);
     assert_eq!(problem.num_cols(), 4);
     assert_eq!(problem.bound(), 2);
@@ -41,7 +41,7 @@ fn test_rectilinear_picture_compression_basic() {
 
 #[test]
 fn test_rectilinear_picture_compression_maximal_rectangles_two_blocks() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     let rects = problem.maximal_rectangles();
     // Two disjoint 2x2 blocks: (0,0,1,1) and (2,2,3,3)
     assert_eq!(rects, vec![(0, 0, 1, 1), (2, 2, 3, 3)]);
@@ -49,7 +49,7 @@ fn test_rectilinear_picture_compression_maximal_rectangles_two_blocks() {
 
 #[test]
 fn test_rectilinear_picture_compression_dims() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     // 2 maximal rectangles -> 2 binary variables
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -59,14 +59,14 @@ fn test_rectilinear_picture_compression_dims() {
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_satisfying() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     // Select both maximal rectangles
     assert!(problem.evaluate(&vec![true, true]).unwrap());
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_unsatisfying_not_all_covered() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     // Select only first rectangle - second block uncovered
     assert!(!problem.evaluate(&vec![true, false]).unwrap());
     // Select only second rectangle - first block uncovered
@@ -77,14 +77,14 @@ fn test_rectilinear_picture_compression_evaluate_unsatisfying_not_all_covered() 
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_bound_exceeded() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 1);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 1).unwrap();
     // Both selected but bound is 1
     assert!(!problem.evaluate(&vec![true, true]).unwrap());
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_wrong_config_length() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![true]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -97,7 +97,7 @@ fn test_rectilinear_picture_compression_evaluate_wrong_config_length() {
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_invalid_variable_value() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     assert!(
         crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
             .is_err()
@@ -106,7 +106,7 @@ fn test_rectilinear_picture_compression_evaluate_invalid_variable_value() {
 
 #[test]
 fn test_rectilinear_picture_compression_issue_matrix_satisfiable() {
-    let problem = RectilinearPictureCompression::new(issue_matrix(), 3);
+    let problem = RectilinearPictureCompression::new(issue_matrix(), 3).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
@@ -116,7 +116,7 @@ fn test_rectilinear_picture_compression_issue_matrix_satisfiable() {
 
 #[test]
 fn test_rectilinear_picture_compression_issue_matrix_unsatisfiable() {
-    let problem = RectilinearPictureCompression::new(issue_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(issue_matrix(), 2).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
@@ -124,7 +124,7 @@ fn test_rectilinear_picture_compression_issue_matrix_unsatisfiable() {
 
 #[test]
 fn test_rectilinear_picture_compression_brute_force() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -135,7 +135,7 @@ fn test_rectilinear_picture_compression_brute_force() {
 
 #[test]
 fn test_rectilinear_picture_compression_brute_force_all() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Two disjoint 2x2 blocks with K=2: exactly one satisfying config [1,1].
@@ -147,7 +147,7 @@ fn test_rectilinear_picture_compression_brute_force_all() {
 
 #[test]
 fn test_rectilinear_picture_compression_serialization() {
-    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
+    let problem = RectilinearPictureCompression::new(two_block_matrix(), 2).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     assert_eq!(
         json,
@@ -172,7 +172,7 @@ fn test_rectilinear_picture_compression_serialization() {
 fn test_rectilinear_picture_compression_single_cell() {
     // Single 1-entry matrix
     let matrix = vec![vec![true]];
-    let problem = RectilinearPictureCompression::new(matrix, 1);
+    let problem = RectilinearPictureCompression::new(matrix, 1).unwrap();
     let rects = problem.maximal_rectangles();
     assert_eq!(rects, vec![(0, 0, 0, 0)]);
     assert_eq!(
@@ -187,7 +187,7 @@ fn test_rectilinear_picture_compression_single_cell() {
 fn test_rectilinear_picture_compression_all_zeros() {
     // Matrix with no 1-entries: no maximal rectangles, always satisfiable
     let matrix = vec![vec![false, false], vec![false, false]];
-    let problem = RectilinearPictureCompression::new(matrix, 0);
+    let problem = RectilinearPictureCompression::new(matrix, 0).unwrap();
     let rects = problem.maximal_rectangles();
     assert!(rects.is_empty());
     assert_eq!(
@@ -202,7 +202,7 @@ fn test_rectilinear_picture_compression_all_zeros() {
 fn test_rectilinear_picture_compression_full_matrix() {
     // 2x2 all-ones matrix: one maximal rectangle covers everything
     let matrix = vec![vec![true, true], vec![true, true]];
-    let problem = RectilinearPictureCompression::new(matrix, 1);
+    let problem = RectilinearPictureCompression::new(matrix, 1).unwrap();
     let rects = problem.maximal_rectangles();
     assert_eq!(rects, vec![(0, 0, 1, 1)]);
     assert!(problem.evaluate(&vec![true]).unwrap());
@@ -213,7 +213,7 @@ fn test_rectilinear_picture_compression_full_matrix() {
 fn test_rectilinear_picture_compression_overlapping_rectangles() {
     // L-shaped region: requires multiple rectangles, some may overlap
     let matrix = vec![vec![true, true], vec![true, false]];
-    let problem = RectilinearPictureCompression::new(matrix, 2);
+    let problem = RectilinearPictureCompression::new(matrix, 2).unwrap();
     let rects = problem.maximal_rectangles();
     // Maximal rectangles: (0,0,1,0) vertical bar, (0,0,0,1) horizontal bar
     assert!(rects.contains(&(0, 0, 1, 0)));
@@ -226,24 +226,33 @@ fn test_rectilinear_picture_compression_overlapping_rectangles() {
 #[test]
 fn test_rectilinear_picture_compression_matrix_getter() {
     let matrix = two_block_matrix();
-    let problem = RectilinearPictureCompression::new(matrix.clone(), 2);
+    let problem = RectilinearPictureCompression::new(matrix.clone(), 2).unwrap();
     assert_eq!(problem.matrix(), &matrix);
 }
 
 #[test]
-#[should_panic(expected = "empty")]
-fn test_rectilinear_picture_compression_empty_matrix_panics() {
-    RectilinearPictureCompression::new(vec![], 1);
+fn test_rectilinear_picture_compression_empty_matrix_rejects() {
+    assert!(RectilinearPictureCompression::new(vec![], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "column")]
-fn test_rectilinear_picture_compression_empty_row_panics() {
-    RectilinearPictureCompression::new(vec![vec![]], 1);
+fn test_rectilinear_picture_compression_empty_row_rejects() {
+    assert!(RectilinearPictureCompression::new(vec![vec![]], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "same length")]
-fn test_rectilinear_picture_compression_inconsistent_rows_panics() {
-    RectilinearPictureCompression::new(vec![vec![true, false], vec![true]], 1);
+fn test_rectilinear_picture_compression_inconsistent_rows_rejects() {
+    assert!(RectilinearPictureCompression::new(vec![vec![true, false], vec![true]], 1).is_err());
+}
+
+#[test]
+fn deserialize_rejects_invalid_matrix_before_building_rectangles() {
+    for matrix in [vec![], vec![vec![]], vec![vec![true], vec![]]] {
+        assert!(
+            serde_json::from_value::<RectilinearPictureCompression>(serde_json::json!({
+                "matrix": matrix, "bound": 1
+            }))
+            .is_err()
+        );
+    }
 }

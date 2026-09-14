@@ -215,7 +215,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![false, true, true, false],
                 ],
                 3,
-            );
+            )
+            .unwrap();
             let reduction: ReductionCOSToILP =
                 ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let ilp_solver = crate::solvers::ILPSolver::new();

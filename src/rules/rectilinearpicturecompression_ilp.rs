@@ -77,7 +77,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "rectilinearpicturecompression_to_ilp",
         build: || {
             let source =
-                RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 1);
+                RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 1)
+                    .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

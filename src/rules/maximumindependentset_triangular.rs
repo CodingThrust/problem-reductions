@@ -57,7 +57,9 @@ impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i64>>
         let result = triangular::map_weighted(n, &edges).map_err(&mapping_error)?;
         let weights = triangular::map_unit_weights(&result).map_err(mapping_error)?;
         let grid = result.to_triangular_subgraph();
-        let target = MaximumIndependentSet::new(grid, weights);
+        let target = MaximumIndependentSet::new(grid, weights).map_err(
+            <Self as ReduceTo<MaximumIndependentSet<TriangularSubgraph, i64>>>::target_construction,
+        )?;
         Ok(ReductionISSimpleToTriangular {
             target,
             mapping_result: result,

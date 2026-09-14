@@ -15,7 +15,8 @@ fn test_cos_to_ilp_structure() {
             vec![false, true, true, false],
         ],
         3,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCOSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -34,7 +35,8 @@ fn test_cos_to_ilp_closed_loop() {
             vec![false, true, true, false],
         ],
         3,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCOSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -61,7 +63,8 @@ fn test_cos_to_ilp_bf_vs_ilp() {
             vec![false, true, true, false],
         ],
         3,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCOSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -86,7 +89,8 @@ fn test_cos_to_ilp_allows_zero_rows_in_selected_submatrix() {
             vec![true, false, false, true],
         ],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCOSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -100,7 +104,8 @@ fn test_cos_to_ilp_allows_zero_rows_in_selected_submatrix() {
 #[test]
 fn test_cos_to_ilp_trivial() {
     // 2x2 identity, K=2
-    let problem = ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem =
+        ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let reduction: ReductionCOSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

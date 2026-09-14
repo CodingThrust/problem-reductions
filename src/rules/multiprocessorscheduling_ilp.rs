@@ -104,7 +104,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Loads: processor 0 = 4, processor 1 = 5+3 = 8 (wait, try different)
             // Assignment: task 0 → processor 0, task 1 → processor 1, task 2 → processor 0
             // Loads: processor 0 = 4+3=7, processor 1 = 5 ≤ 7. Feasible!
-            let source = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 7);
+            let source = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 7).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

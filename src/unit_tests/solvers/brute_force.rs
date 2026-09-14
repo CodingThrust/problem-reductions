@@ -481,9 +481,10 @@ fn test_solver_with_real_mis() {
     use crate::traits::Problem;
 
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64; 3],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
 
     let best = solver.find_all_witnesses(&problem).unwrap();
@@ -637,7 +638,7 @@ fn cartesian_indices_visits_a_prefix_when_the_total_exceeds_usize() {
 #[test]
 fn enumeration_reports_coordinate_count_and_storage_errors() {
     use crate::models::set::SetBasis;
-    let count_overflow = SetBasis::new(2, vec![], usize::MAX);
+    let count_overflow = SetBasis::new(2, vec![], usize::MAX).unwrap();
     assert!(matches!(
         BruteForceProblem::num_variables(&count_overflow),
         Err(SolveError::IntegerOverflow(_))
@@ -646,7 +647,7 @@ fn enumeration_reports_coordinate_count_and_storage_errors() {
         BruteForce::new().solve(&count_overflow),
         Err(SolveError::IntegerOverflow(_))
     ));
-    let allocation_overflow = SetBasis::new(1, vec![], usize::MAX);
+    let allocation_overflow = SetBasis::new(1, vec![], usize::MAX).unwrap();
     assert!(matches!(
         cartesian_dimensions(&allocation_overflow),
         Err(SolveError::Allocation(_))
@@ -679,7 +680,7 @@ fn scalar_counts_report_unrepresentable_search_coordinates() {
         (
             "biclique slots",
             crate::models::graph::BicliqueCover::new(
-                crate::topology::BipartiteGraph::new(1, 1, vec![(0, 0)]),
+                crate::topology::BipartiteGraph::new(1, 1, vec![(0, 0)]).unwrap(),
                 usize::MAX,
             )
             .num_variables(),
@@ -687,11 +688,12 @@ fn scalar_counts_report_unrepresentable_search_coordinates() {
         (
             "tree slots",
             crate::models::graph::KthBestSpanningTree::new(
-                crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![1i64, 1],
                 usize::MAX,
                 2,
             )
+            .unwrap()
             .num_variables(),
         ),
         (
@@ -701,15 +703,21 @@ fn scalar_counts_report_unrepresentable_search_coordinates() {
         ),
         (
             "factor rows",
-            BMF::new(vec![vec![true]; 2], usize::MAX).num_variables(),
+            BMF::new(vec![vec![true]; 2], usize::MAX)
+                .unwrap()
+                .num_variables(),
         ),
         (
             "factor columns",
-            BMF::new(vec![vec![true; 2]], usize::MAX).num_variables(),
+            BMF::new(vec![vec![true; 2]], usize::MAX)
+                .unwrap()
+                .num_variables(),
         ),
         (
             "factor sum",
-            BMF::new(vec![vec![true]], usize::MAX).num_variables(),
+            BMF::new(vec![vec![true]], usize::MAX)
+                .unwrap()
+                .num_variables(),
         ),
         (
             "operation operands",
@@ -718,6 +726,7 @@ fn scalar_counts_report_unrepresentable_search_coordinates() {
         (
             "database entries",
             ConsistencyOfDatabaseFrequencyTables::new(usize::MAX, vec![1, 1], vec![], vec![])
+                .unwrap()
                 .num_variables(),
         ),
     ];
@@ -735,17 +744,21 @@ fn scalar_domains_report_unrepresentable_coordinate_cardinalities() {
         ConjunctiveQueryFoldability, EnsembleComputation, MinimumExternalMacroDataCompression,
         MinimumInternalMacroDataCompression,
     };
-    let external = MinimumExternalMacroDataCompression::new(usize::MAX, vec![0], 1);
+    let external = MinimumExternalMacroDataCompression::new(usize::MAX, vec![0], 1).unwrap();
     let cases = [
         ("external symbol", external.dimension(0)),
         ("external pointer", external.dimension(1)),
         (
             "internal alphabet",
-            MinimumInternalMacroDataCompression::new(usize::MAX, vec![0], 1).dimension(0),
+            MinimumInternalMacroDataCompression::new(usize::MAX, vec![0], 1)
+                .unwrap()
+                .dimension(0),
         ),
         (
             "internal sentinel",
-            MinimumInternalMacroDataCompression::new(usize::MAX - 1, vec![0], 1).dimension(0),
+            MinimumInternalMacroDataCompression::new(usize::MAX - 1, vec![0], 1)
+                .unwrap()
+                .dimension(0),
         ),
         (
             "operand labels",
@@ -753,11 +766,15 @@ fn scalar_domains_report_unrepresentable_coordinate_cardinalities() {
         ),
         (
             "distinguished labels",
-            ConjunctiveQueryFoldability::new(usize::MAX, 1, 1, vec![], vec![], vec![]).dimension(0),
+            ConjunctiveQueryFoldability::new(usize::MAX, 1, 1, vec![], vec![], vec![])
+                .unwrap()
+                .dimension(0),
         ),
         (
             "undistinguished labels",
-            ConjunctiveQueryFoldability::new(usize::MAX, 0, 1, vec![], vec![], vec![]).dimension(0),
+            ConjunctiveQueryFoldability::new(usize::MAX, 0, 1, vec![], vec![], vec![])
+                .unwrap()
+                .dimension(0),
         ),
     ];
     for (context, result) in cases {
@@ -777,19 +794,27 @@ fn string_domains_reserve_a_representable_sentinel() {
     let cases = [
         (
             "subsequence",
-            LongestCommonSubsequence::new(usize::MAX, vec![vec![0]]).dimension(0),
+            LongestCommonSubsequence::new(usize::MAX, vec![vec![0]])
+                .unwrap()
+                .dimension(0),
         ),
         (
             "supersequence",
-            ShortestCommonSupersequence::new(usize::MAX, vec![vec![0]]).dimension(0),
+            ShortestCommonSupersequence::new(usize::MAX, vec![vec![0]])
+                .unwrap()
+                .dimension(0),
         ),
         (
             "superstring",
-            ShortestCommonSuperstring::new(usize::MAX, vec![vec![0]]).dimension(0),
+            ShortestCommonSuperstring::new(usize::MAX, vec![vec![0]])
+                .unwrap()
+                .dimension(0),
         ),
         (
             "consecutive sets",
-            ConsecutiveSets::new(usize::MAX, vec![vec![0]], 1).dimension(0),
+            ConsecutiveSets::new(usize::MAX, vec![vec![0]], 1)
+                .unwrap()
+                .dimension(0),
         ),
     ];
     for (context, result) in cases {
@@ -812,7 +837,7 @@ fn decision_tree_slots_fail_before_enumeration_storage_is_allocated() {
                 .collect()
         })
         .collect();
-    let problem = MinimumDecisionTree::new(matrix, objects, tests);
+    let problem = MinimumDecisionTree::new(matrix, objects, tests).unwrap();
     assert!(matches!(
         cartesian_dimensions(&problem),
         Err(SolveError::Evaluation(
@@ -844,7 +869,8 @@ fn large_products_remain_symbolic_in_model_parameters() {
             .count(),
         2
     );
-    let database = ConsistencyOfDatabaseFrequencyTables::new(1, vec![2; 64], vec![], vec![]);
+    let database =
+        ConsistencyOfDatabaseFrequencyTables::new(1, vec![2; 64], vec![], vec![]).unwrap();
     let restored: ConsistencyOfDatabaseFrequencyTables =
         serde_json::from_value(serde_json::to_value(&database).unwrap()).unwrap();
     assert_eq!(database.parameters(), restored.parameters());

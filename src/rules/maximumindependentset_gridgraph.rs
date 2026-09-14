@@ -54,7 +54,9 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>
         })?;
         let grid = result.to_kings_subgraph();
         let weights = vec![One; grid.num_vertices()];
-        let target = MaximumIndependentSet::new(grid, weights);
+        let target = MaximumIndependentSet::new(grid, weights).map_err(
+            <Self as ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>>::target_construction,
+        )?;
         Ok(ReductionISSimpleOneToGridOne {
             target,
             mapping_result: result,

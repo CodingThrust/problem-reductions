@@ -81,7 +81,9 @@ inventory::submit! {
 
 #[test]
 fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let dyn_problem: &dyn DynProblem = &problem;
 
     assert_eq!(dyn_problem.problem_name(), "MaximumIndependentSet");
@@ -98,7 +100,9 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
 
 #[test]
 fn test_dyn_evaluation_distinguishes_infeasibility_and_malformed_input() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let dyn_problem: &dyn DynProblem = &problem;
     assert_eq!(
         dyn_problem
@@ -122,7 +126,7 @@ fn test_dyn_evaluation_distinguishes_infeasibility_and_malformed_input() {
 
 #[test]
 fn test_loaded_dyn_problem_delegates_to_solve_fn() {
-    let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
+    let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32).unwrap();
     let loaded = LoadedDynProblem::new(Box::new(problem));
 
     assert_eq!(
@@ -162,7 +166,11 @@ fn loaded_dyn_problem_returns_solution_and_evaluation() {
 
 #[test]
 fn test_load_dyn_formats_optimization_solve_values_as_max_min() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),
@@ -189,7 +197,9 @@ fn test_find_variant_entry_requires_exact_variant() {
 
 #[test]
 fn test_load_dyn_round_trips_maximum_independent_set() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),
@@ -214,7 +224,7 @@ fn test_load_dyn_round_trips_maximum_independent_set() {
 
 #[test]
 fn test_load_dyn_solves_subset_sum() {
-    let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
+    let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32).unwrap();
     let variant = BTreeMap::new();
     let loaded = load_dyn(
         "SubsetSum",
@@ -232,7 +242,9 @@ fn test_load_dyn_solves_subset_sum() {
 
 #[test]
 fn test_load_dyn_rejects_partial_variant() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let partial = BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]);
     let err = load_dyn(
         "MaximumIndependentSet",
@@ -246,7 +258,9 @@ fn test_load_dyn_rejects_partial_variant() {
 
 #[test]
 fn test_load_dyn_rejects_alias_name() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),
@@ -256,7 +270,9 @@ fn test_load_dyn_rejects_alias_name() {
 
 #[test]
 fn test_serialize_any_round_trips_exact_variant() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),
@@ -267,7 +283,9 @@ fn test_serialize_any_round_trips_exact_variant() {
 
 #[test]
 fn test_serialize_any_rejects_partial_variant() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let partial = BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]);
     assert!(serialize_any("MaximumIndependentSet", &partial, &problem as &dyn Any).is_none());
 }
@@ -285,7 +303,9 @@ fn test_format_metric_uses_display() {
 
 #[test]
 fn test_loaded_dyn_problem_debug() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),

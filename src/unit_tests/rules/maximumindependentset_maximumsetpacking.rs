@@ -6,8 +6,11 @@ use crate::types::One;
 
 #[test]
 fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {
-    let is_problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
+    let is_problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![10, 20, 30],
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
     let sp_problem = reduction.target_problem();
@@ -19,7 +22,8 @@ fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {
 #[test]
 fn test_empty_graph() {
     // No edges means all sets are empty (or we need to handle it)
-    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let is_problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![]).unwrap(), vec![1i64; 3]).unwrap();
     let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
     let sp_problem = reduction.target_problem();
@@ -51,8 +55,11 @@ fn test_disjoint_sets() {
 #[test]
 fn test_reduction_structure() {
     // Test IS to SP structure
-    let is_problem =
-        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2)]), vec![1i64; 4]);
+    let is_problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 4],
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -82,8 +89,11 @@ fn test_jl_parity_is_to_setpacking() {
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &is_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
+        vec![1i64; nv],
+    )
+    .unwrap();
     let result =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -140,8 +150,11 @@ fn test_jl_parity_rule_is_to_setpacking() {
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &jl_find_instance_by_label(&is_data, "doc_4vertex")["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
+        vec![1i64; nv],
+    )
+    .unwrap();
     let result =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -171,8 +184,11 @@ fn test_jl_parity_doc_is_to_setpacking() {
     let is_instance = jl_find_instance_by_label(&is_data, "doc_4vertex");
     let inst = &is_instance["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
+        vec![1i64; nv],
+    )
+    .unwrap();
     let result =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -194,8 +210,11 @@ fn test_jl_parity_doc_is_to_setpacking() {
 #[test]
 fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
     // Path graph: 0-1-2 with unit weights (MIS = 2: select vertices 0, 2)
-    let is_problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
+    let is_problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![One; 3],
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
     let sp_problem = reduction.target_problem();

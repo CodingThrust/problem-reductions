@@ -9,7 +9,8 @@ fn test_minimum_code_generation_unlimited_registers_creation() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_leaves(), 2);
     assert_eq!(problem.num_internal(), 3);
@@ -39,7 +40,8 @@ fn test_minimum_code_generation_unlimited_registers_evaluate_optimal() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     let config = vec![2, 0, 1];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
     assert_eq!(problem.simulate(&config).unwrap(), Some(4));
@@ -72,7 +74,8 @@ fn test_minimum_code_generation_unlimited_registers_evaluate_suboptimal() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     let config = vec![2, 1, 0];
     // Step 0: OP v2, left=v3. future uses of v3 after decrement: left_uses=1 (from v1), right_uses=0.
     //   Still needed -> LOAD v3. instructions = 2 (1 LOAD + 1 OP).
@@ -90,7 +93,8 @@ fn test_minimum_code_generation_unlimited_registers_dependency_violation() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     // v0 first (pos 0) — depends on v1,v2 which haven't been computed
     let config = vec![0, 1, 2];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
@@ -102,7 +106,8 @@ fn test_minimum_code_generation_unlimited_registers_invalid_permutation() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     // Not a permutation: position 0 used twice
     assert_eq!(problem.evaluate(&vec![0, 0, 1]).unwrap(), Min(None));
     // Wrong length
@@ -124,7 +129,8 @@ fn test_minimum_code_generation_unlimited_registers_solver() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
     let result = problem.evaluate(&result_solution).unwrap();
@@ -137,7 +143,8 @@ fn test_minimum_code_generation_unlimited_registers_solver_witness() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -152,7 +159,8 @@ fn test_minimum_code_generation_unlimited_registers_serialization() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumCodeGenerationUnlimitedRegisters = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_vertices(), problem.num_vertices());
@@ -166,7 +174,8 @@ fn test_minimum_code_generation_unlimited_registers_unary_ops() {
     // Simple chain: v0 = unary(v1), v1 = unary(v2)
     // Leaves: {2}, Internal: {0, 1}
     // Unary ops only have left arcs
-    let problem = MinimumCodeGenerationUnlimitedRegisters::new(3, vec![(0, 1), (1, 2)], vec![]);
+    let problem =
+        MinimumCodeGenerationUnlimitedRegisters::new(3, vec![(0, 1), (1, 2)], vec![]).unwrap();
     // Order: v1 first, v0 second. config = [1, 0]
     let config = vec![1, 0];
     // v1: left=v2, no future uses of v2 -> no LOAD. OP v1 = 1.
@@ -180,7 +189,8 @@ fn test_minimum_code_generation_unlimited_registers_unary_ops() {
 fn test_minimum_code_generation_unlimited_registers_no_copy_needed() {
     // v0 = op(v1, v2), v1 and v2 are leaves
     // No shared operands, so no copies needed
-    let problem = MinimumCodeGenerationUnlimitedRegisters::new(3, vec![(0, 1)], vec![(0, 2)]);
+    let problem =
+        MinimumCodeGenerationUnlimitedRegisters::new(3, vec![(0, 1)], vec![(0, 2)]).unwrap();
     // Only one internal vertex v0, config = [0]
     let config = vec![0];
     // OP v0: left=v1, right=v2. No future uses of v1. No LOAD. 1 OP.
@@ -194,7 +204,8 @@ fn test_minimum_code_generation_unlimited_registers_paper_example() {
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
-    );
+    )
+    .unwrap();
 
     // Optimal order: v1, v2, v0 => config = [2, 0, 1]
     let config = vec![2, 0, 1];

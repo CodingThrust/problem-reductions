@@ -13,7 +13,11 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i64> {
-    MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![4, 1, 3])
+    MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![4, 1, 3],
+    )
+    .unwrap()
 }
 
 #[test]

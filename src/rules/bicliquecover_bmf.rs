@@ -62,7 +62,7 @@ impl ReduceTo<BMF> for BicliqueCover {
         for &(i, j) in self.graph().left_edges() {
             matrix[i][j] = true;
         }
-        let target = BMF::new(matrix, k);
+        let target = BMF::new(matrix, k).map_err(<Self as ReduceTo<BMF>>::target_construction)?;
         Ok(ReductionBicliqueCoverToBMF { target, m, n, k })
     }
 }
@@ -77,7 +77,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Single K_{2,2} biclique at rank 1 — matches the forward example.
             let source = BicliqueCover::new(
-                BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+                BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]).unwrap(),
                 1,
             );
             crate::example_db::specs::rule_example_with_witness::<_, BMF>(

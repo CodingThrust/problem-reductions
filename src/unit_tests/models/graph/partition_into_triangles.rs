@@ -19,8 +19,9 @@ fn test_partitionintotriangles_basic() {
             (7, 8),
             (6, 8),
         ],
-    );
-    let problem = PartitionIntoTriangles::new(graph);
+    )
+    .unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
 
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 9);
@@ -42,8 +43,8 @@ fn test_partitionintotriangles_basic() {
 #[test]
 fn test_partitionintotriangles_no_solution() {
     // 6-vertex NO instance: path graph has no triangles at all
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(
@@ -62,8 +63,8 @@ fn test_partitionintotriangles_solver() {
     use crate::traits::Problem;
 
     // Single triangle
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
 
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
@@ -81,8 +82,8 @@ fn test_partitionintotriangles_solver() {
 
 #[test]
 fn test_partitionintotriangles_serialization() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
 
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: PartitionIntoTriangles<SimpleGraph> = serde_json::from_str(&json).unwrap();
@@ -92,18 +93,17 @@ fn test_partitionintotriangles_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "must be divisible by 3")]
 fn test_partitionintotriangles_invalid_vertex_count() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let _ = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    assert!(PartitionIntoTriangles::new(graph).is_err());
 }
 
 #[test]
 fn test_partitionintotriangles_config_out_of_range() {
     use crate::traits::Problem;
 
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
 
     // q = 1, so only group 0 is valid; group 1 is out of range
     assert!(matches!(
@@ -116,8 +116,8 @@ fn test_partitionintotriangles_config_out_of_range() {
 fn test_partitionintotriangles_wrong_config_length() {
     use crate::traits::Problem;
 
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
 
     assert!(matches!(
         problem.evaluate(&vec![0, 0]),
@@ -131,8 +131,8 @@ fn test_partitionintotriangles_wrong_config_length() {
 
 #[test]
 fn test_partitionintotriangles_parameter_getters() {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 6);
 }
@@ -144,8 +144,9 @@ fn test_partitionintotriangles_paper_example() {
     let graph = SimpleGraph::new(
         6,
         vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3)],
-    );
-    let problem = PartitionIntoTriangles::new(graph);
+    )
+    .unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
     // Valid partition: {0,1,2} in group 0, {3,4,5} in group 1
     assert!(problem.evaluate(&vec![0, 0, 0, 1, 1, 1]).unwrap());
 

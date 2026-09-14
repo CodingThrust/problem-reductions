@@ -67,7 +67,7 @@ pub fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // House graph: vertices 0–4
-/// let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+/// let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
 /// let problem = MinimumMetricDimension::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -211,10 +211,9 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_metric_dimension_simplegraph",
-        instance: Box::new(MinimumMetricDimension::new(SimpleGraph::new(
-            5,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-        ))),
+        instance: Box::new(MinimumMetricDimension::new(
+            SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![true, true, false, false, false]),
         optimal_value: serde_json::json!(2),
     }]

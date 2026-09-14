@@ -9,7 +9,7 @@ use crate::variant::KN;
 fn create_spec_uses_k_input() {
     assert_eq!(MaximumCoKPlexCreateSpec::<i64>::FIELDS[2].name, "k");
     let problem = MaximumCoKPlex::try_from(MaximumCoKPlexCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         weights: vec![2, 3],
         k: 1,
     })
@@ -19,11 +19,11 @@ fn create_spec_uses_k_input() {
 }
 
 fn c5() -> SimpleGraph {
-    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
+    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap()
 }
 
 fn issue_instance() -> MaximumCoKPlex<SimpleGraph, i64, KN> {
-    MaximumCoKPlex::<_, i64, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2)
+    MaximumCoKPlex::<_, i64, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2).unwrap()
 }
 
 #[test]
@@ -101,7 +101,7 @@ fn test_maximum_co_k_plex_brute_force() {
 fn test_maximum_co_k_plex_k_equals_1_is_independent_set() {
     // For k = 1 the co-k-plex constraint forces an independent set.
     // 5-cycle MIS has size 2, so unit-weight optimum is 2.
-    let problem = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 1);
+    let problem = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 1).unwrap();
     let solver = BruteForce::new();
     assert_eq!(
         problem
@@ -156,15 +156,13 @@ fn test_maximum_co_k_plex_problem_name_and_variant() {
 }
 
 #[test]
-#[should_panic(expected = "co-k-plex parameter k must be at least 1")]
 fn test_maximum_co_k_plex_rejects_zero_k() {
-    let _ = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 0);
+    assert!(MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 0).is_err());
 }
 
 #[test]
-#[should_panic(expected = "weights length must match graph num_vertices")]
 fn test_maximum_co_k_plex_rejects_weight_length_mismatch() {
-    let _ = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 4], 2);
+    assert!(MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 4], 2).is_err());
 }
 
 #[test]
@@ -188,4 +186,15 @@ fn test_maximum_co_k_plex_rejects_missing_bound_k_on_load() {
         msg.contains("bound_k"),
         "error should mention the missing field `bound_k`, got: {msg}"
     );
+}
+
+#[test]
+fn deserialize_checks_fixed_k_and_weight_count() {
+    for (weights, bound_k) in [(vec![1, 1], 2), (vec![1], 1)] {
+        assert!(serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i64, crate::variant::K1>>(
+            serde_json::json!({
+                "graph": {"num_vertices": 2, "edges": []}, "weights": weights, "bound_k": bound_k
+            })
+        ).is_err());
+    }
 }

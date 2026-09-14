@@ -30,6 +30,7 @@ fn yes_instance() -> ConjunctiveQueryFoldability {
             (0, vec![U(2), X(0)]),
         ],
     )
+    .unwrap()
 }
 
 /// Build the NO instance (not foldable):
@@ -52,6 +53,7 @@ fn no_instance() -> ConjunctiveQueryFoldability {
         // Q2: R(x,a) ∧ R(a,x)
         vec![(0, vec![X(0), U(2)]), (0, vec![U(2), X(0)])],
     )
+    .unwrap()
 }
 
 #[test]
@@ -178,7 +180,8 @@ fn test_conjunctive_query_foldability_with_constants() {
             (0, vec![C(0), X(0)]), // R(c0, x)
             (0, vec![X(0), X(0)]), // R(x, x)
         ],
-    );
+    )
+    .unwrap();
     // dims = [1+1+1; 1] = [3]
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -228,59 +231,59 @@ fn test_conjunctive_query_foldability_evaluate_out_of_range() {
 }
 
 #[test]
-#[should_panic(expected = "relation index")]
 fn test_conjunctive_query_foldability_bad_relation_index() {
     use Term::Distinguished as X;
-    ConjunctiveQueryFoldability::new(
+    assert!(ConjunctiveQueryFoldability::new(
         0,
         1,
         0,
         vec![2],
         vec![(5, vec![X(0), X(0)])], // relation 5 doesn't exist
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "arity")]
 fn test_conjunctive_query_foldability_bad_arity() {
     use Term::Distinguished as X;
-    ConjunctiveQueryFoldability::new(
+    assert!(ConjunctiveQueryFoldability::new(
         0,
         1,
         0,
         vec![2],
         vec![(0, vec![X(0)])], // arity 2 but 1 arg
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "Distinguished")]
 fn test_conjunctive_query_foldability_bad_distinguished() {
     use Term::Distinguished as X;
-    ConjunctiveQueryFoldability::new(
+    assert!(ConjunctiveQueryFoldability::new(
         0,
         1,
         0,
         vec![2],
         vec![(0, vec![X(0), X(1)])], // X(1) out of range
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "Constant")]
 fn test_conjunctive_query_foldability_bad_constant() {
     use Term::{Constant as C, Distinguished as X};
-    ConjunctiveQueryFoldability::new(
+    assert!(ConjunctiveQueryFoldability::new(
         1,
         1,
         0,
         vec![2],
         vec![(0, vec![X(0), C(1)])], // C(1) out of range for domain_size=1
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
@@ -294,7 +297,8 @@ fn test_conjunctive_query_foldability_no_undistinguished() {
         vec![2],
         vec![(0, vec![X(0), X(0)])],
         vec![(0, vec![X(0), X(0)])],
-    );
+    )
+    .unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         Vec::<usize>::new()
@@ -313,20 +317,21 @@ fn test_conjunctive_query_foldability_no_undistinguished_not_equal() {
         vec![2],
         vec![(0, vec![X(0), X(1)])],
         vec![(0, vec![X(1), X(0)])],
-    );
+    )
+    .unwrap();
     assert!(!problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
-#[should_panic(expected = "Undistinguished")]
 fn test_conjunctive_query_foldability_bad_undistinguished() {
     use Term::{Distinguished as X, Undistinguished as U};
-    ConjunctiveQueryFoldability::new(
+    assert!(ConjunctiveQueryFoldability::new(
         0,
         1,
         1,
         vec![2],
         vec![(0, vec![X(0), U(1)])], // U(1) out of range for num_undistinguished=1
         vec![],
-    );
+    )
+    .is_err());
 }

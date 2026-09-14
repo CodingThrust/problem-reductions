@@ -174,7 +174,11 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
             }
         }
 
-        Ok(DirectedGraph::new(self.graph.num_vertices(), augmented_arcs).is_strongly_connected())
+        Ok(
+            DirectedGraph::new(self.graph.num_vertices(), augmented_arcs)
+                .expect("candidate arc endpoints were checked at construction")
+                .is_strongly_connected(),
+        )
     }
 }
 
@@ -259,7 +263,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Nine candidate arcs are all individually affordable, but only the
         // pair (4→1, w=3) + (1→0, w=5) = 8 = B achieves strong connectivity.
         instance: Box::new(StrongConnectivityAugmentation::new(
-            DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+            DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
             vec![
                 (4, 0, 10), // direct fix, too expensive
                 (4, 3, 3),  // 4-escape to dead end

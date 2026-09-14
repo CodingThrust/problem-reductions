@@ -34,7 +34,7 @@ inventory::submit! {
 /// integer `K`, and a bound `B`, determine whether the vertices can be
 /// partitioned into at most `K` non-empty sets such that every set induces a
 /// connected subgraph and the total weight of each set is at most `B`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BoundedComponentSpanningForest<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -44,6 +44,35 @@ pub struct BoundedComponentSpanningForest<G, W: WeightElement> {
     max_components: usize,
     /// Upper bound on the total weight of every component.
     max_weight: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
+struct BoundedComponentSpanningForestData<G, W: WeightElement> {
+    graph: G,
+    weights: Vec<W>,
+    max_components: usize,
+    max_weight: W::Sum,
+}
+
+impl<'de, G, W> Deserialize<'de> for BoundedComponentSpanningForest<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = BoundedComponentSpanningForestData::<G, W>::deserialize(deserializer)?;
+        Self::new(
+            data.graph,
+            data.weights,
+            data.max_components,
+            data.max_weight,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -64,49 +93,39 @@ impl TryFrom<BoundedComponentSpanningForestCreateSpec>
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BoundedComponentSpanningForestCreateSpec) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        if spec.weights.iter().any(|&weight| weight < 0) {
-            return Err("weights must be nonnegative".to_string().into());
-        }
-        if spec.k == 0 {
-            return Err("k must be at least 1".to_string().into());
-        }
-        if spec.max_weight <= 0 {
-            return Err("max_weight must be positive".to_string().into());
-        }
-        Ok(Self::new(spec.graph, spec.weights, spec.k, spec.max_weight))
+        Self::new(spec.graph, spec.weights, spec.k, spec.max_weight)
     }
 }
 
 impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
     /// Create a new bounded-component spanning forest instance.
-    pub fn new(graph: G, weights: Vec<W>, max_components: usize, max_weight: W::Sum) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        assert!(
-            weights
-                .iter()
-                .all(|weight| weight.to_sum() >= W::Sum::zero()),
-            "weights must be nonnegative"
-        );
-        assert!(max_components >= 1, "max_components must be at least 1");
-        assert!(max_weight > W::Sum::zero(), "max_weight must be positive");
-        Self {
+    pub fn new(
+        graph: G,
+        weights: Vec<W>,
+        max_components: usize,
+        max_weight: W::Sum,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        if !(weights
+            .iter()
+            .all(|weight| weight.to_sum() >= W::Sum::zero()))
+        {
+            return Err("weights must be nonnegative".into());
+        }
+        if max_components == 0 {
+            return Err("max_components must be at least 1".into());
+        }
+        if max_weight.partial_cmp(&W::Sum::zero()) != Some(std::cmp::Ordering::Greater) {
+            return Err("max_weight must be positive".into());
+        }
+        Ok(Self {
             graph,
             weights,
             max_components,
             max_weight,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -271,26 +290,30 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bounded_component_spanning_forest_simplegraph",
-        instance: Box::new(BoundedComponentSpanningForest::new(
-            SimpleGraph::new(
-                8,
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 3),
-                    (3, 4),
-                    (4, 5),
-                    (5, 6),
-                    (6, 7),
-                    (0, 7),
-                    (1, 5),
-                    (2, 6),
-                ],
-            ),
-            vec![2, 3, 1, 2, 3, 1, 2, 1],
-            3,
-            6,
-        )),
+        instance: Box::new(
+            BoundedComponentSpanningForest::new(
+                SimpleGraph::new(
+                    8,
+                    vec![
+                        (0, 1),
+                        (1, 2),
+                        (2, 3),
+                        (3, 4),
+                        (4, 5),
+                        (5, 6),
+                        (6, 7),
+                        (0, 7),
+                        (1, 5),
+                        (2, 6),
+                    ],
+                )
+                .unwrap(),
+                vec![2, 3, 1, 2, 3, 1, 2, 1],
+                3,
+                6,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 1, 1, 1, 2, 2, 0]),
         optimal_value: serde_json::json!(true),
     }]

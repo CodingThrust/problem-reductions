@@ -52,9 +52,11 @@ impl ReduceTo<MinimumFeedbackVertexSet<i64>> for MinimumVertexCover<SimpleGraph,
             .collect();
 
         let target = MinimumFeedbackVertexSet::new(
-            DirectedGraph::new(self.graph().num_vertices(), arcs),
+            DirectedGraph::new(self.graph().num_vertices(), arcs)
+                .map_err(<Self as ReduceTo<MinimumFeedbackVertexSet<i64>>>::target_construction)?,
             self.weights().to_vec(),
-        );
+        )
+        .map_err(<Self as ReduceTo<MinimumFeedbackVertexSet<i64>>>::target_construction)?;
 
         Ok(ReductionVCToFVS { target })
     }
@@ -80,9 +82,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         (4, 5),
                         (5, 6),
                     ],
-                ),
+                )
+                .unwrap(),
                 vec![1i64; 7],
-            );
+            )
+            .unwrap();
 
             crate::example_db::specs::rule_example_with_witness::<_, MinimumFeedbackVertexSet<i64>>(
                 source,

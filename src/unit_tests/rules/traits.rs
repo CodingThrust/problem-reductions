@@ -113,7 +113,7 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
     use crate::topology::SimpleGraph;
 
     let source = Decision::new(
-        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]),
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![1i64; 2]).unwrap(),
         0,
     );
     let edge = crate::rules::registry::reduction_entries()

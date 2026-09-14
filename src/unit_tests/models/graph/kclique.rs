@@ -13,7 +13,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
 fn issue_graph() -> SimpleGraph {
-    SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)])
+    SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap()
 }
 
 fn issue_witness() -> Vec<bool> {
@@ -22,7 +22,7 @@ fn issue_witness() -> Vec<bool> {
 
 #[test]
 fn test_kclique_creation() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
 
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 6);
@@ -37,7 +37,7 @@ fn test_kclique_creation() {
 
 #[test]
 fn test_kclique_evaluate_yes_instance() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
 
     assert!(problem.evaluate(&issue_witness()).unwrap());
     assert!(problem.is_valid_solution(&issue_witness()));
@@ -45,7 +45,7 @@ fn test_kclique_evaluate_yes_instance() {
 
 #[test]
 fn test_kclique_evaluate_rejects_non_clique() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
 
     assert!(!problem
         .evaluate(&vec![true, false, true, true, false])
@@ -55,7 +55,7 @@ fn test_kclique_evaluate_rejects_non_clique() {
 
 #[test]
 fn test_kclique_evaluate_rejects_too_small_clique() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
 
     assert!(!problem
         .evaluate(&vec![true, false, true, false, false])
@@ -67,7 +67,7 @@ fn test_kclique_evaluate_rejects_too_small_clique() {
 
 #[test]
 fn test_kclique_solver_finds_unique_witness() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
     let solver = BruteForce::new();
 
     assert_eq!(solver.solve(&problem).unwrap(), Some(issue_witness()));
@@ -79,7 +79,7 @@ fn test_kclique_solver_finds_unique_witness() {
 
 #[test]
 fn test_kclique_serialization_round_trip() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let restored: KClique<SimpleGraph> = serde_json::from_str(&json).unwrap();
 
@@ -90,7 +90,7 @@ fn test_kclique_serialization_round_trip() {
 
 #[test]
 fn test_kclique_paper_example() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
     let solver = BruteForce::new();
 
     assert!(problem.evaluate(&issue_witness()).unwrap());
@@ -102,7 +102,7 @@ fn test_kclique_paper_example() {
 
 #[test]
 fn test_kclique_config_from_selected_vertices() {
-    let problem = KClique::new(issue_graph(), 3);
+    let problem = KClique::new(issue_graph(), 3).unwrap();
 
     assert_eq!(
         problem.config_from_selected_vertices(&[2, 3, 4]),

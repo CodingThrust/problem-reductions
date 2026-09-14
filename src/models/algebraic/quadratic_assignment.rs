@@ -51,18 +51,33 @@ inventory::submit! {
 ///     vec![5, 0, 3],
 ///     vec![8, 3, 0],
 /// ];
-/// let problem = QuadraticAssignment::new(cost_matrix, distance_matrix);
+/// let problem = QuadraticAssignment::new(cost_matrix, distance_matrix).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let best = solver.solve(&problem).unwrap();
 /// assert!(best.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "QuadraticAssignmentData")]
 pub struct QuadraticAssignment {
     /// Cost/flow matrix between facilities (n x n).
     cost_matrix: Vec<Vec<i64>>,
     /// Distance matrix between locations (m x m).
     distance_matrix: Vec<Vec<i64>>,
+}
+
+#[derive(Deserialize)]
+struct QuadraticAssignmentData {
+    cost_matrix: Vec<Vec<i64>>,
+    distance_matrix: Vec<Vec<i64>>,
+}
+
+impl TryFrom<QuadraticAssignmentData> for QuadraticAssignment {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: QuadraticAssignmentData) -> Result<Self, Self::Error> {
+        Self::new(data.cost_matrix, data.distance_matrix)
+    }
 }
 
 impl QuadraticAssignment {
@@ -72,25 +87,28 @@ impl QuadraticAssignment {
     /// * `cost_matrix` - n x n matrix of flows/costs between facilities
     /// * `distance_matrix` - m x m matrix of distances between locations
     ///
-    /// # Panics
-    /// Panics if either matrix is not square, or if num_facilities > num_locations.
-    pub fn new(cost_matrix: Vec<Vec<i64>>, distance_matrix: Vec<Vec<i64>>) -> Self {
+    /// # Errors
+    ///
+    /// Returns an error when matrix dimensions violate the instance definition.
+    pub fn new(
+        cost_matrix: Vec<Vec<i64>>,
+        distance_matrix: Vec<Vec<i64>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = cost_matrix.len();
-        for row in &cost_matrix {
-            assert_eq!(row.len(), n, "cost_matrix must be square");
+        if cost_matrix.iter().any(|row| row.len() != n) {
+            return Err("cost_matrix must be square".into());
         }
         let m = distance_matrix.len();
-        for row in &distance_matrix {
-            assert_eq!(row.len(), m, "distance_matrix must be square");
+        if distance_matrix.iter().any(|row| row.len() != m) {
+            return Err("distance_matrix must be square".into());
         }
-        assert!(
-            n <= m,
-            "num_facilities ({n}) must be <= num_locations ({m})"
-        );
-        Self {
+        if n > m {
+            return Err(format!("num_facilities ({n}) must be <= num_locations ({m})").into());
+        }
+        Ok(Self {
             cost_matrix,
             distance_matrix,
-        }
+        })
     }
 
     /// Get the cost/flow matrix.
@@ -207,20 +225,23 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "quadratic_assignment",
-        instance: Box::new(QuadraticAssignment::new(
-            vec![
-                vec![0, 5, 2, 0],
-                vec![5, 0, 0, 3],
-                vec![2, 0, 0, 4],
-                vec![0, 3, 4, 0],
-            ],
-            vec![
-                vec![0, 4, 1, 1],
-                vec![4, 0, 3, 4],
-                vec![1, 3, 0, 4],
-                vec![1, 4, 4, 0],
-            ],
-        )),
+        instance: Box::new(
+            QuadraticAssignment::new(
+                vec![
+                    vec![0, 5, 2, 0],
+                    vec![5, 0, 0, 3],
+                    vec![2, 0, 0, 4],
+                    vec![0, 3, 4, 0],
+                ],
+                vec![
+                    vec![0, 4, 1, 1],
+                    vec![4, 0, 3, 4],
+                    vec![1, 3, 0, 4],
+                    vec![1, 4, 4, 0],
+                ],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![3, 0, 1, 2]),
         optimal_value: serde_json::json!(56),
     }]

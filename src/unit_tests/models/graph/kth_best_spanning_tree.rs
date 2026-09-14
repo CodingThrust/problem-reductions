@@ -8,20 +8,20 @@ use crate::traits::Problem;
 ///   {01,02,03} (star at 0, w=4) and {01,02,13} (w=4).
 /// Satisfying configs = 2 (the two orderings).
 fn yes_instance() -> KthBestSpanningTree<i64> {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    KthBestSpanningTree::<i64>::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4)
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    KthBestSpanningTree::<i64>::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4).unwrap()
 }
 
 fn no_instance() -> KthBestSpanningTree<i64> {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let weights = vec![1, 1, 1];
-    KthBestSpanningTree::<i64>::new(graph, weights, 2, 3)
+    KthBestSpanningTree::<i64>::new(graph, weights, 2, 3).unwrap()
 }
 
 fn small_yes_instance() -> KthBestSpanningTree<i64> {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     let weights = vec![1, 1, 1];
-    KthBestSpanningTree::<i64>::new(graph, weights, 2, 2)
+    KthBestSpanningTree::<i64>::new(graph, weights, 2, 2).unwrap()
 }
 
 /// Star at 0: edges {01,02,03}, then {01,02,13}.
@@ -146,7 +146,9 @@ fn test_kthbestspanningtree_serialization() {
 
 #[test]
 fn test_kthbestspanningtree_single_vertex_accepts_single_empty_tree() {
-    let problem = KthBestSpanningTree::<i64>::new(SimpleGraph::new(1, vec![]), vec![], 1, 0);
+    let problem =
+        KthBestSpanningTree::<i64>::new(SimpleGraph::new(1, vec![]).unwrap(), vec![], 1, 0)
+            .unwrap();
     let config = vec![Vec::<bool>::new()];
     assert!(problem.evaluate(&config).unwrap());
     assert!(problem.is_valid_solution(&config).unwrap());
@@ -154,22 +156,25 @@ fn test_kthbestspanningtree_single_vertex_accepts_single_empty_tree() {
 
 #[test]
 fn test_kthbestspanningtree_single_vertex_rejects_multiple_empty_trees() {
-    let problem = KthBestSpanningTree::<i64>::new(SimpleGraph::new(1, vec![]), vec![], 2, 0);
+    let problem =
+        KthBestSpanningTree::<i64>::new(SimpleGraph::new(1, vec![]).unwrap(), vec![], 2, 0)
+            .unwrap();
     let config = vec![Vec::<bool>::new(), Vec::<bool>::new()];
     assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
-#[should_panic(expected = "weights length must match graph num_edges")]
 fn test_kthbestspanningtree_creation_rejects_weight_length_mismatch() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let _ = KthBestSpanningTree::<i64>::new(graph, vec![1], 1, 2);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(KthBestSpanningTree::<i64>::new(graph, vec![1], 1, 2).is_err());
 }
 
 #[test]
-#[should_panic(expected = "k must be positive")]
 fn test_kthbestspanningtree_creation_rejects_zero_k() {
-    let _ = KthBestSpanningTree::<i64>::new(SimpleGraph::new(1, vec![]), vec![], 0, 0);
+    assert!(
+        KthBestSpanningTree::<i64>::new(SimpleGraph::new(1, vec![]).unwrap(), vec![], 0, 0)
+            .is_err()
+    );
 }
 #[test]
 fn create_spec_maps_edge_weights_to_weights() {

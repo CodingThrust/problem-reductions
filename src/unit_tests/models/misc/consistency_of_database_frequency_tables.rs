@@ -30,6 +30,7 @@ fn issue_yes_instance() -> ConsistencyOfDatabaseFrequencyTables {
             KnownValue::new(1, 2, 1),
         ],
     )
+    .unwrap()
 }
 
 fn issue_yes_witness() -> Vec<usize> {
@@ -43,6 +44,7 @@ fn small_yes_instance() -> ConsistencyOfDatabaseFrequencyTables {
         vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
         vec![KnownValue::new(0, 0, 0)],
     )
+    .unwrap()
 }
 
 fn small_no_instance() -> ConsistencyOfDatabaseFrequencyTables {
@@ -52,6 +54,7 @@ fn small_no_instance() -> ConsistencyOfDatabaseFrequencyTables {
         vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
         vec![KnownValue::new(0, 0, 0), KnownValue::new(1, 1, 0)],
     )
+    .unwrap()
 }
 
 #[test]
@@ -168,23 +171,23 @@ fn test_cdft_paper_example_matches_issue_witness() {
 }
 
 #[test]
-#[should_panic(expected = "frequency table rows")]
 fn test_cdft_constructor_rejects_wrong_row_count() {
-    let _ = ConsistencyOfDatabaseFrequencyTables::new(
+    assert!(ConsistencyOfDatabaseFrequencyTables::new(
         2,
         vec![2, 2],
         vec![FrequencyTable::new(0, 1, vec![vec![1, 0]])],
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "known value value")]
 fn test_cdft_constructor_rejects_out_of_range_known_value() {
-    let _ = ConsistencyOfDatabaseFrequencyTables::new(
+    assert!(ConsistencyOfDatabaseFrequencyTables::new(
         2,
         vec![2, 2],
         vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
         vec![KnownValue::new(0, 1, 2)],
-    );
+    )
+    .is_err());
 }

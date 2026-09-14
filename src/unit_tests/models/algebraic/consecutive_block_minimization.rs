@@ -22,7 +22,8 @@ fn test_consecutive_block_minimization_basic() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_rows(), 2);
     assert_eq!(problem.num_cols(), 3);
     assert_eq!(problem.bound(), 2);
@@ -45,7 +46,8 @@ fn test_consecutive_block_minimization_evaluate() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     assert!(problem.evaluate(&vec![0, 2, 1]).unwrap());
 
     // Identity permutation [0, 1, 2]:
@@ -60,7 +62,8 @@ fn test_consecutive_block_minimization_count_blocks() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     assert_eq!(
         problem.count_consecutive_blocks(&[0, 2, 1]).unwrap(),
         Some(2)
@@ -82,7 +85,8 @@ fn test_consecutive_block_minimization_brute_force() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let mut solutions = solver.find_all_witnesses(&problem).unwrap();
     solutions.sort();
@@ -96,7 +100,7 @@ fn test_consecutive_block_minimization_brute_force() {
 
 #[test]
 fn test_consecutive_block_minimization_empty_matrix() {
-    let problem = ConsecutiveBlockMinimization::new(vec![], 0);
+    let problem = ConsecutiveBlockMinimization::new(vec![], 0).unwrap();
     assert_eq!(problem.num_rows(), 0);
     assert_eq!(problem.num_cols(), 0);
     assert!(problem.evaluate(&vec![]).unwrap());
@@ -108,7 +112,8 @@ fn test_consecutive_block_minimization_empty_matrix() {
 
 #[test]
 fn test_consecutive_block_minimization_serialization() {
-    let problem = ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem =
+        ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: ConsecutiveBlockMinimization = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.num_rows(), problem.num_rows());
@@ -119,7 +124,8 @@ fn test_consecutive_block_minimization_serialization() {
 
 #[test]
 fn test_consecutive_block_minimization_serialization_omits_derived_fields() {
-    let problem = ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem =
+        ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let value: serde_json::Value = serde_json::to_value(&problem).unwrap();
     let obj = value.as_object().unwrap();
     assert_eq!(obj.len(), 2);
@@ -136,7 +142,8 @@ fn test_consecutive_block_minimization_deserialization_rejects_ragged_matrix() {
 
 #[test]
 fn test_consecutive_block_minimization_invalid_permutation() {
-    let problem = ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem =
+        ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     // Not a valid permutation => evaluate returns false
     assert!(!problem.evaluate(&vec![0, 0]).unwrap());
     // Wrong length

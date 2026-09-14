@@ -5,7 +5,8 @@ use crate::types::Min;
 
 #[test]
 fn test_minimum_internal_macro_data_compression_creation() {
-    let problem = MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2, 0, 1, 2], 2);
+    let problem =
+        MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2, 0, 1, 2], 2).unwrap();
     assert_eq!(problem.alphabet_size(), 3);
     assert_eq!(problem.string_len(), 9);
     assert_eq!(problem.pointer_cost(), 2);
@@ -27,7 +28,7 @@ fn test_minimum_internal_macro_data_compression_creation() {
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_uncompressed() {
     // alphabet {a, b}, s = "ab", h = 2
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // Uncompressed: C = [a, b] = [0, 1]
     // active_len = 2, pointers = 0
     // cost = 2 + 0 = 2
@@ -37,7 +38,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_uncompressed() {
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_with_pointer() {
     // alphabet {a, b}, s = "abab", h = 2
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2).unwrap();
     // C = [a, b, ptr(0), EOS] = [0, 1, 3, 2]
     // ptr(0) at position 2: refs decoded[0] = 'a', greedy match: 'a','b' = "ab"
     // decoded = "abab" = s
@@ -49,14 +50,14 @@ fn test_minimum_internal_macro_data_compression_evaluate_with_pointer() {
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_invalid_decode() {
     // alphabet {a, b}, s = "ab", h = 2
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // C = [b, a] decodes to "ba" != "ab"
     assert_eq!(problem.evaluate(&vec![1, 0]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_wrong_length() {
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -70,7 +71,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_wrong_length() {
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_interleaved_eos() {
     // EOS then non-EOS is invalid
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // config = [EOS, a] = [2, 0]
     assert_eq!(problem.evaluate(&vec![2, 0]).unwrap(), Min(None));
 }
@@ -78,7 +79,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_interleaved_eos() {
 #[test]
 fn test_minimum_internal_macro_data_compression_evaluate_pointer_forward_ref() {
     // alphabet {a, b}, s = "ab", h = 2
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // C = [ptr(0)] -> pointer at first position references decoded[0], but nothing decoded yet
     // ptr(C[0]) encoded as 3 (alphabet_size + 1 + 0 = 2+1+0 = 3)
     assert_eq!(problem.evaluate(&vec![3, 2]).unwrap(), Min(None));
@@ -86,7 +87,7 @@ fn test_minimum_internal_macro_data_compression_evaluate_pointer_forward_ref() {
 
 #[test]
 fn test_minimum_internal_macro_data_compression_empty_string() {
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![], 2).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         Vec::<usize>::new()
@@ -98,7 +99,7 @@ fn test_minimum_internal_macro_data_compression_empty_string() {
 fn test_minimum_internal_macro_data_compression_brute_force_simple() {
     // alphabet {a, b}, s = "ab", h = 2
     // Only valid compression is uncompressed [0, 1], cost = 2
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -112,7 +113,7 @@ fn test_minimum_internal_macro_data_compression_brute_force_simple() {
 fn test_minimum_internal_macro_data_compression_brute_force_repeated() {
     // alphabet {a, b}, s = "abab", h = 2
     // domain = 2+4+1 = 7, 7^4 = 2401 configs (feasible)
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2).unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -127,7 +128,7 @@ fn test_minimum_internal_macro_data_compression_brute_force_repeated() {
 
 #[test]
 fn test_minimum_internal_macro_data_compression_solve_aggregate() {
-    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     let solver = BruteForce::new();
     let val_solution = solver.solve(&problem).unwrap().unwrap();
     let val = problem.evaluate(&val_solution).unwrap();
@@ -136,7 +137,7 @@ fn test_minimum_internal_macro_data_compression_solve_aggregate() {
 
 #[test]
 fn test_minimum_internal_macro_data_compression_serialization() {
-    let problem = MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2], 2);
+    let problem = MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2], 2).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumInternalMacroDataCompression = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
@@ -149,7 +150,8 @@ fn test_minimum_internal_macro_data_compression_paper_example() {
     // Issue example: alphabet {a,b,c} (3), s="abcabcabc" (9), h=2
     // Optimal: C = [a, b, c, ptr(0), ptr(0), EOS, EOS, EOS, EOS]
     // active_len=5, pointers=2, cost = 5 + 1*2 = 7
-    let problem = MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2, 0, 1, 2], 2);
+    let problem =
+        MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2, 0, 1, 2], 2).unwrap();
     let config = vec![0, 1, 2, 4, 4, 3, 3, 3, 3];
     // ptr(C[0]) = alphabet_size + 1 + 0 = 3 + 1 + 0 = 4
     let val = problem.evaluate(&config).unwrap();
@@ -160,7 +162,7 @@ fn test_minimum_internal_macro_data_compression_paper_example() {
 fn test_minimum_internal_macro_data_compression_find_all_witnesses() {
     // alphabet {a}, s = "a", h = 2
     // domain = 1+1+1 = 3, 3^1 = 3 configs
-    let problem = MinimumInternalMacroDataCompression::new(1, vec![0], 2);
+    let problem = MinimumInternalMacroDataCompression::new(1, vec![0], 2).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Only valid: [0] (literal 'a'), cost = 1
@@ -178,7 +180,7 @@ fn test_minimum_internal_macro_data_compression_pointer_doubling() {
     // - pos 2: ptr(0), copy decoded[0..2]="aa" (2 chars), decoded=[0,0,0,0]
     // decoded = "aaaa" = s
     // active_len = 3, pointers = 2, cost = 3 + 0*2 = 3
-    let problem = MinimumInternalMacroDataCompression::new(1, vec![0, 0, 0, 0], 1);
+    let problem = MinimumInternalMacroDataCompression::new(1, vec![0, 0, 0, 0], 1).unwrap();
     let config = vec![0, 2, 2, 1]; // a, ptr(0), ptr(0), EOS
     let val = problem.evaluate(&config).unwrap();
     assert_eq!(val, Min(Some(3)));

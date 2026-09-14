@@ -231,11 +231,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 4-vertex diamond: s=0, t=3, K=2
             let source = LengthBoundedDisjointPaths::new(
-                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
                 0,
                 3,
                 2,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

@@ -10,9 +10,11 @@ fn two_triangle_instance() -> PartitionIntoForests<SimpleGraph> {
         SimpleGraph::new(
             6,
             vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 5), (5, 3)],
-        ),
+        )
+        .unwrap(),
         2,
     )
+    .unwrap()
 }
 
 #[test]
@@ -43,9 +45,10 @@ fn test_partition_into_forests_evaluate_positive() {
 fn test_partition_into_forests_evaluate_negative_k1() {
     // K=1: must put all vertices in one class; two triangles create cycles
     let problem = PartitionIntoForests::new(
-        SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]).unwrap(),
         1,
-    );
+    )
+    .unwrap();
 
     // Any single-class assignment must include a triangle → cycle
     assert!(!problem.evaluate(&vec![0, 0, 0, 0, 0, 0]).unwrap());
@@ -85,8 +88,11 @@ fn test_partition_into_forests_evaluate_out_of_range_class() {
 #[test]
 fn test_partition_into_forests_brute_force_finds_solution() {
     // Small instance: 4-cycle (no triangle), K=2 should work easily
-    let problem =
-        PartitionIntoForests::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]), 2);
+    let problem = PartitionIntoForests::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap(),
+        2,
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
@@ -96,7 +102,11 @@ fn test_partition_into_forests_brute_force_finds_solution() {
 #[test]
 fn test_partition_into_forests_brute_force_no_solution() {
     // Single triangle, K=1: impossible
-    let problem = PartitionIntoForests::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), 1);
+    let problem = PartitionIntoForests::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
+        1,
+    )
+    .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -104,7 +114,8 @@ fn test_partition_into_forests_brute_force_no_solution() {
 #[test]
 fn test_partition_into_forests_brute_force_all_valid() {
     // Small acyclic graph (path 0-1-2), K=1: every assignment is valid
-    let problem = PartitionIntoForests::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 1);
+    let problem =
+        PartitionIntoForests::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 1).unwrap();
     let solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
@@ -123,7 +134,6 @@ fn test_partition_into_forests_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "num_forests must be at least 1")]
 fn test_partition_into_forests_rejects_zero_forests() {
-    let _ = PartitionIntoForests::new(SimpleGraph::new(2, vec![(0, 1)]), 0);
+    assert!(PartitionIntoForests::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 0).is_err());
 }

@@ -47,7 +47,7 @@ inventory::submit! {
 ///
 /// // Bipartite graph: L = {0, 1}, R = {0, 1}
 /// // Edges: (0,0), (0,1), (1,0) in bipartite-local coordinates
-/// let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
+/// let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]).unwrap();
 /// let problem = BicliqueCover::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
@@ -83,22 +83,7 @@ impl TryFrom<BicliqueCoverCreateSpec> for BicliqueCover {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BicliqueCoverCreateSpec) -> Result<Self, Self::Error> {
-        for (edge_index, &(left_vertex, right_vertex)) in spec.biedges.iter().enumerate() {
-            if left_vertex >= spec.left {
-                return Err(format!(
-                    "biedges[{edge_index}] left vertex {left_vertex} is out of bounds for left partition size {}",
-                    spec.left
-                ).into());
-            }
-            if right_vertex >= spec.right {
-                return Err(format!(
-                    "biedges[{edge_index}] right vertex {right_vertex} is out of bounds for right partition size {}",
-                    spec.right
-                ).into());
-            }
-        }
-
-        let graph = BipartiteGraph::new(spec.left, spec.right, spec.biedges);
+        let graph = BipartiteGraph::new(spec.left, spec.right, spec.biedges)?;
         Ok(Self::new(graph, spec.k))
     }
 }
@@ -116,7 +101,10 @@ impl BicliqueCover {
     /// Create from a bipartite adjacency matrix.
     ///
     /// `Matrix[i][j] = 1` means edge between left vertex i and right vertex j.
-    pub fn from_matrix(matrix: &[Vec<u8>], k: usize) -> Self {
+    pub fn from_matrix(
+        matrix: &[Vec<u8>],
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let left_size = matrix.len();
         let right_size = if left_size > 0 { matrix[0].len() } else { 0 };
 
@@ -129,10 +117,10 @@ impl BicliqueCover {
             }
         }
 
-        Self {
-            graph: BipartiteGraph::new(left_size, right_size, edges),
+        Ok(Self {
+            graph: BipartiteGraph::new(left_size, right_size, edges)?,
             k,
-        }
+        })
     }
 
     /// Get the bipartite graph.
@@ -394,7 +382,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "biclique_cover",
         instance: Box::new(BicliqueCover::new(
-            BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]),
+            BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]).unwrap(),
             2,
         )),
         optimal_config: serde_json::json!(vec![

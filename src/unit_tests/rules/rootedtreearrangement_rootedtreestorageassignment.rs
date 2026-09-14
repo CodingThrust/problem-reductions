@@ -6,7 +6,10 @@ use crate::solvers::BruteForce;
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_closed_loop() {
     // Path graph P4: 0-1-2-3, bound K=5
     // Optimal chain tree gives total distance 3 <= 5
-    let source = RootedTreeArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 5);
+    let source = RootedTreeArrangement::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+        5,
+    );
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(&source, &reduction, "P4 path graph");
@@ -15,7 +18,10 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_closed_loop() {
 #[test]
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_target_structure() {
     // Triangle graph: 3 vertices, 3 edges, bound K=6
-    let source = RootedTreeArrangement::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]), 6);
+    let source = RootedTreeArrangement::new(
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
+        6,
+    );
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -36,7 +42,10 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_target_structure() 
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_star_graph() {
     // Star graph K_{1,3}: center=0, leaves=1,2,3
     // Bound K=3 (optimal: root at 0, each leaf distance 1, total=3)
-    let source = RootedTreeArrangement::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]), 3);
+    let source = RootedTreeArrangement::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
+        3,
+    );
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -52,7 +61,7 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_unsatisfiable() {
     // root-to-leaf paths. K4 has 6 edges, and its minimum total stretch
     // on a chain tree is 1+1+1+2+2+3=10. With K=7 it should be infeasible.
     let source = RootedTreeArrangement::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         7,
     );
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
@@ -77,7 +86,7 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_unsatisfiable() {
 #[test]
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_solution_extraction() {
     // Simple edge: 2 vertices, 1 edge {0,1}, bound K=1
-    let source = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
+    let source = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 1);
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -99,7 +108,7 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_solution_extraction
 #[test]
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_empty_graph() {
     // Graph with no edges
-    let source = RootedTreeArrangement::new(SimpleGraph::new(3, vec![]), 0);
+    let source = RootedTreeArrangement::new(SimpleGraph::new(3, vec![]).unwrap(), 0);
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -115,7 +124,10 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_empty_graph() {
 fn test_rootedtreearrangement_to_rootedtreestorageassignment_infeasible_underflow() {
     // K < |E|: bound is too small for a 3-edge path, so source is infeasible.
     // The reduction should return an infeasible gadget rather than panic.
-    let source = RootedTreeArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 2);
+    let source = RootedTreeArrangement::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+        2,
+    );
     let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

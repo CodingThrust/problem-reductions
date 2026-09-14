@@ -11,8 +11,8 @@ use crate::types::Or;
 #[test]
 fn test_kclique_to_conjunctivebooleanquery_closed_loop() {
     // Triangle graph (0,1,2) plus extra edges, k=3
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToCBQ =
         ReduceTo::<ConjunctiveBooleanQuery>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -26,8 +26,8 @@ fn test_kclique_to_conjunctivebooleanquery_closed_loop() {
 #[test]
 fn test_reduction_structure() {
     // Complete graph K4, k=3
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToCBQ =
         ReduceTo::<ConjunctiveBooleanQuery>::reduce_to(&problem).expect("reduction should succeed");
     let cbq = reduction.target_problem();
@@ -48,8 +48,8 @@ fn test_reduction_structure() {
 #[test]
 fn test_no_clique_infeasible() {
     // Path graph 0-1-2, k=3 → no triangle
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToCBQ =
         ReduceTo::<ConjunctiveBooleanQuery>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -63,8 +63,8 @@ fn test_no_clique_infeasible() {
 #[test]
 fn test_solution_extraction() {
     // Triangle graph, k=3
-    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
-    let problem = KClique::new(graph, 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
+    let problem = KClique::new(graph, 3).unwrap();
     let reduction: ReductionKCliqueToCBQ =
         ReduceTo::<ConjunctiveBooleanQuery>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -82,8 +82,8 @@ fn test_solution_extraction() {
 #[test]
 fn test_trivial_k1() {
     // Any graph with at least 1 vertex, k=1 → always feasible
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    let problem = KClique::new(graph, 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    let problem = KClique::new(graph, 1).unwrap();
     let reduction: ReductionKCliqueToCBQ =
         ReduceTo::<ConjunctiveBooleanQuery>::reduce_to(&problem).expect("reduction should succeed");
     let cbq = reduction.target_problem();

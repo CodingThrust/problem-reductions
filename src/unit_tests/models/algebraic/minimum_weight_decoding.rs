@@ -21,7 +21,7 @@ fn example_instance() -> MinimumWeightDecoding {
         vec![true, true, false, true],
     ];
     let target = vec![true, true, false];
-    MinimumWeightDecoding::new(matrix, target)
+    MinimumWeightDecoding::new(matrix, target).unwrap()
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn test_minimum_weight_decoding_zero_syndrome() {
     // s = [0,0] → x = [0,0,0] is feasible with weight 0
     let matrix = vec![vec![true, false, true], vec![false, true, true]];
     let target = vec![false, false];
-    let problem = MinimumWeightDecoding::new(matrix, target);
+    let problem = MinimumWeightDecoding::new(matrix, target).unwrap();
     let config = vec![false, false, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
@@ -160,21 +160,26 @@ fn test_minimum_weight_decoding_complexity_metadata() {
 }
 
 #[test]
-#[should_panic(expected = "at least one row")]
 fn test_minimum_weight_decoding_empty_matrix() {
-    MinimumWeightDecoding::new(vec![], vec![]);
+    assert!(MinimumWeightDecoding::new(vec![], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "same length")]
 fn test_minimum_weight_decoding_inconsistent_rows() {
     let matrix = vec![vec![true, false], vec![true]];
-    MinimumWeightDecoding::new(matrix, vec![true, false]);
+    assert!(MinimumWeightDecoding::new(matrix, vec![true, false]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "Target length")]
 fn test_minimum_weight_decoding_target_mismatch() {
     let matrix = vec![vec![true, false], vec![false, true]];
-    MinimumWeightDecoding::new(matrix, vec![true]);
+    assert!(MinimumWeightDecoding::new(matrix, vec![true]).is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<MinimumWeightDecoding>(
+        serde_json::json!({"matrix":[[true]],"target":[]})
+    )
+    .is_err());
 }

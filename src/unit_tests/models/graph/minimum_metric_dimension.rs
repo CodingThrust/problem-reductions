@@ -7,7 +7,7 @@ use crate::types::Min;
 
 #[test]
 fn test_minimum_metric_dimension_creation() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 6);
@@ -21,7 +21,7 @@ fn test_minimum_metric_dimension_creation() {
 #[test]
 fn test_minimum_metric_dimension_evaluate_optimal() {
     // House graph: selecting vertices 0 and 1 forms a resolving set of size 2
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let config = vec![true, true, false, false, false]; // select v0, v1
     let result = problem.evaluate(&config).unwrap();
@@ -32,7 +32,7 @@ fn test_minimum_metric_dimension_evaluate_optimal() {
 #[test]
 fn test_minimum_metric_dimension_evaluate_non_resolving() {
     // House graph: selecting only v2 should not resolve all pairs
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     // v2 alone: d(0,2)=1, d(1,2)=2, d(3,2)=1, d(4,2)=1
     // vertices 0 and 3 both have distance 1 to v2 -> not resolving
@@ -43,7 +43,7 @@ fn test_minimum_metric_dimension_evaluate_non_resolving() {
 
 #[test]
 fn test_minimum_metric_dimension_evaluate_empty_selection() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let config = vec![false, false, false];
     let result = problem.evaluate(&config).unwrap();
@@ -53,7 +53,7 @@ fn test_minimum_metric_dimension_evaluate_empty_selection() {
 #[test]
 fn test_minimum_metric_dimension_evaluate_all_selected() {
     // Selecting all vertices is always resolving (trivially)
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let config = vec![true, true, true];
     let result = problem.evaluate(&config).unwrap();
@@ -64,7 +64,7 @@ fn test_minimum_metric_dimension_evaluate_all_selected() {
 #[test]
 fn test_minimum_metric_dimension_solver() {
     // House graph: minimum resolving set has size 2
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap().unwrap();
@@ -78,7 +78,7 @@ fn test_minimum_metric_dimension_path_graph() {
     // Path graph P3: 0-1-2
     // Metric dimension of a path is 1 (either endpoint resolves)
     // d(0,0)=0, d(1,0)=1, d(2,0)=2 -> all distinct -> {0} resolves
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap().unwrap();
@@ -90,7 +90,7 @@ fn test_minimum_metric_dimension_path_graph() {
 fn test_minimum_metric_dimension_complete_graph() {
     // K4: metric dimension of K_n is n-1 (all distances are 1, so any pair
     // at distance 1 from each other needs a resolving vertex that is one of them)
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap().unwrap();
@@ -100,7 +100,7 @@ fn test_minimum_metric_dimension_complete_graph() {
 
 #[test]
 fn test_minimum_metric_dimension_serialization() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MinimumMetricDimension<SimpleGraph> = serde_json::from_str(&json).unwrap();
@@ -117,7 +117,7 @@ fn test_minimum_metric_dimension_serialization() {
 
 #[test]
 fn test_minimum_metric_dimension_parameter_getters() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
@@ -126,7 +126,7 @@ fn test_minimum_metric_dimension_parameter_getters() {
 #[test]
 fn test_minimum_metric_dimension_cycle() {
     // C5: metric dimension of a cycle C_n with n >= 3 is 2
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap();
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap().unwrap();

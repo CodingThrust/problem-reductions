@@ -83,7 +83,12 @@ impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
         }
         let anchor = positions.len();
         edges.extend((0..anchor).map(|v| (v, anchor)));
-        let target = KClique::new(SimpleGraph::new(num_vertices, edges), k);
+        let target = KClique::new(
+            SimpleGraph::new(num_vertices, edges)
+                .map_err(<Self as ReduceTo<KClique<SimpleGraph>>>::target_construction)?,
+            k,
+        )
+        .map_err(<Self as ReduceTo<KClique<SimpleGraph>>>::target_construction)?;
         Ok(Reduction3SATToKClique {
             target,
             literal_assignments: positions.into_iter().map(|(_, v, p)| (v, p)).collect(),

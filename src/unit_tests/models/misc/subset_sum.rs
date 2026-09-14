@@ -13,7 +13,7 @@ fn buv(values: &[u32]) -> Vec<BigUint> {
 
 #[test]
 fn test_subsetsum_basic() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
     assert_eq!(problem.num_elements(), 6);
     assert_eq!(problem.sizes(), buv(&[3, 7, 1, 8, 2, 4]).as_slice());
     assert_eq!(problem.target(), &bu(11));
@@ -27,7 +27,7 @@ fn test_subsetsum_basic() {
 
 #[test]
 fn test_subsetsum_evaluate_satisfying() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
     // {3, 8} = 11
     assert!(problem
         .evaluate(&vec![true, false, false, true, false, false])
@@ -40,7 +40,7 @@ fn test_subsetsum_evaluate_satisfying() {
 
 #[test]
 fn test_subsetsum_evaluate_unsatisfying() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
     // {3, 7} = 10 ≠ 11
     assert!(!problem
         .evaluate(&vec![true, true, false, false, false, false])
@@ -57,7 +57,7 @@ fn test_subsetsum_evaluate_unsatisfying() {
 
 #[test]
 fn test_subsetsum_evaluate_wrong_config_length() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1], 10u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1], 10u32).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![true, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -70,7 +70,7 @@ fn test_subsetsum_evaluate_wrong_config_length() {
 
 #[test]
 fn test_subsetsum_evaluate_invalid_variable_value() {
-    let problem = SubsetSum::new(vec![3u32, 7], 10u32);
+    let problem = SubsetSum::new(vec![3u32, 7], 10u32).unwrap();
     assert!(
         crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
             .is_err()
@@ -98,7 +98,7 @@ fn test_subsetsum_empty_instance_nonzero_target() {
 
 #[test]
 fn test_subsetsum_brute_force() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -109,7 +109,7 @@ fn test_subsetsum_brute_force() {
 
 #[test]
 fn test_subsetsum_brute_force_all() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -121,7 +121,7 @@ fn test_subsetsum_brute_force_all() {
 #[test]
 fn test_subsetsum_unsatisfiable() {
     // Target 100 is unreachable
-    let problem = SubsetSum::new(vec![1u32, 2, 3], 100u32);
+    let problem = SubsetSum::new(vec![1u32, 2, 3], 100u32).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
@@ -129,7 +129,7 @@ fn test_subsetsum_unsatisfiable() {
 
 #[test]
 fn test_subsetsum_serialization() {
-    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+    let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     assert_eq!(
         json,
@@ -154,7 +154,7 @@ fn test_subsetsum_deserialization_rejects_numeric_json() {
 
 #[test]
 fn test_subsetsum_single_element() {
-    let problem = SubsetSum::new(vec![5u32], 5u32);
+    let problem = SubsetSum::new(vec![5u32], 5u32).unwrap();
     assert!(problem.evaluate(&vec![true]).unwrap());
     assert!(!problem.evaluate(&vec![false]).unwrap());
 }
@@ -162,7 +162,7 @@ fn test_subsetsum_single_element() {
 #[test]
 fn test_subsetsum_all_selected() {
     // Target equals sum of all elements
-    let problem = SubsetSum::new(vec![1u32, 2, 3, 4], 10u32);
+    let problem = SubsetSum::new(vec![1u32, 2, 3, 4], 10u32).unwrap();
     assert!(problem.evaluate(&vec![true, true, true, true]).unwrap()); // 1+2+3+4 = 10
 }
 
@@ -175,20 +175,18 @@ fn test_subsetsum_target_zero() {
 }
 
 #[test]
-#[should_panic(expected = "positive")]
-fn test_subsetsum_negative_sizes_panic() {
-    SubsetSum::new(vec![-1i64, 2, 3], 4u32);
+fn test_subsetsum_negative_sizes_is_rejected() {
+    assert!(SubsetSum::new(vec![-1i64, 2, 3], 4u32).is_err());
 }
 
 #[test]
-#[should_panic(expected = "positive")]
-fn test_subsetsum_zero_size_panic() {
-    SubsetSum::new(vec![0i64, 2, 3], 4u32);
+fn test_subsetsum_zero_size_is_rejected() {
+    assert!(SubsetSum::new(vec![0i64, 2, 3], 4u32).is_err());
 }
 
 #[test]
 fn test_subsetsum_large_integer_input() {
-    let problem = SubsetSum::new(vec![3i128, 7, 1, 8, 2, 4], 11i128);
+    let problem = SubsetSum::new(vec![3i128, 7, 1, 8, 2, 4], 11i128).unwrap();
     assert!(problem
         .evaluate(&vec![true, false, false, true, false, false])
         .unwrap()); // 3 + 8 = 11

@@ -5,7 +5,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_multiplechoicebranching_to_ilp_closed_loop() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0), (0, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0), (0, 2)]).unwrap();
     for threshold in -2..=5 {
         let problem = MultipleChoiceBranching::new(
             graph.clone(),
@@ -32,7 +32,7 @@ fn test_multiplechoicebranching_to_ilp_closed_loop() {
 #[test]
 fn test_multiplechoicebranching_to_ilp_rejects_forced_cycle() {
     let problem = MultipleChoiceBranching::new(
-        DirectedGraph::new(2, vec![(0, 1), (1, 0)]),
+        DirectedGraph::new(2, vec![(0, 1), (1, 0)]).unwrap(),
         vec![1, 1],
         vec![vec![0], vec![1]],
         2,
@@ -47,7 +47,7 @@ fn test_multiplechoicebranching_to_ilp_rejects_forced_cycle() {
 #[test]
 fn test_multiplechoicebranching_to_ilp_size() {
     let problem = MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2), (2, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2), (2, 2)]).unwrap(),
         vec![1, 2, 3, 4],
         vec![vec![0, 1], vec![2, 3]],
         3,
@@ -59,7 +59,8 @@ fn test_multiplechoicebranching_to_ilp_size() {
 
 #[test]
 fn test_multiplechoicebranching_to_ilp_empty_graph() {
-    let problem = MultipleChoiceBranching::new(DirectedGraph::new(0, vec![]), vec![], vec![], 0);
+    let problem =
+        MultipleChoiceBranching::new(DirectedGraph::new(0, vec![]).unwrap(), vec![], vec![], 0);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     assert_eq!(

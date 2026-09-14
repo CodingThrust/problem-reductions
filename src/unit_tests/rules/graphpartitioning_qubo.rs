@@ -4,20 +4,23 @@ use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization
 use crate::topology::SimpleGraph;
 
 fn example_problem() -> GraphPartitioning<SimpleGraph> {
-    GraphPartitioning::new(SimpleGraph::new(
-        6,
-        vec![
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (1, 3),
-            (2, 3),
-            (2, 4),
-            (3, 4),
-            (3, 5),
-            (4, 5),
-        ],
-    ))
+    GraphPartitioning::new(
+        SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (1, 2),
+                (1, 3),
+                (2, 3),
+                (2, 4),
+                (3, 4),
+                (3, 5),
+                (4, 5),
+            ],
+        )
+        .unwrap(),
+    )
 }
 
 #[test]

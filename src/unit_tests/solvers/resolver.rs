@@ -100,7 +100,7 @@ fn generic_decision_ilp_compares_inner_optimum_with_bound() {
     };
     use crate::topology::SimpleGraph;
 
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let weighted_variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i64".to_string()),
@@ -109,13 +109,15 @@ fn generic_decision_ilp_compares_inner_optimum_with_bound() {
         (
             "DecisionMinimumVertexCover",
             weighted_variant.clone(),
-            serde_json::to_value(MinimumVertexCover::new(graph.clone(), vec![1i64; 3])).unwrap(),
+            serde_json::to_value(MinimumVertexCover::new(graph.clone(), vec![1i64; 3]).unwrap())
+                .unwrap(),
             2,
         ),
         (
             "DecisionMinimumDominatingSet",
             weighted_variant,
-            serde_json::to_value(MinimumDominatingSet::new(graph.clone(), vec![1i64; 3])).unwrap(),
+            serde_json::to_value(MinimumDominatingSet::new(graph.clone(), vec![1i64; 3]).unwrap())
+                .unwrap(),
             1,
         ),
         (
@@ -185,19 +187,24 @@ fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
                 .enumerate()
                 .filter_map(|(i, edge)| (mask & (1 << i) != 0).then_some(edge))
                 .collect(),
-        );
+        )
+        .unwrap();
         let models = [
             (
                 "DecisionMinimumVertexCover",
                 &weighted,
-                serde_json::to_value(MinimumVertexCover::new(graph.clone(), vec![1i64, 2, 3]))
-                    .unwrap(),
+                serde_json::to_value(
+                    MinimumVertexCover::new(graph.clone(), vec![1i64, 2, 3]).unwrap(),
+                )
+                .unwrap(),
             ),
             (
                 "DecisionMinimumDominatingSet",
                 &weighted,
-                serde_json::to_value(MinimumDominatingSet::new(graph.clone(), vec![1i64, 2, 3]))
-                    .unwrap(),
+                serde_json::to_value(
+                    MinimumDominatingSet::new(graph.clone(), vec![1i64, 2, 3]).unwrap(),
+                )
+                .unwrap(),
             ),
             (
                 "DecisionOptimalLinearArrangement",
@@ -236,7 +243,7 @@ fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
 fn deterministic_solver_dispatch_customized_registration_wins_default_dispatch() {
     use crate::models::set::MinimumCardinalityKey;
 
-    let problem = MinimumCardinalityKey::new(3, vec![(vec![0], vec![1, 2])]);
+    let problem = MinimumCardinalityKey::new(3, vec![(vec![0], vec![1, 2])]).unwrap();
     let loaded = crate::registry::load_dyn(
         MinimumCardinalityKey::NAME,
         &BTreeMap::new(),
@@ -261,7 +268,7 @@ fn deterministic_solver_dispatch_unregistered_customized_override_is_a_capabilit
     use crate::models::graph::MaxCut;
     use crate::topology::SimpleGraph;
 
-    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64]);
+    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![1i64]).unwrap();
     let loaded = crate::registry::load_dyn(
         MaxCut::<SimpleGraph, i64>::NAME,
         &BTreeMap::from([
@@ -288,7 +295,7 @@ fn deterministic_solver_dispatch_unregistered_ilp_override_is_a_capability_error
     // MaxCut<i64> has a discoverable graph route toward ILP, but that route is
     // partial for valid negative-weight instances and is intentionally not a
     // registered solver pipeline.
-    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64]);
+    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![1i64]).unwrap();
     let loaded = crate::registry::load_dyn(
         MaxCut::<SimpleGraph, i64>::NAME,
         &BTreeMap::from([
@@ -315,7 +322,8 @@ fn deterministic_solver_dispatch_customized_infeasibility_does_not_fall_back() {
     // {0} is the only candidate key and it is already known, so the registered
     // customized solver has no witness. Brute force can still report the aggregate
     // infeasibility result, which lets this test distinguish fallback from error.
-    let problem = AdditionalKey::new(3, vec![(vec![0], vec![1, 2])], vec![0, 1, 2], vec![vec![0]]);
+    let problem =
+        AdditionalKey::new(3, vec![(vec![0], vec![1, 2])], vec![0, 1, 2], vec![vec![0]]).unwrap();
     let loaded = load_dyn(
         AdditionalKey::NAME,
         &BTreeMap::new(),
@@ -437,9 +445,10 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
     use crate::topology::SimpleGraph;
 
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![crate::types::One; 3],
-    );
+    )
+    .unwrap();
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "One".to_string()),
@@ -473,7 +482,7 @@ fn deterministic_solver_dispatch_customized_default_allows_explicit_ilp_override
     use crate::models::graph::RootedTreeArrangement;
     use crate::topology::SimpleGraph;
 
-    let problem = RootedTreeArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3);
+    let problem = RootedTreeArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 3);
     let loaded = load_dyn(
         RootedTreeArrangement::<SimpleGraph>::NAME,
         &BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
@@ -508,7 +517,7 @@ fn deterministic_solver_dispatch_repeats_each_available_solver_class() {
     use crate::models::graph::RootedTreeArrangement;
     use crate::topology::SimpleGraph;
 
-    let problem = RootedTreeArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3);
+    let problem = RootedTreeArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 3);
     let loaded = load_dyn(
         RootedTreeArrangement::<SimpleGraph>::NAME,
         &BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),

@@ -9,7 +9,7 @@ fn source(
     bound: i64,
 ) -> Decision<MaximumIndependentSet<SimpleGraph, One>> {
     Decision::new(
-        MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; n]),
+        MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![One; n]).unwrap(),
         bound,
     )
 }
@@ -172,7 +172,8 @@ fn test_decision_ifb_registration_replaces_optimization_edge() {
     // The dynamic executor must reject the old weighted source type, even though
     // it shares the same decision problem name with the registered unit variant.
     let weighted = Decision::new(
-        MaximumIndependentSet::new(SimpleGraph::new(0, vec![]), Vec::<i64>::new()),
+        MaximumIndependentSet::new(SimpleGraph::new(0, vec![]).unwrap(), Vec::<i64>::new())
+            .unwrap(),
         0,
     );
     assert!(matches!(

@@ -189,9 +189,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 6 vertices, two vertex-disjoint paths
             let source = DisjointConnectingPaths::new(
-                SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
+                SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
                 vec![(0, 2), (3, 5)],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

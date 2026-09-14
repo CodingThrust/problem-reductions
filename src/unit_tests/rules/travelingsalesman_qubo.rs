@@ -7,8 +7,8 @@ use crate::types::Min;
 #[test]
 fn test_travelingsalesman_to_qubo_closed_loop() {
     // K3 complete graph with weights [1, 2, 3]
-    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
-    let tsp = TravelingSalesman::new(graph, vec![1i64, 2, 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
+    let tsp = TravelingSalesman::new(graph, vec![1i64, 2, 3]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -35,8 +35,8 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
 #[test]
 fn test_travelingsalesman_to_qubo_k4() {
     // K4 with unit weights
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let tsp = TravelingSalesman::new(graph, vec![1i64; 6]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let tsp = TravelingSalesman::new(graph, vec![1i64; 6]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -63,14 +63,14 @@ fn test_travelingsalesman_to_qubo_k4() {
 #[test]
 fn test_travelingsalesman_to_qubo_sizes() {
     // K3: n=3, QUBO should have n^2 = 9 variables
-    let graph3 = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
-    let tsp3 = TravelingSalesman::new(graph3, vec![1i64; 3]);
+    let graph3 = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
+    let tsp3 = TravelingSalesman::new(graph3, vec![1i64; 3]).unwrap();
     let reduction3 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp3).expect("reduction should succeed");
     assert_eq!(reduction3.target_problem().num_variables().unwrap(), 9);
 
     // K4: n=4, QUBO should have n^2 = 16 variables
-    let graph4 = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let tsp4 = TravelingSalesman::new(graph4, vec![1i64; 6]);
+    let graph4 = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let tsp4 = TravelingSalesman::new(graph4, vec![1i64; 6]).unwrap();
     let reduction4 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp4).expect("reduction should succeed");
     assert_eq!(reduction4.target_problem().num_variables().unwrap(), 16);
 }
@@ -78,7 +78,7 @@ fn test_travelingsalesman_to_qubo_sizes() {
 #[test]
 fn test_travelingsalesman_to_qubo_weighted_corpus_regression() {
     // Unequal tour costs expose a transposed vertex/position permutation.
-    let tsp = TravelingSalesman::new(SimpleGraph::complete(4), vec![9i64, 1, 2, 3, 4, 8]);
+    let tsp = TravelingSalesman::new(SimpleGraph::complete(4), vec![9i64, 1, 2, 3, 4, 8]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).unwrap();
     crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target(
         &tsp,
@@ -110,7 +110,7 @@ fn signed_and_small_tours_recover_all_optima_or_infeasibility() {
     ];
     for (n, edges, weights) in cases {
         let m = edges.len();
-        let source = TravelingSalesman::new(SimpleGraph::new(n, edges), weights);
+        let source = TravelingSalesman::new(SimpleGraph::new(n, edges).unwrap(), weights).unwrap();
         let expected = (0..1usize << m)
             .filter_map(|bits| {
                 source

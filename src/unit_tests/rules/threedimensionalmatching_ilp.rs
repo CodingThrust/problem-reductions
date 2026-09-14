@@ -12,10 +12,11 @@ fn canonical_problem() -> ThreeDimensionalMatching {
         3,
         vec![(0, 1, 2), (1, 0, 1), (2, 2, 0), (0, 0, 0), (1, 2, 2)],
     )
+    .unwrap()
 }
 
 fn singleton_problem() -> ThreeDimensionalMatching {
-    ThreeDimensionalMatching::new(1, vec![(0, 0, 0)])
+    ThreeDimensionalMatching::new(1, vec![(0, 0, 0)]).unwrap()
 }
 
 fn constraint_signature(constraint: &(Comparison, i64, Vec<(usize, i64)>)) -> String {
@@ -104,7 +105,7 @@ fn test_threedimensionalmatching_to_ilp_closed_loop() {
 
 #[test]
 fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
-    let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (0, 1, 1)]);
+    let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (0, 1, 1)]).unwrap();
     let reduction: ReductionThreeDimensionalMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 

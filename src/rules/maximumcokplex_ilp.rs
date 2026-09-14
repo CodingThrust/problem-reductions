@@ -143,10 +143,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "weighted_maximumcokplex_to_ilp",
             build: || {
                 let source = MaximumCoKPlex::<_, i64, KN>::with_k(
-                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
                     vec![5, 1, 4, 1, 3],
                     2,
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
             },
         },
@@ -154,10 +155,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "cardinality_maximumcokplex_to_ilp",
             build: || {
                 let source = MaximumCoKPlex::<_, One, KN>::with_k(
-                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
                     vec![One; 5],
                     2,
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
             },
         },

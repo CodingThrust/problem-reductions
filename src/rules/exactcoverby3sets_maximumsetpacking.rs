@@ -73,7 +73,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ExactCoverBy3Sets::new(
                 6,
                 vec![[0, 1, 2], [0, 1, 3], [3, 4, 5], [2, 4, 5], [1, 3, 5]],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<One>>(
                 source,
                 SolutionPair {

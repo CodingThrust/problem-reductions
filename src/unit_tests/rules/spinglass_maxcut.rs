@@ -58,7 +58,11 @@ fn test_solution_extraction_with_ancilla() {
 
 #[test]
 fn test_weighted_maxcut() {
-    let mc = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20]);
+    let mc = MaxCut::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![10, 20],
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&mc).expect("reduction should succeed");
     let sg = reduction.target_problem();
@@ -71,7 +75,7 @@ fn test_weighted_maxcut() {
 #[test]
 fn test_reduction_structure() {
     // Test MaxCut to SpinGlass structure
-    let mc = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let mc = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction =
         ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&mc).expect("reduction should succeed");
     let sg = reduction.target_problem();
@@ -134,7 +138,7 @@ fn test_jl_parity_maxcut_to_spinglass() {
     let weighted_edges = jl_parse_weighted_edges(inst);
     let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
     let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
-    let source = MaxCut::new(SimpleGraph::new(nv, edges), weights);
+    let source = MaxCut::new(SimpleGraph::new(nv, edges).unwrap(), weights).unwrap();
     let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -166,9 +170,10 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
     let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
     let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
     let source = MaxCut::new(
-        SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges),
+        SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges).unwrap(),
         weights,
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();

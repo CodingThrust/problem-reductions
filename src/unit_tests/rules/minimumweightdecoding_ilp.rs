@@ -13,6 +13,7 @@ fn issue_instance() -> MinimumWeightDecoding {
         ],
         vec![true, true, false],
     )
+    .unwrap()
 }
 
 fn small_instance() -> MinimumWeightDecoding {
@@ -23,12 +24,13 @@ fn small_instance() -> MinimumWeightDecoding {
         vec![vec![true, true, false], vec![false, true, true]],
         vec![true, false],
     )
+    .unwrap()
 }
 
 fn infeasible_instance() -> MinimumWeightDecoding {
     // H = [[1,1],[1,1]], s = [true, false]
     // For any x, row0 and row1 have identical dot products → s[0] ≠ s[1] means infeasible
-    MinimumWeightDecoding::new(vec![vec![true, true], vec![true, true]], vec![true, false])
+    MinimumWeightDecoding::new(vec![vec![true, true], vec![true, true]], vec![true, false]).unwrap()
 }
 
 #[test]

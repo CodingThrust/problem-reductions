@@ -51,9 +51,10 @@ fn verify_identity(source: &MaxCut<SimpleGraph, i64>) {
 fn test_maxcut_to_minimummatrixcover_closed_loop_c4() {
     // C_4 with unit weights: max cut = 4 (partition {0,2} vs {1,3} cuts all edges).
     let source = MaxCut::<SimpleGraph, i64>::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap(),
         vec![1, 1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -86,8 +87,11 @@ fn test_maxcut_to_minimummatrixcover_closed_loop_c4() {
 #[test]
 fn test_maxcut_to_minimummatrixcover_closed_loop_p3_weighted() {
     // Path P_3 = 0-1-2 with weights (2, 3): max cut = 5 (split {1} vs {0, 2}).
-    let source =
-        MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3]);
+    let source = MaxCut::<SimpleGraph, i64>::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![2, 3],
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -115,9 +119,10 @@ fn test_maxcut_to_minimummatrixcover_closed_loop_p3_weighted() {
 fn test_maxcut_to_minimummatrixcover_closed_loop_triangle() {
     // K_3 (triangle) with unit weights: max cut = 2.
     let source = MaxCut::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
@@ -141,9 +146,10 @@ fn test_maxcut_to_minimummatrixcover_closed_loop_triangle() {
 fn test_target_structure_matches_adjacency_matrix() {
     // Verify the construction details on an asymmetric weighted graph.
     let source = MaxCut::<SimpleGraph, i64>::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 3), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 3), (1, 2), (2, 3)]).unwrap(),
         vec![5, 7, 2, 3],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -173,16 +179,20 @@ fn test_target_structure_matches_adjacency_matrix() {
 fn test_algebraic_identity_c4_unit() {
     // The identity Σ a_ij f(i) f(j) = 2W − 4·cut(S) must hold for every f.
     let source = MaxCut::<SimpleGraph, i64>::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap(),
         vec![1, 1, 1, 1],
-    );
+    )
+    .unwrap();
     verify_identity(&source);
 }
 
 #[test]
 fn test_algebraic_identity_p3_weighted() {
-    let source =
-        MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3]);
+    let source = MaxCut::<SimpleGraph, i64>::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![2, 3],
+    )
+    .unwrap();
     verify_identity(&source);
 }
 
@@ -190,16 +200,20 @@ fn test_algebraic_identity_p3_weighted() {
 fn test_algebraic_identity_triangle_weighted() {
     // Triangle with non-uniform weights.
     let source = MaxCut::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![4, 1, 2],
-    );
+    )
+    .unwrap();
     verify_identity(&source);
 }
 
 #[test]
 fn test_extract_solution_is_identity() {
-    let source =
-        MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1]);
+    let source = MaxCut::<SimpleGraph, i64>::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1, 1],
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![true, false, true];
@@ -209,7 +223,8 @@ fn test_extract_solution_is_identity() {
 #[test]
 fn test_empty_graph() {
     // n vertices, zero edges: matrix is all zeros, max cut = 0.
-    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(3, vec![]), vec![]);
+    let source =
+        MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(3, vec![]).unwrap(), vec![]).unwrap();
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -233,7 +248,8 @@ fn test_overhead_num_rows_equals_num_vertices() {
     for n in [1usize, 2, 5, 8] {
         let edges: Vec<(usize, usize)> = (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
         let weights: Vec<i64> = vec![1; edges.len()];
-        let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(n, edges), weights);
+        let source =
+            MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(n, edges).unwrap(), weights).unwrap();
         let reduction =
             ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
         assert_eq!(reduction.target_problem().num_rows(), n);
@@ -243,7 +259,9 @@ fn test_overhead_num_rows_equals_num_vertices() {
 #[test]
 fn test_negative_weight_is_rejected() {
     // The reduction only handles nonnegative weights.
-    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-1]);
+    let source =
+        MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![-1])
+            .unwrap();
     let error = ReduceTo::<MinimumMatrixCover>::reduce_to(&source).unwrap_err();
     assert!(matches!(
         error,

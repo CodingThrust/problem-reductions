@@ -7,7 +7,7 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Path P3: 0-1-2
-    let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -20,7 +20,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_hamiltonianpath_to_ilp_closed_loop() {
     // Path graph: 0-1-2-3 (has Hamiltonian path)
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
@@ -47,7 +47,8 @@ fn test_hamiltonianpath_to_ilp_closed_loop() {
 #[test]
 fn test_hamiltonianpath_to_ilp_cycle_graph() {
     // C4: 0-1-2-3-0 (has multiple Hamiltonian paths)
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]));
+    let problem =
+        HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap());
     // BruteForce on source
     let bf = BruteForce::new();
     let bf_solution = bf
@@ -69,7 +70,7 @@ fn test_hamiltonianpath_to_ilp_cycle_graph() {
 
 #[test]
 fn test_hamiltonianpath_to_ilp_bf_vs_ilp() {
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
@@ -78,7 +79,7 @@ fn test_hamiltonianpath_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_hamiltonianpath_to_ilp_no_path() {
     // Disconnected graph: no Hamiltonian path
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap());
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -92,7 +93,7 @@ fn test_hamiltonianpath_to_ilp_no_path() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

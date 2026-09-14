@@ -58,13 +58,12 @@ inventory::submit! {
 /// use problemreductions::{BruteForce, Problem};
 ///
 /// // 5-cycle C_5 with k = 2 (induced degree <= 1).
-/// let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
+/// let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap();
 /// let problem =
-///     MaximumCoKPlex::<_, One, KN>::with_k(graph, vec![One; 5], 2);
+///     MaximumCoKPlex::<_, One, KN>::with_k(graph, vec![One; 5], 2).unwrap();
 /// assert_eq!(problem.bound_k(), 2);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>, W: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumCoKPlex<G, W, K: KValue> {
     /// The underlying graph.
     graph: G,
@@ -79,6 +78,25 @@ pub struct MaximumCoKPlex<G, W, K: KValue> {
     bound_k: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+#[derive(Deserialize)]
+struct MaximumCoKPlexData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+    bound_k: usize,
+}
+
+impl<'de, G, W, K> Deserialize<'de> for MaximumCoKPlex<G, W, K>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+    K: KValue,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumCoKPlexData::deserialize(deserializer)?;
+        Self::with_k(data.graph, data.weights, data.bound_k).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -97,56 +115,48 @@ impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MaximumCoKPlexCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        if spec.k == 0 {
-            return Err("k must be at least 1".to_string().into());
-        }
-        Ok(Self::with_k(spec.graph, spec.weights, spec.k))
+        Self::with_k(spec.graph, spec.weights, spec.k)
     }
 }
 
 impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
     /// Create an instance with an explicit runtime `k`.
     ///
-    /// # Panics
-    /// Panics if `weights.len()` does not match `graph.num_vertices()`, if
+    /// # Errors
+    /// Returns an error if `weights.len()` does not match `graph.num_vertices()`, if
     /// `bound_k == 0`, or if `K` declares a fixed value that disagrees with
     /// `bound_k`.
-    pub fn with_k(graph: G, weights: Vec<W>, bound_k: usize) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        assert!(bound_k >= 1, "co-k-plex parameter k must be at least 1");
-        if let Some(fixed) = K::K {
-            assert_eq!(
-                fixed, bound_k,
-                "fixed K type disagrees with runtime bound_k"
-            );
+    pub fn with_k(
+        graph: G,
+        weights: Vec<W>,
+        bound_k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
         }
-        Self {
+        if bound_k == 0 {
+            return Err("co-k-plex parameter k must be at least 1".into());
+        }
+        if let Some(fixed) = K::K {
+            if fixed != bound_k {
+                return Err("fixed K type disagrees with runtime bound_k".into());
+            }
+        }
+        Ok(Self {
             graph,
             weights,
             bound_k,
             _phantom: std::marker::PhantomData,
-        }
+        })
     }
 
     /// Create a new instance using the compile-time `K`.
     ///
-    /// # Panics
-    /// Panics if `K` is [`KN`] (use [`MaximumCoKPlex::with_k`] instead) or if
+    /// # Errors
+    /// Returns an error if `K` is [`KN`] (use [`MaximumCoKPlex::with_k`] instead) or if
     /// `weights.len()` does not match `graph.num_vertices()`.
-    pub fn new(graph: G, weights: Vec<W>) -> Self {
-        let k = K::K.expect("KN requires with_k");
+    pub fn new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        let k = K::K.ok_or("KN requires with_k")?;
         Self::with_k(graph, weights, k)
     }
 
@@ -283,10 +293,7 @@ impl TryFrom<MaximumCoKPlexOneCreateSpec> for MaximumCoKPlex<SimpleGraph, One, K
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCoKPlexOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        if spec.k == 0 {
-            return Err("k must be at least 1".into());
-        }
-        Ok(Self::with_k(spec.graph, weights, spec.k))
+        Self::with_k(spec.graph, weights, spec.k)
     }
 }
 
@@ -304,11 +311,14 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_co_k_plex_simplegraph",
-        instance: Box::new(MaximumCoKPlex::<_, i64, KN>::with_k(
-            SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
-            vec![5, 1, 4, 1, 3],
-            2,
-        )),
+        instance: Box::new(
+            MaximumCoKPlex::<_, i64, KN>::with_k(
+                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+                vec![5, 1, 4, 1, 3],
+                2,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!([true, false, true, false, true]),
         optimal_value: serde_json::json!(12),
     }]

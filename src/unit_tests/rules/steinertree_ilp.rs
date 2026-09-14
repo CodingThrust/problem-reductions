@@ -70,7 +70,7 @@ fn test_steinertree_to_ilp_closed_loop() {
         (2, vec![(0, 1)], vec![5], vec![0], 0),
         (2, vec![(0, 1)], vec![-5], vec![0], -5),
     ] {
-        let source = SteinerTree::new(SimpleGraph::new(n, edges), weights, terminals);
+        let source = SteinerTree::new(SimpleGraph::new(n, edges).unwrap(), weights, terminals);
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let witness = ILPSolver::new().solve(reduction.target_problem()).unwrap();
         let decoded = reduction.extract_solution(&witness).unwrap();
@@ -81,7 +81,11 @@ fn test_steinertree_to_ilp_closed_loop() {
         );
         crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
     }
-    let source = SteinerTree::new(SimpleGraph::new(3, vec![(0, 1)]), vec![-1], vec![0, 2]);
+    let source = SteinerTree::new(
+        SimpleGraph::new(3, vec![(0, 1)]).unwrap(),
+        vec![-1],
+        vec![0, 2],
+    );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     assert!(matches!(
         ILPSolver::new().solve(reduction.target_problem()),
@@ -92,7 +96,7 @@ fn test_steinertree_to_ilp_closed_loop() {
 #[test]
 fn test_steiner_all_source_trees_lift_and_preserve_objective() {
     let source = SteinerTree::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![-2, 0, 3, -1, 2, 0],
         vec![2, 0],
     );
@@ -114,7 +118,11 @@ fn test_steiner_all_source_trees_lift_and_preserve_objective() {
 
 #[test]
 fn test_steiner_every_small_raw_target_and_malformed_witness() {
-    let source = SteinerTree::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-3], vec![1, 0]);
+    let source = SteinerTree::new(
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
+        vec![-3],
+        vec![1, 0],
+    );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
     let mut feasible_count = 0;
@@ -162,7 +170,11 @@ fn test_steiner_count_boundaries() {
 
 #[test]
 fn test_single_terminal_tree_lifts_include_empty_tree() {
-    let source = SteinerTree::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-5], vec![1]);
+    let source = SteinerTree::new(
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
+        vec![-5],
+        vec![1],
+    );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     for selected in [vec![false], vec![true]] {
         let witness = lift(&source, &selected);

@@ -50,7 +50,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // K4: complete graph on 4 vertices
-/// let graph = SimpleGraph::new(4, vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]);
+/// let graph = SimpleGraph::new(4, vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]).unwrap();
 /// let problem = MonochromaticTriangle::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -216,10 +216,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     //   Triangle (1,2,3): edges 3,4,5 -> colors 1,0,1 -> not monochromatic
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "monochromatic_triangle_simplegraph",
-        instance: Box::new(MonochromaticTriangle::new(SimpleGraph::new(
-            4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        ))),
+        instance: Box::new(MonochromaticTriangle::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![false, false, true, true, false, true]),
         optimal_value: serde_json::json!(true),
     }]

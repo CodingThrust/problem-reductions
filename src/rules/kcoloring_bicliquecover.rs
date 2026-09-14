@@ -123,7 +123,11 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
             // A loop cannot be properly colored. A single edge cannot be
             // covered with zero bicliques, giving a fixed NO instance.
             return Ok(ReductionKColoringToBicliqueCover {
-                target: BicliqueCover::new(BipartiteGraph::new(1, 1, vec![(0, 0)]), 0),
+                target: BicliqueCover::new(
+                    BipartiteGraph::new(1, 1, vec![(0, 0)])
+                        .map_err(<Self as ReduceTo<BicliqueCover>>::target_construction)?,
+                    0,
+                ),
                 num_vertices: n,
             });
         }
@@ -190,7 +194,11 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 
         let left_size = 2 * n;
         let right_size = 2 * n;
-        let target = BicliqueCover::new(BipartiteGraph::new(left_size, right_size, edges), n + q);
+        let target = BicliqueCover::new(
+            BipartiteGraph::new(left_size, right_size, edges)
+                .map_err(<Self as ReduceTo<BicliqueCover>>::target_construction)?,
+            n + q,
+        );
 
         Ok(ReductionKColoringToBicliqueCover {
             target,
@@ -290,7 +298,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // P_2 with q = 2: vertices {0, 1}, one edge (0, 1).
             // A valid 2-coloring is (0, 1). Target has 8 vertices and rank 4,
             // small enough to keep the canonical bundle compact.
-            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 2);
             let coloring = vec![0usize, 1usize];
             let target_config = forward_witness(&source, &coloring);
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(

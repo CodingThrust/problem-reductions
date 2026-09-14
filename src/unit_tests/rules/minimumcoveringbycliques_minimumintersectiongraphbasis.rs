@@ -6,8 +6,9 @@ use crate::types::Min;
 
 #[test]
 fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_closed_loop() {
-    let source =
-        MinimumCoveringByCliques::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]));
+    let source = MinimumCoveringByCliques::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction = ReduceTo::<MinimumIntersectionGraphBasis<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
@@ -20,8 +21,9 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_closed_loop() 
 
 #[test]
 fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_structure_identity() {
-    let source =
-        MinimumCoveringByCliques::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]));
+    let source = MinimumCoveringByCliques::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction = ReduceTo::<MinimumIntersectionGraphBasis<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -33,8 +35,9 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_structure_iden
 
 #[test]
 fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_issue_example_extraction() {
-    let source =
-        MinimumCoveringByCliques::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]));
+    let source = MinimumCoveringByCliques::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction = ReduceTo::<MinimumIntersectionGraphBasis<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -50,7 +53,7 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_issue_example_
 
 #[test]
 fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_invalid_target_rejected() {
-    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction = ReduceTo::<MinimumIntersectionGraphBasis<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -64,7 +67,7 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_invalid_target
 
 #[test]
 fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_empty_graph() {
-    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![]));
+    let source = MinimumCoveringByCliques::new(SimpleGraph::new(3, vec![]).unwrap());
     let reduction = ReduceTo::<MinimumIntersectionGraphBasis<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

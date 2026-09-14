@@ -6,7 +6,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_paintshop_creation() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
     assert_eq!(problem.num_cars(), 2);
     assert_eq!(problem.sequence_len(), 4);
     assert_eq!(problem.num_variables().unwrap(), 2);
@@ -14,7 +14,7 @@ fn test_paintshop_creation() {
 
 #[test]
 fn test_is_first() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
     // First occurrence: a at 0, b at 1
     // Second occurrence: a at 2, b at 3
     assert_eq!(problem.is_first, vec![true, true, false, false]);
@@ -22,7 +22,7 @@ fn test_is_first() {
 
 #[test]
 fn test_get_coloring() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
     // Config: a=0, b=1
     // Sequence: a(0), b(1), a(1-opposite), b(0-opposite)
     let coloring = problem.get_coloring(&[false, true]).unwrap();
@@ -35,7 +35,7 @@ fn test_get_coloring() {
 
 #[test]
 fn test_get_coloring_rejects_wrong_assignment_length() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
     assert!(matches!(
         problem.get_coloring(&[false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -44,7 +44,7 @@ fn test_get_coloring_rejects_wrong_assignment_length() {
 
 #[test]
 fn test_count_switches() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
 
     // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
     assert_eq!(problem.count_switches(&[false, true]).unwrap(), 2);
@@ -66,7 +66,7 @@ fn test_count_paint_switches_function() {
 
 #[test]
 fn test_single_car() {
-    let problem = PaintShop::new(vec!["a", "a"]);
+    let problem = PaintShop::new(vec!["a", "a"]).unwrap();
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -80,7 +80,7 @@ fn test_single_car() {
 #[test]
 fn test_adjacent_same_car() {
     // Sequence: a, a, b, b
-    let problem = PaintShop::new(vec!["a", "a", "b", "b"]);
+    let problem = PaintShop::new(vec!["a", "a", "b", "b"]).unwrap();
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -92,15 +92,14 @@ fn test_adjacent_same_car() {
 }
 
 #[test]
-#[should_panic]
 fn test_invalid_sequence_single_occurrence() {
-    // This should panic because 'c' only appears once
-    let _ = PaintShop::new(vec!["a", "b", "a", "c"]);
+    // This is rejected because 'c' only appears once
+    assert!(PaintShop::new(vec!["a", "b", "a", "c"]).is_err());
 }
 
 #[test]
 fn test_car_labels() {
-    let problem = PaintShop::new(vec!["car1", "car2", "car1", "car2"]);
+    let problem = PaintShop::new(vec!["car1", "car2", "car1", "car2"]).unwrap();
     assert_eq!(problem.car_labels().len(), 2);
 }
 
@@ -115,7 +114,7 @@ fn test_jl_parity_evaluation() {
             .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect();
-        let problem = PaintShop::new(sequence);
+        let problem = PaintShop::new(sequence).unwrap();
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
@@ -136,7 +135,7 @@ fn test_jl_parity_evaluation() {
 
 #[test]
 fn test_parameter_getters() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
     assert_eq!(problem.num_sequence(), 4);
     assert_eq!(problem.num_cars(), 2);
 }
@@ -144,7 +143,7 @@ fn test_parameter_getters() {
 #[test]
 fn test_paintshop_paper_example() {
     // Paper: sequence (A,B,A,C,B,C), optimal 2 color changes
-    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
+    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]).unwrap();
     assert_eq!(problem.num_cars(), 3);
 
     // Car order: A=0, B=1, C=2 (sorted)
@@ -153,4 +152,27 @@ fn test_paintshop_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+
+#[test]
+fn deserialize_rebuilds_occurrence_metadata() {
+    let expected = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
+    let mut json = serde_json::to_value(&expected).unwrap();
+    json["is_first"] = serde_json::json!([false]);
+    json["num_cars"] = serde_json::json!(99);
+    let restored: PaintShop = serde_json::from_value(json).unwrap();
+    assert_eq!(
+        serde_json::to_value(restored).unwrap(),
+        serde_json::to_value(expected).unwrap()
+    );
+}
+
+#[test]
+fn deserialize_rejects_invalid_car_indices_and_counts() {
+    for indices in [vec![0, 1], vec![0]] {
+        assert!(serde_json::from_value::<PaintShop>(serde_json::json!({
+            "sequence_indices": indices, "car_labels": ["a"]
+        }))
+        .is_err());
+    }
 }

@@ -175,7 +175,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Source: alphabet {0,1,2}, strings [0,1,2] and [1,0,2], max_length = 3
             // Optimal LCS: [0,2] (length 2) or [1,2] (length 2)
             // Config with padding: e.g. [0, 2, 3] (symbol 3 = padding)
-            let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]);
+            let source =
+                LongestCommonSubsequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

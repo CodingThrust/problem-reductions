@@ -4,7 +4,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
 fn issue_example() -> RootedTreeArrangement<SimpleGraph> {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]).unwrap();
     RootedTreeArrangement::new(graph, 7)
 }
 
@@ -65,7 +65,7 @@ fn test_rootedtreearrangement_rejects_invalid_bijections() {
 
 #[test]
 fn test_rootedtreearrangement_rejects_noncomparable_edges() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]).unwrap();
     let problem = RootedTreeArrangement::new(graph, 99);
 
     // Tree: 0 is root, 1 and 2 are siblings, 3 and 4 descend from 2.
@@ -87,7 +87,7 @@ fn test_rootedtreearrangement_enforces_bound() {
 
 #[test]
 fn test_rootedtreearrangement_solver_and_serialization() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = RootedTreeArrangement::new(graph, 2);
 
     let solver = BruteForce::new();

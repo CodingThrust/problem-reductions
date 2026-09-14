@@ -11,11 +11,12 @@ use crate::types::Max;
 fn test_lengthboundeddisjointpaths_to_ilp_closed_loop() {
     // Diamond graph: 4 vertices, s=0, t=3, K=2
     let source = LengthBoundedDisjointPaths::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         2,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
@@ -23,11 +24,12 @@ fn test_lengthboundeddisjointpaths_to_ilp_closed_loop() {
 #[test]
 fn test_lengthboundeddisjointpaths_to_ilp_bf_vs_ilp() {
     let source = LengthBoundedDisjointPaths::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         2,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
@@ -44,8 +46,9 @@ fn test_lengthboundeddisjointpaths_to_ilp_triangle_subgraphs() {
                     .enumerate()
                     .filter_map(|(i, &edge)| (mask & (1 << i) != 0).then_some(edge))
                     .collect(),
-            );
-            let source = LengthBoundedDisjointPaths::new(graph, 0, 2, bound);
+            )
+            .unwrap();
+            let source = LengthBoundedDisjointPaths::new(graph, 0, 2, bound).unwrap();
             let expected = i64::from(mask & 4 != 0) + i64::from(bound == 2 && mask & 3 == 3);
             let reference = BruteForce::new().solve(&source).unwrap().unwrap();
             assert_eq!(source.evaluate(&reference).unwrap(), Max(Some(expected)));
@@ -60,11 +63,12 @@ fn test_lengthboundeddisjointpaths_to_ilp_triangle_subgraphs() {
 #[test]
 fn test_lengthboundeddisjointpaths_to_ilp_preserves_edge_order() {
     let source = LengthBoundedDisjointPaths::new(
-        SimpleGraph::new(4, vec![(2, 0), (3, 1), (2, 1), (1, 0)]),
+        SimpleGraph::new(4, vec![(2, 0), (3, 1), (2, 1), (1, 0)]).unwrap(),
         0,
         2,
         2,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     // Reverse orientations of edge 0 (0->2) and edges 3,2 (0->1->2).
     let mut target_solution = vec![0; 18];
@@ -95,7 +99,8 @@ fn test_lengthboundeddisjointpaths_to_ilp_extracts_path_from_circulation() {
     ] {
         let mut edges = vec![(0, 1)];
         edges.extend(cycle);
-        let source = LengthBoundedDisjointPaths::new(SimpleGraph::new(5, edges), 0, 1, 4);
+        let source =
+            LengthBoundedDisjointPaths::new(SimpleGraph::new(5, edges).unwrap(), 0, 1, 4).unwrap();
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let target_solution = vec![1, 0, 1, 0, 1, 0, 1, 0, 1];
         assert!(reduction
@@ -110,7 +115,9 @@ fn test_lengthboundeddisjointpaths_to_ilp_extracts_path_from_circulation() {
 
 #[test]
 fn test_lengthboundeddisjointpaths_to_ilp_rejects_invalid_target_solutions() {
-    let source = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]), 0, 1, 1);
+    let source =
+        LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 0, 1, 1)
+            .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     for solution in [vec![], vec![2, 0, 1], vec![0, 0, 1], vec![1, 0, 0]] {
         assert!(

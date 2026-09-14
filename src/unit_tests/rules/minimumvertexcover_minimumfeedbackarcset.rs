@@ -14,17 +14,19 @@ use crate::traits::Problem;
 fn triangle_source() -> MinimumVertexCover<SimpleGraph, i64> {
     // Triangle: 0-1-2-0, unit weights; MVC = 2
     MinimumVertexCover::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![1i64; 3],
     )
+    .unwrap()
 }
 
 fn weighted_path_source() -> MinimumVertexCover<SimpleGraph, i64> {
     // Path: 0-1-2-3-4, varied weights
     MinimumVertexCover::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![4, 1, 3, 2, 5],
     )
+    .unwrap()
 }
 
 #[test]

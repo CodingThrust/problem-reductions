@@ -149,7 +149,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "schedulingwithindividualdeadlines_to_ilp",
         build: || {
             // 3 tasks, 2 processors, deadlines [2, 2, 3], precedence (0, 2)
-            let source = SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)]);
+            let source =
+                SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)]).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

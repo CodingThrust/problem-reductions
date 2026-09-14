@@ -20,7 +20,8 @@ use crate::types::One;
 #[test]
 fn test_biconnectivity_augmentation_creation() {
     let graph = SimpleGraph::path(4);
-    let problem = BiconnectivityAugmentation::new(graph.clone(), vec![(0, 3, 2), (1, 3, 1)], 2);
+    let problem =
+        BiconnectivityAugmentation::new(graph.clone(), vec![(0, 3, 2), (1, 3, 1)], 2).unwrap();
 
     assert_eq!(problem.graph(), &graph);
     assert_eq!(problem.potential_weights(), &[(0, 3, 2), (1, 3, 1)]);
@@ -44,26 +45,27 @@ fn test_biconnectivity_augmentation_creation() {
     );
 
     let unit_problem =
-        BiconnectivityAugmentation::<_, One>::new(SimpleGraph::path(3), vec![(0, 2, One)], 1);
+        BiconnectivityAugmentation::<_, One>::new(SimpleGraph::path(3), vec![(0, 2, One)], 1)
+            .unwrap();
     assert!(!unit_problem.is_weighted());
 }
 
 #[test]
-#[should_panic(expected = "references vertex >= num_vertices")]
 fn test_biconnectivity_augmentation_creation_rejects_invalid_potential_edge() {
-    BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 4, 1)], 1);
+    assert!(BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 4, 1)], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "already exists in the graph")]
 fn test_biconnectivity_augmentation_creation_rejects_existing_edge_candidate() {
-    BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(1, 2, 1)], 1);
+    assert!(BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(1, 2, 1)], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "is duplicated")]
 fn test_biconnectivity_augmentation_creation_rejects_duplicate_candidate() {
-    BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 1), (3, 0, 2)], 2);
+    assert!(
+        BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 1), (3, 0, 2)], 2)
+            .is_err()
+    );
 }
 
 #[test]
@@ -72,7 +74,8 @@ fn test_biconnectivity_augmentation_evaluation() {
         SimpleGraph::path(4),
         vec![(0, 2, 5), (1, 3, 1), (0, 3, 2)],
         2,
-    );
+    )
+    .unwrap();
 
     assert!(!problem.evaluate(&vec![false, false, false]).unwrap());
     assert!(!problem.evaluate(&vec![false, true, false]).unwrap());
@@ -92,7 +95,8 @@ fn test_biconnectivity_augmentation_evaluation() {
 #[test]
 fn test_biconnectivity_augmentation_serialization() {
     let problem =
-        BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2), (1, 3, 1)], 2);
+        BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2), (1, 3, 1)], 2)
+            .unwrap();
 
     let json = serde_json::to_value(&problem).unwrap();
     let restored: BiconnectivityAugmentation<SimpleGraph, i64> =
@@ -109,7 +113,8 @@ fn test_biconnectivity_augmentation_solver() {
         SimpleGraph::path(4),
         vec![(0, 2, 5), (1, 3, 1), (0, 3, 2)],
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
 
     let solution = solver
@@ -124,7 +129,8 @@ fn test_biconnectivity_augmentation_solver() {
 
 #[test]
 fn test_biconnectivity_augmentation_no_solution() {
-    let problem = BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 2, 1)], 1);
+    let problem =
+        BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 2, 1)], 1).unwrap();
     let solver = BruteForce::new();
 
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -155,31 +161,47 @@ fn test_biconnectivity_augmentation_paper_example() {
             (3, 5, 1),
         ],
         3,
-    );
+    )
+    .unwrap();
     assert!(!over_budget_problem.evaluate(&satisfying_config).unwrap());
     assert!(solver.solve(&over_budget_problem).unwrap().is_none());
 }
 
 #[test]
 fn test_is_biconnected() {
-    assert!(is_biconnected(&SimpleGraph::cycle(4)));
-    assert!(is_biconnected(&SimpleGraph::complete(3)));
-    assert!(!is_biconnected(&SimpleGraph::path(4)));
-    assert!(!is_biconnected(&SimpleGraph::new(4, vec![(0, 1), (2, 3)])));
+    for (graph, expected) in [
+        (SimpleGraph::empty(0), true),
+        (SimpleGraph::empty(1), true),
+        (SimpleGraph::empty(2), false),
+        (SimpleGraph::path(2), true),
+        (SimpleGraph::cycle(4), true),
+        (SimpleGraph::complete(3), true),
+        (SimpleGraph::path(4), false),
+        (SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap(), false),
+        (
+            SimpleGraph::new(2, vec![(0, 0), (0, 1), (0, 1)]).unwrap(),
+            true,
+        ),
+    ] {
+        let problem = BiconnectivityAugmentation::<_, i64>::new(graph, vec![], 0).unwrap();
+        assert_eq!(problem.evaluate(&vec![]).unwrap().0, expected);
+    }
 }
 
 #[test]
 fn test_biconnectivity_augmentation_signed_total_budget() {
     for candidates in [vec![(0, 2, 2), (0, 3, -2)], vec![(0, 3, -2), (0, 2, 2)]] {
-        let source = BiconnectivityAugmentation::new(SimpleGraph::path(4), candidates, 0);
+        let source = BiconnectivityAugmentation::new(SimpleGraph::path(4), candidates, 0).unwrap();
         assert!(source.evaluate(&vec![true, true]).unwrap().0);
     }
     for n in 0..=3 {
         let source =
-            BiconnectivityAugmentation::<_, i64>::new(SimpleGraph::complete(n), vec![], -1);
+            BiconnectivityAugmentation::<_, i64>::new(SimpleGraph::complete(n), vec![], -1)
+                .unwrap();
         assert!(!source.evaluate(&vec![]).unwrap().0);
     }
-    let source = BiconnectivityAugmentation::new(SimpleGraph::path(3), vec![(0, 2, -3)], -2);
+    let source =
+        BiconnectivityAugmentation::new(SimpleGraph::path(3), vec![(0, 2, -3)], -2).unwrap();
     assert!(source.evaluate(&vec![true]).unwrap().0);
 }
 
@@ -189,7 +211,8 @@ fn test_biconnectivity_augmentation_preserves_checked_arithmetic() {
         SimpleGraph::path(4),
         vec![(0, 2, i64::MAX), (0, 3, 1), (1, 3, -1)],
         i64::MAX,
-    );
+    )
+    .unwrap();
     assert!(matches!(
         source.evaluate(&vec![true, true, true]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))
@@ -198,7 +221,8 @@ fn test_biconnectivity_augmentation_preserves_checked_arithmetic() {
         SimpleGraph::path(4),
         vec![(0, 2, i64::MIN), (0, 3, -1)],
         i64::MAX,
-    );
+    )
+    .unwrap();
     assert!(matches!(
         source.evaluate(&vec![true, true]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))

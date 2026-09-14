@@ -17,7 +17,8 @@ fn issue_instance() -> MaximumCommonEdgeSubgraph {
                 LabelledArc::new(1, 3, 3),
                 LabelledArc::new(3, 1, 4),
             ],
-        ),
+        )
+        .unwrap(),
         LabelledDigraph::new(
             4,
             vec![
@@ -28,7 +29,8 @@ fn issue_instance() -> MaximumCommonEdgeSubgraph {
                 LabelledArc::new(1, 3, 3),
                 LabelledArc::new(0, 1, 3),
             ],
-        ),
+        )
+        .unwrap(),
     )
 }
 
@@ -173,15 +175,13 @@ fn test_maximum_common_edge_subgraph_rejects_out_of_range_target() {
 }
 
 #[test]
-#[should_panic(expected = "labelled arc source")]
 fn test_labelled_digraph_rejects_out_of_range_source() {
-    let _ = LabelledDigraph::new(2, vec![LabelledArc::new(2, 0, 0)]);
+    assert!(LabelledDigraph::new(2, vec![LabelledArc::new(2, 0, 0)]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "labelled arc destination")]
 fn test_labelled_digraph_rejects_out_of_range_destination() {
-    let _ = LabelledDigraph::new(2, vec![LabelledArc::new(0, 0, 2)]);
+    assert!(LabelledDigraph::new(2, vec![LabelledArc::new(0, 0, 2)]).is_err());
 }
 
 #[test]
@@ -193,6 +193,24 @@ fn test_labelled_digraph_deduplicates_arcs() {
             LabelledArc::new(0, 1, 2),
             LabelledArc::new(1, 0, 2),
         ],
-    );
+    )
+    .unwrap();
     assert_eq!(g.num_arcs(), 2);
+}
+
+#[test]
+fn deserialize_checks_and_normalizes_labelled_arcs() {
+    assert!(
+        serde_json::from_value::<LabelledDigraph>(serde_json::json!({
+            "num_vertices": 2, "arcs": [{"src": 0, "label": 1, "dst": 2}]
+        }))
+        .is_err()
+    );
+    let graph: LabelledDigraph = serde_json::from_value(serde_json::json!({
+        "num_vertices": 2, "arcs": [
+            {"src": 0, "label": 1, "dst": 1}, {"src": 0, "label": 1, "dst": 1}
+        ]
+    }))
+    .unwrap();
+    assert_eq!(graph.arcs(), &[LabelledArc::new(0, 1, 1)]);
 }

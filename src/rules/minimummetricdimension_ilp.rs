@@ -93,7 +93,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimummetricdimension_to_ilp",
         build: || {
             // P3 path graph: 3 vertices, metric dimension = 1
-            let source = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+            let source =
+                MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

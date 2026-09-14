@@ -191,11 +191,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "boundedcomponentspanningforest_to_ilp",
         build: || {
             let source = BoundedComponentSpanningForest::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                 vec![1, 2, 2, 1],
                 2,
                 4,
-            );
+            )
+            .unwrap();
             let reduction: ReductionBCSFToILP =
                 crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
                     .expect("reduction should succeed");

@@ -4,7 +4,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
-    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]);
+    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]).unwrap();
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -15,7 +15,7 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_minimumhittingset_to_ilp_bf_vs_ilp() {
-    let problem = MinimumHittingSet::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]);
+    let problem = MinimumHittingSet::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]).unwrap();
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -32,7 +32,7 @@ fn test_minimumhittingset_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]);
+    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]).unwrap();
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = vec![0, 1, 0];
@@ -43,7 +43,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_minimumhittingset_to_ilp_trivial() {
-    let problem = MinimumHittingSet::new(0, vec![]);
+    let problem = MinimumHittingSet::new(0, vec![]).unwrap();
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

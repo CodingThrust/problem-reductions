@@ -12,7 +12,7 @@ fn two_group_instance() -> Clustering {
         vec![3, 3, 3, 1, 0, 1],
         vec![3, 3, 3, 1, 1, 0],
     ];
-    Clustering::new(distances, 2, 1)
+    Clustering::new(distances, 2, 1).unwrap()
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn test_clustering_evaluate_invalid_cluster_index() {
 fn test_clustering_trivial_k_ge_n() {
     // K ≥ n: each element in its own cluster → always feasible
     let distances = vec![vec![0, 100, 100], vec![100, 0, 100], vec![100, 100, 0]];
-    let problem = Clustering::new(distances, 3, 0);
+    let problem = Clustering::new(distances, 3, 0).unwrap();
     // Each element in its own cluster: [0, 1, 2]
     assert!(problem.evaluate(&vec![0, 1, 2]).unwrap().0);
 }
@@ -104,7 +104,7 @@ fn test_clustering_solver_all_witnesses() {
         vec![3, 3, 0, 1],
         vec![3, 3, 1, 0],
     ];
-    let problem = Clustering::new(distances, 2, 1);
+    let problem = Clustering::new(distances, 2, 1).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -136,23 +136,21 @@ fn test_clustering_serialization() {
 fn test_clustering_no_solution() {
     // 3 elements all pairwise distance 5, K=1, B=2 → infeasible
     let distances = vec![vec![0, 5, 5], vec![5, 0, 5], vec![5, 5, 0]];
-    let problem = Clustering::new(distances, 1, 2);
+    let problem = Clustering::new(distances, 1, 2).unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
-#[should_panic(expected = "symmetric")]
-fn test_clustering_asymmetric_panics() {
+fn test_clustering_asymmetric_is_rejected() {
     let distances = vec![vec![0, 1], vec![2, 0]];
-    Clustering::new(distances, 1, 1);
+    assert!(Clustering::new(distances, 1, 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "Diagonal")]
-fn test_clustering_nonzero_diagonal_panics() {
+fn test_clustering_nonzero_diagonal_is_rejected() {
     let distances = vec![vec![1, 1], vec![1, 0]];
-    Clustering::new(distances, 1, 1);
+    assert!(Clustering::new(distances, 1, 1).is_err());
 }
 
 #[test]

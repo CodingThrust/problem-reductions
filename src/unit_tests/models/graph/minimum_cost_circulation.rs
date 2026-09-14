@@ -18,10 +18,11 @@ use crate::types::Min;
 ///   cost   = 2*2 + 2*(-3) + 1*1 + 1*(-4) = 4 - 6 + 1 - 4 = -5
 fn canonical_instance() -> MinimumCostCirculation {
     MinimumCostCirculation::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]).unwrap(),
         vec![2, 2, 1, 1],
         vec![2, -3, 1, -4],
     )
+    .unwrap()
 }
 
 #[test]
@@ -131,10 +132,11 @@ fn test_minimum_cost_circulation_negative_cycle_beats_zero() {
     // trivial zero circulation. Graph is one cycle 0 -> 1 -> 0 with
     // per-unit cost 1 + (-3) = -2, capacity 1.
     let problem = MinimumCostCirculation::new(
-        DirectedGraph::new(2, vec![(0, 1), (1, 0)]),
+        DirectedGraph::new(2, vec![(0, 1), (1, 0)]).unwrap(),
         vec![1, 1],
         vec![1, -3],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -154,10 +156,11 @@ fn test_minimum_cost_circulation_issue_example_1030() {
     // Bottleneck is the back-arc (cap=1), so the optimum sends one unit
     // around the cycle: cost = 1*3 + 1*(-5) = -2.
     let problem = MinimumCostCirculation::new(
-        DirectedGraph::new(2, vec![(0, 1), (1, 0)]),
+        DirectedGraph::new(2, vec![(0, 1), (1, 0)]).unwrap(),
         vec![2, 1],
         vec![3, -5],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)

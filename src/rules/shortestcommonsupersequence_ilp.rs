@@ -154,7 +154,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "shortestcommonsupersequence_to_ilp",
         build: || {
             // Alphabet {0,1}, strings [0,1] and [1,0]
-            let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+            let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
             let reduction: ReductionSCSToILP =
                 ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {

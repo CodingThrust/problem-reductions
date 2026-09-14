@@ -75,7 +75,8 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
             //   q = 0 → Or(true)  (empty matching of empty universe)
             //   q ≥ 1 → Or(false) (no triples cannot cover non-empty universe).
             return Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
-                target: MinimumWeightDecoding::new(vec![vec![true]], vec![false]),
+                target: MinimumWeightDecoding::new(vec![vec![true]], vec![false])
+                    .map_err(<Self as ReduceTo<MinimumWeightDecoding>>::target_construction)?,
                 source_num_triples: m,
             });
         }
@@ -92,7 +93,8 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
         let syndrome = vec![true; num_rows];
 
         Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
-            target: MinimumWeightDecoding::new(matrix, syndrome),
+            target: MinimumWeightDecoding::new(matrix, syndrome)
+                .map_err(<Self as ReduceTo<MinimumWeightDecoding>>::target_construction)?,
             source_num_triples: m,
         })
     }
@@ -109,7 +111,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Perfect matchings: {t_0, t_1} and {t_2, t_3} -- both attain
             // target minimum weight = q = 2.
             crate::example_db::specs::rule_example_with_witness::<_, MinimumWeightDecoding>(
-                ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0), (1, 0, 1)]),
+                ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0), (1, 0, 1)])
+                    .unwrap(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, true, false, false]),
                     target_config: serde_json::json!(vec![true, true, false, false]),

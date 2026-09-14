@@ -4,7 +4,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_closed_loop() {
-    let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
+    let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32).unwrap();
     let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
     let target_solution =
         crate::solvers::customized::closest_vector_problem::solve(reduction.target_problem())
@@ -24,7 +24,7 @@ fn test_subsetsum_to_closestvectorproblem_closed_loop() {
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_structure() {
-    let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
+    let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32).unwrap();
     let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
 
@@ -39,7 +39,7 @@ fn test_subsetsum_to_closestvectorproblem_structure() {
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
-    let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
+    let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32).unwrap();
     let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
 
@@ -59,7 +59,7 @@ fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
-    let source = SubsetSum::new(vec![2u32, 4, 6], 5u32);
+    let source = SubsetSum::new(vec![2u32, 4, 6], 5u32).unwrap();
     let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
     let solution =
         crate::solvers::customized::closest_vector_problem::solve(reduction.target_problem())
@@ -78,7 +78,7 @@ fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
 fn test_subsetsum_to_closestvectorproblem_binary_carries_preserve_large_inputs() {
     use num_bigint::BigUint;
     let size = BigUint::from(1u32) << 70usize;
-    let source = SubsetSum::new(vec![size.clone()], size);
+    let source = SubsetSum::new(vec![size.clone()], size).unwrap();
     let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
     let mut witness = vec![0; result.target_problem().num_basis_vectors()];
     witness[0] = 1;
@@ -94,7 +94,7 @@ fn test_subsetsum_to_closestvectorproblem_binary_carries_preserve_large_inputs()
         .flatten()
         .all(|&x| (-2..=1).contains(&x)));
 
-    let source = SubsetSum::new(vec![1u32; 40], 20u32);
+    let source = SubsetSum::new(vec![1u32; 40], 20u32).unwrap();
     let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
     let mut witness = vec![0; result.target_problem().num_basis_vectors()];
     witness[..20].fill(1);
@@ -117,7 +117,7 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
         (vec![3, 7, 1], 11),
         (vec![2, 4], 5),
     ] {
-        let source = SubsetSum::new(sizes, target_sum);
+        let source = SubsetSum::new(sizes, target_sum).unwrap();
         let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
         let target = result.target_problem();
         assert!(std::ptr::eq(

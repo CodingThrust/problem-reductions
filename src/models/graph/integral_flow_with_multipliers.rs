@@ -23,6 +23,7 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowWithMultipliersData")]
 pub struct IntegralFlowWithMultipliers {
     graph: DirectedGraph,
     source: usize,
@@ -30,6 +31,30 @@ pub struct IntegralFlowWithMultipliers {
     multipliers: Vec<i64>,
     capacities: Vec<i64>,
     requirement: i64,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowWithMultipliersData {
+    graph: DirectedGraph,
+    source: usize,
+    sink: usize,
+    multipliers: Vec<i64>,
+    capacities: Vec<i64>,
+    requirement: i64,
+}
+
+impl TryFrom<IntegralFlowWithMultipliersData> for IntegralFlowWithMultipliers {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowWithMultipliersData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.graph,
+            data.source,
+            data.sink,
+            data.multipliers,
+            data.capacities,
+            data.requirement,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -51,9 +76,6 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
     fn try_from(
         spec: IntegralFlowWithMultipliersCreateSpec,
     ) -> Result<Self, crate::registry::ConstructionError> {
-        if spec.arcs.is_empty() {
-            return Err("arcs must be non-empty".into());
-        }
         let inferred = spec
             .arcs
             .iter()
@@ -63,37 +85,14 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
             .transpose()?
             .unwrap_or(0);
         let count = spec.num_vertices.unwrap_or(inferred);
-        if count < inferred {
-            return Err("num_vertices is too small".into());
-        }
-        if spec.capacities.len() != spec.arcs.len() {
-            return Err("capacities length must match arcs length".into());
-        }
-        if spec.multipliers.len() != count {
-            return Err("multipliers length must match num_vertices".into());
-        }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".into());
-        }
-        for (v, &m) in spec.multipliers.iter().enumerate() {
-            if v != spec.source && v != spec.sink && m == 0 {
-                return Err("non-terminal multipliers must be positive".into());
-            }
-        }
-        if spec.capacities.iter().any(|&capacity| capacity < 0) {
-            return Err("capacities must be nonnegative".into());
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
-            source: spec.source,
-            sink: spec.sink,
-            multipliers: spec.multipliers,
-            capacities: spec.capacities,
-            requirement: spec.requirement,
-        })
+        Self::new(
+            DirectedGraph::new(count, spec.arcs)?,
+            spec.source,
+            spec.sink,
+            spec.multipliers,
+            spec.capacities,
+            spec.requirement,
+        )
     }
 }
 
@@ -105,48 +104,48 @@ impl IntegralFlowWithMultipliers {
         multipliers: Vec<i64>,
         capacities: Vec<i64>,
         requirement: i64,
-    ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_arcs(),
-            "capacities length must match graph num_arcs"
-        );
-        assert_eq!(
-            multipliers.len(),
-            graph.num_vertices(),
-            "multipliers length must match graph num_vertices"
-        );
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_arcs() {
+            return Err("capacities length must match graph num_arcs".into());
+        }
+        if multipliers.len() != graph.num_vertices() {
+            return Err("multipliers length must match graph num_vertices".into());
+        }
 
         let num_vertices = graph.num_vertices();
-        assert!(
-            source < num_vertices,
-            "source ({source}) must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) must be less than num_vertices ({num_vertices})"
-        );
-        assert_ne!(source, sink, "source and sink must be distinct");
+        if !(source < num_vertices) {
+            return Err(format!(
+                "source ({source}) must be less than num_vertices ({num_vertices})"
+            )
+            .into());
+        }
+        if !(sink < num_vertices) {
+            return Err(
+                format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
+            );
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
 
         for (vertex, &multiplier) in multipliers.iter().enumerate() {
-            if vertex != source && vertex != sink {
-                assert!(multiplier > 0, "non-terminal multipliers must be positive");
+            if vertex != source && vertex != sink && !(multiplier > 0) {
+                return Err("non-terminal multipliers must be positive".into());
             }
         }
 
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
 
-        Self {
+        Ok(Self {
             graph,
             source,
             sink,
             multipliers,
             capacities,
             requirement,
-        }
+        })
     }
 
     pub fn graph(&self) -> &DirectedGraph {
@@ -300,30 +299,34 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integral_flow_with_multipliers",
-        instance: Box::new(IntegralFlowWithMultipliers::new(
-            DirectedGraph::new(
-                8,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (0, 3),
-                    (0, 4),
-                    (0, 5),
-                    (0, 6),
-                    (1, 7),
-                    (2, 7),
-                    (3, 7),
-                    (4, 7),
-                    (5, 7),
-                    (6, 7),
-                ],
-            ),
-            0,
-            7,
-            vec![1, 2, 3, 4, 5, 6, 4, 1],
-            vec![1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4],
-            12,
-        )),
+        instance: Box::new(
+            IntegralFlowWithMultipliers::new(
+                DirectedGraph::new(
+                    8,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (0, 3),
+                        (0, 4),
+                        (0, 5),
+                        (0, 6),
+                        (1, 7),
+                        (2, 7),
+                        (3, 7),
+                        (4, 7),
+                        (5, 7),
+                        (6, 7),
+                    ],
+                )
+                .unwrap(),
+                0,
+                7,
+                vec![1, 2, 3, 4, 5, 6, 4, 1],
+                vec![1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4],
+                12,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0]),
         optimal_value: serde_json::json!(true),
     }]

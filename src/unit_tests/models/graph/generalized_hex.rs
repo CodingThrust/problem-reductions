@@ -7,7 +7,7 @@ use crate::traits::Problem;
 fn create_spec_uses_sink_input() {
     assert_eq!(GeneralizedHexCreateSpec::FIELDS[2].name, "sink");
     let problem = GeneralizedHex::try_from(GeneralizedHexCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         source: 0,
         sink: 1,
     })
@@ -31,10 +31,12 @@ fn issue_example() -> GeneralizedHex<SimpleGraph> {
                 (5, 6),
                 (6, 7),
             ],
-        ),
+        )
+        .unwrap(),
         0,
         7,
     )
+    .unwrap()
 }
 
 fn winning_example() -> GeneralizedHex<SimpleGraph> {
@@ -42,10 +44,12 @@ fn winning_example() -> GeneralizedHex<SimpleGraph> {
         SimpleGraph::new(
             6,
             vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4), (4, 5)],
-        ),
+        )
+        .unwrap(),
         0,
         5,
     )
+    .unwrap()
 }
 
 #[test]
@@ -71,7 +75,12 @@ fn test_generalized_hex_forced_win_on_bottleneck_example() {
 
 #[test]
 fn test_generalized_hex_detects_losing_position() {
-    let problem = GeneralizedHex::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 0, 3);
+    let problem = GeneralizedHex::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+        0,
+        3,
+    )
+    .unwrap();
     assert!(!problem.evaluate(&()).unwrap());
 }
 
@@ -115,7 +124,6 @@ fn test_generalized_hex_paper_example() {
 }
 
 #[test]
-#[should_panic(expected = "source and target must be distinct")]
 fn test_generalized_hex_rejects_identical_terminals() {
-    let _ = GeneralizedHex::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 1, 1);
+    assert!(GeneralizedHex::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 1, 1).is_err());
 }

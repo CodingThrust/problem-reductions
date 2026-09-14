@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn create_spec_defaults_edge_weights() {
     let p = MinimumCapacitatedSpanningTree::try_from(MinimumCapacitatedSpanningTreeCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         weights: None,
         root: 0,
         requirements: vec![0, 1],
@@ -30,20 +30,21 @@ fn example_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
             (2, 4),
             (3, 4),
         ],
-    );
+    )
+    .unwrap();
     let weights = vec![2, 1, 4, 3, 1, 2, 3, 1];
     let requirements = vec![0, 1, 1, 1, 1];
     let capacity = 3;
-    MinimumCapacitatedSpanningTree::new(graph, weights, 0, requirements, capacity)
+    MinimumCapacitatedSpanningTree::new(graph, weights, 0, requirements, capacity).unwrap()
 }
 
 /// Tight capacity instance: capacity=2, so each subtree can hold at most 2 vertices.
 fn tight_capacity_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)]).unwrap();
     let weights = vec![1, 2, 3, 1, 1];
     let requirements = vec![0, 1, 1, 1];
     let capacity = 2;
-    MinimumCapacitatedSpanningTree::new(graph, weights, 0, requirements, capacity)
+    MinimumCapacitatedSpanningTree::new(graph, weights, 0, requirements, capacity).unwrap()
 }
 
 #[test]
@@ -64,31 +65,32 @@ fn test_creation() {
 }
 
 #[test]
-#[should_panic(expected = "weights length must match num_edges")]
 fn test_rejects_wrong_weight_count() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1, 1], 0, vec![0, 1, 1], 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(
+        MinimumCapacitatedSpanningTree::new(graph, vec![1, 1, 1], 0, vec![0, 1, 1], 3).is_err()
+    );
 }
 
 #[test]
-#[should_panic(expected = "requirements length must match num_vertices")]
 fn test_rejects_wrong_requirements_count() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1], 0, vec![0, 1], 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinimumCapacitatedSpanningTree::new(graph, vec![1, 1], 0, vec![0, 1], 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "root 5 out of range")]
 fn test_rejects_invalid_root() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1], 5, vec![0, 1, 1], 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinimumCapacitatedSpanningTree::new(graph, vec![1, 1], 5, vec![0, 1, 1], 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "graph must have at least 2 vertices")]
 fn test_rejects_single_vertex() {
-    let graph = SimpleGraph::new(1, vec![]);
-    let _ = MinimumCapacitatedSpanningTree::<SimpleGraph, i64>::new(graph, vec![], 0, vec![0], 3);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    assert!(
+        MinimumCapacitatedSpanningTree::<SimpleGraph, i64>::new(graph, vec![], 0, vec![0], 3)
+            .is_err()
+    );
 }
 
 #[test]
@@ -188,7 +190,7 @@ fn test_parameter_getters() {
 fn test_set_weights() {
     let mut problem = example_instance();
     assert_eq!(problem.weights(), &[2, 1, 4, 3, 1, 2, 3, 1]);
-    problem.set_weights(vec![1; 8]);
+    problem.set_weights(vec![1; 8]).unwrap();
     assert_eq!(problem.weights(), &[1; 8]);
     // Same optimal tree now has cost 4
     let config = vec![true, true, false, false, true, false, false, true];

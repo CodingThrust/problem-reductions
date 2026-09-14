@@ -6,7 +6,7 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // 3 tasks, 2 processors, deadline 5
-    let problem = MultiprocessorScheduling::new(vec![2, 3, 2], 2, 5);
+    let problem = MultiprocessorScheduling::new(vec![2, 3, 2], 2, 5).unwrap();
     let reduction: ReductionMSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -34,7 +34,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
     // 4 tasks [2, 2, 2, 2], 2 processors, deadline 4 → feasible (2+2 per proc)
-    let problem = MultiprocessorScheduling::new(vec![2, 2, 2, 2], 2, 4);
+    let problem = MultiprocessorScheduling::new(vec![2, 2, 2, 2], 2, 4).unwrap();
     let reduction: ReductionMSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -60,7 +60,7 @@ fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // 3 tasks, 2 processors
-    let problem = MultiprocessorScheduling::new(vec![1, 2, 3], 2, 5);
+    let problem = MultiprocessorScheduling::new(vec![1, 2, 3], 2, 5).unwrap();
     let reduction: ReductionMSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -76,7 +76,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_multiprocessorscheduling_to_ilp_trivial() {
     // Single task on single processor
-    let problem = MultiprocessorScheduling::new(vec![5], 1, 5);
+    let problem = MultiprocessorScheduling::new(vec![5], 1, 5).unwrap();
     let reduction: ReductionMSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

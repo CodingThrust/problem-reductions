@@ -30,13 +30,14 @@ fn yes_instance() -> IntegralFlowHomologousArcs {
             (3, 5),
             (4, 5),
         ],
-    );
-    IntegralFlowHomologousArcs::new(graph, vec![1; 8], 0, 5, 2, vec![(2, 5), (4, 3)])
+    )
+    .unwrap();
+    IntegralFlowHomologousArcs::new(graph, vec![1; 8], 0, 5, 2, vec![(2, 5), (4, 3)]).unwrap()
 }
 
 fn no_instance() -> IntegralFlowHomologousArcs {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]);
-    IntegralFlowHomologousArcs::new(graph, vec![1; 4], 0, 3, 1, vec![(0, 1)])
+    let graph = DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap();
+    IntegralFlowHomologousArcs::new(graph, vec![1; 4], 0, 3, 1, vec![(0, 1)]).unwrap()
 }
 
 #[test]
@@ -141,8 +142,9 @@ fn test_integral_flow_homologous_arcs_problem_name() {
 fn test_integral_flow_homologous_arcs_non_unit_capacity() {
     // s=0 -> 1 -> 2=t, with capacities [3, 3], homologous pair (0,1) so both arcs carry
     // equal flow. R=2 is satisfiable: f=[2,2].
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = IntegralFlowHomologousArcs::new(graph, vec![3, 3], 0, 2, 2, vec![(0, 1)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem =
+        IntegralFlowHomologousArcs::new(graph, vec![3, 3], 0, 2, 2, vec![(0, 1)]).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![4, 4]

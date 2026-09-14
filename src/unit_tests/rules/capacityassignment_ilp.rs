@@ -11,7 +11,8 @@ fn test_reduction_creates_valid_ilp() {
         vec![vec![1, 3], vec![2, 4]],
         vec![vec![8, 4], vec![7, 3]],
         12,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -49,7 +50,8 @@ fn test_capacityassignment_to_ilp_closed_loop() {
         vec![vec![1, 3, 6], vec![2, 4, 7], vec![1, 2, 5]],
         vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
         12,
-    );
+    )
+    .unwrap();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
@@ -81,7 +83,8 @@ fn test_solution_extraction() {
         vec![vec![1, 3, 6], vec![2, 4, 7]],
         vec![vec![8, 4, 1], vec![7, 3, 1]],
         10,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -95,7 +98,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_capacityassignment_to_ilp_trivial() {
     // 1 link, 1 capacity level — trivially feasible
-    let problem = CapacityAssignment::new(vec![1], vec![vec![0]], vec![vec![0]], 100);
+    let problem = CapacityAssignment::new(vec![1], vec![vec![0]], vec![vec![0]], 100).unwrap();
     let reduction: ReductionCAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -117,7 +120,8 @@ fn test_capacityassignment_to_ilp_bf_vs_ilp() {
         vec![vec![1, 3, 6], vec![2, 4, 7], vec![1, 2, 5]],
         vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
         12,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);

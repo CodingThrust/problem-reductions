@@ -214,8 +214,8 @@ fn problem_side_from_typed_problem() {
     use crate::models::graph::MaximumIndependentSet;
     use crate::topology::SimpleGraph;
 
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let mis = MaximumIndependentSet::new(g, vec![1, 1, 1]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let mis = MaximumIndependentSet::new(g, vec![1, 1, 1]).unwrap();
     let side = ProblemSide::from_problem(&mis);
     assert_eq!(side.problem, "MaximumIndependentSet");
     assert_eq!(side.variant["graph"], "SimpleGraph");

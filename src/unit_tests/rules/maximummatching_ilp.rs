@@ -7,8 +7,9 @@ use crate::types::Max;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges
-    let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -31,7 +32,11 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_reduction_weighted() {
-    let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![5, 10]);
+    let problem = MaximumMatching::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![5, 10],
+    )
+    .unwrap();
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -47,8 +52,9 @@ fn test_reduction_weighted() {
 #[test]
 fn test_maximummatching_to_ilp_closed_loop() {
     // Triangle graph: max matching = 1 edge
-    let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -79,8 +85,9 @@ fn test_maximummatching_to_ilp_closed_loop() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3: max matching = 2 (edges {0-1, 2-3})
-    let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -110,7 +117,11 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // 0 -- 1 -- 2
     // Weights: [100, 1]
     // Max matching by weight: just edge 0-1 (weight 100) beats edge 1-2 (weight 1)
-    let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1]);
+    let problem = MaximumMatching::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![100, 1],
+    )
+    .unwrap();
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -135,7 +146,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 #[test]
 fn test_solution_extraction() {
     let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap());
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -150,10 +161,9 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4)],
-    ));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -167,7 +177,7 @@ fn test_ilp_structure() {
 #[test]
 fn test_empty_graph() {
     // Graph with no edges: empty matching
-    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]).unwrap());
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -182,10 +192,9 @@ fn test_empty_graph() {
 #[test]
 fn test_k4_perfect_matching() {
     // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
-    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -210,8 +219,9 @@ fn test_k4_perfect_matching() {
 fn test_star_graph() {
     // Star graph with center vertex 0 connected to 1, 2, 3
     // Max matching = 1 (only one edge can be selected)
-    let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -228,10 +238,9 @@ fn test_star_graph() {
 fn test_bipartite_graph() {
     // Bipartite graph: {0,1} and {2,3} with all cross edges
     // Max matching = 2 (one perfect matching)
-    let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
-        4,
-        vec![(0, 2), (0, 3), (1, 2), (1, 3)],
-    ));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -246,8 +255,9 @@ fn test_bipartite_graph() {
 
 #[test]
 fn test_solve_via_ilp_pipeline() {
-    let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+    );
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
@@ -260,8 +270,9 @@ fn test_solve_via_ilp_pipeline() {
 
 #[test]
 fn test_maximummatching_to_ilp_bf_vs_ilp() {
-    let problem =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction: ReductionMatchingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);

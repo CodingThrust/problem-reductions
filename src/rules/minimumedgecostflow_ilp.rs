@@ -138,13 +138,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumedgecostflow_to_ilp",
         build: || {
             let source = MinimumEdgeCostFlow::new(
-                DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
+                DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)])
+                    .unwrap(),
                 vec![3, 1, 2, 0, 0, 0],
                 vec![2, 2, 2, 2, 2, 2],
                 0,
                 4,
                 3,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

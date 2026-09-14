@@ -6,9 +6,10 @@ use crate::types::Min;
 
 fn k4_tsp() -> TravelingSalesman<SimpleGraph, i64> {
     TravelingSalesman::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![10, 15, 20, 35, 25, 30],
     )
+    .unwrap()
 }
 
 #[test]
@@ -28,10 +29,9 @@ fn test_traveling_salesman_creation() {
 #[test]
 fn test_traveling_salesman_unit_weights() {
     // i64 type is always considered weighted, even with uniform values
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+    );
     assert!(problem.is_weighted());
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 5);
@@ -46,10 +46,9 @@ fn test_traveling_salesman_weighted() {
 #[test]
 fn test_evaluate_valid_cycle() {
     // C5 cycle graph with unit weights: all 5 edges form the only Hamiltonian cycle
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+    );
     // Select all edges -> valid Hamiltonian cycle, cost = 5
     assert_eq!(
         problem
@@ -76,10 +75,9 @@ fn test_evaluate_invalid_degree() {
 #[test]
 fn test_evaluate_invalid_not_connected() {
     // 6 vertices, two disjoint triangles: 0-1-2-0 and 3-4-5-3
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        6,
-        vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]).unwrap(),
+    );
     // Select all 6 edges: two disjoint cycles, not a single Hamiltonian cycle
     assert_eq!(
         problem
@@ -92,10 +90,9 @@ fn test_evaluate_invalid_not_connected() {
 #[test]
 fn test_evaluate_invalid_wrong_edge_count() {
     // C5 with only 4 edges selected -> not enough edges
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+    );
     assert_eq!(
         problem
             .evaluate(&vec![true, true, true, true, false])
@@ -106,10 +103,9 @@ fn test_evaluate_invalid_wrong_edge_count() {
 
 #[test]
 fn test_evaluate_no_edges_selected() {
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+    );
     assert_eq!(
         problem
             .evaluate(&vec![false, false, false, false, false])
@@ -134,10 +130,9 @@ fn test_brute_force_k4() {
 #[test]
 fn test_brute_force_path_graph_no_solution() {
     // Instance 2 from issue: path graph, no Hamiltonian cycle exists
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        4,
-        vec![(0, 1), (1, 2), (2, 3)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+    );
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
@@ -146,10 +141,9 @@ fn test_brute_force_path_graph_no_solution() {
 #[test]
 fn test_brute_force_c5_unique_solution() {
     // Instance 3 from issue: C5 cycle graph, unique Hamiltonian cycle
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+    );
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 1);
@@ -160,10 +154,9 @@ fn test_brute_force_c5_unique_solution() {
 #[test]
 fn test_brute_force_bipartite_no_solution() {
     // Instance 4 from issue: K_{2,3} bipartite, no Hamiltonian cycle
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        5,
-        vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)]).unwrap(),
+    );
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
@@ -181,32 +174,32 @@ fn test_problem_name() {
 fn test_is_hamiltonian_cycle_function() {
     // Triangle: selecting all 3 edges is a valid Hamiltonian cycle
     assert!(is_hamiltonian_cycle(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         &[true, true, true]
     ));
     // Path: not a cycle
     assert!(!is_hamiltonian_cycle(
-        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         &[true, true]
     ));
 }
 
 #[test]
 fn test_set_weights() {
-    let mut problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        3,
-        vec![(0, 1), (1, 2), (0, 2)],
-    ));
-    problem.set_weights(vec![5, 10, 15]);
+    let mut problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+    );
+    problem.set_weights(vec![5, 10, 15]).unwrap();
     assert_eq!(problem.weights(), vec![5, 10, 15]);
 }
 
 #[test]
 fn test_edges() {
     let problem = TravelingSalesman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![10, 20, 30],
-    );
+    )
+    .unwrap();
     let edges = problem.edges();
     assert_eq!(edges.len(), 3);
 }
@@ -214,19 +207,19 @@ fn test_edges() {
 #[test]
 fn test_new() {
     let problem = TravelingSalesman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![10, 20, 30],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights(), vec![10, 20, 30]);
 }
 
 #[test]
 fn test_unit_weights() {
-    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
-        3,
-        vec![(0, 1), (1, 2), (0, 2)],
-    ));
+    let problem = TravelingSalesman::<_, i64>::unit_weights(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+    );
     assert_eq!(problem.weights(), vec![1, 1, 1]);
 }
 
@@ -234,9 +227,10 @@ fn test_unit_weights() {
 fn test_brute_force_triangle_weighted() {
     // Triangle with weights: unique Hamiltonian cycle using all edges
     let problem = TravelingSalesman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![5, 10, 15],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 1);
@@ -248,9 +242,10 @@ fn test_brute_force_triangle_weighted() {
 fn test_is_valid_solution() {
     // K3 triangle: edges (0,1), (0,2), (1,2) — config is per edge
     let problem = TravelingSalesman::new(
-        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
         vec![1, 2, 3],
-    );
+    )
+    .unwrap();
     // Valid: select all 3 edges forms Hamiltonian cycle 0-1-2-0
     assert!(problem.is_valid_solution(&[true, true, true]));
     // Invalid: select only 2 edges — not a cycle
@@ -260,9 +255,10 @@ fn test_is_valid_solution() {
 #[test]
 fn test_parameter_getters() {
     let problem = TravelingSalesman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64; 3],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 3);
 }
@@ -272,9 +268,10 @@ fn test_tsp_paper_example() {
     // Paper: K4, weights w(0,1)=1, w(0,2)=3, w(0,3)=2, w(1,2)=2, w(1,3)=3, w(2,3)=1
     // Optimal tour: v0→v1→v2→v3→v0, cost = 1+2+1+2 = 6
     let problem = TravelingSalesman::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![1, 3, 2, 2, 3, 1],
-    );
+    )
+    .unwrap();
     // Edges: 0=(0,1), 1=(0,2), 2=(0,3), 3=(1,2), 4=(1,3), 5=(2,3)
     // Tour uses edges 0, 2, 3, 5
     let config = vec![true, false, true, true, false, true];
@@ -295,4 +292,22 @@ fn create_spec_uses_edge_weights_and_defaults_to_one() {
     .unwrap();
     assert_eq!(problem.weights(), vec![1, 1, 1]);
     assert_eq!(TravelingSalesmanCreateSpec::FIELDS[2].name, "edge_weights");
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    assert!(TravelingSalesman::new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "edge_weights": []});
+    assert!(serde_json::from_value::<TravelingSalesman<SimpleGraph, i64>>(json).is_err());
+}
+
+#[test]
+fn rejected_weight_update_preserves_instance() {
+    let mut problem =
+        TravelingSalesman::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![3i64; 1]).unwrap();
+    let before = serde_json::to_value(&problem).unwrap();
+    assert!(problem.set_weights(vec![]).is_err());
+    assert_eq!(serde_json::to_value(&problem).unwrap(), before);
+    problem.set_weights(vec![4; 1]).unwrap();
 }

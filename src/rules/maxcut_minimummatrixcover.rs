@@ -99,9 +99,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // W = 4, max cut = 4 (partition {0,2} vs {1,3} cuts all edges).
             // The target's minimum quadratic form value is 2W - 4 * cut = 8 - 16 = -8.
             let source = MaxCut::<SimpleGraph, i64>::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap(),
                 vec![1, 1, 1, 1],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, MinimumMatrixCover>(
                 source,
                 SolutionPair {

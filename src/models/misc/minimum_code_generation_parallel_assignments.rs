@@ -50,39 +50,62 @@ inventory::submit! {
 ///     (2, vec![3]),
 ///     (3, vec![1, 2]),
 /// ];
-/// let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
+/// let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCodeGenerationParallelAssignmentsData")]
 pub struct MinimumCodeGenerationParallelAssignments {
     num_variables: usize,
     assignments: Vec<(usize, Vec<usize>)>,
 }
 
+#[derive(Deserialize)]
+struct MinimumCodeGenerationParallelAssignmentsData {
+    num_variables: usize,
+    assignments: Vec<(usize, Vec<usize>)>,
+}
+
+impl TryFrom<MinimumCodeGenerationParallelAssignmentsData>
+    for MinimumCodeGenerationParallelAssignments
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCodeGenerationParallelAssignmentsData) -> Result<Self, Self::Error> {
+        Self::new(data.num_variables, data.assignments)
+    }
+}
+
 impl MinimumCodeGenerationParallelAssignments {
     /// Create a new MinimumCodeGenerationParallelAssignments instance.
     ///
-    /// # Panics
-    /// Panics if any target variable or read variable index is >= num_variables.
-    pub fn new(num_variables: usize, assignments: Vec<(usize, Vec<usize>)>) -> Self {
+    /// # Errors
+    /// Returns an error if any target variable or read variable index is >= num_variables.
+    pub fn new(
+        num_variables: usize,
+        assignments: Vec<(usize, Vec<usize>)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (i, (target, reads)) in assignments.iter().enumerate() {
-            assert!(
-                *target < num_variables,
-                "assignment {i}: target variable {target} >= num_variables {num_variables}"
-            );
+            if !(*target < num_variables) {
+                return Err(format!(
+                    "assignment {i}: target variable {target} >= num_variables {num_variables}"
+                )
+                .into());
+            }
             for &r in reads {
-                assert!(
-                    r < num_variables,
-                    "assignment {i}: read variable {r} >= num_variables {num_variables}"
-                );
+                if !(r < num_variables) {
+                    return Err(format!(
+                        "assignment {i}: read variable {r} >= num_variables {num_variables}"
+                    )
+                    .into());
+                }
             }
         }
-        Self {
+        Ok(Self {
             num_variables,
             assignments,
-        }
+        })
     }
 
     /// Returns the number of variables.
@@ -209,10 +232,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_code_generation_parallel_assignments",
-        instance: Box::new(MinimumCodeGenerationParallelAssignments::new(
-            4,
-            assignments,
-        )),
+        instance: Box::new(MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap()),
         optimal_config: serde_json::json!(vec![0, 3, 1, 2]),
         optimal_value: serde_json::json!(2),
     }]

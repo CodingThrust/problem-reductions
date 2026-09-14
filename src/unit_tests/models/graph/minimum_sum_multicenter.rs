@@ -5,8 +5,8 @@ use crate::traits::Problem;
 
 #[test]
 fn test_min_sum_multicenter_creation() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 4], vec![1i64; 3], 2);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 4], vec![1i64; 3], 2).unwrap();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.k(), 2);
@@ -16,8 +16,8 @@ fn test_min_sum_multicenter_creation() {
 
 #[test]
 fn test_min_sum_multicenter_parameter_getters() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2).unwrap();
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 4);
     assert_eq!(problem.num_centers(), 2);
@@ -26,8 +26,8 @@ fn test_min_sum_multicenter_parameter_getters() {
 #[test]
 fn test_min_sum_multicenter_evaluate_path() {
     // Path: 0-1-2, unit weights and lengths, K=1
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1).unwrap();
 
     // Center at vertex 1: distances = [1, 0, 1], total = 2
     let result = problem.evaluate(&vec![false, true, false]).unwrap();
@@ -42,8 +42,8 @@ fn test_min_sum_multicenter_evaluate_path() {
 
 #[test]
 fn test_min_sum_multicenter_wrong_k() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 2);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 2).unwrap();
 
     // Only 1 center selected when K=2
     let result = problem.evaluate(&vec![false, true, false]).unwrap();
@@ -61,8 +61,8 @@ fn test_min_sum_multicenter_wrong_k() {
 #[test]
 fn test_min_sum_multicenter_weighted() {
     // Path: 0-1-2, vertex weights = [3, 1, 2], edge lengths = [1, 1], K=1
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![3i64, 1, 2], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![3i64, 1, 2], vec![1i64; 2], 1).unwrap();
 
     // Center at 0: distances = [0, 1, 2], total = 3*0 + 1*1 + 2*2 = 5
     assert_eq!(
@@ -95,8 +95,8 @@ fn test_min_sum_multicenter_weighted() {
 #[test]
 fn test_min_sum_multicenter_weighted_edges() {
     // Triangle: 0-1 (len 1), 1-2 (len 3), 0-2 (len 2), K=1
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1, 3, 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1, 3, 2], 1).unwrap();
 
     // Center at 0: d(0)=0, d(1)=1, d(2)=2, total=3
     assert_eq!(
@@ -120,8 +120,8 @@ fn test_min_sum_multicenter_weighted_edges() {
 #[test]
 fn test_min_sum_multicenter_two_centers() {
     // Path: 0-1-2-3-4, unit weights and lengths, K=2
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2).unwrap();
 
     // Centers at {1, 3}: d = [1, 0, 1, 0, 1], total = 3
     assert_eq!(
@@ -157,8 +157,9 @@ fn test_min_sum_multicenter_solver() {
             (0, 6),
             (2, 5),
         ],
-    );
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 7], vec![1i64; 8], 2);
+    )
+    .unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 7], vec![1i64; 8], 2).unwrap();
 
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
@@ -171,16 +172,16 @@ fn test_min_sum_multicenter_solver() {
 #[test]
 fn test_min_sum_multicenter_disconnected() {
     // Two disconnected components: 0-1 and 2-3, K=1
-    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 4], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 4], vec![1i64; 2], 1).unwrap();
 
     // Center at 0: vertex 2 and 3 are unreachable
     let result = problem.evaluate(&vec![true, false, false, false]).unwrap();
     assert!(!result.is_valid());
 
     // With K=2, centers at {0, 2}: all reachable
-    let graph2 = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
-    let problem2 = MinimumSumMulticenter::new(graph2, vec![1i64; 4], vec![1i64; 2], 2);
+    let graph2 = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
+    let problem2 = MinimumSumMulticenter::new(graph2, vec![1i64; 4], vec![1i64; 2], 2).unwrap();
     let result2 = problem2.evaluate(&vec![true, false, true, false]).unwrap();
     assert!(result2.is_valid());
     assert_eq!(result2.unwrap(), 2); // d = [0, 1, 0, 1]
@@ -188,8 +189,8 @@ fn test_min_sum_multicenter_disconnected() {
 
 #[test]
 fn test_min_sum_multicenter_single_vertex() {
-    let graph = SimpleGraph::new(1, vec![]);
-    let problem = MinimumSumMulticenter::new(graph, vec![5i64], vec![], 1);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![5i64], vec![], 1).unwrap();
     let result = problem.evaluate(&vec![true]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 0); // Only vertex is the center, distance = 0
@@ -198,39 +199,35 @@ fn test_min_sum_multicenter_single_vertex() {
 #[test]
 fn test_min_sum_multicenter_all_centers() {
     // K = num_vertices: all vertices are centers, total distance = 0
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 3).unwrap();
     let result = problem.evaluate(&vec![true, true, true]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 0);
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights length must match num_vertices")]
 fn test_min_sum_multicenter_wrong_vertex_weights_len() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinimumSumMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinimumSumMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
 fn test_min_sum_multicenter_wrong_edge_lengths_len() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "k must be positive")]
 fn test_min_sum_multicenter_k_zero() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 0);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 0).is_err());
 }
 
 #[test]
-#[should_panic(expected = "k must not exceed num_vertices")]
 fn test_min_sum_multicenter_k_too_large() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 4);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 4).is_err());
 }
 
 #[test]
@@ -248,8 +245,9 @@ fn test_min_sum_multicenter_paper_example() {
             (0, 6),
             (2, 5),
         ],
-    );
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 7], vec![1i64; 8], 2);
+    )
+    .unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 7], vec![1i64; 8], 2).unwrap();
 
     // Optimal: centers at {2, 5}, config [0,0,1,0,0,1,0]
     // Distances: d(0)=2, d(1)=1, d(2)=0, d(3)=1, d(4)=1, d(5)=0, d(6)=1
@@ -268,8 +266,8 @@ fn test_min_sum_multicenter_paper_example() {
 
 #[test]
 fn test_min_sum_multicenter_dims() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 5], vec![1i64; 4], 2).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![2; 5]
@@ -279,8 +277,8 @@ fn test_min_sum_multicenter_dims() {
 #[test]
 fn test_min_sum_multicenter_find_all_witnesses() {
     // Path: 0-1-2, unit weights, K=1. Center at 1 is optimal (cost 2)
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1).unwrap();
 
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -290,8 +288,8 @@ fn test_min_sum_multicenter_find_all_witnesses() {
 
 #[test]
 fn test_min_sum_multicenter_serialization() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1).unwrap();
 
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MinimumSumMulticenter<SimpleGraph, i64> =

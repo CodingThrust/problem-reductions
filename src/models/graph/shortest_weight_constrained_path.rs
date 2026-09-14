@@ -51,7 +51,7 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `N` - The edge length / weight type (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -65,6 +65,39 @@ pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
     target_vertex: usize,
     /// Upper bound W on total path weight.
     weight_bound: N::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, N: WeightElement + Deserialize<'de>, N::Sum: Deserialize<'de>"
+))]
+struct ShortestWeightConstrainedPathData<G, N: WeightElement> {
+    graph: G,
+    edge_lengths: Vec<N>,
+    edge_weights: Vec<N>,
+    source_vertex: usize,
+    target_vertex: usize,
+    weight_bound: N::Sum,
+}
+
+impl<'de, G, N> Deserialize<'de> for ShortestWeightConstrainedPath<G, N>
+where
+    G: Graph + Deserialize<'de>,
+    N: WeightElement + Deserialize<'de>,
+    N::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = ShortestWeightConstrainedPathData::<G, N>::deserialize(deserializer)?;
+        Self::new(
+            data.graph,
+            data.edge_lengths,
+            data.edge_weights,
+            data.source_vertex,
+            data.target_vertex,
+            data.weight_bound,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -88,75 +121,37 @@ impl TryFrom<ShortestWeightConstrainedPathCreateSpec>
 {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: ShortestWeightConstrainedPathCreateSpec) -> Result<Self, Self::Error> {
-        let edge_count = spec.graph.num_edges();
-        if spec.edge_lengths.len() != edge_count {
-            return Err(format!(
-                "edge_lengths has {} entries, expected {edge_count}",
-                spec.edge_lengths.len()
-            )
-            .into());
-        }
-        if spec.edge_weights.len() != edge_count {
-            return Err(format!(
-                "edge_weights has {} entries, expected {edge_count}",
-                spec.edge_weights.len()
-            )
-            .into());
-        }
-        if spec.edge_lengths.iter().any(|&value| value <= 0) {
-            return Err("edge_lengths must be positive".to_string().into());
-        }
-        if spec.edge_weights.iter().any(|&value| value <= 0) {
-            return Err("edge_weights must be positive".to_string().into());
-        }
-        let vertex_count = spec.graph.num_vertices();
-        if spec.source_vertex >= vertex_count {
-            return Err(format!(
-                "source_vertex {} is outside graph with {vertex_count} vertices",
-                spec.source_vertex
-            )
-            .into());
-        }
-        if spec.target_vertex >= vertex_count {
-            return Err(format!(
-                "target_vertex {} is outside graph with {vertex_count} vertices",
-                spec.target_vertex
-            )
-            .into());
-        }
-        if spec.weight_bound <= 0 {
-            return Err("weight_bound must be positive".to_string().into());
-        }
-        Ok(Self::new(
+        Self::new(
             spec.graph,
             spec.edge_lengths,
             spec.edge_weights,
             spec.source_vertex,
             spec.target_vertex,
             spec.weight_bound,
-        ))
+        )
     }
 }
 
 impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
-    fn assert_positive_edge_values(values: &[N], label: &str) {
-        let zero = N::Sum::zero();
-        assert!(
-            values.iter().all(|value| value.to_sum() > zero.clone()),
-            "All {label} must be positive (> 0)"
-        );
-    }
-
-    fn assert_positive_bound(bound: &N::Sum, label: &str) {
-        let zero = N::Sum::zero();
-        assert!(bound > &zero, "{label} must be positive (> 0)");
+    fn check_edge_values(
+        graph: &G,
+        values: &[N],
+        label: &str,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if values.len() != graph.num_edges() {
+            return Err(format!("{label} length must match num_edges").into());
+        }
+        if !values.iter().all(|value| value.to_sum() > N::Sum::zero()) {
+            return Err(format!("all {label} must be positive (> 0)").into());
+        }
+        Ok(())
     }
 
     /// Create a new ShortestWeightConstrainedPath instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if either edge vector length does not match the graph's edge
+    /// Returns an error if either edge vector length does not match the graph's edge
     /// count, or if the source / target vertices are out of bounds.
     pub fn new(
         graph: G,
@@ -165,40 +160,36 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         source_vertex: usize,
         target_vertex: usize,
         weight_bound: N::Sum,
-    ) -> Self {
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self::assert_positive_edge_values(&edge_lengths, "edge lengths");
-        Self::assert_positive_edge_values(&edge_weights, "edge weights");
-        assert!(
-            source_vertex < graph.num_vertices(),
-            "source_vertex {} out of bounds (graph has {} vertices)",
-            source_vertex,
-            graph.num_vertices()
-        );
-        assert!(
-            target_vertex < graph.num_vertices(),
-            "target_vertex {} out of bounds (graph has {} vertices)",
-            target_vertex,
-            graph.num_vertices()
-        );
-        Self::assert_positive_bound(&weight_bound, "weight_bound");
-        Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_edge_values(&graph, &edge_lengths, "edge lengths")?;
+        Self::check_edge_values(&graph, &edge_weights, "edge weights")?;
+        if !(source_vertex < graph.num_vertices()) {
+            return Err(format!(
+                "source_vertex {} out of bounds (graph has {} vertices)",
+                source_vertex,
+                graph.num_vertices()
+            )
+            .into());
+        }
+        if !(target_vertex < graph.num_vertices()) {
+            return Err(format!(
+                "target_vertex {} out of bounds (graph has {} vertices)",
+                target_vertex,
+                graph.num_vertices()
+            )
+            .into());
+        }
+        if weight_bound.partial_cmp(&N::Sum::zero()) != Some(std::cmp::Ordering::Greater) {
+            return Err("weight_bound must be positive (> 0)".into());
+        }
+        Ok(Self {
             graph,
             edge_lengths,
             edge_weights,
             source_vertex,
             target_vertex,
             weight_bound,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -217,25 +208,23 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
     }
 
     /// Set new edge lengths.
-    pub fn set_lengths(&mut self, edge_lengths: Vec<N>) {
-        assert_eq!(
-            edge_lengths.len(),
-            self.graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        Self::assert_positive_edge_values(&edge_lengths, "edge lengths");
+    pub fn set_lengths(
+        &mut self,
+        edge_lengths: Vec<N>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_edge_values(&self.graph, &edge_lengths, "edge_lengths")?;
         self.edge_lengths = edge_lengths;
+        Ok(())
     }
 
     /// Set new edge weights.
-    pub fn set_weights(&mut self, edge_weights: Vec<N>) {
-        assert_eq!(
-            edge_weights.len(),
-            self.graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self::assert_positive_edge_values(&edge_weights, "edge weights");
+    pub fn set_weights(
+        &mut self,
+        edge_weights: Vec<N>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_edge_values(&self.graph, &edge_weights, "edge_weights")?;
         self.edge_weights = edge_weights;
+        Ok(())
     }
 
     /// Get the source vertex.
@@ -369,26 +358,30 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "shortest_weight_constrained_path_simplegraph",
-        instance: Box::new(ShortestWeightConstrainedPath::new(
-            SimpleGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 3),
-                    (2, 3),
-                    (2, 4),
-                    (3, 5),
-                    (4, 5),
-                    (1, 4),
-                ],
-            ),
-            vec![2, 4, 3, 1, 5, 4, 2, 6],
-            vec![5, 1, 2, 3, 2, 3, 1, 1],
-            0,
-            5,
-            8,
-        )),
+        instance: Box::new(
+            ShortestWeightConstrainedPath::new(
+                SimpleGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (1, 3),
+                        (2, 3),
+                        (2, 4),
+                        (3, 5),
+                        (4, 5),
+                        (1, 4),
+                    ],
+                )
+                .unwrap(),
+                vec![2, 4, 3, 1, 5, 4, 2, 6],
+                vec![5, 1, 2, 3, 2, 3, 1, 1],
+                0,
+                5,
+                8,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![
             false, true, false, true, false, true, false, false
         ]),

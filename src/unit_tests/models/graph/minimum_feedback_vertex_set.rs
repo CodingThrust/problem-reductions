@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn create_spec_defaults_vertex_weights() {
     let p = MinimumFeedbackVertexSet::<i64>::try_from(MinimumFeedbackVertexSetCreateSpec {
-        graph: DirectedGraph::new(2, vec![(0, 1)]),
+        graph: DirectedGraph::new(2, vec![(0, 1)]).unwrap(),
         weights: None,
     })
     .unwrap();
@@ -43,12 +43,13 @@ fn example_graph() -> DirectedGraph {
             (8, 2),
         ],
     )
+    .unwrap()
 }
 
 #[test]
 fn test_minimum_feedback_vertex_set_basic() {
     let graph = example_graph();
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]).unwrap();
 
     // dims should be [2; 9]
     assert_eq!(
@@ -74,7 +75,7 @@ fn test_minimum_feedback_vertex_set_basic() {
 #[test]
 fn test_minimum_feedback_vertex_set_serialization() {
     let graph = example_graph();
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]).unwrap();
 
     let json = serde_json::to_string(&problem).expect("serialization failed");
     let deserialized: MinimumFeedbackVertexSet<i64> =
@@ -88,7 +89,7 @@ fn test_minimum_feedback_vertex_set_serialization() {
 #[test]
 fn test_minimum_feedback_vertex_set_solver() {
     let graph = example_graph();
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]).unwrap();
 
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap();
@@ -105,8 +106,8 @@ fn test_minimum_feedback_vertex_set_solver() {
 #[test]
 fn test_minimum_feedback_vertex_set_dag() {
     // A DAG: 0 → 1 → 2
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]).unwrap();
 
     // Empty set (all zeros) is a valid FVS — graph is already a DAG
     let config_empty = vec![false, false, false];
@@ -119,7 +120,7 @@ fn test_minimum_feedback_vertex_set_dag() {
 fn test_minimum_feedback_vertex_set_all_selected() {
     // Selecting all vertices always yields a valid (but suboptimal) FVS
     let graph = example_graph();
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]).unwrap();
 
     let config_all = vec![true; 9];
     let result = problem.evaluate(&config_all).unwrap();
@@ -129,22 +130,22 @@ fn test_minimum_feedback_vertex_set_all_selected() {
 
 #[test]
 fn test_minimum_feedback_vertex_set_accessors() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let mut problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let mut problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]).unwrap();
 
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_arcs(), 3);
     assert!(problem.is_weighted());
 
     // set_weights
-    problem.set_weights(vec![2, 3, 4]);
+    problem.set_weights(vec![2, 3, 4]).unwrap();
     assert_eq!(problem.weights(), &[2, 3, 4]);
 }
 
 #[test]
 fn test_minimum_feedback_vertex_set_is_valid_solution() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]).unwrap();
 
     // Valid FVS: remove vertex 0
     assert!(problem.is_valid_solution(&[1, 0, 0]));
@@ -156,8 +157,8 @@ fn test_minimum_feedback_vertex_set_is_valid_solution() {
 
 #[test]
 fn test_minimum_feedback_vertex_set_evaluate_wrong_length() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]).unwrap();
 
     // Wrong length config returns Invalid
     assert!(matches!(
@@ -198,8 +199,9 @@ fn test_minimum_feedback_vertex_set_paper_example() {
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
-    );
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 5]);
+    )
+    .unwrap();
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 5]).unwrap();
 
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 7);
@@ -224,7 +226,7 @@ fn test_minimum_feedback_vertex_set_paper_example() {
 fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
     use crate::types::One;
     let source = MinimumFeedbackVertexSet::<One>::try_from(MinimumFeedbackVertexSetCreateSpec {
-        graph: DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        graph: DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         weights: None,
     })
     .unwrap();
@@ -238,9 +240,28 @@ fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
     );
     assert!(
         MinimumFeedbackVertexSet::<One>::try_from(MinimumFeedbackVertexSetCreateSpec {
-            graph: DirectedGraph::new(2, vec![]),
+            graph: DirectedGraph::new(2, vec![]).unwrap(),
             weights: Some(vec![One]),
         })
         .is_err()
     );
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = DirectedGraph::new(2, vec![(0, 1)]).unwrap();
+    assert!(MinimumFeedbackVertexSet::new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumFeedbackVertexSet<i64>>(json).is_err());
+}
+
+#[test]
+fn rejected_weight_update_preserves_instance() {
+    let mut problem =
+        MinimumFeedbackVertexSet::new(DirectedGraph::new(2, vec![(0, 1)]).unwrap(), vec![3i64; 2])
+            .unwrap();
+    let before = serde_json::to_value(&problem).unwrap();
+    assert!(problem.set_weights(vec![]).is_err());
+    assert_eq!(serde_json::to_value(&problem).unwrap(), before);
+    problem.set_weights(vec![4; 2]).unwrap();
 }

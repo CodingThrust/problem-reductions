@@ -21,15 +21,23 @@ fn issue_problem() -> LongestPath<SimpleGraph, i64> {
                 (5, 6),
                 (1, 6),
             ],
-        ),
+        )
+        .unwrap(),
         vec![3, 2, 4, 1, 5, 2, 3, 2, 4, 1],
         0,
         6,
     )
+    .unwrap()
 }
 
 fn simple_path_problem() -> LongestPath<SimpleGraph, i64> {
-    LongestPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3], 0, 2)
+    LongestPath::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![2, 3],
+        0,
+        2,
+    )
+    .unwrap()
 }
 
 #[test]
@@ -95,11 +103,12 @@ fn test_solution_extraction_from_handcrafted_ilp_assignment() {
 #[test]
 fn test_source_equals_target_uses_empty_path() {
     let problem = LongestPath::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![4, 5, 6],
         1,
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionLongestPathToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

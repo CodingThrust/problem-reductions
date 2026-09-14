@@ -48,7 +48,7 @@ fn all_simple_graphs(num_vertices: usize) -> impl Iterator<Item = SimpleGraph> {
             .enumerate()
             .filter_map(|(bit, &edge)| ((mask & (1usize << bit)) != 0).then_some(edge))
             .collect();
-        SimpleGraph::new(num_vertices, edges)
+        SimpleGraph::new(num_vertices, edges).unwrap()
     })
 }
 
@@ -76,7 +76,8 @@ fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64>
 
 #[test]
 fn test_customized_solver_returns_none_for_unsupported_problem() {
-    let problem = crate::models::misc::GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2);
+    let problem =
+        crate::models::misc::GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2).unwrap();
     let solver = CustomizedTestSolver::new();
     assert!(solver.solve_dyn(&problem).is_none());
 }
@@ -88,7 +89,8 @@ fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
     let problem = crate::models::set::MinimumCardinalityKey::new(
         4,
         vec![(vec![0], vec![1]), (vec![1, 2], vec![3])],
-    );
+    )
+    .unwrap();
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
@@ -110,7 +112,8 @@ fn test_customized_solver_matches_bruteforce_for_additional_key() {
         vec![(vec![0], vec![1, 2])],
         vec![0, 1, 2],
         vec![],
-    );
+    )
+    .unwrap();
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
@@ -128,7 +131,8 @@ fn test_customized_solver_matches_bruteforce_for_prime_attribute_name() {
         4,
         vec![(vec![0, 1], vec![2, 3]), (vec![2], vec![0])],
         0,
-    );
+    )
+    .unwrap();
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
@@ -146,7 +150,8 @@ fn test_customized_solver_matches_bruteforce_for_bcnf_violation() {
         4,
         vec![(vec![0], vec![1]), (vec![2], vec![3])],
         vec![0, 1, 2, 3],
-    );
+    )
+    .unwrap();
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
@@ -170,7 +175,8 @@ fn test_customized_solver_finds_minimum_cardinality_key_witness() {
             (vec![1, 3], vec![4]),
             (vec![2, 4], vec![5]),
         ],
-    );
+    )
+    .unwrap();
     let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
@@ -190,7 +196,8 @@ fn test_customized_solver_finds_additional_key_witness() {
         ],
         vec![0, 1, 2, 3, 4, 5],
         vec![vec![0, 1], vec![2, 3], vec![4, 5]],
-    );
+    )
+    .unwrap();
     let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
@@ -207,7 +214,8 @@ fn test_customized_solver_finds_prime_attribute_name_witness() {
             (vec![0, 3], vec![1, 2, 4, 5]),
         ],
         3,
-    );
+    )
+    .unwrap();
     let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
@@ -224,7 +232,8 @@ fn test_customized_solver_finds_bcnf_violation_witness() {
             (vec![3, 4], vec![5]),
         ],
         vec![0, 1, 2, 3, 4, 5],
-    );
+    )
+    .unwrap();
     let witness = CustomizedTestSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
@@ -243,14 +252,16 @@ fn test_customized_solver_no_witness_when_no_solution_exists() {
         ],
         vec![0, 1, 2],
         vec![vec![0], vec![1], vec![2]],
-    );
+    )
+    .unwrap();
     assert!(CustomizedTestSolver::new().solve_dyn(&problem).is_none());
 }
 
 #[test]
 fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
     // All 3 attributes needed as a key (no single-attribute key exists)
-    let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])]);
+    let problem =
+        crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])]).unwrap();
     // Both solvers should find a solution (the minimum cardinality key)
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
@@ -277,7 +288,8 @@ fn test_customized_solver_minimum_cardinality_key_optimality() {
             (vec![1, 3], vec![4]),
             (vec![2, 4], vec![5]),
         ],
-    );
+    )
+    .unwrap();
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
@@ -308,7 +320,8 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
                 (5, 4),
                 (0, 3),
             ],
-        ),
+        )
+        .unwrap(),
         3,
         4,
     );
@@ -326,7 +339,8 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
                 (5, 4),
                 (0, 3),
             ],
-        ),
+        )
+        .unwrap(),
         1,
         4,
     );
@@ -349,7 +363,7 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
 fn test_customized_solver_matches_bruteforce_for_partial_feedback_edge_set() {
     // Small instance for parity check
     let problem = crate::models::graph::PartialFeedbackEdgeSet::new(
-        crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 0), (2, 3)]),
+        crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 0), (2, 3)]).unwrap(),
         1,
         3,
     );
@@ -368,7 +382,7 @@ fn test_customized_solver_matches_bruteforce_for_partial_feedback_edge_set() {
 fn test_customized_solver_partial_feedback_edge_set_no_cycles() {
     // Tree graph: no cycles at all
     let problem = crate::models::graph::PartialFeedbackEdgeSet::new(
-        crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         0,
         3,
     );
@@ -412,7 +426,7 @@ fn test_customized_solver_matches_exhaustive_search_for_small_partial_feedback_e
 #[test]
 fn test_customized_solver_finds_rooted_tree_arrangement_witness() {
     let problem = crate::models::graph::RootedTreeArrangement::new(
-        crate::topology::SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]),
+        crate::topology::SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]).unwrap(),
         7,
     );
     let witness = CustomizedTestSolver::new()
@@ -428,7 +442,7 @@ fn test_customized_solver_finds_rooted_tree_arrangement_witness() {
 fn test_customized_solver_matches_bruteforce_for_rooted_tree_arrangement() {
     // Small 3-vertex instance
     let problem = crate::models::graph::RootedTreeArrangement::new(
-        crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         3,
     );
     let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
@@ -443,7 +457,7 @@ fn test_customized_solver_matches_bruteforce_for_rooted_tree_arrangement() {
 fn test_customized_solver_rooted_tree_arrangement_tight_bound() {
     // Tight bound that rejects — path graph 0-1-2 needs at least stretch 2
     let problem = crate::models::graph::RootedTreeArrangement::new(
-        crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         1,
     );
     // With bound=1, we need total stretch=1, but path 0-1-2 needs at minimum 2
@@ -456,7 +470,7 @@ fn test_customized_solver_rooted_tree_arrangement_tight_bound() {
 fn test_customized_solver_rooted_tree_arrangement_canonical_example() {
     // The canonical example from the model file: 4 vertices, bound=5
     let problem = crate::models::graph::RootedTreeArrangement::new(
-        crate::topology::SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]),
+        crate::topology::SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
         5,
     );
     let witness = CustomizedTestSolver::new()

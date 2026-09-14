@@ -55,12 +55,13 @@ inventory::submit! {
 ///     vec![(vec![0], vec![1, 2])],
 ///     vec![0, 1, 2],
 ///     vec![],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "AdditionalKeyData")]
 pub struct AdditionalKey {
     num_attributes: usize,
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
@@ -68,55 +69,81 @@ pub struct AdditionalKey {
     known_keys: Vec<Vec<usize>>,
 }
 
+#[derive(Deserialize)]
+struct AdditionalKeyData {
+    num_attributes: usize,
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    relation_attrs: Vec<usize>,
+    known_keys: Vec<Vec<usize>>,
+}
+
+impl TryFrom<AdditionalKeyData> for AdditionalKey {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: AdditionalKeyData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.num_attributes,
+            data.dependencies,
+            data.relation_attrs,
+            data.known_keys,
+        )
+    }
+}
+
 impl AdditionalKey {
     /// Create a new AdditionalKey instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any attribute index is >= `num_attributes`, or if
+    /// Returns an error if any attribute index is >= `num_attributes`, or if
     /// `relation_attrs` contains duplicates.
     pub fn new(
         num_attributes: usize,
         dependencies: Vec<(Vec<usize>, Vec<usize>)>,
         relation_attrs: Vec<usize>,
         known_keys: Vec<Vec<usize>>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         // Validate all attribute indices
         for &a in &relation_attrs {
-            assert!(
-                a < num_attributes,
-                "relation_attrs element {a} >= num_attributes {num_attributes}"
-            );
+            if !(a < num_attributes) {
+                return Err(format!(
+                    "relation_attrs element {a} >= num_attributes {num_attributes}"
+                )
+                .into());
+            }
         }
         // Validate relation_attrs uniqueness
         let mut sorted_ra = relation_attrs.clone();
         sorted_ra.sort_unstable();
         sorted_ra.dedup();
-        assert_eq!(
-            sorted_ra.len(),
-            relation_attrs.len(),
-            "relation_attrs contains duplicates"
-        );
+        if sorted_ra.len() != relation_attrs.len() {
+            return Err("relation_attrs contains duplicates".into());
+        }
         for (lhs, rhs) in &dependencies {
             for &a in lhs {
-                assert!(
-                    a < num_attributes,
-                    "dependency lhs attribute {a} >= num_attributes {num_attributes}"
-                );
+                if !(a < num_attributes) {
+                    return Err(format!(
+                        "dependency lhs attribute {a} >= num_attributes {num_attributes}"
+                    )
+                    .into());
+                }
             }
             for &a in rhs {
-                assert!(
-                    a < num_attributes,
-                    "dependency rhs attribute {a} >= num_attributes {num_attributes}"
-                );
+                if !(a < num_attributes) {
+                    return Err(format!(
+                        "dependency rhs attribute {a} >= num_attributes {num_attributes}"
+                    )
+                    .into());
+                }
             }
         }
         for key in &known_keys {
             for &a in key {
-                assert!(
-                    a < num_attributes,
-                    "known_keys attribute {a} >= num_attributes {num_attributes}"
-                );
+                if !(a < num_attributes) {
+                    return Err(format!(
+                        "known_keys attribute {a} >= num_attributes {num_attributes}"
+                    )
+                    .into());
+                }
             }
         }
         // Sort known_keys entries internally for consistent comparison
@@ -127,12 +154,12 @@ impl AdditionalKey {
                 k
             })
             .collect();
-        Self {
+        Ok(Self {
             num_attributes,
             dependencies,
             relation_attrs,
             known_keys,
-        }
+        })
     }
 
     /// Returns the number of attributes in the universal set A.
@@ -286,18 +313,21 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "additional_key",
-        instance: Box::new(AdditionalKey::new(
-            6,
-            vec![
-                (vec![0, 1], vec![2, 3]),
-                (vec![2, 3], vec![4, 5]),
-                (vec![4, 5], vec![0, 1]),
-                (vec![0, 2], vec![3]),
-                (vec![3, 5], vec![1]),
-            ],
-            vec![0, 1, 2, 3, 4, 5],
-            vec![vec![0, 1], vec![2, 3], vec![4, 5]],
-        )),
+        instance: Box::new(
+            AdditionalKey::new(
+                6,
+                vec![
+                    (vec![0, 1], vec![2, 3]),
+                    (vec![2, 3], vec![4, 5]),
+                    (vec![4, 5], vec![0, 1]),
+                    (vec![0, 2], vec![3]),
+                    (vec![3, 5], vec![1]),
+                ],
+                vec![0, 1, 2, 3, 4, 5],
+                vec![vec![0, 1], vec![2, 3], vec![4, 5]],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, true, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]

@@ -60,17 +60,34 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // source = [0,1,2,3,1,0], target = [0,1,3,2,1], bound = 2
-/// let problem = StringToStringCorrection::new(4, vec![0,1,2,3,1,0], vec![0,1,3,2,1], 2);
+/// let problem = StringToStringCorrection::new(4, vec![0,1,2,3,1,0], vec![0,1,3,2,1], 2).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "StringToStringCorrectionData")]
 pub struct StringToStringCorrection {
     alphabet_size: usize,
     source: Vec<usize>,
     target: Vec<usize>,
     bound: usize,
+}
+
+#[derive(Deserialize)]
+struct StringToStringCorrectionData {
+    alphabet_size: usize,
+    source: Vec<usize>,
+    target: Vec<usize>,
+    bound: usize,
+}
+
+impl TryFrom<StringToStringCorrectionData> for StringToStringCorrection {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: StringToStringCorrectionData) -> Result<Self, Self::Error> {
+        Self::new(data.alphabet_size, data.source, data.target, data.bound)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -105,52 +122,44 @@ impl TryFrom<StringToStringCorrectionCreateSpec> for StringToStringCorrection {
             .transpose()?
             .unwrap_or(0);
         let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
-        if alphabet_size < inferred_alphabet_size {
-            return Err(format!(
-                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
-            ).into());
-        }
-        if alphabet_size == 0 && (!spec.source_string.is_empty() || !spec.target_string.is_empty())
-        {
-            return Err("alphabet size must be positive when either string is non-empty".into());
-        }
-
-        Ok(Self {
+        Self::new(
             alphabet_size,
-            source: spec.source_string,
-            target: spec.target_string,
-            bound: spec.bound,
-        })
+            spec.source_string,
+            spec.target_string,
+            spec.bound,
+        )
     }
 }
 
 impl StringToStringCorrection {
     /// Create a new StringToStringCorrection instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `alphabet_size` is 0 when the source or target string is
+    /// Returns an error if `alphabet_size` is 0 when the source or target string is
     /// non-empty, or if any symbol in `source` or `target` is
     /// `>= alphabet_size`.
-    pub fn new(alphabet_size: usize, source: Vec<usize>, target: Vec<usize>, bound: usize) -> Self {
-        assert!(
-            alphabet_size > 0 || (source.is_empty() && target.is_empty()),
-            "alphabet_size must be > 0 when source or target is non-empty"
-        );
-        assert!(
-            source.iter().all(|&s| s < alphabet_size),
-            "all source symbols must be < alphabet_size"
-        );
-        assert!(
-            target.iter().all(|&s| s < alphabet_size),
-            "all target symbols must be < alphabet_size"
-        );
-        Self {
+    pub fn new(
+        alphabet_size: usize,
+        source: Vec<usize>,
+        target: Vec<usize>,
+        bound: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(alphabet_size > 0 || (source.is_empty() && target.is_empty())) {
+            return Err("alphabet_size must be > 0 when source or target is non-empty".into());
+        }
+        if !(source.iter().all(|&s| s < alphabet_size)) {
+            return Err("all source symbols must be < alphabet_size".into());
+        }
+        if !(target.iter().all(|&s| s < alphabet_size)) {
+            return Err("all target symbols must be < alphabet_size".into());
+        }
+        Ok(Self {
             alphabet_size,
             source,
             target,
             bound,
-        }
+        })
     }
 
     /// Returns the alphabet size.
@@ -270,12 +279,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // source has length 6. Domain = 2*6+1 = 13. No-op = 12.
         // First operation: swap at positions 2,3 → value = 6 + 2 = 8
         // Second operation: delete at position 5
-        instance: Box::new(StringToStringCorrection::new(
-            4,
-            vec![0, 1, 2, 3, 1, 0],
-            vec![0, 1, 3, 2, 1],
-            2,
-        )),
+        instance: Box::new(
+            StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2)
+                .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![8, 5]),
         optimal_value: serde_json::json!(true),
     }]

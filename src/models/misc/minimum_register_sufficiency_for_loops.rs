@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = MinimumRegisterSufficiencyForLoops::new(
 ///     6,
 ///     vec![(0, 3), (2, 3), (4, 3)],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
@@ -62,6 +62,7 @@ inventory::submit! {
 /// assert_eq!(val, Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumRegisterSufficiencyForLoopsData")]
 pub struct MinimumRegisterSufficiencyForLoops {
     /// Loop length N (number of timesteps in the circular loop).
     loop_length: usize,
@@ -69,35 +70,53 @@ pub struct MinimumRegisterSufficiencyForLoops {
     variables: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+struct MinimumRegisterSufficiencyForLoopsData {
+    loop_length: usize,
+    variables: Vec<(usize, usize)>,
+}
+
+impl TryFrom<MinimumRegisterSufficiencyForLoopsData> for MinimumRegisterSufficiencyForLoops {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumRegisterSufficiencyForLoopsData) -> Result<Self, Self::Error> {
+        Self::new(data.loop_length, data.variables)
+    }
+}
+
 impl MinimumRegisterSufficiencyForLoops {
     /// Create a new Minimum Register Sufficiency for Loops instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `loop_length` is zero, if any duration is zero or exceeds
+    /// Returns an error if `loop_length` is zero, if any duration is zero or exceeds
     /// `loop_length`, or if any `start_time >= loop_length`.
-    pub fn new(loop_length: usize, variables: Vec<(usize, usize)>) -> Self {
-        assert!(loop_length > 0, "loop_length must be positive");
-        for (i, &(start, dur)) in variables.iter().enumerate() {
-            assert!(
-                start < loop_length,
-                "Variable {} start_time {} >= loop_length {}",
-                i,
-                start,
-                loop_length
-            );
-            assert!(
-                dur > 0 && dur <= loop_length,
-                "Variable {} duration {} must be in [1, {}]",
-                i,
-                dur,
-                loop_length
-            );
+    pub fn new(
+        loop_length: usize,
+        variables: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if loop_length == 0 {
+            return Err("loop_length must be positive".into());
         }
-        Self {
+        for (i, &(start, dur)) in variables.iter().enumerate() {
+            if !(start < loop_length) {
+                return Err(format!(
+                    "Variable {} start_time {} >= loop_length {}",
+                    i, start, loop_length
+                )
+                .into());
+            }
+            if !(dur > 0 && dur <= loop_length) {
+                return Err(format!(
+                    "Variable {} duration {} must be in [1, {}]",
+                    i, dur, loop_length
+                )
+                .into());
+            }
+        }
+        Ok(Self {
             loop_length,
             variables,
-        }
+        })
     }
 
     /// Get the loop length N.
@@ -235,10 +254,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "minimum_register_sufficiency_for_loops",
         // 3 variables on a loop of length 6, all pairs conflict (K3)
         // Optimal: 3 registers (chromatic number of K3)
-        instance: Box::new(MinimumRegisterSufficiencyForLoops::new(
-            6,
-            vec![(0, 3), (2, 3), (4, 3)],
-        )),
+        instance: Box::new(
+            MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 1, 2]),
         optimal_value: serde_json::json!(3),
     }]

@@ -33,7 +33,7 @@ inventory::submit! {
 /// vertices of different slots must be disjoint. Empty slots (all zeros) are
 /// unused and do not count toward the objective. The objective is to maximize
 /// the number of non-empty valid path slots.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct LengthBoundedDisjointPaths<G> {
     graph: G,
@@ -41,6 +41,26 @@ pub struct LengthBoundedDisjointPaths<G> {
     sink: usize,
     max_paths: usize,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct LengthBoundedDisjointPathsData<G> {
+    graph: G,
+    source: usize,
+    sink: usize,
+    max_length: usize,
+}
+
+impl<'de, G> Deserialize<'de> for LengthBoundedDisjointPaths<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = LengthBoundedDisjointPathsData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.source, data.sink, data.max_length)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -97,35 +117,12 @@ impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPath
             .transpose()?
             .unwrap_or(0);
         let num_vertices = spec.num_vertices.unwrap_or(inferred);
-        if num_vertices < inferred {
-            return Err(format!(
-                "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-            ).into());
-        }
-        if spec.source >= num_vertices || spec.sink >= num_vertices {
-            return Err("source and sink must be valid graph vertices"
-                .to_string()
-                .into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string().into());
-        }
-        if spec.max_length == 0 {
-            return Err("max_length must be positive".to_string().into());
-        }
-
-        let graph = SimpleGraph::new(num_vertices, spec.graph);
-        let max_paths = graph
-            .neighbors(spec.source)
-            .len()
-            .min(graph.neighbors(spec.sink).len());
-        Ok(Self {
-            graph,
-            source: spec.source,
-            sink: spec.sink,
-            max_paths,
-            max_length: spec.max_length,
-        })
+        Self::new(
+            SimpleGraph::new(num_vertices, spec.graph)?,
+            spec.source,
+            spec.sink,
+            spec.max_length,
+        )
     }
 }
 
@@ -135,31 +132,38 @@ impl<G: Graph> LengthBoundedDisjointPaths<G> {
     /// The `max_paths` upper bound is computed automatically as
     /// `min(deg(source), deg(sink))`.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `source` or `sink` is not a valid graph vertex, if `source ==
+    /// Returns an error if `source` or `sink` is not a valid graph vertex, if `source ==
     /// sink`, or if `max_length == 0`.
-    pub fn new(graph: G, source: usize, sink: usize, max_length: usize) -> Self {
-        assert!(
-            source < graph.num_vertices(),
-            "source must be a valid graph vertex"
-        );
-        assert!(
-            sink < graph.num_vertices(),
-            "sink must be a valid graph vertex"
-        );
-        assert_ne!(source, sink, "source and sink must be distinct");
-        assert!(max_length > 0, "max_length must be positive");
+    pub fn new(
+        graph: G,
+        source: usize,
+        sink: usize,
+        max_length: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(source < graph.num_vertices()) {
+            return Err("source must be a valid graph vertex".into());
+        }
+        if !(sink < graph.num_vertices()) {
+            return Err("sink must be a valid graph vertex".into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if max_length == 0 {
+            return Err("max_length must be positive".into());
+        }
         let deg_s = graph.neighbors(source).len();
         let deg_t = graph.neighbors(sink).len();
         let max_paths = deg_s.min(deg_t);
-        Self {
+        Ok(Self {
             graph,
             source,
             sink,
             max_paths,
             max_length,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -319,13 +323,13 @@ fn encode_paths(num_edges: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<V
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]).unwrap();
     // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
     // Three edge-selection rows over six edges.
     // Optimal: 3 disjoint paths [0,1,4], [0,2,4], [0,3,4]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
-        instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3)),
+        instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3).unwrap()),
         optimal_config: serde_json::json!(encode_paths(6, 3, &[&[0, 1], &[2, 3], &[4, 5]])),
         optimal_value: serde_json::json!(3),
     }]
@@ -347,12 +351,7 @@ crate::impl_random_generate!(
         if max_length == 0 {
             return Err("max_length must be positive".to_string().into());
         }
-        Ok(LengthBoundedDisjointPaths::new(
-            endpoints.graph()?,
-            source,
-            sink,
-            max_length,
-        ))
+        Ok(LengthBoundedDisjointPaths::new(endpoints.graph()?, source, sink, max_length).unwrap())
     }
 );
 

@@ -17,7 +17,7 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 fn issue_graph() -> DirectedGraph {
-    DirectedGraph::new(6, vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)])
+    DirectedGraph::new(6, vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)]).unwrap()
 }
 
 fn issue_problem() -> MinimumDummyActivitiesPert {
@@ -50,9 +50,10 @@ fn test_minimum_dummy_activities_pert_creation() {
 
 #[test]
 fn test_minimum_dummy_activities_pert_rejects_cyclic_input() {
-    let err =
-        MinimumDummyActivitiesPert::try_new(DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]))
-            .unwrap_err();
+    let err = MinimumDummyActivitiesPert::try_new(
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("DAG"));
 }
 
@@ -92,7 +93,7 @@ fn test_minimum_dummy_activities_pert_transitive_arc_zero_dummies() {
     // DAG with transitive arc: 0→1, 1→2, 0→2.
     // Merging 0+=1- and 1+=2- makes the 0→2 reachability transitively
     // satisfied, so the optimal dummy count is 0.
-    let dag = DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let dag = DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let problem = MinimumDummyActivitiesPert::new(dag);
     let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(0)));

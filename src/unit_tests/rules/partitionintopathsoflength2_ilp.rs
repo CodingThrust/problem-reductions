@@ -7,8 +7,8 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Two P3 paths: 0-1-2 and 3-4-5
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
     let reduction: ReductionPIPL2ToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -28,8 +28,8 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_partitionintopathsoflength2_to_ilp_bf_vs_ilp() {
     // Two P3 paths: 0-1-2 and 3-4-5
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
     let reduction: ReductionPIPL2ToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -55,8 +55,8 @@ fn test_partitionintopathsoflength2_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Two P3 paths: 0-1-2 and 3-4-5
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
     let reduction: ReductionPIPL2ToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -77,8 +77,8 @@ fn test_solution_extraction() {
 #[test]
 fn test_partitionintopathsoflength2_to_ilp_trivial() {
     // Minimal feasible: one P3 path 0-1-2
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
     let reduction: ReductionPIPL2ToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

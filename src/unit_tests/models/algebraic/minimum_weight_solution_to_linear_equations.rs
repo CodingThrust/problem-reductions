@@ -18,7 +18,7 @@ use crate::types::Min;
 fn example_instance() -> MinimumWeightSolutionToLinearEquations {
     let matrix = vec![vec![1, 2, 3, 1], vec![2, 1, 1, 3]];
     let rhs = vec![5, 4];
-    MinimumWeightSolutionToLinearEquations::new(matrix, rhs)
+    MinimumWeightSolutionToLinearEquations::new(matrix, rhs).unwrap()
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn test_minimum_weight_solution_zero_rhs() {
     // A = [[1,1],[2,2]], b = [0,0] — trivially consistent with 0 columns.
     let matrix = vec![vec![1, 1], vec![2, 2]];
     let rhs = vec![0, 0];
-    let problem = MinimumWeightSolutionToLinearEquations::new(matrix, rhs);
+    let problem = MinimumWeightSolutionToLinearEquations::new(matrix, rhs).unwrap();
     let config = vec![false, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
@@ -144,21 +144,28 @@ fn test_minimum_weight_solution_complexity_metadata() {
 }
 
 #[test]
-#[should_panic(expected = "at least one row")]
 fn test_minimum_weight_solution_empty_matrix() {
-    MinimumWeightSolutionToLinearEquations::new(vec![], vec![]);
+    assert!(MinimumWeightSolutionToLinearEquations::new(vec![], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "same length")]
 fn test_minimum_weight_solution_inconsistent_rows() {
     let matrix = vec![vec![1, 2], vec![3]];
-    MinimumWeightSolutionToLinearEquations::new(matrix, vec![1, 2]);
+    assert!(MinimumWeightSolutionToLinearEquations::new(matrix, vec![1, 2]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "RHS length")]
 fn test_minimum_weight_solution_rhs_mismatch() {
     let matrix = vec![vec![1, 2], vec![3, 4]];
-    MinimumWeightSolutionToLinearEquations::new(matrix, vec![1]);
+    assert!(MinimumWeightSolutionToLinearEquations::new(matrix, vec![1]).is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(
+        serde_json::from_value::<MinimumWeightSolutionToLinearEquations>(
+            serde_json::json!({"matrix":[[1]],"rhs":[]})
+        )
+        .is_err()
+    );
 }

@@ -119,8 +119,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "optimallineararrangement_to_sequencingtominimizeweightedcompletiontime",
         build: || {
-            let source =
-                OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+            let source = OptimalLinearArrangement::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+            );
             let reduction =
                 ReduceTo::<SequencingToMinimizeWeightedCompletionTime>::reduce_to(&source)
                     .expect("reduction should succeed");

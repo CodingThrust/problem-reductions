@@ -4,7 +4,7 @@ use super::*;
 fn create_spec_rejects_duplicate_terminals() {
     assert_eq!(SteinerTreeCreateSpec::<i64>::FIELDS[2].name, "terminals");
     let result = SteinerTree::try_from(SteinerTreeCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         edge_weights: vec![1],
         terminals: vec![0, 0],
     });
@@ -18,7 +18,8 @@ fn example_instance() -> SteinerTree<SimpleGraph, i64> {
     let graph = SimpleGraph::new(
         5,
         vec![(0, 1), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-    );
+    )
+    .unwrap();
     let edge_weights = vec![2, 5, 2, 1, 5, 6, 1];
     let terminals = vec![0, 2, 4];
     SteinerTree::new(graph, edge_weights, terminals)
@@ -41,7 +42,7 @@ fn test_steiner_tree_creation() {
 #[test]
 #[should_panic(expected = "terminals must be distinct")]
 fn test_steiner_tree_rejects_duplicate_terminals() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let _ = SteinerTree::new(graph, vec![1, 1], vec![0, 0]);
 }
 
@@ -100,7 +101,7 @@ fn test_steiner_tree_brute_force() {
 #[test]
 fn test_steiner_tree_all_terminals() {
     // When T = V, reduces to minimum spanning tree
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let edge_weights = vec![1, 2, 3];
     let terminals = vec![0, 1, 2];
     let problem = SteinerTree::new(graph, edge_weights, terminals);
@@ -121,7 +122,7 @@ fn test_steiner_tree_is_weighted() {
 
     // One has IS_UNIT = true, so is_weighted() returns false
     use crate::types::One;
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let unweighted: SteinerTree<SimpleGraph, One> = SteinerTree::unit_weights(graph, vec![0, 1, 2]);
     assert!(!unweighted.is_weighted());
 }
@@ -154,7 +155,7 @@ fn test_steiner_tree_disconnected_non_terminal_edges() {
     // Graph: path 0-1-2-3-4, terminals {0, 2}
     // Select edges (0,1), (1,2), (3,4) — terminals connected but vertex 3,4 form
     // a disconnected component of selected edges (not a tree).
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap();
     let edge_weights = vec![1, 1, 1, 1];
     let terminals = vec![0, 2];
     let problem = SteinerTree::new(graph, edge_weights, terminals);
@@ -182,21 +183,21 @@ fn test_steiner_tree_edge_weights_and_set_weights() {
 #[test]
 #[should_panic(expected = "at least one terminal required")]
 fn test_steiner_tree_rejects_empty_terminals() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let _ = SteinerTree::new(graph, vec![1, 1], vec![]);
 }
 
 #[test]
 #[should_panic(expected = "terminal 5 out of range")]
 fn test_steiner_tree_rejects_out_of_range_terminal() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let _ = SteinerTree::new(graph, vec![1, 1], vec![0, 5]);
 }
 
 #[test]
 #[should_panic(expected = "edge_weights length must match num_edges")]
 fn test_steiner_tree_rejects_wrong_weight_count() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let _ = SteinerTree::new(graph, vec![1, 1, 1], vec![0, 2]);
 }
 
@@ -220,7 +221,7 @@ fn test_steiner_tree_deserialization_rejects_invalid_invariants() {
 #[test]
 fn test_steiner_tree_single_terminal_semantics() {
     let problem = SteinerTree::try_from(SteinerTreeCreateSpec {
-        graph: SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+        graph: SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]).unwrap(),
         edge_weights: vec![-5, 1, 1, -10],
         terminals: vec![0],
     })

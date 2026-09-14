@@ -27,9 +27,10 @@ fn reduce_mis_to_ilp(
 #[test]
 fn test_maximumindependentset_to_ilp_via_path_structure() {
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64; 3],
-    );
+    )
+    .unwrap();
     let (path, chain) = reduce_mis_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
 
@@ -52,9 +53,10 @@ fn test_maximumindependentset_to_ilp_via_path_structure() {
 #[test]
 fn test_maximumindependentset_to_ilp_via_path_closed_loop() {
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let (_, chain) = reduce_mis_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
 
@@ -69,8 +71,11 @@ fn test_maximumindependentset_to_ilp_via_path_closed_loop() {
 
 #[test]
 fn test_maximumindependentset_to_ilp_via_path_weighted() {
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1, 100, 1],
+    )
+    .unwrap();
     let (_, chain) = reduce_mis_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
 
@@ -85,9 +90,10 @@ fn test_maximumindependentset_to_ilp_via_path_weighted() {
 #[test]
 fn test_maximumindependentset_to_ilp_bf_vs_ilp() {
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let (_, chain) = reduce_mis_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
     let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();

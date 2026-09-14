@@ -5,7 +5,11 @@ use crate::traits::Problem;
 
 fn four_vertex_instance() -> PartitionIntoPerfectMatchings<SimpleGraph> {
     // 4 vertices with edges: (0,1),(2,3),(0,2),(1,3)
-    PartitionIntoPerfectMatchings::new(SimpleGraph::new(4, vec![(0, 1), (2, 3), (0, 2), (1, 3)]), 2)
+    PartitionIntoPerfectMatchings::new(
+        SimpleGraph::new(4, vec![(0, 1), (2, 3), (0, 2), (1, 3)]).unwrap(),
+        2,
+    )
+    .unwrap()
 }
 
 #[test]
@@ -87,7 +91,9 @@ fn test_partition_into_perfect_matchings_brute_force_finds_solution() {
 fn test_partition_into_perfect_matchings_brute_force_no_solution() {
     // Path 0-1-2: no perfect matching partition possible with K=1
     // Group {0,1,2} has 3 vertices (odd) so cannot be a perfect matching
-    let problem = PartitionIntoPerfectMatchings::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 1);
+    let problem =
+        PartitionIntoPerfectMatchings::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 1)
+            .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -95,7 +101,8 @@ fn test_partition_into_perfect_matchings_brute_force_no_solution() {
 #[test]
 fn test_partition_into_perfect_matchings_brute_force_all_valid() {
     // 2 vertices with edge (0,1), K=2: group {0,1} is a perfect matching
-    let problem = PartitionIntoPerfectMatchings::new(SimpleGraph::new(2, vec![(0, 1)]), 2);
+    let problem =
+        PartitionIntoPerfectMatchings::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 2).unwrap();
     let solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
@@ -115,13 +122,15 @@ fn test_partition_into_perfect_matchings_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "num_matchings must be at least 1")]
 fn test_partition_into_perfect_matchings_rejects_zero() {
-    let _ = PartitionIntoPerfectMatchings::new(SimpleGraph::new(2, vec![(0, 1)]), 0);
+    assert!(
+        PartitionIntoPerfectMatchings::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 0).is_err()
+    );
 }
 
 #[test]
-#[should_panic(expected = "num_matchings must be at most num_vertices")]
 fn test_partition_into_perfect_matchings_rejects_too_many() {
-    let _ = PartitionIntoPerfectMatchings::new(SimpleGraph::new(2, vec![(0, 1)]), 3);
+    assert!(
+        PartitionIntoPerfectMatchings::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 3).is_err()
+    );
 }

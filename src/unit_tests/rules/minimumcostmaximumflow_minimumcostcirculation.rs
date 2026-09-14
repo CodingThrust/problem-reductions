@@ -10,7 +10,7 @@ use crate::types::Min;
 /// Max-flow value = 3, min cost among value-3 flows = 7.
 fn canonical_source() -> MinimumCostMaximumFlow {
     MinimumCostMaximumFlow::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         vec![2, 1, 1, 1, 2],
@@ -64,7 +64,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_bottleneck() {
     // flow value = 1. Two paths 1->3 (cost 1) and 1->2->3 (cost 2+3=5)
     // ensure the cheaper path is selected.
     let source = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(4, vec![(0, 1), (1, 2), (1, 3), (2, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (1, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         vec![1, 1, 1, 1],
@@ -92,7 +92,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_parallel_arcs() {
     // Parallel arcs with different costs from 0 to 1, single sink arc.
     // The cheaper parallel arc must be preferred.
     let source = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2)]).unwrap(),
         0,
         2,
         vec![1, 1, 1],
@@ -128,7 +128,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_unused_low_cost_arc() {
     // because vertex 2 has no out-arc to t. The reduction must still
     // produce the correct projection.
     let source = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(4, vec![(0, 1), (1, 2), (1, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (1, 2), (1, 3)]).unwrap(),
         0,
         3,
         vec![1, 1, 1],
@@ -147,7 +147,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_unused_low_cost_arc() {
 fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
     // A zero-capacity arc must remain feasible but contribute nothing.
     let source = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         0,
         2,
         vec![1, 1, 0],
@@ -176,7 +176,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
 #[test]
 fn test_minimumcostmaximumflow_to_minimumcostcirculation_reports_overflow() {
     let capacity_overflow = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (0, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (0, 2)]).unwrap(),
         0,
         2,
         vec![i64::MAX, 1],
@@ -188,7 +188,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_reports_overflow() {
     ));
 
     let cost_overflow = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         0,
         2,
         vec![1, 1],
@@ -210,7 +210,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_value_priority_over_cos
     // (cheaper in raw cost but lower value), so the lex-optimum is
     // value 2.
     let source = MinimumCostMaximumFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         0,
         2,
         vec![2, 2],

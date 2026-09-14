@@ -142,9 +142,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Path P_4: 0-1-2-3, bound K=2. Minimum cover {1,2} has size 2.
             let inner = MinimumVertexCover::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                 vec![1i64; 4],
-            );
+            )
+            .unwrap();
             let source = Decision::new(inner, 2);
             crate::example_db::specs::rule_example_with_witness::<_, ComparativeContainment<i64>>(
                 source,

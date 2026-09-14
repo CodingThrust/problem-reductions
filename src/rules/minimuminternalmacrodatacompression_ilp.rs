@@ -289,7 +289,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimuminternalmacrodatacompression_to_ilp",
         build: || {
-            let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+            let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
             let reduction =
                 ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let layout = &reduction.layout;

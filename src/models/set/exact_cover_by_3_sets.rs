@@ -42,7 +42,7 @@ inventory::submit! {
 /// let problem = ExactCoverBy3Sets::new(
 ///     6,
 ///     vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]],
-/// );
+/// ).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -52,6 +52,7 @@ inventory::submit! {
 /// assert!(problem.evaluate(&solutions[0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ExactCoverBy3SetsCreateSpec")]
 pub struct ExactCoverBy3Sets {
     /// Size of the universe (elements are 0..universe_size, must be divisible by 3).
     universe_size: usize,
@@ -68,18 +69,30 @@ struct ExactCoverBy3SetsCreateSpec {
 
 impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
     type Error = crate::registry::ConstructionError;
-    fn try_from(mut spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
-        if !spec.universe_size.is_multiple_of(3) {
+    fn try_from(spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
+        Self::new(spec.universe_size, spec.subsets)
+    }
+}
+
+impl ExactCoverBy3Sets {
+    /// Create a new X3C problem.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the universe size is not divisible by three, or a
+    /// subset contains repeated or out-of-range elements.
+    pub fn new(
+        universe_size: usize,
+        mut subsets: Vec<[usize; 3]>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !universe_size.is_multiple_of(3) {
             return Err("universe_size must be divisible by 3".into());
         }
-        for (index, subset) in spec.subsets.iter_mut().enumerate() {
+        for (index, subset) in subsets.iter_mut().enumerate() {
             if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
                 return Err(format!("subset {index} contains duplicate elements").into());
             }
-            if let Some(&element) = subset
-                .iter()
-                .find(|&&element| element >= spec.universe_size)
-            {
+            if let Some(&element) = subset.iter().find(|&&element| element >= universe_size) {
                 return Err(
                     format!("subset {index} contains out-of-range element {element}").into(),
                 );
@@ -87,48 +100,9 @@ impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
             subset.sort();
         }
         Ok(Self {
-            universe_size: spec.universe_size,
-            subsets: spec.subsets,
-        })
-    }
-}
-
-impl ExactCoverBy3Sets {
-    /// Create a new X3C problem.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `universe_size` is not divisible by 3, or if any subset
-    /// contains duplicate elements or elements outside the universe.
-    pub fn new(universe_size: usize, subsets: Vec<[usize; 3]>) -> Self {
-        assert!(
-            universe_size.is_multiple_of(3),
-            "Universe size must be divisible by 3, got {}",
-            universe_size
-        );
-        let mut subsets = subsets;
-        for (i, subset) in subsets.iter_mut().enumerate() {
-            assert!(
-                subset[0] != subset[1] && subset[0] != subset[2] && subset[1] != subset[2],
-                "Subset {} contains duplicate elements: {:?}",
-                i,
-                subset
-            );
-            for &elem in subset.iter() {
-                assert!(
-                    elem < universe_size,
-                    "Subset {} contains element {} which is outside universe of size {}",
-                    i,
-                    elem,
-                    universe_size
-                );
-            }
-            subset.sort();
-        }
-        Self {
             universe_size,
             subsets,
-        }
+        })
     }
 
     /// Get the universe size.
@@ -260,18 +234,21 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "exact_cover_by_3_sets",
-        instance: Box::new(ExactCoverBy3Sets::new(
-            9,
-            vec![
-                [0, 1, 2],
-                [0, 2, 4],
-                [3, 4, 5],
-                [3, 5, 7],
-                [6, 7, 8],
-                [1, 4, 6],
-                [2, 5, 8],
-            ],
-        )),
+        instance: Box::new(
+            ExactCoverBy3Sets::new(
+                9,
+                vec![
+                    [0, 1, 2],
+                    [0, 2, 4],
+                    [3, 4, 5],
+                    [3, 5, 7],
+                    [6, 7, 8],
+                    [1, 4, 6],
+                    [2, 5, 8],
+                ],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, true, false, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]

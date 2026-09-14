@@ -209,10 +209,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Canonical issue #1023 instance: triangle {0,1,2} + leaf vertex 3.
             // Optimum deletes only the leaf edge (2,3); ILP keeps the triangle
             // cluster and the {3} singleton.
-            let source = HighlyConnectedDeletion::new(SimpleGraph::new(
-                4,
-                vec![(0, 1), (0, 2), (1, 2), (2, 3)],
-            ));
+            let source = HighlyConnectedDeletion::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+            );
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

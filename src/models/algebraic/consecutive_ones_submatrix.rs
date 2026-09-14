@@ -53,37 +53,50 @@ inventory::submit! {
 ///     vec![true, false, true, true],
 ///     vec![false, true, true, false],
 /// ];
-/// let problem = ConsecutiveOnesSubmatrix::new(matrix, 3);
+/// let problem = ConsecutiveOnesSubmatrix::new(matrix, 3).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConsecutiveOnesSubmatrixData")]
 pub struct ConsecutiveOnesSubmatrix {
     matrix: Vec<Vec<bool>>,
     bound: i64,
 }
 
+#[derive(Deserialize)]
+struct ConsecutiveOnesSubmatrixData {
+    matrix: Vec<Vec<bool>>,
+    bound: i64,
+}
+
+impl TryFrom<ConsecutiveOnesSubmatrixData> for ConsecutiveOnesSubmatrix {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ConsecutiveOnesSubmatrixData) -> Result<Self, Self::Error> {
+        Self::new(data.matrix, data.bound)
+    }
+}
+
 impl ConsecutiveOnesSubmatrix {
     /// Create a new ConsecutiveOnesSubmatrix instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `bound > n`, or if rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
-        let n = if matrix.is_empty() {
-            0
-        } else {
-            matrix[0].len()
-        };
-        for row in &matrix {
-            assert_eq!(row.len(), n, "All rows must have the same length");
+    /// Returns an error when matrix dimensions violate the instance definition.
+    pub fn new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let n = matrix.first().map_or(0, Vec::len);
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err("all matrix rows must have the same length".into());
         }
-        assert!(
-            bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n),
-            "bound ({bound}) must be <= number of columns ({n})"
-        );
-        Self { matrix, bound }
+        if !(bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n)) {
+            return Err(format!("bound ({bound}) must be <= number of columns ({n})").into());
+        }
+        Ok(Self { matrix, bound })
     }
 
     /// Returns the binary matrix.
@@ -238,14 +251,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "consecutive_ones_submatrix",
         // Tucker matrix (3×4): full matrix lacks C1P, but K=3 works
         // Select columns {0,1,3} (config [1,1,0,1])
-        instance: Box::new(ConsecutiveOnesSubmatrix::new(
-            vec![
-                vec![true, true, false, true],
-                vec![true, false, true, true],
-                vec![false, true, true, false],
-            ],
-            3,
-        )),
+        instance: Box::new(
+            ConsecutiveOnesSubmatrix::new(
+                vec![
+                    vec![true, true, false, true],
+                    vec![true, false, true, true],
+                    vec![false, true, true, false],
+                ],
+                3,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, true, false, true]),
         optimal_value: serde_json::json!(true),
     }]

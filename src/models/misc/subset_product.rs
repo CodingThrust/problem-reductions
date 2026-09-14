@@ -45,12 +45,13 @@ inventory::submit! {
 /// use problemreductions::models::misc::SubsetProduct;
 /// use problemreductions::{Problem, BruteForce};
 ///
-/// let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
+/// let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SubsetProductData")]
 pub struct SubsetProduct {
     #[serde(with = "super::biguint_serde::decimal_biguint_vec")]
     sizes: Vec<BigUint>,
@@ -58,30 +59,49 @@ pub struct SubsetProduct {
     target: BigUint,
 }
 
+#[derive(Deserialize)]
+struct SubsetProductData {
+    #[serde(with = "super::biguint_serde::decimal_biguint_vec")]
+    sizes: Vec<BigUint>,
+    #[serde(with = "super::biguint_serde::decimal_biguint")]
+    target: BigUint,
+}
+
+impl TryFrom<SubsetProductData> for SubsetProduct {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SubsetProductData) -> Result<Self, Self::Error> {
+        if data.sizes.iter().any(BigUint::is_zero) {
+            return Err("all sizes must be positive (> 0)".into());
+        }
+        if data.target.is_zero() {
+            return Err("SubsetProduct target must be positive".into());
+        }
+        Ok(Self {
+            sizes: data.sizes,
+            target: data.target,
+        })
+    }
+}
+
 impl SubsetProduct {
     /// Create a new SubsetProduct instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any size is not positive (must be > 0) or if target is zero.
-    pub fn new<S, T>(sizes: Vec<S>, target: T) -> Self
+    /// Returns an error if any size is not positive (must be > 0) or if target is zero.
+    pub fn new<S, T>(sizes: Vec<S>, target: T) -> Result<Self, crate::registry::ConstructionError>
     where
         S: ToBigUint,
         T: ToBigUint,
     {
-        let sizes: Vec<BigUint> = sizes
+        let sizes = sizes
             .into_iter()
-            .map(|s| s.to_biguint().expect("All sizes must be positive (> 0)"))
-            .collect();
-        assert!(
-            sizes.iter().all(|s| !s.is_zero()),
-            "All sizes must be positive (> 0)"
-        );
+            .map(|size| size.to_biguint().ok_or("all sizes must be positive (> 0)"))
+            .collect::<Result<Vec<_>, _>>()?;
         let target = target
             .to_biguint()
-            .expect("SubsetProduct target must be nonnegative");
-        assert!(!target.is_zero(), "SubsetProduct target must be positive");
-        Self { sizes, target }
+            .ok_or("SubsetProduct target must be nonnegative")?;
+        SubsetProductData { sizes, target }.try_into()
     }
 
     /// Create a SubsetProduct without validating sizes (for testing edge cases).
@@ -166,7 +186,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // 6 elements [2,3,5,7,6,10], target 210 → select {2,3,5,7}
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subset_product",
-        instance: Box::new(SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32)),
+        instance: Box::new(SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32).unwrap()),
         optimal_config: serde_json::json!(vec![true, true, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]

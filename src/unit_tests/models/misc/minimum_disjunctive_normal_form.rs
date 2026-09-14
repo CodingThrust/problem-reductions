@@ -6,6 +6,7 @@ use crate::types::Min;
 fn issue_instance() -> MinimumDisjunctiveNormalForm {
     // f(x1,x2,x3) = 1 when exactly 1 or 2 variables are true
     MinimumDisjunctiveNormalForm::new(3, vec![false, true, true, true, true, true, true, false])
+        .unwrap()
 }
 
 #[test]
@@ -93,7 +94,7 @@ fn test_minimum_dnf_serialization() {
 #[test]
 fn test_minimum_dnf_two_variables() {
     // f(x1,x2) = x1 XOR x2 = {01, 10}
-    let problem = MinimumDisjunctiveNormalForm::new(2, vec![false, true, true, false]);
+    let problem = MinimumDisjunctiveNormalForm::new(2, vec![false, true, true, false]).unwrap();
     assert_eq!(problem.minterms(), &[1, 2]);
     // Prime implicants: ¬x1∧x2 covers {01}, x1∧¬x2 covers {10}
     assert_eq!(problem.num_prime_implicants(), 2);
@@ -107,7 +108,7 @@ fn test_minimum_dnf_two_variables() {
 #[test]
 fn test_minimum_dnf_single_minterm() {
     // f(x1,x2) = x1 AND x2 = {11}
-    let problem = MinimumDisjunctiveNormalForm::new(2, vec![false, false, false, true]);
+    let problem = MinimumDisjunctiveNormalForm::new(2, vec![false, false, false, true]).unwrap();
     assert_eq!(problem.minterms(), &[3]);
     assert_eq!(problem.num_prime_implicants(), 1); // x1∧x2
     let solver = BruteForce::new();
@@ -142,7 +143,17 @@ fn test_minimum_dnf_wrong_config_length() {
 }
 
 #[test]
-#[should_panic(expected = "at least one minterm")]
 fn test_minimum_dnf_all_false() {
-    MinimumDisjunctiveNormalForm::new(2, vec![false, false, false, false]);
+    assert!(MinimumDisjunctiveNormalForm::new(2, vec![false, false, false, false]).is_err());
+}
+
+#[test]
+fn deserialize_rebuilds_prime_implicants() {
+    let model: MinimumDisjunctiveNormalForm = serde_json::from_value(serde_json::json!({
+        "num_variables": 2, "truth_table": [false, true, true, false],
+        "prime_implicants": [], "minterms": [99]
+    }))
+    .unwrap();
+    assert_eq!(model.minterms(), &[1, 2]);
+    assert_eq!(model.num_prime_implicants(), 2);
 }

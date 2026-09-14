@@ -9,6 +9,7 @@ fn issue_instance() -> ClosestString {
         2,
         vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
     )
+    .unwrap()
 }
 
 #[test]
@@ -80,21 +81,18 @@ fn test_closest_string_bruteforce_finds_optimum() {
 }
 
 #[test]
-#[should_panic(expected = "ClosestString requires at least one input string")]
 fn test_closest_string_panics_on_empty_input_list() {
-    let _ = ClosestString::new(2, Vec::new());
+    assert!(ClosestString::new(2, Vec::new()).is_err());
 }
 
 #[test]
-#[should_panic(expected = "all input strings must have the same length")]
 fn test_closest_string_panics_on_length_mismatch() {
-    let _ = ClosestString::new(2, vec![vec![0, 1, 0], vec![1, 0]]);
+    assert!(ClosestString::new(2, vec![vec![0, 1, 0], vec![1, 0]]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "input symbols must be less than alphabet_size")]
 fn test_closest_string_panics_on_out_of_alphabet_symbol() {
-    let _ = ClosestString::new(2, vec![vec![0, 1, 2]]);
+    assert!(ClosestString::new(2, vec![vec![0, 1, 2]]).is_err());
 }
 
 #[test]
@@ -103,7 +101,7 @@ fn test_closest_string_larger_alphabet_smoke() {
     // Inputs (01, 12, 20) are pairwise at Hamming distance 2, so any center
     // must have radius at least 2; e.g., c = 00 achieves d(00,01)=1,
     // d(00,12)=2, d(00,20)=1, giving a max of 2.
-    let problem = ClosestString::new(3, vec![vec![0, 1], vec![1, 2], vec![2, 0]]);
+    let problem = ClosestString::new(3, vec![vec![0, 1], vec![1, 2], vec![2, 0]]).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![3, 3]

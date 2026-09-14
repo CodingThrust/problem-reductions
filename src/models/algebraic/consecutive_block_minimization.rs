@@ -45,7 +45,7 @@ inventory::submit! {
 ///         vec![false, true, true],
 ///     ],
 ///     2,
-/// );
+/// ).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -83,7 +83,7 @@ impl TryFrom<ConsecutiveBlockMinimizationCreateSpec> for ConsecutiveBlockMinimiz
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: ConsecutiveBlockMinimizationCreateSpec) -> Result<Self, Self::Error> {
-        Self::try_new(spec.matrix, spec.bound_k)
+        Self::new(spec.matrix, spec.bound_k)
     }
 }
 
@@ -94,15 +94,9 @@ impl ConsecutiveBlockMinimization {
     /// * `matrix` - The m x n binary matrix
     /// * `bound` - Upper bound on total consecutive blocks
     ///
-    /// # Panics
-    /// Panics if rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
-        Self::try_new(matrix, bound).unwrap_or_else(|err| panic!("{err}"))
-    }
-
-    /// Create a new ConsecutiveBlockMinimization problem, returning an error
-    /// instead of panicking when the matrix is ragged.
-    pub fn try_new(
+    /// # Errors
+    /// Returns an error if rows have inconsistent lengths.
+    pub fn new(
         matrix: Vec<Vec<bool>>,
         bound: i64,
     ) -> Result<Self, crate::registry::ConstructionError> {
@@ -249,7 +243,7 @@ impl TryFrom<ConsecutiveBlockMinimizationDef> for ConsecutiveBlockMinimization {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(value: ConsecutiveBlockMinimizationDef) -> Result<Self, Self::Error> {
-        Self::try_new(value.matrix, value.bound)
+        Self::new(value.matrix, value.bound)
     }
 }
 
@@ -283,17 +277,20 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Issue #420 Instance 2.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_block_minimization",
-        instance: Box::new(ConsecutiveBlockMinimization::new(
-            vec![
-                vec![false, true, false, false, false, false],
-                vec![true, false, true, false, false, false],
-                vec![false, true, false, true, false, false],
-                vec![false, false, true, false, true, false],
-                vec![false, false, false, true, false, true],
-                vec![false, false, false, false, true, false],
-            ],
-            6,
-        )),
+        instance: Box::new(
+            ConsecutiveBlockMinimization::new(
+                vec![
+                    vec![false, true, false, false, false, false],
+                    vec![true, false, true, false, false, false],
+                    vec![false, true, false, true, false, false],
+                    vec![false, false, true, false, true, false],
+                    vec![false, false, false, true, false, true],
+                    vec![false, false, false, false, true, false],
+                ],
+                6,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 2, 4, 1, 3, 5]),
         optimal_value: serde_json::json!(true),
     }]

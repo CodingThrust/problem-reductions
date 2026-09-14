@@ -38,13 +38,13 @@ where
 
 fn reduce_clique_to_is<W: WeightElement>(
     src: &MaximumClique<SimpleGraph, W>,
-) -> ReductionCliqueToIS<W> {
+) -> Result<ReductionCliqueToIS<W>, crate::registry::ConstructionError> {
     let comp_edges = super::graph_helpers::complement_edges(src.graph());
     let target = MaximumIndependentSet::new(
-        SimpleGraph::new(src.graph().num_vertices(), comp_edges),
+        SimpleGraph::new(src.graph().num_vertices(), comp_edges)?,
         src.weights().to_vec(),
-    );
-    ReductionCliqueToIS { target }
+    )?;
+    Ok(ReductionCliqueToIS { target })
 }
 
 #[reduction(
@@ -57,7 +57,9 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i64>> for MaximumClique<SimpleG
     type Result = ReductionCliqueToIS<i64>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(reduce_clique_to_is(self))
+        reduce_clique_to_is(self).map_err(
+            <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, i64>>>::target_construction,
+        )
     }
 }
 
@@ -71,7 +73,9 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for MaximumClique<SimpleG
     type Result = ReductionCliqueToIS<One>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(reduce_clique_to_is(self))
+        reduce_clique_to_is(self).map_err(
+            <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::target_construction,
+        )
     }
 }
 
@@ -84,9 +88,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "weighted_maximumclique_to_maximumindependentset",
             build: || {
                 let source = MaximumClique::new(
-                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                     vec![1i64; 4],
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, i64>,
@@ -103,9 +108,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "cardinality_maximumclique_to_maximumindependentset",
             build: || {
                 let source = MaximumClique::new(
-                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                     vec![One; 4],
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, One>,

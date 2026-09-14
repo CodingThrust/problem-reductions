@@ -132,9 +132,14 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
         }
 
         let target = MaximumIndependentSet::new(
-            SimpleGraph::new(num_vertices, edges),
+            SimpleGraph::new(num_vertices, edges).map_err(
+                <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::target_construction,
+            )?,
             vec![One; num_vertices],
-        );
+        )
+        .map_err(
+            <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::target_construction,
+        )?;
 
         Ok(ReductionLCSToIS {
             target,
@@ -198,6 +203,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 0, 2, 0], // BACA
             ],
         )
+        .unwrap()
     }
 
     vec![crate::example_db::specs::RuleExampleSpec {

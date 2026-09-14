@@ -84,7 +84,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "maximalis_to_ilp",
         build: || {
             // Path P3: 0-1-2
-            let source = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]);
+            let source = MaximalIS::new(
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+                vec![1, 1, 1],
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

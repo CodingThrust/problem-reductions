@@ -126,7 +126,7 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Se
             // Two isolated vertices have no spanning tree. No certificate can
             // pass validation, so the ordinary extractor is never reached.
             return Ok(ReductionX3CToBoundedDiameterSpanningTree {
-                target: BoundedDiameterSpanningTree::new(SimpleGraph::empty(2), vec![], 1, 4),
+                target: BoundedDiameterSpanningTree::new(SimpleGraph::empty(2), vec![], 1, 4).map_err(<Self as ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>>>::target_construction)?,
                 source_num_subsets: m,
             });
         }
@@ -177,8 +177,10 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Se
 
         let diameter_bound: usize = 4;
 
-        let graph = SimpleGraph::new(num_vertices, edges);
-        let target = BoundedDiameterSpanningTree::new(graph, weights, weight_bound, diameter_bound);
+        let graph = SimpleGraph::new(num_vertices, edges).map_err(
+            <Self as ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>>>::target_construction,
+        )?;
+        let target = BoundedDiameterSpanningTree::new(graph, weights, weight_bound, diameter_bound).map_err(<Self as ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionX3CToBoundedDiameterSpanningTree {
             target,
@@ -197,7 +199,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // q = 2, m = 2: X = {0..5}, C = [{0,1,2}, {3,4,5}].
             // Exact cover: both subsets. Target has 11 vertices and 11 edges,
             // so brute-force solving stays well under the 5s test budget.
-            let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
+            let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]).unwrap();
 
             // Source: select both subsets.
             let source_config = vec![true, true];

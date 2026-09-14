@@ -7,9 +7,10 @@ use crate::types::Min;
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64; 3],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -32,7 +33,9 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_reduction_weighted() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![5, 10, 15])
+            .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -50,9 +53,10 @@ fn test_minimumdominatingset_to_ilp_closed_loop() {
     // Star graph: center vertex 0 connected to all others
     // Minimum dominating set is just the center (weight 1)
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -84,9 +88,10 @@ fn test_minimumdominatingset_to_ilp_closed_loop() {
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3-4: min DS = 2 (e.g., vertices 1 and 3)
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![1i64; 5],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -115,9 +120,10 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // Star with heavy center: prefer selecting all leaves (total weight 3)
     // over center (weight 100)
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![100, 1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -141,8 +147,11 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i64; 4]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap(),
+        vec![1i64; 4],
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -158,9 +167,10 @@ fn test_solution_extraction() {
 #[test]
 fn test_ilp_structure() {
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![1i64; 5],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -172,7 +182,9 @@ fn test_ilp_structure() {
 #[test]
 fn test_isolated_vertices() {
     // Graph with isolated vertex 2: it must be in the dominating set
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -191,9 +203,10 @@ fn test_isolated_vertices() {
 fn test_complete_graph() {
     // Complete graph K4: min DS = 1 (any vertex dominates all)
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -209,7 +222,8 @@ fn test_complete_graph() {
 #[test]
 fn test_single_vertex() {
     // Single vertex with no edges: must be in dominating set
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(1, vec![]), vec![1i64; 1]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(1, vec![]).unwrap(), vec![1i64; 1]).unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -229,9 +243,10 @@ fn test_cycle_graph() {
     // Cycle C5: 0-1-2-3-4-0
     // Minimum dominating set size = 2
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
         vec![1i64; 5],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -254,9 +269,10 @@ fn test_cycle_graph() {
 #[test]
 fn test_minimumdominatingset_to_ilp_bf_vs_ilp() {
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let reduction: ReductionDSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);

@@ -6,10 +6,9 @@ use crate::types::Min;
 #[test]
 fn test_minimummetricdimension_to_ilp_closed_loop() {
     // House graph: metric dimension = 2
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(
-        5,
-        vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-    ));
+    let problem = MinimumMetricDimension::new(
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+    );
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -40,7 +39,7 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
 #[test]
 fn test_minimummetricdimension_to_ilp_structure() {
     // Path graph P3: 3 vertices
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -65,10 +64,9 @@ fn test_minimummetricdimension_to_ilp_structure() {
 #[test]
 fn test_minimummetricdimension_to_ilp_bf_vs_ilp() {
     // House graph
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(
-        5,
-        vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-    ));
+    let problem = MinimumMetricDimension::new(
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
+    );
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
@@ -77,7 +75,8 @@ fn test_minimummetricdimension_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_minimummetricdimension_to_ilp_path_graph() {
     // Path P4: 0-1-2-3, metric dimension = 1 (any endpoint resolves)
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem =
+        MinimumMetricDimension::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -93,10 +92,9 @@ fn test_minimummetricdimension_to_ilp_path_graph() {
 #[test]
 fn test_minimummetricdimension_to_ilp_complete_graph() {
     // K4: metric dimension = 3 (n-1)
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let problem = MinimumMetricDimension::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    );
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -117,7 +115,7 @@ fn test_minimummetricdimension_to_ilp_complete_graph() {
 
 #[test]
 fn test_minimummetricdimension_to_ilp_solution_extraction() {
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -133,10 +131,9 @@ fn test_minimummetricdimension_to_ilp_solution_extraction() {
 #[test]
 fn test_minimummetricdimension_to_ilp_cycle() {
     // C5: metric dimension = 2
-    let problem = MinimumMetricDimension::new(SimpleGraph::new(
-        5,
-        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
-    ));
+    let problem = MinimumMetricDimension::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap(),
+    );
     let reduction: ReductionMDToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

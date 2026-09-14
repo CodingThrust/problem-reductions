@@ -8,9 +8,10 @@ use crate::types::One;
 fn test_maximumindependentset_to_maximumclique_closed_loop() {
     // Path graph: 0-1-2-3-4
     let source = MaximumIndependentSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![1i64; 5],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -30,9 +31,10 @@ fn test_maximumindependentset_to_maximumclique_closed_loop() {
 fn test_maximumindependentset_to_maximumclique_weighted() {
     // Triangle with weights
     let source = MaximumIndependentSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![10, 20, 30],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -55,7 +57,8 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
 #[test]
 fn test_maximumindependentset_to_maximumclique_empty_graph() {
     // Empty graph (no edges) - complement is complete graph
-    let source = MaximumIndependentSet::new(SimpleGraph::new(4, vec![]), vec![1i64; 4]);
+    let source =
+        MaximumIndependentSet::new(SimpleGraph::new(4, vec![]).unwrap(), vec![1i64; 4]).unwrap();
     let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -76,9 +79,10 @@ fn test_maximumindependentset_to_maximumclique_empty_graph() {
 fn test_maximumindependentset_to_maximumclique_one_weights_closed_loop() {
     // Unit-weight closed loop: <SimpleGraph, One> endpoint stays on One all the way.
     let source = MaximumIndependentSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![One; 5],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumClique<SimpleGraph, One>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -97,9 +101,10 @@ fn test_maximumindependentset_to_maximumclique_one_weights_closed_loop() {
 fn test_maximumindependentset_to_maximumclique_complete_graph() {
     // Complete graph K4 - complement is empty graph
     let source = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

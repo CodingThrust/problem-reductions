@@ -82,7 +82,8 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> 
         }
 
         let target =
-            MinimumWeightAndOrGraph::new(num_target_vertices, arcs, 0, gate_types, arc_weights);
+            MinimumWeightAndOrGraph::new(num_target_vertices, arcs, 0, gate_types, arc_weights)
+                .map_err(<Self as ReduceTo<MinimumWeightAndOrGraph>>::target_construction)?;
 
         Ok(ReductionVCToAndOrGraph {
             target,
@@ -94,7 +95,11 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> 
 
 #[cfg(any(test, feature = "example-db"))]
 fn issue_example_source() -> MinimumVertexCover<SimpleGraph, i64> {
-    MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3])
+    MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap()
 }
 
 #[cfg(feature = "example-db")]

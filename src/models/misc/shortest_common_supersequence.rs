@@ -49,16 +49,31 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {0, 1}, strings [0,1] and [1,0]
-/// let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+/// let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ShortestCommonSupersequenceData")]
 pub struct ShortestCommonSupersequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+struct ShortestCommonSupersequenceData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ShortestCommonSupersequenceData> for ShortestCommonSupersequence {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ShortestCommonSupersequenceData) -> Result<Self, Self::Error> {
+        Self::new(data.alphabet_size, data.strings)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,10 +87,6 @@ impl TryFrom<ShortestCommonSupersequenceCreateSpec> for ShortestCommonSuperseque
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: ShortestCommonSupersequenceCreateSpec) -> Result<Self, Self::Error> {
-        if spec.strings.is_empty() {
-            return Err("must have at least one string".to_string().into());
-        }
-
         let alphabet_size = spec
             .strings
             .iter()
@@ -89,17 +100,7 @@ impl TryFrom<ShortestCommonSupersequenceCreateSpec> for ShortestCommonSuperseque
             })
             .transpose()?
             .unwrap_or(0);
-        let max_length = spec.strings.iter().try_fold(0_usize, |total, string| {
-            total
-                .checked_add(string.len())
-                .ok_or_else(|| "maximum supersequence length overflows usize".to_string())
-        })?;
-
-        Ok(Self {
-            alphabet_size,
-            strings: spec.strings,
-            max_length,
-        })
+        Self::new(alphabet_size, spec.strings)
     }
 }
 
@@ -109,22 +110,30 @@ impl ShortestCommonSupersequence {
     /// `max_length` is computed automatically as the sum of all input string
     /// lengths (the worst-case supersequence with no overlap).
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `strings` is empty, or if `alphabet_size` is 0 and any input
+    /// Returns an error if `strings` is empty, or if `alphabet_size` is 0 and any input
     /// string is non-empty.
-    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
-        assert!(!strings.is_empty(), "must have at least one string");
-        let max_length: usize = strings.iter().map(|s| s.len()).sum();
-        assert!(
-            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
-            "alphabet_size must be > 0 when any input string is non-empty"
-        );
-        Self {
+    pub fn new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("must have at least one string".into());
+        }
+        let max_length = strings.iter().try_fold(0usize, |total, string| {
+            total
+                .checked_add(string.len())
+                .ok_or("maximum string length overflows usize")
+        })?;
+        if !(alphabet_size > 0 || strings.iter().all(|s| s.is_empty())) {
+            return Err("alphabet_size must be > 0 when any input string is non-empty".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
             max_length,
-        }
+        })
     }
 
     /// Returns the alphabet size.
@@ -264,10 +273,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Optimal SCS length = 3, e.g. [0,1,0] padded to [0,1,0,2]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "shortest_common_supersequence",
-        instance: Box::new(ShortestCommonSupersequence::new(
-            2,
-            vec![vec![0, 1], vec![1, 0]],
-        )),
+        instance: Box::new(
+            ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![Some(0), Some(1), Some(0), None]),
         optimal_value: serde_json::json!(3),
     }]

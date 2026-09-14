@@ -80,7 +80,7 @@ inventory::submit! {
 /// // Diamond network from the canonical example.
 /// let graph = DirectedGraph::new(4, vec![
 ///     (0, 1), (0, 2), (1, 2), (1, 3), (2, 3),
-/// ]);
+/// ]).unwrap();
 /// let problem = MinimumCostMaximumFlow::new(
 ///     graph,
 ///     0, 3,
@@ -456,7 +456,8 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let problem = MinimumCostMaximumFlow::new(
-        crate::topology::DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+        crate::topology::DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)])
+            .unwrap(),
         0,
         3,
         vec![2, 1, 1, 1, 2],

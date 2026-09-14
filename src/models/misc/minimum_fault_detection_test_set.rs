@@ -52,7 +52,7 @@ inventory::submit! {
 ///     vec![(0,2),(0,3),(1,3),(1,4),(2,5),(3,5),(3,6),(4,6)],
 ///     vec![0, 1],
 ///     vec![5, 6],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&solution).unwrap(), problemreductions::types::Min(Some(2)));
@@ -87,67 +87,65 @@ impl<'de> Deserialize<'de> for MinimumFaultDetectionTestSet {
         D: Deserializer<'de>,
     {
         let data = MinimumFaultDetectionTestSetData::deserialize(deserializer)?;
-        let coverage =
-            Self::build_coverage(data.num_vertices, &data.arcs, &data.inputs, &data.outputs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            inputs: data.inputs,
-            outputs: data.outputs,
-            coverage,
-        })
+        Self::new(data.num_vertices, data.arcs, data.inputs, data.outputs)
+            .map_err(serde::de::Error::custom)
     }
 }
 
 impl MinimumFaultDetectionTestSet {
     /// Create a new Minimum Fault Detection Test Set instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any arc index is out of bounds, if any input or output index
+    /// Returns an error if any arc index is out of bounds, if any input or output index
     /// is out of bounds, or if inputs or outputs are empty.
     pub fn new(
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
         inputs: Vec<usize>,
         outputs: Vec<usize>,
-    ) -> Self {
-        assert!(!inputs.is_empty(), "Inputs must not be empty");
-        assert!(!outputs.is_empty(), "Outputs must not be empty");
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if inputs.is_empty() {
+            return Err("Inputs must not be empty".into());
+        };
+        if outputs.is_empty() {
+            return Err("Outputs must not be empty".into());
+        };
         for (i, &(u, v)) in arcs.iter().enumerate() {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "Arc {} ({}, {}) out of bounds for {} vertices",
-                i,
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "Arc {} ({}, {}) out of bounds for {} vertices",
+                    i, u, v, num_vertices
+                )
+                .into());
+            };
         }
         for &inp in &inputs {
-            assert!(
-                inp < num_vertices,
-                "Input vertex {} out of bounds for {} vertices",
-                inp,
-                num_vertices
-            );
+            if !(inp < num_vertices) {
+                return Err(format!(
+                    "Input vertex {} out of bounds for {} vertices",
+                    inp, num_vertices
+                )
+                .into());
+            };
         }
         for &out in &outputs {
-            assert!(
-                out < num_vertices,
-                "Output vertex {} out of bounds for {} vertices",
-                out,
-                num_vertices
-            );
+            if !(out < num_vertices) {
+                return Err(format!(
+                    "Output vertex {} out of bounds for {} vertices",
+                    out, num_vertices
+                )
+                .into());
+            };
         }
         let coverage = Self::build_coverage(num_vertices, &arcs, &inputs, &outputs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             inputs,
             outputs,
             coverage,
-        }
+        })
     }
 
     /// Compute forward reachability from a given vertex using BFS on the DAG.
@@ -365,21 +363,24 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Config [1,0,0,1]: select pairs (0,5) and (1,6) -> covers all internal vertices -> Min(2)
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_fault_detection_test_set",
-        instance: Box::new(MinimumFaultDetectionTestSet::new(
-            7,
-            vec![
-                (0, 2),
-                (0, 3),
-                (1, 3),
-                (1, 4),
-                (2, 5),
-                (3, 5),
-                (3, 6),
-                (4, 6),
-            ],
-            vec![0, 1],
-            vec![5, 6],
-        )),
+        instance: Box::new(
+            MinimumFaultDetectionTestSet::new(
+                7,
+                vec![
+                    (0, 2),
+                    (0, 3),
+                    (1, 3),
+                    (1, 4),
+                    (2, 5),
+                    (3, 5),
+                    (3, 6),
+                    (4, 6),
+                ],
+                vec![0, 1],
+                vec![5, 6],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![vec![true, false], vec![false, true]]),
         optimal_value: serde_json::json!(2),
     }]

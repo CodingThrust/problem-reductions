@@ -64,7 +64,8 @@ impl ReduceTo<ProductionPlanning> for Partition {
                 production_costs,
                 inventory_costs,
                 half_floor,
-            ),
+            )
+            .map_err(<Self as ReduceTo<ProductionPlanning>>::target_construction)?,
         })
     }
 }

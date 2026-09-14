@@ -48,7 +48,7 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edges and requirements (e.g., `i64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -60,6 +60,37 @@ pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     requirements: Vec<W>,
     /// Subtree capacity bound.
     capacity: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
+struct MinimumCapacitatedSpanningTreeData<G, W: WeightElement> {
+    graph: G,
+    weights: Vec<W>,
+    root: usize,
+    requirements: Vec<W>,
+    capacity: W::Sum,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumCapacitatedSpanningTree<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumCapacitatedSpanningTreeData::<G, W>::deserialize(deserializer)?;
+        Self::new(
+            data.graph,
+            data.weights,
+            data.root,
+            data.requirements,
+            data.capacity,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -82,37 +113,20 @@ impl TryFrom<MinimumCapacitatedSpanningTreeCreateSpec>
     fn try_from(spec: MinimumCapacitatedSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
         let edges = spec.graph.num_edges();
         let weights = spec.weights.unwrap_or_else(|| vec![1; edges]);
-        if weights.len() != edges {
-            return Err(format!("weights has {} entries, expected {edges}", weights.len()).into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if vertices < 2 {
-            return Err("graph must have at least two vertices".to_string().into());
-        }
-        if spec.requirements.len() != vertices {
-            return Err(format!(
-                "requirements has {} entries, expected {vertices}",
-                spec.requirements.len()
-            )
-            .into());
-        }
-        if spec.root >= vertices {
-            return Err("root is outside the graph".to_string().into());
-        }
-        Ok(Self::new(
+        Self::new(
             spec.graph,
             weights,
             spec.root,
             spec.requirements,
             spec.capacity,
-        ))
+        )
     }
 }
 
 impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
     /// Create a MinimumCapacitatedSpanningTree problem.
     ///
-    /// # Panics
+    /// # Errors
     /// - If `weights.len() != graph.num_edges()`
     /// - If `requirements.len() != graph.num_vertices()`
     /// - If `root >= graph.num_vertices()`
@@ -123,33 +137,28 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
         root: usize,
         requirements: Vec<W>,
         capacity: W::Sum,
-    ) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_edges(),
-            "weights length must match num_edges"
-        );
-        assert_eq!(
-            requirements.len(),
-            graph.num_vertices(),
-            "requirements length must match num_vertices"
-        );
-        assert!(
-            root < graph.num_vertices(),
-            "root {root} out of range (num_vertices = {})",
-            graph.num_vertices()
-        );
-        assert!(
-            graph.num_vertices() >= 2,
-            "graph must have at least 2 vertices"
-        );
-        Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &weights)?;
+        if requirements.len() != graph.num_vertices() {
+            return Err("requirements length must match num_vertices".into());
+        }
+        if !(root < graph.num_vertices()) {
+            return Err(format!(
+                "root {root} out of range (num_vertices = {})",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        if !(graph.num_vertices() >= 2) {
+            return Err("graph must have at least 2 vertices".into());
+        }
+        Ok(Self {
             graph,
             weights,
             root,
             requirements,
             capacity,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -163,9 +172,20 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
     }
 
     /// Set new edge weights.
-    pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+    pub fn set_weights(
+        &mut self,
+        weights: Vec<W>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_weights(&self.graph, &weights)?;
         self.weights = weights;
+        Ok(())
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("weights length must match num_edges".into());
+        }
+        Ok(())
     }
 
     /// Check if the problem uses a non-unit weight type.
@@ -410,25 +430,29 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_capacitated_spanning_tree_simplegraph",
-        instance: Box::new(MinimumCapacitatedSpanningTree::new(
-            SimpleGraph::new(
-                5,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (0, 3),
-                    (1, 2),
-                    (1, 4),
-                    (2, 3),
-                    (2, 4),
-                    (3, 4),
-                ],
-            ),
-            vec![2, 1, 4, 3, 1, 2, 3, 1], // edge weights
-            0,                            // root
-            vec![0, 1, 1, 1, 1],          // requirements (root=0)
-            3,                            // capacity
-        )),
+        instance: Box::new(
+            MinimumCapacitatedSpanningTree::new(
+                SimpleGraph::new(
+                    5,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (0, 3),
+                        (1, 2),
+                        (1, 4),
+                        (2, 3),
+                        (2, 4),
+                        (3, 4),
+                    ],
+                )
+                .unwrap(),
+                vec![2, 1, 4, 3, 1, 2, 3, 1], // edge weights
+                0,                            // root
+                vec![0, 1, 1, 1, 1],          // requirements (root=0)
+                3,                            // capacity
+            )
+            .unwrap(),
+        ),
         // Optimal: edges {(0,1),(0,2),(1,4),(3,4)} = indices {0,1,4,7}
         // Weight = 2+1+1+1 = 5
         // Subtree sums: subtree(1)={1,4}->req=2<=3, subtree(2)={2}->req=1<=3,

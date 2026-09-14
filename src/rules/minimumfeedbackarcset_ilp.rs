@@ -128,8 +128,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3 arcs, 3 vertices: 6 total variables
             // Remove arc 2 (2->0): source_config = [0, 0, 1]
             // ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
-            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-            let source = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
+            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+            let source = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

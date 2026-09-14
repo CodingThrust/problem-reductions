@@ -9,7 +9,8 @@ fn test_consecutive_sets_creation() {
         6,
         vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
         6,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.alphabet_size(), 6);
     assert_eq!(problem.num_subsets(), 5);
     assert_eq!(problem.bound_k(), 6);
@@ -26,7 +27,8 @@ fn test_consecutive_sets_evaluation() {
         6,
         vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
         6,
-    );
+    )
+    .unwrap();
     // YES: w = [0, 4, 2, 5, 1, 3]
     assert!(problem
         .evaluate(&vec![Some(0), Some(4), Some(2), Some(5), Some(1), Some(3)])
@@ -45,7 +47,7 @@ fn test_consecutive_sets_no_instance() {
     // In any string of length <= 3 over {0,1,2}, we cannot have all three pairs adjacent.
     // E.g., [0,1,2] satisfies {0,1} and {1,2} but not {0,2}.
     // Search space: 4^3 = 64 configs, very fast.
-    let problem = ConsecutiveSets::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]], 3);
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]], 3).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
@@ -55,7 +57,7 @@ fn test_consecutive_sets_no_instance() {
 fn test_consecutive_sets_solver() {
     // Small YES instance: alphabet_size=3, subsets=[{0,1},{1,2}], bound_k=3
     // Valid string: [0, 1, 2] — {0,1} at positions 0-1, {1,2} at positions 1-2
-    let problem = ConsecutiveSets::new(3, vec![vec![0, 1], vec![1, 2]], 3);
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1], vec![1, 2]], 3).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -68,7 +70,7 @@ fn test_consecutive_sets_solver() {
 
 #[test]
 fn test_consecutive_sets_rejects_wrong_config_length() {
-    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 3);
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 3).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![Some(0), Some(1)]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -82,7 +84,7 @@ fn test_consecutive_sets_rejects_wrong_config_length() {
 #[test]
 fn test_consecutive_sets_rejects_internal_unused() {
     // Internal "unused" symbol should be rejected
-    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4).unwrap();
     // [0, 3, 1, 3] has "unused" (3) at position 1, which is internal
     assert!(!problem
         .evaluate(&vec![Some(0), None, Some(1), None])
@@ -91,7 +93,7 @@ fn test_consecutive_sets_rejects_internal_unused() {
 
 #[test]
 fn test_consecutive_sets_accepts_shorter_string_with_trailing_unused() {
-    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4).unwrap();
     assert!(problem
         .evaluate(&vec![Some(0), Some(1), None, None])
         .unwrap());
@@ -99,13 +101,13 @@ fn test_consecutive_sets_accepts_shorter_string_with_trailing_unused() {
 
 #[test]
 fn test_consecutive_sets_rejects_duplicate_window_symbol() {
-    let problem = ConsecutiveSets::new(2, vec![vec![0, 1]], 2);
+    let problem = ConsecutiveSets::new(2, vec![vec![0, 1]], 2).unwrap();
     assert!(!problem.evaluate(&vec![Some(0), Some(0)]).unwrap());
 }
 
 #[test]
 fn test_consecutive_sets_serialization() {
-    let problem = ConsecutiveSets::new(6, vec![vec![0, 4], vec![2, 4]], 6);
+    let problem = ConsecutiveSets::new(6, vec![vec![0, 4], vec![2, 4]], 6).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: ConsecutiveSets = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.alphabet_size(), problem.alphabet_size());
@@ -117,7 +119,7 @@ fn test_consecutive_sets_serialization() {
 #[test]
 fn test_consecutive_sets_empty_subsets() {
     // Empty collection — trivially satisfiable by any string (even empty)
-    let problem = ConsecutiveSets::new(3, vec![], 3);
+    let problem = ConsecutiveSets::new(3, vec![], 3).unwrap();
     // All unused = empty string is fine
     assert!(problem.evaluate(&vec![None; 3]).unwrap());
     let solver = BruteForce::new();
@@ -126,19 +128,23 @@ fn test_consecutive_sets_empty_subsets() {
 }
 
 #[test]
-#[should_panic(expected = "outside alphabet")]
 fn test_consecutive_sets_element_out_of_range() {
-    ConsecutiveSets::new(3, vec![vec![0, 5]], 3);
+    assert!(ConsecutiveSets::new(3, vec![vec![0, 5]], 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "duplicate elements")]
 fn test_consecutive_sets_duplicate_elements() {
-    ConsecutiveSets::new(3, vec![vec![1, 1]], 3);
+    assert!(ConsecutiveSets::new(3, vec![vec![1, 1]], 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "bound_k must be positive")]
 fn test_consecutive_sets_zero_bound() {
-    ConsecutiveSets::new(3, vec![vec![0, 1]], 0);
+    assert!(ConsecutiveSets::new(3, vec![vec![0, 1]], 0).is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"alphabet_size":3,"subsets":[[0,0]],"bound_k":3});
+    assert!(serde_json::from_value::<ConsecutiveSets>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("ConsecutiveSets", &Default::default(), json).is_err());
 }

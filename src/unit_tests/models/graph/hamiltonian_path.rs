@@ -7,7 +7,7 @@ fn test_hamiltonian_path_basic() {
     use crate::traits::Problem;
 
     // Path graph: 0-1-2-3 (has Hamiltonian path)
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(
@@ -28,10 +28,9 @@ fn test_hamiltonian_path_basic() {
 #[test]
 fn test_hamiltonian_path_no_solution() {
     // K4 on {0,1,2,3} + two isolated vertices {4,5}
-    let problem = HamiltonianPath::new(SimpleGraph::new(
-        6,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let problem = HamiltonianPath::new(
+        SimpleGraph::new(6, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    );
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(
@@ -45,7 +44,7 @@ fn test_hamiltonian_path_brute_force() {
     use crate::traits::Problem;
 
     // Path graph P4: 0-1-2-3
-    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let solver = BruteForce::new();
 
     let solution = solver.solve(&problem).unwrap();
@@ -65,19 +64,22 @@ fn test_hamiltonian_path_nontrivial() {
     use crate::traits::Problem;
 
     // Instance 2 from issue: 6 vertices, 8 edges
-    let problem = HamiltonianPath::new(SimpleGraph::new(
-        6,
-        vec![
-            (0, 1),
-            (0, 2),
-            (1, 3),
-            (2, 3),
-            (3, 4),
-            (3, 5),
-            (4, 2),
-            (5, 1),
-        ],
-    ));
+    let problem = HamiltonianPath::new(
+        SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (1, 3),
+                (2, 3),
+                (3, 4),
+                (3, 5),
+                (4, 2),
+                (5, 1),
+            ],
+        )
+        .unwrap(),
+    );
     // Hamiltonian path: 0->2->4->3->1->5
     assert!(problem.evaluate(&vec![0, 2, 4, 3, 1, 5]).unwrap());
 }
@@ -85,10 +87,9 @@ fn test_hamiltonian_path_nontrivial() {
 #[test]
 fn test_hamiltonian_path_complete_graph() {
     // Complete graph K4: every permutation is a Hamiltonian path
-    let problem = HamiltonianPath::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let problem = HamiltonianPath::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    );
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();
     // K4 has 4! = 24 Hamiltonian paths (all permutations)
@@ -97,7 +98,7 @@ fn test_hamiltonian_path_complete_graph() {
 
 #[test]
 fn test_is_valid_hamiltonian_path_function() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     assert!(is_valid_hamiltonian_path(&graph, &[0, 1, 2, 3]));
     assert!(is_valid_hamiltonian_path(&graph, &[3, 2, 1, 0]));
     assert!(!is_valid_hamiltonian_path(&graph, &[0, 1, 3, 2]));
@@ -109,7 +110,7 @@ fn test_is_valid_hamiltonian_path_function() {
 
 #[test]
 fn test_hamiltonian_path_serialization() {
-    let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let json = serde_json::to_value(&problem).unwrap();
     let deserialized: HamiltonianPath<SimpleGraph> = serde_json::from_value(json).unwrap();
     assert_eq!(deserialized.num_vertices(), 3);
@@ -118,14 +119,15 @@ fn test_hamiltonian_path_serialization() {
 
 #[test]
 fn test_is_valid_solution() {
-    let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     assert!(problem.is_valid_solution(&[0, 1, 2]));
     assert!(!problem.is_valid_solution(&[0, 2, 1])); // no edge 0-2
 }
 
 #[test]
 fn test_parameter_getters() {
-    let problem = HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]));
+    let problem =
+        HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap());
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 4);
 }
@@ -135,19 +137,22 @@ fn test_hamiltonianpath_paper_example() {
     use crate::traits::Problem;
 
     // Paper/issue #217: 6 vertices, 8 edges
-    let problem = HamiltonianPath::new(SimpleGraph::new(
-        6,
-        vec![
-            (0, 1),
-            (0, 2),
-            (1, 3),
-            (2, 3),
-            (3, 4),
-            (3, 5),
-            (4, 2),
-            (5, 1),
-        ],
-    ));
+    let problem = HamiltonianPath::new(
+        SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (1, 3),
+                (2, 3),
+                (3, 4),
+                (3, 5),
+                (4, 2),
+                (5, 1),
+            ],
+        )
+        .unwrap(),
+    );
 
     // Hamiltonian path: 0→2→4→3→1→5
     assert!(problem.evaluate(&vec![0, 2, 4, 3, 1, 5]).unwrap());
@@ -166,7 +171,7 @@ fn test_single_vertex() {
     use crate::traits::Problem;
 
     // Single vertex graph: trivially has a Hamiltonian "path" (just the vertex)
-    let problem = HamiltonianPath::new(SimpleGraph::new(1, vec![]));
+    let problem = HamiltonianPath::new(SimpleGraph::new(1, vec![]).unwrap());
     assert!(problem.evaluate(&vec![0]).unwrap());
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();

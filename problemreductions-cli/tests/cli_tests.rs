@@ -971,7 +971,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_cou
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("capacities length must match graph edge count"));
+    assert!(stderr.contains("capacities length must match graph num_edges"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -1168,7 +1168,7 @@ fn test_create_integral_flow_bundles_rejects_out_of_range_bundle_arc() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("bundle 1 arc is out of range"));
+    assert!(stderr.contains("bundle 1 references arc"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
@@ -1373,7 +1373,7 @@ fn test_create_integral_flow_with_multipliers_rejects_wrong_multiplier_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("multipliers length must match num_vertices"));
+    assert!(stderr.contains("multipliers length must match graph num_vertices"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -3810,7 +3810,10 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("k must be at least 1"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("max_components must be at least 1"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -4729,21 +4732,18 @@ fn test_create_shortest_common_supersequence_derives_internal_fields() {
 }
 
 #[test]
-fn test_create_lcs_rejects_empty_strings_without_panicking() {
+fn test_create_lcs_accepts_empty_strings() {
     let output = pred()
         .args(["create", "LCS", "--strings", ""])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("at least one input string must be non-empty"),
-        "expected user-facing validation error, got: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        !stderr.contains("panicked at"),
-        "create command should reject invalid LCS input without panicking: {stderr}"
-    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["max_length"], 0);
 }
 
 #[test]
@@ -7428,7 +7428,7 @@ fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
         "CLI should return a user-facing error, got: {stderr}"
     );
     assert!(
-        stderr.contains("outside universe of size 3"),
+        stderr.contains("out of range (num_attributes = 3)"),
         "expected out-of-range error, got: {stderr}"
     );
 }
@@ -7454,8 +7454,8 @@ fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("subsets[0] contains attribute 4 outside universe of size 3"),
-        "expected lhs-specific out-of-range error, got: {stderr}"
+        stderr.contains("Functional dependency 0 contains attribute 4"),
+        "expected dependency out-of-range error, got: {stderr}"
     );
 }
 
@@ -7480,7 +7480,7 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("target contains attribute 4 outside universe of size 3"),
+        stderr.contains("target_subset contains attribute 4"),
         "expected target-specific out-of-range error, got: {stderr}"
     );
 }
@@ -7845,7 +7845,7 @@ fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("expected positive integer, got 0"),
+        stderr.contains("num_processors must be positive"),
         "stderr: {stderr}"
     );
 
@@ -8632,7 +8632,7 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_lengths has 7 entries, expected 8"),
+        stderr.contains("edge lengths length must match num_edges"),
         "stderr: {stderr}"
     );
 }
@@ -8678,7 +8678,7 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("source_vertex 9 is outside graph with 6 vertices"),
+        stderr.contains("source_vertex 9 out of bounds (graph has 6 vertices)"),
         "stderr: {stderr}"
     );
     assert!(
@@ -8766,7 +8766,7 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_lengths must be positive"),
+        stderr.contains("edge lengths must be positive"),
         "stderr: {stderr}"
     );
 }

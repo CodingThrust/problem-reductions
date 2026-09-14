@@ -182,9 +182,12 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i64>> for Satisfiability {
         }
 
         let target = MinimumDominatingSet::new(
-            SimpleGraph::new(num_vertices, edges),
+            SimpleGraph::new(num_vertices, edges).map_err(
+                <Self as ReduceTo<MinimumDominatingSet<SimpleGraph, i64>>>::target_construction,
+            )?,
             vec![1i64; num_vertices],
-        );
+        )
+        .map_err(<Self as ReduceTo<MinimumDominatingSet<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionSATToDS {
             target,

@@ -189,7 +189,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Path 0→1→2, candidates: (2,0,1),(1,0,2), bound=2
             let source = StrongConnectivityAugmentation::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![(2, 0, 1), (1, 0, 2)],
                 2,
             );

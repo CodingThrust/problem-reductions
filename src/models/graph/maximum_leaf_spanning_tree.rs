@@ -43,22 +43,37 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumLeafSpanningTree<G> {
     /// The underlying graph.
     graph: G,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct MaximumLeafSpanningTreeData<G> {
+    graph: G,
+}
+
+impl<'de, G> Deserialize<'de> for MaximumLeafSpanningTree<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumLeafSpanningTreeData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph).map_err(serde::de::Error::custom)
+    }
 }
 
 impl<G: Graph> MaximumLeafSpanningTree<G> {
     /// Create a MaximumLeafSpanningTree problem from a graph.
     ///
     /// The graph must have at least 2 vertices.
-    pub fn new(graph: G) -> Self {
-        assert!(
-            graph.num_vertices() >= 2,
-            "graph must have at least 2 vertices"
-        );
-        Self { graph }
+    pub fn new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !(graph.num_vertices() >= 2) {
+            return Err("graph must have at least 2 vertices".into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.
@@ -199,7 +214,7 @@ crate::impl_random_generate!(
         if spec.num_vertices < 2 {
             return Err("num_vertices must be at least 2".to_string().into());
         }
-        Ok(MaximumLeafSpanningTree::new(spec.graph()?))
+        MaximumLeafSpanningTree::new(spec.graph()?)
     }
 );
 
@@ -215,20 +230,26 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_leaf_spanning_tree_simplegraph",
-        instance: Box::new(MaximumLeafSpanningTree::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (0, 2),
-                (0, 3),
-                (1, 4),
-                (2, 4),
-                (2, 5),
-                (3, 5),
-                (4, 5),
-                (1, 3),
-            ],
-        ))),
+        instance: Box::new(
+            MaximumLeafSpanningTree::new(
+                SimpleGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (0, 3),
+                        (1, 4),
+                        (2, 4),
+                        (2, 5),
+                        (3, 5),
+                        (4, 5),
+                        (1, 3),
+                    ],
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        ),
         // Edges: 0:(0,1), 1:(0,2), 2:(0,3), 3:(1,4), 4:(2,4), 5:(2,5), 6:(3,5), 7:(4,5), 8:(1,3)
         // Tree: {(0,1),(0,2),(0,3),(2,4),(2,5)} = indices 0,1,2,4,5
         // Leaves: 1,3,4,5 (degree 1 each), Internal: 0 (deg 3), 2 (deg 3)

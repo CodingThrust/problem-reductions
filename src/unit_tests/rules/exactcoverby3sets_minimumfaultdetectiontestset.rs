@@ -7,11 +7,11 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 fn issue_yes_instance() -> ExactCoverBy3Sets {
-    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]])
+    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap()
 }
 
 fn no_cover_instance() -> ExactCoverBy3Sets {
-    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]])
+    ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]).unwrap()
 }
 
 #[test]

@@ -42,8 +42,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph 0-1-2
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-/// let problem = MaximalIS::new(graph, vec![1; 3]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+/// let problem = MaximalIS::new(graph, vec![1; 3]).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -53,12 +53,29 @@ inventory::submit! {
 ///     assert!(problem.evaluate(sol).unwrap().is_valid());
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximalIS<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximalISData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaximalIS<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximalISData::deserialize(deserializer)?;
+        Self::new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,27 +89,17 @@ struct MaximalISCreateSpec {
 impl TryFrom<MaximalISCreateSpec> for MaximalIS<SimpleGraph, i64> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximalISCreateSpec) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        Ok(Self::new(spec.graph, spec.weights))
+        Self::new(spec.graph, spec.weights)
     }
 }
 
 impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
     /// Create a Maximal Independent Set problem from a graph with given weights.
-    pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+    pub fn new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.
@@ -228,10 +235,13 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximal_is_simplegraph",
-        instance: Box::new(MaximalIS::new(
-            SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-            vec![1i64; 5],
-        )),
+        instance: Box::new(
+            MaximalIS::new(
+                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
+                vec![1i64; 5],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, true, false, true]),
         optimal_value: serde_json::json!(3),
     }]
@@ -270,7 +280,7 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
 }
 
 crate::impl_random_generate!(MaximalIS<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
-    Ok(MaximalIS::new(spec.graph()?, vec![1; spec.num_vertices]))
+    MaximalIS::new(spec.graph()?, vec![1; spec.num_vertices])
 });
 
 crate::declare_variants! {

@@ -11,7 +11,8 @@ fn test_minimum_tardiness_sequencing_basic() {
         5,
         vec![5, 5, 5, 3, 3],
         vec![(0, 3), (1, 3), (1, 4), (2, 4)],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_tasks(), 5);
     assert_eq!(problem.deadlines(), &[5, 5, 5, 3, 3]);
     assert_eq!(problem.precedences(), &[(0, 3), (1, 3), (1, 4), (2, 4)]);
@@ -32,20 +33,21 @@ fn test_minimum_tardiness_sequencing_evaluate_optimal() {
         5,
         vec![5, 5, 5, 3, 3],
         vec![(0, 3), (1, 3), (1, 4), (2, 4)],
-    );
+    )
+    .unwrap();
     let config = vec![0, 1, 3, 2, 4];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(1)));
 }
 
 #[test]
 fn test_minimum_tardiness_sequencing_evaluate_duplicate_task() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![]).unwrap();
     assert_eq!(problem.evaluate(&vec![0, 2, 0]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_tardiness_sequencing_evaluate_out_of_range() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 1, 5]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -54,7 +56,7 @@ fn test_minimum_tardiness_sequencing_evaluate_out_of_range() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_evaluate_wrong_length() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 1]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -67,7 +69,7 @@ fn test_minimum_tardiness_sequencing_evaluate_wrong_length() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_evaluate_precedence_violation() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![3, 3, 3], vec![(0, 1)]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![3, 3, 3], vec![(0, 1)]).unwrap();
     assert_eq!(problem.evaluate(&vec![0, 1, 2]).unwrap(), Min(Some(0)));
     assert_eq!(problem.evaluate(&vec![1, 0, 2]).unwrap(), Min(None));
     assert_eq!(problem.evaluate(&vec![2, 1, 0]).unwrap(), Min(None));
@@ -75,14 +77,14 @@ fn test_minimum_tardiness_sequencing_evaluate_precedence_violation() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_evaluate_all_on_time() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![3, 3, 3], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![3, 3, 3], vec![]).unwrap();
     assert_eq!(problem.evaluate(&vec![0, 1, 2]).unwrap(), Min(Some(0)));
     assert_eq!(problem.evaluate(&vec![2, 1, 0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
 fn test_minimum_tardiness_sequencing_evaluate_all_tardy() {
-    let problem = MinimumTardinessSequencing::<One>::new(2, vec![0, 0], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(2, vec![0, 0], vec![]).unwrap();
     assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Min(Some(2)));
 }
 
@@ -92,7 +94,8 @@ fn test_minimum_tardiness_sequencing_brute_force() {
         5,
         vec![5, 5, 5, 3, 3],
         vec![(0, 3), (1, 3), (1, 4), (2, 4)],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -104,7 +107,7 @@ fn test_minimum_tardiness_sequencing_brute_force() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_brute_force_no_precedences() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![1, 3, 2], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![1, 3, 2], vec![]).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -116,7 +119,7 @@ fn test_minimum_tardiness_sequencing_brute_force_no_precedences() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_serialization() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 1)]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 1)]).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumTardinessSequencing<One> = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_tasks(), problem.num_tasks());
@@ -126,7 +129,7 @@ fn test_minimum_tardiness_sequencing_serialization() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_empty() {
-    let problem = MinimumTardinessSequencing::<One>::new(0, vec![], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(0, vec![], vec![]).unwrap();
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -137,33 +140,32 @@ fn test_minimum_tardiness_sequencing_empty() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_single_task() {
-    let problem = MinimumTardinessSequencing::<One>::new(1, vec![1], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(1, vec![1], vec![]).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         vec![1]
     );
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
 
-    let problem_tardy = MinimumTardinessSequencing::<One>::new(1, vec![0], vec![]);
+    let problem_tardy = MinimumTardinessSequencing::<One>::new(1, vec![0], vec![]).unwrap();
     assert_eq!(problem_tardy.evaluate(&vec![0]).unwrap(), Min(Some(1)));
 }
 
 #[test]
-#[should_panic(expected = "deadlines length must equal num_tasks")]
 fn test_minimum_tardiness_sequencing_mismatched_deadlines() {
-    MinimumTardinessSequencing::<One>::new(3, vec![1, 2], vec![]);
+    assert!(MinimumTardinessSequencing::<One>::new(3, vec![1, 2], vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "predecessor index 5 out of range")]
 fn test_minimum_tardiness_sequencing_invalid_precedence() {
-    MinimumTardinessSequencing::<One>::new(3, vec![1, 2, 3], vec![(5, 0)]);
+    assert!(MinimumTardinessSequencing::<One>::new(3, vec![1, 2, 3], vec![(5, 0)]).is_err());
 }
 
 #[test]
 fn test_minimum_tardiness_sequencing_cyclic_precedences() {
     let problem =
-        MinimumTardinessSequencing::<One>::new(3, vec![3, 3, 3], vec![(0, 1), (1, 2), (2, 0)]);
+        MinimumTardinessSequencing::<One>::new(3, vec![3, 3, 3], vec![(0, 1), (1, 2), (2, 0)])
+            .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -176,7 +178,8 @@ fn test_minimum_tardiness_sequencing_weighted_basic() {
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_tasks(), 5);
     assert_eq!(problem.lengths(), &[3, 2, 2, 1, 2]);
     assert_eq!(problem.deadlines(), &[4, 3, 8, 3, 6]);
@@ -191,7 +194,8 @@ fn test_minimum_tardiness_sequencing_weighted_evaluate() {
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
-    );
+    )
+    .unwrap();
     // t0(l=3): finish=3, deadline=4 → on time
     // t4(l=2): finish=5, deadline=6 → on time
     // t2(l=2): finish=7, deadline=8 → on time
@@ -209,7 +213,8 @@ fn test_minimum_tardiness_sequencing_weighted_brute_force() {
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -222,7 +227,8 @@ fn test_minimum_tardiness_sequencing_weighted_brute_force() {
 #[test]
 fn test_minimum_tardiness_sequencing_weighted_serialization() {
     let problem =
-        MinimumTardinessSequencing::<i64>::with_lengths(vec![3, 2, 2], vec![4, 3, 8], vec![(0, 1)]);
+        MinimumTardinessSequencing::<i64>::with_lengths(vec![3, 2, 2], vec![4, 3, 8], vec![(0, 1)])
+            .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumTardinessSequencing<i64> = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_tasks(), problem.num_tasks());
@@ -237,7 +243,8 @@ fn test_minimum_tardiness_sequencing_weighted_different_lengths() {
     // Schedule [0,1,2]: t0(l=1,fin=1≤2✓), t1(l=5,fin=6≤6✓), t2(l=1,fin=7>3✗) → 1 tardy
     // Schedule [1,0,2]: t1(l=5,fin=5≤6✓), t0(l=1,fin=6>2✗), t2(l=1,fin=7>3✗) → 2 tardy
     let problem =
-        MinimumTardinessSequencing::<i64>::with_lengths(vec![1, 5, 1], vec![2, 6, 3], vec![]);
+        MinimumTardinessSequencing::<i64>::with_lengths(vec![1, 5, 1], vec![2, 6, 3], vec![])
+            .unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -247,16 +254,19 @@ fn test_minimum_tardiness_sequencing_weighted_different_lengths() {
 }
 
 #[test]
-#[should_panic(expected = "all task lengths must be positive")]
 fn test_minimum_tardiness_sequencing_weighted_zero_length() {
-    MinimumTardinessSequencing::<i64>::with_lengths(vec![1, 0, 2], vec![3, 3, 3], vec![]);
+    assert!(
+        MinimumTardinessSequencing::<i64>::with_lengths(vec![1, 0, 2], vec![3, 3, 3], vec![])
+            .is_err()
+    );
 }
 
 #[test]
 fn test_minimum_tardiness_sequencing_paper_example() {
     // Issue example (unit-length): 4 tasks, deadlines [2,3,1,4], prec (0→2)
     // t0: finish=1≤2✓, t1: finish=2≤3✓, t2: finish=3>1✗, t3: finish=4≤4✓ → 1 tardy
-    let problem = MinimumTardinessSequencing::<One>::new(4, vec![2, 3, 1, 4], vec![(0, 2)]);
+    let problem =
+        MinimumTardinessSequencing::<One>::new(4, vec![2, 3, 1, 4], vec![(0, 2)]).unwrap();
     assert_eq!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap(), Min(Some(1)));
 }
 #[test]

@@ -13,11 +13,13 @@ fn matched_paths() -> MaximumCommonEdgeSubgraph {
         LabelledDigraph::new(
             3,
             vec![LabelledArc::new(0, 0, 1), LabelledArc::new(1, 1, 2)],
-        ),
+        )
+        .unwrap(),
         LabelledDigraph::new(
             3,
             vec![LabelledArc::new(0, 0, 1), LabelledArc::new(1, 1, 2)],
-        ),
+        )
+        .unwrap(),
     )
 }
 
@@ -31,8 +33,9 @@ fn truncated_instance() -> MaximumCommonEdgeSubgraph {
                 LabelledArc::new(0, 0, 1),
                 LabelledArc::new(1, 7, 2), // label 7 absent in G2
             ],
-        ),
-        LabelledDigraph::new(2, vec![LabelledArc::new(0, 0, 1)]),
+        )
+        .unwrap(),
+        LabelledDigraph::new(2, vec![LabelledArc::new(0, 0, 1)]).unwrap(),
     )
 }
 
@@ -106,8 +109,8 @@ fn test_maximumcommonedgesubgraph_to_ilp_empty_graphs() {
     // Edge corner case: both graphs have no arcs. Optimum is 0 and the
     // resulting ILP has no y-variables and no McCormick constraints.
     let source = MaximumCommonEdgeSubgraph::new(
-        LabelledDigraph::new(2, vec![]),
-        LabelledDigraph::new(2, vec![]),
+        LabelledDigraph::new(2, vec![]).unwrap(),
+        LabelledDigraph::new(2, vec![]).unwrap(),
     );
     let reduction: ReductionMCESToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
@@ -130,8 +133,8 @@ fn test_maximumcommonedgesubgraph_to_ilp_self_loop() {
     // Corner case: self-loops with matching labels. A single self-loop
     // mapped to a matching target self-loop preserves the arc.
     let source = MaximumCommonEdgeSubgraph::new(
-        LabelledDigraph::new(1, vec![LabelledArc::new(0, 3, 0)]),
-        LabelledDigraph::new(2, vec![LabelledArc::new(1, 3, 1)]),
+        LabelledDigraph::new(1, vec![LabelledArc::new(0, 3, 0)]).unwrap(),
+        LabelledDigraph::new(2, vec![LabelledArc::new(1, 3, 1)]).unwrap(),
     );
     let reduction: ReductionMCESToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");

@@ -19,7 +19,7 @@ impl_variant_reduction!(
                 MaximumIndependentSet<UnitDiskGraph, i64>,
             >,
         )?,
-        src.weights().to_vec())
+        src.weights().to_vec()).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<KingsSubgraph, i64>, MaximumIndependentSet<UnitDiskGraph, i64>>)?
 );
 
 impl_variant_reduction!(
@@ -34,7 +34,7 @@ impl_variant_reduction!(
                 MaximumIndependentSet<UnitDiskGraph, i64>,
             >,
         )?,
-        src.weights().to_vec())
+        src.weights().to_vec()).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<TriangularSubgraph, i64>, MaximumIndependentSet<UnitDiskGraph, i64>>)?
 );
 
 impl_variant_reduction!(
@@ -43,8 +43,8 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
-        src.weights().to_vec())
+        SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<UnitDiskGraph, i64>, MaximumIndependentSet<SimpleGraph, i64>>)?,
+        src.weights().to_vec()).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<UnitDiskGraph, i64>, MaximumIndependentSet<SimpleGraph, i64>>)?
 );
 
 // Graph representation reductions with unit weights
@@ -60,7 +60,7 @@ impl_variant_reduction!(
                 MaximumIndependentSet<UnitDiskGraph, One>,
             >,
         )?,
-        src.weights().to_vec())
+        src.weights().to_vec()).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<KingsSubgraph, One>, MaximumIndependentSet<UnitDiskGraph, One>>)?
 );
 
 impl_variant_reduction!(
@@ -69,8 +69,8 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
-        src.weights().to_vec())
+        SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<UnitDiskGraph, One>, MaximumIndependentSet<SimpleGraph, One>>)?,
+        src.weights().to_vec()).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<UnitDiskGraph, One>, MaximumIndependentSet<SimpleGraph, One>>)?
 );
 
 // Unit-to-integer weight reductions
@@ -80,7 +80,7 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().clone(), vec![1_i64; src.num_vertices()])
+        src.graph().clone(), vec![1_i64; src.num_vertices()]).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<SimpleGraph, One>, MaximumIndependentSet<SimpleGraph, i64>>)?
 );
 
 #[cfg(test)]
@@ -94,7 +94,8 @@ mod tests {
         let source = MaximumIndependentSet::new(
             KingsSubgraph::new(vec![(MAX_EXACT_F64_INTEGER + 1, 0)]),
             vec![1_i64],
-        );
+        )
+        .unwrap();
 
         assert!(matches!(
             ReduceTo::<MaximumIndependentSet<UnitDiskGraph, i64>>::reduce_to(&source),
@@ -107,7 +108,8 @@ mod tests {
         let source = MaximumIndependentSet::new(
             TriangularSubgraph::new(vec![(MAX_EXACT_F64_INTEGER, 0), (MAX_EXACT_F64_INTEGER, 1)]),
             vec![1_i64, 1_i64],
-        );
+        )
+        .unwrap();
 
         assert!(matches!(
             ReduceTo::<MaximumIndependentSet<UnitDiskGraph, i64>>::reduce_to(&source),
@@ -122,7 +124,7 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().clone(), vec![1_i64; src.num_vertices()])
+        src.graph().clone(), vec![1_i64; src.num_vertices()]).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<KingsSubgraph, One>, MaximumIndependentSet<KingsSubgraph, i64>>)?
 );
 
 impl_variant_reduction!(
@@ -131,5 +133,5 @@ impl_variant_reduction!(
     fields: [num_vertices, num_edges],
     aggregate: identity,
     |src| MaximumIndependentSet::new(
-        src.graph().clone(), vec![1_i64; src.num_vertices()])
+        src.graph().clone(), vec![1_i64; src.num_vertices()]).map_err(crate::rules::ReductionError::construction::<MaximumIndependentSet<UnitDiskGraph, One>, MaximumIndependentSet<UnitDiskGraph, i64>>)?
 );

@@ -12,7 +12,7 @@ fn reduce(
     ThreeDimensionalMatching,
     ReductionThreeDimensionalMatchingToThreePartition,
 ) {
-    let source = ThreeDimensionalMatching::new(universe_size, triples.to_vec());
+    let source = ThreeDimensionalMatching::new(universe_size, triples.to_vec()).unwrap();
     let reduction =
         ReduceTo::<ThreePartition>::reduce_to(&source).expect("reduction should succeed");
     (source, reduction)

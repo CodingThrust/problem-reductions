@@ -6,7 +6,7 @@ use crate::types::Max;
 
 #[test]
 fn test_lcs_to_ilp_yes_instance() {
-    let problem = LongestCommonSubsequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]);
+    let problem = LongestCommonSubsequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]).unwrap();
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -27,7 +27,8 @@ fn test_lcs_to_ilp_yes_instance() {
 #[test]
 fn test_lcs_to_ilp_closed_loop_three_strings() {
     let problem =
-        LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1, 0], vec![0, 0, 1, 0]]);
+        LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1, 0], vec![0, 0, 1, 0]])
+            .unwrap();
 
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -50,7 +51,7 @@ fn test_lcs_to_ilp_closed_loop_three_strings() {
 
 #[test]
 fn test_lcs_to_ilp_extracts_valid_witness() {
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1, 0]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1, 0]]).unwrap();
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -67,7 +68,7 @@ fn test_lcs_to_ilp_extracts_valid_witness() {
 #[test]
 fn test_lcs_to_ilp_matches_brute_force() {
     // Verify ILP optimal value matches brute force
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]).unwrap();
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -88,7 +89,7 @@ fn test_lcs_to_ilp_matches_brute_force() {
 fn test_lcs_to_ilp_single_position_all_padding() {
     // When no common subsequence exists, the ILP should still find a solution
     // with all padding (length 0).
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 0, 0], vec![1, 1, 1]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 0, 0], vec![1, 1, 1]]).unwrap();
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -103,7 +104,7 @@ fn test_lcs_to_ilp_single_position_all_padding() {
 
 #[test]
 fn test_longestcommonsubsequence_to_ilp_bf_vs_ilp() {
-    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]).unwrap();
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);

@@ -45,9 +45,9 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Host graph: triangle 0-1-2-0
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
 /// // Tree: path 0-1-2
-/// let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
 /// let problem = IsomorphicSpanningTree::new(graph, tree);
 ///
 /// let solver = BruteForce::new();
@@ -234,8 +234,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "isomorphic_spanning_tree",
         instance: Box::new(IsomorphicSpanningTree::new(
-            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
-            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         )),
         optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
         optimal_value: serde_json::json!(true),

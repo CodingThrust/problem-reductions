@@ -6,7 +6,7 @@ use crate::rules::{ReduceTo, ReductionResult};
 #[test]
 fn test_bmf_to_ilp_structure() {
     // 2x2 identity matrix, rank 1
-    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1);
+    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1).unwrap();
     let reduction: ReductionBMFToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -19,7 +19,7 @@ fn test_bmf_to_ilp_structure() {
 fn test_bmf_to_ilp_closed_loop() {
     // 2x2 identity, rank 2 — exact factorization exists.
     // Use ILP solver on target (fast) + brute force on source (tiny 2x2).
-    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2);
+    let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let reduction: ReductionBMFToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_bf_vs_ilp(&problem, &reduction);
@@ -28,7 +28,7 @@ fn test_bmf_to_ilp_closed_loop() {
 #[test]
 fn test_bmf_to_ilp_bf_vs_ilp() {
     // All-ones 2x2 has an exact rank-1 factorization (boolean rank 1).
-    let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
+    let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1).unwrap();
     let reduction: ReductionBMFToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_bf_vs_ilp(&problem, &reduction);
@@ -37,7 +37,7 @@ fn test_bmf_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_bmf_to_ilp_trivial() {
     // 1x1 matrix, rank 1
-    let problem = BMF::new(vec![vec![true]], 1);
+    let problem = BMF::new(vec![vec![true]], 1).unwrap();
     let reduction: ReductionBMFToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

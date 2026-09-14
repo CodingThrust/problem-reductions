@@ -98,7 +98,10 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
         }
         debug_assert_eq!(next_internal, num_vertices);
         let target =
-            MinimumCodeGenerationUnlimitedRegisters::new(num_vertices, left_arcs, right_arcs);
+            MinimumCodeGenerationUnlimitedRegisters::new(num_vertices, left_arcs, right_arcs)
+                .map_err(
+                <Self as ReduceTo<MinimumCodeGenerationUnlimitedRegisters>>::target_construction,
+            )?;
         Ok(ReductionFVSToCodeGen {
             target,
             chain_start,
@@ -111,9 +114,10 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
 fn issue_example_source() -> MinimumFeedbackVertexSet<One> {
     use crate::topology::DirectedGraph;
     MinimumFeedbackVertexSet::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![One; 3],
     )
+    .unwrap()
 }
 
 #[cfg(feature = "example-db")]

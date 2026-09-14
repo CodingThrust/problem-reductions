@@ -65,11 +65,12 @@ impl PrimeImplicant {
 ///
 /// // f(x1,x2,x3) = 1 when exactly 1 or 2 variables are true
 /// let truth_table = vec![false, true, true, true, true, true, true, false];
-/// let problem = MinimumDisjunctiveNormalForm::new(3, truth_table);
+/// let problem = MinimumDisjunctiveNormalForm::new(3, truth_table).unwrap();
 /// let solver = BruteForce::new();
 /// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumDisjunctiveNormalFormData")]
 pub struct MinimumDisjunctiveNormalForm {
     /// Number of Boolean variables.
     num_variables: usize,
@@ -81,38 +82,59 @@ pub struct MinimumDisjunctiveNormalForm {
     minterms: Vec<usize>,
 }
 
+#[derive(Deserialize)]
+struct MinimumDisjunctiveNormalFormData {
+    num_variables: usize,
+    truth_table: Vec<bool>,
+}
+
+impl TryFrom<MinimumDisjunctiveNormalFormData> for MinimumDisjunctiveNormalForm {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumDisjunctiveNormalFormData) -> Result<Self, Self::Error> {
+        Self::new(data.num_variables, data.truth_table)
+    }
+}
+
 impl MinimumDisjunctiveNormalForm {
     /// Create a new MinimumDisjunctiveNormalForm problem.
     ///
-    /// # Panics
+    /// # Errors
     /// - If truth_table length != 2^num_variables
     /// - If the function is identically false (no minterms)
-    pub fn new(num_variables: usize, truth_table: Vec<bool>) -> Self {
-        assert!(num_variables >= 1, "Need at least 1 variable");
-        assert_eq!(
-            truth_table.len(),
-            1 << num_variables,
-            "Truth table must have 2^n entries"
-        );
+    pub fn new(
+        num_variables: usize,
+        truth_table: Vec<bool>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if num_variables == 0 {
+            return Err("Need at least 1 variable".into());
+        }
+        if truth_table.len()
+            != 1usize
+                .checked_shl(
+                    u32::try_from(num_variables).map_err(|_| "truth table size overflows usize")?,
+                )
+                .ok_or("truth table size overflows usize")?
+        {
+            return Err("Truth table must have 2^n entries".into());
+        }
 
         let minterms: Vec<usize> = truth_table
             .iter()
             .enumerate()
             .filter_map(|(i, &v)| if v { Some(i) } else { None })
             .collect();
-        assert!(
-            !minterms.is_empty(),
-            "Function must have at least one minterm"
-        );
+        if minterms.is_empty() {
+            return Err("Function must have at least one minterm".into());
+        }
 
         let prime_implicants = compute_prime_implicants(num_variables, &minterms);
 
-        Self {
+        Ok(Self {
             num_variables,
             truth_table,
             prime_implicants,
             minterms,
-        }
+        })
     }
 
     /// Get the number of variables.
@@ -305,10 +327,13 @@ fn try_merge(a: &[Option<bool>], b: &[Option<bool>]) -> Option<Vec<Option<bool>>
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_disjunctive_normal_form",
-        instance: Box::new(MinimumDisjunctiveNormalForm::new(
-            3,
-            vec![false, true, true, true, true, true, true, false],
-        )),
+        instance: Box::new(
+            MinimumDisjunctiveNormalForm::new(
+                3,
+                vec![false, true, true, true, true, true, true, false],
+            )
+            .unwrap(),
+        ),
         // Select prime implicants: p1(¬x1∧x2), p4(x1∧¬x3), p5(¬x2∧x3)
         // The order of PIs depends on the QMC algorithm output.
         // We'll verify this in tests.

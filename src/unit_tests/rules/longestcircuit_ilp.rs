@@ -8,9 +8,10 @@ use crate::traits::Problem;
 fn test_reduction_creates_valid_ilp() {
     // Triangle with unit lengths
     let problem = LongestCircuit::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -38,9 +39,11 @@ fn test_longestcircuit_to_ilp_closed_loop() {
                 (2, 5),
                 (3, 5),
             ],
-        ),
+        )
+        .unwrap(),
         vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
-    );
+    )
+    .unwrap();
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
@@ -71,9 +74,10 @@ fn test_longestcircuit_to_ilp_closed_loop() {
 fn test_longestcircuit_to_ilp_triangle() {
     // Triangle: all edges length 1
     let problem = LongestCircuit::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -83,9 +87,10 @@ fn test_longestcircuit_to_ilp_triangle() {
 #[test]
 fn test_solution_extraction() {
     let problem = LongestCircuit::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)]).unwrap(),
         vec![1, 1, 1, 1, 2, 2],
-    );
+    )
+    .unwrap();
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -99,9 +104,10 @@ fn test_solution_extraction() {
 #[test]
 fn test_longestcircuit_to_ilp_bf_vs_ilp() {
     let problem = LongestCircuit::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
@@ -113,9 +119,10 @@ fn test_longestcircuit_to_ilp_cycle_excludes_any_vertex() {
     for leaf in 0..4 {
         let [a, b, c] = [1, 2, 3].map(|offset| (leaf + offset) % 4);
         let problem = LongestCircuit::new(
-            SimpleGraph::new(4, vec![(leaf, a), (a, b), (b, c), (c, a)]),
+            SimpleGraph::new(4, vec![(leaf, a), (a, b), (b, c), (c, a)]).unwrap(),
             vec![10, 1, 2, 3],
-        );
+        )
+        .unwrap();
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
         let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
         let extracted = reduction.extract_solution(&target_solution).unwrap();
@@ -133,7 +140,7 @@ fn test_longestcircuit_to_ilp_selects_one_best_cycle() {
             edges.push((2, 3));
             lengths.push(20);
         }
-        let problem = LongestCircuit::new(SimpleGraph::new(6, edges), lengths);
+        let problem = LongestCircuit::new(SimpleGraph::new(6, edges).unwrap(), lengths).unwrap();
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
         let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
         let extracted = reduction.extract_solution(&target_solution).unwrap();
@@ -149,7 +156,7 @@ fn test_longestcircuit_to_ilp_acyclic_graphs() {
     for n in 0..4 {
         let edges: Vec<_> = (1..n).map(|v| (v - 1, v)).collect();
         let m = edges.len();
-        let problem = LongestCircuit::new(SimpleGraph::new(n, edges), vec![1; m]);
+        let problem = LongestCircuit::new(SimpleGraph::new(n, edges).unwrap(), vec![1; m]).unwrap();
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
         let target = reduction.target_problem();
         assert_eq!(target.num_vars(), m + 2 * n + 2 * m * n);

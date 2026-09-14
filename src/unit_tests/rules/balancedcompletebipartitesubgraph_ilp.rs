@@ -11,7 +11,7 @@ fn small_instance() -> BalancedCompleteBipartiteSubgraph {
     // Edges: (0,0),(0,1),(1,0),(1,1),(2,1),(2,2)
     // K_{2,2} subgraph: L={0,1}, R={0,1}
     BalancedCompleteBipartiteSubgraph::new(
-        BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1), (2, 1), (2, 2)]),
+        BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1), (2, 1), (2, 2)]).unwrap(),
         2,
     )
 }
@@ -38,7 +38,7 @@ fn test_reduction_shape() {
 fn test_infeasible_instance() {
     // No K_{3,3}: not all edges present
     let source = BalancedCompleteBipartiteSubgraph::new(
-        BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+        BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1)]).unwrap(),
         3,
     );
     let reduction: ReductionBCBSToILP =

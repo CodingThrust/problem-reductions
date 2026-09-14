@@ -17,7 +17,7 @@ use crate::types::Min;
 /// Optimal config = [2, 1, 1, 1, 2] with cost = 2*1 + 0 + 0 + 1 + 2*2 = 7.
 fn canonical_instance() -> MinimumCostMaximumFlow {
     MinimumCostMaximumFlow::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         vec![2, 1, 1, 1, 2],
@@ -40,7 +40,7 @@ fn canonical_instance() -> MinimumCostMaximumFlow {
 /// 0->1->3->4 has cost 5. Brute force must pick the cheaper route.
 fn lex_tiebreaker_instance() -> MinimumCostMaximumFlow {
     MinimumCostMaximumFlow::new(
-        DirectedGraph::new(5, vec![(0, 1), (1, 2), (1, 3), (2, 4), (3, 4)]),
+        DirectedGraph::new(5, vec![(0, 1), (1, 2), (1, 3), (2, 4), (3, 4)]).unwrap(),
         0,
         4,
         vec![1, 1, 1, 1, 1],

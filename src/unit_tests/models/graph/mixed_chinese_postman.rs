@@ -25,7 +25,8 @@ fn sample_instance() -> MixedChinesePostman<i64> {
             5,
             vec![(0, 1), (1, 2), (2, 3), (3, 0)],
             vec![(0, 2), (1, 3), (0, 4), (4, 2)],
-        ),
+        )
+        .unwrap(),
         vec![2, 3, 1, 4],
         vec![2, 3, 1, 2],
     )
@@ -37,7 +38,8 @@ fn disconnected_instance() -> MixedChinesePostman<i64> {
             6,
             vec![(0, 1), (1, 0), (2, 3)],
             vec![(0, 2), (1, 3), (3, 4), (4, 5), (5, 2)],
-        ),
+        )
+        .unwrap(),
         vec![1, 1, 1],
         vec![1, 1, 5, 5, 5],
     )
@@ -85,8 +87,11 @@ fn test_mixed_chinese_postman_evaluate_connected_instance() {
 fn test_mixed_chinese_postman_single_edge_walk() {
     // V={0,1}, A=∅, E={{0,1}}, weight=1.
     // Walk 0→1→0: base cost 1, needs to balance so total cost is 2.
-    let problem =
-        MixedChinesePostman::new(MixedGraph::new(2, vec![], vec![(0, 1)]), vec![], vec![1]);
+    let problem = MixedChinesePostman::new(
+        MixedGraph::new(2, vec![], vec![(0, 1)]).unwrap(),
+        vec![],
+        vec![1],
+    );
 
     assert_eq!(problem.evaluate(&vec![false]).unwrap(), Min(Some(2)));
     assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(Some(2)));
@@ -99,7 +104,7 @@ fn test_mixed_chinese_postman_single_edge_walk() {
 fn test_mixed_chinese_postman_rejects_disconnected_graph() {
     // Two disconnected components {0,1} and {2,3}: no closed walk can cover all edges.
     let problem = MixedChinesePostman::new(
-        MixedGraph::new(4, vec![], vec![(0, 1), (2, 3)]),
+        MixedGraph::new(4, vec![], vec![(0, 1), (2, 3)]).unwrap(),
         vec![],
         vec![1, 1],
     );
@@ -171,7 +176,8 @@ fn test_mixed_chinese_postman_ignores_isolated_vertices() {
             8,
             vec![(5, 3), (1, 4), (0, 1), (2, 4), (0, 5)],
             vec![(4, 2), (0, 4), (0, 2), (1, 3)],
-        ),
+        )
+        .unwrap(),
         vec![4, 5, 1, 12, 9],
         vec![6, 1, 13, 7],
     );

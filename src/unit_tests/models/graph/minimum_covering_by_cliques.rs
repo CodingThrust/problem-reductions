@@ -7,7 +7,7 @@ use crate::types::Min;
 
 #[test]
 fn test_minimum_covering_by_cliques_creation() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
@@ -22,7 +22,7 @@ fn test_minimum_covering_by_cliques_creation() {
 #[test]
 fn test_minimum_covering_by_cliques_triangle() {
     // Triangle: all 3 edges form a single clique -> 1 group suffices
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
 
     // All edges in group 0 -> valid, 1 clique
@@ -38,7 +38,7 @@ fn test_minimum_covering_by_cliques_triangle() {
 fn test_minimum_covering_by_cliques_path() {
     // Path 0-1-2: edges (0,1) and (1,2) are each individual cliques (K2)
     // but cannot be combined into one clique since 0 and 2 are not adjacent.
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
 
     // Both edges in the same group -> invalid (0 and 2 not adjacent)
@@ -56,7 +56,7 @@ fn test_minimum_covering_by_cliques_path() {
 fn test_minimum_covering_by_cliques_invalid_group() {
     // Square: 0-1-2-3-0, edges (0,1),(1,2),(2,3),(3,0)
     // Putting non-adjacent-endpoint edges in same group is invalid
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
 
     // Edges (0,1) and (2,3) in same group: vertices {0,1,2,3}, not a clique
@@ -69,14 +69,14 @@ fn test_minimum_covering_by_cliques_invalid_group() {
 #[test]
 fn test_minimum_covering_by_cliques_empty_graph() {
     // No edges: 0 cliques needed
-    let graph = SimpleGraph::new(3, vec![]);
+    let graph = SimpleGraph::new(3, vec![]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]
 fn test_minimum_covering_by_cliques_wrong_length() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
     assert!(matches!(
         problem.evaluate(&vec![0]),
@@ -88,7 +88,7 @@ fn test_minimum_covering_by_cliques_wrong_length() {
 fn test_minimum_covering_by_cliques_solver() {
     // K4 minus one edge: 4 vertices, 5 edges
     // 0-1, 0-2, 0-3, 1-2, 2-3  (missing 1-3)
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (2, 3)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
 
     let solver = BruteForce::new();
@@ -100,7 +100,7 @@ fn test_minimum_covering_by_cliques_solver() {
 
 #[test]
 fn test_minimum_covering_by_cliques_is_valid_cover() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
 
     // All in one group (triangle) -> valid
@@ -128,7 +128,8 @@ fn test_minimum_covering_by_cliques_paper_example() {
             (5, 2),
             (5, 3),
         ],
-    );
+    )
+    .unwrap();
     let problem = MinimumCoveringByCliques::new(graph);
 
     // The given optimal config

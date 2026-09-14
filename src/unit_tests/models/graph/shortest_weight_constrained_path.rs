@@ -7,7 +7,7 @@ fn create_spec_rejects_nonpositive_edge_values() {
         "edge_lengths"
     );
     let result = ShortestWeightConstrainedPath::try_from(ShortestWeightConstrainedPathCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         edge_lengths: vec![0],
         edge_weights: vec![1],
         source_vertex: 0,
@@ -35,13 +35,15 @@ fn issue_problem() -> ShortestWeightConstrainedPath<SimpleGraph, i64> {
                 (4, 5),
                 (1, 4),
             ],
-        ),
+        )
+        .unwrap(),
         vec![2, 4, 3, 1, 5, 4, 2, 6],
         vec![5, 1, 2, 3, 2, 3, 1, 1],
         0,
         5,
         8,
     )
+    .unwrap()
 }
 
 #[test]
@@ -110,8 +112,8 @@ fn test_shortest_weight_constrained_path_evaluation() {
 #[test]
 fn test_shortest_weight_constrained_path_accessors() {
     let mut problem = issue_problem();
-    problem.set_lengths(vec![1, 1, 1, 1, 1, 1, 1, 1]);
-    problem.set_weights(vec![2, 2, 2, 2, 2, 2, 2, 2]);
+    problem.set_lengths(vec![1, 1, 1, 1, 1, 1, 1, 1]).unwrap();
+    problem.set_weights(vec![2, 2, 2, 2, 2, 2, 2, 2]).unwrap();
     assert_eq!(problem.edge_lengths(), &[1, 1, 1, 1, 1, 1, 1, 1]);
     assert_eq!(problem.edge_weights(), &[2, 2, 2, 2, 2, 2, 2, 2]);
 }
@@ -149,13 +151,15 @@ fn test_shortest_weight_constrained_path_no_solution() {
                 (4, 5),
                 (1, 4),
             ],
-        ),
+        )
+        .unwrap(),
         vec![2, 4, 3, 1, 5, 4, 2, 6],
         vec![5, 1, 2, 3, 2, 3, 1, 1],
         0,
         5,
         3,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -217,13 +221,14 @@ fn test_shortest_weight_constrained_path_rejects_invalid_configs() {
 #[test]
 fn test_shortest_weight_constrained_path_source_equals_target_allows_only_empty_path() {
     let problem = ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![3, 4],
         vec![2, 5],
         1,
         1,
         1,
-    );
+    )
+    .unwrap();
 
     assert_eq!(problem.is_valid_solution(&[false, false]).unwrap(), Some(0));
     assert_eq!(problem.is_valid_solution(&[true, false]).unwrap(), None);
@@ -233,13 +238,14 @@ fn test_shortest_weight_constrained_path_source_equals_target_allows_only_empty_
 fn test_shortest_weight_constrained_path_exceeds_weight_bound() {
     // Path 0-1 with weight 5 > weight_bound 3
     let problem = ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![1],
         vec![5],
         0,
         1,
         3,
-    );
+    )
+    .unwrap();
     // Valid path but weight 5 > 3
     assert_eq!(problem.is_valid_solution(&[true]).unwrap(), None);
     assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(None));
@@ -248,13 +254,14 @@ fn test_shortest_weight_constrained_path_exceeds_weight_bound() {
 #[test]
 fn test_shortest_weight_constrained_path_rejects_disconnected_selected_edges() {
     let problem = ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5), (5, 3)]),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5), (5, 3)]).unwrap(),
         vec![1, 1, 1, 1, 1],
         vec![1, 1, 1, 1, 1],
         0,
         2,
         10,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         problem
@@ -265,27 +272,27 @@ fn test_shortest_weight_constrained_path_rejects_disconnected_selected_edges() {
 }
 
 #[test]
-#[should_panic(expected = "All edge lengths must be positive (> 0)")]
 fn test_shortest_weight_constrained_path_rejects_non_positive_edge_lengths() {
-    ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+    assert!(ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![0],
         vec![1],
         0,
         1,
         1,
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "weight_bound must be positive (> 0)")]
 fn test_shortest_weight_constrained_path_rejects_non_positive_bounds() {
-    ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+    assert!(ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![1],
         vec![1],
         0,
         1,
         0,
-    );
+    )
+    .is_err());
 }

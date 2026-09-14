@@ -24,7 +24,7 @@ fn issue_example_matrix() -> Vec<Vec<bool>> {
 
 #[test]
 fn test_sparse_matrix_compression_basic() {
-    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
+    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2).unwrap();
 
     assert_eq!(problem.matrix(), issue_example_matrix().as_slice());
     assert_eq!(problem.num_rows(), 4);
@@ -44,7 +44,7 @@ fn test_sparse_matrix_compression_basic() {
 
 #[test]
 fn test_sparse_matrix_compression_issue_example_is_satisfying() {
-    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
+    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2).unwrap();
 
     assert!(problem.evaluate(&vec![1, 1, 1, 0]).unwrap());
     assert_eq!(
@@ -57,7 +57,7 @@ fn test_sparse_matrix_compression_issue_example_is_satisfying() {
 
 #[test]
 fn test_sparse_matrix_compression_issue_unsatisfying_examples() {
-    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
+    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2).unwrap();
 
     assert!(!problem.evaluate(&vec![0, 0, 0, 0]).unwrap());
     assert!(!problem.evaluate(&vec![0, 1, 1, 1]).unwrap());
@@ -66,7 +66,7 @@ fn test_sparse_matrix_compression_issue_unsatisfying_examples() {
 
 #[test]
 fn test_sparse_matrix_compression_rejects_bad_configs() {
-    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
+    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2).unwrap();
 
     assert!(matches!(
         problem.evaluate(&vec![1, 1, 1]),
@@ -85,7 +85,7 @@ fn test_sparse_matrix_compression_rejects_bad_configs() {
 
 #[test]
 fn test_sparse_matrix_compression_bruteforce_finds_unique_solution() {
-    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
+    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2).unwrap();
     let solver = BruteForce::new();
 
     let solution = solver
@@ -100,7 +100,7 @@ fn test_sparse_matrix_compression_bruteforce_finds_unique_solution() {
 
 #[test]
 fn test_sparse_matrix_compression_serialization() {
-    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
+    let problem = SparseMatrixCompression::new(issue_example_matrix(), 2).unwrap();
 
     let json = serde_json::to_value(&problem).unwrap();
     assert_eq!(
@@ -136,13 +136,19 @@ fn test_sparse_matrix_compression_complexity_metadata_matches_evaluator() {
 }
 
 #[test]
-#[should_panic(expected = "bound_k")]
 fn test_sparse_matrix_compression_rejects_zero_bound() {
-    let _ = SparseMatrixCompression::new(issue_example_matrix(), 0);
+    assert!(SparseMatrixCompression::new(issue_example_matrix(), 0).is_err());
 }
 
 #[test]
-#[should_panic(expected = "same length")]
 fn test_sparse_matrix_compression_rejects_ragged_matrix() {
-    let _ = SparseMatrixCompression::new(vec![vec![true, false], vec![true]], 2);
+    assert!(SparseMatrixCompression::new(vec![vec![true, false], vec![true]], 2).is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<SparseMatrixCompression>(
+        serde_json::json!({"matrix":[[true]],"bound_k":0})
+    )
+    .is_err());
 }

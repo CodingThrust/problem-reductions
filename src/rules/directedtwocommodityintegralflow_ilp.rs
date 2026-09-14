@@ -173,7 +173,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         (3, 4),
                         (3, 5),
                     ],
-                ),
+                )
+                .unwrap(),
                 vec![1; 8],
                 0,
                 4,
@@ -181,7 +182,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 5,
                 1,
                 1,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

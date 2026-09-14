@@ -32,6 +32,7 @@ fn issue_example() -> FeasibleBasisExtension {
         vec![7, 5, 3],
         vec![0, 1],
     )
+    .unwrap()
 }
 
 #[test]
@@ -147,7 +148,8 @@ fn test_feasible_basis_extension_unsatisfiable() {
     // B={0,2}: solve [[1,1],[0,-1]]x=[1,-1] => x=(0,1), x>=0 => feasible!
     // Let's try: A = [[1,1,1],[1,1,1]], rhs = [1,1]. All 2x2 submatrices are singular.
     let problem =
-        FeasibleBasisExtension::new(vec![vec![1, 1, 1], vec![1, 1, 1]], vec![1, 1], vec![]);
+        FeasibleBasisExtension::new(vec![vec![1, 1, 1], vec![1, 1, 1]], vec![1, 1], vec![])
+            .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -199,48 +201,51 @@ fn test_feasible_basis_extension_complexity_metadata() {
 }
 
 #[test]
-#[should_panic(expected = "must be less than")]
 fn test_feasible_basis_extension_m_ge_n() {
     // 3x3 matrix: m not < n
-    FeasibleBasisExtension::new(
+    assert!(FeasibleBasisExtension::new(
         vec![vec![1, 0, 0], vec![0, 1, 0], vec![0, 0, 1]],
         vec![1, 1, 1],
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "rhs length")]
 fn test_feasible_basis_extension_rhs_length_mismatch() {
-    FeasibleBasisExtension::new(
+    assert!(FeasibleBasisExtension::new(
         vec![vec![1, 0, 1], vec![0, 1, 0]],
         vec![1, 2, 3], // length 3, but m=2
         vec![],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "|S|")]
 fn test_feasible_basis_extension_too_many_required() {
     // m=2, |S|=2 is not < m
-    FeasibleBasisExtension::new(vec![vec![1, 0, 1], vec![0, 1, 0]], vec![1, 2], vec![0, 1]);
+    assert!(FeasibleBasisExtension::new(
+        vec![vec![1, 0, 1], vec![0, 1, 0]],
+        vec![1, 2],
+        vec![0, 1]
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "out of bounds")]
 fn test_feasible_basis_extension_required_out_of_bounds() {
-    FeasibleBasisExtension::new(
+    assert!(FeasibleBasisExtension::new(
         vec![vec![1, 0, 1], vec![0, 1, 0]],
         vec![1, 2],
         vec![5], // out of bounds
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "Duplicate")]
 fn test_feasible_basis_extension_duplicate_required() {
     // 3x5 matrix so |S|=2 < m=3, but S has duplicates
-    FeasibleBasisExtension::new(
+    assert!(FeasibleBasisExtension::new(
         vec![
             vec![1, 0, 1, 0, 1],
             vec![0, 1, 0, 1, 0],
@@ -248,5 +253,14 @@ fn test_feasible_basis_extension_duplicate_required() {
         ],
         vec![1, 2, 3],
         vec![0, 0],
-    );
+    )
+    .is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<FeasibleBasisExtension>(
+        serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
+    )
+    .is_err());
 }

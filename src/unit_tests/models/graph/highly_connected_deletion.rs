@@ -8,17 +8,20 @@ use crate::types::Min;
 // Canonical instance from the issue:
 // V = {0,1,2,3}, E = {(0,1),(0,2),(1,2),(2,3)} — triangle on {0,1,2} with leaf 3.
 fn canonical_problem() -> HighlyConnectedDeletion<SimpleGraph> {
-    HighlyConnectedDeletion::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]))
+    HighlyConnectedDeletion::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap())
 }
 
 // Discriminatory instance: a "double triangle" — two K3's joined by a bridge edge (0,3).
 // V = {0,1,2,3,4,5}, E = {(0,1),(0,2),(1,2),(0,3),(3,4),(3,5),(4,5)} — 7 edges.
 // Optimum: delete the bridge edge (0,3) at edge index 3 → two K3 components → value 1.
 fn double_triangle_problem() -> HighlyConnectedDeletion<SimpleGraph> {
-    HighlyConnectedDeletion::new(SimpleGraph::new(
-        6,
-        vec![(0, 1), (0, 2), (1, 2), (0, 3), (3, 4), (3, 5), (4, 5)],
-    ))
+    HighlyConnectedDeletion::new(
+        SimpleGraph::new(
+            6,
+            vec![(0, 1), (0, 2), (1, 2), (0, 3), (3, 4), (3, 5), (4, 5)],
+        )
+        .unwrap(),
+    )
 }
 
 #[test]

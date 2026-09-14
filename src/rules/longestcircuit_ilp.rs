@@ -179,9 +179,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Triangle with unit lengths
             let source = LongestCircuit::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
                 vec![1, 1, 1],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

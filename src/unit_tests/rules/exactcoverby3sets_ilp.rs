@@ -6,7 +6,7 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Universe {0..5}, 3 triples
-    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap();
     let reduction: ReductionX3CToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -17,7 +17,8 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_exactcoverby3sets_to_ilp_bf_vs_ilp() {
-    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]);
+    let problem =
+        ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]).unwrap();
     let reduction: ReductionX3CToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -35,7 +36,7 @@ fn test_exactcoverby3sets_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
+    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]).unwrap();
     let reduction: ReductionX3CToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = vec![1, 1]; // select both triples
@@ -46,7 +47,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_exactcoverby3sets_to_ilp_trivial() {
-    let problem = ExactCoverBy3Sets::new(0, vec![]);
+    let problem = ExactCoverBy3Sets::new(0, vec![]).unwrap();
     let reduction: ReductionX3CToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

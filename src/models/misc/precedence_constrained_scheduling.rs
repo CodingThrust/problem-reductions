@@ -41,17 +41,38 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 tasks, 2 processors, deadline 3, with t0 < t2 and t1 < t3
-/// let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]);
+/// let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PrecedenceConstrainedSchedulingData")]
 pub struct PrecedenceConstrainedScheduling {
     num_tasks: usize,
     num_processors: usize,
     deadline: i64,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct PrecedenceConstrainedSchedulingData {
+    num_tasks: usize,
+    num_processors: usize,
+    deadline: i64,
+    precedences: Vec<(usize, usize)>,
+}
+
+impl TryFrom<PrecedenceConstrainedSchedulingData> for PrecedenceConstrainedScheduling {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: PrecedenceConstrainedSchedulingData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.num_tasks,
+            data.num_processors,
+            data.deadline,
+            data.precedences,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -66,75 +87,54 @@ impl TryFrom<PrecedenceConstrainedSchedulingCreateSpec> for PrecedenceConstraine
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: PrecedenceConstrainedSchedulingCreateSpec) -> Result<Self, Self::Error> {
-        if spec.num_tasks > 0 && spec.num_processors == 0 {
-            return Err("num_processors must be positive when there are tasks"
-                .to_string()
-                .into());
-        }
-        if spec.num_tasks > 0 && spec.deadline == 0 {
-            return Err("deadline must be positive when there are tasks"
-                .to_string()
-                .into());
-        }
-        if spec.deadline < 0 {
-            return Err("deadline must be nonnegative".to_string().into());
-        }
-        let precedences = spec.precedences.unwrap_or_default();
-        if let Some(&(pred, succ)) = precedences
-            .iter()
-            .find(|&&(pred, succ)| pred >= spec.num_tasks || succ >= spec.num_tasks)
-        {
-            return Err(format!(
-                "precedence ({pred}, {succ}) is out of range for {} tasks",
-                spec.num_tasks
-            )
-            .into());
-        }
-        Ok(Self::new(
+        Self::new(
             spec.num_tasks,
             spec.num_processors,
             spec.deadline,
-            precedences,
-        ))
+            spec.precedences.unwrap_or_default(),
+        )
     }
 }
 
 impl PrecedenceConstrainedScheduling {
     /// Create a new Precedence Constrained Scheduling instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `num_processors` or `deadline` is zero (when `num_tasks > 0`),
+    /// Returns an error if `num_processors` or `deadline` is zero (when `num_tasks > 0`),
     /// or if any precedence index is out of bounds (>= num_tasks).
     pub fn new(
         num_tasks: usize,
         num_processors: usize,
         deadline: i64,
         precedences: Vec<(usize, usize)>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if num_tasks > 0 {
-            assert!(
-                num_processors > 0,
-                "num_processors must be > 0 when there are tasks"
-            );
-            assert!(deadline > 0, "deadline must be > 0 when there are tasks");
+            if num_processors == 0 {
+                return Err("num_processors must be > 0 when there are tasks".into());
+            }
+            if deadline <= 0 {
+                return Err("deadline must be > 0 when there are tasks".into());
+            }
         }
-        assert!(deadline >= 0, "deadline must be nonnegative");
+        if !(deadline >= 0) {
+            return Err("deadline must be nonnegative".into());
+        }
         for &(i, j) in &precedences {
-            assert!(
-                i < num_tasks && j < num_tasks,
-                "Precedence ({}, {}) out of bounds for {} tasks",
-                i,
-                j,
-                num_tasks
-            );
+            if !(i < num_tasks && j < num_tasks) {
+                return Err(format!(
+                    "Precedence ({}, {}) out of bounds for {} tasks",
+                    i, j, num_tasks
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             num_tasks,
             num_processors,
             deadline,
             precedences,
-        }
+        })
     }
 
     /// Get the number of tasks.
@@ -241,22 +241,25 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "precedence_constrained_scheduling",
         // Issue #501 example: 8 tasks, 3 processors, deadline 4
-        instance: Box::new(PrecedenceConstrainedScheduling::new(
-            8,
-            3,
-            4,
-            vec![
-                (0, 2),
-                (0, 3),
-                (1, 3),
-                (1, 4),
-                (2, 5),
-                (3, 6),
-                (4, 6),
-                (5, 7),
-                (6, 7),
-            ],
-        )),
+        instance: Box::new(
+            PrecedenceConstrainedScheduling::new(
+                8,
+                3,
+                4,
+                vec![
+                    (0, 2),
+                    (0, 3),
+                    (1, 3),
+                    (1, 4),
+                    (2, 5),
+                    (3, 6),
+                    (4, 6),
+                    (5, 7),
+                    (6, 7),
+                ],
+            )
+            .unwrap(),
+        ),
         // Valid schedule: slot 0: {t0,t1}, slot 1: {t2,t3,t4}, slot 2: {t5,t6}, slot 3: {t7}
         optimal_config: serde_json::json!(vec![0, 0, 1, 1, 1, 2, 2, 3]),
         optimal_value: serde_json::json!(true),

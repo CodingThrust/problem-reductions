@@ -120,9 +120,12 @@ macro_rules! impl_sp_to_is {
                 }
 
                 let target = MaximumIndependentSet::new(
-                    SimpleGraph::new(n, edges),
+                    SimpleGraph::new(n, edges).map_err(<Self as ReduceTo<MaximumIndependentSet<SimpleGraph, $W>>>::target_construction)?,
                     self.weights_ref().clone(),
-                );
+                )
+                .map_err(
+                    <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, $W>>>::target_construction,
+                )?;
 
                 Ok(ReductionSPToIS { target })
             }
@@ -142,7 +145,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "weighted_maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
-                let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; 10]);
+                let source =
+                    MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; 10])
+                        .unwrap();
                 crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i64>>(
                     source,
                     SolutionPair {
@@ -160,7 +165,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "cardinality_maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
-                let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; 10]);
+                let source =
+                    MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![One; 10])
+                        .unwrap();
                 crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<One>>(
                     source,
                     SolutionPair {

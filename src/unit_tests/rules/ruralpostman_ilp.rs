@@ -9,10 +9,11 @@ use crate::traits::Problem;
 fn test_ruralpostman_to_ilp_closed_loop() {
     // Triangle: 3 vertices, 3 edges, require edge 0
     let source = RuralPostman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
         vec![0],
-    );
+    )
+    .unwrap();
     let direct = BruteForce::new()
         .solve(&source)
         .unwrap()
@@ -32,10 +33,11 @@ fn test_ruralpostman_to_ilp_closed_loop() {
 fn test_ruralpostman_to_ilp_optimization() {
     // Triangle with varied weights: require edges 0 and 1
     let source = RuralPostman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![2, 3, 1],
         vec![0, 1],
-    );
+    )
+    .unwrap();
 
     // Brute-force optimal on the source
     let bf_witness = BruteForce::new()
@@ -62,10 +64,11 @@ fn test_ruralpostman_to_ilp_optimization() {
 #[test]
 fn test_ruralpostman_to_ilp_bf_vs_ilp() {
     let source = RuralPostman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
         vec![0],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
@@ -73,10 +76,11 @@ fn test_ruralpostman_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_ruralpostman_empty_required_set_extracts_zero_multiplicities() {
     let source = RuralPostman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![4, 7],
         vec![],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     let extracted = reduction.extract_solution(&target).unwrap();

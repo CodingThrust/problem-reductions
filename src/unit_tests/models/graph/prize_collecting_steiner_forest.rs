@@ -10,7 +10,7 @@ use crate::types::Min;
 /// beta = 1, omega = 2.
 fn canonical_problem() -> PrizeCollectingSteinerForest<SimpleGraph, i64> {
     PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![5, 2, 5],
         vec![1, 6],
         1,
@@ -102,7 +102,7 @@ fn test_prize_collecting_steiner_forest_evaluate_cycle_infeasible() {
     // Triangle 0-1, 1-2, 0-2 with all three vertices and all three edges
     // selected forms a cycle, which is not a forest -> infeasible.
     let problem = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1, 1, 1],
         vec![1, 1, 1],
         1,
@@ -154,7 +154,7 @@ fn test_prize_collecting_steiner_forest_serialization_roundtrip() {
 fn test_prize_collecting_steiner_forest_f64_variant() {
     // Same canonical instance with f64 weights exercises the second registered variant.
     let problem = PrizeCollectingSteinerForest::<SimpleGraph, f64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![5.0, 2.0, 5.0],
         vec![1.0, 6.0],
         1.0,
@@ -178,7 +178,7 @@ fn test_prize_collecting_steiner_forest_f64_variant() {
 #[test]
 fn test_prize_collecting_steiner_forest_rejects_vertex_prizes_length_mismatch() {
     let error = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![5, 2], // length 2 != 3 vertices
         vec![1, 6],
         1,
@@ -195,7 +195,7 @@ fn test_prize_collecting_steiner_forest_rejects_vertex_prizes_length_mismatch() 
 #[test]
 fn test_prize_collecting_steiner_forest_rejects_edge_costs_length_mismatch() {
     let error = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![5, 2, 5],
         vec![1, 6, 2], // length 3 != 2 edges
         1,
@@ -212,7 +212,7 @@ fn test_prize_collecting_steiner_forest_rejects_edge_costs_length_mismatch() {
 #[test]
 fn test_prize_collecting_steiner_forest_rejects_non_finite_weight() {
     assert!(PrizeCollectingSteinerForest::<SimpleGraph, f64>::new(
-        SimpleGraph::new(1, vec![]),
+        SimpleGraph::new(1, vec![]).unwrap(),
         vec![f64::NAN],
         vec![],
         1.0,
@@ -258,7 +258,7 @@ fn nonnegative_domain_is_shared_by_construction_and_serde() {
         (vec![0, 0], vec![0], -1, 1),
         (vec![0, 0], vec![0], 1, -1),
     ] {
-        let graph = SimpleGraph::new(2, vec![(0, 1)]);
+        let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
         let data = serde_json::json!({"graph": graph, "vertex_prizes": prizes,
             "edge_costs": costs, "beta": beta, "omega": omega});
         assert!(

@@ -30,12 +30,13 @@ fn example1() -> PrimeAttributeName {
         ],
         3,
     )
+    .unwrap()
 }
 
 /// Helper: Issue Example 2 — 6 attributes, 1 FD, query=3
 /// Only candidate key: {0,1} — attribute 3 is NOT prime
 fn example2() -> PrimeAttributeName {
-    PrimeAttributeName::new(6, vec![(vec![0, 1], vec![2, 3, 4, 5])], 3)
+    PrimeAttributeName::new(6, vec![(vec![0, 1], vec![2, 3, 4, 5])], 3).unwrap()
 }
 
 #[test]
@@ -189,7 +190,8 @@ fn test_prime_attribute_name_compute_closure_transitive() {
         4,
         vec![(vec![0], vec![1]), (vec![1], vec![2]), (vec![2], vec![3])],
         0,
-    );
+    )
+    .unwrap();
     let mut attrs = vec![false; 4];
     attrs[0] = true;
     let closure = problem.compute_closure(&attrs);
@@ -197,19 +199,24 @@ fn test_prime_attribute_name_compute_closure_transitive() {
 }
 
 #[test]
-#[should_panic(expected = "Query attribute")]
 fn test_prime_attribute_name_invalid_query() {
-    PrimeAttributeName::new(3, vec![(vec![0], vec![1, 2])], 5);
+    assert!(PrimeAttributeName::new(3, vec![(vec![0], vec![1, 2])], 5).is_err());
 }
 
 #[test]
-#[should_panic(expected = "empty LHS")]
 fn test_prime_attribute_name_empty_lhs() {
-    PrimeAttributeName::new(3, vec![(vec![], vec![1, 2])], 0);
+    assert!(PrimeAttributeName::new(3, vec![(vec![], vec![1, 2])], 0).is_err());
 }
 
 #[test]
-#[should_panic(expected = "outside attribute set")]
 fn test_prime_attribute_name_dep_out_of_range() {
-    PrimeAttributeName::new(3, vec![(vec![0], vec![5])], 0);
+    assert!(PrimeAttributeName::new(3, vec![(vec![0], vec![5])], 0).is_err());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json =
+        serde_json::json!({"num_attributes":3,"dependencies":[[[],[1]]],"query_attribute":0});
+    assert!(serde_json::from_value::<PrimeAttributeName>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("PrimeAttributeName", &Default::default(), json).is_err());
 }

@@ -5,11 +5,11 @@ use crate::traits::Problem;
 use crate::types::Or;
 
 fn feasible_example() -> RegisterSufficiency {
-    RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2)
+    RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2).unwrap()
 }
 
 fn infeasible_example() -> RegisterSufficiency {
-    RegisterSufficiency::new(4, vec![(1, 0), (2, 1), (3, 2), (3, 0)], 1)
+    RegisterSufficiency::new(4, vec![(1, 0), (2, 1), (3, 2), (3, 0)], 1).unwrap()
 }
 
 #[allow(dead_code)]
@@ -28,6 +28,7 @@ fn canonical_example() -> RegisterSufficiency {
         ],
         3,
     )
+    .unwrap()
 }
 
 #[test]

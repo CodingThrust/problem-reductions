@@ -10,9 +10,10 @@ use crate::Problem;
 #[test]
 fn exact_rule_formula_matches_the_constructed_target() {
     let source = MaximumIndependentSet::<SimpleGraph, i64>::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![1; 5],
-    );
+    )
+    .unwrap();
     let reduction = <MaximumIndependentSet<SimpleGraph, i64> as ReduceTo<
         MaximumClique<SimpleGraph, i64>,
     >>::reduce_to(&source)
@@ -56,7 +57,7 @@ fn exact_rule_formula_matches_the_constructed_target() {
 
 #[test]
 fn incoming_rule_measures_every_declared_field_on_a_sink_variant() {
-    let source = ExactCoverBy3Sets::new(3, vec![[0, 1, 2]]);
+    let source = ExactCoverBy3Sets::new(3, vec![[0, 1, 2]]).unwrap();
     let reduction = <ExactCoverBy3Sets as ReduceTo<AlgebraicEquationsOverGF2>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();

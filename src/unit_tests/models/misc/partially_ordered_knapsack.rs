@@ -15,6 +15,7 @@ fn example_instance() -> PartiallyOrderedKnapsack {
         vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],
         11,
     )
+    .unwrap()
 }
 
 #[test]
@@ -168,7 +169,7 @@ fn test_partially_ordered_knapsack_brute_force() {
 
 #[test]
 fn test_partially_ordered_knapsack_empty_instance() {
-    let problem = PartiallyOrderedKnapsack::new(vec![], vec![], vec![], 10);
+    let problem = PartiallyOrderedKnapsack::new(vec![], vec![], vec![], 10).unwrap();
     assert_eq!(problem.num_items(), 0);
     assert_eq!(problem.num_precedences(), 0);
     assert_eq!(
@@ -181,7 +182,8 @@ fn test_partially_ordered_knapsack_empty_instance() {
 #[test]
 fn test_partially_ordered_knapsack_no_precedences() {
     // Without precedences, behaves like standard knapsack
-    let problem = PartiallyOrderedKnapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], vec![], 7);
+    let problem =
+        PartiallyOrderedKnapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], vec![], 7).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -194,7 +196,7 @@ fn test_partially_ordered_knapsack_no_precedences() {
 
 #[test]
 fn test_partially_ordered_knapsack_zero_capacity() {
-    let problem = PartiallyOrderedKnapsack::new(vec![1, 2], vec![10, 20], vec![(0, 1)], 0);
+    let problem = PartiallyOrderedKnapsack::new(vec![1, 2], vec![10, 20], vec![(0, 1)], 0).unwrap();
     assert_eq!(problem.evaluate(&vec![false, false]).unwrap(), Max(Some(0)));
     assert_eq!(problem.evaluate(&vec![true, false]).unwrap(), Max(None));
     let solver = BruteForce::new();
@@ -214,44 +216,39 @@ fn test_partially_ordered_knapsack_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "weights and values must have the same length")]
 fn test_partially_ordered_knapsack_mismatched_lengths() {
-    PartiallyOrderedKnapsack::new(vec![1, 2], vec![3], vec![], 5);
+    assert!(PartiallyOrderedKnapsack::new(vec![1, 2], vec![3], vec![], 5).is_err());
 }
 
 #[test]
-#[should_panic(expected = "precedence index 5 out of bounds")]
 fn test_partially_ordered_knapsack_invalid_precedence() {
-    PartiallyOrderedKnapsack::new(vec![1, 2], vec![3, 4], vec![(0, 5)], 5);
+    assert!(PartiallyOrderedKnapsack::new(vec![1, 2], vec![3, 4], vec![(0, 5)], 5).is_err());
 }
 
 #[test]
-#[should_panic(expected = "precedences contain a cycle")]
 fn test_partially_ordered_knapsack_cycle() {
-    PartiallyOrderedKnapsack::new(
+    assert!(PartiallyOrderedKnapsack::new(
         vec![1, 2, 3],
         vec![1, 2, 3],
         vec![(0, 1), (1, 2), (2, 0)],
         10,
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "capacity must be non-negative")]
 fn test_partially_ordered_knapsack_negative_capacity() {
-    PartiallyOrderedKnapsack::new(vec![1, 2], vec![3, 4], vec![], -1);
+    assert!(PartiallyOrderedKnapsack::new(vec![1, 2], vec![3, 4], vec![], -1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "weight[1] must be non-negative")]
 fn test_partially_ordered_knapsack_negative_weight() {
-    PartiallyOrderedKnapsack::new(vec![1, -2], vec![3, 4], vec![], 5);
+    assert!(PartiallyOrderedKnapsack::new(vec![1, -2], vec![3, 4], vec![], 5).is_err());
 }
 
 #[test]
-#[should_panic(expected = "value[0] must be non-negative")]
 fn test_partially_ordered_knapsack_negative_value() {
-    PartiallyOrderedKnapsack::new(vec![1, 2], vec![-3, 4], vec![], 5);
+    assert!(PartiallyOrderedKnapsack::new(vec![1, 2], vec![-3, 4], vec![], 5).is_err());
 }
 #[test]
 fn create_spec_defaults_precedences_to_empty() {

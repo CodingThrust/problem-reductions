@@ -40,8 +40,8 @@ proptest! {
     /// is a minimum vertex cover, and their sizes sum to n.
     #[test]
     fn independent_set_complement_is_vertex_cover((n, edges) in graph_strategy(8)) {
-        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i64; n]);
-        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()).unwrap(), vec![1i64; n]).unwrap();
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
 
         let solver = BruteForce::new();
         let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
@@ -57,7 +57,7 @@ proptest! {
     /// Property: Any subset of a valid independent set is also a valid independent set.
     #[test]
     fn valid_solution_stays_valid_under_subset((n, edges) in graph_strategy(6)) {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
         let solver = BruteForce::new();
 
         for sol in solver.find_all_witnesses(&problem).unwrap() {
@@ -74,7 +74,7 @@ proptest! {
     /// Property: A vertex cover with additional vertices is still a valid cover.
     #[test]
     fn vertex_cover_superset_is_valid((n, edges) in graph_strategy(6)) {
-        let problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
         let solver = BruteForce::new();
 
         for sol in solver.find_all_witnesses(&problem).unwrap() {
@@ -91,8 +91,8 @@ proptest! {
     /// Property: The complement of any valid independent set is a valid vertex cover.
     #[test]
     fn is_complement_is_vc((n, edges) in graph_strategy(7)) {
-        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i64; n]);
-        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()).unwrap(), vec![1i64; n]).unwrap();
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
         let solver = BruteForce::new();
 
         // Get all valid independent sets (not just optimal)
@@ -107,7 +107,7 @@ proptest! {
     /// Property: Empty selection is always a valid (but possibly non-optimal) independent set.
     #[test]
     fn empty_is_always_valid_is((n, edges) in graph_strategy(10)) {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
         let empty = vec![false; n];
         // Valid configuration returns is_valid() == true (0 for empty set)
         prop_assert!(problem.evaluate(&empty).unwrap().is_valid());
@@ -117,7 +117,7 @@ proptest! {
     /// (when there is at least one vertex).
     #[test]
     fn full_is_always_valid_vc((n, edges) in graph_strategy(10)) {
-        let problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
         let full = vec![true; n];
         // Valid configuration returns is_valid() == true
         prop_assert!(problem.evaluate(&full).unwrap().is_valid());
@@ -126,7 +126,7 @@ proptest! {
     /// Property: Solution size is non-negative for independent sets.
     #[test]
     fn is_size_non_negative((n, edges) in graph_strategy(8)) {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
         let solver = BruteForce::new();
 
         for sol in solver.find_all_witnesses(&problem).unwrap() {

@@ -221,7 +221,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "minimumtardinesssequencing_to_ilp",
             build: || {
-                let source = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 2)]);
+                let source =
+                    MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 2)]).unwrap();
                 crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
             },
         },
@@ -232,7 +233,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![2, 1, 3],
                     vec![3, 4, 5],
                     vec![(0, 2)],
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
             },
         },

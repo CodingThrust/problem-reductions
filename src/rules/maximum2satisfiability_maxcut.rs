@@ -91,7 +91,12 @@ impl ReduceTo<MaxCut<SimpleGraph, i64>> for Maximum2Satisfiability {
             .filter(|(_, weight)| *weight != 0)
             .unzip();
 
-        let target = MaxCut::new(SimpleGraph::new(self.num_vars() + 1, edges), weights);
+        let target = MaxCut::new(
+            SimpleGraph::new(self.num_vars() + 1, edges)
+                .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?,
+            weights,
+        )
+        .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionMaximum2SatisfiabilityToMaxCut {
             target,

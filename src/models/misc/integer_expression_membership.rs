@@ -149,17 +149,32 @@ impl IntExpr {
 ///         Box::new(IntExpr::Atom(5)),
 ///     )),
 /// );
-/// let problem = IntegerExpressionMembership::new(expr, 12);
+/// let problem = IntegerExpressionMembership::new(expr, 12).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegerExpressionMembershipData")]
 pub struct IntegerExpressionMembership {
     /// The recursive expression tree.
     expression: IntExpr,
     /// The target integer K.
     target: i64,
+}
+
+#[derive(Deserialize)]
+struct IntegerExpressionMembershipData {
+    expression: IntExpr,
+    target: i64,
+}
+
+impl TryFrom<IntegerExpressionMembershipData> for IntegerExpressionMembership {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: IntegerExpressionMembershipData) -> Result<Self, Self::Error> {
+        Self::new(data.expression, data.target)
+    }
 }
 
 impl IntegerExpressionMembership {
@@ -168,13 +183,17 @@ impl IntegerExpressionMembership {
     /// # Arguments
     /// * `expression` - The integer expression tree
     /// * `target` - The target integer K
-    pub fn new(expression: IntExpr, target: i64) -> Self {
-        assert!(target > 0, "target must be a positive integer (got 0)");
-        assert!(
-            expression.all_atoms_positive(),
-            "all Atom values must be positive (> 0)"
-        );
-        Self { expression, target }
+    pub fn new(
+        expression: IntExpr,
+        target: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if target <= 0 {
+            return Err("target must be a positive integer (got 0)".into());
+        }
+        if !(expression.all_atoms_positive()) {
+            return Err("all Atom values must be positive (> 0)".into());
+        }
+        Ok(Self { expression, target })
     }
 
     /// Returns a reference to the expression tree.
@@ -285,7 +304,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     );
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integer_expression_membership",
-        instance: Box::new(IntegerExpressionMembership::new(expr, 12)),
+        instance: Box::new(IntegerExpressionMembership::new(expr, 12).unwrap()),
         optimal_config: serde_json::json!(vec![true, true, false]),
         optimal_value: serde_json::json!(true),
     }]

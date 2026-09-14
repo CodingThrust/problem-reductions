@@ -66,11 +66,14 @@ impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
         let n = source_graph.num_vertices();
         let (target_n, centers) = multicenter_parameters(n, *self.bound())?;
         let target = MinMaxMulticenter::new(
-            SimpleGraph::new(target_n, source_graph.edges()),
+            SimpleGraph::new(target_n, source_graph.edges()).map_err(
+                <Self as ReduceTo<MinMaxMulticenter<SimpleGraph, One>>>::target_construction,
+            )?,
             vec![One; target_n],
             vec![One; source_graph.num_edges()],
             centers,
-        );
+        )
+        .map_err(<Self as ReduceTo<MinMaxMulticenter<SimpleGraph, One>>>::target_construction)?;
         Ok(ReductionDecisionMinimumDominatingSetToMinMaxMulticenter {
             target,
             source_num_vertices: n,
@@ -115,9 +118,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         SimpleGraph::new(
                             6,
                             vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
-                        ),
+                        )
+                        .unwrap(),
                         vec![One; 6],
-                    ),
+                    )
+                    .unwrap(),
                     2,
                 ),
                 SolutionPair {

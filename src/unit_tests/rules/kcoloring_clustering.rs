@@ -18,7 +18,8 @@ fn test_kcoloring_to_clustering_closed_loop() {
 
 #[test]
 fn test_kcoloring_to_clustering_distance_matrix() {
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let source =
+        KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap());
     let reduction = ReduceTo::<Clustering>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -38,7 +39,7 @@ fn test_kcoloring_to_clustering_distance_matrix() {
 
 #[test]
 fn test_kcoloring_to_clustering_extract_solution_identity() {
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let source = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction = ReduceTo::<Clustering>::reduce_to(&source).expect("reduction should succeed");
     let config = vec![0, 1, 0];
 
@@ -57,7 +58,7 @@ fn test_kcoloring_to_clustering_unsat_preserved() {
 
 #[test]
 fn test_kcoloring_to_clustering_empty_graph() {
-    let source = KColoring::<K3, _>::new(SimpleGraph::new(0, vec![]));
+    let source = KColoring::<K3, _>::new(SimpleGraph::new(0, vec![]).unwrap());
     let reduction = ReduceTo::<Clustering>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 

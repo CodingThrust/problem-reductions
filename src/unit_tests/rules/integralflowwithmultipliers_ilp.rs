@@ -9,13 +9,14 @@ use crate::traits::Problem;
 fn test_integralflowwithmultipliers_to_ilp_closed_loop() {
     // 4 vertices, arcs (0,1),(0,2),(1,3),(2,3), multipliers all 1, caps all 2, req 2
     let source = IntegralFlowWithMultipliers::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         vec![1, 1, 1, 1],
         vec![2, 2, 2, 2],
         2,
-    );
+    )
+    .unwrap();
     let direct = BruteForce::new()
         .solve(&source)
         .unwrap()
@@ -34,13 +35,14 @@ fn test_integralflowwithmultipliers_to_ilp_closed_loop() {
 #[test]
 fn test_integralflowwithmultipliers_to_ilp_bf_vs_ilp() {
     let source = IntegralFlowWithMultipliers::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]).unwrap(),
         0,
         3,
         vec![1, 1, 1, 1],
         vec![2, 2, 2, 2],
         2,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

@@ -63,7 +63,8 @@ impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
                 arcs,
                 (0..num_inputs).collect(),
                 vec![output],
-            ),
+            )
+            .map_err(<Self as ReduceTo<MinimumFaultDetectionTestSet>>::target_construction)?,
         })
     }
 }
@@ -75,7 +76,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "exactcoverby3sets_to_minimumfaultdetectiontestset",
         build: || {
-            let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+            let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, MinimumFaultDetectionTestSet>(
                 source,
                 SolutionPair {

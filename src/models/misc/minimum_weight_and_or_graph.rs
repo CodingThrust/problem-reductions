@@ -50,7 +50,7 @@ inventory::submit! {
 ///     0,
 ///     vec![Some(true), Some(false), Some(false), None, None, None, None],
 ///     vec![1, 2, 3, 1, 4, 2],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&solution).unwrap(), problemreductions::types::Min(Some(6)));
@@ -88,40 +88,14 @@ struct MinimumWeightAndOrGraphCreateSpec {
 impl TryFrom<MinimumWeightAndOrGraphCreateSpec> for MinimumWeightAndOrGraph {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightAndOrGraphCreateSpec) -> Result<Self, Self::Error> {
-        if spec.source >= spec.num_vertices {
-            return Err("source is outside the graph".to_string().into());
-        }
-        if spec.gate_types.len() != spec.num_vertices {
-            return Err("gate_types length must equal num_vertices"
-                .to_string()
-                .into());
-        }
-        if spec.gate_types[spec.source].is_none() {
-            return Err("source must be an AND or OR gate".to_string().into());
-        }
-        if let Some(&(u, v)) = spec
-            .arcs
-            .iter()
-            .find(|&&(u, v)| u >= spec.num_vertices || v >= spec.num_vertices)
-        {
-            return Err(format!("arc ({u}, {v}) is out of bounds").into());
-        }
-        let count = spec.arcs.len();
-        let arc_weights = spec.arc_weights.unwrap_or_else(|| vec![1; count]);
-        if arc_weights.len() != count {
-            return Err(format!(
-                "arc_weights has {} entries, expected {count}",
-                arc_weights.len()
-            )
-            .into());
-        }
-        Ok(Self::new(
+        let arc_weights = spec.arc_weights.unwrap_or_else(|| vec![1; spec.arcs.len()]);
+        Self::new(
             spec.num_vertices,
             spec.arcs,
             spec.source,
             spec.gate_types,
             arc_weights,
-        ))
+        )
     }
 }
 
@@ -140,24 +114,23 @@ impl<'de> Deserialize<'de> for MinimumWeightAndOrGraph {
         D: Deserializer<'de>,
     {
         let data = MinimumWeightAndOrGraphData::deserialize(deserializer)?;
-        let outgoing = Self::build_outgoing(data.num_vertices, &data.arcs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            source: data.source,
-            gate_types: data.gate_types,
-            arc_weights: data.arc_weights,
-            outgoing,
-        })
+        Self::new(
+            data.num_vertices,
+            data.arcs,
+            data.source,
+            data.gate_types,
+            data.arc_weights,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
 impl MinimumWeightAndOrGraph {
     /// Create a new Minimum Weight AND/OR Graph instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any arc index is out of bounds, if the source is out of bounds,
+    /// Returns an error if any arc index is out of bounds, if the source is out of bounds,
     /// if gate_types length does not match num_vertices, if arc_weights length
     /// does not match the number of arcs, or if the source is a leaf.
     pub fn new(
@@ -166,50 +139,51 @@ impl MinimumWeightAndOrGraph {
         source: usize,
         gate_types: Vec<Option<bool>>,
         arc_weights: Vec<i64>,
-    ) -> Self {
-        assert!(
-            source < num_vertices,
-            "Source vertex {} out of bounds for {} vertices",
-            source,
-            num_vertices
-        );
-        assert_eq!(
-            gate_types.len(),
-            num_vertices,
-            "gate_types length {} does not match num_vertices {}",
-            gate_types.len(),
-            num_vertices
-        );
-        assert_eq!(
-            arc_weights.len(),
-            arcs.len(),
-            "arc_weights length {} does not match number of arcs {}",
-            arc_weights.len(),
-            arcs.len()
-        );
-        for (i, &(u, v)) in arcs.iter().enumerate() {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "Arc {} ({}, {}) out of bounds for {} vertices",
-                i,
-                u,
-                v,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(source < num_vertices) {
+            return Err(format!(
+                "Source vertex {} out of bounds for {} vertices",
+                source, num_vertices
+            )
+            .into());
+        };
+        if gate_types.len() != num_vertices {
+            return Err(format!(
+                "gate_types length {} does not match num_vertices {}",
+                gate_types.len(),
                 num_vertices
-            );
+            )
+            .into());
+        };
+        if arc_weights.len() != arcs.len() {
+            return Err(format!(
+                "arc_weights length {} does not match number of arcs {}",
+                arc_weights.len(),
+                arcs.len()
+            )
+            .into());
+        };
+        for (i, &(u, v)) in arcs.iter().enumerate() {
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "Arc {} ({}, {}) out of bounds for {} vertices",
+                    i, u, v, num_vertices
+                )
+                .into());
+            };
         }
-        assert!(
-            gate_types[source].is_some(),
-            "Source vertex must be an AND or OR gate, not a leaf"
-        );
+        if !(gate_types[source].is_some()) {
+            return Err("Source vertex must be an AND or OR gate, not a leaf".into());
+        };
         let outgoing = Self::build_outgoing(num_vertices, &arcs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             source,
             gate_types,
             arc_weights,
             outgoing,
-        }
+        })
     }
 
     /// Build outgoing arc index lists for each vertex.
@@ -392,13 +366,16 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Optimal config: [1,1,0,1,0,1]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_and_or_graph",
-        instance: Box::new(MinimumWeightAndOrGraph::new(
-            7,
-            vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6)],
-            0,
-            vec![Some(true), Some(false), Some(false), None, None, None, None],
-            vec![1, 2, 3, 1, 4, 2],
-        )),
+        instance: Box::new(
+            MinimumWeightAndOrGraph::new(
+                7,
+                vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6)],
+                0,
+                vec![Some(true), Some(false), Some(false), None, None, None, None],
+                vec![1, 2, 3, 1, 4, 2],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, true, false, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]

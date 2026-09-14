@@ -91,7 +91,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "balancedcompletebipartitesubgraph_to_ilp",
         build: || {
             let source = BalancedCompleteBipartiteSubgraph::new(
-                BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1), (2, 1), (2, 2)]),
+                BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1), (2, 1), (2, 2)])
+                    .unwrap(),
                 2,
             );
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(

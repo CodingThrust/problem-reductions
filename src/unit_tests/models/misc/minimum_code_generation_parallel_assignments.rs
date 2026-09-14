@@ -5,7 +5,7 @@ use crate::traits::Problem;
 #[test]
 fn test_minimum_code_generation_parallel_assignments_creation() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments.clone());
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments.clone()).unwrap();
     assert_eq!(problem.num_variables(), 4);
     assert_eq!(problem.num_assignments(), 4);
     assert_eq!(problem.assignments(), &assignments);
@@ -26,7 +26,7 @@ fn test_minimum_code_generation_parallel_assignments_creation() {
 #[test]
 fn test_minimum_code_generation_parallel_assignments_evaluate_optimal() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap();
     // Config [0, 3, 1, 2]: A_0 at pos 0, A_1 at pos 3, A_2 at pos 1, A_3 at pos 2
     // Order: (A_0, A_2, A_3, A_1)
     // A_0 writes a(0): A_1 reads a and is later (pos 3) -> 1 backward dep
@@ -39,7 +39,7 @@ fn test_minimum_code_generation_parallel_assignments_evaluate_optimal() {
 #[test]
 fn test_minimum_code_generation_parallel_assignments_evaluate_suboptimal() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap();
     // Config [1, 0, 2, 3]: A_0 at pos 1, A_1 at pos 0, A_2 at pos 2, A_3 at pos 3
     // Order: (A_1, A_0, A_2, A_3)
     // A_1 writes b(1): A_0 reads b (later, pos 1) -> 1; A_3 reads b (later, pos 3) -> 1
@@ -52,7 +52,7 @@ fn test_minimum_code_generation_parallel_assignments_evaluate_suboptimal() {
 #[test]
 fn test_minimum_code_generation_parallel_assignments_evaluate_invalid() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap();
     // Duplicate position
     assert_eq!(problem.evaluate(&vec![0, 0, 1, 2]).unwrap(), Min(None));
     // Out of range
@@ -74,7 +74,7 @@ fn test_minimum_code_generation_parallel_assignments_evaluate_invalid() {
 #[test]
 fn test_minimum_code_generation_parallel_assignments_solver() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -87,7 +87,7 @@ fn test_minimum_code_generation_parallel_assignments_solver() {
 #[test]
 fn test_minimum_code_generation_parallel_assignments_serialization() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments.clone());
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments.clone()).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumCodeGenerationParallelAssignments = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_variables(), 4);
@@ -101,7 +101,7 @@ fn test_minimum_code_generation_parallel_assignments_no_dependencies() {
         (0, vec![2]), // writes a, reads c
         (1, vec![3]), // writes b, reads d
     ];
-    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
+    let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments).unwrap();
     // Neither assignment reads the target of the other
     assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Min(Some(0)));
     assert_eq!(problem.evaluate(&vec![1, 0]).unwrap(), Min(Some(0)));
@@ -111,15 +111,13 @@ fn test_minimum_code_generation_parallel_assignments_no_dependencies() {
 }
 
 #[test]
-#[should_panic(expected = "target variable")]
-fn test_minimum_code_generation_parallel_assignments_invalid_target_panics() {
-    MinimumCodeGenerationParallelAssignments::new(2, vec![(2, vec![0])]);
+fn test_minimum_code_generation_parallel_assignments_invalid_target_rejects() {
+    assert!(MinimumCodeGenerationParallelAssignments::new(2, vec![(2, vec![0])]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "read variable")]
-fn test_minimum_code_generation_parallel_assignments_invalid_read_panics() {
-    MinimumCodeGenerationParallelAssignments::new(2, vec![(0, vec![3])]);
+fn test_minimum_code_generation_parallel_assignments_invalid_read_rejects() {
+    assert!(MinimumCodeGenerationParallelAssignments::new(2, vec![(0, vec![3])]).is_err());
 }
 
 #[cfg(feature = "example-db")]

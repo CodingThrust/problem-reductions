@@ -28,12 +28,12 @@ use serde::{Deserialize, Serialize};
 /// ```
 /// use problemreductions::topology::DirectedGraph;
 ///
-/// let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
 /// assert_eq!(g.num_vertices(), 3);
 /// assert_eq!(g.num_arcs(), 2);
 /// assert!(g.is_dag());
 ///
-/// let cyclic = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+/// let cyclic = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
 /// assert!(!cyclic.is_dag());
 /// ```
 #[derive(Debug, Clone)]
@@ -49,30 +49,37 @@ impl DirectedGraph {
     /// * `num_vertices` - Number of vertices in the graph
     /// * `arcs` - List of arcs as `(source, target)` pairs
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any arc references a vertex index >= `num_vertices`.
-    pub fn new(num_vertices: usize, arcs: Vec<(usize, usize)>) -> Self {
+    /// Returns an error if any arc references a vertex index >= `num_vertices`.
+    pub fn new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let mut inner = DiGraph::new();
         for _ in 0..num_vertices {
             inner.add_node(());
         }
         for (u, v) in arcs {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "arc ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "arc ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
             inner.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
         }
-        Self { inner }
+        Ok(Self { inner })
     }
 
     /// Creates an empty directed graph with the given number of vertices and no arcs.
     pub fn empty(num_vertices: usize) -> Self {
-        Self::new(num_vertices, vec![])
+        let mut inner = DiGraph::new();
+        for _ in 0..num_vertices {
+            inner.add_node(());
+        }
+        Self { inner }
     }
 
     /// Returns the number of vertices in the graph.
@@ -222,7 +229,7 @@ impl DirectedGraph {
             .map(|(u, v)| (new_index[u], new_index[v]))
             .collect();
 
-        Self::new(count, new_arcs)
+        Self::new(count, new_arcs).expect("generated graph endpoints are in range")
     }
 }
 
@@ -263,7 +270,7 @@ impl<'de> Deserialize<'de> for DirectedGraph {
             arcs: Vec<(usize, usize)>,
         }
         let data = GraphData::deserialize(deserializer)?;
-        Ok(DirectedGraph::new(data.num_vertices, data.arcs))
+        DirectedGraph::new(data.num_vertices, data.arcs).map_err(serde::de::Error::custom)
     }
 }
 

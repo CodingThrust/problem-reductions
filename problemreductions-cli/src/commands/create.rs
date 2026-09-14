@@ -522,7 +522,7 @@ fn parse_directed_graph(
         None => inferred_num_v,
     };
     let num_arcs = arcs.len();
-    Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+    Ok((DirectedGraph::new(num_v, arcs)?, num_arcs))
 }
 
 /// Parse implication rules from semicolon-separated "antecedents>consequent" strings.

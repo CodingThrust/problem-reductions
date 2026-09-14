@@ -57,11 +57,12 @@ inventory::submit! {
 ///     5,
 ///     vec![(1,3),(2,3),(0,1)],  // left arcs (child destroyed)
 ///     vec![(1,4),(2,4),(0,2)],  // right arcs (child preserved)
-/// );
+/// ).unwrap();
 /// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(4)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCodeGenerationUnlimitedRegistersData")]
 pub struct MinimumCodeGenerationUnlimitedRegisters {
     /// Number of vertices |V|.
     num_vertices: usize,
@@ -69,6 +70,22 @@ pub struct MinimumCodeGenerationUnlimitedRegisters {
     left_arcs: Vec<(usize, usize)>,
     /// Right operand arcs (parent, child) — child's register is preserved.
     right_arcs: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCodeGenerationUnlimitedRegistersData {
+    num_vertices: usize,
+    left_arcs: Vec<(usize, usize)>,
+    right_arcs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<MinimumCodeGenerationUnlimitedRegistersData>
+    for MinimumCodeGenerationUnlimitedRegisters
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCodeGenerationUnlimitedRegistersData) -> Result<Self, Self::Error> {
+        Self::new(data.num_vertices, data.left_arcs, data.right_arcs)
+    }
 }
 
 impl MinimumCodeGenerationUnlimitedRegisters {
@@ -80,66 +97,69 @@ impl MinimumCodeGenerationUnlimitedRegisters {
     /// * `left_arcs` - Left operand arcs (parent, child); child register is destroyed by OP
     /// * `right_arcs` - Right operand arcs (parent, child); child register is preserved
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any arc index is out of bounds, if any vertex has out-degree > 2,
+    /// Returns an error if any arc index is out of bounds, if any vertex has out-degree > 2,
     /// if left and right arcs for binary vertices are inconsistent, or if a vertex
     /// has a self-loop.
     pub fn new(
         num_vertices: usize,
         left_arcs: Vec<(usize, usize)>,
         right_arcs: Vec<(usize, usize)>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let mut left_count = vec![0usize; num_vertices];
         let mut right_count = vec![0usize; num_vertices];
 
         for &(parent, child) in &left_arcs {
-            assert!(
-                parent < num_vertices && child < num_vertices,
-                "Left arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
-            );
-            assert!(
-                parent != child,
-                "Self-loop ({parent}, {parent}) not allowed"
-            );
+            if !(parent < num_vertices && child < num_vertices) {
+                return Err(format!(
+                    "Left arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
+                )
+                .into());
+            }
+            if parent == child {
+                return Err(format!("Self-loop ({parent}, {parent}) not allowed").into());
+            }
             left_count[parent] += 1;
         }
         for &(parent, child) in &right_arcs {
-            assert!(
-                parent < num_vertices && child < num_vertices,
-                "Right arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
-            );
-            assert!(
-                parent != child,
-                "Self-loop ({parent}, {parent}) not allowed"
-            );
+            if !(parent < num_vertices && child < num_vertices) {
+                return Err(format!(
+                    "Right arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
+                )
+                .into());
+            }
+            if parent == child {
+                return Err(format!("Self-loop ({parent}, {parent}) not allowed").into());
+            }
             right_count[parent] += 1;
         }
 
         for v in 0..num_vertices {
             let out = left_count[v] + right_count[v];
-            assert!(out <= 2, "Vertex {v} has out-degree {out} > 2");
+            if !(out <= 2) {
+                return Err(format!("Vertex {v} has out-degree {out} > 2").into());
+            }
             // Binary vertex: exactly one left and one right
-            if out == 2 {
-                assert!(
-                    left_count[v] == 1 && right_count[v] == 1,
-                    "Binary vertex {v} must have exactly 1 left and 1 right arc"
+            if out == 2 && !(left_count[v] == 1 && right_count[v] == 1) {
+                return Err(
+                    format!("Binary vertex {v} must have exactly 1 left and 1 right arc").into(),
                 );
             }
             // Unary vertex: one left arc (result overwrites operand register)
-            if out == 1 {
-                assert!(
-                    left_count[v] == 1 && right_count[v] == 0,
+            if out == 1 && !(left_count[v] == 1 && right_count[v] == 0) {
+                return Err(format!(
                     "Unary vertex {v} must have exactly 1 left arc and 0 right arcs"
-                );
+                )
+                .into());
             }
         }
 
-        Self {
+        Ok(Self {
             num_vertices,
             left_arcs,
             right_arcs,
-        }
+        })
     }
 
     /// Get the number of vertices.
@@ -392,11 +412,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Internal vertices sorted: [0, 1, 2]
         // Order v1(pos 0), v2(pos 1), v0(pos 2)
         // config[0]=2 (v0 at pos 2), config[1]=0 (v1 at pos 0), config[2]=1 (v2 at pos 1)
-        instance: Box::new(MinimumCodeGenerationUnlimitedRegisters::new(
-            5,
-            vec![(1, 3), (2, 3), (0, 1)],
-            vec![(1, 4), (2, 4), (0, 2)],
-        )),
+        instance: Box::new(
+            MinimumCodeGenerationUnlimitedRegisters::new(
+                5,
+                vec![(1, 3), (2, 3), (0, 1)],
+                vec![(1, 4), (2, 4), (0, 2)],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![2, 0, 1]),
         optimal_value: serde_json::json!(4),
     }]

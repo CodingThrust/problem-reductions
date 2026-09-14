@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn test_simple_graph_new() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     assert_eq!(graph.num_vertices(), 4);
     assert_eq!(graph.num_edges(), 3);
 }
@@ -52,7 +52,7 @@ fn test_simple_graph_star() {
 
 #[test]
 fn test_simple_graph_grid() {
-    let graph = SimpleGraph::grid(2, 3);
+    let graph = SimpleGraph::grid(2, 3).unwrap();
     assert_eq!(graph.num_vertices(), 6);
     // 2 rows: 2 horizontal edges per row = 4
     // 3 cols: 1 vertical edge per col = 3
@@ -61,7 +61,7 @@ fn test_simple_graph_grid() {
 
 #[test]
 fn test_simple_graph_has_edge() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     assert!(graph.has_edge(0, 1));
     assert!(graph.has_edge(1, 0)); // Undirected
     assert!(graph.has_edge(1, 2));
@@ -70,7 +70,7 @@ fn test_simple_graph_has_edge() {
 
 #[test]
 fn test_simple_graph_neighbors() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
     let mut neighbors = graph.neighbors(0);
     neighbors.sort();
     assert_eq!(neighbors, vec![1, 2, 3]);
@@ -79,7 +79,7 @@ fn test_simple_graph_neighbors() {
 
 #[test]
 fn test_simple_graph_degree() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
     assert_eq!(graph.degree(0), 3);
     assert_eq!(graph.degree(1), 1);
 }
@@ -95,7 +95,7 @@ fn test_simple_graph_is_empty() {
 
 #[test]
 fn test_simple_graph_for_each_edge() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let mut count = 0;
     graph.for_each_edge(|_, _| count += 1);
     assert_eq!(count, 2);
@@ -103,18 +103,17 @@ fn test_simple_graph_for_each_edge() {
 
 #[test]
 fn test_simple_graph_eq() {
-    let g1 = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let g2 = SimpleGraph::new(3, vec![(1, 2), (0, 1)]); // Different order
-    let g3 = SimpleGraph::new(3, vec![(0, 1)]);
+    let g1 = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let g2 = SimpleGraph::new(3, vec![(1, 2), (0, 1)]).unwrap(); // Different order
+    let g3 = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
 
     assert_eq!(g1, g2);
     assert_ne!(g1, g3);
 }
 
 #[test]
-#[should_panic(expected = "edge (0, 5) references vertex >= num_vertices")]
 fn test_simple_graph_invalid_edge() {
-    SimpleGraph::new(3, vec![(0, 5)]);
+    assert!(SimpleGraph::new(3, vec![(0, 5)]).is_err());
 }
 
 #[test]
@@ -129,14 +128,14 @@ fn test_simple_graph_cycle_small() {
 #[test]
 fn test_simple_graph_eq_different_sizes() {
     // Test PartialEq when graphs have different sizes
-    let g1 = SimpleGraph::new(3, vec![(0, 1)]);
-    let g2 = SimpleGraph::new(4, vec![(0, 1)]); // Different vertex count
+    let g1 = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    let g2 = SimpleGraph::new(4, vec![(0, 1)]).unwrap(); // Different vertex count
     assert_ne!(g1, g2);
 }
 
 #[test]
 fn test_simplegraph_json_roundtrip() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let json = serde_json::to_value(&graph).unwrap();
     assert_eq!(json["num_vertices"], 4);
     let edges: Vec<(usize, usize)> = serde_json::from_value(json["edges"].clone()).unwrap();
@@ -147,9 +146,18 @@ fn test_simplegraph_json_roundtrip() {
 
 #[test]
 fn test_simplegraph_json_format() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let json_str = serde_json::to_string(&graph).unwrap();
     assert!(!json_str.contains("edge_property"));
     assert!(!json_str.contains("node_holes"));
     assert!(json_str.contains("num_vertices"));
+}
+
+#[test]
+fn deserialize_rejects_out_of_range_edges() {
+    assert!(serde_json::from_value::<SimpleGraph>(serde_json::json!({
+        "num_vertices": 2, "edges": [[0, 2]]
+    }))
+    .is_err());
+    assert!(SimpleGraph::grid(usize::MAX, 2).is_err());
 }

@@ -18,6 +18,7 @@ fn issue_example_problem() -> MinimumHittingSet {
             vec![1, 4],
         ],
     )
+    .unwrap()
 }
 
 #[test]
@@ -37,7 +38,7 @@ fn issue_example_config() -> Vec<bool> {
 
 #[test]
 fn test_minimum_hitting_set_creation_accessors_and_dimensions() {
-    let problem = MinimumHittingSet::new(4, vec![vec![2, 1, 1], vec![3]]);
+    let problem = MinimumHittingSet::new(4, vec![vec![2, 1, 1], vec![3]]).unwrap();
 
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 2);
@@ -54,7 +55,7 @@ fn test_minimum_hitting_set_creation_accessors_and_dimensions() {
 
 #[test]
 fn test_minimum_hitting_set_evaluate_valid_and_invalid() {
-    let problem = MinimumHittingSet::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem = MinimumHittingSet::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]).unwrap();
 
     assert_eq!(
         problem.selected_elements(&[false, true, false, true]),
@@ -79,7 +80,7 @@ fn test_minimum_hitting_set_evaluate_valid_and_invalid() {
 
 #[test]
 fn test_minimum_hitting_set_empty_set_is_always_invalid() {
-    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![]]);
+    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![]]).unwrap();
 
     assert_eq!(
         problem.evaluate(&vec![true, true, true]).unwrap(),
@@ -93,15 +94,14 @@ fn test_minimum_hitting_set_empty_set_is_always_invalid() {
 
 #[test]
 fn test_minimum_hitting_set_constructor_normalizes_sets() {
-    let problem = MinimumHittingSet::new(5, vec![vec![3, 1, 3, 2], vec![4, 0, 0], vec![]]);
+    let problem = MinimumHittingSet::new(5, vec![vec![3, 1, 3, 2], vec![4, 0, 0], vec![]]).unwrap();
 
     assert_eq!(problem.sets(), &[vec![1, 2, 3], vec![0, 4], vec![]]);
 }
 
 #[test]
-#[should_panic(expected = "outside universe")]
 fn test_minimum_hitting_set_rejects_out_of_range_elements() {
-    MinimumHittingSet::new(3, vec![vec![0, 3]]);
+    assert!(MinimumHittingSet::new(3, vec![vec![0, 3]]).is_err());
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_minimum_hitting_set_bruteforce_optimum_issue_example() {
 
 #[test]
 fn test_minimum_hitting_set_serialization_round_trip() {
-    let problem = MinimumHittingSet::new(4, vec![vec![2, 1, 1], vec![3, 0]]);
+    let problem = MinimumHittingSet::new(4, vec![vec![2, 1, 1], vec![3, 0]]).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MinimumHittingSet = serde_json::from_str(&json).unwrap();
 
@@ -178,4 +178,11 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":3,"sets":[[0,3]]});
+    assert!(serde_json::from_value::<MinimumHittingSet>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("MinimumHittingSet", &Default::default(), json).is_err());
 }

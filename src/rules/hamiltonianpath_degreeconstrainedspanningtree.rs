@@ -43,9 +43,14 @@ impl ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>> for HamiltonianPath<Si
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = DegreeConstrainedSpanningTree::new(
-            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
+            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()).map_err(
+                <Self as ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>>>::target_construction,
+            )?,
             2,
-        );
+        )
+        .map_err(
+            <Self as ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>>>::target_construction,
+        )?;
         Ok(ReductionHamiltonianPathToDegreeConstrainedSpanningTree { target })
     }
 }
@@ -112,19 +117,22 @@ fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<bool> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     fn source_example() -> HamiltonianPath<SimpleGraph> {
-        HamiltonianPath::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (0, 2),
-                (1, 3),
-                (2, 3),
-                (3, 4),
-                (3, 5),
-                (4, 2),
-                (5, 1),
-            ],
-        ))
+        HamiltonianPath::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (3, 4),
+                    (3, 5),
+                    (4, 2),
+                    (5, 1),
+                ],
+            )
+            .unwrap(),
+        )
     }
 
     vec![crate::example_db::specs::RuleExampleSpec {

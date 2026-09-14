@@ -7,7 +7,7 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // source = [0,1], target = [1], bound = 1 (delete position 0)
-    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
+    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1).unwrap();
     let reduction: ReductionSTSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -20,7 +20,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_stringtostringcorrection_to_ilp_bf_vs_ilp() {
     // source=[0,1], target=[1], bound=1 (delete position 0)
-    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
+    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1).unwrap();
 
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap();
@@ -39,7 +39,7 @@ fn test_stringtostringcorrection_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction_delete() {
     // source=[0,1], target=[1], bound=1 => delete at position 0
-    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
+    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1).unwrap();
     let reduction: ReductionSTSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -55,7 +55,7 @@ fn test_solution_extraction_delete() {
 fn test_stringtostringcorrection_to_ilp_infeasible() {
     // source=[0], target=[0,1]: m > n, so model rejects before any search
     // The ILP is trivially infeasible (0 vars, unsatisfiable constraint)
-    let problem = StringToStringCorrection::new(2, vec![0], vec![0, 1], 1);
+    let problem = StringToStringCorrection::new(2, vec![0], vec![0, 1], 1).unwrap();
 
     // Verify the source problem is actually infeasible
     let bf = BruteForce::new();
@@ -75,7 +75,7 @@ fn test_stringtostringcorrection_to_ilp_infeasible() {
 #[test]
 fn test_stringtostringcorrection_to_ilp_swap() {
     // source=[1,0], target=[0,1], bound=1 => swap at position 0
-    let problem = StringToStringCorrection::new(2, vec![1, 0], vec![0, 1], 1);
+    let problem = StringToStringCorrection::new(2, vec![1, 0], vec![0, 1], 1).unwrap();
 
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap();

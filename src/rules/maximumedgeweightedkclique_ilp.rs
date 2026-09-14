@@ -180,7 +180,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 // Canonical issue #1020 instance: 4 vertices, 5 edges, k = 3.
                 // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
                 let source = MaximumEdgeWeightedKClique::<i64>::new(
-                    SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+                    SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
                     vec![5, 4, -1, 1, 0],
                     3,
                 )
@@ -192,7 +192,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "approximate_maximumedgeweightedkclique_to_ilp",
             build: || {
                 let source = MaximumEdgeWeightedKClique::<f64>::new(
-                    SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+                    SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]).unwrap(),
                     vec![5.0, 4.0, -1.0, 1.0, 0.0],
                     3,
                 )

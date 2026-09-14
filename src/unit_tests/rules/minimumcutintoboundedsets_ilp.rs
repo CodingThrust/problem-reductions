@@ -9,12 +9,13 @@ use crate::traits::Problem;
 fn small_instance() -> MinimumCutIntoBoundedSets<SimpleGraph, i64> {
     // Path graph 0-1-2-3, unit weights, s=0, t=3, B=3
     MinimumCutIntoBoundedSets::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1],
         0,
         3,
         3,
     )
+    .unwrap()
 }
 
 #[test]
@@ -52,12 +53,14 @@ fn test_larger_instance() {
         SimpleGraph::new(
             6,
             vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 2), (3, 5)],
-        ),
+        )
+        .unwrap(),
         vec![1, 2, 1, 2, 1, 2, 1],
         0,
         5,
         4,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMinCutBSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);

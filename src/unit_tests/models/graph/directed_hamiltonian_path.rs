@@ -6,7 +6,7 @@ use crate::traits::Problem;
 #[test]
 fn test_directed_hamiltonian_path_creation() {
     // Simple directed path: 0->1->2->3
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_arcs(), 3);
@@ -20,7 +20,7 @@ fn test_directed_hamiltonian_path_creation() {
 #[test]
 fn test_directed_hamiltonian_path_evaluate_valid() {
     // Directed path: 0->1->2->3
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
 
     assert_eq!(
@@ -37,7 +37,7 @@ fn test_directed_hamiltonian_path_evaluate_valid() {
 #[test]
 fn test_directed_hamiltonian_path_evaluate_invalid_no_arc() {
     // Only arc 0->1 and 2->3, not 1->2
-    let graph = DirectedGraph::new(4, vec![(0, 1), (2, 3)]);
+    let graph = DirectedGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     // No Hamiltonian path should be valid
     let solver = BruteForce::new();
@@ -47,7 +47,7 @@ fn test_directed_hamiltonian_path_evaluate_invalid_no_arc() {
 #[test]
 fn test_directed_hamiltonian_path_brute_force() {
     // Simple directed path graph
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let solver = BruteForce::new();
     let solution = solver
@@ -76,7 +76,8 @@ fn test_directed_hamiltonian_path_issue_example() {
             (4, 5),
             (5, 1),
         ],
-    );
+    )
+    .unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let path = vec![0usize, 1, 3, 2, 4, 5];
     assert_eq!(
@@ -89,7 +90,7 @@ fn test_directed_hamiltonian_path_issue_example() {
 #[test]
 fn test_directed_hamiltonian_path_no_solution() {
     // Directed graph with no Hamiltonian path: 0->1, 0->2, no outgoing from 1 or 2
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -97,7 +98,7 @@ fn test_directed_hamiltonian_path_no_solution() {
 
 #[test]
 fn test_directed_hamiltonian_path_single_vertex() {
-    let graph = DirectedGraph::new(1, vec![]);
+    let graph = DirectedGraph::new(1, vec![]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     // Single vertex: trivially Hamiltonian
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), crate::types::Or(true));
@@ -108,7 +109,7 @@ fn test_directed_hamiltonian_path_single_vertex() {
 
 #[test]
 fn test_directed_hamiltonian_path_serialization() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let json = serde_json::to_value(&problem).unwrap();
     let deserialized: DirectedHamiltonianPath = serde_json::from_value(json).unwrap();
@@ -118,7 +119,7 @@ fn test_directed_hamiltonian_path_serialization() {
 
 #[test]
 fn test_is_valid_solution() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     // Valid: path [0, 1, 2]
     assert!(problem.is_valid_solution(&[0, 1, 2]));
@@ -128,7 +129,7 @@ fn test_is_valid_solution() {
 
 #[test]
 fn test_parameter_getters() {
-    let graph = DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let graph = DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 4);

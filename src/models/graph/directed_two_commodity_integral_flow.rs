@@ -60,14 +60,15 @@ inventory::submit! {
 /// let graph = DirectedGraph::new(6, vec![
 ///     (0, 2), (0, 3), (1, 2), (1, 3),
 ///     (2, 4), (2, 5), (3, 4), (3, 5),
-/// ]);
+/// ]).unwrap();
 /// let problem = DirectedTwoCommodityIntegralFlow::new(
 ///     graph, vec![1; 8], 0, 4, 1, 5, 1, 1,
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// assert!(solver.solve(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "DirectedTwoCommodityIntegralFlowData")]
 pub struct DirectedTwoCommodityIntegralFlow {
     /// The directed graph G = (V, A).
     graph: DirectedGraph,
@@ -87,12 +88,40 @@ pub struct DirectedTwoCommodityIntegralFlow {
     requirement_2: i64,
 }
 
+#[derive(Deserialize)]
+struct DirectedTwoCommodityIntegralFlowData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    source_1: usize,
+    sink_1: usize,
+    source_2: usize,
+    sink_2: usize,
+    requirement_1: i64,
+    requirement_2: i64,
+}
+
+impl TryFrom<DirectedTwoCommodityIntegralFlowData> for DirectedTwoCommodityIntegralFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: DirectedTwoCommodityIntegralFlowData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.graph,
+            data.capacities,
+            data.source_1,
+            data.sink_1,
+            data.source_2,
+            data.sink_2,
+            data.requirement_1,
+            data.requirement_2,
+        )
+    }
+}
+
 impl DirectedTwoCommodityIntegralFlow {
     /// Create a new Directed Two-Commodity Integral Flow problem.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if:
+    /// Returns an error if:
     /// - `capacities.len() != graph.num_arcs()`
     /// - Any terminal vertex index >= `graph.num_vertices()`
     #[allow(clippy::too_many_arguments)]
@@ -105,26 +134,30 @@ impl DirectedTwoCommodityIntegralFlow {
         sink_2: usize,
         requirement_1: i64,
         requirement_2: i64,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = graph.num_vertices();
-        assert_eq!(
-            capacities.len(),
-            graph.num_arcs(),
-            "capacities length must match graph num_arcs"
-        );
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
-        assert!(
-            requirement_1 >= 0 && requirement_2 >= 0,
-            "flow requirements must be nonnegative"
-        );
-        assert!(source_1 < n, "source_1 ({source_1}) >= num_vertices ({n})");
-        assert!(sink_1 < n, "sink_1 ({sink_1}) >= num_vertices ({n})");
-        assert!(source_2 < n, "source_2 ({source_2}) >= num_vertices ({n})");
-        assert!(sink_2 < n, "sink_2 ({sink_2}) >= num_vertices ({n})");
-        Self {
+        if capacities.len() != graph.num_arcs() {
+            return Err("capacities length must match graph num_arcs".into());
+        }
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
+        if !(requirement_1 >= 0 && requirement_2 >= 0) {
+            return Err("flow requirements must be nonnegative".into());
+        }
+        if !(source_1 < n) {
+            return Err(format!("source_1 ({source_1}) >= num_vertices ({n})").into());
+        }
+        if !(sink_1 < n) {
+            return Err(format!("sink_1 ({sink_1}) >= num_vertices ({n})").into());
+        }
+        if !(source_2 < n) {
+            return Err(format!("source_2 ({source_2}) >= num_vertices ({n})").into());
+        }
+        if !(sink_2 < n) {
+            return Err(format!("sink_2 ({sink_2}) >= num_vertices ({n})").into());
+        }
+        Ok(Self {
             graph,
             capacities,
             source_1,
@@ -133,7 +166,7 @@ impl DirectedTwoCommodityIntegralFlow {
             sink_2,
             requirement_1,
             requirement_2,
-        }
+        })
     }
 
     /// Get a reference to the underlying directed graph.
@@ -342,28 +375,32 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "directed_two_commodity_integral_flow",
-        instance: Box::new(DirectedTwoCommodityIntegralFlow::new(
-            DirectedGraph::new(
-                6,
-                vec![
-                    (0, 2),
-                    (0, 3),
-                    (1, 2),
-                    (1, 3),
-                    (2, 4),
-                    (2, 5),
-                    (3, 4),
-                    (3, 5),
-                ],
-            ),
-            vec![1; 8],
-            0,
-            4,
-            1,
-            5,
-            1,
-            1,
-        )),
+        instance: Box::new(
+            DirectedTwoCommodityIntegralFlow::new(
+                DirectedGraph::new(
+                    6,
+                    vec![
+                        (0, 2),
+                        (0, 3),
+                        (1, 2),
+                        (1, 3),
+                        (2, 4),
+                        (2, 5),
+                        (3, 4),
+                        (3, 5),
+                    ],
+                )
+                .unwrap(),
+                vec![1; 8],
+                0,
+                4,
+                1,
+                5,
+                1,
+                1,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1]),
         optimal_value: serde_json::json!(true),
     }]

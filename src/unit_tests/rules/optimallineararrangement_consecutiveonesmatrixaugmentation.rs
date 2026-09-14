@@ -13,6 +13,7 @@ fn example_graph() -> SimpleGraph {
         6,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
     )
+    .unwrap()
 }
 
 fn decision_ola(graph: SimpleGraph, k: i64) -> Decision<OptimalLinearArrangement<SimpleGraph>> {
@@ -87,7 +88,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_closed_loo
 #[test]
 fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_edgeless_sentinel() {
     // Edgeless graph: YES at bound zero, with one column per vertex.
-    let source = decision_ola(SimpleGraph::new(3, vec![]), 0);
+    let source = decision_ola(SimpleGraph::new(3, vec![]).unwrap(), 0);
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -170,7 +171,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
     ];
     for (n, edges, bound, expected) in cases {
         let m = edges.len();
-        let source = decision_ola(SimpleGraph::new(n, edges), bound);
+        let source = decision_ola(SimpleGraph::new(n, edges).unwrap(), bound);
         let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         assert!(target.num_rows() <= m + 3);
@@ -198,7 +199,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
 
 #[test]
 fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_certificate() {
-    let source = decision_ola(SimpleGraph::new(3, vec![(0, 2)]), 1);
+    let source = decision_ola(SimpleGraph::new(3, vec![(0, 2)]).unwrap(), 1);
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source).unwrap();
     assert!(
         !matches!(crate::traits::Problem::evaluate(crate::rules::ReductionResult::target_problem(&reduction), &vec![0, 1, 2]), Ok(value) if { value.is_valid() })

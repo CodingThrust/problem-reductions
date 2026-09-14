@@ -209,11 +209,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3-vertex path: 0 - 1 - 2, unit weights, K=1
             // Optimal center is vertex 1 with total distance 1+0+1 = 2.
             let source = MinimumSumMulticenter::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![1i64; 3],
                 vec![1i64; 2],
                 1,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

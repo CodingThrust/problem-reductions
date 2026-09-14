@@ -117,7 +117,7 @@ fn test_hamiltoniancircuit_to_stackercrane_prism_graph() {
         (1, 4),
         (2, 5),
     ];
-    let source = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
+    let source = HamiltonianCircuit::new(SimpleGraph::new(6, edges).unwrap());
     let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
@@ -139,7 +139,7 @@ fn test_stackercrane_certificate_for_all_small_configurations() {
                 .enumerate()
                 .filter_map(|(i, &e)| ((mask >> i) & 1 == 1).then_some(e))
                 .collect();
-            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges).unwrap());
             let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).unwrap();
             let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
             // All coordinate configurations, including repeated arc indices.

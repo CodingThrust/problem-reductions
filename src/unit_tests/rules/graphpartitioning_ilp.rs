@@ -20,7 +20,8 @@ fn canonical_instance() -> GraphPartitioning<SimpleGraph> {
             (3, 5),
             (4, 5),
         ],
-    );
+    )
+    .unwrap();
     GraphPartitioning::new(graph)
 }
 
@@ -52,7 +53,7 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_reduction_constraint_shape() {
-    let problem = GraphPartitioning::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let problem = GraphPartitioning::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap());
     let reduction: ReductionGraphPartitioningToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -99,7 +100,7 @@ fn test_graphpartitioning_to_ilp_closed_loop() {
 
 #[test]
 fn test_odd_vertices_reduce_to_infeasible_ilp() {
-    let problem = GraphPartitioning::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = GraphPartitioning::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction: ReductionGraphPartitioningToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

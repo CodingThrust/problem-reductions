@@ -803,7 +803,8 @@ impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
             layout.craftsman_avail.clone(),
             layout.task_avail.clone(),
             layout.requirements.clone(),
-        );
+        )
+        .map_err(<Self as ReduceTo<TimetableDesign>>::target_construction)?;
 
         Ok(Reduction3SATToTimetableDesign { target, layout })
     }

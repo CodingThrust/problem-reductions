@@ -14,7 +14,8 @@ fn test_flow_shop_scheduling_creation() {
             vec![3, 2, 3],
         ],
         25,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(problem.num_processors(), 3);
     assert_eq!(problem.deadline(), 25);
@@ -47,7 +48,8 @@ fn test_flow_shop_scheduling_evaluate_feasible() {
             vec![3, 2, 3],
         ],
         25,
-    );
+    )
+    .unwrap();
 
     let config = vec![3, 0, 4, 2, 1];
     assert!(problem.evaluate(&config).unwrap());
@@ -66,7 +68,8 @@ fn test_flow_shop_scheduling_evaluate_infeasible() {
             vec![3, 2, 3],
         ],
         15, // Very tight deadline, likely infeasible
-    );
+    )
+    .unwrap();
 
     // The sequence j4,j1,j5,j3,j2 gives makespan 23 > 15
     let config = vec![3, 0, 4, 2, 1];
@@ -75,7 +78,7 @@ fn test_flow_shop_scheduling_evaluate_infeasible() {
 
 #[test]
 fn test_flow_shop_scheduling_invalid_config() {
-    let problem = FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10).unwrap();
 
     assert!(matches!(
         problem.evaluate(&vec![2, 0]),
@@ -106,7 +109,7 @@ fn test_flow_shop_scheduling_variant() {
 
 #[test]
 fn test_flow_shop_scheduling_serialization() {
-    let problem = FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4], vec![2, 1]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4], vec![2, 1]], 10).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: FlowShopScheduling = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_processors(), problem.num_processors());
@@ -118,7 +121,7 @@ fn test_flow_shop_scheduling_serialization() {
 fn test_flow_shop_scheduling_compute_makespan() {
     // 2 machines, 3 jobs
     // Job 0: [3, 2], Job 1: [2, 4], Job 2: [1, 3]
-    let problem = FlowShopScheduling::new(2, vec![vec![3, 2], vec![2, 4], vec![1, 3]], 20);
+    let problem = FlowShopScheduling::new(2, vec![vec![3, 2], vec![2, 4], vec![1, 3]], 20).unwrap();
 
     // Order: job 0, job 1, job 2
     // Machine 0: j0[0,3], j1[3,5], j2[5,6]
@@ -130,7 +133,7 @@ fn test_flow_shop_scheduling_compute_makespan() {
 #[test]
 fn test_flow_shop_scheduling_brute_force_solver() {
     // Small instance: 2 machines, 3 jobs, generous deadline
-    let problem = FlowShopScheduling::new(2, vec![vec![3, 2], vec![2, 4], vec![1, 3]], 20);
+    let problem = FlowShopScheduling::new(2, vec![vec![3, 2], vec![2, 4], vec![1, 3]], 20).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
@@ -146,7 +149,7 @@ fn test_flow_shop_scheduling_brute_force_unsatisfiable() {
     //   [0,1]: M0: 0-5, 5-10; M1: 5-10, 10-15 -> 15
     //   [1,0]: same by symmetry -> 15
     // Deadline 10 < 15 => unsatisfiable
-    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10).unwrap();
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
@@ -154,7 +157,7 @@ fn test_flow_shop_scheduling_brute_force_unsatisfiable() {
 
 #[test]
 fn test_flow_shop_scheduling_empty() {
-    let problem = FlowShopScheduling::new(3, vec![], 0);
+    let problem = FlowShopScheduling::new(3, vec![], 0).unwrap();
     assert_eq!(problem.num_jobs(), 0);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -178,7 +181,8 @@ fn test_flow_shop_scheduling_find_all_witnesses() {
             vec![3, 2, 3],
         ],
         25,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     for sol in &solutions {
@@ -194,7 +198,7 @@ fn test_flow_shop_scheduling_find_all_witnesses() {
 fn test_flow_shop_scheduling_find_all_witnesses_empty() {
     // 2 machines, 2 symmetric jobs [5,5], deadline 10
     // Both orderings give makespan 15 > 10
-    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
+    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10).unwrap();
     let solver = BruteForce::new();
     assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
@@ -203,8 +207,8 @@ fn test_flow_shop_scheduling_find_all_witnesses_empty() {
 fn test_flow_shop_scheduling_single_job() {
     // 3 machines, 1 job: [2, 3, 4]
     // Makespan = 2 + 3 + 4 = 9
-    let problem = FlowShopScheduling::new(3, vec![vec![2, 3, 4]], 10);
+    let problem = FlowShopScheduling::new(3, vec![vec![2, 3, 4]], 10).unwrap();
     assert!(problem.evaluate(&vec![0]).unwrap()); // makespan 9 <= 10
-    let tight = FlowShopScheduling::new(3, vec![vec![2, 3, 4]], 8);
+    let tight = FlowShopScheduling::new(3, vec![vec![2, 3, 4]], 8).unwrap();
     assert!(!tight.evaluate(&vec![0]).unwrap()); // makespan 9 > 8
 }

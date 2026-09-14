@@ -64,7 +64,8 @@ fn test_shortestcommonsupersequence_basic() {
     let problem = ShortestCommonSupersequence::new(
         3,
         vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.alphabet_size(), 3);
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.max_length(), 12); // 4+4+4
@@ -89,7 +90,8 @@ fn test_shortestcommonsupersequence_evaluate_valid() {
     let problem = ShortestCommonSupersequence::new(
         3,
         vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
-    );
+    )
+    .unwrap();
     let mut config = vec![
         Some(0),
         Some(1),
@@ -108,7 +110,8 @@ fn test_shortestcommonsupersequence_evaluate_infeasible() {
     let problem = ShortestCommonSupersequence::new(
         3,
         vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
-    );
+    )
+    .unwrap();
     // All zeros padded: [0,0,0,0,0,0,0, 3,3,3,3,3] cannot contain [0,1,2,1]
     let mut config = vec![Some(0); 7];
     config.extend(vec![None; 5]);
@@ -117,7 +120,7 @@ fn test_shortestcommonsupersequence_evaluate_infeasible() {
 
 #[test]
 fn test_shortestcommonsupersequence_out_of_range() {
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]).unwrap();
     // max_length = 2, config must have 2 entries
     // value 3 is out of range (alphabet_size=2, padding=2, so valid symbols are 0,1,2)
     // Actually 3 > alphabet_size so treated as invalid (not padding)
@@ -130,7 +133,7 @@ fn test_shortestcommonsupersequence_out_of_range() {
 
 #[test]
 fn test_shortestcommonsupersequence_wrong_length() {
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]).unwrap();
     // max_length = 2, wrong config lengths return None
     assert!(matches!(
         problem.evaluate(&vec![Some(0)]),
@@ -145,7 +148,7 @@ fn test_shortestcommonsupersequence_wrong_length() {
 #[test]
 fn test_shortestcommonsupersequence_interleaved_padding() {
     // Padding must be contiguous at the end
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]).unwrap();
     assert_eq!(problem.evaluate(&vec![None, Some(0)]).unwrap(), Min(None));
 }
 
@@ -154,7 +157,7 @@ fn test_shortestcommonsupersequence_brute_force() {
     // alphabet {0,1}, strings [0,1] and [1,0]
     // max_length = 4, search space = 3^4 = 81
     // Optimal SCS length = 3 (e.g. [0,1,0] or [1,0,1])
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -167,7 +170,7 @@ fn test_shortestcommonsupersequence_brute_force() {
 
 #[test]
 fn test_shortestcommonsupersequence_solve_aggregate() {
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let solver = BruteForce::new();
     let val_solution = solver.solve(&problem).unwrap().unwrap();
     let val = problem.evaluate(&val_solution).unwrap();
@@ -178,7 +181,7 @@ fn test_shortestcommonsupersequence_solve_aggregate() {
 fn test_shortestcommonsupersequence_all_padding() {
     // All padding = effective length 0 = empty supersequence
     // Only valid if all input strings are empty
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![]]).unwrap();
     // max_length = 0, so config is empty
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
@@ -187,7 +190,7 @@ fn test_shortestcommonsupersequence_all_padding() {
 fn test_shortestcommonsupersequence_single_string() {
     // Single string [0,1,2] over ternary alphabet
     // max_length = 3, search space = 4^3 = 64
-    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2]]);
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2]]).unwrap();
     // [0,1,2] with no padding = the string itself, length 3
     assert_eq!(
         problem.evaluate(&vec![Some(0), Some(1), Some(2)]).unwrap(),
@@ -204,7 +207,7 @@ fn test_shortestcommonsupersequence_single_string() {
 fn test_shortestcommonsupersequence_find_all_witnesses() {
     // alphabet {0,1}, strings [0,1] and [1,0]
     // max_length = 4, search space = 3^4 = 81
-    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     for sol in &solutions {
@@ -218,7 +221,7 @@ fn test_shortestcommonsupersequence_find_all_witnesses() {
 
 #[test]
 fn test_shortestcommonsupersequence_serialization() {
-    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]);
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ShortestCommonSupersequence = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
@@ -230,7 +233,7 @@ fn test_shortestcommonsupersequence_serialization() {
 fn test_shortestcommonsupersequence_paper_example() {
     // Paper: Sigma = {a, b, c}, R = {"abc", "bac"}, supersequence "babc" (length 4)
     // Mapping: a=0, b=1, c=2
-    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]);
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]).unwrap();
     // max_length = 3 + 3 = 6, padding = 3
     // "babc" = [1, 0, 1, 2] padded to [1, 0, 1, 2, 3, 3]
     assert_eq!(

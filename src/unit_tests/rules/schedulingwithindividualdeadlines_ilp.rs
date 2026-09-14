@@ -5,12 +5,12 @@ use crate::traits::Problem;
 
 fn feasible_instance() -> SchedulingWithIndividualDeadlines {
     // 3 tasks, 2 processors, individual deadlines [2, 2, 3], precedence: 0→2
-    SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)])
+    SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)]).unwrap()
 }
 
 fn infeasible_instance() -> SchedulingWithIndividualDeadlines {
     // 3 tasks, 1 processor, deadlines [1, 1, 1] → only 1 slot, can't fit 3 tasks
-    SchedulingWithIndividualDeadlines::new(3, 1, vec![1, 1, 1], vec![])
+    SchedulingWithIndividualDeadlines::new(3, 1, vec![1, 1, 1], vec![]).unwrap()
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn test_schedulingwithindividualdeadlines_to_ilp_structure() {
 
 #[test]
 fn test_schedulingwithindividualdeadlines_to_ilp_fixes_unused_slots() {
-    let problem = SchedulingWithIndividualDeadlines::new(2, 2, vec![1, 2], vec![]);
+    let problem = SchedulingWithIndividualDeadlines::new(2, 2, vec![1, 2], vec![]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
     assert!(!reduction
         .target_problem()

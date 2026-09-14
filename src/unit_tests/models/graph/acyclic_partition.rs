@@ -20,12 +20,14 @@ fn yes_instance() -> AcyclicPartition<i64> {
                 (3, 5),
                 (4, 5),
             ],
-        ),
+        )
+        .unwrap(),
         vec![2, 3, 2, 1, 3, 1],
         vec![1; 8],
         5,
         5,
     )
+    .unwrap()
 }
 
 fn no_cost_instance() -> AcyclicPartition<i64> {
@@ -42,22 +44,25 @@ fn no_cost_instance() -> AcyclicPartition<i64> {
                 (3, 5),
                 (4, 5),
             ],
-        ),
+        )
+        .unwrap(),
         vec![2, 3, 2, 1, 3, 1],
         vec![1; 8],
         5,
         4,
     )
+    .unwrap()
 }
 
 fn quotient_cycle_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![1, 1, 1],
         vec![1, 1, 1],
         3,
         3,
     )
+    .unwrap()
 }
 
 fn canonicalize_labels(config: &[usize]) -> Vec<usize> {
@@ -92,8 +97,8 @@ fn test_acyclic_partition_creation_and_accessors() {
     assert_eq!(problem.cost_bound(), &5);
     assert!(problem.is_weighted());
 
-    problem.set_vertex_weights(vec![1; 6]);
-    problem.set_arc_costs(vec![2; 8]);
+    problem.set_vertex_weights(vec![1; 6]).unwrap();
+    problem.set_arc_costs(vec![2; 8]).unwrap();
     assert_eq!(problem.vertex_weights(), &[1, 1, 1, 1, 1, 1]);
     assert_eq!(problem.arc_costs(), &[2, 2, 2, 2, 2, 2, 2, 2]);
 }
@@ -101,7 +106,14 @@ fn test_acyclic_partition_creation_and_accessors() {
 #[test]
 fn test_acyclic_partition_rejects_weight_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
-        AcyclicPartition::new(DirectedGraph::new(2, vec![(0, 1)]), vec![1], vec![1], 2, 1)
+        AcyclicPartition::new(
+            DirectedGraph::new(2, vec![(0, 1)]).unwrap(),
+            vec![1],
+            vec![1],
+            2,
+            1,
+        )
+        .unwrap()
     });
     assert!(result.is_err());
 }
@@ -110,12 +122,13 @@ fn test_acyclic_partition_rejects_weight_length_mismatch() {
 fn test_acyclic_partition_rejects_arc_cost_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
         AcyclicPartition::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            DirectedGraph::new(2, vec![(0, 1)]).unwrap(),
             vec![1, 1],
             vec![],
             2,
             1,
         )
+        .unwrap()
     });
     assert!(result.is_err());
 }

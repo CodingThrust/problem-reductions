@@ -137,12 +137,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "acyclicpartition_to_ilp",
         build: || {
             let source = AcyclicPartition::new(
-                DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                 vec![1, 1, 1, 1],
                 vec![1, 1, 1],
                 3,
                 2,
-            );
+            )
+            .unwrap();
             let reduction: ReductionAcyclicPartitionToILP =
                 crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
                     .expect("reduction should succeed");

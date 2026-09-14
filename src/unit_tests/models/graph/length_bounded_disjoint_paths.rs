@@ -19,12 +19,12 @@ use crate::traits::Problem;
 use crate::types::Max;
 
 fn sample_graph() -> SimpleGraph {
-    SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)])
+    SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]).unwrap()
 }
 
 fn sample_problem() -> LengthBoundedDisjointPaths<SimpleGraph> {
     // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
-    LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 3)
+    LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 3).unwrap()
 }
 
 #[test]
@@ -43,33 +43,29 @@ fn test_length_bounded_disjoint_paths_creation() {
 
 #[test]
 fn test_length_bounded_disjoint_paths_allows_large_bounds() {
-    let problem = LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 10);
+    let problem = LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 10).unwrap();
     let config = encode_paths(6, 3, &[&[0, 1], &[2, 3]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));
 }
 
 #[test]
-#[should_panic(expected = "source must be a valid graph vertex")]
 fn test_length_bounded_disjoint_paths_creation_rejects_invalid_source() {
-    let _ = LengthBoundedDisjointPaths::new(sample_graph(), 5, 4, 3);
+    assert!(LengthBoundedDisjointPaths::new(sample_graph(), 5, 4, 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "sink must be a valid graph vertex")]
 fn test_length_bounded_disjoint_paths_creation_rejects_invalid_sink() {
-    let _ = LengthBoundedDisjointPaths::new(sample_graph(), 0, 5, 3);
+    assert!(LengthBoundedDisjointPaths::new(sample_graph(), 0, 5, 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "source and sink must be distinct")]
 fn test_length_bounded_disjoint_paths_creation_rejects_equal_terminals() {
-    let _ = LengthBoundedDisjointPaths::new(sample_graph(), 0, 0, 3);
+    assert!(LengthBoundedDisjointPaths::new(sample_graph(), 0, 0, 3).is_err());
 }
 
 #[test]
-#[should_panic(expected = "max_length must be positive")]
 fn test_length_bounded_disjoint_paths_creation_rejects_zero_bound() {
-    let _ = LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 0);
+    assert!(LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 0).is_err());
 }
 
 #[test]
@@ -123,9 +119,9 @@ fn test_length_bounded_disjoint_paths_rejects_disconnected_slot() {
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_overlong_slot() {
     // Use a graph where a path has 3 edges but max_length=1
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap();
     // max_paths = min(deg(0), deg(3)) = min(2, 2) = 2
-    let problem = LengthBoundedDisjointPaths::new(graph, 0, 3, 1);
+    let problem = LengthBoundedDisjointPaths::new(graph, 0, 3, 1).unwrap();
     // Path [0,1,2,3] has 3 edges but max_length=1
     let config = encode_paths(4, 2, &[&[0, 1, 2]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
@@ -141,12 +137,19 @@ fn test_length_bounded_disjoint_paths_rejects_shared_internal_vertices() {
 
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_reused_direct_edge() {
-    let problem = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]), 0, 1, 1);
+    let problem =
+        LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 0, 1, 1)
+            .unwrap();
     // max_paths = min(deg(0), deg(1)) = 1, so only 1 slot
     let config = encode_paths(1, 1, &[&[0]]);
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(1)));
-    let triangle =
-        LengthBoundedDisjointPaths::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 0, 2, 2);
+    let triangle = LengthBoundedDisjointPaths::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+        0,
+        2,
+        2,
+    )
+    .unwrap();
     assert_eq!(
         triangle
             .evaluate(&encode_paths(3, 2, &[&[2], &[2]]))
@@ -211,8 +214,13 @@ fn test_length_bounded_disjoint_paths_rejects_wrong_length_config() {
 
 #[test]
 fn test_length_bounded_disjoint_paths_chorded_path() {
-    let problem =
-        LengthBoundedDisjointPaths::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 0, 2, 2);
+    let problem = LengthBoundedDisjointPaths::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+        0,
+        2,
+        2,
+    )
+    .unwrap();
     let solution = encode_paths(3, 2, &[&[0, 1], &[2]]);
     assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(2)));
     let best = BruteForce::new().solve(&problem).unwrap().unwrap();
@@ -228,17 +236,19 @@ fn test_length_bounded_disjoint_paths_chorded_path() {
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_disconnected_cycle() {
     let problem = LengthBoundedDisjointPaths::new(
-        SimpleGraph::new(5, vec![(0, 1), (2, 3), (3, 4), (4, 2)]),
+        SimpleGraph::new(5, vec![(0, 1), (2, 3), (3, 4), (4, 2)]).unwrap(),
         0,
         1,
         4,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.evaluate(&vec![vec![true; 4]]).unwrap(), Max(None));
 }
 
 #[test]
 fn test_length_bounded_disjoint_paths_edgeless_graph() {
-    let problem = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![]), 0, 1, 1);
+    let problem =
+        LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![]).unwrap(), 0, 1, 1).unwrap();
     let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert!(solution.is_empty());
     assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(0)));

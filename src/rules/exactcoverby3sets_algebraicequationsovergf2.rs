@@ -75,7 +75,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "exactcoverby3sets_to_algebraicequationsovergf2",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, AlgebraicEquationsOverGF2>(
-                ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]),
+                ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, true, false]),
                     target_config: serde_json::json!(vec![true, true, false]),

@@ -10,25 +10,30 @@ use crate::types::Max;
 /// Small instance: 4 vertices, 4 edges (P4 with a shortcut).
 /// Vertices 0-1-2-3 plus edge 0-2.
 fn small_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
-    MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]))
+    MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]).unwrap())
+        .unwrap()
 }
 
 /// Issue #897 canonical instance: 6 vertices, 9 edges.
 fn canonical_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
-    MaximumLeafSpanningTree::new(SimpleGraph::new(
-        6,
-        vec![
-            (0, 1),
-            (0, 2),
-            (0, 3),
-            (1, 4),
-            (2, 4),
-            (2, 5),
-            (3, 5),
-            (4, 5),
-            (1, 3),
-        ],
-    ))
+    MaximumLeafSpanningTree::new(
+        SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (0, 3),
+                (1, 4),
+                (2, 4),
+                (2, 5),
+                (3, 5),
+                (4, 5),
+                (1, 3),
+            ],
+        )
+        .unwrap(),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -132,7 +137,9 @@ fn test_maximumleafspanningtree_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_maximumleafspanningtree_to_ilp_path_graph() {
     // Path P4: 0-1-2-3, only spanning tree is the path itself => 2 leaves
-    let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem =
+        MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap())
+            .unwrap();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -145,7 +152,9 @@ fn test_maximumleafspanningtree_to_ilp_path_graph() {
 #[test]
 fn test_maximumleafspanningtree_to_ilp_star_graph() {
     // Star K1,3: center 0, leaves 1,2,3 => 3 leaves
-    let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
+    let problem =
+        MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap())
+            .unwrap();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -159,10 +168,10 @@ fn test_maximumleafspanningtree_to_ilp_star_graph() {
 #[test]
 fn test_maximumleafspanningtree_to_ilp_complete_graph() {
     // K4: 4 vertices, 6 edges. Star spanning tree has 3 leaves.
-    let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    let problem = MaximumLeafSpanningTree::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    )
+    .unwrap();
     let bf = BruteForce::new();
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();

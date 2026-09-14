@@ -11,8 +11,9 @@ fn example_instance() -> MinMaxMulticenter<SimpleGraph, i64> {
     let graph = SimpleGraph::new(
         6,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)],
-    );
-    MinMaxMulticenter::new(graph, vec![1i64; 6], vec![1i64; 7], 2)
+    )
+    .unwrap();
+    MinMaxMulticenter::new(graph, vec![1i64; 6], vec![1i64; 7], 2).unwrap()
 }
 
 #[test]
@@ -129,8 +130,8 @@ fn test_minmaxmulticenter_solver() {
 #[test]
 fn test_minmaxmulticenter_disconnected() {
     // Two disconnected components: 0-1 and 2-3, K=1
-    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
-    let problem = MinMaxMulticenter::new(graph, vec![1i64; 4], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
+    let problem = MinMaxMulticenter::new(graph, vec![1i64; 4], vec![1i64; 2], 1).unwrap();
 
     // Center at 0: vertices 2 and 3 are unreachable -> None
     assert_eq!(
@@ -139,8 +140,8 @@ fn test_minmaxmulticenter_disconnected() {
     );
 
     // With K=2, centers at {0, 2}: all reachable, max distance = 1
-    let graph2 = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
-    let problem2 = MinMaxMulticenter::new(graph2, vec![1i64; 4], vec![1i64; 2], 2);
+    let graph2 = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
+    let problem2 = MinMaxMulticenter::new(graph2, vec![1i64; 4], vec![1i64; 2], 2).unwrap();
     assert_eq!(
         problem2.evaluate(&vec![true, false, true, false]).unwrap(),
         Min(Some(1))
@@ -150,8 +151,8 @@ fn test_minmaxmulticenter_disconnected() {
 #[test]
 fn test_minmaxmulticenter_weighted() {
     // Path: 0-1-2, vertex weights = [3, 1, 2], edge lengths = [1, 1], K=1
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinMaxMulticenter::new(graph, vec![3i64, 1, 2], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinMaxMulticenter::new(graph, vec![3i64, 1, 2], vec![1i64; 2], 1).unwrap();
 
     // Center at 1: d(0)=1, d(1)=0, d(2)=1
     // w(0)*d(0) = 3*1 = 3, w(1)*d(1) = 0, w(2)*d(2) = 2*1 = 2
@@ -172,8 +173,8 @@ fn test_minmaxmulticenter_weighted() {
 
 #[test]
 fn test_minmaxmulticenter_single_vertex() {
-    let graph = SimpleGraph::new(1, vec![]);
-    let problem = MinMaxMulticenter::new(graph, vec![5i64], vec![], 1);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    let problem = MinMaxMulticenter::new(graph, vec![5i64], vec![], 1).unwrap();
     // Only vertex is the center, max weighted distance = 0
     assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(Some(0)));
 }
@@ -181,8 +182,8 @@ fn test_minmaxmulticenter_single_vertex() {
 #[test]
 fn test_minmaxmulticenter_all_centers() {
     // K = num_vertices: all vertices are centers, max distance = 0
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 3);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 3).unwrap();
     assert_eq!(
         problem.evaluate(&vec![true, true, true]).unwrap(),
         Min(Some(0))
@@ -192,8 +193,8 @@ fn test_minmaxmulticenter_all_centers() {
 #[test]
 fn test_minmaxmulticenter_nonunit_edge_lengths() {
     // Path: 0-1-2, unit vertex weights, edge lengths [1, 3], K=1
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64, 3], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64, 3], 1).unwrap();
 
     // Center at 0: d(0)=0, d(1)=1, d(2)=1+3=4; max=4
     assert_eq!(
@@ -215,45 +216,39 @@ fn test_minmaxmulticenter_nonunit_edge_lengths() {
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights length must match num_vertices")]
 fn test_minmaxmulticenter_wrong_vertex_weights_len() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinMaxMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinMaxMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
 fn test_minmaxmulticenter_wrong_edge_lengths_len() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "k must be positive")]
 fn test_minmaxmulticenter_k_zero() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 0);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 0).is_err());
 }
 
 #[test]
-#[should_panic(expected = "k must not exceed num_vertices")]
 fn test_minmaxmulticenter_k_too_large() {
-    let graph = SimpleGraph::new(3, vec![(0, 1)]);
-    MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 4);
+    let graph = SimpleGraph::new(3, vec![(0, 1)]).unwrap();
+    assert!(MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 1], 4).is_err());
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights must be non-negative")]
 fn test_minmaxmulticenter_negative_vertex_weight() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    MinMaxMulticenter::new(graph, vec![1i64, -1, 1], vec![1i64; 2], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinMaxMulticenter::new(graph, vec![1i64, -1, 1], vec![1i64; 2], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths must be non-negative")]
 fn test_minmaxmulticenter_negative_edge_length() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64, -1], 1);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64, -1], 1).is_err());
 }
 #[test]
 fn create_specs_map_weight_inputs_for_both_variants() {

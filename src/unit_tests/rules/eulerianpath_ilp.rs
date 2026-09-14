@@ -9,7 +9,7 @@ use crate::types::Or;
 /// Canonical issue #1025 instance: V = {0,1,2}, A = [(0,1),(0,1),(1,2),(2,0)].
 /// A witness exists: ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
 fn issue_instance() -> EulerianPath {
-    EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
+    EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]).unwrap())
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
     // Two arcs sharing the same tail but disconnected heads. This breaks the
     // degree-balance criterion: vertex 0 has out-degree 2 / in-degree 0, so
     // no Eulerian trail exists.
-    let source = EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 2)]));
+    let source = EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 2)]).unwrap());
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     // The ILP must report infeasibility for a NO instance.
@@ -99,7 +99,7 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
 fn test_eulerianpath_to_ilp_closed_circuit_with_loop() {
     // Loop + closed trail: arcs (0,0), (0,1), (1,0).
     // Trail (0,0) -> (0,1) -> (1,0) is a valid closed Eulerian trail.
-    let source = EulerianPath::new(DirectedGraph::new(2, vec![(0, 0), (0, 1), (1, 0)]));
+    let source = EulerianPath::new(DirectedGraph::new(2, vec![(0, 0), (0, 1), (1, 0)]).unwrap());
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()

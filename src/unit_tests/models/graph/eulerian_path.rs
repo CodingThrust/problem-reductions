@@ -11,7 +11,7 @@ use crate::types::Or;
 /// arcs `a_0` and `a_1` between vertices `0` and `1`. The witness ordering
 /// `(a_0, a_2, a_3, a_1)` traces the directed trail `0 -> 1 -> 2 -> 0 -> 1`.
 fn canonical_instance() -> EulerianPath {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]).unwrap();
     EulerianPath::new(graph)
 }
 
@@ -93,7 +93,7 @@ fn test_eulerian_path_no_instance() {
     // Three parallel arcs (0,1) and one return arc (1,0).
     // outdeg(0) - indeg(0) = 3 - 1 = 2, breaks the degree-balance condition,
     // so no Eulerian trail exists.
-    let graph = DirectedGraph::new(2, vec![(0, 1), (0, 1), (0, 1), (1, 0)]);
+    let graph = DirectedGraph::new(2, vec![(0, 1), (0, 1), (0, 1), (1, 0)]).unwrap();
     let problem = EulerianPath::new(graph);
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -104,7 +104,7 @@ fn test_eulerian_path_no_instance() {
 #[test]
 fn test_eulerian_path_empty_arcs_instance() {
     // m = 0 (only isolated vertices): dims = [] and the empty witness is valid.
-    let graph = DirectedGraph::new(3, vec![]);
+    let graph = DirectedGraph::new(3, vec![]).unwrap();
     let problem = EulerianPath::new(graph);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),

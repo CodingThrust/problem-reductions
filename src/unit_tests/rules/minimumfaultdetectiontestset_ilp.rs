@@ -22,6 +22,7 @@ fn issue_problem() -> MinimumFaultDetectionTestSet {
         vec![0, 1],
         vec![5, 6],
     )
+    .unwrap()
 }
 
 #[test]
@@ -70,7 +71,7 @@ fn test_minimumfaultdetectiontestset_to_ilp_closed_loop() {
 
 #[test]
 fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
-    let problem = MinimumFaultDetectionTestSet::new(3, vec![], vec![0], vec![2]);
+    let problem = MinimumFaultDetectionTestSet::new(3, vec![], vec![0], vec![2]).unwrap();
     let reduction: ReductionMFDTSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -91,7 +92,7 @@ fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
 
 #[test]
 fn test_reduction_handles_instances_without_internal_vertices() {
-    let problem = MinimumFaultDetectionTestSet::new(2, vec![(0, 1)], vec![0], vec![1]);
+    let problem = MinimumFaultDetectionTestSet::new(2, vec![(0, 1)], vec![0], vec![1]).unwrap();
     let reduction: ReductionMFDTSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

@@ -76,7 +76,8 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
             }
         }
 
-        let target = ConjunctiveBooleanQuery::new(n, vec![relation], k, conjuncts);
+        let target = ConjunctiveBooleanQuery::new(n, vec![relation], k, conjuncts)
+            .map_err(<Self as ReduceTo<ConjunctiveBooleanQuery>>::target_construction)?;
 
         Ok(ReductionKCliqueToCBQ {
             target,
@@ -94,9 +95,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Triangle (0,1,2) in a 5-vertex graph, k=3 → has 3-clique
             let source = KClique::new(
-                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]),
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]).unwrap(),
                 3,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ConjunctiveBooleanQuery>(
                 source,
                 SolutionPair {

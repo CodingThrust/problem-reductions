@@ -251,13 +251,15 @@ impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
 
         Ok(ReductionSATToIntegralFlowHomologousArcs {
             target: IntegralFlowHomologousArcs::new(
-                DirectedGraph::new(indexer.total_vertices(), arcs),
+                DirectedGraph::new(indexer.total_vertices(), arcs)
+                    .map_err(<Self as ReduceTo<IntegralFlowHomologousArcs>>::target_construction)?,
                 capacities,
                 indexer.source(),
                 indexer.sink(),
                 requirement,
                 homologous_pairs,
-            ),
+            )
+            .map_err(<Self as ReduceTo<IntegralFlowHomologousArcs>>::target_construction)?,
             variable_paths,
         })
     }

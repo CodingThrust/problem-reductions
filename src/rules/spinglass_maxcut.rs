@@ -187,7 +187,12 @@ impl ReduceTo<MaxCut<SimpleGraph, i64>> for SpinGlass<SimpleGraph, i64> {
             }
         }
 
-        let target = MaxCut::new(SimpleGraph::new(total_vertices, edges), weights);
+        let target = MaxCut::new(
+            SimpleGraph::new(total_vertices, edges)
+                .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?,
+            weights,
+        )
+        .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionSGToMaxCut {
             target,
@@ -205,7 +210,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "maxcut_to_spinglass",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
-                let source = MaxCut::unweighted(SimpleGraph::new(n, edges));
+                let source = MaxCut::unweighted(SimpleGraph::new(n, edges).unwrap());
                 crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i64>>(
                     source,
                     SolutionPair {

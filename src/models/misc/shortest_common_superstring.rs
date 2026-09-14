@@ -57,16 +57,31 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {0, 1}, strings [0,1] and [1,0]
-/// let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
+/// let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ShortestCommonSuperstringData")]
 pub struct ShortestCommonSuperstring {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+struct ShortestCommonSuperstringData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ShortestCommonSuperstringData> for ShortestCommonSuperstring {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ShortestCommonSuperstringData) -> Result<Self, Self::Error> {
+        Self::new(data.alphabet_size, data.strings)
+    }
 }
 
 impl ShortestCommonSuperstring {
@@ -75,22 +90,30 @@ impl ShortestCommonSuperstring {
     /// `max_length` is computed automatically as the sum of all input string
     /// lengths (the trivial upper bound: concatenation with no overlap).
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `strings` is empty, or if `alphabet_size` is 0 and any input
+    /// Returns an error if `strings` is empty, or if `alphabet_size` is 0 and any input
     /// string is non-empty.
-    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
-        assert!(!strings.is_empty(), "must have at least one string");
-        let max_length: usize = strings.iter().map(|s| s.len()).sum();
-        assert!(
-            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
-            "alphabet_size must be > 0 when any input string is non-empty"
-        );
-        Self {
+    pub fn new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("must have at least one string".into());
+        }
+        let max_length = strings.iter().try_fold(0usize, |total, string| {
+            total
+                .checked_add(string.len())
+                .ok_or("maximum string length overflows usize")
+        })?;
+        if !(alphabet_size > 0 || strings.iter().all(|s| s.is_empty())) {
+            return Err("alphabet_size must be > 0 when any input string is non-empty".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
             max_length,
-        }
+        })
     }
 
     /// Returns the alphabet size.
@@ -229,10 +252,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // both "01" and "10" as contiguous substrings).
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "shortest_common_superstring",
-        instance: Box::new(ShortestCommonSuperstring::new(
-            2,
-            vec![vec![0, 1], vec![1, 0]],
-        )),
+        instance: Box::new(
+            ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![Some(0), Some(1), Some(0), None]),
         optimal_value: serde_json::json!(3),
     }]

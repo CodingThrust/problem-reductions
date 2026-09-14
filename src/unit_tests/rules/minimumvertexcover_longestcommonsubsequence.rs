@@ -5,9 +5,10 @@ use crate::topology::SimpleGraph;
 #[test]
 fn test_minimumvertexcover_to_longestcommonsubsequence_closed_loop() {
     let source = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![One; 4],
-    );
+    )
+    .unwrap();
 
     let reduction =
         ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
@@ -21,9 +22,10 @@ fn test_minimumvertexcover_to_longestcommonsubsequence_closed_loop() {
 #[test]
 fn test_mvc_to_lcs_structure_for_path_p4() {
     let source = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![One; 4],
-    );
+    )
+    .unwrap();
 
     let reduction =
         ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
@@ -47,9 +49,10 @@ fn test_mvc_to_lcs_structure_for_path_p4() {
 #[test]
 fn test_mvc_to_lcs_triangle_closed_loop() {
     let source = MinimumVertexCover::new(
-        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
         vec![One; 3],
-    );
+    )
+    .unwrap();
 
     let reduction =
         ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
@@ -62,7 +65,8 @@ fn test_mvc_to_lcs_triangle_closed_loop() {
 
 #[test]
 fn test_mvc_to_lcs_empty_graph_closed_loop() {
-    let source = MinimumVertexCover::new(SimpleGraph::new(4, vec![]), vec![One; 4]);
+    let source =
+        MinimumVertexCover::new(SimpleGraph::new(4, vec![]).unwrap(), vec![One; 4]).unwrap();
 
     let reduction =
         ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");
@@ -82,7 +86,8 @@ fn test_mvc_to_lcs_empty_graph_closed_loop() {
 
 #[test]
 fn test_mvc_to_lcs_canonicalizes_edge_orientation() {
-    let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(1, 0)]), vec![One; 2]);
+    let source =
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![(1, 0)]).unwrap(), vec![One; 2]).unwrap();
 
     let reduction =
         ReduceTo::<LongestCommonSubsequence>::reduce_to(&source).expect("reduction should succeed");

@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn create_spec_defaults_edge_weights() {
     let p = MinimumCutIntoBoundedSets::try_from(MinimumCutIntoBoundedSetsCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         edge_weights: None,
         source: 0,
         sink: 1,
@@ -36,9 +36,10 @@ fn example_instance() -> MinimumCutIntoBoundedSets<SimpleGraph, i64> {
             (6, 7),
             (5, 6),
         ],
-    );
+    )
+    .unwrap();
     let edge_weights = vec![2, 3, 1, 4, 2, 1, 3, 2, 1, 2, 3, 1];
-    MinimumCutIntoBoundedSets::new(graph, edge_weights, 0, 7, 5)
+    MinimumCutIntoBoundedSets::new(graph, edge_weights, 0, 7, 5).unwrap()
 }
 
 #[test]
@@ -108,9 +109,10 @@ fn test_minimumcutintoboundedsets_size_bound_violated() {
             (6, 7),
             (5, 6),
         ],
-    );
+    )
+    .unwrap();
     let edge_weights = vec![2, 3, 1, 4, 2, 1, 3, 2, 1, 2, 3, 1];
-    let problem = MinimumCutIntoBoundedSets::new(graph, edge_weights, 0, 7, 3);
+    let problem = MinimumCutIntoBoundedSets::new(graph, edge_weights, 0, 7, 3).unwrap();
     // V1={0,1,2,3} has 4 > B=3
     let config = vec![false, false, false, false, true, true, true, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
@@ -158,8 +160,8 @@ fn test_minimumcutintoboundedsets_solver() {
 #[test]
 fn test_minimumcutintoboundedsets_small_graph() {
     // Simple 3-vertex path: 0-1-2, s=0, t=2, B=2
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1], 0, 2, 2);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1], 0, 2, 2).unwrap();
     // V1={0,1}, V2={2}: cut edge (1,2)=1
     assert_eq!(
         problem.evaluate(&vec![false, false, true]).unwrap(),

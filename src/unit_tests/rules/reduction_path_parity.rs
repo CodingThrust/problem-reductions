@@ -43,7 +43,8 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
         (6, 9),
         (7, 9),
     ];
-    let source = MaxCut::<SimpleGraph, i64>::unweighted(SimpleGraph::new(10, petersen_edges));
+    let source =
+        MaxCut::<SimpleGraph, i64>::unweighted(SimpleGraph::new(10, petersen_edges).unwrap());
     let chain = graph
         .reduce_along_path(&rpath, &source as &dyn std::any::Any)
         .expect("MaxCut -> SpinGlass reduction should not fail")
@@ -93,7 +94,8 @@ fn test_jl_parity_maxcut_to_qubo_path() {
         (6, 9),
         (7, 9),
     ];
-    let source = MaxCut::<SimpleGraph, i64>::unweighted(SimpleGraph::new(10, petersen_edges));
+    let source =
+        MaxCut::<SimpleGraph, i64>::unweighted(SimpleGraph::new(10, petersen_edges).unwrap());
     let chain = graph
         .reduce_along_path(&rpath, &source as &dyn std::any::Any)
         .expect("MaxCut -> QUBO reduction should not fail")

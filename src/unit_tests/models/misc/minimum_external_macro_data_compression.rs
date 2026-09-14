@@ -5,7 +5,7 @@ use crate::types::Min;
 
 #[test]
 fn test_minimum_external_macro_data_compression_creation() {
-    let problem = MinimumExternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2], 2);
+    let problem = MinimumExternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2], 2).unwrap();
     assert_eq!(problem.alphabet_size(), 3);
     assert_eq!(problem.string_length(), 6);
     assert_eq!(problem.pointer_cost(), 2);
@@ -28,7 +28,7 @@ fn test_minimum_external_macro_data_compression_creation() {
 #[test]
 fn test_minimum_external_macro_data_compression_evaluate_uncompressed() {
     // alphabet {a, b}, s = "ab", h = 2
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // Uncompressed: D = "" (empty, empty), C = "ab"
     // D-slots: [2, 2] (both empty)
     // C-slots: [0, 1] (literal a, literal b)
@@ -39,7 +39,7 @@ fn test_minimum_external_macro_data_compression_evaluate_uncompressed() {
 #[test]
 fn test_minimum_external_macro_data_compression_evaluate_with_pointer() {
     // alphabet {a, b}, s = "abab", h = 2
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2).unwrap();
     // D = "ab" (len 2), C = "ptr(0,2) ptr(0,2)"
     // D-slots: [0, 1, 2, 2] (a, b, empty, empty)
     // C-slots: pointer (0,2) = index 1 in pointer enumeration:
@@ -57,14 +57,14 @@ fn test_minimum_external_macro_data_compression_evaluate_with_pointer() {
 #[test]
 fn test_minimum_external_macro_data_compression_evaluate_invalid_decode() {
     // alphabet {a, b}, s = "ab", h = 2
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // C = "ba" doesn't match s = "ab"
     assert_eq!(problem.evaluate(&vec![2, 2, 1, 0]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_external_macro_data_compression_evaluate_wrong_length() {
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 1, 0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -78,7 +78,7 @@ fn test_minimum_external_macro_data_compression_evaluate_wrong_length() {
 #[test]
 fn test_minimum_external_macro_data_compression_evaluate_interleaved_empty() {
     // D-slots have interleaved empty
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // D-slots: [2, 0] (empty then non-empty -> invalid)
     assert_eq!(problem.evaluate(&vec![2, 0, 0, 1]).unwrap(), Min(None));
 }
@@ -86,7 +86,7 @@ fn test_minimum_external_macro_data_compression_evaluate_interleaved_empty() {
 #[test]
 fn test_minimum_external_macro_data_compression_evaluate_pointer_out_of_range() {
     // alphabet {a, b}, s = "ab", h = 2
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     // D = "a" (len 1), C = "ptr(0,2)" which references D[0..2] but D only has 1 element
     // ptr(0,2) index = 1, encoded as 2+1+1 = 4
     assert_eq!(problem.evaluate(&vec![0, 2, 4, 2]).unwrap(), Min(None));
@@ -94,7 +94,7 @@ fn test_minimum_external_macro_data_compression_evaluate_pointer_out_of_range() 
 
 #[test]
 fn test_minimum_external_macro_data_compression_empty_string() {
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![], 2).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         Vec::<usize>::new()
@@ -106,7 +106,7 @@ fn test_minimum_external_macro_data_compression_empty_string() {
 fn test_minimum_external_macro_data_compression_brute_force() {
     // alphabet {a, b}, s = "ab", h = 2
     // Search space: 3^2 * 6^2 = 324 (feasible for brute force)
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -120,7 +120,7 @@ fn test_minimum_external_macro_data_compression_brute_force() {
 
 #[test]
 fn test_minimum_external_macro_data_compression_solve_aggregate() {
-    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     let solver = BruteForce::new();
     let val_solution = solver.solve(&problem).unwrap().unwrap();
     let val = problem.evaluate(&val_solution).unwrap();
@@ -129,7 +129,7 @@ fn test_minimum_external_macro_data_compression_solve_aggregate() {
 
 #[test]
 fn test_minimum_external_macro_data_compression_serialization() {
-    let problem = MinimumExternalMacroDataCompression::new(3, vec![0, 1, 2], 2);
+    let problem = MinimumExternalMacroDataCompression::new(3, vec![0, 1, 2], 2).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumExternalMacroDataCompression = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
@@ -156,7 +156,8 @@ fn test_minimum_external_macro_data_compression_paper_example() {
         6,
         vec![0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5],
         2,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.string_length(), 18);
 
     // Construct the optimal config manually:
@@ -180,7 +181,7 @@ fn test_minimum_external_macro_data_compression_paper_example() {
 fn test_minimum_external_macro_data_compression_find_all_witnesses() {
     // alphabet {a}, s = "a", h = 2
     // 2*1 = 2 variables. D-domain = 2, C-domain = 2 + 1 = 3. Total = 2*3 = 6
-    let problem = MinimumExternalMacroDataCompression::new(1, vec![0], 2);
+    let problem = MinimumExternalMacroDataCompression::new(1, vec![0], 2).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     // There should be at least one witness: uncompressed [1, 0] (D=empty, C=a)

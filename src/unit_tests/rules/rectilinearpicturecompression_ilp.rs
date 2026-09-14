@@ -5,7 +5,8 @@ use crate::types::Or;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
-    let problem = RectilinearPictureCompression::new(vec![vec![true, true], vec![true, false]], 2);
+    let problem =
+        RectilinearPictureCompression::new(vec![vec![true, true], vec![true, false]], 2).unwrap();
     let reduction: ReductionRPCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -16,7 +17,8 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_rectilinearpicturecompression_to_ilp_bf_vs_ilp() {
-    let problem = RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 1);
+    let problem =
+        RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 1).unwrap();
     let reduction: ReductionRPCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -34,7 +36,8 @@ fn test_rectilinearpicturecompression_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 2);
+    let problem =
+        RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 2).unwrap();
     let reduction: ReductionRPCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -49,7 +52,8 @@ fn test_solution_extraction() {
 fn test_rectilinearpicturecompression_to_ilp_trivial() {
     // All-zero matrix: no 1-cells, trivially feasible
     let problem =
-        RectilinearPictureCompression::new(vec![vec![false, false], vec![false, false]], 0);
+        RectilinearPictureCompression::new(vec![vec![false, false], vec![false, false]], 0)
+            .unwrap();
     let reduction: ReductionRPCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

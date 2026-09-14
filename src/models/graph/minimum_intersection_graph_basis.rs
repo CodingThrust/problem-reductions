@@ -53,7 +53,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path P3: 3 vertices, edges (0,1), (1,2)
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
 /// let problem = MinimumIntersectionGraphBasis::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -199,10 +199,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // vertex 2: [false,true].
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_intersection_graph_basis_simplegraph",
-        instance: Box::new(MinimumIntersectionGraphBasis::new(SimpleGraph::new(
-            3,
-            vec![(0, 1), (1, 2)],
-        ))),
+        instance: Box::new(MinimumIntersectionGraphBasis::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![
             vec![true, false],
             vec![true, true],

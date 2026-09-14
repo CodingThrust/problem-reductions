@@ -8,7 +8,7 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Directed path: 0->1->2 (n=3)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -21,7 +21,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_directedhamiltonianpath_to_ilp_closed_loop() {
     // Directed path: 0->1->2->3
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
 
     // BruteForce to verify feasibility
@@ -64,7 +64,8 @@ fn test_directedhamiltonianpath_to_ilp_issue_example() {
             (4, 5),
             (5, 1),
         ],
-    );
+    )
+    .unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -83,7 +84,7 @@ fn test_directedhamiltonianpath_to_ilp_issue_example() {
 #[test]
 fn test_directedhamiltonianpath_to_ilp_no_path() {
     // No Hamiltonian path: 0->1, 0->2, but no outgoing arcs from 1 or 2
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -98,7 +99,7 @@ fn test_directedhamiltonianpath_to_ilp_no_path() {
 
 #[test]
 fn test_directedhamiltonianpath_to_ilp_bf_vs_ilp() {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

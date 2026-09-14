@@ -64,7 +64,7 @@ inventory::submit! {
 /// use problemreductions::types::Min;
 ///
 /// // Triangle on {0,1,2} with leaf vertex 3 attached to 2.
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap();
 /// let problem = HighlyConnectedDeletion::new(graph);
 ///
 /// // Optimal: delete only the leaf edge (2,3) → K3 + isolated {3}.
@@ -339,10 +339,9 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "highly_connected_deletion_simplegraph",
-        instance: Box::new(HighlyConnectedDeletion::new(SimpleGraph::new(
-            4,
-            vec![(0, 1), (0, 2), (1, 2), (2, 3)],
-        ))),
+        instance: Box::new(HighlyConnectedDeletion::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+        )),
         // Edges in input order; deleting only edge index 3 = (2,3) leaves K3 + {3}.
         optimal_config: serde_json::json!(vec![false, false, false, true]),
         optimal_value: serde_json::json!(1),

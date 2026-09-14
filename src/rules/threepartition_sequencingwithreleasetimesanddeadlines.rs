@@ -144,7 +144,10 @@ impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {
         }
 
         Ok(ReductionThreePartitionToSRTD {
-            target: SequencingWithReleaseTimesAndDeadlines::new(lengths, release_times, deadlines),
+            target: SequencingWithReleaseTimesAndDeadlines::new(lengths, release_times, deadlines)
+                .map_err(
+                    <Self as ReduceTo<SequencingWithReleaseTimesAndDeadlines>>::target_construction,
+                )?,
             num_element_tasks: n_elem,
             bound: b,
         })

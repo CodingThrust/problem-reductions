@@ -128,7 +128,7 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
         (1, 4),
         (2, 5),
     ];
-    let hc = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
+    let hc = HamiltonianCircuit::new(SimpleGraph::new(6, edges).unwrap());
 
     // HC → QAP → ILP → solve → extract back
     let r1 = ReduceTo::<QuadraticAssignment>::reduce_to(&hc).expect("reduction should succeed");
@@ -157,7 +157,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
         (2, vec![(0, 1)]),
         (2, vec![(0, 0), (0, 1), (0, 1), (1, 1)]),
     ] {
-        let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+        let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges).unwrap());
         assert!(!source.evaluate(&(0..n).collect()).unwrap().0);
         let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
@@ -208,7 +208,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
             // Native loops and repeated edges must preserve the same equivalence.
             edges.extend((0..n).map(|v| (v, v)));
             edges.extend(edges.clone());
-            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
+            let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges).unwrap());
             let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source).unwrap();
             for mut encoded in 0..n.pow(u32::try_from(n).unwrap()) {
                 let order: Vec<_> = (0..n)
@@ -276,7 +276,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_registered_aggregate_path() {
         (cycle4_hc(), true),
         (HamiltonianCircuit::new(SimpleGraph::star(4)), false),
         (
-            HamiltonianCircuit::new(SimpleGraph::new(2, vec![(0, 1)])),
+            HamiltonianCircuit::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap()),
             false,
         ),
     ] {

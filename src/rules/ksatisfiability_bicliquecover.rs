@@ -253,7 +253,11 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
                 vec![]
             };
             return Ok(ReductionKSatisfiabilityToBicliqueCover {
-                target: BicliqueCover::new(BipartiteGraph::new(size, size, edges), 0),
+                target: BicliqueCover::new(
+                    BipartiteGraph::new(size, size, edges)
+                        .map_err(<Self as ReduceTo<BicliqueCover>>::target_construction)?,
+                    0,
+                ),
                 source_num_vars,
                 normalized_n: 0,
                 s1_left_offset: 0,
@@ -486,7 +490,8 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
 
         // ---------------- Assemble target ----------------
         let edges_vec: Vec<(usize, usize)> = edges.into_iter().collect();
-        let bipartite = BipartiteGraph::new(partition_size, partition_size, edges_vec);
+        let bipartite = BipartiteGraph::new(partition_size, partition_size, edges_vec)
+            .map_err(<Self as ReduceTo<BicliqueCover>>::target_construction)?;
         let target = BicliqueCover::new(bipartite, rank);
 
         Ok(ReductionKSatisfiabilityToBicliqueCover {

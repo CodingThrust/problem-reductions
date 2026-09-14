@@ -61,19 +61,38 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph: 0-1-2-3, source=0, target=3
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-/// let problem = HamiltonianPathBetweenTwoVertices::new(graph, 0, 3);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+/// let problem = HamiltonianPathBetweenTwoVertices::new(graph, 0, 3).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct HamiltonianPathBetweenTwoVertices<G> {
     graph: G,
     source_vertex: usize,
     target_vertex: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct HamiltonianPathBetweenTwoVerticesData<G> {
+    graph: G,
+    source_vertex: usize,
+    target_vertex: usize,
+}
+
+impl<'de, G> Deserialize<'de> for HamiltonianPathBetweenTwoVertices<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = HamiltonianPathBetweenTwoVerticesData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph, data.source_vertex, data.target_vertex)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -93,28 +112,35 @@ struct HamiltonianPathBetweenTwoVerticesRandomSpec {
 impl<G: Graph> HamiltonianPathBetweenTwoVertices<G> {
     /// Create a new Hamiltonian Path Between Two Vertices problem.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `source_vertex` or `target_vertex` is out of range, or if they are equal.
-    pub fn new(graph: G, source_vertex: usize, target_vertex: usize) -> Self {
+    /// Returns an error if `source_vertex` or `target_vertex` is out of range, or if they are equal.
+    pub fn new(
+        graph: G,
+        source_vertex: usize,
+        target_vertex: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = graph.num_vertices();
-        assert!(
-            source_vertex < n,
-            "source_vertex {source_vertex} out of range for graph with {n} vertices"
-        );
-        assert!(
-            target_vertex < n,
-            "target_vertex {target_vertex} out of range for graph with {n} vertices"
-        );
-        assert_ne!(
-            source_vertex, target_vertex,
-            "source_vertex and target_vertex must be distinct"
-        );
-        Self {
+        if !(source_vertex < n) {
+            return Err(format!(
+                "source_vertex {source_vertex} out of range for graph with {n} vertices"
+            )
+            .into());
+        }
+        if !(target_vertex < n) {
+            return Err(format!(
+                "target_vertex {target_vertex} out of range for graph with {n} vertices"
+            )
+            .into());
+        }
+        if source_vertex == target_vertex {
+            return Err("source_vertex and target_vertex must be distinct".into());
+        }
+        Ok(Self {
             graph,
             source_vertex,
             target_vertex,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -248,23 +274,27 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Hamiltonian s-t path: [0, 3, 2, 1, 4, 5]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_path_between_two_vertices_simplegraph",
-        instance: Box::new(HamiltonianPathBetweenTwoVertices::new(
-            SimpleGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (0, 3),
-                    (1, 2),
-                    (1, 4),
-                    (2, 5),
-                    (3, 4),
-                    (4, 5),
-                    (2, 3),
-                ],
-            ),
-            0,
-            5,
-        )),
+        instance: Box::new(
+            HamiltonianPathBetweenTwoVertices::new(
+                SimpleGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (0, 3),
+                        (1, 2),
+                        (1, 4),
+                        (2, 5),
+                        (3, 4),
+                        (4, 5),
+                        (2, 3),
+                    ],
+                )
+                .unwrap(),
+                0,
+                5,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 3, 2, 1, 4, 5]),
         optimal_value: serde_json::json!(true),
     }]
@@ -293,7 +323,7 @@ crate::impl_random_generate!(
             seed: spec.seed,
         }
         .graph()?;
-        Ok(HamiltonianPathBetweenTwoVertices::new(graph, source, sink))
+        Ok(HamiltonianPathBetweenTwoVertices::new(graph, source, sink).unwrap())
     }
 );
 

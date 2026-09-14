@@ -21,8 +21,8 @@ fn is_valid_cover(graph: &SimpleGraph, config: &[bool]) -> bool {
 fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
     // Single edge: 2 vertices, 1 edge (0,1)
     // K* = 1, optimal EC length = K* + |E| = 2
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]).unwrap();
     let reduction =
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -56,8 +56,8 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
 #[test]
 fn test_reduction_structure_triangle() {
     // Triangle K₃: 3 vertices, 3 edges
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let source = MinimumVertexCover::new(graph, vec![One; 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let source = MinimumVertexCover::new(graph, vec![One; 3]).unwrap();
     let reduction =
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -78,8 +78,8 @@ fn test_reduction_structure_triangle() {
 #[test]
 fn test_reduction_structure_path() {
     // Path P₃: 3 vertices {0,1,2}, 2 edges
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let source = MinimumVertexCover::new(graph, vec![One; 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let source = MinimumVertexCover::new(graph, vec![One; 3]).unwrap();
     let reduction =
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -92,8 +92,8 @@ fn test_reduction_structure_path() {
 #[test]
 fn test_extract_solution_correctness() {
     // Single edge: vertices {0,1}, edge (0,1), a₀ = 2
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]).unwrap();
     let reduction =
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
 
@@ -112,8 +112,8 @@ fn test_extract_solution_correctness() {
 
 #[test]
 fn test_extract_from_non_normalized_witness() {
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
+    let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]).unwrap();
     let reduction =
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
 
@@ -130,8 +130,8 @@ fn test_extract_from_non_normalized_witness() {
 
 #[test]
 fn test_empty_graph() {
-    let graph = SimpleGraph::new(3, vec![]);
-    let source = MinimumVertexCover::new(graph.clone(), vec![One; 3]);
+    let graph = SimpleGraph::new(3, vec![]).unwrap();
+    let source = MinimumVertexCover::new(graph.clone(), vec![One; 3]).unwrap();
     let reduction =
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -149,7 +149,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_minimumvertexcover_to_ensemblecomputation_zero_vertices() {
-    let source = MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![]);
+    let source = MinimumVertexCover::new(SimpleGraph::new(0, vec![]).unwrap(), vec![]).unwrap();
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     assert_eq!(reduction.target_problem().universe_size(), 1);
     assert_eq!(reduction.target_problem().budget(), 1);
@@ -162,7 +162,8 @@ fn test_minimumvertexcover_to_ensemblecomputation_zero_vertices() {
 
 #[test]
 fn test_minimumvertexcover_to_ensemblecomputation_rejects_invalid_programs() {
-    let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
+    let source =
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![One; 2]).unwrap();
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     for program in [vec![], vec![0; 6], vec![3, 0, 1, 2, 0, 1]] {
         assert!(
@@ -173,7 +174,11 @@ fn test_minimumvertexcover_to_ensemblecomputation_rejects_invalid_programs() {
 
 #[test]
 fn test_minimumvertexcover_to_ensemblecomputation_unused_and_repeated_operations() {
-    let source = MinimumVertexCover::new(SimpleGraph::new(5, vec![(1, 2), (1, 3)]), vec![One; 5]);
+    let source = MinimumVertexCover::new(
+        SimpleGraph::new(5, vec![(1, 2), (1, 3)]).unwrap(),
+        vec![One; 5],
+    )
+    .unwrap();
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     // Two-atom pair, useful pair, duplicate pair, unused four-atom result,
     // then the required triples. The final suffix is intentionally invalid.
@@ -203,7 +208,9 @@ fn test_minimumvertexcover_to_ensemblecomputation_all_small_pair_families() {
             .enumerate()
             .filter_map(|(i, &edge)| (graph_mask & (1 << i) != 0).then_some(edge))
             .collect();
-        let source = MinimumVertexCover::new(SimpleGraph::new(4, edges.clone()), vec![One; 4]);
+        let source =
+            MinimumVertexCover::new(SimpleGraph::new(4, edges.clone()).unwrap(), vec![One; 4])
+                .unwrap();
         let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
         let optimum = (0u32..16)
             .filter(|bits| {
@@ -261,9 +268,10 @@ fn test_minimumvertexcover_to_ensemblecomputation_loops_and_parallel_edges() {
     // SimpleGraph's native constructor permits these representations. Duplicate
     // required sets need no extra operations; a loop requires its endpoint pair.
     let source = MinimumVertexCover::new(
-        SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 0), (1, 2), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 0), (1, 2), (1, 2)]).unwrap(),
         vec![One; 3],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     let mut program = vec![3, 0, 3, 1, 1, 4, 2, 5];
     program.resize(2 * reduction.target_problem().budget(), usize::MAX);
@@ -275,7 +283,8 @@ fn test_minimumvertexcover_to_ensemblecomputation_loops_and_parallel_edges() {
     assert_eq!(cover, vec![true, true, false]);
     assert_eq!(source.evaluate(&cover).unwrap(), Min(Some(2)));
 
-    let source = MinimumVertexCover::new(SimpleGraph::new(1, vec![(0, 0)]), vec![One]);
+    let source =
+        MinimumVertexCover::new(SimpleGraph::new(1, vec![(0, 0)]).unwrap(), vec![One]).unwrap();
     let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
     assert_eq!(
         reduction

@@ -25,6 +25,7 @@ fn issue_instance() -> MinimumDecisionTree {
         4,
         3,
     )
+    .unwrap()
 }
 
 #[test]
@@ -117,7 +118,8 @@ fn test_minimum_decision_tree_two_objects() {
         vec![vec![false, true]], // T0 distinguishes o0 (false) from o1 (true)
         2,
         1,
-    );
+    )
+    .unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem)
             .unwrap()
@@ -130,14 +132,12 @@ fn test_minimum_decision_tree_two_objects() {
 }
 
 #[test]
-#[should_panic(expected = "Need at least 2 objects")]
 fn test_minimum_decision_tree_too_few_objects() {
-    MinimumDecisionTree::new(vec![vec![true]], 1, 1);
+    assert!(MinimumDecisionTree::new(vec![vec![true]], 1, 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "not distinguished")]
 fn test_minimum_decision_tree_indistinguishable() {
     // Two objects with identical test results
-    MinimumDecisionTree::new(vec![vec![true, true]], 2, 1);
+    assert!(MinimumDecisionTree::new(vec![vec![true, true]], 2, 1).is_err());
 }

@@ -44,8 +44,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumvertexcover_to_minimummaximalmatching",
         build: || {
             let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)];
-            let source = MinimumVertexCover::new(SimpleGraph::new(5, edges.clone()), vec![One; 5]);
-            let target = MinimumMaximalMatching::new(SimpleGraph::new(5, edges));
+            let source =
+                MinimumVertexCover::new(SimpleGraph::new(5, edges.clone()).unwrap(), vec![One; 5])
+                    .unwrap();
+            let target = MinimumMaximalMatching::new(SimpleGraph::new(5, edges).unwrap());
             assemble_rule_example(
                 &source,
                 &target,

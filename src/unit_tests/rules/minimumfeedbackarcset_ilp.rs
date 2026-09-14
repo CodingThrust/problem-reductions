@@ -8,8 +8,8 @@ use crate::types::Min;
 fn test_reduction_creates_valid_ilp() {
     // Simple 3-cycle: 0 -> 1 -> 2 -> 0
     // m=3 arcs, n=3 vertices → 6 variables, m+m+n = 9 constraints
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]).unwrap();
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -29,8 +29,8 @@ fn test_reduction_creates_valid_ilp() {
 fn test_minimumfeedbackarcset_to_ilp_bf_vs_ilp() {
     // Triangle cycle: 0 -> 1 -> 2 -> 0
     // FAS = 1 (remove any single arc to break the cycle)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]).unwrap();
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -55,8 +55,8 @@ fn test_minimumfeedbackarcset_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Verify that extraction correctly takes first m arc values
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]).unwrap();
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -75,8 +75,8 @@ fn test_solution_extraction() {
 #[test]
 fn test_minimumfeedbackarcset_to_ilp_trivial() {
     // DAG: 0 -> 1 -> 2 (no cycles, FAS = 0)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 2]);
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 2]).unwrap();
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

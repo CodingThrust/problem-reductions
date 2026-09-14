@@ -43,32 +43,50 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle graph: 3 vertices forming a single triangle
-/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-/// let problem = PartitionIntoTriangles::new(graph);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+/// let problem = PartitionIntoTriangles::new(graph).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct PartitionIntoTriangles<G> {
     /// The underlying graph.
     graph: G,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoTrianglesData<G> {
+    graph: G,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoTriangles<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoTrianglesData::<G>::deserialize(deserializer)?;
+        Self::new(data.graph).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> PartitionIntoTriangles<G> {
     /// Create a new Partition Into Triangles problem from a graph.
     ///
-    /// # Panics
-    /// Panics if the number of vertices is not divisible by 3.
-    pub fn new(graph: G) -> Self {
-        assert!(
-            graph.num_vertices().is_multiple_of(3),
-            "Number of vertices ({}) must be divisible by 3",
-            graph.num_vertices()
-        );
-        Self { graph }
+    /// # Errors
+    /// Returns an error if the number of vertices is not divisible by 3.
+    pub fn new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !(graph.num_vertices().is_multiple_of(3)) {
+            return Err(format!(
+                "Number of vertices ({}) must be divisible by 3",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.
@@ -189,10 +207,16 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_triangles_simplegraph",
-        instance: Box::new(PartitionIntoTriangles::new(SimpleGraph::new(
-            6,
-            vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3)],
-        ))),
+        instance: Box::new(
+            PartitionIntoTriangles::new(
+                SimpleGraph::new(
+                    6,
+                    vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3)],
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

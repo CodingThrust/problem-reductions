@@ -123,9 +123,13 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for KSatisfiability<K3> {
             }
         }
 
-        let graph = SimpleGraph::new(total_vertices, edges);
+        let graph = SimpleGraph::new(total_vertices, edges).map_err(
+            <Self as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::target_construction,
+        )?;
         let weights = vec![1i64; total_vertices];
-        let target = MinimumVertexCover::new(graph, weights);
+        let target = MinimumVertexCover::new(graph, weights).map_err(
+            <Self as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::target_construction,
+        )?;
 
         Ok(Reduction3SATToMVC {
             target,

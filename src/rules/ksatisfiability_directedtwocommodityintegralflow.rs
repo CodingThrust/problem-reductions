@@ -298,7 +298,9 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             >("converting the clause count to an i64 flow requirement")
         })?;
         let target = DirectedTwoCommodityIntegralFlow::new(
-            DirectedGraph::new(next_vertex, arcs),
+            DirectedGraph::new(next_vertex, arcs).map_err(
+                <Self as ReduceTo<DirectedTwoCommodityIntegralFlow>>::target_construction,
+            )?,
             capacities,
             source_1,
             sink_1,
@@ -306,7 +308,8 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             sink_2,
             1,
             clause_requirement,
-        );
+        )
+        .map_err(<Self as ReduceTo<DirectedTwoCommodityIntegralFlow>>::target_construction)?;
 
         Ok(Reduction3SATToDirectedTwoCommodityIntegralFlow {
             target,

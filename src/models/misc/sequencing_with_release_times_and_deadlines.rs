@@ -51,44 +51,66 @@ inventory::submit! {
 ///     vec![1, 2, 1],
 ///     vec![0, 0, 2],
 ///     vec![3, 3, 4],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SequencingWithReleaseTimesAndDeadlinesData")]
 pub struct SequencingWithReleaseTimesAndDeadlines {
     lengths: Vec<i64>,
     release_times: Vec<i64>,
     deadlines: Vec<i64>,
 }
 
+#[derive(Deserialize)]
+struct SequencingWithReleaseTimesAndDeadlinesData {
+    lengths: Vec<i64>,
+    release_times: Vec<i64>,
+    deadlines: Vec<i64>,
+}
+
+impl TryFrom<SequencingWithReleaseTimesAndDeadlinesData>
+    for SequencingWithReleaseTimesAndDeadlines
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SequencingWithReleaseTimesAndDeadlinesData) -> Result<Self, Self::Error> {
+        Self::new(data.lengths, data.release_times, data.deadlines)
+    }
+}
+
 impl SequencingWithReleaseTimesAndDeadlines {
     /// Create a new instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the three vectors have different lengths.
-    pub fn new(lengths: Vec<i64>, release_times: Vec<i64>, deadlines: Vec<i64>) -> Self {
-        assert_eq!(lengths.len(), release_times.len());
-        assert_eq!(lengths.len(), deadlines.len());
-        assert!(
-            lengths.iter().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(
-            release_times.iter().all(|&release| release >= 0),
-            "release times must be nonnegative"
-        );
-        assert!(
-            deadlines.iter().all(|&deadline| deadline >= 0),
-            "deadlines must be nonnegative"
-        );
-        Self {
+    /// Returns an error if the three vectors have different lengths.
+    pub fn new(
+        lengths: Vec<i64>,
+        release_times: Vec<i64>,
+        deadlines: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if lengths.len() != release_times.len() {
+            return Err("lengths and release_times must have the same length".into());
+        }
+        if lengths.len() != deadlines.len() {
+            return Err("lengths and deadlines must have the same length".into());
+        }
+        if !(lengths.iter().all(|&length| length >= 0)) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if !(release_times.iter().all(|&release| release >= 0)) {
+            return Err("release times must be nonnegative".into());
+        }
+        if !(deadlines.iter().all(|&deadline| deadline >= 0)) {
+            return Err("deadlines must be nonnegative".into());
+        }
+        Ok(Self {
             lengths,
             release_times,
             deadlines,
-        }
+        })
     }
 
     /// Returns the processing times.
@@ -191,11 +213,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // 5 tasks from issue example.
         // Feasible schedule order: t3, t0, t1, t2, t4
         // Lehmer code [3,0,0,0,0] = permutation [3,0,1,2,4]
-        instance: Box::new(SequencingWithReleaseTimesAndDeadlines::new(
-            vec![3, 2, 4, 1, 2],
-            vec![0, 1, 5, 0, 8],
-            vec![5, 6, 10, 3, 12],
-        )),
+        instance: Box::new(
+            SequencingWithReleaseTimesAndDeadlines::new(
+                vec![3, 2, 4, 1, 2],
+                vec![0, 1, 5, 0, 8],
+                vec![5, 6, 10, 3, 12],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![3, 0, 1, 2, 4]),
         optimal_value: serde_json::json!(true),
     }]

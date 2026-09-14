@@ -24,7 +24,7 @@ use crate::traits::Problem;
 
 fn canonical_instance() -> UndirectedTwoCommodityIntegralFlow {
     UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 2],
         0,
         3,
@@ -33,11 +33,12 @@ fn canonical_instance() -> UndirectedTwoCommodityIntegralFlow {
         1,
         1,
     )
+    .unwrap()
 }
 
 fn shared_bottleneck_instance() -> UndirectedTwoCommodityIntegralFlow {
     UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1],
         0,
         3,
@@ -46,6 +47,7 @@ fn shared_bottleneck_instance() -> UndirectedTwoCommodityIntegralFlow {
         1,
         1,
     )
+    .unwrap()
 }
 
 fn example_config() -> Vec<usize> {
@@ -154,7 +156,7 @@ fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
     let large: i64 = 1_000_000;
     let large_usize = large as usize;
     let problem = UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![large],
         0,
         1,
@@ -162,7 +164,8 @@ fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
         1,
         large,
         0,
-    );
+    )
+    .unwrap();
 
     assert!(problem.evaluate(&vec![large_usize, 0, 0, 0]).unwrap());
 }
@@ -171,7 +174,7 @@ fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
 fn test_undirected_two_commodity_integral_flow_shared_capacity_exceeded() {
     // Two commodities each sending 2 units on an edge with capacity 3.
     let problem = UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![3],
         0,
         1,
@@ -179,17 +182,17 @@ fn test_undirected_two_commodity_integral_flow_shared_capacity_exceeded() {
         1,
         2,
         2,
-    );
+    )
+    .unwrap();
 
     // f1(0->1)=2, f1(1->0)=0, f2(0->1)=2, f2(1->0)=0 => shared = 4 > 3
     assert!(!problem.evaluate(&vec![2, 0, 2, 0]).unwrap());
 }
 
 #[test]
-#[should_panic(expected = "capacities length must match")]
-fn test_undirected_two_commodity_integral_flow_panics_wrong_capacity_count() {
-    UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+fn test_undirected_two_commodity_integral_flow_rejects_wrong_capacity_count() {
+    assert!(UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1], // 1 capacity but 2 edges
         0,
         2,
@@ -197,14 +200,14 @@ fn test_undirected_two_commodity_integral_flow_panics_wrong_capacity_count() {
         2,
         1,
         1,
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "must be less than num_vertices")]
-fn test_undirected_two_commodity_integral_flow_panics_vertex_out_of_bounds() {
-    UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+fn test_undirected_two_commodity_integral_flow_rejects_vertex_out_of_bounds() {
+    assert!(UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1],
         0,
         5, // out of bounds
@@ -212,14 +215,15 @@ fn test_undirected_two_commodity_integral_flow_panics_vertex_out_of_bounds() {
         2,
         1,
         1,
-    );
+    )
+    .is_err());
 }
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_flow_conservation_violated() {
     // 0 -- 1 -- 2, commodity 1: s=0 t=2, commodity 2: s=0 t=2
     let problem = UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![2, 2],
         0,
         2,
@@ -227,7 +231,8 @@ fn test_undirected_two_commodity_integral_flow_flow_conservation_violated() {
         2,
         1,
         1,
-    );
+    )
+    .unwrap();
 
     // Flow conservation violated at vertex 1: commodity 1 enters but doesn't leave.
     // Edge (0,1): f1(0->1)=1, f1(1->0)=0, f2=0,0

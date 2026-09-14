@@ -1596,9 +1596,10 @@ fn test_reduce_along_path_direct() {
         .expect("direct route");
     // Just verify the path can produce a chain with a dummy source
     let source = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let chain = graph
         .reduce_along_path(&rpath, &source as &dyn std::any::Any)
         .expect("direct reduction should not fail");
@@ -1620,9 +1621,10 @@ fn test_reduction_chain_direct() {
         .expect("direct route");
 
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let chain = graph
         .reduce_along_path(&rpath, &problem as &dyn std::any::Any)
         .unwrap()
@@ -1651,9 +1653,10 @@ fn test_reduction_chain_multi_step() {
         .expect("direct route");
 
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let chain = graph
         .reduce_along_path(&rpath, &problem as &dyn std::any::Any)
         .unwrap()
@@ -1699,7 +1702,7 @@ fn test_reduction_chain_with_variant_reductions() {
 
     // Create a small UnitDiskGraph MIS problem (triangle of close nodes)
     let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0).unwrap();
-    let mis = MaximumIndependentSet::new(udg, vec![1i64, 1, 1]);
+    let mis = MaximumIndependentSet::new(udg, vec![1i64, 1, 1]).unwrap();
 
     let chain = graph
         .reduce_along_path(&rpath, &mis as &dyn std::any::Any)
@@ -1873,9 +1876,10 @@ fn test_variant_complexity() {
 #[test]
 fn test_compute_problem_parameters_uses_exact_variant_executor() {
     let problem = MaximumIndependentSet::<SimpleGraph, i64>::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 1, 1],
-    );
+    )
+    .unwrap();
     let variant =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let size =
@@ -2041,7 +2045,11 @@ fn composed_witness_agrees_across_direct_chain_path_and_json() {
     use crate::rules::ReduceTo;
     type Cover = MinimumVertexCover<SimpleGraph, i64>;
     type IndependentSet = MaximumIndependentSet<SimpleGraph, i64>;
-    let source = Cover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1; 3]);
+    let source = Cover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1; 3],
+    )
+    .unwrap();
     let first = ReduceTo::<IndependentSet>::reduce_to(&source).unwrap();
     let second = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(first.target_problem()).unwrap();
     let third = ReduceTo::<ILP<bool>>::reduce_to(second.target_problem()).unwrap();

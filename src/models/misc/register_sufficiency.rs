@@ -50,12 +50,13 @@ inventory::submit! {
 ///     4,
 ///     vec![(2, 0), (3, 0), (3, 1)],
 ///     2,
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "RegisterSufficiencyData")]
 pub struct RegisterSufficiency {
     /// Number of vertices.
     num_vertices: usize,
@@ -65,29 +66,50 @@ pub struct RegisterSufficiency {
     bound: usize,
 }
 
+#[derive(Deserialize)]
+struct RegisterSufficiencyData {
+    num_vertices: usize,
+    arcs: Vec<(usize, usize)>,
+    bound: usize,
+}
+
+impl TryFrom<RegisterSufficiencyData> for RegisterSufficiency {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: RegisterSufficiencyData) -> Result<Self, Self::Error> {
+        Self::new(data.num_vertices, data.arcs, data.bound)
+    }
+}
+
 impl RegisterSufficiency {
     /// Create a new Register Sufficiency instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any arc index is out of bounds (>= num_vertices),
+    /// Returns an error if any arc index is out of bounds (>= num_vertices),
     /// or if any arc is a self-loop.
-    pub fn new(num_vertices: usize, arcs: Vec<(usize, usize)>, bound: usize) -> Self {
+    pub fn new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        bound: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for &(v, u) in &arcs {
-            assert!(
-                v < num_vertices && u < num_vertices,
-                "Arc ({}, {}) out of bounds for {} vertices",
-                v,
-                u,
-                num_vertices
-            );
-            assert!(v != u, "Self-loop ({}, {}) not allowed in a DAG", v, u);
+            if !(v < num_vertices && u < num_vertices) {
+                return Err(format!(
+                    "Arc ({}, {}) out of bounds for {} vertices",
+                    v, u, num_vertices
+                )
+                .into());
+            }
+            if v == u {
+                return Err(format!("Self-loop ({}, {}) not allowed in a DAG", v, u).into());
+            }
         }
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             bound,
-        }
+        })
     }
 
     /// Get the number of vertices.
@@ -415,20 +437,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Issue #515 example: 7 vertices, 8 arcs, K=3
         // Arcs (0-indexed): (2,0), (2,1), (3,1), (4,2), (4,3), (5,0), (6,4), (6,5)
         // Order: v0,v1,v2,v3,v5,v4,v6 -> positions [0,1,2,3,5,4,6]
-        instance: Box::new(RegisterSufficiency::new(
-            7,
-            vec![
-                (2, 0),
-                (2, 1),
-                (3, 1),
-                (4, 2),
-                (4, 3),
-                (5, 0),
-                (6, 4),
-                (6, 5),
-            ],
-            3,
-        )),
+        instance: Box::new(
+            RegisterSufficiency::new(
+                7,
+                vec![
+                    (2, 0),
+                    (2, 1),
+                    (3, 1),
+                    (4, 2),
+                    (4, 3),
+                    (5, 0),
+                    (6, 4),
+                    (6, 5),
+                ],
+                3,
+            )
+            .unwrap(),
+        ),
         // Order: v1,v2,v3,v4,v6,v5,v7 (1-indexed) = v0,v1,v2,v3,v5,v4,v6 (0-indexed)
         // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
         optimal_config: serde_json::json!(vec![0, 1, 2, 3, 5, 4, 6]),

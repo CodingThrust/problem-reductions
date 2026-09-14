@@ -20,19 +20,20 @@ fn hexagon_rpp() -> RuralPostman<SimpleGraph, i64> {
             (0, 3),
             (1, 4),
         ],
-    );
+    )
+    .unwrap();
     let edge_lengths = vec![1, 1, 1, 1, 1, 1, 2, 2];
     // Required edges: {0,1}=idx 0, {2,3}=idx 2, {4,5}=idx 4
     let required_edges = vec![0, 2, 4];
-    RuralPostman::new(graph, edge_lengths, required_edges)
+    RuralPostman::new(graph, edge_lengths, required_edges).unwrap()
 }
 
 /// Instance 3 from issue: C4 cycle, all edges required (Chinese Postman)
 fn chinese_postman_rpp() -> RuralPostman<SimpleGraph, i64> {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
     let edge_lengths = vec![1, 1, 1, 1];
     let required_edges = vec![0, 1, 2, 3];
-    RuralPostman::new(graph, edge_lengths, required_edges)
+    RuralPostman::new(graph, edge_lengths, required_edges).unwrap()
 }
 
 #[test]
@@ -98,10 +99,10 @@ fn test_rural_postman_chinese_postman_case() {
 #[test]
 fn test_rural_postman_no_edges_no_required() {
     // No required edges — selecting no edges is valid (empty circuit, cost 0)
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let edge_lengths = vec![1, 1, 1];
     let required_edges = vec![];
-    let problem = RuralPostman::new(graph, edge_lengths, required_edges);
+    let problem = RuralPostman::new(graph, edge_lengths, required_edges).unwrap();
     let config = vec![0, 0, 0];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
@@ -109,10 +110,10 @@ fn test_rural_postman_no_edges_no_required() {
 #[test]
 fn test_rural_postman_disconnected_selection() {
     // Select two disconnected triangles — even degree but not connected
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]).unwrap();
     let edge_lengths = vec![1, 1, 1, 1, 1, 1];
     let required_edges = vec![0, 3]; // edges in different components
-    let problem = RuralPostman::new(graph, edge_lengths, required_edges);
+    let problem = RuralPostman::new(graph, edge_lengths, required_edges).unwrap();
     // Select both triangles: even degree but disconnected
     let config = vec![1, 1, 1, 1, 1, 1];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
@@ -177,7 +178,7 @@ fn test_rural_postman_problem_name() {
 #[test]
 fn test_rural_postman_set_weights() {
     let mut problem = chinese_postman_rpp();
-    problem.set_weights(vec![2, 2, 2, 2]);
+    problem.set_weights(vec![2, 2, 2, 2]).unwrap();
     assert_eq!(problem.weights(), vec![2, 2, 2, 2]);
 }
 

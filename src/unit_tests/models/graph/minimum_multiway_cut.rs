@@ -4,7 +4,7 @@ use super::*;
 fn create_spec_rejects_invalid_terminals() {
     assert_eq!(MinimumMultiwayCutCreateSpec::FIELDS[1].name, "terminals");
     let result = MinimumMultiwayCut::try_from(MinimumMultiwayCutCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         terminals: vec![0, 0],
         edge_weights: vec![1],
     });
@@ -17,8 +17,8 @@ use crate::types::Min;
 
 #[test]
 fn test_minimummultiwaycut_creation() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem)
             .unwrap()
@@ -34,8 +34,8 @@ fn test_minimummultiwaycut_creation() {
 fn test_minimummultiwaycut_evaluate_valid() {
     // Issue example: 5 vertices, terminals {0,2,4}
     // Edges: (0,1)w=2, (1,2)w=3, (2,3)w=1, (3,4)w=2, (0,4)w=4, (1,3)w=5
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     // Optimal cut: remove edges (0,1), (3,4), (0,4) => indices 0, 3, 4
     // config: [1, 0, 0, 1, 1, 0] => weight 2 + 2 + 4 = 8
@@ -46,8 +46,8 @@ fn test_minimummultiwaycut_evaluate_valid() {
 
 #[test]
 fn test_minimummultiwaycut_evaluate_invalid() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     // No edges cut: all terminals connected => invalid
     let config = vec![false, false, false, false, false, false];
@@ -58,8 +58,8 @@ fn test_minimummultiwaycut_evaluate_invalid() {
 #[test]
 fn test_minimummultiwaycut_brute_force() {
     // Issue example: optimal cut has weight 8
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -82,8 +82,8 @@ fn test_minimummultiwaycut_two_terminals() {
     // k=2: classical min s-t cut. Path graph: 0-1-2, terminals {0,2}
     // Edges: (0,1)w=3, (1,2)w=5
     // Min cut: remove (0,1) with weight 3
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![3i64, 5]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![3i64, 5]).unwrap();
 
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -94,8 +94,8 @@ fn test_minimummultiwaycut_two_terminals() {
 
 #[test]
 fn test_minimummultiwaycut_all_edges_cut() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
     let config = vec![true, true, true, true, true, true];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(2 + 3 + 1 + 2 + 4 + 5)));
@@ -105,8 +105,8 @@ fn test_minimummultiwaycut_all_edges_cut() {
 fn test_minimummultiwaycut_already_disconnected() {
     // Terminals already in different components => empty cut is valid
     // Graph: 0-1  2-3, terminals {0, 2}
-    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64, 1]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64, 1]).unwrap();
     let config = vec![false, false];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(0)));
@@ -120,8 +120,8 @@ fn test_minimummultiwaycut_already_disconnected() {
 
 #[test]
 fn test_minimummultiwaycut_serialization() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64, 2]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64, 2]).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let restored: MinimumMultiwayCut<SimpleGraph, i64> = serde_json::from_str(&json).unwrap();
     assert_eq!(restored.num_vertices(), 3);
@@ -138,45 +138,41 @@ fn test_minimummultiwaycut_name() {
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
-fn test_minimummultiwaycut_panic_wrong_weights_len() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64]);
+fn test_minimummultiwaycut_rejects_wrong_weights_len() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "need at least 2 terminals")]
-fn test_minimummultiwaycut_panic_too_few_terminals() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    MinimumMultiwayCut::new(graph, vec![0], vec![1i64, 1]);
+fn test_minimummultiwaycut_rejects_too_few_terminals() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinimumMultiwayCut::new(graph, vec![0], vec![1i64, 1]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "duplicate terminal indices")]
-fn test_minimummultiwaycut_panic_duplicate_terminals() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    MinimumMultiwayCut::new(graph, vec![0, 0], vec![1i64, 1]);
+fn test_minimummultiwaycut_rejects_duplicate_terminals() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinimumMultiwayCut::new(graph, vec![0, 0], vec![1i64, 1]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "terminal index out of bounds")]
-fn test_minimummultiwaycut_panic_terminal_out_of_bounds() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    MinimumMultiwayCut::new(graph, vec![0, 10], vec![1i64, 1]);
+fn test_minimummultiwaycut_rejects_terminal_out_of_bounds() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    assert!(MinimumMultiwayCut::new(graph, vec![0, 10], vec![1i64, 1]).is_err());
 }
 
 #[test]
 fn test_minimummultiwaycut_getters() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![3i64, 5]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![3i64, 5]).unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.edge_weights(), &[3, 5]);
 }
 
 #[test]
 fn test_minimummultiwaycut_rejects_wrong_config_lengths() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     let short_config = vec![true, false];
     assert!(matches!(

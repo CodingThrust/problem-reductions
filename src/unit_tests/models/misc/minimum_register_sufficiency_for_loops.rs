@@ -5,7 +5,7 @@ use crate::types::Min;
 
 #[test]
 fn test_creation() {
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     assert_eq!(problem.loop_length(), 6);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.variables(), &[(0, 3), (2, 3), (4, 3)]);
@@ -18,7 +18,7 @@ fn test_creation() {
 #[test]
 fn test_evaluate_optimal() {
     // K3 graph: all 3 vars conflict, need 3 registers
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     let result = problem.evaluate(&vec![0, 1, 2]).unwrap();
     assert_eq!(result, Min(Some(3)));
 }
@@ -26,7 +26,7 @@ fn test_evaluate_optimal() {
 #[test]
 fn test_evaluate_conflict() {
     // Two overlapping vars assigned same register => conflict
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     let result = problem.evaluate(&vec![0, 0, 1]).unwrap();
     // Vars 0 and 1 overlap (arcs [0,3) and [2,5)), same register 0 => invalid
     assert_eq!(result, Min(None));
@@ -35,7 +35,7 @@ fn test_evaluate_conflict() {
 #[test]
 fn test_evaluate_non_overlapping() {
     // Two non-overlapping vars can share a register
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 2), (3, 2)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 2), (3, 2)]).unwrap();
     // Arcs [0,2) and [3,5) don't overlap
     let result = problem.evaluate(&vec![0, 0]).unwrap();
     assert_eq!(result, Min(Some(1)));
@@ -44,14 +44,14 @@ fn test_evaluate_non_overlapping() {
 #[test]
 fn test_evaluate_all_different() {
     // Trivial assignment: all different registers
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     let result = problem.evaluate(&vec![0, 1, 2]).unwrap();
     assert_eq!(result, Min(Some(3)));
 }
 
 #[test]
 fn test_evaluate_invalid_config_length() {
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3)]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -60,7 +60,7 @@ fn test_evaluate_invalid_config_length() {
 
 #[test]
 fn test_evaluate_out_of_range_register() {
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3)]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 5]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -70,7 +70,7 @@ fn test_evaluate_out_of_range_register() {
 #[test]
 fn test_solver_k3() {
     // All pairs conflict: need 3 registers
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&witness).unwrap();
@@ -80,7 +80,7 @@ fn test_solver_k3() {
 #[test]
 fn test_solver_two_non_overlapping() {
     // Two non-overlapping arcs: can share 1 register
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 2), (3, 2)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 2), (3, 2)]).unwrap();
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&witness).unwrap();
@@ -90,7 +90,7 @@ fn test_solver_two_non_overlapping() {
 #[test]
 fn test_solver_two_overlapping() {
     // Two overlapping arcs: need 2 registers
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 4), (3, 4)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 4), (3, 4)]).unwrap();
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&witness).unwrap();
@@ -102,7 +102,7 @@ fn test_circular_wrap_around_overlap() {
     // Arc (5, 3) on loop length 6 covers timesteps {5, 0, 1}
     // Arc (0, 3) covers timesteps {0, 1, 2}
     // They overlap at timesteps 0 and 1
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(5, 3), (0, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(5, 3), (0, 3)]).unwrap();
     let result = problem.evaluate(&vec![0, 0]).unwrap();
     assert_eq!(result, Min(None)); // conflict
     let result = problem.evaluate(&vec![0, 1]).unwrap();
@@ -111,7 +111,7 @@ fn test_circular_wrap_around_overlap() {
 
 #[test]
 fn test_single_variable() {
-    let problem = MinimumRegisterSufficiencyForLoops::new(4, vec![(0, 2)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(4, vec![(0, 2)]).unwrap();
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&witness).unwrap();
@@ -120,7 +120,7 @@ fn test_single_variable() {
 
 #[test]
 fn test_serialization() {
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MinimumRegisterSufficiencyForLoops = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.loop_length(), 6);
@@ -132,7 +132,7 @@ fn test_serialization() {
 fn test_paper_example() {
     // Paper example: N=6, vars: (0,3), (2,3), (4,3) - all pairs conflict (K3)
     // Config [0,1,2] -> 3 registers -> Min(3) is optimal
-    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]);
+    let problem = MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 3), (2, 3), (4, 3)]).unwrap();
     let config = vec![0, 1, 2];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(3)));
@@ -144,19 +144,16 @@ fn test_paper_example() {
 }
 
 #[test]
-#[should_panic(expected = "loop_length must be positive")]
-fn test_zero_loop_length_panics() {
-    MinimumRegisterSufficiencyForLoops::new(0, vec![]);
+fn test_zero_loop_length_rejects() {
+    assert!(MinimumRegisterSufficiencyForLoops::new(0, vec![]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "duration")]
-fn test_zero_duration_panics() {
-    MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 0)]);
+fn test_zero_duration_rejects() {
+    assert!(MinimumRegisterSufficiencyForLoops::new(6, vec![(0, 0)]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "start_time")]
-fn test_invalid_start_time_panics() {
-    MinimumRegisterSufficiencyForLoops::new(6, vec![(6, 2)]);
+fn test_invalid_start_time_rejects() {
+    assert!(MinimumRegisterSufficiencyForLoops::new(6, vec![(6, 2)]).is_err());
 }

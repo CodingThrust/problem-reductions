@@ -108,7 +108,8 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
             // Both predecessors must remain live until vertex 2, but they
             // share a register. This acyclic target has no realization.
             return Ok(Reduction3SATToFeasibleRegisterAssignment {
-                target: FeasibleRegisterAssignment::new(3, vec![(2, 0), (2, 1)], 2, vec![0, 0, 1]),
+                target: FeasibleRegisterAssignment::new(3, vec![(2, 0), (2, 1)], 2, vec![0, 0, 1])
+                    .map_err(<Self as ReduceTo<FeasibleRegisterAssignment>>::target_construction)?,
                 num_vars: self.num_vars(),
                 source_variables: Vec::new(),
             });
@@ -212,7 +213,8 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
         }
 
         Ok(Reduction3SATToFeasibleRegisterAssignment {
-            target: FeasibleRegisterAssignment::new(num_vertices, arcs, num_registers, assignment),
+            target: FeasibleRegisterAssignment::new(num_vertices, arcs, num_registers, assignment)
+                .map_err(<Self as ReduceTo<FeasibleRegisterAssignment>>::target_construction)?,
             num_vars: self.num_vars(),
             source_variables,
         })

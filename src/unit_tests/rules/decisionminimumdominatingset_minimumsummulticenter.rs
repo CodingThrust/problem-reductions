@@ -13,9 +13,10 @@ fn decision_mds(
 ) -> Decision<MinimumDominatingSet<SimpleGraph, One>> {
     Decision::new(
         MinimumDominatingSet::new(
-            SimpleGraph::new(num_vertices, edges.to_vec()),
+            SimpleGraph::new(num_vertices, edges.to_vec()).unwrap(),
             vec![One; num_vertices],
-        ),
+        )
+        .unwrap(),
         k,
     )
 }

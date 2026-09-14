@@ -9,7 +9,7 @@ use crate::types::Min;
 /// Canonical issue #1023 instance: triangle {0,1,2} with leaf vertex 3
 /// attached at vertex 2. Optimum deletes only the leaf edge (2,3).
 fn issue_instance() -> HighlyConnectedDeletion<SimpleGraph> {
-    HighlyConnectedDeletion::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]))
+    HighlyConnectedDeletion::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap())
 }
 
 #[test]
@@ -96,21 +96,24 @@ fn test_highlyconnecteddeletion_to_ilp_rejects_unassigned_vertex() {
 fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
     // Two disjoint K3's stitched by a single bridge edge. The bridge is the
     // only "bad" edge: removing it leaves two K3's, both highly connected.
-    let source = HighlyConnectedDeletion::new(SimpleGraph::new(
-        6,
-        vec![
-            // Triangle on {0,1,2}.
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            // Triangle on {3,4,5}.
-            (3, 4),
-            (3, 5),
-            (4, 5),
-            // Bridge edge.
-            (2, 3),
-        ],
-    ));
+    let source = HighlyConnectedDeletion::new(
+        SimpleGraph::new(
+            6,
+            vec![
+                // Triangle on {0,1,2}.
+                (0, 1),
+                (0, 2),
+                (1, 2),
+                // Triangle on {3,4,5}.
+                (3, 4),
+                (3, 5),
+                (4, 5),
+                // Bridge edge.
+                (2, 3),
+            ],
+        )
+        .unwrap(),
+    );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -126,7 +129,7 @@ fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
 
 #[test]
 fn subset_mask_limit_belongs_to_the_reduction() {
-    let source = HighlyConnectedDeletion::new(SimpleGraph::new(64, vec![]));
+    let source = HighlyConnectedDeletion::new(SimpleGraph::new(64, vec![]).unwrap());
     assert_eq!(
         source.evaluate(&vec![]).unwrap(),
         crate::types::Min(Some(0))

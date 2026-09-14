@@ -10,7 +10,7 @@ use crate::types::Max;
 fn test_maximummatching_to_maximumsetpacking_closed_loop() {
     // Path graph 0-1-2
     let matching =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -28,9 +28,10 @@ fn test_maximummatching_to_maximumsetpacking_closed_loop() {
 fn test_matching_to_setpacking_weighted() {
     // Weighted edges: heavy edge should win over multiple light edges
     let matching = MaximumMatching::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3)]).unwrap(),
         vec![100, 1, 1],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -55,8 +56,9 @@ fn test_matching_to_setpacking_weighted() {
 
 #[test]
 fn test_matching_to_setpacking_solution_extraction() {
-    let matching =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let matching = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
 
@@ -72,7 +74,7 @@ fn test_matching_to_setpacking_solution_extraction() {
 #[test]
 fn test_matching_to_setpacking_empty() {
     // Graph with no edges
-    let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]));
+    let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]).unwrap());
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -82,7 +84,8 @@ fn test_matching_to_setpacking_empty() {
 
 #[test]
 fn test_matching_to_setpacking_single_edge() {
-    let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
+    let matching =
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]).unwrap());
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -101,7 +104,7 @@ fn test_matching_to_setpacking_single_edge() {
 fn test_matching_to_setpacking_disjoint_edges() {
     // Two disjoint edges: 0-1 and 2-3
     let matching =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
+        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]).unwrap());
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -115,8 +118,9 @@ fn test_matching_to_setpacking_disjoint_edges() {
 
 #[test]
 fn test_reduction_structure() {
-    let matching =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
+    let matching = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+    );
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -128,8 +132,9 @@ fn test_reduction_structure() {
 #[test]
 fn test_matching_to_setpacking_star() {
     // Star graph: center vertex 0 connected to 1, 2, 3
-    let matching =
-        MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
+    let matching = MaximumMatching::<_, i64>::unit_weights(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
+    );
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
     let sp = reduction.target_problem();
@@ -170,9 +175,10 @@ fn test_jl_parity_matching_to_setpacking() {
         let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
         let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
         let source = MaximumMatching::new(
-            SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges),
+            SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges).unwrap(),
             weights,
-        );
+        )
+        .unwrap();
         let result = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source)
             .expect("reduction should succeed");
         let solver = BruteForce::new();

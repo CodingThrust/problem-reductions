@@ -327,9 +327,14 @@ impl ReduceTo<PartitionIntoPerfectMatchings<SimpleGraph>> for NAESatisfiability 
             >(message.to_string())
         })?;
         let target = PartitionIntoPerfectMatchings::new(
-            SimpleGraph::new(layout.num_vertices, layout.edges.clone()),
+            SimpleGraph::new(layout.num_vertices, layout.edges.clone()).map_err(
+                <Self as ReduceTo<PartitionIntoPerfectMatchings<SimpleGraph>>>::target_construction,
+            )?,
             2,
-        );
+        )
+        .map_err(
+            <Self as ReduceTo<PartitionIntoPerfectMatchings<SimpleGraph>>>::target_construction,
+        )?;
 
         Ok(ReductionNAESATToPartitionIntoPerfectMatchings { target, layout })
     }

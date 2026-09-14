@@ -16,7 +16,7 @@ fn cell(config: &[Vec<bool>], vertex: usize, biclique: usize) -> bool {
 #[test]
 fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
     // Single isolated vertex with q = 1: trivially 1-colorable.
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), 1);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]).unwrap(), 1);
     let reduction =
         ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -40,7 +40,7 @@ fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
 #[test]
 fn test_kcoloring_to_bicliquecover_structure_path() {
     // n = 3, m = 2 (path 0-1-2), q = 2.
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 2);
     let reduction =
         ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -63,7 +63,7 @@ fn test_kcoloring_to_bicliquecover_structure_path() {
 fn test_kcoloring_to_bicliquecover_structure_clique() {
     // K_4: n = 4, m = 6, q = 3.
     let source = KColoring::<KN, _>::with_k(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
         3,
     );
     let reduction =
@@ -90,7 +90,7 @@ fn test_kcoloring_to_bicliquecover_structure_clique() {
 fn test_kcoloring_to_bicliquecover_forward_witness_path_q2() {
     // P_3 with the obvious 2-coloring (0, 1, 0). Independent sets are
     // {0, 2} (color 0) and {1} (color 1).
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 2);
     let coloring = vec![0usize, 1, 0];
     assert!(source.is_valid_solution(&coloring));
 
@@ -110,8 +110,10 @@ fn test_kcoloring_to_bicliquecover_forward_witness_path_q2() {
 /// 4-cycle is bipartite, with a canonical 2-coloring (0,1,0,1).
 #[test]
 fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
-    let source =
-        KColoring::<KN, _>::with_k(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]), 2);
+    let source = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap(),
+        2,
+    );
     let coloring = vec![0usize, 1, 0, 1];
     assert!(source.is_valid_solution(&coloring));
 
@@ -131,7 +133,7 @@ fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
 #[test]
 fn test_kcoloring_to_bicliquecover_rejects_adjacent_grouping() {
     // P_2 with q = 2; edge (0, 1) means vertices 0 and 1 are adjacent.
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 2);
     let reduction =
         ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -178,7 +180,10 @@ fn test_kcoloring_to_bicliquecover_rejects_adjacent_grouping() {
 #[test]
 fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
     // Triangle K_3 with q = 3: each vertex must have its own color.
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 3);
+    let source = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+        3,
+    );
     let coloring = vec![0usize, 1, 2];
     assert!(source.is_valid_solution(&coloring));
 
@@ -204,7 +209,7 @@ fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
 #[test]
 fn test_kcoloring_to_bicliquecover_explicit_edges_p2() {
     // P_2: n = 2, m = 1, edge (0,1), q = 2.
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 2);
     let reduction =
         ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -230,7 +235,7 @@ fn test_kcoloring_to_bicliquecover_explicit_edges_p2() {
 /// biclique cover witness yields a single-vertex coloring of color 0.
 #[test]
 fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), 1);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]).unwrap(), 1);
     let reduction =
         ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -255,7 +260,7 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
 fn test_kcoloring_to_bicliquecover_native_loops_are_infeasible() {
     for n in [1, 4] {
         for q in [0, 1, usize::MAX] {
-            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![(0, 0)]), q);
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![(0, 0)]).unwrap(), q);
             let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
             let target = reduction.target_problem();
             assert_eq!(target.k(), 0);
@@ -278,7 +283,7 @@ fn test_kcoloring_to_bicliquecover_native_loops_are_infeasible() {
 fn test_kcoloring_to_bicliquecover_normalizes_all_color_counts() {
     for n in 0..=3 {
         for q in [0, 1, 2, 3, 4, usize::MAX] {
-            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![]), q);
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![]).unwrap(), q);
             let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
             let target = reduction.target_problem();
             assert_eq!(target.k(), n + q.min(n));
@@ -297,7 +302,7 @@ fn test_kcoloring_to_bicliquecover_normalizes_all_color_counts() {
 
 #[test]
 fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 2);
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
     for invalid in [
@@ -324,9 +329,11 @@ fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
 
 #[test]
 fn test_kcoloring_to_bicliquecover_repeated_reversed_edges() {
-    let simple = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
-    let repeated =
-        KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 0), (1, 2), (0, 1)]), 2);
+    let simple = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 2);
+    let repeated = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(3, vec![(0, 1), (1, 0), (1, 2), (0, 1)]).unwrap(),
+        2,
+    );
     let a = ReduceTo::<BicliqueCover>::reduce_to(&simple).unwrap();
     let b = ReduceTo::<BicliqueCover>::reduce_to(&repeated).unwrap();
     assert_eq!(
@@ -345,7 +352,7 @@ fn test_kcoloring_to_bicliquecover_repeated_reversed_edges() {
 #[test]
 fn test_kcoloring_to_bicliquecover_all_single_vertex_target_configs() {
     for q in 0..=1 {
-        let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), q);
+        let source = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]).unwrap(), q);
         let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         let bits = target.k() * target.num_vertices();

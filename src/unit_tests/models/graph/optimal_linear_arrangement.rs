@@ -9,13 +9,14 @@ fn issue_example() -> OptimalLinearArrangement<SimpleGraph> {
     let graph = SimpleGraph::new(
         6,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
-    );
+    )
+    .unwrap();
     OptimalLinearArrangement::new(graph)
 }
 
 /// Path graph: 0-1-2-3-4-5
 fn path_example() -> OptimalLinearArrangement<SimpleGraph> {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]).unwrap();
     OptimalLinearArrangement::new(graph)
 }
 
@@ -98,7 +99,7 @@ fn test_optimallineararrangement_serialization() {
 fn test_optimallineararrangement_solver() {
     // Small graph: triangle
     // Any permutation of 3 vertices on a triangle has cost 4
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
@@ -111,7 +112,7 @@ fn test_optimallineararrangement_solver() {
 #[test]
 fn test_optimallineararrangement_solver_aggregate() {
     // Triangle: minimum arrangement cost is 4
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
@@ -123,7 +124,7 @@ fn test_optimallineararrangement_solver_aggregate() {
 #[test]
 fn test_optimallineararrangement_empty_graph() {
     // No edges: any permutation has cost 0
-    let graph = SimpleGraph::new(3, vec![]);
+    let graph = SimpleGraph::new(3, vec![]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
@@ -142,7 +143,7 @@ fn test_optimallineararrangement_empty_graph() {
 
 #[test]
 fn test_optimallineararrangement_single_vertex() {
-    let graph = SimpleGraph::new(1, vec![]);
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     assert_eq!(
@@ -179,7 +180,7 @@ fn test_optimallineararrangement_problem_name() {
 #[test]
 fn test_optimallineararrangement_two_vertices() {
     // Single edge: 0-1
-    let graph = SimpleGraph::new(2, vec![(0, 1)]);
+    let graph = SimpleGraph::new(2, vec![(0, 1)]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     // Both permutations [0,1] and [1,0] have cost 1
@@ -192,7 +193,7 @@ fn test_optimallineararrangement_two_vertices() {
 #[test]
 fn test_optimallineararrangement_permutation_matters() {
     // Path 0-1-2-3
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     // Identity: cost = 1+1+1 = 3
@@ -212,7 +213,7 @@ fn test_optimallineararrangement_permutation_matters() {
 
 #[test]
 fn test_optimallineararrangement_is_valid_solution() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     // Valid permutation
@@ -230,7 +231,7 @@ fn test_optimallineararrangement_is_valid_solution() {
 fn test_optimallineararrangement_complete_graph_k4() {
     // K4: all 6 edges present
     // For K4, any linear arrangement has cost 1+2+3+1+2+1 = 10
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();

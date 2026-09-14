@@ -13,14 +13,14 @@ use crate::types::Min;
 ///   left_size = 2, right_size = 3,
 ///   edges = (0,0), (0,1), (0,2), (1,1), (1,2).
 fn yes_bipartite() -> BipartiteGraph {
-    BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (0, 2), (1, 1), (1, 2)])
+    BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (0, 2), (1, 1), (1, 2)]).unwrap()
 }
 
 /// Build the canonical NO bipartite instance from the issue (a perfect
 /// matching on 3+3 vertices: L = {l0, l1, l2}, R = {r0, r1, r2}, F =
 /// {(l0, r0), (l1, r1), (l2, r2)}).
 fn no_bipartite() -> BipartiteGraph {
-    BipartiteGraph::new(3, 3, vec![(0, 0), (1, 1), (2, 2)])
+    BipartiteGraph::new(3, 3, vec![(0, 0), (1, 1), (2, 2)]).unwrap()
 }
 
 #[test]
@@ -219,9 +219,9 @@ fn test_identity_on_random_bipartite_instances() {
 
     let instances = vec![
         // K_{1, 3} (star).
-        BipartiteGraph::new(1, 3, vec![(0, 0), (0, 1), (0, 2)]),
+        BipartiteGraph::new(1, 3, vec![(0, 0), (0, 1), (0, 2)]).unwrap(),
         // K_{2, 2} (4-cycle as bipartite).
-        BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+        BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]).unwrap(),
         // 3+3 perfect matching.
         no_bipartite(),
         // Issue's YES instance.

@@ -231,13 +231,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // weight_bound = 4
             // The only s-t path uses both edges: length=5, weight=3 <= 4 => feasible
             let source = ShortestWeightConstrainedPath::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![2, 3],
                 vec![1, 2],
                 0,
                 2,
                 4,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

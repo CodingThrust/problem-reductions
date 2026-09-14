@@ -44,9 +44,12 @@ impl ReduceTo<PartitionIntoCliques<SimpleGraph>> for KColoring<KN, SimpleGraph> 
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = PartitionIntoCliques::new(
-            SimpleGraph::new(self.graph().num_vertices(), complement_edges(self.graph())),
+            SimpleGraph::new(self.graph().num_vertices(), complement_edges(self.graph())).map_err(
+                <Self as ReduceTo<PartitionIntoCliques<SimpleGraph>>>::target_construction,
+            )?,
             self.num_colors(),
-        );
+        )
+        .map_err(<Self as ReduceTo<PartitionIntoCliques<SimpleGraph>>>::target_construction)?;
         Ok(ReductionKColoringToPartitionIntoCliques { target })
     }
 }
@@ -59,7 +62,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "kcoloring_to_partitionintocliques",
         build: || {
             let source = KColoring::<KN, _>::with_k(
-                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
                 3,
             );
             crate::example_db::specs::rule_example_with_witness::<

@@ -54,7 +54,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph: 0-1-2-3
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
 /// let problem = OptimalLinearArrangement::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -255,10 +255,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Optimal arrangement [0,1,2,3,4,5] gives cost 1+1+1+1+1+3+3 = 11
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "optimal_linear_arrangement",
-        instance: Box::new(OptimalLinearArrangement::new(SimpleGraph::new(
-            6,
-            vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
-        ))),
+        instance: Box::new(OptimalLinearArrangement::new(
+            SimpleGraph::new(
+                6,
+                vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
+            )
+            .unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![0, 1, 2, 3, 4, 5]),
         optimal_value: serde_json::json!(11),
     }]
@@ -272,7 +275,9 @@ pub(crate) fn decision_canonical_model_example_specs(
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "decision_optimal_linear_arrangement_simplegraph",
         instance: Box::new(Decision::new(
-            OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
+            OptimalLinearArrangement::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+            ),
             3,
         )),
         optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
@@ -293,7 +298,9 @@ pub(crate) fn decision_canonical_rule_example_specs(
 
             // Path P_4 (0-1-2-3): optimal arrangement has cost 3; bound 3 is YES.
             let source = Decision::new(
-                OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
+                OptimalLinearArrangement::new(
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+                ),
                 3,
             );
             let result = source

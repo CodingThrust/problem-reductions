@@ -52,12 +52,13 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // 2 machines, 3 jobs, deadline 10
-/// let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
+/// let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "FlowShopSchedulingData")]
 pub struct FlowShopScheduling {
     /// Number of processors (machines).
     num_processors: usize,
@@ -65,6 +66,21 @@ pub struct FlowShopScheduling {
     task_lengths: Vec<Vec<i64>>,
     /// Global deadline.
     deadline: i64,
+}
+
+#[derive(Deserialize)]
+struct FlowShopSchedulingData {
+    num_processors: usize,
+    task_lengths: Vec<Vec<i64>>,
+    deadline: i64,
+}
+
+impl TryFrom<FlowShopSchedulingData> for FlowShopScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: FlowShopSchedulingData) -> Result<Self, Self::Error> {
+        Self::new(data.num_processors, data.task_lengths, data.deadline)
+    }
 }
 
 impl FlowShopScheduling {
@@ -76,29 +92,35 @@ impl FlowShopScheduling {
     ///   Each inner Vec must have length `num_processors`.
     /// * `deadline` - Global deadline D
     ///
-    /// # Panics
-    /// Panics if any job does not have exactly `num_processors` tasks.
-    pub fn new(num_processors: usize, task_lengths: Vec<Vec<i64>>, deadline: i64) -> Self {
+    /// # Errors
+    /// Returns an error if any job does not have exactly `num_processors` tasks.
+    pub fn new(
+        num_processors: usize,
+        task_lengths: Vec<Vec<i64>>,
+        deadline: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (j, tasks) in task_lengths.iter().enumerate() {
-            assert_eq!(
-                tasks.len(),
-                num_processors,
-                "Job {} has {} tasks, expected {}",
-                j,
-                tasks.len(),
-                num_processors
-            );
+            if tasks.len() != num_processors {
+                return Err(format!(
+                    "Job {} has {} tasks, expected {}",
+                    j,
+                    tasks.len(),
+                    num_processors
+                )
+                .into());
+            }
         }
-        assert!(
-            task_lengths.iter().flatten().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(deadline >= 0, "deadline must be nonnegative");
-        Self {
+        if !(task_lengths.iter().flatten().all(|&length| length >= 0)) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if !(deadline >= 0) {
+            return Err("deadline must be nonnegative".into());
+        }
+        Ok(Self {
             num_processors,
             task_lengths,
             deadline,
-        }
+        })
     }
 
     /// Get the number of processors.
@@ -235,17 +257,20 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "flow_shop_scheduling",
-        instance: Box::new(FlowShopScheduling::new(
-            3,
-            vec![
-                vec![3, 4, 2],
-                vec![2, 3, 5],
-                vec![4, 1, 3],
-                vec![1, 5, 4],
-                vec![3, 2, 3],
-            ],
-            25,
-        )),
+        instance: Box::new(
+            FlowShopScheduling::new(
+                3,
+                vec![
+                    vec![3, 4, 2],
+                    vec![2, 3, 5],
+                    vec![4, 1, 3],
+                    vec![1, 5, 4],
+                    vec![3, 2, 3],
+                ],
+                25,
+            )
+            .unwrap(),
+        ),
         // Job order [3,0,4,2,1] = Lehmer code [3,0,2,1,0], makespan 23
         optimal_config: serde_json::json!(vec![3, 0, 4, 2, 1]),
         optimal_value: serde_json::json!(true),

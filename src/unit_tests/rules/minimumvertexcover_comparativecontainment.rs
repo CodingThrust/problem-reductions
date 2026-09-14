@@ -7,7 +7,11 @@ use crate::traits::Problem;
 fn test_minimumvertexcover_to_comparativecontainment_closed_loop() {
     for bound in [1, 2] {
         let source = Decision::new(
-            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![4i64, 2, -1]),
+            MinimumVertexCover::new(
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+                vec![4i64, 2, -1],
+            )
+            .unwrap(),
             bound,
         );
         let reduction = ReduceTo::<ComparativeContainment<i64>>::reduce_to(&source).unwrap();
@@ -29,9 +33,10 @@ fn test_minimumvertexcover_to_comparativecontainment_closed_loop() {
     }
     let source = Decision::new(
         MinimumVertexCover::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
             vec![4i64, 2, -1],
-        ),
+        )
+        .unwrap(),
         0,
     );
     let reduction = ReduceTo::<ComparativeContainment<i64>>::reduce_to(&source).unwrap();
@@ -64,9 +69,10 @@ fn test_signed_containment_all_small_graphs_and_witnesses() {
                 for bound in [-7, -2, 0, 1, 3, 9, i64::MAX] {
                     let source = Decision::new(
                         MinimumVertexCover::new(
-                            SimpleGraph::new(n, edges.clone()),
+                            SimpleGraph::new(n, edges.clone()).unwrap(),
                             weights.clone(),
-                        ),
+                        )
+                        .unwrap(),
                         bound,
                     );
                     let reduction =
@@ -102,9 +108,10 @@ fn test_signed_containment_all_small_graphs_and_witnesses() {
 fn test_signed_containment_duplicate_edges_and_invalid_length() {
     let source = Decision::new(
         MinimumVertexCover::new(
-            SimpleGraph::new(3, vec![(0, 0), (0, 1), (0, 1)]),
+            SimpleGraph::new(3, vec![(0, 0), (0, 1), (0, 1)]).unwrap(),
             vec![-3i64, 0, 5],
-        ),
+        )
+        .unwrap(),
         -3,
     );
     let reduction = ReduceTo::<ComparativeContainment<i64>>::reduce_to(&source).unwrap();
@@ -131,7 +138,8 @@ fn test_signed_containment_numeric_domain() {
         (vec![i64::MAX / 2], 0, vec![(0, 0), (0, 0)]),
     ] {
         let source = Decision::new(
-            MinimumVertexCover::new(SimpleGraph::new(weights.len(), edges), weights),
+            MinimumVertexCover::new(SimpleGraph::new(weights.len(), edges).unwrap(), weights)
+                .unwrap(),
             bound,
         );
         assert!(matches!(
@@ -146,7 +154,7 @@ fn test_signed_containment_numeric_domain() {
         (0, i64::MIN + 1),
     ] {
         let source = Decision::new(
-            MinimumVertexCover::new(SimpleGraph::new(1, vec![]), vec![weight]),
+            MinimumVertexCover::new(SimpleGraph::new(1, vec![]).unwrap(), vec![weight]).unwrap(),
             bound,
         );
         let reduction = ReduceTo::<ComparativeContainment<i64>>::reduce_to(&source).unwrap();

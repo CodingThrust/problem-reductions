@@ -50,7 +50,7 @@ inventory::submit! {
 ///         (vec![3, 4], vec![5]),
 ///     ],
 ///     vec![0, 1, 2, 3, 4, 5],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// // X = {2}: closure = {2, 3}, y=3 ∈ closure, z=0 ∉ closure → BCNF violation
 /// assert!(problem
@@ -58,6 +58,7 @@ inventory::submit! {
 ///     .unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BoyceCoddNormalFormViolationData")]
 pub struct BoyceCoddNormalFormViolation {
     /// Total number of attributes (elements are `0..num_attributes`).
     num_attributes: usize,
@@ -65,6 +66,24 @@ pub struct BoyceCoddNormalFormViolation {
     functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
     /// Target subset `A'` of attributes to test for BCNF violation.
     target_subset: Vec<usize>,
+}
+
+#[derive(Deserialize)]
+struct BoyceCoddNormalFormViolationData {
+    num_attributes: usize,
+    functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
+    target_subset: Vec<usize>,
+}
+
+impl TryFrom<BoyceCoddNormalFormViolationData> for BoyceCoddNormalFormViolation {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: BoyceCoddNormalFormViolationData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.num_attributes,
+            data.functional_deps,
+            data.target_subset,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -82,41 +101,16 @@ impl TryFrom<BoyceCoddNormalFormViolationCreateSpec> for BoyceCoddNormalFormViol
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BoyceCoddNormalFormViolationCreateSpec) -> Result<Self, Self::Error> {
-        if spec.target.is_empty() {
-            return Err("target must be non-empty".to_string().into());
-        }
-        for (dependency_index, (lhs, rhs)) in spec.subsets.iter().enumerate() {
-            if lhs.is_empty() {
-                return Err(format!("subsets[{dependency_index}] has an empty left side").into());
-            }
-            if let Some(&attribute) = lhs
-                .iter()
-                .chain(rhs)
-                .find(|&&attribute| attribute >= spec.n)
-            {
-                return Err(format!(
-                    "subsets[{dependency_index}] contains attribute {attribute} outside universe of size {}",
-                    spec.n
-                ).into());
-            }
-        }
-        if let Some(&attribute) = spec.target.iter().find(|&&attribute| attribute >= spec.n) {
-            return Err(format!(
-                "target contains attribute {attribute} outside universe of size {}",
-                spec.n
-            )
-            .into());
-        }
-        Ok(Self::new(spec.n, spec.subsets, spec.target))
+        Self::new(spec.n, spec.subsets, spec.target)
     }
 }
 
 impl BoyceCoddNormalFormViolation {
     /// Create a new Boyce-Codd Normal Form Violation instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any attribute index in `functional_deps` or `target_subset` is
+    /// Returns an error if any attribute index in `functional_deps` or `target_subset` is
     /// out of range (≥ `num_attributes`), if `target_subset` is empty, or if any
     /// functional dependency has an empty LHS.
     ///
@@ -128,28 +122,24 @@ impl BoyceCoddNormalFormViolation {
         num_attributes: usize,
         functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
         target_subset: Vec<usize>,
-    ) -> Self {
-        assert!(!target_subset.is_empty(), "target_subset must be non-empty");
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if target_subset.is_empty() {
+            return Err("target_subset must be non-empty".into());
+        }
 
         let mut functional_deps = functional_deps;
         for (fd_index, (lhs, rhs)) in functional_deps.iter_mut().enumerate() {
-            assert!(
-                !lhs.is_empty(),
-                "Functional dependency {} has an empty LHS",
-                fd_index
-            );
+            if lhs.is_empty() {
+                return Err(format!("Functional dependency {} has an empty LHS", fd_index).into());
+            }
             lhs.sort_unstable();
             lhs.dedup();
             rhs.sort_unstable();
             rhs.dedup();
             for &attr in lhs.iter().chain(rhs.iter()) {
-                assert!(
-                    attr < num_attributes,
-                    "Functional dependency {} contains attribute {} which is out of range (num_attributes = {})",
-                    fd_index,
-                    attr,
-                    num_attributes
-                );
+                if !(attr < num_attributes) {
+                    return Err(format!("Functional dependency {} contains attribute {} which is out of range (num_attributes = {})", fd_index, attr, num_attributes).into());
+                }
             }
         }
 
@@ -157,19 +147,16 @@ impl BoyceCoddNormalFormViolation {
         target_subset.sort_unstable();
         target_subset.dedup();
         for &attr in &target_subset {
-            assert!(
-                attr < num_attributes,
-                "target_subset contains attribute {} which is out of range (num_attributes = {})",
-                attr,
-                num_attributes
-            );
+            if !(attr < num_attributes) {
+                return Err(format!("target_subset contains attribute {} which is out of range (num_attributes = {})", attr, num_attributes).into());
+            }
         }
 
-        Self {
+        Ok(Self {
             num_attributes,
             functional_deps,
             target_subset,
-        }
+        })
     }
 
     /// Return the total number of attributes.
@@ -290,15 +277,18 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "boyce_codd_normal_form_violation",
-        instance: Box::new(BoyceCoddNormalFormViolation::new(
-            6,
-            vec![
-                (vec![0, 1], vec![2]),
-                (vec![2], vec![3]),
-                (vec![3, 4], vec![5]),
-            ],
-            vec![0, 1, 2, 3, 4, 5],
-        )),
+        instance: Box::new(
+            BoyceCoddNormalFormViolation::new(
+                6,
+                vec![
+                    (vec![0, 1], vec![2]),
+                    (vec![2], vec![3]),
+                    (vec![3, 4], vec![5]),
+                ],
+                vec![0, 1, 2, 3, 4, 5],
+            )
+            .unwrap(),
+        ),
         // X={2}: closure={2,3}, y=3 in closure, z=0 not in closure -> violation
         optimal_config: serde_json::json!(vec![false, false, true, false, false, false]),
         optimal_value: serde_json::json!(true),

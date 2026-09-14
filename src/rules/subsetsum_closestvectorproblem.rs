@@ -132,7 +132,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "subsetsum_to_closestvectorproblem",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem<i64>>(
-                SubsetSum::new(vec![3u32, 7, 1, 8], 11u32),
+                SubsetSum::new(vec![3u32, 7, 1, 8], 11u32).unwrap(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, true]),
                     target_config: serde_json::json!(vec![1, 0, 0, 1, 0, 0, 0]),

@@ -49,14 +49,14 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple 4-vertex path graph with unit weights, s=0, t=3
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-/// let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+/// let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3).unwrap();
 ///
 /// // Partition {0,1} vs {2,3}: cut edge (1,2) with weight 1
 /// let val = problem.evaluate(&vec![false, false, true, true]).unwrap();
 /// assert_eq!(val, problemreductions::types::Min(Some(1)));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     /// The underlying graph structure.
     graph: G,
@@ -68,6 +68,34 @@ pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     sink: usize,
     /// Maximum size B for each partition set.
     size_bound: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct MinimumCutIntoBoundedSetsData<G, W: WeightElement> {
+    graph: G,
+    edge_weights: Vec<W>,
+    source: usize,
+    sink: usize,
+    size_bound: usize,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumCutIntoBoundedSets<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumCutIntoBoundedSetsData::<G, W>::deserialize(deserializer)?;
+        Self::new(
+            data.graph,
+            data.edge_weights,
+            data.source,
+            data.sink,
+            data.size_bound,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -88,26 +116,13 @@ impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<
     fn try_from(spec: MinimumCutIntoBoundedSetsCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_edges();
         let edge_weights = spec.edge_weights.unwrap_or_else(|| vec![1; count]);
-        if edge_weights.len() != count {
-            return Err(format!(
-                "edge_weights has {} entries, expected {count}",
-                edge_weights.len()
-            )
-            .into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if spec.source >= vertices || spec.sink >= vertices || spec.source == spec.sink {
-            return Err("source and sink must be distinct valid graph vertices"
-                .to_string()
-                .into());
-        }
-        Ok(Self::new(
+        Self::new(
             spec.graph,
             edge_weights,
             spec.source,
             spec.sink,
             spec.size_bound,
-        ))
+        )
     }
 }
 
@@ -121,8 +136,8 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
     /// * `sink` - Sink vertex t (must be in V2)
     /// * `size_bound` - Maximum size B for each partition set
     ///
-    /// # Panics
-    /// Panics if edge_weights length doesn't match num_edges, if source == sink,
+    /// # Errors
+    /// Returns an error if edge_weights length doesn't match num_edges, if source == sink,
     /// or if source/sink are out of bounds.
     pub fn new(
         graph: G,
@@ -130,22 +145,26 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
         source: usize,
         sink: usize,
         size_bound: usize,
-    ) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        assert!(source < graph.num_vertices(), "source vertex out of bounds");
-        assert!(sink < graph.num_vertices(), "sink vertex out of bounds");
-        assert_ne!(source, sink, "source and sink must be different vertices");
-        Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".into());
+        }
+        if !(source < graph.num_vertices()) {
+            return Err("source vertex out of bounds".into());
+        }
+        if !(sink < graph.num_vertices()) {
+            return Err("sink vertex out of bounds".into());
+        }
+        if source == sink {
+            return Err("source and sink must be different vertices".into());
+        }
+        Ok(Self {
             graph,
             edge_weights,
             source,
             sink,
             size_bound,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -258,29 +277,33 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_cut_into_bounded_sets",
-        instance: Box::new(MinimumCutIntoBoundedSets::new(
-            SimpleGraph::new(
-                8,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 2),
-                    (1, 3),
-                    (2, 4),
-                    (3, 5),
-                    (3, 6),
-                    (4, 5),
-                    (4, 6),
-                    (5, 7),
-                    (6, 7),
-                    (5, 6),
-                ],
-            ),
-            vec![2, 3, 1, 4, 2, 1, 3, 2, 1, 2, 3, 1],
-            0,
-            7,
-            5,
-        )),
+        instance: Box::new(
+            MinimumCutIntoBoundedSets::new(
+                SimpleGraph::new(
+                    8,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (1, 2),
+                        (1, 3),
+                        (2, 4),
+                        (3, 5),
+                        (3, 6),
+                        (4, 5),
+                        (4, 6),
+                        (5, 7),
+                        (6, 7),
+                        (5, 6),
+                    ],
+                )
+                .unwrap(),
+                vec![2, 3, 1, 4, 2, 1, 3, 2, 1, 2, 3, 1],
+                0,
+                7,
+                5,
+            )
+            .unwrap(),
+        ),
         // V1={0,1,2,3}, V2={4,5,6,7}: cut edges (2,4)=2,(3,5)=1,(3,6)=3 => 6
         optimal_config: serde_json::json!(vec![false, false, false, false, true, true, true, true]),
         optimal_value: serde_json::json!(6),
@@ -291,7 +314,7 @@ crate::impl_random_generate!(MinimumCutIntoBoundedSets<SimpleGraph, i64>, crate:
     let (source, sink) = spec.endpoints()?;
     let graph = spec.graph()?;
     let edge_weights = vec![1; graph.num_edges()];
-    Ok(MinimumCutIntoBoundedSets::new(graph, edge_weights, source, sink, spec.num_vertices))
+    Ok(MinimumCutIntoBoundedSets::new(graph, edge_weights, source, sink, spec.num_vertices).unwrap())
 });
 
 crate::declare_variants! {

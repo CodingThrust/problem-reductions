@@ -63,7 +63,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumhittingset_to_ilp",
         build: || {
-            let source = MinimumHittingSet::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]);
+            let source =
+                MinimumHittingSet::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

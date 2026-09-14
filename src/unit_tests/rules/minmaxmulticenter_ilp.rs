@@ -10,11 +10,12 @@ use crate::types::Min;
 fn test_reduction_creates_valid_ilp() {
     // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1
     let problem = MinMaxMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1i64; 3],
         vec![1i64; 2],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMMCToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -37,11 +38,12 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
     // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1
     // Optimal: place center at vertex 1, max distance = 1
     let problem = MinMaxMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1i64; 3],
         vec![1i64; 2],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMMCToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -66,11 +68,12 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
 fn test_solution_extraction() {
     // 3-vertex path: center at vertex 1
     let problem = MinMaxMulticenter::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1i64; 3],
         vec![1i64; 2],
         1,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMMCToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -92,11 +95,12 @@ fn test_solution_extraction() {
 fn test_minmaxmulticenter_to_ilp_weighted() {
     // Single weighted edge with length 100. With k=1, optimal = 100.
     let problem = MinMaxMulticenter::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![1i64; 2],
         vec![100i64],
         1,
-    );
+    )
+    .unwrap();
 
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap().expect("should have optimal");
@@ -115,7 +119,9 @@ fn test_minmaxmulticenter_to_ilp_weighted() {
 #[test]
 fn test_minmaxmulticenter_to_ilp_trivial() {
     // Single vertex, K=1: the only vertex is the center, distance = 0
-    let problem = MinMaxMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i64], vec![], 1);
+    let problem =
+        MinMaxMulticenter::new(SimpleGraph::new(1, vec![]).unwrap(), vec![5i64], vec![], 1)
+            .unwrap();
     let reduction: ReductionMMCToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

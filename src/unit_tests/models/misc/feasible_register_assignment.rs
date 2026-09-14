@@ -5,7 +5,8 @@ use crate::traits::Problem;
 #[test]
 fn test_feasible_register_assignment_basic() {
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_arcs(), 3);
     assert_eq!(problem.num_registers(), 2);
@@ -30,7 +31,8 @@ fn test_feasible_register_assignment_evaluate_valid() {
     // Order: v3(pos0), v1(pos1), v2(pos2), v0(pos3)
     // config[v] = position
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     let config = vec![3, 1, 2, 0];
     assert!(problem.evaluate(&config).unwrap());
 }
@@ -38,7 +40,8 @@ fn test_feasible_register_assignment_evaluate_valid() {
 #[test]
 fn test_feasible_register_assignment_evaluate_invalid_permutation() {
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     // Not a permutation: position 0 used twice
     assert!(!problem.evaluate(&vec![0, 0, 1, 2]).unwrap());
     // Wrong length
@@ -61,7 +64,8 @@ fn test_feasible_register_assignment_evaluate_invalid_permutation() {
 fn test_feasible_register_assignment_evaluate_invalid_dependency() {
     // v0 depends on v1, v1 depends on v3
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     // v0 at position 0 but v1 at position 1 -> v0 evaluated before its dependency v1
     assert!(!problem.evaluate(&vec![0, 1, 2, 3]).unwrap());
 }
@@ -73,14 +77,16 @@ fn test_feasible_register_assignment_register_conflict() {
     // In any valid topological order, v1 must come first.
     // After computing v1 (reg 0), v1 is live until both v0 and v2 are computed.
     // Computing v0 or v2 next would need register 0, but v1 is still live there.
-    let problem = FeasibleRegisterAssignment::new(3, vec![(0, 1), (2, 1)], 2, vec![0, 0, 0]);
+    let problem =
+        FeasibleRegisterAssignment::new(3, vec![(0, 1), (2, 1)], 2, vec![0, 0, 0]).unwrap();
     // v1 at pos 0, v0 at pos 1, v2 at pos 2
     // After computing v1 (reg 0): v1 is live (v0, v2 still uncomputed)
     // Computing v0 (reg 0): conflict! v1 is still live in reg 0
     assert!(!problem.evaluate(&vec![1, 0, 2]).unwrap());
 
     // With different assignment: v1->reg 1, v0->reg 0, v2->reg 0
-    let problem2 = FeasibleRegisterAssignment::new(3, vec![(0, 1), (2, 1)], 2, vec![0, 1, 0]);
+    let problem2 =
+        FeasibleRegisterAssignment::new(3, vec![(0, 1), (2, 1)], 2, vec![0, 1, 0]).unwrap();
     // v1 at pos 0, v0 at pos 1, v2 at pos 2
     // After computing v1 (reg 1): v1 is live
     // Computing v0 (reg 0): no conflict, v0 uses reg 0
@@ -93,7 +99,8 @@ fn test_feasible_register_assignment_register_conflict() {
 #[test]
 fn test_feasible_register_assignment_brute_force() {
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -105,7 +112,8 @@ fn test_feasible_register_assignment_brute_force() {
 #[test]
 fn test_feasible_register_assignment_brute_force_all() {
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -123,7 +131,7 @@ fn test_feasible_register_assignment_unsatisfiable() {
     // and v2 has uncomputed dependent v0 (excluding v1), so v2 is live.
     // Computing v1 in reg 0 conflicts with live v2.
     let problem =
-        FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]);
+        FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]).unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -131,7 +139,8 @@ fn test_feasible_register_assignment_unsatisfiable() {
 #[test]
 fn test_feasible_register_assignment_serialization() {
     let problem =
-        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0])
+            .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: FeasibleRegisterAssignment = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_vertices(), problem.num_vertices());
@@ -143,7 +152,7 @@ fn test_feasible_register_assignment_serialization() {
 
 #[test]
 fn test_feasible_register_assignment_empty() {
-    let problem = FeasibleRegisterAssignment::new(0, vec![], 0, vec![]);
+    let problem = FeasibleRegisterAssignment::new(0, vec![], 0, vec![]).unwrap();
     assert_eq!(problem.num_vertices(), 0);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -154,7 +163,7 @@ fn test_feasible_register_assignment_empty() {
 
 #[test]
 fn test_feasible_register_assignment_single_vertex() {
-    let problem = FeasibleRegisterAssignment::new(1, vec![], 1, vec![0]);
+    let problem = FeasibleRegisterAssignment::new(1, vec![], 1, vec![0]).unwrap();
     assert!(problem.evaluate(&vec![0]).unwrap());
 }
 
@@ -164,7 +173,7 @@ fn test_feasible_register_assignment_no_dependencies() {
     // Any permutation is valid as long as no register conflict.
     // v0(reg 0) and v2(reg 0): since there are no dependencies, no vertex is
     // ever "live" (no dependents), so no conflicts can arise.
-    let problem = FeasibleRegisterAssignment::new(3, vec![], 2, vec![0, 1, 0]);
+    let problem = FeasibleRegisterAssignment::new(3, vec![], 2, vec![0, 1, 0]).unwrap();
     // Any order works since no vertex has dependents => nothing is ever live
     assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
     assert!(problem.evaluate(&vec![2, 1, 0]).unwrap());
@@ -172,6 +181,18 @@ fn test_feasible_register_assignment_no_dependencies() {
 
 #[test]
 fn test_feasible_register_assignment_same_register_pair_count() {
-    let problem = FeasibleRegisterAssignment::new(5, vec![], 3, vec![0, 1, 0, 2, 0]);
+    let problem = FeasibleRegisterAssignment::new(5, vec![], 3, vec![0, 1, 0, 2, 0]).unwrap();
     assert_eq!(problem.num_same_register_pairs(), 3);
+}
+
+#[test]
+fn deserialize_rejects_invalid_indices_before_building_adjacency() {
+    for (arcs, assignment) in [(vec![(0, 2)], vec![0, 0]), (vec![(0, 1)], vec![0, 1])] {
+        assert!(
+            serde_json::from_value::<FeasibleRegisterAssignment>(serde_json::json!({
+                "num_vertices": 2, "arcs": arcs, "num_registers": 1, "assignment": assignment
+            }))
+            .is_err()
+        );
+    }
 }

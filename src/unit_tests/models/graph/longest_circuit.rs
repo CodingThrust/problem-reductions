@@ -20,9 +20,11 @@ fn issue_problem() -> LongestCircuit<SimpleGraph, i64> {
                 (2, 5),
                 (3, 5),
             ],
-        ),
+        )
+        .unwrap(),
         vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
     )
+    .unwrap()
 }
 
 #[test]
@@ -74,9 +76,10 @@ fn test_longest_circuit_evaluate_valid_and_invalid() {
 #[test]
 fn test_longest_circuit_rejects_disconnected_cycles() {
     let problem = LongestCircuit::new(
-        SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]).unwrap(),
         vec![1, 1, 1, 1, 1, 1],
-    );
+    )
+    .unwrap();
     assert_eq!(
         problem
             .evaluate(&vec![true, true, true, true, true, true])
@@ -128,22 +131,22 @@ fn test_longest_circuit_paper_example() {
 }
 
 #[test]
-#[should_panic(expected = "All edge lengths must be positive (> 0)")]
 fn test_longest_circuit_rejects_non_positive_edge_lengths() {
-    LongestCircuit::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+    assert!(LongestCircuit::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![1, 0, 1],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "All edge lengths must be positive (> 0)")]
 fn test_longest_circuit_set_lengths_rejects_non_positive_values() {
     let mut problem = LongestCircuit::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap(),
         vec![1, 1, 1],
-    );
-    problem.set_lengths(vec![1, -2, 1]);
+    )
+    .unwrap();
+    assert!(problem.set_lengths(vec![1, -2, 1]).is_err());
 }
 #[test]
 fn create_spec_maps_edge_weights_to_edge_lengths() {

@@ -9,11 +9,11 @@ use crate::types::{Max, One};
 use crate::variant::KN;
 
 fn c5() -> SimpleGraph {
-    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
+    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]).unwrap()
 }
 
 fn issue_instance() -> MaximumCoKPlex<SimpleGraph, i64, KN> {
-    MaximumCoKPlex::<_, i64, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2)
+    MaximumCoKPlex::<_, i64, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2).unwrap()
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn test_maximumcokplex_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_maximumcokplex_to_ilp_k_equals_1_regression() {
-    let source = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 1);
+    let source = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 1).unwrap();
     let reduction: ReductionCoKPlexToILP<One> =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()

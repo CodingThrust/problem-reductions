@@ -51,33 +51,50 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6-vertex graph with two P3 paths: 0-1-2 and 3-4-5
-/// let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-/// let problem = PartitionIntoPathsOfLength2::new(graph);
+/// let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+/// let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct PartitionIntoPathsOfLength2<G> {
     /// The underlying graph.
     graph: G,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoPathsOfLength2Data<G> {
+    graph: G,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoPathsOfLength2<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoPathsOfLength2Data::<G>::deserialize(deserializer)?;
+        Self::new(data.graph).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> PartitionIntoPathsOfLength2<G> {
     /// Create a new PartitionIntoPathsOfLength2 problem from a graph.
     ///
-    /// # Panics
-    /// Panics if `graph.num_vertices()` is not divisible by 3.
-    pub fn new(graph: G) -> Self {
-        assert_eq!(
-            graph.num_vertices() % 3,
-            0,
-            "Number of vertices ({}) must be divisible by 3",
-            graph.num_vertices()
-        );
-        Self { graph }
+    /// # Errors
+    /// Returns an error if `graph.num_vertices()` is not divisible by 3.
+    pub fn new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !graph.num_vertices().is_multiple_of(3) {
+            return Err(format!(
+                "Number of vertices ({}) must be divisible by 3",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.
@@ -201,23 +218,29 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_paths_of_length_2_simplegraph",
-        instance: Box::new(PartitionIntoPathsOfLength2::new(SimpleGraph::new(
-            9,
-            vec![
-                (0, 1),
-                (1, 2),
-                (3, 4),
-                (4, 5),
-                (6, 7),
-                (7, 8),
-                (0, 3),
-                (2, 5),
-                (3, 6),
-                (5, 8),
-                (1, 4),
-                (4, 7),
-            ],
-        ))),
+        instance: Box::new(
+            PartitionIntoPathsOfLength2::new(
+                SimpleGraph::new(
+                    9,
+                    vec![
+                        (0, 1),
+                        (1, 2),
+                        (3, 4),
+                        (4, 5),
+                        (6, 7),
+                        (7, 8),
+                        (0, 3),
+                        (2, 5),
+                        (3, 6),
+                        (5, 8),
+                        (1, 4),
+                        (4, 7),
+                    ],
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1, 2, 2, 2]),
         optimal_value: serde_json::json!(true),
     }]

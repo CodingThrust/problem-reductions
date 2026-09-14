@@ -104,13 +104,15 @@ impl ReduceTo<IntegralFlowBundles> for Decision<MaximumIndependentSet<SimpleGrap
             capacities.push(2);
         }
         let target = IntegralFlowBundles::new(
-            crate::topology::DirectedGraph::new(num_vertices, arcs),
+            crate::topology::DirectedGraph::new(num_vertices, arcs)
+                .map_err(<Self as ReduceTo<IntegralFlowBundles>>::target_construction)?,
             0,
             sink,
             bundles,
             capacities,
             requirement,
-        );
+        )
+        .map_err(<Self as ReduceTo<IntegralFlowBundles>>::target_construction)?;
         Ok(ReductionDecisionMISToIFB {
             target,
             num_source_vertices: n,
@@ -126,7 +128,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "decisionmaximumindependentset_to_integralflowbundles",
         build: || {
             let source = Decision::new(
-                MaximumIndependentSet::new(SimpleGraph::path(3), vec![One; 3]),
+                MaximumIndependentSet::new(SimpleGraph::path(3), vec![One; 3]).unwrap(),
                 2,
             );
             let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source)

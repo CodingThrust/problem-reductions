@@ -394,10 +394,13 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
             }
         }
 
-        let target = HamiltonianCircuit::new(SimpleGraph::new(
-            construction.selector_count + 12 * construction.edges.len(),
-            target_edges.into_iter().collect(),
-        ));
+        let target = HamiltonianCircuit::new(
+            SimpleGraph::new(
+                construction.selector_count + 12 * construction.edges.len(),
+                target_edges.into_iter().collect(),
+            )
+            .map_err(<Self as ReduceTo<HamiltonianCircuit<SimpleGraph>>>::target_construction)?,
+        );
 
         Ok(ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
             target,
@@ -415,7 +418,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "decisionminimumvertexcover_to_hamiltoniancircuit",
         build: || {
             let source = Decision::new(
-                MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]),
+                MinimumVertexCover::new(
+                    SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+                    vec![One; 3],
+                )
+                .unwrap(),
                 1,
             );
             let source_config = vec![false, true, false];

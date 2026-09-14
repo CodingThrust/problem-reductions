@@ -43,22 +43,8 @@ impl TryFrom<BalancedCompleteBipartiteSubgraphCreateSpec> for BalancedCompleteBi
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BalancedCompleteBipartiteSubgraphCreateSpec) -> Result<Self, Self::Error> {
-        for (index, &(left, right)) in spec.biedges.iter().enumerate() {
-            if left >= spec.left {
-                return Err(format!(
-                    "biedges[{index}] left vertex {left} is out of bounds for left partition size {}",
-                    spec.left
-                ).into());
-            }
-            if right >= spec.right {
-                return Err(format!(
-                    "biedges[{index}] right vertex {right} is out of bounds for right partition size {}",
-                    spec.right
-                ).into());
-            }
-        }
         Ok(Self::new(
-            BipartiteGraph::new(spec.left, spec.right, spec.biedges),
+            BipartiteGraph::new(spec.left, spec.right, spec.biedges)?,
             spec.k,
         ))
     }
@@ -228,7 +214,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (3, 1),
                     (3, 3),
                 ],
-            ),
+            )
+            .unwrap(),
             3,
         )),
         optimal_config: serde_json::json!(vec![true, true, true, false, true, true, true, false]),

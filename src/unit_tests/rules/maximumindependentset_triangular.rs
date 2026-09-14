@@ -26,7 +26,8 @@ fn test_mis_simple_one_to_triangular_is_deterministic_on_large_graph() {
         }
     }
 
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; n]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![One; n]).unwrap();
     let first = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i64>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let baseline_atoms = first.target_problem().graph().num_vertices();
@@ -46,8 +47,11 @@ fn test_mis_simple_one_to_triangular_is_deterministic_on_large_graph() {
 #[test]
 fn test_mis_simple_one_to_triangular_closed_loop() {
     // Path graph: 0-1-2
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![One; 3],
+    )
+    .unwrap();
     let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i64>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -68,7 +72,9 @@ fn test_mis_simple_one_to_triangular_preserves_optimum_and_witness() {
     };
 
     let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let source = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![One; 4]);
+    let source =
+        MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()).unwrap(), vec![One; 4])
+            .unwrap();
     let reduction =
         ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i64>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
@@ -104,7 +110,9 @@ fn test_mis_simple_one_to_triangular_all_four_vertex_graphs() {
             .filter(|(index, _)| mask & (1 << index) != 0)
             .map(|(_, &edge)| edge)
             .collect::<Vec<_>>();
-        let source = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![One; 4]);
+        let source =
+            MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()).unwrap(), vec![One; 4])
+                .unwrap();
         let reduction =
             ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i64>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
@@ -131,7 +139,9 @@ fn test_mis_simple_one_to_triangular_all_four_vertex_graphs() {
 #[test]
 fn test_mis_simple_one_to_triangular_graph_methods() {
     // Single edge graph: 0-1
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![One; 2])
+            .unwrap();
     let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i64>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let target = result.target_problem();

@@ -145,11 +145,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 LabelledDigraph::new(
                     3,
                     vec![LabelledArc::new(0, 0, 1), LabelledArc::new(1, 1, 2)],
-                ),
+                )
+                .unwrap(),
                 LabelledDigraph::new(
                     3,
                     vec![LabelledArc::new(0, 0, 1), LabelledArc::new(1, 1, 2)],
-                ),
+                )
+                .unwrap(),
             );
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

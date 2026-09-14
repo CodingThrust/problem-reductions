@@ -16,12 +16,13 @@ fn instance1() -> MinimumCardinalityKey {
             (vec![2, 4], vec![5]),
         ],
     )
+    .unwrap()
 }
 
 /// Instance 2 from the issue: 6 attributes, FDs {0,1,2}->{3}, {3,4}->{5}.
 /// No 2-element subset determines all attributes.
 fn instance2() -> MinimumCardinalityKey {
-    MinimumCardinalityKey::new(6, vec![(vec![0, 1, 2], vec![3]), (vec![3, 4], vec![5])])
+    MinimumCardinalityKey::new(6, vec![(vec![0, 1, 2], vec![3]), (vec![3, 4], vec![5])]).unwrap()
 }
 
 #[test]
@@ -130,7 +131,7 @@ fn test_minimum_cardinality_key_invalid_config() {
 #[test]
 fn test_minimum_cardinality_key_empty_deps() {
     // No FDs: closure(K) = K. Only K = {0,1,2} determines all attributes.
-    let problem = MinimumCardinalityKey::new(3, vec![]);
+    let problem = MinimumCardinalityKey::new(3, vec![]).unwrap();
     assert_eq!(
         problem.evaluate(&vec![true, true, true]).unwrap(),
         Min(Some(3))
@@ -152,7 +153,7 @@ fn test_minimum_cardinality_key_empty_deps() {
 
 #[test]
 fn test_minimum_cardinality_key_empty_key_candidate() {
-    let problem = MinimumCardinalityKey::new(1, vec![(vec![], vec![0])]);
+    let problem = MinimumCardinalityKey::new(1, vec![(vec![], vec![0])]).unwrap();
     // Empty set is a key (closure of {} includes 0 via the FD {} -> {0}).
     assert_eq!(problem.evaluate(&vec![false]).unwrap(), Min(Some(0)));
     // Selecting attr 0 is also a key, but with cardinality 1.
@@ -165,9 +166,8 @@ fn test_minimum_cardinality_key_empty_key_candidate() {
 }
 
 #[test]
-#[should_panic(expected = "outside attribute set")]
-fn test_minimum_cardinality_key_panics_on_invalid_index() {
-    MinimumCardinalityKey::new(3, vec![(vec![0, 3], vec![1])]);
+fn test_minimum_cardinality_key_rejects_invalid_index() {
+    assert!(MinimumCardinalityKey::new(3, vec![(vec![0, 3], vec![1])]).is_err());
 }
 
 #[test]
@@ -179,4 +179,11 @@ fn test_minimum_cardinality_key_paper_example() {
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(witness, solution);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"num_attributes":3,"dependencies":[[[0,3],[1]]]});
+    assert!(serde_json::from_value::<MinimumCardinalityKey>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("MinimumCardinalityKey", &Default::default(), json).is_err());
 }

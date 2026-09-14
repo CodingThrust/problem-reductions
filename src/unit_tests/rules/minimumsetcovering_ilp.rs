@@ -6,7 +6,7 @@ use crate::types::Min;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Universe: {0, 1, 2}, Sets: S0={0,1}, S1={1,2}
-    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2]]);
+    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2]]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -28,7 +28,8 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_reduction_weighted() {
-    let problem = MinimumSetCovering::with_weights(3, vec![vec![0, 1], vec![1, 2]], vec![5, 10]);
+    let problem =
+        MinimumSetCovering::with_weights(3, vec![vec![0, 1], vec![1, 2]], vec![5, 10]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -45,7 +46,7 @@ fn test_reduction_weighted() {
 fn test_minimumsetcovering_to_ilp_closed_loop() {
     // Universe: {0, 1, 2}, Sets: S0={0,1}, S1={1,2}, S2={0,2}
     // Minimum cover: any 2 sets work
-    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -83,7 +84,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
         3,
         vec![vec![0, 1, 2], vec![0, 1], vec![2]],
         vec![10, 3, 3],
-    );
+    )
+    .unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -107,7 +109,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MinimumSetCovering::new(4, vec![vec![0, 1], vec![2, 3]]);
+    let problem = MinimumSetCovering::new(4, vec![vec![0, 1], vec![2, 3]]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -122,7 +124,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem = MinimumSetCovering::new(5, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
+    let problem =
+        MinimumSetCovering::new(5, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -134,7 +137,8 @@ fn test_ilp_structure() {
 #[test]
 fn test_single_set_covers_all() {
     // Single set covers entire universe
-    let problem = MinimumSetCovering::new(3, vec![vec![0, 1, 2], vec![0], vec![1], vec![2]]);
+    let problem =
+        MinimumSetCovering::new(3, vec![vec![0, 1, 2], vec![0], vec![1], vec![2]]).unwrap();
 
     let ilp_solver = ILPSolver::new();
     let reduction: ReductionSCToILP =
@@ -154,7 +158,7 @@ fn test_single_set_covers_all() {
 #[test]
 fn test_overlapping_sets() {
     // All sets overlap on element 1
-    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2]]);
+    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2]]).unwrap();
 
     let ilp_solver = ILPSolver::new();
     let reduction: ReductionSCToILP =
@@ -174,7 +178,7 @@ fn test_overlapping_sets() {
 #[test]
 fn test_empty_universe() {
     // Empty universe is trivially covered
-    let problem = MinimumSetCovering::new(0, vec![]);
+    let problem = MinimumSetCovering::new(0, vec![]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -186,7 +190,7 @@ fn test_empty_universe() {
 #[test]
 fn test_solve_via_ilp_pipeline() {
     let problem: MinimumSetCovering<i64> =
-        MinimumSetCovering::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![0, 3]]);
+        MinimumSetCovering::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![0, 3]]).unwrap();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
@@ -204,7 +208,7 @@ fn test_constraint_structure() {
     // Element 0 is in S0, S1 -> constraint: x0 + x1 >= 1
     // Element 1 is in S1, S2 -> constraint: x1 + x2 >= 1
     // Element 2 is in S2 -> constraint: x2 >= 1
-    let problem = MinimumSetCovering::new(3, vec![vec![0], vec![0, 1], vec![1, 2]]);
+    let problem = MinimumSetCovering::new(3, vec![vec![0], vec![0, 1], vec![1, 2]]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -235,7 +239,7 @@ fn test_constraint_structure() {
 
 #[test]
 fn test_minimumsetcovering_to_ilp_bf_vs_ilp() {
-    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+    let problem = MinimumSetCovering::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]).unwrap();
     let reduction: ReductionSCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);

@@ -73,7 +73,8 @@ impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
             })
             .collect();
 
-        let target = QuadraticAssignment::new(cost_matrix, distance_matrix);
+        let target = QuadraticAssignment::new(cost_matrix, distance_matrix)
+            .map_err(<Self as ReduceTo<QuadraticAssignment>>::target_construction)?;
         Ok(ReductionHamiltonianCircuitToQuadraticAssignment { target })
     }
 }

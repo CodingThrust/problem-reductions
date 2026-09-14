@@ -42,11 +42,30 @@ inventory::submit! {
 ///
 /// A configuration is feasible if removing the cut edges disconnects all
 /// terminal pairs.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumMultiwayCut<G, W> {
     graph: G,
     terminals: Vec<usize>,
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct MinimumMultiwayCutData<G, W> {
+    graph: G,
+    terminals: Vec<usize>,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumMultiwayCut<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumMultiwayCutData::<G, W>::deserialize(deserializer)?;
+        Self::new(data.graph, data.terminals, data.edge_weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -62,35 +81,7 @@ struct MinimumMultiwayCutCreateSpec {
 impl TryFrom<MinimumMultiwayCutCreateSpec> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumMultiwayCutCreateSpec) -> Result<Self, Self::Error> {
-        if spec.edge_weights.len() != spec.graph.num_edges() {
-            return Err(format!(
-                "edge_weights has {} entries, expected {}",
-                spec.edge_weights.len(),
-                spec.graph.num_edges()
-            )
-            .into());
-        }
-        if spec.terminals.len() < 2 {
-            return Err("at least two terminals are required".to_string().into());
-        }
-        let mut distinct = spec.terminals.clone();
-        distinct.sort_unstable();
-        distinct.dedup();
-        if distinct.len() != spec.terminals.len() {
-            return Err("terminals must be distinct".to_string().into());
-        }
-        if let Some(&terminal) = spec
-            .terminals
-            .iter()
-            .find(|&&t| t >= spec.graph.num_vertices())
-        {
-            return Err(format!(
-                "terminal {terminal} is outside graph with {} vertices",
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        Ok(Self::new(spec.graph, spec.terminals, spec.edge_weights))
+        Self::new(spec.graph, spec.terminals, spec.edge_weights)
     }
 }
 
@@ -101,30 +92,38 @@ impl<G: Graph, W: Clone + Default> MinimumMultiwayCut<G, W> {
     /// [`Graph::edges()`](crate::topology::Graph::edges). Each binary
     /// variable corresponds to an edge: 0 = keep, 1 = cut.
     ///
-    /// # Panics
+    /// # Errors
     /// - If `edge_weights.len() != graph.num_edges()`
     /// - If `terminals.len() < 2`
     /// - If any terminal index is out of bounds
     /// - If there are duplicate terminal indices
-    pub fn new(graph: G, terminals: Vec<usize>, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        assert!(terminals.len() >= 2, "need at least 2 terminals");
+    pub fn new(
+        graph: G,
+        terminals: Vec<usize>,
+        edge_weights: Vec<W>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".into());
+        }
+        if !(terminals.len() >= 2) {
+            return Err("need at least 2 terminals".into());
+        }
         let mut sorted = terminals.clone();
         sorted.sort();
         sorted.dedup();
-        assert_eq!(sorted.len(), terminals.len(), "duplicate terminal indices");
-        for &t in &terminals {
-            assert!(t < graph.num_vertices(), "terminal index out of bounds");
+        if sorted.len() != terminals.len() {
+            return Err("duplicate terminal indices".into());
         }
-        Self {
+        for &t in &terminals {
+            if !(t < graph.num_vertices()) {
+                return Err("terminal index out of bounds".into());
+            }
+        }
+        Ok(Self {
             graph,
             terminals,
             edge_weights,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -272,11 +271,14 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_multiway_cut_simplegraph",
-        instance: Box::new(MinimumMultiwayCut::new(
-            SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]),
-            vec![0, 2, 4],
-            vec![2, 3, 1, 2, 4, 5],
-        )),
+        instance: Box::new(
+            MinimumMultiwayCut::new(
+                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap(),
+                vec![0, 2, 4],
+                vec![2, 3, 1, 2, 4, 5],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![true, false, false, true, true, false]),
         optimal_value: serde_json::json!(8),
     }]

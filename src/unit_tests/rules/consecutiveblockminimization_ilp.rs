@@ -11,7 +11,8 @@ fn test_cbm_to_ilp_structure() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCBMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -25,7 +26,8 @@ fn test_cbm_to_ilp_closed_loop() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCBMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_bf_vs_ilp(&problem, &reduction);
@@ -36,7 +38,8 @@ fn test_cbm_to_ilp_bf_vs_ilp() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionCBMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -55,7 +58,7 @@ fn test_cbm_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_cbm_to_ilp_trivial() {
     // 1x1 matrix, bound 1
-    let problem = ConsecutiveBlockMinimization::new(vec![vec![true]], 1);
+    let problem = ConsecutiveBlockMinimization::new(vec![vec![true]], 1).unwrap();
     let reduction: ReductionCBMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

@@ -9,7 +9,7 @@ use crate::types::One;
 
 #[test]
 fn test_minimumtardinesssequencing_to_ilp_closed_loop() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 2)]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 2)]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&problem, &reduction);
@@ -17,7 +17,8 @@ fn test_minimumtardinesssequencing_to_ilp_closed_loop() {
 
 #[test]
 fn test_minimumtardinesssequencing_to_ilp_bf_vs_ilp() {
-    let problem = MinimumTardinessSequencing::<One>::new(4, vec![2, 3, 1, 4], vec![(0, 2)]);
+    let problem =
+        MinimumTardinessSequencing::<One>::new(4, vec![2, 3, 1, 4], vec![(0, 2)]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
@@ -36,7 +37,7 @@ fn test_minimumtardinesssequencing_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_minimumtardinesssequencing_to_ilp_no_precedences() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![1, 2, 3], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![1, 2, 3], vec![]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -48,7 +49,7 @@ fn test_minimumtardinesssequencing_to_ilp_no_precedences() {
 
 #[test]
 fn test_minimumtardinesssequencing_to_ilp_all_tight() {
-    let problem = MinimumTardinessSequencing::<One>::new(3, vec![1, 1, 1], vec![]);
+    let problem = MinimumTardinessSequencing::<One>::new(3, vec![1, 1, 1], vec![]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -65,7 +66,8 @@ fn test_minimumtardinesssequencing_to_ilp_all_tight() {
 #[test]
 fn test_minimumtardinesssequencing_weighted_to_ilp_closed_loop() {
     let problem =
-        MinimumTardinessSequencing::<i64>::with_lengths(vec![2, 1, 3], vec![3, 4, 5], vec![(0, 2)]);
+        MinimumTardinessSequencing::<i64>::with_lengths(vec![2, 1, 3], vec![3, 4, 5], vec![(0, 2)])
+            .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&problem, &reduction);
@@ -77,7 +79,8 @@ fn test_minimumtardinesssequencing_weighted_to_ilp_vs_brute_force() {
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
-    );
+    )
+    .unwrap();
 
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap().expect("should have solution");

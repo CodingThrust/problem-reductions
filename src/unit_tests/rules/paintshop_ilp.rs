@@ -7,7 +7,7 @@ use crate::traits::Problem;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Sequence: A, B, A, B => 2 cars, 4 positions
-    let problem = PaintShop::new(vec!["A", "B", "A", "B"]);
+    let problem = PaintShop::new(vec!["A", "B", "A", "B"]).unwrap();
     let reduction: ReductionPaintShopToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -19,7 +19,7 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_paintshop_to_ilp_closed_loop() {
-    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
+    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]).unwrap();
     let reduction: ReductionPaintShopToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -28,7 +28,7 @@ fn test_paintshop_to_ilp_closed_loop() {
 
 #[test]
 fn test_paintshop_to_ilp_bf_vs_ilp() {
-    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
+    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]).unwrap();
     let reduction: ReductionPaintShopToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -49,7 +49,7 @@ fn test_paintshop_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Minimal: A, A => 1 car
-    let problem = PaintShop::new(vec!["A", "A"]);
+    let problem = PaintShop::new(vec!["A", "A"]).unwrap();
     let reduction: ReductionPaintShopToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

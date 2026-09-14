@@ -41,7 +41,8 @@ impl ReduceTo<Knapsack> for Partition {
         let capacity = self.total_sum() / 2;
 
         Ok(ReductionPartitionToKnapsack {
-            target: Knapsack::new(weights, values, capacity),
+            target: Knapsack::new(weights, values, capacity)
+                .map_err(<Self as ReduceTo<Knapsack>>::target_construction)?,
         })
     }
 }

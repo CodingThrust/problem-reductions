@@ -122,8 +122,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumfeedbackvertexset_to_ilp",
         build: || {
             // Simple cycle: 0 -> 1 -> 2 -> 0 (FVS = 1 vertex)
-            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-            let source = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
+            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]).unwrap();
+            let source = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

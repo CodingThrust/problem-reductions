@@ -19,7 +19,8 @@ fn issue_example() -> GraphPartitioning<SimpleGraph> {
             (3, 5),
             (4, 5),
         ],
-    );
+    )
+    .unwrap();
     GraphPartitioning::new(graph)
 }
 
@@ -76,7 +77,7 @@ fn test_graphpartitioning_solver() {
 #[test]
 fn test_graphpartitioning_odd_vertices() {
     // 3 vertices: all configs must be Invalid since n is odd
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = GraphPartitioning::new(graph);
 
     // Every possible config should be Invalid
@@ -99,7 +100,7 @@ fn test_graphpartitioning_odd_vertices() {
 #[test]
 fn test_graphpartitioning_unbalanced_invalid() {
     // 4 vertices: only configs with exactly 2 ones are valid
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]).unwrap();
     let problem = GraphPartitioning::new(graph);
 
     // All zeros: 0 ones, not balanced
@@ -155,7 +156,7 @@ fn test_graphpartitioning_parameter_getters() {
 #[test]
 fn test_graphpartitioning_square_graph() {
     // Square graph: 0-1, 1-2, 2-3, 3-0 (the doctest example)
-    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
     let problem = GraphPartitioning::new(graph);
 
     let solver = BruteForce::new();
@@ -186,7 +187,7 @@ fn test_graphpartitioning_graph_accessor() {
 #[test]
 fn test_graphpartitioning_empty_graph() {
     // 4 vertices, no edges: any balanced partition has cut = 0
-    let graph = SimpleGraph::new(4, vec![]);
+    let graph = SimpleGraph::new(4, vec![]).unwrap();
     let problem = GraphPartitioning::new(graph);
 
     let config = vec![false, false, true, true];

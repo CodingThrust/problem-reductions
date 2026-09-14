@@ -4,7 +4,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_precedence_constrained_scheduling_basic() {
-    let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]);
+    let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]).unwrap();
     assert_eq!(problem.num_tasks(), 4);
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.deadline(), 3);
@@ -42,7 +42,8 @@ fn test_precedence_constrained_scheduling_evaluate_valid() {
             (5, 7),
             (6, 7),
         ],
-    );
+    )
+    .unwrap();
     // Valid schedule: slot 0: {t0, t1}, slot 1: {t2, t3, t4}, slot 2: {t5, t6}, slot 3: {t7}
     let config = vec![0, 0, 1, 1, 1, 2, 2, 3];
     assert!(problem.evaluate(&config).unwrap());
@@ -51,20 +52,20 @@ fn test_precedence_constrained_scheduling_evaluate_valid() {
 #[test]
 fn test_precedence_constrained_scheduling_evaluate_invalid_precedence() {
     // t0 < t1, but we assign both to slot 0
-    let problem = PrecedenceConstrainedScheduling::new(2, 2, 3, vec![(0, 1)]);
+    let problem = PrecedenceConstrainedScheduling::new(2, 2, 3, vec![(0, 1)]).unwrap();
     assert!(!problem.evaluate(&vec![0, 0]).unwrap()); // slot[1] = 0 < slot[0] + 1 = 1
 }
 
 #[test]
 fn test_precedence_constrained_scheduling_evaluate_invalid_capacity() {
     // 3 tasks, 2 processors, all in slot 0
-    let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![]);
+    let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![]).unwrap();
     assert!(!problem.evaluate(&vec![0, 0, 0]).unwrap()); // 3 tasks in slot 0, capacity 2
 }
 
 #[test]
 fn test_precedence_constrained_scheduling_evaluate_wrong_config_length() {
-    let problem = PrecedenceConstrainedScheduling::new(3, 2, 3, vec![]);
+    let problem = PrecedenceConstrainedScheduling::new(3, 2, 3, vec![]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 1]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -77,7 +78,7 @@ fn test_precedence_constrained_scheduling_evaluate_wrong_config_length() {
 
 #[test]
 fn test_precedence_constrained_scheduling_evaluate_invalid_variable_value() {
-    let problem = PrecedenceConstrainedScheduling::new(2, 2, 3, vec![]);
+    let problem = PrecedenceConstrainedScheduling::new(2, 2, 3, vec![]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![0, 3]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -87,7 +88,7 @@ fn test_precedence_constrained_scheduling_evaluate_invalid_variable_value() {
 #[test]
 fn test_precedence_constrained_scheduling_brute_force() {
     // Small instance: 3 tasks, 2 processors, deadline 2, t0 < t2
-    let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]);
+    let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -98,7 +99,7 @@ fn test_precedence_constrained_scheduling_brute_force() {
 
 #[test]
 fn test_precedence_constrained_scheduling_brute_force_all() {
-    let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]);
+    let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]).unwrap();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
@@ -110,14 +111,14 @@ fn test_precedence_constrained_scheduling_brute_force_all() {
 #[test]
 fn test_precedence_constrained_scheduling_unsatisfiable() {
     // 3 tasks in a chain t0 < t1 < t2, but only deadline 2 (need 3 slots)
-    let problem = PrecedenceConstrainedScheduling::new(3, 1, 2, vec![(0, 1), (1, 2)]);
+    let problem = PrecedenceConstrainedScheduling::new(3, 1, 2, vec![(0, 1), (1, 2)]).unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_precedence_constrained_scheduling_serialization() {
-    let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]);
+    let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: PrecedenceConstrainedScheduling = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_tasks(), problem.num_tasks());
@@ -129,7 +130,7 @@ fn test_precedence_constrained_scheduling_serialization() {
 
 #[test]
 fn test_precedence_constrained_scheduling_empty() {
-    let problem = PrecedenceConstrainedScheduling::new(0, 1, 1, vec![]);
+    let problem = PrecedenceConstrainedScheduling::new(0, 1, 1, vec![]).unwrap();
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
@@ -141,7 +142,7 @@ fn test_precedence_constrained_scheduling_empty() {
 #[test]
 fn test_precedence_constrained_scheduling_no_precedences() {
     // 4 tasks, 2 processors, deadline 2, no precedences
-    let problem = PrecedenceConstrainedScheduling::new(4, 2, 2, vec![]);
+    let problem = PrecedenceConstrainedScheduling::new(4, 2, 2, vec![]).unwrap();
     // 2 tasks per slot, 2 slots = 4 tasks
     assert!(problem.evaluate(&vec![0, 0, 1, 1]).unwrap());
     let solver = BruteForce::new();

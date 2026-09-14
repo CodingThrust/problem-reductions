@@ -160,7 +160,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 SimpleGraph::new(
                     5,
                     vec![(0, 1), (1, 2), (1, 3), (3, 4), (0, 3), (3, 2), (2, 4)],
-                ),
+                )
+                .unwrap(),
                 vec![2, 2, 1, 1, 5, 5, 6],
                 vec![0, 2, 4],
             );

@@ -14,10 +14,11 @@ fn signed_cut_weights_preserve_every_target_optimum() {
         vec![i64::MIN, 0, 0],
     ] {
         let source = MinimumMultiwayCut::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
             vec![0, 1],
             weights,
-        );
+        )
+        .unwrap();
         let optimum = (0..8)
             .filter_map(|bits| {
                 source
@@ -46,8 +47,8 @@ fn signed_cut_weights_preserve_every_target_optimum() {
 #[test]
 fn test_minimummultiwaycut_to_qubo_closed_loop() {
     // 5 vertices, terminals {0,2,4}, 6 edges with weights [2,3,1,2,4,5]
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
@@ -68,8 +69,8 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
 #[test]
 fn test_minimummultiwaycut_to_qubo_small() {
     // 3 vertices, 2 terminals {0,2}, edges [(0,1),(1,2)] with weights [1,1]
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let source = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1, 1]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let source = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1, 1]).unwrap();
 
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
@@ -91,8 +92,8 @@ fn test_minimummultiwaycut_to_qubo_small() {
 #[test]
 fn test_minimummultiwaycut_to_qubo_sizes() {
     // 5 vertices, 3 terminals => QUBO has k*n = 3*5 = 15 variables
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-    let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
+    let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     assert_eq!(reduction.target_problem().num_variables().unwrap(), 15);
@@ -102,9 +103,9 @@ fn test_minimummultiwaycut_to_qubo_sizes() {
 fn test_minimummultiwaycut_to_qubo_terminal_pinning() {
     // Verify that in all QUBO optimal solutions, each terminal vertex is
     // assigned to its own terminal position.
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]).unwrap();
     let terminals = vec![0, 2, 4];
-    let source = MinimumMultiwayCut::new(graph, terminals.clone(), vec![2, 3, 1, 2, 4, 5]);
+    let source = MinimumMultiwayCut::new(graph, terminals.clone(), vec![2, 3, 1, 2, 4, 5]).unwrap();
 
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();

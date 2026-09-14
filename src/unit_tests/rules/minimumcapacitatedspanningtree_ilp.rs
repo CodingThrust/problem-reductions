@@ -10,12 +10,13 @@ use crate::types::Min;
 /// Small instance: 4 vertices, 5 edges.
 fn small_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     MinimumCapacitatedSpanningTree::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]).unwrap(),
         vec![2, 3, 1, 1, 2], // edge weights
         0,                   // root
         vec![0, 1, 1, 1],    // requirements
         2,                   // capacity
     )
+    .unwrap()
 }
 
 /// Canonical instance from issue #901: 5 vertices, 8 edges.
@@ -33,12 +34,14 @@ fn canonical_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
                 (2, 4),
                 (3, 4),
             ],
-        ),
+        )
+        .unwrap(),
         vec![2, 1, 4, 3, 1, 2, 3, 1],
         0,
         vec![0, 1, 1, 1, 1],
         3,
     )
+    .unwrap()
 }
 
 #[test]
@@ -128,12 +131,13 @@ fn test_minimumcapacitatedspanningtree_to_ilp_star_tree() {
     // Star from root 0: all edges directly from root.
     // With capacity >= max single requirement, star is always valid.
     let problem = MinimumCapacitatedSpanningTree::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![1, 1, 1],
         0,
         vec![0, 1, 1, 1],
         1, // capacity = 1 forces star tree
-    );
+    )
+    .unwrap();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -148,12 +152,13 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
     // Path 0-1-2-3, root=0, capacity=3, requirements=[0,1,1,1]
     // Only spanning tree is the path: subtree(1)={1,2,3}->req=3<=3 OK
     let problem = MinimumCapacitatedSpanningTree::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![2, 3, 1],
         0,
         vec![0, 1, 1, 1],
         3,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -166,12 +171,13 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
 #[test]
 fn test_zero_requirement_vertex_still_must_be_connected() {
     let problem = MinimumCapacitatedSpanningTree::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 3)]).unwrap(),
         vec![1, 1, 1],
         0,
         vec![0, 1, 0, 1],
         2,
-    );
+    )
+    .unwrap();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(

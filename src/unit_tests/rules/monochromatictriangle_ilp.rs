@@ -6,10 +6,9 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
 fn k4_instance() -> MonochromaticTriangle<SimpleGraph> {
-    MonochromaticTriangle::new(SimpleGraph::new(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ))
+    MonochromaticTriangle::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+    )
 }
 
 #[test]
@@ -26,7 +25,8 @@ fn test_monochromatic_triangle_to_ilp_structure() {
 
 #[test]
 fn test_monochromatic_triangle_to_ilp_constraint_pairs_on_single_triangle() {
-    let problem = MonochromaticTriangle::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]));
+    let problem =
+        MonochromaticTriangle::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap());
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -66,7 +66,7 @@ fn test_monochromatic_triangle_to_ilp_infeasible_k6() {
             edges.push((u, v));
         }
     }
-    let problem = MonochromaticTriangle::new(SimpleGraph::new(6, edges));
+    let problem = MonochromaticTriangle::new(SimpleGraph::new(6, edges).unwrap());
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_eq!(
@@ -101,7 +101,7 @@ fn test_monochromatictriangle_to_ilp_preserves_every_small_coloring() {
             .enumerate()
             .filter_map(|(i, &edge)| (mask & (1 << i) != 0).then_some(edge))
             .collect();
-        let source = MonochromaticTriangle::new(SimpleGraph::new(5, edges));
+        let source = MonochromaticTriangle::new(SimpleGraph::new(5, edges).unwrap());
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         for bits in 0..(1 << source.num_edges()) {
             let coloring: Vec<_> = (0..source.num_edges())
@@ -124,7 +124,7 @@ fn test_monochromatictriangle_to_ilp_preserves_every_small_coloring() {
 fn test_monochromatictriangle_to_ilp_shared_k5_all_colorings() {
     let mut edges = vec![(0, 1), (2, 3), (4, 5), (4, 6), (5, 6)];
     edges.extend((0..4).flat_map(|u| (4..7).map(move |v| (u, v))));
-    let source = MonochromaticTriangle::new(SimpleGraph::new(7, edges));
+    let source = MonochromaticTriangle::new(SimpleGraph::new(7, edges).unwrap());
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     assert_eq!(reduction.target_problem().num_constraints(), 49);
     for bits in 0..(1 << source.num_edges()) {

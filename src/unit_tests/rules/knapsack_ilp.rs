@@ -6,7 +6,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_knapsack_to_ilp_closed_loop() {
-    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
+    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&knapsack, &reduction);
@@ -20,7 +20,7 @@ fn test_knapsack_to_ilp_closed_loop() {
 
 #[test]
 fn test_knapsack_to_ilp_bf_vs_ilp() {
-    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
+    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
     let bf_solutions = BruteForce::new().find_all_witnesses(&knapsack).unwrap();
@@ -38,7 +38,7 @@ fn test_knapsack_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_knapsack_to_ilp_structure() {
-    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
+    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -55,7 +55,7 @@ fn test_knapsack_to_ilp_structure() {
 
 #[test]
 fn test_knapsack_to_ilp_zero_capacity() {
-    let knapsack = Knapsack::new(vec![2, 3], vec![5, 7], 0);
+    let knapsack = Knapsack::new(vec![2, 3], vec![5, 7], 0).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -67,7 +67,7 @@ fn test_knapsack_to_ilp_zero_capacity() {
 
 #[test]
 fn test_knapsack_to_ilp_empty_instance() {
-    let knapsack = Knapsack::new(vec![], vec![], 0);
+    let knapsack = Knapsack::new(vec![], vec![], 0).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -88,7 +88,7 @@ fn test_knapsack_to_ilp_empty_instance() {
 #[test]
 fn test_knapsack_to_ilp_preserves_large_exact_weight() {
     let weight = crate::types::MAX_EXACT_F64_INTEGER + 1;
-    let knapsack = Knapsack::new(vec![weight], vec![1], weight);
+    let knapsack = Knapsack::new(vec![weight], vec![1], weight).unwrap();
 
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).unwrap();
     let constraint = &reduction.target_problem().constraints()[0];

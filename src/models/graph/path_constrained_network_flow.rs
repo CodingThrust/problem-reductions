@@ -83,13 +83,8 @@ impl TryFrom<PathConstrainedNetworkFlowCreateSpec> for PathConstrainedNetworkFlo
             .transpose()?
             .unwrap_or(0);
         let num_vertices = spec.num_vertices.unwrap_or(inferred);
-        if num_vertices < inferred {
-            return Err(format!(
-                "num_vertices {num_vertices} is too small for arc endpoints; need at least {inferred}"
-            ).into());
-        }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
-        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let graph = DirectedGraph::new(num_vertices, spec.arcs)?;
         Self::try_new(
             graph,
             capacities,
@@ -365,7 +360,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (5, 7),
                     (6, 7),
                 ],
-            ),
+            )
+            .unwrap(),
             vec![2, 1, 1, 1, 1, 1, 1, 1, 2, 1],
             0,
             7,

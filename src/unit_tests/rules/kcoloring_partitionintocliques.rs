@@ -7,7 +7,7 @@ use crate::variant::KN;
 #[test]
 fn test_kcoloring_to_partitionintocliques_closed_loop() {
     let source = KColoring::<KN, _>::with_k(
-        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap(),
         3,
     );
     let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
@@ -22,7 +22,10 @@ fn test_kcoloring_to_partitionintocliques_closed_loop() {
 
 #[test]
 fn test_kcoloring_to_partitionintocliques_complement_structure() {
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 2);
+    let source = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
+        2,
+    );
     let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -37,7 +40,7 @@ fn test_kcoloring_to_partitionintocliques_complement_structure() {
 
 #[test]
 fn test_kcoloring_to_partitionintocliques_extract_solution_identity() {
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(), 2);
     let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let config = vec![0, 1, 0];
@@ -47,7 +50,10 @@ fn test_kcoloring_to_partitionintocliques_extract_solution_identity() {
 
 #[test]
 fn test_kcoloring_to_partitionintocliques_unsat_preserved() {
-    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 2);
+    let source = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+        2,
+    );
     let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();

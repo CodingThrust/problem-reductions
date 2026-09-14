@@ -31,7 +31,7 @@ fn make_test_instance() -> QuadraticAssignment {
         vec![1, 3, 0, 4],
         vec![1, 4, 4, 0],
     ];
-    QuadraticAssignment::new(cost_matrix, distance_matrix)
+    QuadraticAssignment::new(cost_matrix, distance_matrix).unwrap()
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn test_quadratic_assignment_rectangular() {
     // 2 facilities, 3 locations (n < m)
     let cost_matrix = vec![vec![0, 3], vec![3, 0]];
     let distance_matrix = vec![vec![0, 1, 4], vec![1, 0, 2], vec![4, 2, 0]];
-    let qap = QuadraticAssignment::new(cost_matrix, distance_matrix);
+    let qap = QuadraticAssignment::new(cost_matrix, distance_matrix).unwrap();
     assert_eq!(qap.num_facilities(), 2);
     assert_eq!(qap.num_locations(), 3);
     assert_eq!(
@@ -138,18 +138,16 @@ fn test_quadratic_assignment_rectangular() {
 }
 
 #[test]
-#[should_panic(expected = "cost_matrix must be square")]
 fn test_quadratic_assignment_nonsquare_cost() {
-    QuadraticAssignment::new(vec![vec![0, 1]], vec![vec![0, 1], vec![1, 0]]);
+    assert!(QuadraticAssignment::new(vec![vec![0, 1]], vec![vec![0, 1], vec![1, 0]]).is_err());
 }
 
 #[test]
-#[should_panic(expected = "num_facilities")]
 fn test_quadratic_assignment_too_many_facilities() {
-    // 3 facilities, 2 locations (n > m) -- should panic
+    // 3 facilities, 2 locations (n > m) -- rejected
     let cost = vec![vec![0, 1, 2], vec![1, 0, 3], vec![2, 3, 0]];
     let dist = vec![vec![0, 1], vec![1, 0]];
-    QuadraticAssignment::new(cost, dist);
+    assert!(QuadraticAssignment::new(cost, dist).is_err());
 }
 
 #[test]
@@ -164,4 +162,12 @@ fn test_quadratic_assignment_solver() {
         Problem::evaluate(&qap, &best_config).unwrap(),
         Min(Some(56))
     );
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<QuadraticAssignment>(
+        serde_json::json!({"cost_matrix":[[1]],"distance_matrix":[[]]})
+    )
+    .is_err());
 }

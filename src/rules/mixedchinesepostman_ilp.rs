@@ -388,7 +388,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Simple instance: 3 vertices, 1 arc, 2 edges
             let source = MixedChinesePostman::new(
-                MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
+                MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]).unwrap(),
                 vec![1],
                 vec![1, 1],
             );

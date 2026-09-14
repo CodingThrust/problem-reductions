@@ -114,7 +114,8 @@ impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> 
         // 4. Add pendant edge {t, v'}
         edges.push((t, v_prime));
 
-        let target_graph = SimpleGraph::new(n + 3, edges);
+        let target_graph = SimpleGraph::new(n + 3, edges)
+            .map_err(<Self as ReduceTo<HamiltonianPath<SimpleGraph>>>::target_construction)?;
         let target = HamiltonianPath::new(target_graph);
 
         Ok(ReductionHamiltonianCircuitToHamiltonianPath {

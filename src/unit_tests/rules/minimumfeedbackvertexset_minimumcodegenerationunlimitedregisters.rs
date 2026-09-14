@@ -38,9 +38,10 @@ fn test_codegen_start_nodes_cover_self_loops_and_parallel_arcs() {
     use crate::traits::Problem;
     use crate::types::{Min, One};
     let source = MinimumFeedbackVertexSet::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 0), (2, 2), (2, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 0), (2, 2), (2, 2)]).unwrap(),
         vec![One; 3],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
@@ -59,7 +60,9 @@ fn test_codegen_empty_graph_and_invalid_orders() {
     use crate::rules::ReductionResult;
     use crate::topology::DirectedGraph;
     use crate::types::One;
-    let empty = MinimumFeedbackVertexSet::<One>::new(DirectedGraph::new(0, vec![]), vec![]);
+    let empty =
+        MinimumFeedbackVertexSet::<One>::new(DirectedGraph::new(0, vec![]).unwrap(), vec![])
+            .unwrap();
     let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&empty).unwrap();
     assert_eq!(reduction.target_problem().num_vertices(), 1);
     assert_eq!(
@@ -108,7 +111,9 @@ fn test_codegen_every_small_evaluation_permutation() {
                 .enumerate()
                 .filter_map(|(i, &arc)| (mask & (1 << i) != 0).then_some(arc))
                 .collect();
-            let source = MinimumFeedbackVertexSet::new(DirectedGraph::new(n, arcs), vec![One; n]);
+            let source =
+                MinimumFeedbackVertexSet::new(DirectedGraph::new(n, arcs).unwrap(), vec![One; n])
+                    .unwrap();
             let witness = BruteForce::new().solve(&source).unwrap().unwrap();
             let Min(Some(optimum)) = source.evaluate(&witness).unwrap() else {
                 unreachable!()

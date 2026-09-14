@@ -209,7 +209,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "kcoloring_to_qubo",
         build: || {
             let (n, edges) = crate::topology::small_graphs::house();
-            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges), 3);
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges).unwrap(), 3);
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
                 source,
                 SolutionPair {

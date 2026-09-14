@@ -10,7 +10,7 @@ use crate::types::Min;
 /// `beta * p(1) = 1` is cheaper than paying any incident edge (cost 10).
 fn canonical_problem() -> PrizeCollectingSteinerForest<SimpleGraph, i64> {
     PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![5, 1, 5],
         vec![10, 10],
         1,
@@ -98,7 +98,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
     let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         // Large prizes so all three vertices are worth including.
         vec![100, 100, 100],
         vec![1, 1],
@@ -135,7 +135,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
 fn test_prizecollectingsteinerforest_to_steinertree_mixed_zero_prize() {
     // Two-vertex path with one prize-zero vertex.
     let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(2, vec![(0, 1)]),
+        SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![0, 5],
         vec![1],
         1,
@@ -166,7 +166,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_path_with_omission() {
     // beta = 1, omega = 1. Vertices 1 and 2 are expected to drop because
     // each edge costs 5 but their prize is only 1.
     let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![4, 1, 1, 4],
         vec![5, 5, 5],
         1,
@@ -187,9 +187,14 @@ fn test_zero_prize_forest_through_steiner_tree_and_ilp() {
     use crate::models::algebraic::ILP;
     use crate::solvers::ILPSolver;
     for (n, edges, costs, expected) in [(0, vec![], vec![], 0), (2, vec![(0, 1)], vec![5], 0)] {
-        let source =
-            PrizeCollectingSteinerForest::new(SimpleGraph::new(n, edges), vec![0; n], costs, 1, 1)
-                .unwrap();
+        let source = PrizeCollectingSteinerForest::new(
+            SimpleGraph::new(n, edges).unwrap(),
+            vec![0; n],
+            costs,
+            1,
+            1,
+        )
+        .unwrap();
         let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
         assert_eq!(reduction.target_problem().num_terminals(), 1);
         let ilp = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem()).unwrap();
@@ -214,7 +219,7 @@ fn low_prizes_do_not_bypass_component_costs() {
         (vec![0, 2], 1, 5, 2),
     ] {
         let source = PrizeCollectingSteinerForest::new(
-            SimpleGraph::new(2, vec![(0, 1)]),
+            SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
             prizes,
             vec![0],
             beta,
@@ -242,7 +247,7 @@ fn low_prizes_do_not_bypass_component_costs() {
 fn gadget_coefficients_report_native_integer_overflow() {
     for (prize, beta, omega) in [(1, 1, i64::MAX), (i64::MAX, 2, 0), (i64::MAX, 1, 0)] {
         let source = PrizeCollectingSteinerForest::new(
-            SimpleGraph::new(1, vec![]),
+            SimpleGraph::new(1, vec![]).unwrap(),
             vec![prize],
             vec![],
             beta,
@@ -256,7 +261,7 @@ fn gadget_coefficients_report_native_integer_overflow() {
     }
     // No prize gadget is constructed, so its inclusion cost is not needed.
     let source = PrizeCollectingSteinerForest::new(
-        SimpleGraph::new(1, vec![]),
+        SimpleGraph::new(1, vec![]).unwrap(),
         vec![0],
         vec![],
         1,

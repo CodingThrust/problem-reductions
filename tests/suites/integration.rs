@@ -19,9 +19,10 @@ mod all_problems_solvable {
     #[test]
     fn test_independent_set_solvable() {
         let problem = MaximumIndependentSet::new(
-            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
             vec![1i64; 4],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -33,9 +34,10 @@ mod all_problems_solvable {
     #[test]
     fn test_vertex_covering_solvable() {
         let problem = MinimumVertexCover::new(
-            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
             vec![1i64; 4],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -47,9 +49,10 @@ mod all_problems_solvable {
     #[test]
     fn test_max_cut_solvable() {
         let problem = MaxCut::new(
-            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
             vec![1, 2, 1],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -57,7 +60,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_coloring_solvable() {
-        let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+        let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap());
         let solver = BruteForce::new();
         // KColoring uses the witness-capable `Or` aggregate, so all witnesses are valid colorings.
         let satisfying = solver.find_all_witnesses(&problem).unwrap();
@@ -70,9 +73,10 @@ mod all_problems_solvable {
     #[test]
     fn test_dominating_set_solvable() {
         let problem = MinimumDominatingSet::new(
-            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
             vec![1i64; 4],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -84,9 +88,10 @@ mod all_problems_solvable {
     #[test]
     fn test_maximal_is_solvable() {
         let problem = MaximalIS::new(
-            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
             vec![1i64; 4],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -98,9 +103,10 @@ mod all_problems_solvable {
     #[test]
     fn test_matching_solvable() {
         let problem = MaximumMatching::new(
-            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
             vec![1, 2, 1],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -124,13 +130,15 @@ mod all_problems_solvable {
                     (4, 5),
                     (1, 4),
                 ],
-            ),
+            )
+            .unwrap(),
             vec![2, 4, 3, 1, 5, 4, 2, 6],
             vec![5, 1, 2, 3, 2, 3, 1, 1],
             0,
             5,
             8,
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solution = solver.solve(&problem).unwrap();
         assert!(solution.is_some());
@@ -143,7 +151,8 @@ mod all_problems_solvable {
             SimpleGraph::path(4),
             vec![(0, 2, 5), (1, 3, 1), (0, 3, 2)],
             2,
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let satisfying = solver.find_all_witnesses(&problem).unwrap();
         assert_eq!(satisfying, vec![vec![false, false, true]]);
@@ -190,7 +199,8 @@ mod all_problems_solvable {
     #[test]
     fn test_set_covering_solvable() {
         let problem =
-            MinimumSetCovering::<i64>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]]);
+            MinimumSetCovering::<i64>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]])
+                .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -242,7 +252,8 @@ mod all_problems_solvable {
             3,
             vec![(vec![0], vec![1])],
             vec![0, 1, 2],
-        );
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(solutions.contains(&vec![true, false, false]));
@@ -250,7 +261,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_paintshop_solvable() {
-        let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+        let problem = PaintShop::new(vec!["a", "b", "a", "b"]).unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -260,7 +271,7 @@ mod all_problems_solvable {
     fn test_biclique_cover_solvable() {
         // Left vertices: 0, 1; Right vertices: 2, 3
         let problem = BicliqueCover::new(
-            BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+            BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]).unwrap(),
             1,
         );
         let solver = BruteForce::new();
@@ -274,7 +285,7 @@ mod all_problems_solvable {
     #[test]
     fn test_bmf_solvable() {
         // All-ones 2x2 at rank 1 has an exact boolean factorization.
-        let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
+        let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1).unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
         assert!(!solutions.is_empty());
@@ -297,8 +308,10 @@ mod problem_relationships {
         let n = 4;
 
         let is_problem =
-            MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i64; n]);
-        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+            MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()).unwrap(), vec![1i64; n])
+                .unwrap();
+        let vc_problem =
+            MinimumVertexCover::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
 
         let solver = BruteForce::new();
         let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
@@ -317,8 +330,10 @@ mod problem_relationships {
         let edges = vec![(0, 1), (1, 2), (2, 3)];
         let n = 4;
 
-        let maximal_is = MaximalIS::new(SimpleGraph::new(n, edges.clone()), vec![1i64; n]);
-        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);
+        let maximal_is =
+            MaximalIS::new(SimpleGraph::new(n, edges.clone()).unwrap(), vec![1i64; n]).unwrap();
+        let is_problem =
+            MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![1i64; n]).unwrap();
 
         let solver = BruteForce::new();
         let maximal_solutions = solver.find_all_witnesses(&maximal_is).unwrap();
@@ -376,7 +391,7 @@ mod problem_relationships {
         // Three disjoint sets covering universe {0,1,2,3,4,5}
         let sets = vec![vec![0, 1], vec![2, 3], vec![4, 5]];
 
-        let covering = MinimumSetCovering::<i64>::new(6, sets.clone());
+        let covering = MinimumSetCovering::<i64>::new(6, sets.clone()).unwrap();
         let packing = MaximumSetPacking::<i64>::new(sets);
 
         let solver = BruteForce::new();
@@ -409,7 +424,9 @@ mod edge_cases {
 
     #[test]
     fn test_empty_graph_independent_set() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![]).unwrap(), vec![1i64; 3])
+                .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 
@@ -421,7 +438,8 @@ mod edge_cases {
     fn test_complete_graph_independent_set() {
         // K4 - complete graph on 4 vertices
         let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i64; 4]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(4, edges).unwrap(), vec![1i64; 4]).unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 
@@ -456,7 +474,7 @@ mod edge_cases {
 
     #[test]
     fn test_single_car_paintshop() {
-        let problem = PaintShop::new(vec!["a", "a"]);
+        let problem = PaintShop::new(vec!["a", "a"]).unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 
@@ -471,7 +489,9 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_independent_set() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![10, 1, 1]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![10, 1, 1])
+                .unwrap();
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -488,8 +508,11 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_vertex_cover() {
-        let problem =
-            MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 10, 1]);
+        let problem = MinimumVertexCover::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+            vec![1, 10, 1],
+        )
+        .unwrap();
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -505,7 +528,11 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_max_cut() {
-        let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 1]);
+        let problem = MaxCut::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+            vec![10, 1],
+        )
+        .unwrap();
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 

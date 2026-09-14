@@ -56,7 +56,8 @@ fn test_mis_simple_one_to_kings_one_is_deterministic_on_large_graph() {
         }
     }
 
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; n]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(n, edges).unwrap(), vec![One; n]).unwrap();
 
     let first = ReduceTo::<MaximumIndependentSet<KingsSubgraph, One>>::reduce_to(&problem)
         .expect("reduction should succeed");
@@ -78,9 +79,10 @@ fn test_mis_simple_one_to_kings_one_is_deterministic_on_large_graph() {
 fn test_mis_simple_one_to_kings_one_closed_loop() {
     // Path graph: 0-1-2-3-4 (MIS = 3: select vertices 0, 2, 4)
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![One; 5],
-    );
+    )
+    .unwrap();
     let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, One>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -113,7 +115,9 @@ fn test_mis_simple_one_to_kings_one_all_four_vertex_graphs() {
             .filter(|(index, _)| mask & (1 << index) != 0)
             .map(|(_, &edge)| edge)
             .collect::<Vec<_>>();
-        let source = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![One; 4]);
+        let source =
+            MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()).unwrap(), vec![One; 4])
+                .unwrap();
         let reduction =
             ReduceTo::<MaximumIndependentSet<KingsSubgraph, One>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();

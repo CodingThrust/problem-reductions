@@ -10,7 +10,7 @@ use crate::traits::Problem;
 
 #[test]
 fn test_subsetsum_to_partition_closed_loop() {
-    let source = SubsetSum::new(vec![1u32, 5, 6, 8], 11u32);
+    let source = SubsetSum::new(vec![1u32, 5, 6, 8], 11u32).unwrap();
     let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -26,7 +26,7 @@ fn test_subsetsum_to_partition_closed_loop() {
 
 #[test]
 fn test_subsetsum_to_partition_sigma_greater_than_two_t_extraction() {
-    let source = SubsetSum::new(vec![10u32, 20, 30], 10u32);
+    let source = SubsetSum::new(vec![10u32, 20, 30], 10u32).unwrap();
     let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().sizes(), &[10, 20, 30, 40]);
@@ -46,7 +46,7 @@ fn test_subsetsum_to_partition_sigma_greater_than_two_t_extraction() {
 
 #[test]
 fn test_subsetsum_to_partition_sigma_equals_two_t_extraction() {
-    let source = SubsetSum::new(vec![3u32, 5, 2, 6], 8u32);
+    let source = SubsetSum::new(vec![3u32, 5, 2, 6], 8u32).unwrap();
     let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().sizes(), &[3, 5, 2, 6]);
@@ -60,7 +60,7 @@ fn test_subsetsum_to_partition_sigma_equals_two_t_extraction() {
 
 #[test]
 fn test_subsetsum_to_partition_unsatisfiable_instance_stays_unsatisfiable() {
-    let source = SubsetSum::new(vec![3u32, 7, 11], 5u32);
+    let source = SubsetSum::new(vec![3u32, 7, 11], 5u32).unwrap();
     let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 

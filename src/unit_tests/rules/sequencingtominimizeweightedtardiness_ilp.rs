@@ -7,7 +7,8 @@ use crate::types::Or;
 #[test]
 fn test_sequencingtominimizeweightedtardiness_to_ilp_closed_loop() {
     let problem =
-        SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 10);
+        SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 10)
+            .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Use ILPSolver directly (BruteForce cannot enumerate `ILP<i64>`)
@@ -21,7 +22,8 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_closed_loop() {
 #[test]
 fn test_sequencingtominimizeweightedtardiness_to_ilp_bf_vs_ilp() {
     let problem =
-        SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 10);
+        SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 10)
+            .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
@@ -41,7 +43,8 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_bf_vs_ilp() {
 fn test_sequencingtominimizeweightedtardiness_to_ilp_infeasible() {
     // All jobs have length 10, deadline 1, weight 1, bound 0: impossible
     let problem =
-        SequencingToMinimizeWeightedTardiness::new(vec![10, 10], vec![1, 1], vec![1, 1], 0);
+        SequencingToMinimizeWeightedTardiness::new(vec![10, 10], vec![1, 1], vec![1, 1], 0)
+            .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
         ILPSolver::new().solve(reduction.target_problem()),
@@ -58,7 +61,8 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_no_tardiness() {
         vec![1, 1, 1],
         vec![10, 10, 10],
         0,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())

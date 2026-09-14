@@ -169,10 +169,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximumleafspanningtree_to_ilp",
         build: || {
-            let source = MaximumLeafSpanningTree::new(SimpleGraph::new(
-                4,
-                vec![(0, 1), (1, 2), (2, 3), (0, 2)],
-            ));
+            let source = MaximumLeafSpanningTree::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]).unwrap(),
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]

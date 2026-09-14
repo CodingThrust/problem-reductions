@@ -16,7 +16,7 @@ fn t_tree_bipartite() -> BipartiteGraph {
     //   (v1, v2) -> (1, 0)
     //   (v2, v3) -> (1, 1)
     //   (v1, v4) -> (2, 0)
-    BipartiteGraph::new(3, 2, vec![(0, 0), (1, 0), (1, 1), (2, 0)])
+    BipartiteGraph::new(3, 2, vec![(0, 0), (1, 0), (1, 1), (2, 0)]).unwrap()
 }
 
 #[test]
@@ -138,8 +138,8 @@ fn test_identity_on_random_bipartite_instances() {
     //  - K_{1,3} (claw / star), and
     //  - the canonical T-tree above.
     let instances = vec![
-        BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
-        BipartiteGraph::new(1, 3, vec![(0, 0), (0, 1), (0, 2)]),
+        BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]).unwrap(),
+        BipartiteGraph::new(1, 3, vec![(0, 0), (0, 1), (0, 2)]).unwrap(),
         t_tree_bipartite(),
     ];
 

@@ -116,7 +116,13 @@ impl ReduceTo<MinimumCostCirculation> for MinimumCostMaximumFlow {
             >("negating the return-arc cost")
         })?);
 
-        let target = MinimumCostCirculation::new(DirectedGraph::new(n, arcs), capacities, costs);
+        let target = MinimumCostCirculation::new(
+            DirectedGraph::new(n, arcs)
+                .map_err(<Self as ReduceTo<MinimumCostCirculation>>::target_construction)?,
+            capacities,
+            costs,
+        )
+        .map_err(<Self as ReduceTo<MinimumCostCirculation>>::target_construction)?;
 
         Ok(ReductionMCMFToMCC {
             target,
@@ -137,7 +143,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Target circulation appends return arc (3 -> 0) with
             // flow value 3, giving config [2, 1, 1, 1, 2, 3].
             let source = MinimumCostMaximumFlow::new(
-                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]).unwrap(),
                 0,
                 3,
                 vec![2, 1, 1, 1, 2],

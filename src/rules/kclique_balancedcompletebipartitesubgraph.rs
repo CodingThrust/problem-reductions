@@ -97,7 +97,8 @@ impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
             }
         }
 
-        let graph = BipartiteGraph::new(left_size, right_size, bip_edges);
+        let graph = BipartiteGraph::new(left_size, right_size, bip_edges)
+            .map_err(<Self as ReduceTo<BalancedCompleteBipartiteSubgraph>>::target_construction)?;
         let target = BalancedCompleteBipartiteSubgraph::new(graph, target_k);
 
         Ok(ReductionKCliqueToBCBS {
@@ -116,7 +117,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 4-vertex graph with edges {0,1}, {0,2}, {1,2}, {2,3}, k=3
             // Known 3-clique: {0, 1, 2}
-            let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]), 3);
+            let source = KClique::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
+                3,
+            )
+            .unwrap();
             // Source config: vertices {0,1,2} selected = [1,1,1,0]
             // Target: left_size=7, right_size=5, k'=4
             // Left side: NOT selecting clique vertices -> select {3,4,5,6}

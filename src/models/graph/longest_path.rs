@@ -40,12 +40,38 @@ inventory::submit! {
 ///
 /// A valid configuration must select exactly the edges of one simple
 /// undirected path from `source_vertex` to `target_vertex`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LongestPath<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
     source_vertex: usize,
     target_vertex: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct LongestPathData<G, W: WeightElement> {
+    graph: G,
+    edge_lengths: Vec<W>,
+    source_vertex: usize,
+    target_vertex: usize,
+}
+
+impl<'de, G, W> Deserialize<'de> for LongestPath<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = LongestPathData::<G, W>::deserialize(deserializer)?;
+        Self::new(
+            data.graph,
+            data.edge_lengths,
+            data.source_vertex,
+            data.target_vertex,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! longest_path_create_spec {
@@ -82,25 +108,8 @@ macro_rules! longest_path_create_spec {
                     .transpose()?
                     .unwrap_or(0);
                 let count = spec.num_vertices.unwrap_or(inferred);
-                if count < inferred {
-                    return Err("num_vertices is too small".into());
-                }
-                let edge_lengths = longest_path_create_spec!(@lengths spec $(, $lengths)?);
-                if edge_lengths.len() != spec.graph.len() {
-                    return Err("edge_lengths length must match graph edge count".into());
-                }
-                if edge_lengths.iter().any(|v| v.to_sum() <= 0) {
-                    return Err("edge lengths must be positive".into());
-                }
-                if spec.source_vertex >= count || spec.target_vertex >= count {
-                    return Err("source_vertex and target_vertex must be valid vertices".into());
-                }
-                Ok(Self {
-                    graph: SimpleGraph::new(count, spec.graph),
-                    edge_lengths,
-                    source_vertex: spec.source_vertex,
-                    target_vertex: spec.target_vertex,
-                })
+                        let edge_lengths = longest_path_create_spec!(@lengths spec $(, $lengths)?);
+                Self::new(SimpleGraph::new(count, spec.graph)?, edge_lengths, spec.source_vertex, spec.target_vertex)
             }
         }
     };
@@ -109,42 +118,36 @@ longest_path_create_spec!(LongestPathI64CreateSpec, i64, edge_lengths);
 longest_path_create_spec!(LongestPathOneCreateSpec, One);
 
 impl<G: Graph, W: WeightElement> LongestPath<G, W> {
-    fn assert_positive_edge_lengths(edge_lengths: &[W]) {
-        let zero = W::Sum::zero();
-        assert!(
-            edge_lengths
-                .iter()
-                .all(|length| length.to_sum() > zero.clone()),
-            "All edge lengths must be positive (> 0)"
-        );
-    }
-
     /// Create a new LongestPath instance.
-    pub fn new(graph: G, edge_lengths: Vec<W>, source_vertex: usize, target_vertex: usize) -> Self {
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        Self::assert_positive_edge_lengths(&edge_lengths);
-        assert!(
-            source_vertex < graph.num_vertices(),
-            "source_vertex {} out of bounds (graph has {} vertices)",
-            source_vertex,
-            graph.num_vertices()
-        );
-        assert!(
-            target_vertex < graph.num_vertices(),
-            "target_vertex {} out of bounds (graph has {} vertices)",
-            target_vertex,
-            graph.num_vertices()
-        );
-        Self {
+    pub fn new(
+        graph: G,
+        edge_lengths: Vec<W>,
+        source_vertex: usize,
+        target_vertex: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_lengths)?;
+        if !(source_vertex < graph.num_vertices()) {
+            return Err(format!(
+                "source_vertex {} out of bounds (graph has {} vertices)",
+                source_vertex,
+                graph.num_vertices()
+            )
+            .into());
+        }
+        if !(target_vertex < graph.num_vertices()) {
+            return Err(format!(
+                "target_vertex {} out of bounds (graph has {} vertices)",
+                target_vertex,
+                graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self {
             graph,
             edge_lengths,
             source_vertex,
             target_vertex,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -158,14 +161,26 @@ impl<G: Graph, W: WeightElement> LongestPath<G, W> {
     }
 
     /// Replace the edge lengths with a new vector.
-    pub fn set_lengths(&mut self, edge_lengths: Vec<W>) {
-        assert_eq!(
-            edge_lengths.len(),
-            self.graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        Self::assert_positive_edge_lengths(&edge_lengths);
+    pub fn set_lengths(
+        &mut self,
+        edge_lengths: Vec<W>,
+    ) -> Result<(), crate::registry::ConstructionError> {
+        Self::check_weights(&self.graph, &edge_lengths)?;
         self.edge_lengths = edge_lengths;
+        Ok(())
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("edge_lengths length must match num_edges".into());
+        }
+        if !weights
+            .iter()
+            .all(|weight| weight.to_sum() > W::Sum::zero())
+        {
+            return Err("edge_lengths must be positive (> 0)".into());
+        }
+        Ok(())
     }
 
     /// Get the source vertex.
@@ -277,26 +292,30 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "longest_path_simplegraph",
-        instance: Box::new(LongestPath::new(
-            SimpleGraph::new(
-                7,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 3),
-                    (2, 3),
-                    (2, 4),
-                    (3, 5),
-                    (4, 5),
-                    (4, 6),
-                    (5, 6),
-                    (1, 6),
-                ],
-            ),
-            vec![3, 2, 4, 1, 5, 2, 3, 2, 4, 1],
-            0,
-            6,
-        )),
+        instance: Box::new(
+            LongestPath::new(
+                SimpleGraph::new(
+                    7,
+                    vec![
+                        (0, 1),
+                        (0, 2),
+                        (1, 3),
+                        (2, 3),
+                        (2, 4),
+                        (3, 5),
+                        (4, 5),
+                        (4, 6),
+                        (5, 6),
+                        (1, 6),
+                    ],
+                )
+                .unwrap(),
+                vec![3, 2, 4, 1, 5, 2, 3, 2, 4, 1],
+                0,
+                6,
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![
             true, false, true, true, true, false, true, false, true, false
         ]),

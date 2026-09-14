@@ -153,7 +153,9 @@ impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
         }
         debug_assert_eq!(next_vertex, num_vertices);
         debug_assert_eq!(edges.len(), num_edges);
-        let target = MonochromaticTriangle::new(SimpleGraph::new(num_vertices, edges));
+        let target = MonochromaticTriangle::new(SimpleGraph::new(num_vertices, edges).map_err(
+            <Self as ReduceTo<MonochromaticTriangle<SimpleGraph>>>::target_construction,
+        )?);
         Ok(Reduction3SATToMonochromaticTriangle {
             target,
             nae_reduction,

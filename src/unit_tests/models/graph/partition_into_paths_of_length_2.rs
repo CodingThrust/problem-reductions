@@ -20,8 +20,9 @@ fn test_partition_into_paths_basic() {
             (3, 6),
             (5, 8),
         ],
-    );
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    )
+    .unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 10);
@@ -47,8 +48,8 @@ fn test_partition_into_paths_basic() {
 fn test_partition_into_paths_no_solution() {
     // 6-vertex graph where no valid partition exists
     // Edges: {0,1}, {2,3}, {0,4}, {1,5}
-    let graph = SimpleGraph::new(6, vec![(0, 1), (2, 3), (0, 4), (1, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (2, 3), (0, 4), (1, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_groups(), 2);
@@ -61,8 +62,8 @@ fn test_partition_into_paths_no_solution() {
 #[test]
 fn test_partition_into_paths_solver() {
     // Simple 6-vertex graph with obvious partition: 0-1-2 and 3-4-5
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -76,8 +77,8 @@ fn test_partition_into_paths_solver() {
 #[test]
 fn test_partition_into_paths_invalid_group_size() {
     // 6-vertex path: 0-1-2-3-4-5
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     // Config where group 0 has 4 vertices and group 1 has 2 vertices
     let bad_config = vec![0, 0, 0, 0, 1, 1];
@@ -87,8 +88,8 @@ fn test_partition_into_paths_invalid_group_size() {
 #[test]
 fn test_partition_into_paths_insufficient_edges() {
     // 6 vertices, only 2 edges — not enough for any group to have 2 edges
-    let graph = SimpleGraph::new(6, vec![(0, 1), (3, 4)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (3, 4)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     // Even a well-sized partition fails because groups lack edges
     let config = vec![0, 0, 0, 1, 1, 1];
@@ -99,8 +100,8 @@ fn test_partition_into_paths_insufficient_edges() {
 #[test]
 fn test_partition_into_paths_triangle() {
     // Triangle group: 3 vertices, 3 edges — also valid (>= 2 edges)
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     // Single group with all 3 vertices forming a triangle
     let config = vec![0, 0, 0];
@@ -109,8 +110,8 @@ fn test_partition_into_paths_triangle() {
 
 #[test]
 fn test_partition_into_paths_serialization() {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: PartitionIntoPathsOfLength2<SimpleGraph> =
@@ -129,16 +130,15 @@ fn test_partition_into_paths_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "must be divisible by 3")]
 fn test_partition_into_paths_invalid_vertex_count() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-    let _problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap();
+    assert!(PartitionIntoPathsOfLength2::new(graph).is_err());
 }
 
 #[test]
 fn test_partition_into_paths_parameter_getters() {
-    let graph = SimpleGraph::new(9, vec![(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(9, vec![(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 6);
     assert_eq!(problem.num_groups(), 3);
@@ -146,8 +146,8 @@ fn test_partition_into_paths_parameter_getters() {
 
 #[test]
 fn test_partition_into_paths_out_of_range_group() {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     // Group index out of range (q=2, so valid groups are 0 and 1)
     let config = vec![0, 0, 0, 2, 2, 2];
@@ -159,8 +159,8 @@ fn test_partition_into_paths_out_of_range_group() {
 
 #[test]
 fn test_partition_into_paths_is_valid_partition() {
-    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
-    let problem = PartitionIntoPathsOfLength2::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap();
+    let problem = PartitionIntoPathsOfLength2::new(graph).unwrap();
 
     assert!(problem.is_valid_partition(&[0, 0, 0, 1, 1, 1]));
     assert!(!problem.is_valid_partition(&[0, 0, 1, 1, 1, 1])); // Wrong group sizes

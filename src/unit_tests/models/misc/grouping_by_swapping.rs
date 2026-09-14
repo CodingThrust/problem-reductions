@@ -4,15 +4,15 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn issue_yes_instance() -> GroupingBySwapping {
-    GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 5)
+    GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 5).unwrap()
 }
 
 fn issue_minimum_three_swaps_instance() -> GroupingBySwapping {
-    GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 3)
+    GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 3).unwrap()
 }
 
 fn issue_two_swap_instance() -> GroupingBySwapping {
-    GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2)
+    GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2).unwrap()
 }
 
 #[test]
@@ -109,15 +109,13 @@ fn test_grouping_by_swapping_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "input symbols must be less than alphabet_size")]
-fn test_grouping_by_swapping_symbol_out_of_range_panics() {
-    GroupingBySwapping::new(3, vec![0, 1, 3], 1);
+fn test_grouping_by_swapping_symbol_out_of_range_is_rejected() {
+    assert!(GroupingBySwapping::new(3, vec![0, 1, 3], 1).is_err());
 }
 
 #[test]
-#[should_panic(expected = "budget must be 0 when string is empty")]
 fn test_grouping_by_swapping_empty_string_requires_zero_budget() {
-    GroupingBySwapping::new(0, vec![], 1);
+    assert!(GroupingBySwapping::new(0, vec![], 1).is_err());
 }
 
 #[test]

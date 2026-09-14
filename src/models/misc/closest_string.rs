@@ -46,46 +46,61 @@ inventory::submit! {
 /// syntactically feasible; the objective is its worst-case Hamming distance
 /// to the input strings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ClosestStringData")]
 pub struct ClosestString {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
 }
 
+#[derive(Deserialize)]
+struct ClosestStringData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ClosestStringData> for ClosestString {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ClosestStringData) -> Result<Self, Self::Error> {
+        Self::new(data.alphabet_size, data.strings)
+    }
+}
+
 impl ClosestString {
     /// Create a new `ClosestString` instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if:
+    /// Returns an error if:
     /// - `strings` is empty (the problem requires at least one input string),
     /// - input strings do not all have the same length,
     /// - `alphabet_size == 0` while any input string is non-empty,
     /// - any symbol in any input string is `>= alphabet_size`.
-    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
-        assert!(
-            !strings.is_empty(),
-            "ClosestString requires at least one input string"
-        );
+    pub fn new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("ClosestString requires at least one input string".into());
+        }
         let string_length = strings[0].len();
-        assert!(
-            strings.iter().all(|s| s.len() == string_length),
-            "all input strings must have the same length"
-        );
-        assert!(
-            alphabet_size > 0 || string_length == 0,
-            "alphabet_size must be > 0 when input strings are non-empty"
-        );
-        assert!(
-            strings
-                .iter()
-                .flat_map(|s| s.iter())
-                .all(|&symbol| symbol < alphabet_size),
-            "input symbols must be less than alphabet_size"
-        );
-        Self {
+        if !(strings.iter().all(|s| s.len() == string_length)) {
+            return Err("all input strings must have the same length".into());
+        }
+        if !(alphabet_size > 0 || string_length == 0) {
+            return Err("alphabet_size must be > 0 when input strings are non-empty".into());
+        }
+        if !(strings
+            .iter()
+            .flat_map(|s| s.iter())
+            .all(|&symbol| symbol < alphabet_size))
+        {
+            return Err("input symbols must be less than alphabet_size".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
-        }
+        })
     }
 
     /// Returns the alphabet size `q`.
@@ -190,10 +205,13 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "closest_string",
-        instance: Box::new(ClosestString::new(
-            2,
-            vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
-        )),
+        instance: Box::new(
+            ClosestString::new(
+                2,
+                vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 0]),
         optimal_value: serde_json::json!(2),
     }]

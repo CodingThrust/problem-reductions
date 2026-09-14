@@ -132,10 +132,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "monochromatictriangle_to_ilp",
         build: || {
-            let source = MonochromaticTriangle::new(SimpleGraph::new(
-                4,
-                vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-            ));
+            let source = MonochromaticTriangle::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap(),
+            );
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

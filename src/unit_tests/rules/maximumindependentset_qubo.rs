@@ -28,9 +28,10 @@ fn reduce_mis_to_qubo(
 #[test]
 fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
     let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let (path, chain) = reduce_mis_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
@@ -55,8 +56,11 @@ fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
 
 #[test]
 fn test_maximumindependentset_to_qubo_via_path_weighted() {
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1, 100, 1],
+    )
+    .unwrap();
     let (_, chain) = reduce_mis_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
@@ -73,7 +77,8 @@ fn test_maximumindependentset_to_qubo_via_path_weighted() {
 
 #[test]
 fn test_maximumindependentset_to_qubo_via_path_empty_graph() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![]).unwrap(), vec![1i64; 3]).unwrap();
     let (_, chain) = reduce_mis_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 

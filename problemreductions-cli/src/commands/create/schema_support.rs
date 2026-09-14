@@ -1091,7 +1091,7 @@ pub(super) fn parse_simple_graph_value(
             }
             None => inferred_num_vertices,
         };
-        SimpleGraph::new(num_vertices, edges)
+        SimpleGraph::new(num_vertices, edges)?
     };
     Ok(serde_json::to_value(graph)?)
 }
@@ -1154,7 +1154,7 @@ pub(super) fn parse_labelled_digraph_value(
             arcs.push(LabelledArc::new(src, label, dst));
         }
     }
-    let graph = LabelledDigraph::new(num_vertices, arcs);
+    let graph = LabelledDigraph::new(num_vertices, arcs)?;
     Ok(serde_json::to_value(graph)?)
 }
 

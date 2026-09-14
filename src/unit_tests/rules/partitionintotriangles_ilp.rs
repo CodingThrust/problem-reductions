@@ -7,8 +7,8 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Single triangle: 3 vertices, 3 edges, q=1 group
-    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
     let reduction: ReductionPITToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -28,8 +28,8 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
     // Two triangles: vertices {0,1,2} and {3,4,5}
-    let graph = SimpleGraph::new(6, vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
     let reduction: ReductionPITToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -55,8 +55,8 @@ fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Two triangles: 6 vertices, q=2 groups
-    let graph = SimpleGraph::new(6, vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(6, vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
     let reduction: ReductionPITToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -71,8 +71,8 @@ fn test_solution_extraction() {
 #[test]
 fn test_partitionintotriangles_to_ilp_trivial() {
     // Minimal: single triangle
-    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
-    let problem = PartitionIntoTriangles::new(graph);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
+    let problem = PartitionIntoTriangles::new(graph).unwrap();
     let reduction: ReductionPITToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

@@ -32,20 +32,23 @@ impl ReductionResult for ReductionGPToMaxCut {
 
 #[cfg(any(test, feature = "example-db"))]
 fn issue_example() -> GraphPartitioning<SimpleGraph> {
-    GraphPartitioning::new(SimpleGraph::new(
-        6,
-        vec![
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (1, 3),
-            (2, 3),
-            (2, 4),
-            (3, 4),
-            (3, 5),
-            (4, 5),
-        ],
-    ))
+    GraphPartitioning::new(
+        SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (1, 2),
+                (1, 3),
+                (2, 3),
+                (2, 4),
+                (3, 4),
+                (3, 5),
+                (4, 5),
+            ],
+        )
+        .unwrap(),
+    )
 }
 
 fn complete_graph_edges_and_weights(graph: &SimpleGraph) -> (Vec<(usize, usize)>, Vec<i64>) {
@@ -82,7 +85,12 @@ impl ReduceTo<MaxCut<SimpleGraph, i64>> for GraphPartitioning<SimpleGraph> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let (edges, weights) = complete_graph_edges_and_weights(self.graph());
-        let target = MaxCut::new(SimpleGraph::new(self.num_vertices(), edges), weights);
+        let target = MaxCut::new(
+            SimpleGraph::new(self.num_vertices(), edges)
+                .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?,
+            weights,
+        )
+        .map_err(<Self as ReduceTo<MaxCut<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionGPToMaxCut { target })
     }

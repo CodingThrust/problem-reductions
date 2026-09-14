@@ -28,6 +28,7 @@ fn issue_example_problem() -> StaffScheduling {
         vec![2, 2, 2, 3, 3, 2, 1],
         4,
     )
+    .unwrap()
 }
 
 #[test]
@@ -45,25 +46,25 @@ fn test_staff_scheduling_creation() {
 }
 
 #[test]
-#[should_panic(expected = "schedule 1 has 2 periods, expected 3")]
 fn test_staff_scheduling_new_panics_on_schedule_length_mismatch() {
-    let _ = StaffScheduling::new(
+    assert!(StaffScheduling::new(
         1,
         vec![vec![true, false, false], vec![false, true]],
         vec![1, 1, 1],
         2,
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "schedule 1 has 2 active periods, expected 1")]
 fn test_staff_scheduling_new_panics_on_wrong_active_period_count() {
-    let _ = StaffScheduling::new(
+    assert!(StaffScheduling::new(
         1,
         vec![vec![true, false, false], vec![false, true, true]],
         vec![1, 1, 1],
         2,
-    );
+    )
+    .is_err());
 }
 
 #[test]
@@ -95,7 +96,7 @@ fn test_staff_scheduling_bruteforce_solver_finds_solution() {
 #[test]
 fn test_staff_scheduling_bruteforce_solver_detects_unsat() {
     let problem =
-        StaffScheduling::new(1, vec![vec![true, false], vec![false, true]], vec![2, 2], 1);
+        StaffScheduling::new(1, vec![vec![true, false], vec![false, true]], vec![2, 2], 1).unwrap();
     assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 

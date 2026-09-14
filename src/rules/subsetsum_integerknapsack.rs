@@ -54,7 +54,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "subsetsum_to_integerknapsack",
         build: || {
-            let source = SubsetSum::new(vec![3u32, 7, 1, 8, 5], 16u32);
+            let source = SubsetSum::new(vec![3u32, 7, 1, 8, 5], 16u32).unwrap();
             let target = IntegerKnapsack::new(
                 source
                     .sizes()

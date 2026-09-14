@@ -9,10 +9,11 @@ use crate::types::Min;
 fn test_reduction_creates_valid_ilp() {
     // 3-vertex path: 0 - 1 - 2
     let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1, 1],
         vec![5, 5, 5],
-    );
+    )
+    .unwrap();
     let reduction: ReductionMCFAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -33,10 +34,11 @@ fn test_multiplecopyfileallocation_to_ilp_bf_vs_ilp() {
     // storage=[5,5,5], usage=[1,1,1]
     // Optimal: copy at vertex 1, cost = 5 + 1 + 0 + 1 = 7
     let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1, 1],
         vec![5, 5, 5],
-    );
+    )
+    .unwrap();
     let reduction: ReductionMCFAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -61,10 +63,11 @@ fn test_multiplecopyfileallocation_to_ilp_bf_vs_ilp() {
 fn test_solution_extraction() {
     // 3-vertex path: copy at vertex 1 (index 1 = 1)
     let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1, 1],
         vec![5, 5, 5],
-    );
+    )
+    .unwrap();
     let reduction: ReductionMCFAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
@@ -84,7 +87,9 @@ fn test_solution_extraction() {
 #[test]
 fn test_multiplecopyfileallocation_to_ilp_trivial() {
     // Single vertex, copy must be placed at itself, zero access cost.
-    let problem = MultipleCopyFileAllocation::new(SimpleGraph::new(1, vec![]), vec![2], vec![3]);
+    let problem =
+        MultipleCopyFileAllocation::new(SimpleGraph::new(1, vec![]).unwrap(), vec![2], vec![3])
+            .unwrap();
     let reduction: ReductionMCFAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -103,10 +108,11 @@ fn test_multiplecopyfileallocation_to_ilp_trivial() {
 #[test]
 fn test_multiplecopyfileallocation_unreachable_assignments_are_forbidden() {
     let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(4, vec![(0, 1)]),
+        SimpleGraph::new(4, vec![(0, 1)]).unwrap(),
         vec![1, 0, 0, 0],
         vec![8, 4, 6, 2],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
     let direct = BruteForce::new().solve(&problem).unwrap().unwrap();
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();

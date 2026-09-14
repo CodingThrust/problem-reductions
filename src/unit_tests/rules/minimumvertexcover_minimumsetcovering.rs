@@ -9,8 +9,11 @@ fn test_minimumvertexcover_to_minimumsetcovering_closed_loop() {
     // Vertex 0 covers edge 0
     // Vertex 1 covers edges 0 and 1
     // Vertex 2 covers edge 1
-    let vc_problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let vc_problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
         .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
@@ -32,9 +35,10 @@ fn test_vc_to_sc_triangle() {
     // Triangle graph: 3 vertices, 3 edges
     // Edge indices: (0,1)->0, (1,2)->1, (0,2)->2
     let vc_problem = MinimumVertexCover::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
         vec![1i64; 3],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
         .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
@@ -52,8 +56,11 @@ fn test_vc_to_sc_triangle() {
 #[test]
 fn test_vc_to_sc_weighted() {
     // Weighted problem: weights should be preserved
-    let vc_problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 1, 10]);
+    let vc_problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![10, 1, 10],
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
         .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
@@ -74,7 +81,8 @@ fn test_vc_to_sc_weighted() {
 #[test]
 fn test_vc_to_sc_empty_graph() {
     // Graph with no edges
-    let vc_problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let vc_problem =
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![]).unwrap(), vec![1i64; 3]).unwrap();
     let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
         .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
@@ -93,9 +101,10 @@ fn test_vc_to_sc_star_graph() {
     // Star graph: center vertex 0 connected to all others
     // Edges: (0,1), (0,2), (0,3)
     let vc_problem = MinimumVertexCover::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&vc_problem)
         .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
@@ -124,9 +133,10 @@ fn test_jl_parity_vc_to_setcovering() {
     let inst = &vc_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source = MinimumVertexCover::new(
-        SimpleGraph::new(nv, jl_parse_edges(inst)),
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
         jl_parse_i64_vec(&inst["weights"]),
-    );
+    )
+    .unwrap();
     let result =
         ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -156,9 +166,10 @@ fn test_jl_parity_rule_vc_to_setcovering() {
     let inst = &jl_find_instance_by_label(&vc_data, "rule_4vertex")["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source = MinimumVertexCover::new(
-        SimpleGraph::new(nv, jl_parse_edges(inst)),
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
         jl_parse_i64_vec(&inst["weights"]),
-    );
+    )
+    .unwrap();
     let result =
         ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();

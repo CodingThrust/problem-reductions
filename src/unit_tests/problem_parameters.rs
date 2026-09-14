@@ -10,8 +10,8 @@ use crate::traits::Problem;
 
 #[test]
 fn test_problem_parameters_mis() {
-    let g = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let mis = MaximumIndependentSet::new(g, vec![1i64; 4]);
+    let g = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    let mis = MaximumIndependentSet::new(g, vec![1i64; 4]).unwrap();
     let size = mis.parameters();
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -19,8 +19,8 @@ fn test_problem_parameters_mis() {
 
 #[test]
 fn test_problem_parameters_max_clique() {
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let mc = MaximumClique::new(g, vec![1i64; 3]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let mc = MaximumClique::new(g, vec![1i64; 3]).unwrap();
     let size = mc.parameters();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -28,8 +28,8 @@ fn test_problem_parameters_max_clique() {
 
 #[test]
 fn test_problem_parameters_min_vc() {
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let mvc = MinimumVertexCover::new(g, vec![1i64; 3]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let mvc = MinimumVertexCover::new(g, vec![1i64; 3]).unwrap();
     let size = mvc.parameters();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(2));
@@ -37,8 +37,8 @@ fn test_problem_parameters_min_vc() {
 
 #[test]
 fn test_problem_parameters_min_ds() {
-    let g = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
-    let mds = MinimumDominatingSet::new(g, vec![1i64; 4]);
+    let g = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
+    let mds = MinimumDominatingSet::new(g, vec![1i64; 4]).unwrap();
     let size = mds.parameters();
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -46,8 +46,8 @@ fn test_problem_parameters_min_ds() {
 
 #[test]
 fn test_problem_parameters_max_cut() {
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let mc = MaxCut::new(g, vec![1i64; 3]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let mc = MaxCut::new(g, vec![1i64; 3]).unwrap();
     let size = mc.parameters();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -55,8 +55,8 @@ fn test_problem_parameters_max_cut() {
 
 #[test]
 fn test_problem_parameters_maximum_matching() {
-    let g = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let mm = MaximumMatching::new(g, vec![1i64; 3]);
+    let g = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap();
+    let mm = MaximumMatching::new(g, vec![1i64; 3]).unwrap();
     let size = mm.parameters();
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -64,8 +64,8 @@ fn test_problem_parameters_maximum_matching() {
 
 #[test]
 fn test_problem_parameters_maximal_is() {
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let mis = MaximalIS::new(g, vec![1i64; 3]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let mis = MaximalIS::new(g, vec![1i64; 3]).unwrap();
     let size = mis.parameters();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(2));
@@ -73,7 +73,7 @@ fn test_problem_parameters_maximal_is() {
 
 #[test]
 fn test_problem_parameters_knapsack_capacity() {
-    let knapsack = Knapsack::new(vec![2, 3], vec![5, 7], 4);
+    let knapsack = Knapsack::new(vec![2, 3], vec![5, 7], 4).unwrap();
     let parameters = knapsack.parameters();
 
     assert_eq!(parameters.get("capacity"), Some(4));
@@ -83,7 +83,7 @@ fn test_problem_parameters_knapsack_capacity() {
 #[test]
 fn test_problem_parameters_kcoloring() {
     use crate::variant::KN;
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
     let kc = KColoring::<KN, _>::with_k(g, 3);
     let size = kc.parameters();
     assert_eq!(size.get("num_vertices"), Some(3));
@@ -93,8 +93,8 @@ fn test_problem_parameters_kcoloring() {
 
 #[test]
 fn test_problem_parameters_tsp() {
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let tsp = TravelingSalesman::new(g, vec![1i64; 3]);
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap();
+    let tsp = TravelingSalesman::new(g, vec![1i64; 3]).unwrap();
     let size = tsp.parameters();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -188,7 +188,7 @@ fn test_problem_parameters_circuitsat() {
 
 #[test]
 fn test_problem_parameters_paintshop() {
-    let ps = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
+    let ps = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]).unwrap();
     let size = ps.parameters();
     assert_eq!(size.get("num_cars"), Some(3));
     assert_eq!(size.get("num_sequence"), Some(6));
@@ -196,7 +196,10 @@ fn test_problem_parameters_paintshop() {
 
 #[test]
 fn test_problem_parameters_biclique_cover() {
-    let bc = BicliqueCover::new(BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]), 2);
+    let bc = BicliqueCover::new(
+        BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]).unwrap(),
+        2,
+    );
     let size = bc.parameters();
     assert_eq!(size.get("left_size"), Some(2));
     assert_eq!(size.get("right_size"), Some(3));
@@ -206,7 +209,7 @@ fn test_problem_parameters_biclique_cover() {
 
 #[test]
 fn test_problem_parameters_bmf() {
-    let bmf = BMF::new(vec![vec![true, false], vec![false, true]], 2);
+    let bmf = BMF::new(vec![vec![true, false], vec![false, true]], 2).unwrap();
     let size = bmf.parameters();
     assert_eq!(size.get("rows"), Some(2));
     assert_eq!(size.get("cols"), Some(2));
@@ -223,7 +226,7 @@ fn test_problem_parameters_set_packing() {
 
 #[test]
 fn test_problem_parameters_set_covering() {
-    let sc = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let sc = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]).unwrap();
     let size = sc.parameters();
     assert_eq!(size.get("num_sets"), Some(3));
     assert_eq!(size.get("universe_size"), Some(4));

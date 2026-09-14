@@ -26,7 +26,7 @@ fn test_subset_dp_minimum_decision_tree_matches_brute_force() {
                 }) {
                     continue;
                 }
-                let problem = MinimumDecisionTree::new(matrix, 3, 3);
+                let problem = MinimumDecisionTree::new(matrix, 3, 3).unwrap();
                 let expected = BruteForce::new().solve(&problem).unwrap().unwrap();
                 let actual = solve(&problem).unwrap();
                 assert_eq!(
@@ -43,7 +43,7 @@ fn test_subset_dp_minimum_decision_tree_handles_eight_objects() {
     let matrix = (0..3)
         .map(|bit| (0..8).map(|object| object & (1 << bit) != 0).collect())
         .collect();
-    let problem = MinimumDecisionTree::new(matrix, 8, 3);
+    let problem = MinimumDecisionTree::new(matrix, 8, 3).unwrap();
     let loaded = load_dyn(
         MinimumDecisionTree::NAME,
         &Default::default(),
@@ -76,7 +76,7 @@ fn subset_dp_reports_mask_and_table_representation_errors() {
         let matrix = (0..tests)
             .map(|bit| (0..n).map(|object| object & (1 << bit) != 0).collect())
             .collect();
-        let problem = MinimumDecisionTree::new(matrix, n, tests);
+        let problem = MinimumDecisionTree::new(matrix, n, tests).unwrap();
         let loaded = load_dyn(
             MinimumDecisionTree::NAME,
             &Default::default(),

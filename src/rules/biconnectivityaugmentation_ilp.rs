@@ -231,10 +231,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Path 0-1-2-3, candidates: (0,2,1),(0,3,2),(1,3,1), budget=3
             let source = BiconnectivityAugmentation::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                 vec![(0, 2, 1), (0, 3, 2), (1, 3, 1)],
                 3,
-            );
+            )
+            .unwrap();
             let reduction: ReductionBiconnAugToILP =
                 crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
                     .expect("reduction should succeed");

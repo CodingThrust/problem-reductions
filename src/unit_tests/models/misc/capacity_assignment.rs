@@ -22,6 +22,7 @@ fn example_problem() -> CapacityAssignment {
         vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
         12,
     )
+    .unwrap()
 }
 
 #[test]
@@ -106,7 +107,7 @@ fn test_capacity_assignment_paper_example() {
 #[test]
 fn test_capacity_assignment_rejects_non_increasing_capacities() {
     let result = std::panic::catch_unwind(|| {
-        CapacityAssignment::new(vec![1, 1], vec![vec![1, 2]], vec![vec![2, 1]], 3)
+        CapacityAssignment::new(vec![1, 1], vec![vec![1, 2]], vec![vec![2, 1]], 3).unwrap()
     });
     assert!(result.is_err());
 }
@@ -114,7 +115,7 @@ fn test_capacity_assignment_rejects_non_increasing_capacities() {
 #[test]
 fn test_capacity_assignment_rejects_non_monotone_delay_row() {
     let result = std::panic::catch_unwind(|| {
-        CapacityAssignment::new(vec![1, 2], vec![vec![1, 2]], vec![vec![1, 2]], 3)
+        CapacityAssignment::new(vec![1, 2], vec![vec![1, 2]], vec![vec![1, 2]], 3).unwrap()
     });
     assert!(result.is_err());
 }

@@ -8,7 +8,7 @@ fn create_spec_rejects_weight_count_mismatch() {
         "weights"
     );
     let result = MinimumDominatingSet::try_from(MinimumDominatingSetCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         weights: vec![1],
     });
     assert!(result.is_err());
@@ -21,9 +21,10 @@ use crate::traits::Problem;
 #[test]
 fn test_dominating_set_creation() {
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables().unwrap(), 4);
@@ -35,16 +36,19 @@ fn test_dominating_set_creation() {
 
 #[test]
 fn test_dominating_set_with_weights() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1, 2, 3])
+            .unwrap();
     assert_eq!(problem.weights(), &[1, 2, 3]);
 }
 
 #[test]
 fn test_neighbors() {
     let problem = MinimumDominatingSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2)]),
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2)]).unwrap(),
         vec![1i64; 4],
-    );
+    )
+    .unwrap();
     let nbrs = problem.neighbors(0);
     assert!(nbrs.contains(&1));
     assert!(nbrs.contains(&2));
@@ -53,8 +57,11 @@ fn test_neighbors() {
 
 #[test]
 fn test_closed_neighborhood() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (0, 2)]), vec![1i64; 4]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2)]).unwrap(),
+        vec![1i64; 4],
+    )
+    .unwrap();
     let cn = problem.closed_neighborhood(0);
     assert!(cn.contains(&0));
     assert!(cn.contains(&1));
@@ -64,7 +71,7 @@ fn test_closed_neighborhood() {
 
 #[test]
 fn test_is_dominating_set_function() {
-    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]).unwrap();
 
     // Center dominates all
     assert!(is_dominating_set(&graph, &[true, false, false, false]));
@@ -79,7 +86,9 @@ fn test_is_dominating_set_function() {
 #[test]
 fn test_isolated_vertex() {
     // Isolated vertex must be in dominating set
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -94,42 +103,52 @@ fn test_isolated_vertex() {
 #[test]
 #[should_panic(expected = "selected length must match num_vertices")]
 fn test_is_dominating_set_wrong_len() {
-    is_dominating_set(&SimpleGraph::new(3, vec![(0, 1)]), &[true, false]);
+    is_dominating_set(&SimpleGraph::new(3, vec![(0, 1)]).unwrap(), &[true, false]);
 }
 
 #[test]
 fn test_from_graph() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumDominatingSet::new(graph, vec![1, 2, 3]);
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let problem = MinimumDominatingSet::new(graph, vec![1, 2, 3]).unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights(), &[1, 2, 3]);
 }
 
 #[test]
 fn test_graph_accessor() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![1i64; 3])
+            .unwrap();
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 1);
 }
 
 #[test]
 fn test_weights() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]).unwrap(), vec![5, 10, 15])
+            .unwrap();
     assert_eq!(problem.weights(), &[5, 10, 15]);
 }
 
 #[test]
 fn test_edges() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     let edges = problem.graph().edges();
     assert_eq!(edges.len(), 2);
 }
 
 #[test]
 fn test_has_edge() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     assert!(problem.graph().has_edge(0, 1));
     assert!(problem.graph().has_edge(1, 0)); // Undirected
     assert!(problem.graph().has_edge(1, 2));
@@ -143,7 +162,9 @@ fn test_jl_parity_evaluation() {
     for instance in data["instances"].as_array().unwrap() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let edges = jl_parse_edges(&instance["instance"]);
-        let problem = MinimumDominatingSet::new(SimpleGraph::new(nv, edges), vec![1i64; nv]);
+        let problem =
+            MinimumDominatingSet::new(SimpleGraph::new(nv, edges).unwrap(), vec![1i64; nv])
+                .unwrap();
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
@@ -174,8 +195,11 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Path graph: 0-1-2
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     // Valid: {1} dominates all vertices (0 and 2 are neighbors of 1)
     assert!(problem.is_valid_solution(&[false, true, false]));
     // Invalid: {0} doesn't dominate vertex 2
@@ -184,8 +208,11 @@ fn test_is_valid_solution() {
 
 #[test]
 fn test_parameter_getters() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![1i64; 3],
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
 }
@@ -193,8 +220,8 @@ fn test_parameter_getters() {
 #[test]
 fn test_mds_paper_example() {
     // Paper: house graph, DS = {v_2, v_3}, weight = 2, gamma(G) = 2
-    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-    let problem = MinimumDominatingSet::new(graph, vec![1i64; 5]);
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]).unwrap();
+    let problem = MinimumDominatingSet::new(graph, vec![1i64; 5]).unwrap();
     let config = vec![false, false, true, true, false]; // {v_2, v_3}
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
@@ -203,4 +230,19 @@ fn test_mds_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::new(1, vec![]).unwrap();
+    assert!(MinimumDominatingSet::new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(
+        serde_json::from_value::<MinimumDominatingSet<SimpleGraph, i64>>(json.clone()).is_err()
+    );
+    let variant = std::collections::BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    assert!(crate::registry::load_dyn("MinimumDominatingSet", &variant, json).is_err());
 }

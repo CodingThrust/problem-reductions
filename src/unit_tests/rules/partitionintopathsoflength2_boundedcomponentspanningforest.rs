@@ -9,8 +9,10 @@ use crate::traits::Problem;
 #[test]
 fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_closed_loop() {
     // 6-vertex graph with two P3 paths: 0-1-2 and 3-4-5
-    let source =
-        PartitionIntoPathsOfLength2::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]));
+    let source = PartitionIntoPathsOfLength2::new(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
+    )
+    .unwrap();
     let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -35,10 +37,14 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_closed_loo
 fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_no_solution() {
     // 6 vertices, only edges within first 3 vertices, none in the second 3.
     // Second triple {3,4,5} has no edges, so it can't form a connected component.
-    let source = PartitionIntoPathsOfLength2::new(SimpleGraph::new(
-        6,
-        vec![(0, 1), (1, 2), (0, 2)], // triangle on {0,1,2}, no edges on {3,4,5}
-    ));
+    let source = PartitionIntoPathsOfLength2::new(
+        SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (0, 2)], // triangle on {0,1,2}, no edges on {3,4,5}
+        )
+        .unwrap(),
+    )
+    .unwrap();
     let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -52,22 +58,26 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_no_solutio
 #[test]
 fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_triangle_partition() {
     // 9-vertex graph from the issue example
-    let source = PartitionIntoPathsOfLength2::new(SimpleGraph::new(
-        9,
-        vec![
-            (0, 1),
-            (1, 2),
-            (0, 2),
-            (3, 4),
-            (4, 5),
-            (6, 7),
-            (7, 8),
-            (1, 3),
-            (2, 6),
-            (5, 8),
-            (0, 5),
-        ],
-    ));
+    let source = PartitionIntoPathsOfLength2::new(
+        SimpleGraph::new(
+            9,
+            vec![
+                (0, 1),
+                (1, 2),
+                (0, 2),
+                (3, 4),
+                (4, 5),
+                (6, 7),
+                (7, 8),
+                (1, 3),
+                (2, 6),
+                (5, 8),
+                (0, 5),
+            ],
+        )
+        .unwrap(),
+    )
+    .unwrap();
     let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem();
@@ -86,8 +96,10 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_triangle_p
 #[test]
 fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_extract_solution() {
     // Verify extract_solution is identity
-    let source =
-        PartitionIntoPathsOfLength2::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]));
+    let source = PartitionIntoPathsOfLength2::new(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]).unwrap(),
+    )
+    .unwrap();
     let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
 

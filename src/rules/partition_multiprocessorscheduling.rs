@@ -59,7 +59,8 @@ impl ReduceTo<MultiprocessorScheduling> for Partition {
         let deadline = self.total_sum() / 2;
 
         Ok(ReductionPartitionToMPS {
-            target: MultiprocessorScheduling::new(lengths, 2, deadline),
+            target: MultiprocessorScheduling::new(lengths, 2, deadline)
+                .map_err(<Self as ReduceTo<MultiprocessorScheduling>>::target_construction)?,
         })
     }
 }

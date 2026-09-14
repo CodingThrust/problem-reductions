@@ -9,7 +9,7 @@ use crate::types::Min;
 fn test_imdc_to_ilp_closed_loop_simple() {
     // s = "ab", alphabet {a,b}, h=2
     // Optimal: uncompressed, cost=2
-    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
+    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -25,7 +25,7 @@ fn test_imdc_to_ilp_closed_loop_simple() {
 fn test_imdc_to_ilp_closed_loop_repeated() {
     // s = "abab", alphabet {a,b}, h=2
     // Optimal: cost=4 (uncompressed or pointer, both cost 4)
-    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
+    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -42,7 +42,7 @@ fn test_imdc_to_ilp_closed_loop_low_pointer_cost() {
     // s = "abab", alphabet {a,b}, h=1
     // With h=1, pointers cost 0 extra: cost = |C|
     // Optimal with pointer: C=[a,b,ptr(0)], active=3, ptrs=1, cost=3+0=3
-    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 1);
+    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 1).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -59,7 +59,7 @@ fn test_imdc_to_ilp_closed_loop_low_pointer_cost() {
 
 #[test]
 fn test_imdc_to_ilp_empty_string() {
-    let source = MinimumInternalMacroDataCompression::new(2, vec![], 2);
+    let source = MinimumInternalMacroDataCompression::new(2, vec![], 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(target.num_variables(), 0);
@@ -71,7 +71,7 @@ fn test_imdc_to_ilp_empty_string() {
 fn test_imdc_to_ilp_single_char() {
     // s = "a", alphabet {a}, h=2
     // Only valid: literal, cost=1
-    let source = MinimumInternalMacroDataCompression::new(1, vec![0], 2);
+    let source = MinimumInternalMacroDataCompression::new(1, vec![0], 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -84,7 +84,7 @@ fn test_imdc_to_ilp_single_char() {
 #[test]
 fn test_imdc_to_ilp_structure() {
     // Verify the ILP has the right number of variables
-    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
+    let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     // n=4 literals + valid ptr triples
@@ -103,7 +103,7 @@ fn test_imdc_to_ilp_vs_brute_force() {
         (2, vec![0, 1, 0], 2),
         (2, vec![0, 0, 1, 1], 1),
     ] {
-        let source = MinimumInternalMacroDataCompression::new(k, s.clone(), h);
+        let source = MinimumInternalMacroDataCompression::new(k, s.clone(), h).unwrap();
         let bf_val_solution = BruteForce::new().solve(&source).unwrap().unwrap();
         let bf_val = source.evaluate(&bf_val_solution).unwrap();
 

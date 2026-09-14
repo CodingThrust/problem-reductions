@@ -18,7 +18,8 @@ fn test_minimum_code_generation_one_register_creation() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_vertices(), 7);
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_leaves(), 3);
@@ -56,7 +57,8 @@ fn test_minimum_code_generation_one_register_evaluate_optimal() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
     let config = vec![3, 2, 1, 0];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(8)));
     assert_eq!(problem.simulate(&config).unwrap(), Some(8));
@@ -80,7 +82,8 @@ fn test_minimum_code_generation_one_register_evaluate_suboptimal() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
     // Order: v3 (pos 0), v1 (pos 1), v2 (pos 2), v0 (pos 3)
     // config: v0->3, v1->1, v2->2, v3->0
     let config = vec![3, 1, 2, 0];
@@ -103,7 +106,8 @@ fn test_minimum_code_generation_one_register_invalid_dependency() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
     // v0 first (pos 0) — depends on v1,v2 which haven't been computed
     let config = vec![0, 1, 2, 3];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
@@ -124,7 +128,8 @@ fn test_minimum_code_generation_one_register_invalid_permutation() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
     // Not a permutation: position 0 used twice
     assert_eq!(problem.evaluate(&vec![0, 0, 1, 2]).unwrap(), Min(None));
     // Wrong length
@@ -148,7 +153,8 @@ fn test_minimum_code_generation_one_register_solver() {
     // Wait — v2 appears as both child and parent?
     // No: v0 has children v1,v2. v1 has children v2,v3.
     // Leaves: v2 and v3 have out-degree 0. So num_leaves=2.
-    let problem = MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2);
+    let problem =
+        MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2).unwrap();
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
     let result = problem.evaluate(&result_solution).unwrap();
@@ -161,7 +167,8 @@ fn test_minimum_code_generation_one_register_solver() {
 
 #[test]
 fn test_minimum_code_generation_one_register_solver_witness() {
-    let problem = MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2);
+    let problem =
+        MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2).unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -185,7 +192,8 @@ fn test_minimum_code_generation_one_register_serialization() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: MinimumCodeGenerationOneRegister = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_vertices(), problem.num_vertices());
@@ -198,7 +206,7 @@ fn test_minimum_code_generation_one_register_serialization() {
 fn test_minimum_code_generation_one_register_unary_ops() {
     // Simple chain: v0 = unary(v1), v1 = unary(v2)
     // Leaves: {2}, Internal: {0, 1}
-    let problem = MinimumCodeGenerationOneRegister::new(3, vec![(0, 1), (1, 2)], 1);
+    let problem = MinimumCodeGenerationOneRegister::new(3, vec![(0, 1), (1, 2)], 1).unwrap();
     // Order: v1 first, v0 second. config = [1, 0]
     let config = vec![1, 0];
     // v1: LOAD v2, OP v1 = 2
@@ -224,7 +232,8 @@ fn test_minimum_code_generation_one_register_paper_example() {
             (3, 6),
         ],
         3,
-    );
+    )
+    .unwrap();
 
     // Optimal order: v3, v2, v1, v0 => config = [3, 2, 1, 0]
     let config = vec![3, 2, 1, 0];
@@ -252,7 +261,8 @@ fn test_minimum_code_generation_one_register_lost_value() {
         6,
         vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 3), (2, 5)],
         3,
-    );
+    )
+    .unwrap();
     // Order: v1, v2, v0 => config: v0->2, v1->0, v2->1
     let config = vec![2, 0, 1];
     // v1 computed first, but v1 is needed by v0.

@@ -175,7 +175,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // K3 example from issue #967
             let edge_weights = vec![vec![0, 1, 2], vec![1, 0, 3], vec![2, 3, 0]];
             let requirements = vec![vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]];
-            let source = OptimumCommunicationSpanningTree::new(edge_weights, requirements);
+            let source = OptimumCommunicationSpanningTree::new(edge_weights, requirements).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

@@ -600,8 +600,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 ///     <KingsSubgraph, i64> => <UnitDiskGraph, i64>,
 ///     fields: [num_vertices, num_edges],
 ///     |src| MaximumIndependentSet::new(
-///         SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())),
-///         src.weights())
+///         SimpleGraph::new(src.num_vertices(), Graph::edges(src.graph())).unwrap(),
+///         src.weights()).unwrap()
 /// );
 /// ```
 #[macro_export]

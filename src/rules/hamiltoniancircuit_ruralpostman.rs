@@ -148,8 +148,10 @@ impl ReduceTo<RuralPostman<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph
             edge_weights.push(1);
         }
 
-        let target_graph = SimpleGraph::new(2 * n, target_edges);
-        let target = RuralPostman::new(target_graph, edge_weights, required_edges);
+        let target_graph = SimpleGraph::new(2 * n, target_edges)
+            .map_err(<Self as ReduceTo<RuralPostman<SimpleGraph, i64>>>::target_construction)?;
+        let target = RuralPostman::new(target_graph, edge_weights, required_edges)
+            .map_err(<Self as ReduceTo<RuralPostman<SimpleGraph, i64>>>::target_construction)?;
 
         Ok(ReductionHamiltonianCircuitToRuralPostman {
             target,
@@ -167,7 +169,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "hamiltoniancircuit_to_ruralpostman",
         build: || {
             // Triangle graph: 3 vertices, 3 edges, HC = [0, 1, 2]
-            let source = HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+            let source =
+                HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap());
 
             // Target graph has 6 vertices, 3 + 6 = 9 edges, 3 required edges.
             // HC [0, 1, 2] uses connectivity edges:

@@ -4,7 +4,8 @@ use crate::traits::Problem;
 
 #[test]
 fn test_string_to_string_correction_creation() {
-    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
+    let problem =
+        StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2).unwrap();
     assert_eq!(problem.alphabet_size(), 4);
     assert_eq!(problem.source(), &[0, 1, 2, 3, 1, 0]);
     assert_eq!(problem.target(), &[0, 1, 3, 2, 1]);
@@ -25,7 +26,8 @@ fn test_string_to_string_correction_creation() {
 
 #[test]
 fn test_string_to_string_correction_evaluation() {
-    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
+    let problem =
+        StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2).unwrap();
     // Known solution: swap positions 2&3 (value=8), then delete index 5 (value=5)
     // Step 1: current_len=6, op=8 >= 6, swap_pos = 8-6=2, swap(2,3) → [0,1,3,2,1,0]
     // Step 2: current_len=6, op=5 < 6, delete(5) → [0,1,3,2,1] = target
@@ -36,7 +38,8 @@ fn test_string_to_string_correction_evaluation() {
 
 #[test]
 fn test_string_to_string_correction_invalid_operations() {
-    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
+    let problem =
+        StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2).unwrap();
     // out-of-domain values
     assert!(matches!(
         problem.evaluate(&vec![13, 5]),
@@ -60,7 +63,7 @@ fn test_string_to_string_correction_invalid_operations() {
 #[test]
 fn test_string_to_string_correction_invalid_after_deletion() {
     // After a deletion, some swap indices become invalid
-    let problem = StringToStringCorrection::new(2, vec![0, 1, 0], vec![1], 2);
+    let problem = StringToStringCorrection::new(2, vec![0, 1, 0], vec![1], 2).unwrap();
     // source len = 3, domain = 7, noop = 6
     // op=0: delete index 0 → [1, 0], current_len=2
     // op=5: 5 >= 2, swap_pos = 5-2=3, need 3+1<2 → false → invalid
@@ -69,7 +72,8 @@ fn test_string_to_string_correction_invalid_after_deletion() {
 
 #[test]
 fn test_string_to_string_correction_serialization() {
-    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
+    let problem =
+        StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: StringToStringCorrection = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
@@ -82,7 +86,7 @@ fn test_string_to_string_correction_serialization() {
 fn test_string_to_string_correction_solver() {
     // Small instance: source [0,1], target [1,0], bound 1
     // Need a single swap: swap_pos=0, value = current_len + 0 = 2
-    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 1);
+    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 1).unwrap();
     let solver = BruteForce::new();
     let solution = solver
         .solve(&problem)
@@ -94,7 +98,8 @@ fn test_string_to_string_correction_solver() {
 #[test]
 fn test_string_to_string_correction_paper_example() {
     // Paper example: source [0,1,2,3,1,0], target [0,1,3,2,1], bound 2
-    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
+    let problem =
+        StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2).unwrap();
     // Verify the known solution
     assert!(problem.evaluate(&vec![8, 5]).unwrap());
 
@@ -112,7 +117,7 @@ fn test_string_to_string_correction_paper_example() {
 #[test]
 fn test_string_to_string_correction_unsatisfiable() {
     // bound=0, source != target → impossible
-    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 0);
+    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 0).unwrap();
     assert_eq!(
         crate::solvers::cartesian_dimensions(&problem).unwrap(),
         Vec::<usize>::new()
@@ -126,14 +131,14 @@ fn test_string_to_string_correction_unsatisfiable() {
 #[test]
 fn test_string_to_string_correction_identity() {
     // source == target, bound_k=0 → satisfied with empty config
-    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![0, 1], 0);
+    let problem = StringToStringCorrection::new(2, vec![0, 1], vec![0, 1], 0).unwrap();
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
 fn test_string_to_string_correction_empty_strings() {
     // Both empty, bound_k=0 → trivially satisfied
-    let problem = StringToStringCorrection::new(0, vec![], vec![], 0);
+    let problem = StringToStringCorrection::new(0, vec![], vec![], 0).unwrap();
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 
@@ -141,7 +146,7 @@ fn test_string_to_string_correction_empty_strings() {
 fn test_string_to_string_correction_delete_only() {
     // source [0,1,2], target [0,2], bound 1
     // Delete index 1: op=1, current_len=3, 1<3 → delete → [0,2] = target
-    let problem = StringToStringCorrection::new(3, vec![0, 1, 2], vec![0, 2], 1);
+    let problem = StringToStringCorrection::new(3, vec![0, 1, 2], vec![0, 2], 1).unwrap();
     assert!(problem.evaluate(&vec![1]).unwrap());
 
     let solver = BruteForce::new();
@@ -154,19 +159,19 @@ fn test_string_to_string_correction_delete_only() {
 
 #[test]
 fn test_string_to_string_correction_rejects_target_longer_than_source() {
-    let problem = StringToStringCorrection::new(3, vec![0, 1], vec![0, 1, 2], 1);
+    let problem = StringToStringCorrection::new(3, vec![0, 1], vec![0, 1, 2], 1).unwrap();
     assert!(!problem.evaluate(&vec![4]).unwrap());
 }
 
 #[test]
 fn test_string_to_string_correction_rejects_excessive_deletions_requirement() {
-    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3], vec![0], 2);
+    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3], vec![0], 2).unwrap();
     assert!(!problem.evaluate(&vec![8, 8]).unwrap());
 }
 
 #[test]
 fn test_string_to_string_correction_is_available_in_prelude() {
-    let problem = crate::prelude::StringToStringCorrection::new(2, vec![0], vec![0], 0);
+    let problem = crate::prelude::StringToStringCorrection::new(2, vec![0], vec![0], 0).unwrap();
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

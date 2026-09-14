@@ -49,28 +49,41 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // coefficients [2, 3, 5]: sign assignment (+2, +3, -5) = 0
-/// let problem = CosineProductIntegration::new(vec![2, 3, 5]);
+/// let problem = CosineProductIntegration::new(vec![2, 3, 5]).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "CosineProductIntegrationData")]
 pub struct CosineProductIntegration {
     coefficients: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct CosineProductIntegrationData {
+    coefficients: Vec<i64>,
+}
+
+impl TryFrom<CosineProductIntegrationData> for CosineProductIntegration {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: CosineProductIntegrationData) -> Result<Self, Self::Error> {
+        Self::new(data.coefficients)
+    }
 }
 
 impl CosineProductIntegration {
     /// Create a new CosineProductIntegration instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `coefficients` is empty.
-    pub fn new(coefficients: Vec<i64>) -> Self {
-        assert!(
-            !coefficients.is_empty(),
-            "CosineProductIntegration requires at least one coefficient"
-        );
-        Self { coefficients }
+    /// Returns an error if `coefficients` is empty.
+    pub fn new(coefficients: Vec<i64>) -> Result<Self, crate::registry::ConstructionError> {
+        if coefficients.is_empty() {
+            return Err("CosineProductIntegration requires at least one coefficient".into());
+        }
+        Ok(Self { coefficients })
     }
 
     /// Returns the cosine coefficients.
@@ -153,7 +166,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "cosine_product_integration",
-        instance: Box::new(CosineProductIntegration::new(vec![2, 3, 5])),
+        instance: Box::new(CosineProductIntegration::new(vec![2, 3, 5]).unwrap()),
         optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(true),
     }]

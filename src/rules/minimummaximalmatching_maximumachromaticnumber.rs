@@ -84,7 +84,9 @@ impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<B
             }
         }
 
-        let target = MaximumAchromaticNumber::new(SimpleGraph::new(n, complement_edges));
+        let target = MaximumAchromaticNumber::new(SimpleGraph::new(n, complement_edges).map_err(
+            <Self as ReduceTo<MaximumAchromaticNumber<SimpleGraph>>>::target_construction,
+        )?);
 
         Ok(ReductionMMMToAchromatic {
             target,
@@ -144,11 +146,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   v1 (idx 3) -> color 0
             //   v3 (idx 4) -> color 2
             // target_config = [1, 0, 3, 0, 2]; psi(H) = |V| - mm(G) = 4.
-            let source = MinimumMaximalMatching::new(BipartiteGraph::new(
-                3,
-                2,
-                vec![(0, 0), (1, 0), (1, 1), (2, 0)],
-            ));
+            let source = MinimumMaximalMatching::new(
+                BipartiteGraph::new(3, 2, vec![(0, 0), (1, 0), (1, 1), (2, 0)]).unwrap(),
+            );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 MaximumAchromaticNumber<SimpleGraph>,

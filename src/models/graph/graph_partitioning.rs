@@ -45,7 +45,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Square graph: 0-1, 1-2, 2-3, 3-0
-/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
 /// let problem = GraphPartitioning::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -161,20 +161,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Two triangles connected by 3 edges; balanced cut = 3
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "graph_partitioning",
-        instance: Box::new(GraphPartitioning::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (0, 2),
-                (1, 2),
-                (1, 3),
-                (2, 3),
-                (2, 4),
-                (3, 4),
-                (3, 5),
-                (4, 5),
-            ],
-        ))),
+        instance: Box::new(GraphPartitioning::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 2),
+                    (1, 3),
+                    (2, 3),
+                    (2, 4),
+                    (3, 4),
+                    (3, 5),
+                    (4, 5),
+                ],
+            )
+            .unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![false, false, false, true, true, true]),
         optimal_value: serde_json::json!(3),
     }]

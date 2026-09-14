@@ -30,7 +30,8 @@ fn solve_threshold_schedule_via_ilp(
         target.num_processors(),
         i64::try_from(deadline).unwrap(),
         target.precedences().to_vec(),
-    );
+    )
+    .unwrap();
     let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs).expect("reduction should succeed");
     let ilp_solution = match ILPSolver::new().solve(pcs_to_ilp.target_problem()) {
         Ok(solution) => solution,

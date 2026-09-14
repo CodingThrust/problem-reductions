@@ -6,8 +6,11 @@ use crate::solvers::BruteForce;
 #[test]
 fn test_minimumvertexcover_to_maximumindependentset_closed_loop() {
     // Test with weighted problems
-    let is_problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
+    let is_problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        vec![10, 20, 30],
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
     let vc_problem = reduction.target_problem();
@@ -19,9 +22,10 @@ fn test_minimumvertexcover_to_maximumindependentset_closed_loop() {
 #[test]
 fn test_reduction_structure() {
     let is_problem = MaximumIndependentSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]).unwrap(),
         vec![1i64; 5],
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
     let vc = reduction.target_problem();
@@ -40,8 +44,11 @@ fn test_jl_parity_is_to_vertexcovering() {
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &is_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
+        vec![1i64; nv],
+    )
+    .unwrap();
     let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
@@ -66,8 +73,11 @@ fn test_jl_parity_rule_is_to_vertexcovering() {
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &jl_find_instance_by_label(&is_data, "doc_4vertex")["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(nv, jl_parse_edges(inst)).unwrap(),
+        vec![1i64; nv],
+    )
+    .unwrap();
     let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();

@@ -10,7 +10,7 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_example_source() -> SubsetSum {
-    SubsetSum::new(vec![1u32, 5, 6, 8], 11u32)
+    SubsetSum::new(vec![1u32, 5, 6, 8], 11u32).unwrap()
 }
 
 fn issue_example_source_config() -> Vec<bool> {
@@ -60,7 +60,7 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
 
 #[test]
 fn test_subsetsum_to_integerexpressionmembership_unsatisfiable_instance_stays_unsatisfiable() {
-    let source = SubsetSum::new(vec![2u32, 4, 6], 5u32);
+    let source = SubsetSum::new(vec![2u32, 4, 6], 5u32).unwrap();
     let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source)
         .expect("reduction should succeed");
 

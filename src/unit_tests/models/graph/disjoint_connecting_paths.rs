@@ -19,9 +19,11 @@ fn issue_yes_problem() -> DisjointConnectingPaths<SimpleGraph> {
         SimpleGraph::new(
             6,
             vec![(0, 1), (1, 3), (0, 2), (1, 4), (2, 4), (3, 5), (4, 5)],
-        ),
+        )
+        .unwrap(),
         vec![(0, 3), (2, 5)],
     )
+    .unwrap()
 }
 
 fn issue_yes_config() -> Vec<bool> {
@@ -30,9 +32,10 @@ fn issue_yes_config() -> Vec<bool> {
 
 fn issue_no_problem() -> DisjointConnectingPaths<SimpleGraph> {
     DisjointConnectingPaths::new(
-        SimpleGraph::new(6, vec![(0, 2), (1, 2), (2, 3), (3, 4), (3, 5)]),
+        SimpleGraph::new(6, vec![(0, 2), (1, 2), (2, 3), (3, 4), (3, 5)]).unwrap(),
         vec![(0, 4), (1, 5)],
     )
+    .unwrap()
 }
 
 #[test]
@@ -53,18 +56,19 @@ fn test_disjoint_connecting_paths_creation() {
 }
 
 #[test]
-#[should_panic(expected = "terminal_pairs must contain at least one pair")]
 fn test_disjoint_connecting_paths_rejects_empty_pairs() {
-    let _ = DisjointConnectingPaths::new(SimpleGraph::new(2, vec![(0, 1)]), vec![]);
+    assert!(
+        DisjointConnectingPaths::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), vec![]).is_err()
+    );
 }
 
 #[test]
-#[should_panic(expected = "terminal vertices must be pairwise disjoint across pairs")]
 fn test_disjoint_connecting_paths_rejects_overlapping_terminals() {
-    let _ = DisjointConnectingPaths::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+    assert!(DisjointConnectingPaths::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
         vec![(0, 2), (2, 3)],
-    );
+    )
+    .is_err());
 }
 
 #[test]

@@ -20,7 +20,8 @@ fn test_minimum_set_covering_create_spec_uses_subsets_input() {
 
 #[test]
 fn test_set_covering_creation() {
-    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem =
+        MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]).unwrap();
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 3);
     assert_eq!(problem.num_variables().unwrap(), 3);
@@ -28,13 +29,15 @@ fn test_set_covering_creation() {
 
 #[test]
 fn test_set_covering_with_weights() {
-    let problem = MinimumSetCovering::with_weights(3, vec![vec![0, 1], vec![1, 2]], vec![5, 10]);
+    let problem =
+        MinimumSetCovering::with_weights(3, vec![vec![0, 1], vec![1, 2]], vec![5, 10]).unwrap();
     assert_eq!(problem.weights_ref(), &vec![5, 10]);
 }
 
 #[test]
 fn test_covered_elements() {
-    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem =
+        MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]).unwrap();
 
     let covered = problem.covered_elements(&[true, false, false]);
     assert!(covered.contains(&0));
@@ -60,7 +63,7 @@ fn test_is_set_cover_function() {
 
 #[test]
 fn test_get_set() {
-    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![2, 3]]);
+    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![2, 3]]).unwrap();
     assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
     assert_eq!(problem.get_set(1), Some(&vec![2, 3]));
     assert_eq!(problem.get_set(2), None);
@@ -68,7 +71,7 @@ fn test_get_set() {
 
 #[test]
 fn test_empty_universe() {
-    let problem = MinimumSetCovering::<i64>::new(0, vec![]);
+    let problem = MinimumSetCovering::<i64>::new(0, vec![]).unwrap();
     // Empty universe is trivially covered with size 0
     assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Min(Some(0)));
 }
@@ -87,7 +90,8 @@ fn test_jl_parity_evaluation() {
         let universe_size = instance["instance"]["universe_size"].as_u64().unwrap() as usize;
         let sets = jl_parse_sets(&instance["instance"]["sets"]);
         let weights = jl_parse_i64_vec(&instance["instance"]["weights"]);
-        let problem = MinimumSetCovering::<i64>::with_weights(universe_size, sets, weights);
+        let problem =
+            MinimumSetCovering::<i64>::with_weights(universe_size, sets, weights).unwrap();
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
@@ -118,7 +122,8 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Universe: {0,1,2,3}, Sets: {0,1}, {1,2}, {2,3}
-    let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem =
+        MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]).unwrap();
     // Valid: all sets selected covers {0,1,2,3}
     assert!(problem.is_valid_solution(&[true, true, true]));
     // Invalid: only set 1 ({1,2}) doesn't cover 0 and 3
@@ -128,7 +133,8 @@ fn test_is_valid_solution() {
 #[test]
 fn test_setcovering_paper_example() {
     // Paper: U=5, sets {0,1,2},{1,3},{2,3,4}, min cover {S_0,S_2}, weight=2
-    let problem = MinimumSetCovering::<i64>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
+    let problem =
+        MinimumSetCovering::<i64>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]).unwrap();
     let config = vec![true, false, true]; // {S_0, S_2} covers all of {0,1,2,3,4}
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
@@ -137,4 +143,16 @@ fn test_setcovering_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+
+#[test]
+fn construction_and_json_reject_invalid_data() {
+    assert!(MinimumSetCovering::<i64>::new(2, vec![vec![2]]).is_err());
+    assert!(MinimumSetCovering::with_weights(2, vec![vec![0]], Vec::<i64>::new()).is_err());
+    for json in [
+        serde_json::json!({"universe_size":2,"sets":[[2]],"weights":[1]}),
+        serde_json::json!({"universe_size":2,"sets":[[0]],"weights":[]}),
+    ] {
+        assert!(serde_json::from_value::<MinimumSetCovering<i64>>(json).is_err());
+    }
 }

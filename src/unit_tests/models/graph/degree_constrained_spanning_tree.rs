@@ -9,9 +9,11 @@ fn example_instance() -> DegreeConstrainedSpanningTree<SimpleGraph> {
         SimpleGraph::new(
             5,
             vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
-        ),
+        )
+        .unwrap(),
         2,
     )
+    .unwrap()
 }
 
 #[test]
@@ -106,9 +108,10 @@ fn test_degree_constrained_spanning_tree_infeasible() {
     // Only spanning tree is the star itself, which has degree 4 at vertex 0.
     // With K=2, no spanning tree exists.
     let problem = DegreeConstrainedSpanningTree::new(
-        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]),
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]).unwrap(),
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 }
@@ -117,13 +120,17 @@ fn test_degree_constrained_spanning_tree_infeasible() {
 fn test_degree_constrained_spanning_tree_k1_path() {
     // K=1 means the tree is a single edge for n=2.
     // For n>2, K=1 is impossible since a tree on n>=3 vertices must have max degree >= 2.
-    let problem =
-        DegreeConstrainedSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 1);
+    let problem = DegreeConstrainedSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]).unwrap(),
+        1,
+    )
+    .unwrap();
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
 
     // For n=2, K=1 works: the single edge is the tree.
-    let problem2 = DegreeConstrainedSpanningTree::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
+    let problem2 =
+        DegreeConstrainedSpanningTree::new(SimpleGraph::new(2, vec![(0, 1)]).unwrap(), 1).unwrap();
     let solver2 = BruteForce::new();
     let sol = solver2.solve(&problem2).unwrap();
     assert!(sol.is_some());
@@ -141,7 +148,10 @@ fn test_degree_constrained_spanning_tree_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "max_degree must be at least 1")]
-fn test_degree_constrained_spanning_tree_zero_k_panics() {
-    let _ = DegreeConstrainedSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 0);
+fn test_degree_constrained_spanning_tree_zero_k_rejects() {
+    assert!(DegreeConstrainedSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
+        0
+    )
+    .is_err());
 }

@@ -10,7 +10,8 @@ fn test_exactcoverby3sets_to_maximumsetpacking_closed_loop() {
     let source = ExactCoverBy3Sets::new(
         6,
         vec![[0, 1, 2], [0, 1, 3], [3, 4, 5], [2, 4, 5], [1, 3, 5]],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
 
@@ -26,7 +27,8 @@ fn test_exactcoverby3sets_to_maximumsetpacking_structure() {
     let source = ExactCoverBy3Sets::new(
         6,
         vec![[0, 1, 2], [0, 1, 3], [3, 4, 5], [2, 4, 5], [1, 3, 5]],
-    );
+    )
+    .unwrap();
     let reduction =
         ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -52,7 +54,7 @@ fn test_exactcoverby3sets_to_maximumsetpacking_structure() {
 fn test_exactcoverby3sets_to_maximumsetpacking_unsatisfiable() {
     // Universe {0,1,2,3,4,5} but subsets cannot form an exact cover:
     // all subsets share element 0
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]).unwrap();
     let reduction =
         ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -72,7 +74,7 @@ fn test_exactcoverby3sets_to_maximumsetpacking_unsatisfiable() {
 #[test]
 fn test_exactcoverby3sets_to_maximumsetpacking_optimal_value() {
     // Satisfiable instance: S0={0,1,2}, S1={3,4,5} form an exact cover
-    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+    let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]).unwrap();
     let reduction =
         ReduceTo::<MaximumSetPacking<One>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();

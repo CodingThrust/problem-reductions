@@ -7,8 +7,8 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Host: K4, Pattern: K3
-    let host = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let host = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     let problem = SubgraphIsomorphism::new(host, pattern);
     let reduction: ReductionSubIsoToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -21,8 +21,8 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_subgraphisomorphism_to_ilp_closed_loop() {
     // Host: K4, Pattern: K3 (always embeddable)
-    let host = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let host = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // BruteForce on source to confirm feasibility
@@ -51,8 +51,8 @@ fn test_subgraphisomorphism_to_ilp_closed_loop() {
 #[test]
 fn test_subgraphisomorphism_to_ilp_path_in_cycle() {
     // Host: C4, Pattern: P3 (path on 3 vertices)
-    let host = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
-    let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let host = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // BruteForce on source
@@ -77,8 +77,8 @@ fn test_subgraphisomorphism_to_ilp_path_in_cycle() {
 #[test]
 fn test_subgraphisomorphism_to_ilp_infeasible() {
     // Host: path 0-1-2, Pattern: triangle K3 (not embeddable)
-    let host = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let host = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     let problem = SubgraphIsomorphism::new(host, pattern);
     let reduction: ReductionSubIsoToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -93,8 +93,8 @@ fn test_subgraphisomorphism_to_ilp_infeasible() {
 
 #[test]
 fn test_solution_extraction() {
-    let host = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let host = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]).unwrap();
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]).unwrap();
     let problem = SubgraphIsomorphism::new(host, pattern);
     let reduction: ReductionSubIsoToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -108,8 +108,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_subgraphisomorphism_to_ilp_bf_vs_ilp() {
-    let host = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
-    let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let host = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]).unwrap();
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap();
     let problem = SubgraphIsomorphism::new(host, pattern);
     let reduction: ReductionSubIsoToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

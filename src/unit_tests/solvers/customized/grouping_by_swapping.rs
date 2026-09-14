@@ -16,7 +16,8 @@ fn test_symbol_block_order_grouping_by_swapping_matches_brute_force() {
                     value /= alphabet_size;
                 }
                 for budget in 0..=4 {
-                    let problem = GroupingBySwapping::new(alphabet_size, string.clone(), budget);
+                    let problem =
+                        GroupingBySwapping::new(alphabet_size, string.clone(), budget).unwrap();
                     let expected = BruteForce::new().solve(&problem).unwrap().is_some();
                     let actual = solve(&problem);
                     assert_eq!(actual.is_some(), expected, "{string:?}, budget={budget}");
@@ -32,11 +33,11 @@ fn test_symbol_block_order_grouping_by_swapping_matches_brute_force() {
 #[test]
 fn test_symbol_block_order_grouping_by_swapping_handles_scale() {
     assert_eq!(
-        solve(&GroupingBySwapping::new(0, Vec::new(), 0)),
+        solve(&GroupingBySwapping::new(0, Vec::new(), 0).unwrap()),
         Some(Vec::new())
     );
 
-    let problem = GroupingBySwapping::new(4, vec![2, 1, 1, 1, 0, 0, 3, 2], 24);
+    let problem = GroupingBySwapping::new(4, vec![2, 1, 1, 1, 0, 0, 3, 2], 24).unwrap();
     let solution = solve(&problem).expect("the instance is groupable within its budget");
     assert_eq!(solution.len(), 24);
     assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));

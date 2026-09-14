@@ -29,11 +29,32 @@ inventory::submit! {
 /// satisfies `sigma(u) + 1 <= sigma(v)` and no time slot hosts more than
 /// `num_processors` tasks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SchedulingWithIndividualDeadlinesData")]
 pub struct SchedulingWithIndividualDeadlines {
     num_tasks: usize,
     num_processors: usize,
     deadlines: Vec<i64>,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct SchedulingWithIndividualDeadlinesData {
+    num_tasks: usize,
+    num_processors: usize,
+    deadlines: Vec<i64>,
+    precedences: Vec<(usize, usize)>,
+}
+
+impl TryFrom<SchedulingWithIndividualDeadlinesData> for SchedulingWithIndividualDeadlines {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SchedulingWithIndividualDeadlinesData) -> Result<Self, Self::Error> {
+        Self::new(
+            data.num_tasks,
+            data.num_processors,
+            data.deadlines,
+            data.precedences,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -50,34 +71,12 @@ struct SchedulingWithIndividualDeadlinesCreateSpec {
 impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndividualDeadlines {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: SchedulingWithIndividualDeadlinesCreateSpec) -> Result<Self, Self::Error> {
-        if spec.deadlines.len() != spec.num_tasks {
-            return Err(format!(
-                "deadlines has {} entries, expected {}",
-                spec.deadlines.len(),
-                spec.num_tasks
-            )
-            .into());
-        }
-        if spec.deadlines.iter().any(|&deadline| deadline < 0) {
-            return Err("deadlines must be nonnegative".to_string().into());
-        }
-        let precedences = spec.precedences.unwrap_or_default();
-        if let Some(&(pred, succ)) = precedences
-            .iter()
-            .find(|&&(p, s)| p >= spec.num_tasks || s >= spec.num_tasks)
-        {
-            return Err(format!(
-                "precedence ({pred}, {succ}) is out of range for {} tasks",
-                spec.num_tasks
-            )
-            .into());
-        }
-        Ok(Self::new(
+        Self::new(
             spec.num_tasks,
             spec.num_processors,
             spec.deadlines,
-            precedences,
-        ))
+            spec.precedences.unwrap_or_default(),
+        )
     }
 }
 
@@ -87,37 +86,36 @@ impl SchedulingWithIndividualDeadlines {
         num_processors: usize,
         deadlines: Vec<i64>,
         precedences: Vec<(usize, usize)>,
-    ) -> Self {
-        assert_eq!(
-            deadlines.len(),
-            num_tasks,
-            "deadlines length must equal num_tasks"
-        );
-        assert!(
-            deadlines.iter().all(|&deadline| deadline >= 0),
-            "deadlines must be nonnegative"
-        );
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if deadlines.len() != num_tasks {
+            return Err("deadlines length must equal num_tasks".into());
+        }
+        if !(deadlines.iter().all(|&deadline| deadline >= 0)) {
+            return Err("deadlines must be nonnegative".into());
+        }
         for &(pred, succ) in &precedences {
-            assert!(
-                pred < num_tasks,
-                "predecessor index {} out of range (num_tasks = {})",
-                pred,
-                num_tasks
-            );
-            assert!(
-                succ < num_tasks,
-                "successor index {} out of range (num_tasks = {})",
-                succ,
-                num_tasks
-            );
+            if !(pred < num_tasks) {
+                return Err(format!(
+                    "predecessor index {} out of range (num_tasks = {})",
+                    pred, num_tasks
+                )
+                .into());
+            }
+            if !(succ < num_tasks) {
+                return Err(format!(
+                    "successor index {} out of range (num_tasks = {})",
+                    succ, num_tasks
+                )
+                .into());
+            }
         }
 
-        Self {
+        Ok(Self {
             num_tasks,
             num_processors,
             deadlines,
             precedences,
-        }
+        })
     }
 
     pub fn num_tasks(&self) -> usize {
@@ -221,12 +219,15 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "scheduling_with_individual_deadlines",
-        instance: Box::new(SchedulingWithIndividualDeadlines::new(
-            7,
-            3,
-            vec![2, 1, 2, 2, 3, 3, 2],
-            vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
-        )),
+        instance: Box::new(
+            SchedulingWithIndividualDeadlines::new(
+                7,
+                3,
+                vec![2, 1, 2, 2, 3, 3, 2],
+                vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![0, 0, 0, 1, 2, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

@@ -45,12 +45,13 @@ inventory::submit! {
 /// use problemreductions::models::misc::SubsetSum;
 /// use problemreductions::{Problem, BruteForce};
 ///
-/// let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
+/// let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SubsetSumData")]
 pub struct SubsetSum {
     #[serde(with = "super::biguint_serde::decimal_biguint_vec")]
     sizes: Vec<BigUint>,
@@ -58,29 +59,46 @@ pub struct SubsetSum {
     target: BigUint,
 }
 
+#[derive(Deserialize)]
+struct SubsetSumData {
+    #[serde(with = "super::biguint_serde::decimal_biguint_vec")]
+    sizes: Vec<BigUint>,
+    #[serde(with = "super::biguint_serde::decimal_biguint")]
+    target: BigUint,
+}
+
+impl TryFrom<SubsetSumData> for SubsetSum {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SubsetSumData) -> Result<Self, Self::Error> {
+        if data.sizes.iter().any(BigUint::is_zero) {
+            return Err("all sizes must be positive (> 0)".into());
+        }
+        Ok(Self {
+            sizes: data.sizes,
+            target: data.target,
+        })
+    }
+}
+
 impl SubsetSum {
     /// Create a new SubsetSum instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any size is not positive (must be > 0).
-    pub fn new<S, T>(sizes: Vec<S>, target: T) -> Self
+    /// Returns an error if any size is not positive (must be > 0).
+    pub fn new<S, T>(sizes: Vec<S>, target: T) -> Result<Self, crate::registry::ConstructionError>
     where
         S: ToBigUint,
         T: ToBigUint,
     {
-        let sizes: Vec<BigUint> = sizes
+        let sizes = sizes
             .into_iter()
-            .map(|s| s.to_biguint().expect("All sizes must be positive (> 0)"))
-            .collect();
-        assert!(
-            sizes.iter().all(|s| !s.is_zero()),
-            "All sizes must be positive (> 0)"
-        );
+            .map(|size| size.to_biguint().ok_or("all sizes must be positive (> 0)"))
+            .collect::<Result<Vec<_>, _>>()?;
         let target = target
             .to_biguint()
-            .expect("SubsetSum target must be nonnegative");
-        Self { sizes, target }
+            .ok_or("SubsetSum target must be nonnegative")?;
+        SubsetSumData { sizes, target }.try_into()
     }
 
     /// Create a new SubsetSum instance without validating sizes.
@@ -164,7 +182,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // 6 elements [3,7,1,8,2,4], target 11 → select {3,8}
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subset_sum",
-        instance: Box::new(SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32)),
+        instance: Box::new(SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32).unwrap()),
         optimal_config: serde_json::json!(vec![true, false, false, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]

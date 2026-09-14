@@ -9,7 +9,7 @@ use crate::traits::Problem;
 #[test]
 fn test_bicliquecover_to_bmf_structure() {
     // Graph with edges (0,0) and (1,1), k=2 → BMF target is 2x2 identity, rank 2.
-    let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]), 2);
+    let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]).unwrap(), 2);
     let reduction: ReductionBicliqueCoverToBMF =
         ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -21,7 +21,10 @@ fn test_bicliquecover_to_bmf_structure() {
 
 #[test]
 fn test_bicliquecover_to_bmf_overhead_matches_target_shape() {
-    let problem = BicliqueCover::new(BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]), 2);
+    let problem = BicliqueCover::new(
+        BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]).unwrap(),
+        2,
+    );
     let reduction: ReductionBicliqueCoverToBMF =
         ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -56,7 +59,7 @@ fn test_bicliquecover_to_bmf_overhead_matches_target_shape() {
 fn test_bicliquecover_to_bmf_closed_loop_full_biclique() {
     // K_{2,2} at rank 1 — single biclique covers all 4 edges.
     let problem = BicliqueCover::new(
-        BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+        BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]).unwrap(),
         1,
     );
     let reduction: ReductionBicliqueCoverToBMF =
@@ -77,7 +80,7 @@ fn test_bicliquecover_to_bmf_closed_loop_full_biclique() {
 #[test]
 fn test_bicliquecover_to_bmf_closed_loop_identity_rank2() {
     // Identity-biadjacency at rank 2 — exact factorization needs two singleton bicliques.
-    let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]), 2);
+    let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]).unwrap(), 2);
     let reduction: ReductionBicliqueCoverToBMF =
         ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -96,7 +99,7 @@ fn test_bicliquecover_to_bmf_closed_loop_identity_rank2() {
 #[test]
 fn test_bicliquecover_to_bmf_insufficient_rank() {
     // Identity biadjacency at rank 1 — infeasible for both problems.
-    let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]), 1);
+    let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]).unwrap(), 1);
     let reduction: ReductionBicliqueCoverToBMF =
         ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();

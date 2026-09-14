@@ -57,12 +57,13 @@ inventory::submit! {
 ///         (vec![2, 4], 6), (vec![3, 5], 7),
 ///         (vec![6, 7], 0), (vec![6, 7], 1),
 ///     ],
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumAxiomSetData")]
 pub struct MinimumAxiomSet {
     /// Total number of sentences |S|.
     num_sentences: usize,
@@ -72,50 +73,71 @@ pub struct MinimumAxiomSet {
     implications: Vec<(Vec<usize>, usize)>,
 }
 
+#[derive(Deserialize)]
+struct MinimumAxiomSetData {
+    num_sentences: usize,
+    true_sentences: Vec<usize>,
+    implications: Vec<(Vec<usize>, usize)>,
+}
+
+impl TryFrom<MinimumAxiomSetData> for MinimumAxiomSet {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumAxiomSetData) -> Result<Self, Self::Error> {
+        Self::new(data.num_sentences, data.true_sentences, data.implications)
+    }
+}
+
 impl MinimumAxiomSet {
     /// Create a new Minimum Axiom Set instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if any true sentence index is out of range,
+    /// Returns an error if any true sentence index is out of range,
     /// if true sentences contain duplicates,
     /// or if any implication references a sentence outside S.
     pub fn new(
         num_sentences: usize,
         true_sentences: Vec<usize>,
         implications: Vec<(Vec<usize>, usize)>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         // Validate true sentences
         for &s in &true_sentences {
-            assert!(
-                s < num_sentences,
-                "True sentence index {s} out of range [0, {num_sentences})"
-            );
+            if !(s < num_sentences) {
+                return Err(
+                    format!("True sentence index {s} out of range [0, {num_sentences})").into(),
+                );
+            }
         }
         // Check no duplicates
         let mut seen = vec![false; num_sentences];
         for &s in &true_sentences {
-            assert!(!seen[s], "Duplicate true sentence index {s}");
+            if !(!seen[s]) {
+                return Err(format!("Duplicate true sentence index {s}").into());
+            }
             seen[s] = true;
         }
         // Validate implications
         for (antecedents, consequent) in &implications {
             for &a in antecedents {
-                assert!(
-                    a < num_sentences,
-                    "Implication antecedent {a} out of range [0, {num_sentences})"
-                );
+                if !(a < num_sentences) {
+                    return Err(format!(
+                        "Implication antecedent {a} out of range [0, {num_sentences})"
+                    )
+                    .into());
+                }
             }
-            assert!(
-                *consequent < num_sentences,
-                "Implication consequent {consequent} out of range [0, {num_sentences})"
-            );
+            if !(*consequent < num_sentences) {
+                return Err(format!(
+                    "Implication consequent {consequent} out of range [0, {num_sentences})"
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             num_sentences,
             true_sentences,
             implications,
-        }
+        })
     }
 
     /// Returns the total number of sentences |S|.
@@ -240,20 +262,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Optimal: select {a, b} (indices 0, 1) → closure = all 8
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_axiom_set",
-        instance: Box::new(MinimumAxiomSet::new(
-            8,
-            vec![0, 1, 2, 3, 4, 5, 6, 7],
-            vec![
-                (vec![0], 2),
-                (vec![0], 3),
-                (vec![1], 4),
-                (vec![1], 5),
-                (vec![2, 4], 6),
-                (vec![3, 5], 7),
-                (vec![6, 7], 0),
-                (vec![6, 7], 1),
-            ],
-        )),
+        instance: Box::new(
+            MinimumAxiomSet::new(
+                8,
+                vec![0, 1, 2, 3, 4, 5, 6, 7],
+                vec![
+                    (vec![0], 2),
+                    (vec![0], 3),
+                    (vec![1], 4),
+                    (vec![1], 5),
+                    (vec![2, 4], 6),
+                    (vec![3, 5], 7),
+                    (vec![6, 7], 0),
+                    (vec![6, 7], 1),
+                ],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![
             true, true, false, false, false, false, false, false
         ]),

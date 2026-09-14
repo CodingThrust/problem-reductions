@@ -20,7 +20,8 @@ fn feasible_instance() -> DirectedTwoCommodityIntegralFlow {
                 (3, 4),
                 (3, 5),
             ],
-        ),
+        )
+        .unwrap(),
         vec![1; 8],
         0,
         4,
@@ -29,13 +30,14 @@ fn feasible_instance() -> DirectedTwoCommodityIntegralFlow {
         1,
         1,
     )
+    .unwrap()
 }
 
 fn infeasible_instance() -> DirectedTwoCommodityIntegralFlow {
     // Two commodities competing on a single arc with cap=1
     // s1=0→t1=2 and s2=0→t2=2 both need to route 1 unit through the single arc (0,2)
     DirectedTwoCommodityIntegralFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        DirectedGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1],
         0,
         2,
@@ -44,6 +46,7 @@ fn infeasible_instance() -> DirectedTwoCommodityIntegralFlow {
         1,
         1,
     )
+    .unwrap()
 }
 
 #[test]
@@ -106,8 +109,9 @@ fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
 
 #[test]
 fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_source() {
-    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]);
-    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
+    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]).unwrap();
+    let problem =
+        DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0).unwrap();
 
     let reduction: ReductionD2CIFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
@@ -152,7 +156,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
 fn test_directedtwocommodityintegralflow_to_ilp_preserves_large_exact_capacity() {
     let capacity = crate::types::MAX_EXACT_F64_INTEGER + 1;
     let problem = DirectedTwoCommodityIntegralFlow::new(
-        DirectedGraph::new(2, vec![(0, 1)]),
+        DirectedGraph::new(2, vec![(0, 1)]).unwrap(),
         vec![capacity],
         0,
         1,
@@ -160,7 +164,8 @@ fn test_directedtwocommodityintegralflow_to_ilp_preserves_large_exact_capacity()
         1,
         1,
         1,
-    );
+    )
+    .unwrap();
 
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
     let capacity_constraint = &reduction.target_problem().constraints()[0];

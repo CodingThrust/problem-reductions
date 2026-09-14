@@ -8,7 +8,7 @@ fn feasible_instance() -> UndirectedTwoCommodityIntegralFlow {
     // 4-vertex graph: edges (0,2),(1,2),(2,3); capacities [1,1,2]
     // s1=0, t1=3, s2=1, t2=3, R1=1, R2=1
     UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
+        SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]).unwrap(),
         vec![1, 1, 2],
         0,
         3,
@@ -17,6 +17,7 @@ fn feasible_instance() -> UndirectedTwoCommodityIntegralFlow {
         1,
         1,
     )
+    .unwrap()
 }
 
 fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
@@ -24,7 +25,7 @@ fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
     // path graph: 0-1-2; cap=1 everywhere; s1=0,t1=2 req=1; s2=0,t2=2 req=1
     // Total demand = 2 on edge (0,1) but cap = 1 → infeasible
     UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
         vec![1, 1],
         0,
         2,
@@ -33,6 +34,7 @@ fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
         1,
         1,
     )
+    .unwrap()
 }
 
 #[test]
@@ -126,7 +128,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_infeasible() {
 #[test]
 fn test_other_commodity_source_cannot_create_flow() {
     let problem = UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(4, vec![(1, 3)]),
+        SimpleGraph::new(4, vec![(1, 3)]).unwrap(),
         vec![2],
         0,
         3,
@@ -134,7 +136,8 @@ fn test_other_commodity_source_cannot_create_flow() {
         3,
         1,
         0,
-    );
+    )
+    .unwrap();
     let reduction: ReductionU2CIFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(

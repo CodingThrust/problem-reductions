@@ -13,9 +13,10 @@ fn decision_mvc(
 ) -> Decision<MinimumVertexCover<SimpleGraph, One>> {
     Decision::new(
         MinimumVertexCover::new(
-            SimpleGraph::new(num_vertices, edges.to_vec()),
+            SimpleGraph::new(num_vertices, edges.to_vec()).unwrap(),
             vec![One; num_vertices],
-        ),
+        )
+        .unwrap(),
         k,
     )
 }

@@ -20,7 +20,8 @@ fn padded_solution(values: Vec<usize>, padding: usize) -> Vec<Option<usize>> {
 #[test]
 fn test_shortestcommonsuperstring_basic() {
     let problem =
-        ShortestCommonSuperstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]]);
+        ShortestCommonSuperstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]])
+            .unwrap();
     assert_eq!(problem.alphabet_size(), 3);
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.max_length(), 9); // 3+3+3
@@ -51,7 +52,8 @@ fn test_shortestcommonsuperstring_evaluate_valid_substring() {
             vec![1, 2, 2], // bcc
             vec![2, 2, 0], // cca
         ],
-    );
+    )
+    .unwrap();
     let pad = 3;
     let mut config = vec![0, 0, 1, 2, 0, 1, 2, 2, 0]; // "aabcabcca"
     config.extend(vec![pad; problem.max_length() - 9]);
@@ -65,7 +67,7 @@ fn test_shortestcommonsuperstring_evaluate_subsequence_not_substring() {
     // is NOT a valid superstring. Take strings [0,1] and [1,0] and try w = [0,1,0]
     // (length 3) -- valid. But w = [0,2,1,0] (length 4) is also valid because
     // "01" is NOT a contiguous substring of "0210". Confirm "01" does not appear.
-    let problem = ShortestCommonSuperstring::new(3, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSuperstring::new(3, vec![vec![0, 1], vec![1, 0]]).unwrap();
     // w = [0,2,1,0] padded: "01" is not a contiguous substring -> invalid
     let pad = 3;
     let mut config = vec![0, 2, 1, 0];
@@ -87,7 +89,8 @@ fn test_shortestcommonsuperstring_evaluate_subsequence_not_substring() {
 #[test]
 fn test_shortestcommonsuperstring_evaluate_infeasible() {
     let problem =
-        ShortestCommonSuperstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]]);
+        ShortestCommonSuperstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]])
+            .unwrap();
     // All zeros padded cannot contain [0,1,2].
     let pad = 3;
     let mut config = vec![0; 9];
@@ -100,7 +103,7 @@ fn test_shortestcommonsuperstring_evaluate_infeasible() {
 
 #[test]
 fn test_shortestcommonsuperstring_out_of_range() {
-    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]).unwrap();
     // max_length = 2. Value 3 is neither a valid symbol (0..2) nor padding (= 2).
     assert!(matches!(
         problem.evaluate(&vec![Some(0), Some(3)]),
@@ -110,7 +113,7 @@ fn test_shortestcommonsuperstring_out_of_range() {
 
 #[test]
 fn test_shortestcommonsuperstring_wrong_length() {
-    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]).unwrap();
     assert!(matches!(
         problem.evaluate(&vec![Some(0)]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -124,7 +127,7 @@ fn test_shortestcommonsuperstring_wrong_length() {
 #[test]
 fn test_shortestcommonsuperstring_interleaved_padding() {
     // Padding must be contiguous at the end.
-    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]);
+    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]).unwrap();
     assert_eq!(problem.evaluate(&vec![None, Some(0)]).unwrap(), Min(None));
 }
 
@@ -133,7 +136,7 @@ fn test_shortestcommonsuperstring_brute_force_small() {
     // Alphabet {0, 1}, strings [0,1] and [1,0].
     // max_length = 4, search space = 3^4 = 81.
     // Optimal superstring length = 3 (e.g. "010" or "101").
-    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)
@@ -145,7 +148,7 @@ fn test_shortestcommonsuperstring_brute_force_small() {
 
 #[test]
 fn test_shortestcommonsuperstring_solve_aggregate() {
-    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     let solver = BruteForce::new();
     let val_solution = solver.solve(&problem).unwrap().unwrap();
     let val = problem.evaluate(&val_solution).unwrap();
@@ -154,7 +157,7 @@ fn test_shortestcommonsuperstring_solve_aggregate() {
 
 #[test]
 fn test_shortestcommonsuperstring_serialization() {
-    let problem = ShortestCommonSuperstring::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]);
+    let problem = ShortestCommonSuperstring::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]).unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ShortestCommonSuperstring = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
@@ -178,7 +181,8 @@ fn test_shortestcommonsuperstring_example1_ternary() {
             vec![1, 2, 2], // bcc
             vec![2, 2, 0], // cca
         ],
-    );
+    )
+    .unwrap();
     let pad = 3;
     let prefix = vec![0, 0, 1, 2, 0, 1, 2, 2, 0]; // "aabcabcca"
     let mut config = prefix.clone();
@@ -211,7 +215,8 @@ fn test_shortestcommonsuperstring_example2_binary() {
             vec![0, 1, 0], // 010
             vec![1, 0, 1], // 101
         ],
-    );
+    )
+    .unwrap();
     let pad = 2;
     let prefix = vec![0, 0, 1, 1, 0, 1, 0, 0]; // "00110100"
     let mut config = prefix.clone();
@@ -235,7 +240,8 @@ fn test_shortestcommonsuperstring_example3() {
             vec![1, 0],    // ba
             vec![1, 1],    // bb
         ],
-    );
+    )
+    .unwrap();
     let pad = 3;
     let prefix = vec![0, 1, 2, 0, 1, 1, 0]; // "abcabba"
     let mut config = prefix.clone();
@@ -248,7 +254,7 @@ fn test_shortestcommonsuperstring_example3() {
 fn test_shortestcommonsuperstring_paper_example() {
     // Canonical example_db instance: alphabet {0,1}, strings [0,1] and [1,0].
     // Optimal superstring length = 3, witness [0,1,0,pad].
-    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
+    let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]).unwrap();
     assert_eq!(
         problem
             .evaluate(&vec![Some(0), Some(1), Some(0), None])

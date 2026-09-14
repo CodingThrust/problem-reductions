@@ -308,7 +308,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "rooted_tree_arrangement_simplegraph",
         instance: Box::new(RootedTreeArrangement::new(
-            SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]).unwrap(),
             5,
         )),
         optimal_config: serde_json::json!(vec![0, 0, 1, 2, 0, 1, 2, 3]),

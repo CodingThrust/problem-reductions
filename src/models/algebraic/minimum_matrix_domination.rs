@@ -47,13 +47,14 @@ inventory::submit! {
 ///     vec![false, true, false],
 ///     vec![false, false, true],
 /// ];
-/// let problem = MinimumMatrixDomination::new(matrix);
+/// let problem = MinimumMatrixDomination::new(matrix).unwrap();
 /// let solver = BruteForce::new();
 /// let witness = solver.solve(&problem).unwrap();
 /// // All 3 diagonal entries must be selected (no domination possible)
 /// assert_eq!(witness, Some(vec![true, true, true]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumMatrixDominationData")]
 pub struct MinimumMatrixDomination {
     /// The binary matrix.
     matrix: Vec<Vec<bool>>,
@@ -61,28 +62,41 @@ pub struct MinimumMatrixDomination {
     ones: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+struct MinimumMatrixDominationData {
+    matrix: Vec<Vec<bool>>,
+}
+
+impl TryFrom<MinimumMatrixDominationData> for MinimumMatrixDomination {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumMatrixDominationData) -> Result<Self, Self::Error> {
+        Self::new(data.matrix)
+    }
+}
+
 impl MinimumMatrixDomination {
     /// Create a new MinimumMatrixDomination instance.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the matrix rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>) -> Self {
+    /// Returns an error when matrix dimensions violate the instance definition.
+    pub fn new(matrix: Vec<Vec<bool>>) -> Result<Self, crate::registry::ConstructionError> {
         let num_cols = matrix.first().map_or(0, Vec::len);
-        for row in &matrix {
-            assert_eq!(row.len(), num_cols, "All rows must have the same length");
+        if matrix.iter().any(|row| row.len() != num_cols) {
+            return Err("all matrix rows must have the same length".into());
         }
-        let ones: Vec<(usize, usize)> = matrix
+        let ones = matrix
             .iter()
             .enumerate()
             .flat_map(|(i, row)| {
                 row.iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|(_, &value)| value)
                     .map(move |(j, _)| (i, j))
             })
             .collect();
-        Self { matrix, ones }
+        Ok(Self { matrix, ones })
     }
 
     /// Returns a reference to the binary matrix.
@@ -206,7 +220,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     ];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_matrix_domination",
-        instance: Box::new(MinimumMatrixDomination::new(matrix)),
+        instance: Box::new(MinimumMatrixDomination::new(matrix).unwrap()),
         optimal_config: serde_json::json!(vec![
             true, true, false, false, false, false, true, true, false, false
         ]),

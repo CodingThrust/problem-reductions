@@ -156,10 +156,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // distance 1.  storage = [5,5,5], usage = [1,1,1].
             // Cost = 5 (storage at 1) + 1*1 + 1*0 + 1*1 = 7.
             let source = MultipleCopyFileAllocation::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleGraph::new(3, vec![(0, 1), (1, 2)]).unwrap(),
                 vec![1, 1, 1],
                 vec![5, 5, 5],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

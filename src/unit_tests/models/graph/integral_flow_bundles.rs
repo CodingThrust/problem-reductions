@@ -20,24 +20,26 @@ use crate::traits::Problem;
 
 fn yes_instance() -> IntegralFlowBundles {
     IntegralFlowBundles::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]).unwrap(),
         0,
         3,
         vec![vec![0, 1], vec![2, 5], vec![3, 4]],
         vec![1, 1, 1],
         1,
     )
+    .unwrap()
 }
 
 fn no_instance() -> IntegralFlowBundles {
     IntegralFlowBundles::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]).unwrap(),
         0,
         3,
         vec![vec![0, 1], vec![2, 5], vec![3, 4]],
         vec![1, 1, 1],
         2,
     )
+    .unwrap()
 }
 
 fn satisfying_config() -> Vec<usize> {

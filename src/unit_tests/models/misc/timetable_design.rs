@@ -33,6 +33,7 @@ fn timetable_design_toy_problem() -> TimetableDesign {
         vec![vec![true, true], vec![false, true]],
         vec![vec![1, 0], vec![0, 1]],
     )
+    .unwrap()
 }
 
 #[test]
@@ -61,29 +62,29 @@ fn test_timetable_design_problem_name_and_variant() {
 }
 
 #[test]
-#[should_panic(expected = "craftsman_avail has 1 rows, expected 2")]
 fn test_timetable_design_new_panics_on_craftsman_row_count_mismatch() {
-    let _ = TimetableDesign::new(
+    assert!(TimetableDesign::new(
         2,
         2,
         2,
         vec![vec![true, false]],
         vec![vec![true, true], vec![false, true]],
         vec![vec![1, 0], vec![0, 1]],
-    );
+    )
+    .is_err());
 }
 
 #[test]
-#[should_panic(expected = "requirements row 0 has 1 tasks, expected 2")]
 fn test_timetable_design_new_panics_on_requirement_width_mismatch() {
-    let _ = TimetableDesign::new(
+    assert!(TimetableDesign::new(
         2,
         2,
         2,
         vec![vec![true, false], vec![true, true]],
         vec![vec![true, true], vec![false, true]],
         vec![vec![1], vec![0, 1]],
-    );
+    )
+    .is_err());
 }
 
 #[test]
@@ -162,7 +163,8 @@ fn test_timetable_design_customized_solver_returns_none_for_infeasible_instance(
         vec![vec![true], vec![true]],
         vec![vec![true]],
         vec![vec![1], vec![1]],
-    );
+    )
+    .unwrap();
 
     assert!(problem.solve_via_required_assignments().is_none());
 }

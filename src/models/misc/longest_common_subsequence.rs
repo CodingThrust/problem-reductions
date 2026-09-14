@@ -36,10 +36,25 @@ inventory::submit! {
 /// subsequence consists of the symbols before padding starts. The objective is
 /// to maximize the effective length.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "LongestCommonSubsequenceData")]
 pub struct LongestCommonSubsequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+struct LongestCommonSubsequenceData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<LongestCommonSubsequenceData> for LongestCommonSubsequence {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: LongestCommonSubsequenceData) -> Result<Self, Self::Error> {
+        Self::new(data.alphabet_size, data.strings)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -55,11 +70,6 @@ impl TryFrom<LongestCommonSubsequenceCreateSpec> for LongestCommonSubsequence {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: LongestCommonSubsequenceCreateSpec) -> Result<Self, Self::Error> {
-        if !spec.strings.iter().any(|string| !string.is_empty()) {
-            return Err("at least one input string must be non-empty"
-                .to_string()
-                .into());
-        }
         let inferred_alphabet_size = spec
             .strings
             .iter()
@@ -74,21 +84,7 @@ impl TryFrom<LongestCommonSubsequenceCreateSpec> for LongestCommonSubsequence {
             .transpose()?
             .unwrap_or(0);
         let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
-        if alphabet_size < inferred_alphabet_size {
-            return Err(format!(
-                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
-            ).into());
-        }
-        if alphabet_size == 0 {
-            return Err("alphabet size must be positive".to_string().into());
-        }
-        let max_length = spec.strings.iter().map(Vec::len).min().unwrap_or(0);
-
-        Ok(Self {
-            alphabet_size,
-            strings: spec.strings,
-            max_length,
-        })
+        Self::new(alphabet_size, spec.strings)
     }
 }
 
@@ -98,29 +94,31 @@ impl LongestCommonSubsequence {
     /// The `max_length` is computed automatically as the minimum of all string
     /// lengths (the maximum possible common subsequence length).
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `alphabet_size == 0` and any input string is non-empty, or if
+    /// Returns an error if `alphabet_size == 0` and any input string is non-empty, or if
     /// an input symbol is outside the declared alphabet, or if all strings are
     /// empty (max_length would be 0, requiring at least one non-empty string).
-    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
+    pub fn new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let max_length = strings.iter().map(|s| s.len()).min().unwrap_or(0);
-        assert!(
-            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
-            "alphabet_size must be > 0 when any input string is non-empty"
-        );
-        assert!(
-            strings
-                .iter()
-                .flat_map(|s| s.iter())
-                .all(|&symbol| symbol < alphabet_size),
-            "input symbols must be less than alphabet_size"
-        );
-        Self {
+        if !(alphabet_size > 0 || strings.iter().all(|s| s.is_empty())) {
+            return Err("alphabet_size must be > 0 when any input string is non-empty".into());
+        }
+        if !(strings
+            .iter()
+            .flat_map(|s| s.iter())
+            .all(|&symbol| symbol < alphabet_size))
+        {
+            return Err("input symbols must be less than alphabet_size".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
             max_length,
-        }
+        })
     }
 
     /// Returns the alphabet size.
@@ -297,17 +295,20 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "longest_common_subsequence",
-        instance: Box::new(LongestCommonSubsequence::new(
-            2,
-            vec![
-                vec![0, 1, 0, 1, 1, 0],
-                vec![1, 0, 0, 1, 0, 1],
-                vec![0, 0, 1, 0, 1, 1],
-                vec![1, 1, 0, 0, 1, 0],
-                vec![0, 1, 0, 1, 0, 1],
-                vec![1, 0, 1, 0, 1, 0],
-            ],
-        )),
+        instance: Box::new(
+            LongestCommonSubsequence::new(
+                2,
+                vec![
+                    vec![0, 1, 0, 1, 1, 0],
+                    vec![1, 0, 0, 1, 0, 1],
+                    vec![0, 0, 1, 0, 1, 1],
+                    vec![1, 1, 0, 0, 1, 0],
+                    vec![0, 1, 0, 1, 0, 1],
+                    vec![1, 0, 1, 0, 1, 0],
+                ],
+            )
+            .unwrap(),
+        ),
         optimal_config: serde_json::json!(vec![Some(0), Some(0), Some(1), Some(0), None, None]),
         optimal_value: serde_json::json!(4),
     }]

@@ -11,6 +11,7 @@ use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
+use petgraph::unionfind::UnionFind;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -61,10 +62,7 @@ impl TryFrom<MinimumDummyActivitiesPertCreateSpec> for MinimumDummyActivitiesPer
             .transpose()?
             .unwrap_or(0);
         let num_vertices = spec.num_vertices.unwrap_or(inferred);
-        if num_vertices < inferred {
-            return Err("num_vertices is too small for the provided arcs".into());
-        }
-        Self::try_new(DirectedGraph::new(num_vertices, spec.arcs))
+        Self::try_new(DirectedGraph::new(num_vertices, spec.arcs)?)
     }
 }
 
@@ -161,7 +159,7 @@ impl MinimumDummyActivitiesPert {
         }
 
         let roots: Vec<usize> = (0..2 * num_tasks)
-            .map(|endpoint| uf.find(endpoint))
+            .map(|endpoint| uf.find_mut(endpoint))
             .collect();
         let mut root_to_dense = BTreeMap::new();
         for &root in &roots {
@@ -206,7 +204,8 @@ impl MinimumDummyActivitiesPert {
 
         let mut event_arcs = task_arcs;
         event_arcs.extend(dummy_arcs.iter().copied());
-        let event_graph = DirectedGraph::new(root_to_dense.len(), event_arcs);
+        let event_graph = DirectedGraph::new(root_to_dense.len(), event_arcs)
+            .expect("event arc endpoints are densely numbered");
         if !event_graph.is_dag() {
             return None;
         }
@@ -261,10 +260,9 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_dummy_activities_pert",
-        instance: Box::new(MinimumDummyActivitiesPert::new(DirectedGraph::new(
-            6,
-            vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)],
-        ))),
+        instance: Box::new(MinimumDummyActivitiesPert::new(
+            DirectedGraph::new(6, vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)]).unwrap(),
+        )),
         optimal_config: serde_json::json!(vec![true, false, false, true, true]),
         optimal_value: serde_json::json!(2),
     }]
@@ -290,35 +288,6 @@ struct CandidatePertNetwork {
     start_events: Vec<usize>,
     finish_events: Vec<usize>,
     num_dummy_arcs: usize,
-}
-
-#[derive(Debug)]
-struct UnionFind {
-    parent: Vec<usize>,
-}
-
-impl UnionFind {
-    fn new(size: usize) -> Self {
-        Self {
-            parent: (0..size).collect(),
-        }
-    }
-
-    fn find(&mut self, x: usize) -> usize {
-        if self.parent[x] != x {
-            let root = self.find(self.parent[x]);
-            self.parent[x] = root;
-        }
-        self.parent[x]
-    }
-
-    fn union(&mut self, a: usize, b: usize) {
-        let root_a = self.find(a);
-        let root_b = self.find(b);
-        if root_a != root_b {
-            self.parent[root_b] = root_a;
-        }
-    }
 }
 
 fn start_endpoint(task: usize) -> usize {

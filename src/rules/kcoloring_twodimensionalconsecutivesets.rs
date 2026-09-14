@@ -121,8 +121,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Small 3-colorable graph: triangle with pendant
             // 0 -- 1 -- 2 -- 0, plus 2 -- 3
             // 3-coloring: 0->0, 1->1, 2->2, 3->0
-            let source =
-                KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]));
+            let source = KColoring::<K3, _>::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]).unwrap(),
+            );
             let reduction = <KColoring<K3, SimpleGraph> as ReduceTo<
                 TwoDimensionalConsecutiveSets,
             >>::reduce_to(&source)

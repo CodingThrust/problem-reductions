@@ -8,7 +8,7 @@ fn create_spec_constructs_model() {
         "max_cycle_length"
     );
     let problem = PartialFeedbackEdgeSet::try_from(PartialFeedbackEdgeSetCreateSpec {
-        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        graph: SimpleGraph::new(2, vec![(0, 1)]).unwrap(),
         budget: 1,
         max_cycle_length: 3,
     })
@@ -34,6 +34,7 @@ fn issue_graph() -> SimpleGraph {
             (0, 3),
         ],
     )
+    .unwrap()
 }
 
 fn yes_instance() -> PartialFeedbackEdgeSet<SimpleGraph> {

@@ -70,7 +70,8 @@ impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One>
             strings.push(edge_string);
         }
 
-        let target = LongestCommonSubsequence::new(num_vertices, strings);
+        let target = LongestCommonSubsequence::new(num_vertices, strings)
+            .map_err(<Self as ReduceTo<LongestCommonSubsequence>>::target_construction)?;
         Ok(ReductionVCToLCS {
             target,
             num_vertices,
@@ -92,9 +93,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumvertexcover_to_longestcommonsubsequence",
         build: || {
             let source = MinimumVertexCover::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]).unwrap(),
                 vec![One; 4],
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, LongestCommonSubsequence>(
                 source,
                 SolutionPair {

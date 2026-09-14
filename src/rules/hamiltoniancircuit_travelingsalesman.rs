@@ -51,7 +51,9 @@ impl ReduceTo<TravelingSalesman<SimpleGraph, i64>> for HamiltonianCircuit<Simple
             .into_iter()
             .map(|(u, v)| if self.graph().has_edge(u, v) { 1 } else { 2 })
             .collect();
-        let target = TravelingSalesman::new(target_graph, weights);
+        let target = TravelingSalesman::new(target_graph, weights).map_err(
+            <Self as ReduceTo<TravelingSalesman<SimpleGraph, i64>>>::target_construction,
+        )?;
 
         Ok(ReductionHamiltonianCircuitToTravelingSalesman { target })
     }
