@@ -20,7 +20,8 @@ html[class] {
   --sidebar-fg: #adb9af;
   --sidebar-active: #c4dda6;
   --sidebar-non-existant: #87968b;
-  --sidebar-width: 264px;
+  --sidebar-target-width: 264px;
+  --sidebar-width: min(var(--sidebar-target-width), 80vw);
   --links: #c4dda6;
   --inline-code-color: #d5e7c5;
   --theme-popup-bg: #19241d;
@@ -56,6 +57,8 @@ body {
 }
 .docs-brand {
   display: flex;
+  height: 78px;
+  box-sizing: border-box;
   align-items: center;
   gap: 12px;
   padding: 9px 18px;
@@ -66,7 +69,9 @@ body {
 }
 .docs-brand img {
   width: 204px;
-  height: 59px;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
   object-fit: contain;
 }
 .sidebar .sidebar-scrollbox {

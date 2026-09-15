@@ -51,6 +51,7 @@
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 #import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors, selem, sregion, draw-node-highlight, draw-edge-highlight, draw-node-colors, sregion-selected, sregion-dimmed, gate-and, gate-or, gate-xor
+#import "web.typ": export-details, detail-key, detail-article
 
 #set page(
   paper: "a4",
@@ -64,6 +65,36 @@
 
 // Set up theorem environments with ctheorems
 #show: thmrules.with(qed-symbol: $square$)
+#show math.equation: it => context {
+  if export-details and target() == "html" {
+    html.elem(if it.block { "div" } else { "span" }, attrs: (class: "typst-math"), html.frame(it))
+  } else { it }
+}
+#show figure: it => context {
+  if export-details and target() == "html" {
+    html.elem("figure")[
+      #html.frame(it.body)
+      #if it.caption != none { html.elem("figcaption", it.caption.body) }
+    ]
+  } else { it }
+}
+#show block: it => context {
+  if export-details and target() == "html" {
+    if it.height != auto { html.frame(it) } else { html.elem("div", it.body) }
+  } else { it }
+}
+#show align: it => context {
+  if export-details and target() == "html" { it.body } else { it }
+}
+#show pad: it => context {
+  if export-details and target() == "html" { it.body } else { it }
+}
+#show grid: it => context {
+  if export-details and target() == "html" { html.frame(it) } else { it }
+}
+#show stack: it => context {
+  if export-details and target() == "html" { html.frame(it) } else { it }
+}
 
 // === Example JSON helpers ===
 // Load the generated canonical example database.
@@ -501,6 +532,7 @@
 
 // Render a block of pred CLI commands for reproducibility
 #let pred-commands(..cmds) = {
+  if export-details { return raw(cmds.pos().join("\n"), block: true) }
   block(
     width: 100%,
     fill: luma(245),
@@ -531,8 +563,22 @@
 )
 
 // Problem definition wrapper: auto-adds schema, complexity, reductions list, and label
-#let problem-def(name, def, body) = {
-  let lbl = label("def:" + name)
+#show ref: it => context {
+  let name = str(it.target)
+  if export-details and target() == "html" and name.starts-with("def:") {
+    link(it.target, display-name.at(name.slice(4)))
+  } else { it }
+}
+#let problem-def(name, def, body, variant: none) = {
+  if export-details {
+    return detail-article("problem:" + detail-key(name, variant))[
+      #html.elem("h3")[Definition]
+      #def
+      #html.elem("h3")[Background and example]
+      #body
+    ]
+  }
+  let lbl = label("def:" + detail-key(name, variant))
   let title = display-name.at(name)
   [#definition(title)[
     #def
@@ -586,8 +632,23 @@
   example-target-variant: none,
   example-caption: none,
   extra: none,
+  source-variant: none,
+  target-variant: none,
   theorem-body, proof-body,
 ) = {
+  if export-details {
+    return detail-article("rule:" + detail-key(source, source-variant) + "->" + detail-key(target, target-variant))[
+      #html.elem("h3")[Reduction]
+      #theorem-body
+      #html.elem("h3")[Proof]
+      #proof-body
+      #if example {
+        html.elem("h3")[Example]
+        if example-caption != none { strong(example-caption) }
+        extra
+      }
+    ]
+  }
   let arrow = sym.arrow.r
   let edge = find-edge(source, target)
   let src-disp = if edge != none { variant-display(graph-data.nodes.at(edge.source)) }
@@ -597,7 +658,7 @@
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
   let parameters = if edge != none and edge.parameters.len() > 0 { edge.parameters } else { none }
-  let thm-lbl = label("thm:" + source + "-to-" + target)
+  let thm-lbl = label("thm:" + detail-key(source, source-variant) + "-to-" + detail-key(target, target-variant))
   covered-rules.update(old => old + ((source, target),))
 
   [
@@ -19589,4 +19650,8 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 #pagebreak()
-#bibliography("references.bib", style: "ieee")
+#if export-details {
+  detail-article("references")[#bibliography("references.bib", style: "ieee")]
+} else {
+  bibliography("references.bib", style: "ieee")
+}

@@ -102,14 +102,17 @@ doc: node_modules/elkjs/package.json
 	cargo build -p problemreductions-cli --bin pred
 	bash scripts/generate_doc_snippets.sh target/debug/pred
 	mdbook build
-	python3 scripts/build_website.py
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
 	rm -rf book/api
 	cp -r target/doc book/api
+	python3 scripts/build_website.py
 
 # Build the product website with fresh atlas data; API/PDF builds remain in doc/paper.
-website:
+website: node_modules/elkjs/package.json
+	cargo run --features "$(TEST_FEATURES)" --example export_examples
+	cargo run --features "$(TEST_FEATURES)" --example export_petersen_mapping
 	cargo run --example export_graph
+	node scripts/generate_reduction_graph_layout.js
 	cargo run --example export_schemas
 	cargo build -p problemreductions-cli --bin pred
 	bash scripts/generate_doc_snippets.sh target/debug/pred
