@@ -28,7 +28,7 @@ impl CustomizedTestSolver {
             .unwrap()
             .lookup(&key)
             .customized?;
-        let solution = (registration.solve_fn)(problem).unwrap()?;
+        let solution = (registration.solve_fn)(problem).unwrap().into_solution()?;
         Some(
             serde_json::from_value(solution)
                 .expect("customized solver returned the wrong witness representation"),

@@ -6,7 +6,6 @@ use crate::models::misc::SubsetSum;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use num_rational::BigRational;
 
 /// Result of reducing SubsetSum to ClosestVectorProblem.
 #[derive(Debug, Clone)]
@@ -115,13 +114,16 @@ impl ReduceTo<Decision<ClosestVectorProblem<i64>>> for SubsetSum {
         for bit in 0..bits {
             target[rows - 1 - bit] = i64::from(self.target().bit(bit as u64));
         }
-        let target = ClosestVectorProblem::new(basis, target).map_err(
+        let target = ClosestVectorProblem::<i64>::new(basis, target).map_err(
             <Self as ReduceTo<Decision<ClosestVectorProblem<i64>>>>::target_construction,
         )?;
         Ok(ReductionSubsetSumToClosestVectorProblem {
             target: Decision::new(
                 target,
-                BigRational::from_integer(self.num_elements().into()),
+                <Self as ReduceTo<Decision<ClosestVectorProblem<i64>>>>::exact_i64(
+                    n,
+                    "representing the subset count",
+                )?,
             ),
             num_elements: n,
         })

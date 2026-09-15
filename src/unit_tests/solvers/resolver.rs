@@ -628,7 +628,7 @@ fn decision_closest_vector_solver_preserves_bound_after_serialization() {
         let target = reduction.target_problem();
         let loaded = load_dyn(
             <Decision<ClosestVectorProblem<i64>>>::NAME,
-            &BTreeMap::from([("target".into(), "i64".into())]),
+            &BTreeMap::from([("coefficient".into(), "i64".into())]),
             serde_json::to_value(target).unwrap(),
         )
         .unwrap();
@@ -683,7 +683,11 @@ fn customized_dispatch_rejects_a_constraint_violating_candidate() {
         source_name: "MinimumVertexCover",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i64")],
         implementation: "invalid-candidate",
-        solve_fn: |_| Ok(Some(serde_json::json!([false, false]))),
+        solve_fn: |any| {
+            let problem = any.downcast_ref::<crate::models::graph::MinimumVertexCover<crate::topology::SimpleGraph, i64>>().unwrap();
+            let outcome = SolveOutcome::optimal(problem, vec![false, false])?;
+            Ok(crate::solvers::outcome_to_json(&outcome)?)
+        },
     };
     let problem = load_dyn(
         "MinimumVertexCover",

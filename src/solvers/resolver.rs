@@ -37,29 +37,11 @@ fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
     ExactProblemKey::new(problem.problem_name(), problem.variant_map())
 }
 
-/// Check the candidate returned by an exact solver before publishing its result.
-fn optimal_outcome(
-    problem: &LoadedDynProblem,
-    solution: serde_json::Value,
-) -> Result<SolveOutcome, super::SolveError> {
-    let (evaluation, feasible) = problem.evaluate_dyn(&solution)?;
-    if !feasible {
-        return Err(crate::traits::EvaluationError::ConstraintViolation.into());
-    }
-    Ok(SolveOutcome::Optimal {
-        solution,
-        evaluation,
-    })
-}
-
 fn solve_customized(
     problem: &LoadedDynProblem,
     registration: &'static CustomizedSolverRegistration,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match (registration.solve_fn)(problem.as_any())? {
-        Some(solution) => optimal_outcome(problem, solution)?,
-        None => SolveOutcome::Infeasible,
-    };
+    let outcome = (registration.solve_fn)(problem.as_any())?;
     Ok(SolveResult {
         solver: SolverExecution::Customized {
             implementation: registration.implementation,

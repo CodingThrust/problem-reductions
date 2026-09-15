@@ -273,6 +273,20 @@ in every rule. See the design document for the shared search-representation cont
 
 ## Testing Requirements
 
+### Representative examples and validation priorities
+
+- Lead issues, plans, documentation, and acceptance tests with small, ordinary
+  instances that explain problem modeling, reduction construction, solution
+  recovery, and solver use. Prefer a complete source-to-target-to-source example
+  for reductions and a recognizable application for numerical models.
+- Numeric extremes such as `i64::MAX`, huge vertex counts, or tiny floating-point
+  differences near `2^-50` are not the package's central use cases. Do not make
+  them the default examples or let them dominate task scope and acceptance criteria.
+- Keep focused boundary regressions when they reproduce a concrete defect or
+  verify a required numeric contract. Preserve required overflow and non-finite
+  error handling, but do not invent extreme cases to justify extra infrastructure,
+  public numeric types, or stronger solver guarantees.
+
 **No single test should take more than 5 seconds.** If a test requires solving a large instance (e.g., ILP with thousands of variables), use a smaller test instance or a faster solver. Tests that exceed 5s block CI and must be refactored.
 
 **Reference implementations — read these first:**

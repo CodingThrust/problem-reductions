@@ -102,7 +102,7 @@ pub(crate) struct IlpPipelineRegistration {
 
 inventory::collect!(IlpPipelineRegistration);
 
-type CustomizedSolveFn = fn(&dyn Any) -> Result<Option<serde_json::Value>, super::SolveError>;
+type CustomizedSolveFn = fn(&dyn Any) -> Result<super::SolveOutcome, super::SolveError>;
 
 /// A dedicated solver registered for one exact problem variant.
 #[derive(Debug)]

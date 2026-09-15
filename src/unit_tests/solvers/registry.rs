@@ -206,8 +206,8 @@ fn source_variant() -> Vec<(&'static str, &'static str)> {
 
 fn no_solution(
     _: &dyn std::any::Any,
-) -> Result<Option<serde_json::Value>, crate::solvers::SolveError> {
-    Ok(None)
+) -> Result<crate::solvers::SolveOutcome, crate::solvers::SolveError> {
+    Ok(crate::solvers::SolveOutcome::Infeasible)
 }
 
 static CUSTOMIZED_A: CustomizedSolverRegistration = CustomizedSolverRegistration {

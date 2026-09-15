@@ -5404,9 +5404,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let distance-squared = range(dim).fold(0, (total, d) => total + calc.pow(bx.at(d) - target.at(d), 2))
   [
     #problem-def("ClosestVectorProblem")[
-      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2^2$.
+      Given a full-column-rank lattice basis $bold(B) in RR^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2^2$.
     ][
-      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. Model evaluation returns the squared distance as an exact rational, preserving the minimizers of Euclidean distance. Finite `f64` targets are interpreted as their exact binary rational values. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides two coefficient variants: `i64` basis and target entries for exact reductions, and finite `f64` entries for numerical modeling. Both return integer coefficients. Integer evaluation uses checked integer squared distance; float evaluation uses ordinary floating-point squared distance. The integer solver uses exact rational Gram--Schmidt projections and sphere enumeration following Fincke and Pohst @fincke1985. The numerical float solver uses floating-point projections and reports a feasible candidate without claiming exact optimality. Both solvers are intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
       *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with squared distance #distance-squared.
 
@@ -16580,16 +16580,6 @@ The numerical variant embeddings below preserve individual stored coefficients o
   _Correctness._ The packing constraint (no two selected sets share a universe element) depends only on set membership, not on weights. The objective $max sum_(i in P) w_i$ is preserved under the type embedding. Optimality is unchanged.
 
   _Solution extraction._ Return the target configuration unchanged.
-]
-
-#reduction-rule("ClosestVectorProblem", "ClosestVectorProblem")[
-  An integer-target CVP instance converts to the floating-target variant by embedding every target coordinate with `i64_to_exact_f64`. The integer lattice basis is copied unchanged.
-][
-  _Construction._ Given $(B, bold(t))$ with $B in ZZ^(m times n)$ and $bold(t) in ZZ^m$, construct $(B, bold(t)')$ with $t'_i = "f64"(t_i)$ when every target coordinate satisfies $abs(t_i) <= 2^53 - 1$, the supported conversion range.
-
-  _Correctness._ Exact coordinate conversion gives $bold(t)' = bold(t)$ in $RR^m$. Therefore $norm(B bold(x) - bold(t)')_2^2 = norm(B bold(x) - bold(t))_2^2$ for every $bold(x) in ZZ^n$, so the minimizers coincide.
-
-  _Solution extraction._ Return the integer coefficient vector unchanged.
 ]
 
 #reduction-rule("QUBO", "QUBO")[

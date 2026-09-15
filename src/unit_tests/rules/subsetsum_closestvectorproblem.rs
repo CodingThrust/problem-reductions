@@ -32,7 +32,7 @@ fn test_subsetsum_to_closestvectorproblem_closed_loop() {
             .evaluate(&target_solution)
             .unwrap()
             .0,
-        Some(BigRational::from_integer(4.into()))
+        Some(4)
     );
 }
 
@@ -47,7 +47,7 @@ fn test_subsetsum_to_closestvectorproblem_structure() {
     assert_eq!(&target.inner().target()[..8], &[0, 0, 0, 0, 1, 1, 1, 1]);
     assert_eq!(
         ClosestVectorProblem::<i64>::variant(),
-        vec![("target", "i64")]
+        vec![("coefficient", "i64")]
     );
 }
 
@@ -58,10 +58,7 @@ fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
     let target = reduction.target_problem();
 
     for solution in [vec![1, 0, 0, 1, 0, 0, 0], vec![1, 1, 1, 0, 1, 1, 1]] {
-        assert_eq!(
-            target.inner().evaluate(&solution).unwrap().0,
-            Some(BigRational::from_integer(4.into()))
-        );
+        assert_eq!(target.inner().evaluate(&solution).unwrap().0, Some(4));
         assert!(
             source
                 .evaluate(
@@ -96,7 +93,7 @@ fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
             .evaluate(&solution)
             .unwrap()
             .unwrap()
-            > BigRational::from_integer(source.num_elements().into())
+            > i64::try_from(source.num_elements()).unwrap()
     );
 }
 
@@ -110,7 +107,7 @@ fn test_subsetsum_to_closestvectorproblem_binary_carries_preserve_large_inputs()
     witness[0] = 1;
     assert_eq!(
         result.target_problem().inner().evaluate(&witness).unwrap(),
-        crate::types::Min(Some(BigRational::from_integer(1.into())))
+        crate::types::Min(Some(1))
     );
     assert_eq!(
         result
@@ -182,10 +179,8 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
                 })
                 .collect();
             let value = target.inner().evaluate(&config).unwrap();
-            let certificate = value
-                == crate::types::Min(Some(BigRational::from_integer(
-                    source.num_elements().into(),
-                )));
+            let certificate =
+                value == crate::types::Min(Some(i64::try_from(source.num_elements()).unwrap()));
             assert_eq!(
                 crate::types::Or(OptimizationValue::meets_bound(
                     &(value),
@@ -242,4 +237,21 @@ fn test_subsetsum_to_closestvectorproblem_dimension_boundaries() {
         assert!(R::dimensions(1usize << 30, 1).is_err());
         assert!(R::dimensions((1usize << 30) - 1, 1).is_ok());
     }
+}
+
+#[test]
+fn test_subset_sum_to_cvp_recovers_selected_items() {
+    let source = SubsetSum::new(vec![3u32, 5, 7], 8u32);
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    let solution =
+        crate::solvers::customized::closest_vector_problem::solve(target.inner()).unwrap();
+    assert_eq!(target.inner().evaluate(&solution).unwrap().0, Some(3));
+    let recovered = reduction
+        .recover_result(&source, SolveOutcome::optimal(target, solution).unwrap())
+        .unwrap()
+        .into_solution()
+        .unwrap();
+    assert_eq!(recovered, vec![true, true, false]);
+    assert!(source.evaluate(&recovered).unwrap().0);
 }

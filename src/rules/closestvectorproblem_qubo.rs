@@ -1,4 +1,4 @@
-//! Reduction from integer-target CVP to QUBO.
+//! Reduction from integer CVP to QUBO.
 //!
 //! The reduction derives a finite coefficient box from the lattice basis and
 //! target, then expands the squared Euclidean distance over exact-range binary
@@ -23,7 +23,7 @@ struct EncodingSpan {
     lower: i64,
 }
 
-/// Result of reducing an integer-target CVP instance to QUBO.
+/// Result of reducing an integer CVP instance to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionCVPToQUBO {
     target: Target,
@@ -333,7 +333,7 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
 
 #[cfg(feature = "example-db")]
 fn canonical_cvp_instance() -> Source {
-    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+    ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
         .expect("canonical closest-vector instance must be valid")
 }
 

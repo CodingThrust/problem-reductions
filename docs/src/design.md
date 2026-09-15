@@ -211,13 +211,19 @@ counting preservation.
   coefficients. Backend feasibility tolerances must not expand the model's
   feasible set. A declared input convention, such as checking probability sums,
   is distinct from accepting a solver's returned assignment.
-- CVP evaluates squared distance as `Min<BigRational>` through its
-  `squared_distance()` method. Integer coordinates enter exact integer arithmetic;
-  finite `f64` targets retain their stored binary rational values. For example,
-  the zero lattice point and target `(3, 4)` have objective `25`. The customized
-  solver uses the same coordinate conversion. SubsetSum compares squared distance
-  with its integer item count. JSON evaluation uses the dependency's rational
-  serialization; CLI display uses fractions such as `Min(9/16)`.
+- CVP has separate `coefficient=i64` and `coefficient=f64` variants for both
+  basis and target. Both return integer coefficient vectors. Integer CVP evaluates
+  squared distance as `Min<i64>` with checked arithmetic; floating CVP evaluates
+  it as `Min<f64>` with ordinary rounding and non-finite-result checks. Decision
+  bounds use the corresponding squared-distance type. SubsetSum uses the integer
+  variant with bound equal to its item count. Integer sphere enumeration retains
+  implementation-local exact arithmetic and returns an optimal solution; numerical
+  float enumeration returns a feasible candidate without an optimality claim.
+  A numerical float decision solve returns a satisfying candidate when found;
+  missing its bound reports insufficient solution quality, not infeasibility.
+  Customized solver callbacks carry these statuses through dispatch. No exact
+  CVP integer-to-float edge is registered: coordinate conversion alone does not
+  establish preservation of rounded objective ordering.
 - `i64_to_exact_f64()` accepts integers in `[-(2^53-1), 2^53-1]` and rejects
   everything outside that supported conversion range. This is a conservative
   interface limit, not the set of all exactly representable f64 integers. Ordinary conversion

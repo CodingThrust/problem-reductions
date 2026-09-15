@@ -1,4 +1,4 @@
-//! Exact customized solvers and their exact-variant registrations.
+//! Customized solvers and their concrete-variant outcome registrations.
 
 use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
@@ -29,12 +29,14 @@ macro_rules! register_customized_solver {
                     let problem = any.downcast_ref::<$problem>().expect(
                         "customized solver registration received the wrong concrete type",
                     );
-                    $solve(problem).map(|solution| {
-                        solution.map(|solution: <$problem as Problem>::Solution| {
-                            serde_json::to_value(solution)
-                                .expect("customized solution serialization must succeed")
-                        })
-                    })
+                    let result: Result<Option<<$problem as Problem>::Solution>, crate::solvers::SolveError> = $solve(problem);
+                    match result? {
+                        Some(solution) => {
+                            let outcome = crate::solvers::SolveOutcome::optimal(problem, solution)?;
+                            Ok(crate::solvers::outcome_to_json(&outcome)?)
+                        }
+                        None => Ok(crate::solvers::SolveOutcome::Infeasible),
+                    }
                 },
             }
         }
@@ -97,11 +99,20 @@ register_customized_solver!(
     "cvp-sphere-enumeration",
     |problem| super::closest_vector_problem::solve(problem).map(Some)
 );
-register_customized_solver!(
-    crate::models::algebraic::ClosestVectorProblem<f64>,
-    "cvp-sphere-enumeration",
-    |problem| super::closest_vector_problem::solve(problem).map(Some)
-);
+inventory::submit! {
+    CustomizedSolverRegistration {
+        source_name: "ClosestVectorProblem",
+        source_variant_fn: crate::models::algebraic::ClosestVectorProblem::<f64>::variant,
+        implementation: "cvp-numerical-sphere-enumeration",
+        solve_fn: |any| {
+            let problem = any.downcast_ref::<crate::models::algebraic::ClosestVectorProblem<f64>>()
+                .expect("registered CVP float variant");
+            let solution = super::closest_vector_problem::solve_float(problem)?;
+            let outcome = crate::solvers::SolveOutcome::feasible(problem, solution)?;
+            Ok(crate::solvers::outcome_to_json(&outcome)?)
+        },
+    }
+}
 
 register_customized_solver!(
     crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem<i64>>,
@@ -113,6 +124,25 @@ register_customized_solver!(
         Ok(problem.evaluate(&solution)?.0.then_some(solution))
     }
 );
+
+inventory::submit! {
+    CustomizedSolverRegistration {
+        source_name: "DecisionClosestVectorProblem",
+        source_variant_fn: crate::models::decision::Decision::<crate::models::algebraic::ClosestVectorProblem<f64>>::variant,
+        implementation: "cvp-numerical-sphere-enumeration",
+        solve_fn: |any| {
+            let problem = any.downcast_ref::<crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem<f64>>>()
+                .expect("registered CVP float decision variant");
+            let solution = super::closest_vector_problem::solve_float(problem.inner())?;
+            let evaluation = problem.evaluate(&solution)?;
+            if !evaluation.0 {
+                return Err(crate::rules::ExtractionError::InsufficientSolutionQuality.into());
+            }
+            let outcome = crate::solvers::SolveOutcome::Feasible { solution, evaluation };
+            Ok(crate::solvers::outcome_to_json(&outcome)?)
+        },
+    }
+}
 
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 ///
