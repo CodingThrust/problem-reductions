@@ -8,9 +8,8 @@ use crate::models::algebraic::{QuadraticCongruences, QuadraticDiophantineEquatio
 use crate::models::formula::KSatisfiability;
 use crate::reduction;
 use crate::rules::ksatisfiability_quadraticcongruences::Reduction3SATToQuadraticCongruences;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::variant::K3;
 use num_bigint::BigUint;
 use num_traits::One;
@@ -35,17 +34,7 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
     }
 }
 

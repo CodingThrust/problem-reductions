@@ -38,12 +38,12 @@ If any item is missing, ask the user to provide it. Put a high standard on item 
 
 ## Step 0.5: Mathematical and API Contract
 
-Read [the canonical witness/aggregate contract](../../../docs/src/design.md#witness-and-aggregate-reductions).
+Read [the canonical complete-result recovery contract](../../../docs/src/design.md#complete-result-recovery).
 Resolve the source and target's concrete `Solution` and `Value` types from their
 implementations and check the construction, extraction preconditions, and
 objective relationship. Different optimization directions or numeric value
 types do not by themselves invalidate a witness reduction. Use the existing
-witness, aggregate, or Turing capability required by the actual operation.
+complete-result, proof-only, or Turing capability required by the actual operation.
 Report a concrete mathematical or Rust implementation mismatch if one exists;
 do not apply a wrapper-pair whitelist.
 
@@ -68,7 +68,7 @@ Read these first to understand the patterns:
 - **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs`
 - **Reduction tests:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
 - **Paper entry:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
-- **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult`)
+- **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReductionResult`)
 
 ## Step 1: Mathematical Verification (default, skip with `--no-verify`)
 
@@ -89,7 +89,7 @@ Create `src/rules/<source>_<target>.rs` (all lowercase, no underscores between w
 ```rust
 // Required structure:
 // 1. ReductionResult struct (holds the target problem + mapping state)
-// 2. ReductionResult trait impl (target_problem + extract_solution)
+// 2. ReductionResult trait impl (target_problem + mandatory recover_result)
 // 3. #[reduction(transform = exact { ... })] on ReduceTo impl
 // 4. ReduceTo trait impl (reduce_to method)
 // 5. #[cfg(test)] #[path = "..."] mod tests;
@@ -102,27 +102,60 @@ Key elements:
 #[derive(Debug, Clone)]
 pub struct ReductionXToY {
     target: TargetType,
-    // any additional mapping state needed for extract_solution
+    // any additional mapping state needed for recovery
 }
 ```
 
 **ReductionResult trait impl:**
+
+`recover_result` is mandatory; it has no default implementation. For a rule whose
+proof establishes all three implications (target optimal -> source optimal,
+target feasible -> source feasible, target infeasible -> source infeasible),
+explicitly use the internal helper:
+
 ```rust
+use crate::rules::traits::recover_preserving_status;
+use crate::solvers::ProblemOutcome;
+
 impl ReductionResult for ReductionXToY {
     type Source = SourceType;
     type Target = TargetType;
     fn target_problem(&self) -> &Self::Target { &self.target }
-    fn extract_solution(
+
+    fn recover_result(
         &self,
-        target_solution: &<TargetType as Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<SourceType as Problem>::Solution> {
-        let source_solution = /* translate the verified mathematical mapping exactly */;
-        Ok(source_solution)
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            self.map_solution(solution)
+        })
     }
 }
 ```
 
-Follow the canonical [extraction contract](../../../docs/src/design.md#witness-and-aggregate-reductions). Document the mathematical premises and implement the mapping directly. The adapter accepts solver output; external callers supply witnesses under the same mathematical contract. Extraction does not validate feasibility or optimality. Do not recheck constraints or add errors for states excluded by construction. Solver orchestration uses aggregate mappings to handle required thresholds before witness extraction; do not independently certify optimality or compensate for a rule bug with source revalidation.
+Keep the mathematical mapping in a private `map_solution` method, or inline a
+short mapping in the closure. Do not add a forwarding method solely to call the
+helper. It preserves the declared status, maps the witness, evaluates the source
+candidate once, and propagates mapping/evaluation errors. The old target value
+is not reused as the source value. `Infeasible` does not invoke the mapping.
+
+**Choose this helper only when the proof supports all three implications.** It
+cannot prove the premise, optimality, or source infeasibility from an invalid
+mapped candidate. When recovery needs an optimum threshold, rejects feasible
+incumbents, or has another mathematical interpretation, write an explicit
+`match target` in `recover_result` instead. Examples: MVC -> FeedbackArcSet
+rejects merely feasible targets; ILP -> QUBO interprets the optimum penalty.
+Insufficient witness quality returns `ExtractionError::InsufficientSolutionQuality`,
+never `SolveOutcome::Infeasible` without a proof.
+
+Follow the canonical [recovery contract](../../../docs/src/design.md#complete-result-recovery).
+Document the instance domain, witness premises, source guarantee, and
+infeasibility interpretation. Target validation belongs to the solver/transport
+boundary; keep the existing source evaluation when constructing recovered
+outcomes. Do not duplicate model constraint checks inside the mapping or add
+fallbacks for inputs excluded by its premises. Do not introduce default recovery,
+policy flags, macros, or a new public mapping trait to remove this explicit choice.
 
 **ReduceTo with `#[reduction]` macro** (a parameter relation is **required**):
 ```rust
@@ -139,7 +172,9 @@ impl ReduceTo<TargetType> for SourceType {
 
 Each primitive reduction is determined by the exact source/target variant pair. Keep one primitive registration per endpoint pair and declare `transform = exact`, `upper_bound`, or `unavailable` according to the actual parameter relationship; follow `.claude/CLAUDE.md` for metadata requirements.
 
-**Aggregate-only reductions:** when the rule preserves aggregate values but cannot recover a source witness from a target witness, implement `AggregateReductionResult` + `ReduceToAggregate<T>` instead of `ReductionResult` + `ReduceTo<T>`. Those edges are not auto-registered by `#[reduction]` yet; register them manually with `ReductionEntry { reduce_aggregate_fn: ..., capabilities: EdgeCapabilities::aggregate_only(), ... }`. See `src/unit_tests/rules/traits.rs` and `src/unit_tests/rules/graph.rs` for the reference pattern.
+A construction that cannot recover complete source results must not be registered
+as a complete-result edge. Use the existing proof-only or Turing capability when
+it describes the actual reduction; do not invent an aggregate-only recovery API.
 
 ## Step 3: Register in mod.rs
 
@@ -155,8 +190,8 @@ Create `src/unit_tests/rules/<source>_<target>.rs`:
 ```rust
 // 1. Create source problem instance
 // 2. Reduce: let reduction = ReduceTo::<Target>::reduce_to(&source).unwrap();
-// 3. Solve target: solver.find_all_witnesses(reduction.target_problem())
-// 4. Extract: reduction.extract_solution(&target_sol)
+// 3. Solve target; wrap each proven optimum with SolveOutcome::optimal(target, solution)
+// 4. Recover: reduction.recover_result(&source, target_outcome)
 // 5. Verify: extracted solution is valid and optimal for source
 ```
 
@@ -167,12 +202,7 @@ Additional recommended tests:
 - Edge cases (empty graph, single vertex, etc.)
 - Weight preservation (if applicable)
 
-Test the mathematical mapping for witnesses satisfying its premises, including all tied optima on suitable small instances. Malformed witnesses do not impose rejection requirements on extraction. Keep necessary parsing/type-conversion tests at the transport boundary.
-
-For aggregate-only reductions, replace the closed-loop witness test with value-chain tests:
-- Solve the target with `Solver::solve()`
-- Map the aggregate value back with `extract_value()`
-- If testing a path, use `ReductionGraph::reduce_aggregate_along_path(...)`
+Test the mathematical mapping for witnesses satisfying its premises, including all tied optima on suitable small instances. Also exercise feasible incumbents and infeasibility when reachable, checking the rule's declared implications or rejection. Keep necessary parsing/type-conversion tests at the transport boundary.
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
@@ -266,11 +296,6 @@ Adding a witness-preserving reduction rule does NOT require CLI changes -- the r
 
 `ExtractionError` already propagates through `pred extract` and bundle `pred solve`; add a rule-specific CLI test only when the CLI surface changes.
 
-Aggregate-only reductions currently have a narrower CLI surface:
-- `pred solve <problem.json>` can still compute direct aggregate values for aggregate-only problems
-- `pred reduce` and `pred solve bundle.json` remain witness-only workflows and reject aggregate-only paths
-- Manual aggregate-edge registration affects runtime graph search and internal value extraction, but not bundle solving
-
 ## File Naming
 
 - Rule file: `src/rules/<sourcelower>_<targetlower>.rs` -- no underscores within a problem name
@@ -283,11 +308,11 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Mistake | Fix |
 |---------|-----|
 | Forgetting `#[reduction(...)]` macro | Required for compile-time registration in the reduction graph |
-| Using `#[reduction]` for an aggregate-only rule | `#[reduction]` currently registers witness/config edges only; aggregate-only rules need manual `ReductionEntry` wiring with `reduce_aggregate_fn` |
+| Registering proof-only or Turing reductions as complete-result edges | Register the actual capability; `#[reduction]` requires complete source-result recovery |
 | Wrong overhead expression | Must accurately reflect the size relationship |
 | Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
-| Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
-| Permissive extraction | Map witnesses satisfying the documented premises directly; do not validate feasibility or optimality |
+| Missing recovery mapping state | Store any index maps needed in the ReductionResult struct |
+| Using status-preserving recovery without its premises | Prove all three status implications, or interpret outcomes explicitly in `recover_result` |
 | Not adding a canonical example | Add the rule-local spec and include it from `src/rules/mod.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
 | Skipping Step 6 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
@@ -303,8 +328,7 @@ and infeasibility interpretation. Check every qualifying tied optimum in small
 exhaustive cases where ties are relevant. A witness flag alone does not prove
 complete solvability or that adjacent path premises compose.
 
-Construct each executed result once and share target, witness, value, and
-completion state. Outcome interpretation uses the rule's mathematical relation;
+Construct each executed result once and share the target and mapping state. Outcome interpretation uses the rule's mathematical relation;
 ordinary extraction assumes its premises. Keep necessary dynamic/JSON conversion
 and reachable representation failures, but no checked/unchecked extraction or
 pure forwarding wrappers. Do not add `SolutionAggregate` bounds to models or

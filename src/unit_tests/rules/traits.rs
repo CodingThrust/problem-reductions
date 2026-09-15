@@ -4,6 +4,74 @@ use crate::traits::Problem;
 use crate::types::Min;
 use serde_json::json;
 
+#[test]
+fn recovery_preserves_status_and_evaluates_the_mapped_solution() {
+    use crate::rules::traits::recover_preserving_status;
+
+    let source = SourceProblem;
+    let target = TargetProblem;
+    let complement =
+        |solution: &Vec<usize>| Ok(solution.iter().map(|value| 1 - value).collect::<Vec<_>>());
+    assert_eq!(
+        recover_preserving_status(
+            &source,
+            SolveOutcome::optimal(&target, vec![1, 1]).unwrap(),
+            complement,
+        )
+        .unwrap(),
+        SolveOutcome::Optimal {
+            solution: vec![0, 0],
+            evaluation: Min(Some(0)),
+        }
+    );
+    assert_eq!(
+        recover_preserving_status(
+            &source,
+            SolveOutcome::feasible(&target, vec![0, 0]).unwrap(),
+            complement,
+        )
+        .unwrap(),
+        SolveOutcome::Feasible {
+            solution: vec![1, 1],
+            evaluation: Min(Some(2)),
+        }
+    );
+    assert_eq!(
+        recover_preserving_status(
+            &source,
+            crate::solvers::ProblemOutcome::<TargetProblem>::Infeasible,
+            |_| panic!("infeasibility has no witness to map"),
+        )
+        .unwrap(),
+        SolveOutcome::Infeasible
+    );
+}
+
+#[test]
+fn recovery_propagates_mapping_and_evaluation_failures() {
+    use crate::rules::traits::recover_preserving_status;
+    use crate::rules::ExtractionError;
+    use crate::traits::EvaluationError;
+
+    for outcome in [
+        SolveOutcome::optimal(&TargetProblem, vec![1, 1]).unwrap(),
+        SolveOutcome::feasible(&TargetProblem, vec![1, 1]).unwrap(),
+    ] {
+        assert!(matches!(
+            recover_preserving_status(&SourceProblem, outcome.clone(), |_| {
+                Err(ExtractionError::InsufficientSolutionQuality)
+            }),
+            Err(ExtractionError::InsufficientSolutionQuality)
+        ));
+        assert!(matches!(
+            recover_preserving_status(&SourceProblem, outcome, |_| Ok(vec![2, 0])),
+            Err(ExtractionError::Evaluation(
+                EvaluationError::InvalidConfiguration(_)
+            ))
+        ));
+    }
+}
+
 #[derive(Clone)]
 struct SourceProblem;
 #[derive(Clone)]

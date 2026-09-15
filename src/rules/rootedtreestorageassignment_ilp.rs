@@ -8,7 +8,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
 use crate::solvers::SolveOutcome;
 
@@ -79,28 +79,9 @@ impl ReductionResult for ReductionRTSAToILP {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
-    }
-}
-
-impl ReductionRTSAToILP {
-    fn map_solution(
-        &self,
-        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<
-        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
-    > {
-        Ok(one_hot_decode_rows(target_solution, self.n, self.n, 0))
+        recover_preserving_status(source, target, |solution| {
+            Ok(one_hot_decode_rows(solution, self.n, self.n, 0))
+        })
     }
 }
 

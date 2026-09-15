@@ -27,9 +27,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
 
@@ -53,17 +52,7 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
     }
 }
 

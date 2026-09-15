@@ -15,9 +15,8 @@ use crate::models::decision::Decision;
 use crate::models::formula::NAESatisfiability;
 use crate::models::graph::MaxCut;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 
 /// Result of reducing NAESatisfiability to MaxCut.
@@ -45,17 +44,7 @@ impl ReductionResult for ReductionNAESATToMaxCut {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
     }
 }
 

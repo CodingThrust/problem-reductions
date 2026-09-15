@@ -6,9 +6,8 @@
 use crate::models::graph::MaxCut;
 use crate::models::graph::SpinGlass;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
 use num_traits::Zero;
@@ -42,38 +41,9 @@ where
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
-    }
-}
-
-impl<W> ReductionMaxCutToSG<W>
-where
-    W: WeightElement
-        + crate::variant::VariantParam
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>,
-{
-    fn map_solution(
-        &self,
-        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<
-        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
-    > {
-        Ok(target_solution.iter().map(|&spin| spin == 1).collect())
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution.iter().map(|&spin| spin == 1).collect())
+        })
     }
 }
 
@@ -158,17 +128,7 @@ where
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
     }
 }
 

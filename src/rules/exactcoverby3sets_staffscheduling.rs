@@ -13,9 +13,8 @@
 use crate::models::misc::StaffScheduling;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 /// Result of reducing ExactCoverBy3Sets to StaffScheduling.
 #[derive(Debug, Clone)]
@@ -40,28 +39,9 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::optimal(source, solution)?)
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
-    }
-}
-
-impl ReductionXC3SToStaffScheduling {
-    fn map_solution(
-        &self,
-        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<
-        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
-    > {
-        Ok(target_solution.iter().map(|&count| count > 0).collect())
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution.iter().map(|&count| count > 0).collect())
+        })
     }
 }
 

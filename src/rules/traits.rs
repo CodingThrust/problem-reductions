@@ -1,5 +1,6 @@
 //! Core traits for problem reductions.
 
+use crate::solvers::{ProblemOutcome, SolveOutcome};
 use crate::traits::Problem;
 use std::any::Any;
 use std::marker::PhantomData;
@@ -182,6 +183,28 @@ pub trait ReductionResult {
         source: &Self::Source,
         target: crate::solvers::ProblemOutcome<Self::Target>,
     ) -> ExtractionResult<crate::solvers::ProblemOutcome<Self::Source>>;
+}
+
+/// Recover using a rule that preserves optimality, feasibility, and infeasibility.
+///
+/// The caller must establish all three implications for its mathematical mapping.
+/// Rules requiring optimum thresholds or rejecting feasible incumbents must instead
+/// interpret those outcomes in their own `recover_result` implementation.
+/// Source evaluation errors propagate; they never establish source infeasibility.
+pub(super) fn recover_preserving_status<P: Problem, S, V>(
+    source: &P,
+    target: SolveOutcome<S, V>,
+    map_solution: impl FnOnce(&S) -> ExtractionResult<P::Solution>,
+) -> ExtractionResult<ProblemOutcome<P>> {
+    match target {
+        SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+        SolveOutcome::Optimal { solution, .. } => {
+            Ok(SolveOutcome::optimal(source, map_solution(&solution)?)?)
+        }
+        SolveOutcome::Feasible { solution, .. } => {
+            Ok(SolveOutcome::feasible(source, map_solution(&solution)?)?)
+        }
+    }
 }
 
 /// Trait for problems that can be reduced to target type T.
