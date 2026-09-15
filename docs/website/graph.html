@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101713" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="Explore the executable graph of NP-hard problems and reductions."
+    />
+    <title>Reduction Graph — Problem Reductions</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./assets/site.css" />
+    <link rel="stylesheet" href="./assets/graph.css" />
+    <link rel="stylesheet" href="./assets/details.css" />
+    <script src="./assets/cytoscape.min.js" defer></script>
+    <script src="./assets/graph-layout.js" defer></script>
+    <script src="./assets/graph-data.js" defer></script>
+    <script src="./assets/details.js" defer></script>
+    <script src="./assets/graph.js" defer></script>
+  </head>
+  <body class="graph-page">
+    <a class="skip-link" href="#reduction-graph">Skip to graph</a>
+    <header class="site-header">
+      <div class="header-inner graph-header">
+        <a class="wordmark" href="./" aria-label="Problem Reductions home"
+          ><img
+            class="project-logo"
+            src="./assets/logo.svg"
+            alt="100 Problem-Reductions"
+            width="372"
+            height="107"
+        /></a>
+        <label class="graph-search">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <circle cx="10" cy="10" r="6"></circle>
+            <path d="m15 15 5 5"></path>
+          </svg>
+          <input
+            id="graph-search"
+            type="search"
+            placeholder="Search the reduction graph…"
+            aria-label="Search the reduction graph"
+            autocomplete="off"
+          />
+          <kbd>/</kbd>
+        </label>
+        <nav aria-label="Main navigation">
+          <a href="./">Home</a>
+          <a href="./graph.html" aria-current="page">Graph</a>
+          <a href="./#atlas">Atlas</a>
+          <a href="./#open-problems">Open problems</a>
+          <a href="./introduction.html" class="docs-nav"
+            >Docs <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="reduction-graph" tabindex="-1">
+      <div class="graph-toolbar">
+        <div>
+          <strong>Reduction graph</strong>
+          <span
+            >__PROBLEM_COUNT__ families · __VARIANT_COUNT__ variants ·
+            __RULE_COUNT__ directed reductions</span
+          >
+        </div>
+        <div class="graph-view-controls" aria-label="Graph view">
+          <button data-scope="core" aria-pressed="true">Connected core</button>
+          <button data-scope="all" aria-pressed="false">All problems</button>
+          <button id="reset-graph">Reset view</button>
+        </div>
+      </div>
+
+      <div class="graph-workspace" inert>
+        <aside class="graph-browser" aria-label="Graph browser">
+          <div class="browser-modes" aria-label="Browse mode">
+            <button data-browse="problems" aria-pressed="true">Problems</button>
+            <button data-browse="rules" aria-pressed="false">Rules</button>
+          </div>
+          <input id="browser-search" type="search" placeholder="Search problems…" aria-label="Search graph list" />
+          <p id="browser-count" aria-live="polite"></p>
+          <div id="browser-list" aria-label="Problems and rules"></div>
+        </aside>
+        <section class="graph-canvas" aria-label="Interactive reduction graph">
+            <div id="cy" aria-busy="true"></div>
+          <div class="graph-legend" aria-label="Problem categories">
+            <span><i class="category-graph"></i>Graph</span>
+            <span><i class="category-formula"></i>Formula</span>
+            <span><i class="category-set"></i>Set</span>
+            <span><i class="category-algebraic"></i>Algebraic</span>
+            <span><i class="category-misc"></i>Misc</span>
+          </div>
+          <p class="graph-canvas-note">
+            Hover a node or connection to see reduction direction.
+          </p>
+        </section>
+
+        <div class="graph-divider" role="separator" tabindex="0"
+          aria-label="Resize details panel" aria-orientation="vertical"
+          aria-controls="graph-inspector" aria-valuemin="240" aria-valuenow="320"></div>
+        <aside id="graph-inspector" class="graph-inspector" aria-label="Selection details">
+          <div class="inspector-heading">
+            <span id="selection-type">Details</span>
+          </div>
+          <div id="graph-detail" class="graph-detail"></div>
+        </aside>
+      </div>
+    </main>
+    <div class="graph-tooltip" id="graph-tooltip" role="tooltip"></div>
+    <noscript>
+      <p class="wrap">The interactive reduction graph requires JavaScript.</p>
+    </noscript>
+  </body>
+</html>

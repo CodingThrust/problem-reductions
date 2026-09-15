@@ -1,9 +1,11 @@
 /* The site is a static client of the same registry exports as the book and paper. */
 (() => {
   "use strict";
-  const data = window.REDUCTIONS;
+  let data = window.REDUCTIONS;
+  let fullData;
   const main = document.querySelector("main");
   const homeHTML = main.innerHTML;
+  history.scrollRestoration = "manual";
   const baseTitle = "Problem Reductions";
   const repo = "https://github.com/CodingThrust/problem-reductions";
   const categories = {
@@ -59,7 +61,6 @@
     schemaOf(name)?.description ||
     "Explore the registered variants, reduction contracts, and implementation of this computational problem.";
   const apiHref = (path) => `./api/problemreductions/${path}`;
-  const moduleName = (edge) => edge.doc_path.split("/").at(-2);
   const sourceHref = (edge) => `${repo}/blob/main/${edge.source_path}`;
   const families = [...new Set(data.nodes.map((n) => n.name))].sort();
   const variantsOf = (name) =>
@@ -170,8 +171,8 @@
   function miniArt(name) {
     if (name === "MaximumIndependentSet") return cycleSVG();
     if (name === "Satisfiability")
-      return '<svg viewBox="0 0 300 112" role="img" aria-label="Example Boolean clauses"><g font-family="Instrument Serif, Georgia, serif" font-style="italic" font-size="25" text-anchor="middle" fill="var(--diagram-label)"><text x="150" y="39">(x₁ ∨ x₂ ∨ ¬x₃)</text><text x="150" y="68" font-size="19" fill="var(--muted)">∧</text><text x="150" y="97">(¬x₁ ∨ x₃ ∨ x₄)</text></g></svg>';
-    return '<svg viewBox="0 0 300 112" role="img" aria-label="A quadratic objective"><text x="150" y="68" text-anchor="middle" font-family="Instrument Serif, Georgia, serif" font-style="italic" font-size="40" fill="var(--diagram-label)">min xᵀQx</text><text x="150" y="93" text-anchor="middle" font-family="monospace" font-size="10" fill="var(--muted)">x ∈ {0, 1}ⁿ</text></svg>';
+      return '<img src="./assets/sat.svg" alt="Example Boolean clauses" width="300" height="112">';
+    return '<img src="./assets/qubo.svg" alt="A quadratic objective" width="300" height="112">';
   }
 
   function hydrateHome() {
@@ -195,10 +196,7 @@
   }
 
   function atlasPage() {
-    main.innerHTML = /* HTML */ `<div class="wrap page-header">
-        <div class="breadcrumbs">
-          <a href="#home">Home</a><span>/</span><span>The atlas</span>
-        </div>
+    main.innerHTML = /* HTML */ `<div class="wrap page-header detail-header">
         <h1>Find your next connection.</h1>
         <p>
           Explore ${families.length} problem families and their implemented
@@ -217,8 +215,8 @@
               autocomplete="off"
             /><kbd>/</kbd></label
           ><span class="result-count" role="status" aria-live="polite"></span>
-          <a class="text-link" href="./reduction-graph.html"
-            >Find a reduction path <span aria-hidden="true">↗</span></a
+          <a class="text-link" href="./graph.html"
+            >Explore the reduction graph <span aria-hidden="true">↗</span></a
           >
         </div>
       </div>
@@ -260,7 +258,7 @@
             .toLowerCase()
             .includes(search))
       );
-    });
+    }).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
     document.querySelector(".result-count").textContent =
       `${results.length} of ${families.length} problem families`;
     document.querySelector("#atlas-results").innerHTML = results.length
@@ -284,33 +282,17 @@
       target = data.nodes[edge.target];
     const outgoing = edge.source === currentIndex;
     const other = outgoing ? target : source;
-    return `<a class="relation-link" href="${ruleHref(edge)}"><div class="relation-title"><span>${outgoing ? "→ " : "← "}${escape(nameOf(other.name))}</span><span aria-hidden="true">↗</span></div><p>${escape(variantLabel(other))}</p><p class="capability">${[edge.witness && "Result recovery", edge.turing && "Turing reduction"].filter(Boolean).join(" · ") || "See reduction contract"}</p></a>`;
-  }
-
-  function demoPanel() {
-    return `<div class="demo-panel"><div class="demo-toolbar"><span>Unit-weight example · five-vertex cycle</span><div class="segmented" aria-label="Choose highlighted solution"><button data-demo="independent" aria-pressed="true">Independent set</button><button data-demo="cover" aria-pressed="false">Vertex cover</button></div></div><div id="demo-graph">${cycleSVG("independent", true)}</div><div class="demo-caption" role="status" aria-live="polite"><span id="demo-description">No two selected vertices share an edge.</span><strong id="demo-value">Maximum size: 2</strong></div></div>`;
-  }
-
-  function bindDemo() {
-    document.querySelectorAll("[data-demo]").forEach((button) =>
-      button.addEventListener("click", () => {
-        const mode = button.dataset.demo;
-        document
-          .querySelectorAll("[data-demo]")
-          .forEach((b) => b.setAttribute("aria-pressed", b === button));
-        document.querySelector("#demo-graph").innerHTML = cycleSVG(mode, true);
-        document.querySelector("#demo-description").textContent =
-          mode === "independent"
-            ? "No two selected vertices share an edge."
-            : "Every edge touches a selected vertex.";
-        document.querySelector("#demo-value").textContent =
-          mode === "independent" ? "Maximum size: 2" : "Minimum size: 3";
-      }),
-    );
+    const variant = Object.keys(other.variant).length ? variantLabel(other) : "";
+    return `<a class="relation-link" href="${ruleHref(edge)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability">Turing reduction</span>' : ""}</a>`;
   }
 
   function codePanel(command) {
     return `<div class="code-panel"><div class="terminal-header"><button class="copy-button" data-copy="${escape(command)}" aria-label="Copy command">Copy</button></div><pre>${escape(command)}</pre></div>`;
+  }
+
+  function openReferenceProblem(key) {
+    const [name, variant] = key.split("/");
+    location.hash = `#problem/${encodeURIComponent(name)}${variant ? `?variant=${encodeURIComponent(variant)}` : ""}`;
   }
 
   function problemPage(name, params) {
@@ -331,17 +313,14 @@
     const schema = schemaOf(name);
     const incoming = data.edges.filter((e) => e.target === node.index);
     const outgoing = data.edges.filter((e) => e.source === node.index);
-    const mis = name === "MaximumIndependentSet";
     document.title = `${nameOf(name)} — ${baseTitle}`;
-    main.innerHTML = /* HTML */ `<div class="wrap page-header">
+    main.innerHTML = /* HTML */ `<div class="wrap page-header detail-header">
         <div class="breadcrumbs">
-          <a href="#home">Home</a><span>/</span><a href="#atlas">Atlas</a
-          ><span>/</span><span>${escape(nameOf(name))}</span>
+          <a href="#atlas">← Back</a>
         </div>
-        <h1>${escape(nameOf(name))}<span class="brand-period">.</span></h1>
-        <p>${escape(description(name))}.</p>
+        <h1>${escape(nameOf(name))}</h1>
         <div class="variant-control">
-          <label for="variant-select">Explore a concrete variant</label
+          <label for="variant-select">Variant</label
           ><select id="variant-select">
             ${variants.map((n) => `<option value="${escape(variantKey(n))}" ${n.index === node.index ? "selected" : ""}>${escape(variantLabel(n))}</option>`).join("")}
           </select>
@@ -349,36 +328,25 @@
       </div>
       <div class="wrap reading-layout">
         <div class="reading-content">
-          <section class="reading-section">
-            <h2>
-              ${mis ? "A simple question. A rich search space." : "The problem"}
-            </h2>
-            ${mis ? '<p>Given a graph G = (V, E), choose a set of vertices such that no two chosen vertices are adjacent. Maximize the total weight of the chosen vertices. With unit weights, this is the largest independent set.</p><div class="formula"><math display="block" aria-label="Maximize the sum over vertices v in V of w_v times x_v"><mrow><mo>max</mo><mspace width="0.6em"/><munder><mo>∑</mo><mrow><mi>v</mi><mo>∈</mo><mi>V</mi></mrow></munder><msub><mi>w</mi><mi>v</mi></msub><msub><mi>x</mi><mi>v</mi></msub></mrow></math><div class="formula-constraint"><math aria-label="x_u plus x_v is at most one for each edge"><mrow><msub><mi>x</mi><mi>u</mi></msub><mo>+</mo><msub><mi>x</mi><mi>v</mi></msub><mo>≤</mo><mn>1</mn><mo>,</mo><mspace width="0.5em"/><mo>∀</mo><mo>(</mo><mi>u</mi><mo>,</mo><mi>v</mi><mo>)</mo><mo>∈</mo><mi>E</mi></mrow></math></div><div class="formula-constraint"><math aria-label="x_v is zero or one for each vertex"><mrow><msub><mi>x</mi><mi>v</mi></msub><mo>∈</mo><mo>{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo>}</mo><mo>,</mo><mspace width="0.5em"/><mo>∀</mo><mi>v</mi><mo>∈</mo><mi>V</mi></mrow></math></div></div>' : `<p>${escape(description(name))}. The fields below define the instance accepted by the implementation. Consult the paper for its mathematical definition and the API for its full contract.</p>`}${mis && node.variant.graph === "SimpleGraph" ? demoPanel() : ""}
+          <div class="reference-tools" aria-label="Problem tools">
+            <button aria-expanded="false" aria-controls="problem-connections">Connections <span>${incoming.length + outgoing.length}</span></button>
+            <button aria-expanded="false" aria-controls="problem-fields">Instance fields <span>${schema?.fields?.length || 0}</span></button>
+            <button aria-expanded="false" aria-controls="problem-commands">CLI commands</button>
+          </div>
+          <section id="problem-connections" class="reference-tool-panel" aria-label="Connections" hidden>
+            <section class="connection-group" aria-label="Incoming reductions">
+              <header><h3>Incoming <span>${incoming.length}</span></h3><span>Other problems → ${escape(nameOf(name))}</span></header>
+              ${incoming.map((e) => relation(e, node.index)).join("")}
+            </section>
+            <section class="connection-group" aria-label="Outgoing reductions">
+              <header><h3>Outgoing <span>${outgoing.length}</span></h3><span>${escape(nameOf(name))} → Other problems</span></header>
+              ${outgoing.map((e) => relation(e, node.index)).join("")}
+            </section>
           </section>
-          <section class="reading-section">
-            <h2>Connections for this variant</h2>
-            <p>
-              These are direct registered reductions for
-              <strong>${escape(variantLabel(node))}</strong>. Changing the
-              variant can change which connections are available.
-            </p>
-            <h3>
-              Reduce this problem to
-              <span class="result-count">${outgoing.length}</span>
-            </h3>
-            ${outgoing.map((e) => relation(e, node.index)).join("") || '<p class="notice">No outgoing reduction is registered for this exact variant.</p>'}
-            <h3>
-              Reduce other problems here
-              <span class="result-count">${incoming.length}</span>
-            </h3>
-            ${incoming.map((e) => relation(e, node.index)).join("") || '<p class="notice">No incoming reduction is registered for this exact variant.</p>'}
-          </section>
-          <section class="reading-section">
-            <h2>Instance structure</h2>
+          <section id="problem-fields" class="reference-tool-panel" aria-label="Instance fields" hidden>
             ${schema?.fields?.length ? `<div class="table-scroll"><table class="schema-table"><thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead><tbody>${schema.fields.map((f) => `<tr><td><code>${escape(f.name)}</code></td><td><code>${escape(f.type_name)}</code></td><td>${escape(f.description)}</td></tr>`).join("")}</tbody></table></div>` : "<p>See the API reference for the instance schema.</p>"}
           </section>
-          <section class="reading-section">
-            <h2>Explore from your terminal</h2>
+          <section id="problem-commands" class="reference-tool-panel" aria-label="CLI commands" hidden>
             ${codePanel(`pred show ${name}`)}
             <p class="notice">
               Install the CLI with
@@ -387,16 +355,13 @@
               selected variant.
             </p>
           </section>
+          <section id="reference-detail" class="reading-section reference-detail"></section>
         </div>
         <aside class="reading-aside">
           <dl class="metadata">
             <div>
               <dt>Input structure</dt>
               <dd>${escape(categories[node.category] || node.category)}</dd>
-            </div>
-            <div>
-              <dt>Variant</dt>
-              <dd>${escape(variantLabel(node))}</dd>
             </div>
             <div>
               <dt>Registered complexity</dt>
@@ -407,10 +372,11 @@
               <dd>${incoming.length} incoming · ${outgoing.length} outgoing</dd>
             </div>
           </dl>
+          <a href="${repo}/blob/main/${schema.source_path}">Open implementation <span>↗</span></a>
           <a href="${escape(apiHref(node.api_path))}"
-            >API reference <span>↗</span></a
-          ><a href="./reductions.pdf">Definitions &amp; proofs <span>↗</span></a
-          ><a href="#atlas">Back to the atlas <span>→</span></a>
+            >Open API reference <span>↗</span></a
+          ><a href="./reductions.pdf">Open PDF reference <span>↗</span></a
+          ><a href="#atlas">Back to the atlas <span>←</span></a>
           <p>
             Generated from the library registry. Complexity expressions describe
             registered worst-case bounds; see the cited algorithms in the paper.
@@ -425,7 +391,8 @@
         );
         location.hash = problemHref(name, selected);
       });
-    bindDemo();
+    window.renderDetails(document.querySelector("#reference-detail"), "", "",
+      `problem:${name}/${variantKey(node)}`, `problem:${name}`, openReferenceProblem);
   }
 
   function rulePage(sourceName, targetName, params) {
@@ -433,180 +400,43 @@
       (e) =>
         data.nodes[e.source].name === sourceName &&
         data.nodes[e.target].name === targetName &&
-        variantKey(data.nodes[e.source]) === (params.get("from") || "") &&
-        variantKey(data.nodes[e.target]) === (params.get("to") || ""),
+        (!params.has("from") || variantKey(data.nodes[e.source]) === params.get("from")) &&
+        (!params.has("to") || variantKey(data.nodes[e.target]) === params.get("to")),
     );
     if (!edge) return notFound();
     const source = data.nodes[edge.source],
       target = data.nodes[edge.target];
-    const complement =
-      ["MinimumVertexCover", "MaximumIndependentSet"].includes(sourceName) &&
-      ["MinimumVertexCover", "MaximumIndependentSet"].includes(targetName) &&
-      sourceName !== targetName;
-    const vcToMis = sourceName === "MinimumVertexCover";
     document.title = `${nameOf(sourceName)} → ${nameOf(targetName)} — ${baseTitle}`;
-    const capabilities = [
-      edge.witness && "Result recovery",
-      edge.turing && "Turing reduction",
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const testCommand = edge.test_path
-      ? `cargo test --lib ${moduleName(edge)}`
-      : "cargo test --lib";
-    main.innerHTML = /* HTML */ `<div class="wrap page-header">
+    main.innerHTML = /* HTML */ `<div class="wrap page-header detail-header">
         <div class="breadcrumbs">
-          <a href="#home">Home</a><span>/</span><a href="#atlas">Atlas</a
-          ><span>/</span><span>Reduction record</span>
+          <a href="#atlas">← Back</a>
         </div>
-        <span class="pill"
-          >${complement ? "Classical reduction" : "Registered reduction"} ·
-          Implemented</span
-        >
-        <h1>
-          ${escape(nameOf(sourceName))}<br />→ ${escape(nameOf(targetName))}
-        </h1>
-        <p>
-          ${complement ? "Keep the graph. Complement the solution. A foundational connection between two views of the same combinatorial structure." : "An executable construction connecting two concrete problem variants, with explicit size bounds and a recoverable contract."}
-        </p>
+        <h1>${escape(nameOf(sourceName))} → ${escape(nameOf(targetName))}</h1>
       </div>
       <div class="wrap reading-layout">
         <div class="reading-content">
-          <section class="reading-section">
-            <h2>The construction</h2>
-            ${complement ? `<p>The target uses the same graph and vertex weights. ${vcToMis ? "Solve Maximum Independent Set on that graph, then take the complement of its vertex selection to recover a minimum vertex cover." : "Solve Minimum Vertex Cover on that graph, then take the complement of its vertex selection to recover a maximum independent set."}</p><div class="formula"><math display="block" aria-label="S corresponds to V minus S"><mrow><mi>S</mi><mo>↔</mo><mi>V</mi><mo>∖</mo><mi>S</mi></mrow></math><small>A set is independent exactly when its complement is a vertex cover.</small></div><p>For weighted instances, the two objective values sum to the total vertex weight. Maximizing the independent-set weight therefore minimizes the complementary cover weight.</p>${demoPanel()}` : `<p>This rule maps <a class="text-link" href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))}</a> to <a class="text-link" href="${problemHref(targetName, target)}">${escape(nameOf(targetName))}</a>. The implementation and paper describe the mapping, its preconditions, and solution extraction.</p><a class="button secondary" href="${sourceHref(edge)}">Read the construction <span>↗</span></a>`}
+          <dl class="rule-endpoints">
+            <div><dt>Source</dt><dd class="rule-endpoint"><a href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))} <span aria-hidden="true">↗</span></a>${Object.keys(source.variant).length ? `<span>${escape(variantLabel(source))}</span>` : ""}</dd></div>
+            <div><dt>Target</dt><dd class="rule-endpoint"><a href="${problemHref(targetName, target)}">${escape(nameOf(targetName))} <span aria-hidden="true">↗</span></a>${Object.keys(target.variant).length ? `<span>${escape(variantLabel(target))}</span>` : ""}</dd></div>
+          </dl>
+          <section id="rule-parameters" aria-label="Parameters">
+            <h2>Parameters</h2>
+            ${edge.parameters.map((p) => `<div class="parameter-relation"><code>${escape(p.field)}</code><span class="parameter-operator">${p.contract === "unavailable" ? ":" : {exact: "=", upper_bound: "≤"}[p.contract]}</span>${p.contract === "unavailable" ? `<span>${escape(p.reason)}</span>` : p.mathml}</div>`).join("")}
           </section>
-          <section class="reading-section">
-            <h2>What the rule guarantees</h2>
-            <div class="evidence-grid">
-              <div class="evidence-item">
-                <span class="context-label">Source variant</span>
-                <h3>${escape(nameOf(sourceName))}</h3>
-                <p>${escape(variantLabel(source))}</p>
-                <a href="${problemHref(sourceName, source)}"
-                  >Inspect source problem ↗</a
-                >
-              </div>
-              <div class="evidence-item">
-                <span class="context-label">Target variant</span>
-                <h3>${escape(nameOf(targetName))}</h3>
-                <p>${escape(variantLabel(target))}</p>
-                <a href="${problemHref(targetName, target)}"
-                  >Inspect target problem ↗</a
-                >
-              </div>
-            </div>
-            <h3>Target parameter relations</h3>
-            <div class="table-scroll">
-              <table class="schema-table">
-                <thead>
-                  <tr>
-                    <th>Target parameter</th>
-                    <th>Relation</th>
-                    <th>Formula or reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${edge.parameters.map((p) => `<tr><td><code>${escape(p.field)}</code></td><td>${escape(p.contract)}</td><td class="math-expression">${p.mathml ?? escape(p.reason)}</td></tr>`).join("")}
-                </tbody>
-              </table>
-            </div>
-            <p class="notice">
-              Each relation is an exact equality, an upper bound, or unavailable with a reason. Read the constructor for concrete instance parameters.${complement ? " This construction preserves the number of vertices and edges exactly." : ""}
-            </p>
-          </section>
-          <section class="reading-section">
-            <h2>Follow the evidence</h2>
-            <p>
-              Implementation, mathematical reasoning, and test evidence are
-              distinct parts of the record.
-            </p>
-            <div class="evidence-grid">
-              <div class="evidence-item">
-                <h3>Executable Rust construction</h3>
-                <p>
-                  Inspect the transformation and its extraction contract
-                  directly.
-                </p>
-                <a href="${sourceHref(edge)}">Read source ↗</a>
-              </div>
-              <div class="evidence-item">
-                <h3>Definitions and proof</h3>
-                <p>
-                  Read the mathematical treatment in the project's compiled
-                  paper.
-                </p>
-                <a href="./reductions.pdf">Open the paper ↗</a>
-              </div>
-              <div class="evidence-item">
-                <h3>Inspect and run the tests</h3>
-                <p>
-                  Tests exercise finite instances. This page does not report a
-                  live test run.
-                </p>
-                <a
-                  href="${repo}/${edge.test_path ? "blob/main/" + edge.test_path : "tree/main/src/unit_tests/rules"}"
-                  >${edge.test_path ? "Inspect test source" : "Browse the test suite"}
-                  ↗</a
-                >
-              </div>
-              <div class="evidence-item">
-                <h3>
-                  ${complement ? "Established mathematical result" : "Implemented in the library"}
-                </h3>
-                <p>
-                  ${complement ? "This is a classical reduction, presented as an example of an inspectable result." : "Registration establishes implementation availability. It does not establish research novelty."}
-                  Formal verification is not asserted.
-                </p>
-              </div>
-            </div>
-            ${complement ? "<details><summary>Why does complementation preserve optimality?</summary><p>If S is independent, no edge has both endpoints in S, so every edge has an endpoint in V ∖ S. Conversely, if V ∖ S covers every edge, no edge can have both endpoints in S. Since w(S) + w(V ∖ S) = w(V), maximizing one objective minimizes the other.</p></details>" : ""}
-          </section>
-          <section class="reading-section">
-            <h2>Reproduce the implementation checks</h2>
-            <p>From a checkout of the repository:</p>
-            ${codePanel(testCommand)}
-            <p class="notice">
-              ${edge.test_path ? "The command filters library tests by the rule module." : "This rule uses shared test coverage; the command runs the library suite."}
-              Check the reported test count and results. Tests support the
-              implementation; they do not replace a general proof.
-            </p>
-          </section>
+          <section id="reference-detail" class="reading-section reference-detail"></section>
         </div>
         <aside class="reading-aside">
-          <dl class="metadata">
-            <div>
-              <dt>Status</dt>
-              <dd>Implemented</dd>
-            </div>
-            <div>
-              <dt>Capabilities</dt>
-              <dd>${escape(capabilities || "See contract")}</dd>
-            </div>
-            <div>
-              <dt>Construction</dt>
-              <dd>
-                ${complement ? "Graph preserved; solution complemented" : "See implementation"}
-              </dd>
-            </div>
-            <div>
-              <dt>Provenance</dt>
-              <dd>
-                ${complement ? "Classical reduction" : "Library registry"}
-              </dd>
-            </div>
-          </dl>
-          <a href="${sourceHref(edge)}">Implementation <span>↗</span></a
+          ${edge.turing ? '<p class="rule-kind">Turing reduction</p>' : ""}
+          <a href="${sourceHref(edge)}">Open implementation <span>↗</span></a
           ><a href="${escape(apiHref(edge.api_path))}"
-            >API contract <span>↗</span></a
-          ><a href="./reductions.pdf">Read the paper <span>↗</span></a>
-          <p>
-            Research records should make claims traceable. Test execution status
-            and agent experiment histories are not yet published here.
-          </p>
+            >Open API reference <span>↗</span></a
+          ><a href="./reductions.pdf">Open PDF reference <span>↗</span></a>
+          <a href="${repo}/${edge.test_path ? "blob/main/" + edge.test_path : "tree/main/src/unit_tests/rules"}">Test source <span>↗</span></a>
         </aside>
       </div>`;
-    bindDemo();
+    window.renderDetails(document.querySelector("#reference-detail"), "", "",
+      `rule:${sourceName}/${variantKey(source)}->${targetName}/${variantKey(target)}`,
+      `rule:${sourceName}->${targetName}`, openReferenceProblem);
   }
 
   function notFound() {
@@ -615,7 +445,7 @@
       '<div class="wrap section empty-state"><h1>This connection is not in the atlas.</h1><p>The link may refer to a different registry version. Search the current atlas to find its available variants.</p><a href="#atlas" class="button primary">Explore the atlas →</a></div>';
   }
 
-  function render() {
+  async function render() {
     const hash = location.hash.slice(1) || "home";
     const [path, search = ""] = hash.split("?");
     let parts;
@@ -626,6 +456,21 @@
       return;
     }
     const params = new URLSearchParams(search);
+    if (["atlas", "problem", "reduction"].includes(parts[0])) {
+      try {
+        fullData ||= fetch("./assets/atlas-data.json").then(response => {
+          if (!response.ok) throw new Error("Cannot load atlas. Reload the page to get the current release.");
+          return response.json();
+        });
+        data = await fullData;
+        if ((location.hash.slice(1) || "home") !== hash) return;
+      } catch (error) {
+        fullData = null;
+        main.replaceChildren(Object.assign(document.createElement("p"), {textContent: error.message}));
+        main.firstChild.setAttribute("role", "alert");
+        return;
+      }
+    }
     const isHome = [
       "home",
       "research",
@@ -639,6 +484,10 @@
       main.innerHTML = homeHTML;
       hydrateHome();
     } else if (parts[0] === "atlas") atlasPage();
+    else if (parts[0] === "open-problems") {
+      document.title = `Open problems — ${baseTitle}`;
+      main.innerHTML = '<div class="wrap page-header"><h1>Open problems</h1><p>To be released.</p></div>';
+    }
     else if (parts[0] === "problem") problemPage(parts[1], params);
     else if (parts[0] === "reduction") rulePage(parts[1], parts[2], params);
     else notFound();
@@ -654,7 +503,7 @@
     requestAnimationFrame(() => main.classList.add("page-enter"));
     if (isHome && !["home", "main"].includes(parts[0]))
       requestAnimationFrame(() =>
-        document.getElementById(parts[0])?.scrollIntoView(),
+        (location.hash.slice(1) || "home") === hash && document.getElementById(parts[0])?.scrollIntoView(),
       );
     else window.scrollTo({ top: 0, behavior: "instant" });
   }
@@ -665,9 +514,6 @@
       location.hash = "atlas";
     } else document.querySelector("#atlas-search")?.focus();
   }
-  document
-    .querySelector(".search-trigger")
-    .addEventListener("click", openSearch);
   document.addEventListener("keydown", (event) => {
     const typing =
       /INPUT|TEXTAREA|SELECT/.test(event.target.tagName) ||
@@ -681,6 +527,16 @@
     }
   });
   document.addEventListener("click", async (event) => {
+    const tool = event.target.closest('.reference-tools button');
+    if (tool) {
+      const open = tool.getAttribute('aria-expanded') === 'false';
+      tool.parentElement.querySelectorAll('button').forEach((button) => {
+        const selected = button === tool && open;
+        button.setAttribute('aria-expanded', String(selected));
+        document.getElementById(button.getAttribute('aria-controls')).hidden = !selected;
+      });
+      return;
+    }
     const button = event.target.closest("[data-copy]");
     if (!button) return;
     try {
@@ -690,8 +546,8 @@
       notify("Select the command to copy it. Clipboard access is unavailable.");
     }
   });
-  window.addEventListener("hashchange", () => {
-    render();
+  window.addEventListener("hashchange", async () => {
+    await render();
     if (focusSearchAfterNavigation) {
       document.querySelector("#atlas-search")?.focus();
       focusSearchAfterNavigation = false;
