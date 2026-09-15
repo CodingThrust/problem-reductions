@@ -8,7 +8,8 @@ use crate::models::algebraic::ConsecutiveOnesMatrixAugmentation;
 use crate::models::decision::Decision;
 use crate::models::graph::OptimalLinearArrangement;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// The target incidence matrix, or a fixed infeasible matrix when the source
@@ -26,17 +27,22 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target column order is not a satisfying augmentation certificate",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         // Validation establishes a permutation within the augmentation budget.
         // The NO sentinel has no such certificate; all remaining columns are
         // source vertices, including the empty permutation for an empty graph.

@@ -2,6 +2,7 @@
 
 use super::registry::CompiledIlpPipeline;
 use super::registry::{solver_capability_registry, CustomizedSolverRegistration, ExactProblemKey};
+use super::SolveOutcome;
 use crate::registry::LoadedDynProblem;
 use serde::Serialize;
 
@@ -19,6 +20,7 @@ pub enum SolverRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum SolverExecution {
+    External,
     Customized { implementation: &'static str },
     Ilp { reduction_path: Vec<String> },
     BruteForce,
@@ -31,20 +33,6 @@ pub struct SolveResult {
     pub outcome: SolveOutcome,
 }
 
-/// Semantic result of a completed solve under the selected backend's numerical contract.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(tag = "status", rename_all = "snake_case")]
-pub enum SolveOutcome {
-    /// The selected backend established optimality and returned a solution.
-    /// ILP optimality is subject to backend numerical tolerances.
-    Optimal {
-        solution: serde_json::Value,
-        evaluation: String,
-    },
-    /// The selected backend established infeasibility under its numerical contract.
-    Infeasible,
-}
-
 fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
     ExactProblemKey::new(problem.problem_name(), problem.variant_map())
 }
@@ -53,13 +41,7 @@ fn solve_customized(
     problem: &LoadedDynProblem,
     registration: &'static CustomizedSolverRegistration,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match (registration.solve_fn)(problem.as_any())? {
-        Some(solution) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&solution)?,
-            solution,
-        },
-        None => SolveOutcome::Infeasible,
-    };
+    let outcome = (registration.solve_fn)(problem.as_any())?;
     Ok(SolveResult {
         solver: SolverExecution::Customized {
             implementation: registration.implementation,
@@ -72,19 +54,15 @@ fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
 ) -> Result<SolveResult, super::SolveError> {
-    let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
-        Ok(solution) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&solution)?,
-            solution,
-        },
-        Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
-        Err(source) => {
-            return Err(super::SolveError::IlpSolve {
-                problem: problem_key(problem).label(),
-                source,
-            });
-        }
-    };
+    let outcome = pipeline
+        .solve(
+            problem.as_any(),
+            &super::ilp::adapter::HighsAdapter::new(None),
+        )
+        .map_err(|source| super::SolveError::IlpSolve {
+            problem: problem_key(problem).label(),
+            source,
+        })?;
     Ok(SolveResult {
         solver: SolverExecution::Ilp {
             reduction_path: pipeline.path_labels(),

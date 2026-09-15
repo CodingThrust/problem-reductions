@@ -2,17 +2,28 @@
 
 use crate::types::ProblemParameters;
 
-/// Failure while evaluating one configuration of a valid problem instance.
+/// Failure while evaluating a candidate or validating its claimed feasibility.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum EvaluationError {
     #[error("invalid configuration: {0}")]
     InvalidConfiguration(String),
+    /// A candidate being labeled feasible or optimal violates the problem constraints.
+    #[error("candidate solution violates the problem constraints")]
+    ConstraintViolation,
     #[error("integer overflow while {0}")]
     IntegerOverflow(String),
     #[error("inexact integer-to-float conversion while {0}")]
     InexactFloatConversion(String),
     #[error("non-finite floating-point result while {0}")]
     NonFiniteResult(String),
+}
+
+/// Feasibility of one candidate, as determined by the model's evaluation.
+///
+/// Independent of aggregation and solver capabilities. An invalid value rejects
+/// this candidate; it does not establish that the problem has no feasible solution.
+pub trait EvaluationValue: Clone {
+    fn is_valid(&self) -> bool;
 }
 
 /// Minimal problem trait — a problem maps a solution to a value or an
@@ -26,7 +37,7 @@ pub trait Problem: Clone {
     /// Mathematical witness type for this problem.
     type Solution;
     /// The evaluation value type.
-    type Value: Clone;
+    type Value: EvaluationValue;
     /// Canonical parameter names for this problem model.
     fn parameter_names() -> &'static [&'static str];
     /// Measure the complete canonical parameters of this concrete instance.

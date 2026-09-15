@@ -3,6 +3,7 @@ use crate::models::formula::{CNFClause, CircuitSAT, Satisfiability};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_sat_to_circuitsat_closed_loop() {
@@ -62,7 +63,14 @@ fn test_sat_to_circuitsat_single_literal_clause() {
         .solve(result.target_problem())
         .unwrap()
         .expect("CircuitSAT should have a satisfying solution");
-    let extracted = result.extract_solution(&target_solution).unwrap();
+    let extracted = result
+        .recover_result(
+            &sat,
+            SolveOutcome::optimal(result.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true]);
 }
 

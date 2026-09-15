@@ -19,7 +19,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingWithDeadlinesAndSetUpTimes;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing SequencingWithDeadlinesAndSetUpTimes to `ILP<bool>`.
 #[derive(Debug, Clone)]
@@ -36,16 +37,26 @@ impl ReductionResult for ReductionSWDSTToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionSWDSTToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.num_tasks;
             // x_{j,p} occupies the first n*n variables: decode the permutation.
-            one_hot_decode(target_solution, n, n, 0)?
+            one_hot_decode(target_solution, n, n, 0)
         })
     }
 }

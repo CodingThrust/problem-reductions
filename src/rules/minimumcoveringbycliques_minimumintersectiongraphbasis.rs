@@ -6,9 +6,9 @@
 
 use crate::models::graph::{MinimumCoveringByCliques, MinimumIntersectionGraphBasis};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -16,37 +16,20 @@ pub struct ReductionMinimumCoveringByCliquesToMinimumIntersectionGraphBasis {
     target: MinimumIntersectionGraphBasis<SimpleGraph>,
 }
 
-fn extract_edge_clique_cover(
-    graph: &SimpleGraph,
-    target_solution: &[Vec<bool>],
-) -> Option<Vec<usize>> {
-    let n = graph.num_vertices();
+fn extract_edge_clique_cover(graph: &SimpleGraph, target_solution: &[Vec<bool>]) -> Vec<usize> {
     let m = graph.num_edges();
-
-    if target_solution.len() != n || target_solution.iter().any(|row| row.len() != m) {
-        return None;
-    }
-
-    if m == 0 {
-        return Some(Vec::new());
-    }
-
     let mut label_map = BTreeMap::new();
-    let mut next_label = 0usize;
     let mut source_solution = Vec::with_capacity(m);
-
     for (u, v) in graph.edges() {
-        let shared_label =
-            (0..m).find(|&slot| target_solution[u][slot] && target_solution[v][slot])?;
-        let compressed = *label_map.entry(shared_label).or_insert_with(|| {
-            let label = next_label;
-            next_label += 1;
-            label
-        });
-        source_solution.push(compressed);
+        for shared_label in (0..m)
+            .filter(|&slot| target_solution[u][slot] && target_solution[v][slot])
+            .take(1)
+        {
+            let next_label = label_map.len();
+            source_solution.push(*label_map.entry(shared_label).or_insert(next_label));
+        }
     }
-
-    Some(source_solution)
+    source_solution
 }
 
 #[cfg(any(test, feature = "example-db"))]
@@ -82,25 +65,26 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
-        Ok({
-            if !self.target.evaluate(target_solution)?.is_valid() {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target configuration is not a valid intersection graph basis",
-                ));
-            }
-
-            extract_edge_clique_cover(self.target.graph(), target_solution).ok_or_else(|| {
-                crate::rules::ExtractionError::invalid(
-                    "target basis does not assign a shared label to every source edge",
-                )
-            })?
-        })
+impl ReductionMinimumCoveringByCliquesToMinimumIntersectionGraphBasis {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(extract_edge_clique_cover(
+            self.target.graph(),
+            target_solution,
+        ))
     }
 }
 

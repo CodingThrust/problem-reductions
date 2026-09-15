@@ -26,7 +26,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::Graph;
 
 /// Result of reducing UndirectedFlowLowerBounds to `ILP<i64>`.
@@ -54,12 +55,22 @@ impl ReductionResult for ReductionUFLBToILP {
     /// The model encodes orientation as config[e] = 0 for u→v, 1 for v→u.
     /// The ILP uses z_e = 1 for u→v, z_e = 0 for v→u.
     /// So we return 1 - z_e to match the model's convention.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionUFLBToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let e = self.num_edges;
             target_solution[2 * e..3 * e]

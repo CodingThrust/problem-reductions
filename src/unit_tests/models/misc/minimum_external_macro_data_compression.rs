@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -20,7 +19,7 @@ fn test_minimum_external_macro_data_compression_creation() {
         vec![]
     );
     // dims: 6 D-slots (domain 4) + 6 C-slots (domain 4 + 6*7/2 = 25)
-    let dims = problem.dimensions();
+    let dims = crate::solvers::cartesian_dimensions(&problem).unwrap();
     assert_eq!(dims.len(), 12);
     assert_eq!(dims[0], 4); // alphabet_size + 1
     assert_eq!(dims[6], 25); // alphabet_size + 1 + 6*7/2
@@ -96,7 +95,10 @@ fn test_minimum_external_macro_data_compression_evaluate_pointer_out_of_range() 
 #[test]
 fn test_minimum_external_macro_data_compression_empty_string() {
     let problem = MinimumExternalMacroDataCompression::new(2, vec![], 2);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 

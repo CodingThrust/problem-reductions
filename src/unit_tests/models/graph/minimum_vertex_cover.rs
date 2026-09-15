@@ -13,10 +13,10 @@ fn create_spec_rejects_weight_count_mismatch() {
     });
     assert!(result.is_err());
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_vertex_cover_creation() {
@@ -26,7 +26,7 @@ fn test_vertex_cover_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(problem.num_variables().unwrap(), 4);
 }
 
 #[test]
@@ -201,4 +201,17 @@ fn test_mvc_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 3);
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::try_new(1, vec![]).unwrap();
+    assert!(MinimumVertexCover::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumVertexCover<SimpleGraph, i64>>(json.clone()).is_err());
+    let variant = std::collections::BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    assert!(crate::registry::load_dyn("MinimumVertexCover", &variant, json).is_err());
 }

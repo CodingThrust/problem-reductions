@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::ClosestSubstring;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -77,12 +78,10 @@ fn test_closestsubstring_to_ilp_rejects_missing_one_hot_symbol() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars()];
 
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "center position 0 has no selected value"
+    assert!(
+        !crate::traits::Problem::evaluate(reduction.target_problem(), &target_solution)
+            .unwrap()
+            .is_valid()
     );
 }
 
@@ -97,7 +96,14 @@ fn test_closestsubstring_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Extracted config must be syntactically valid (length ell + n = 6) and
     // match the brute-force optimum.
@@ -131,7 +137,14 @@ fn test_closestsubstring_to_ilp_zero_radius_when_common_substring_exists() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let extracted_value = source.evaluate(&extracted).unwrap();
     assert!(extracted_value.is_valid());
@@ -177,7 +190,14 @@ fn test_closestsubstring_to_ilp_extract_known_solution() {
     target_solution[6 + 6] = 1; // y_{3, 0}
     target_solution[ilp.num_vars() - 1] = 1; // R = 1
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 1, 0, 0, 1, 0]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(1)));
 }

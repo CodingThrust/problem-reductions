@@ -43,9 +43,8 @@ pub use graph::{
     PartialFeedbackEdgeSet, PartitionIntoCliques, PartitionIntoForests,
     PartitionIntoPathsOfLength2, PartitionIntoPerfectMatchings, PartitionIntoTriangles,
     PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath,
-    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
-    SubgraphIsomorphism, TravelingSalesman, UndirectedFlowLowerBounds,
-    UndirectedTwoCommodityIntegralFlow,
+    SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

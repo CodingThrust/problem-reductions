@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::ClosestString;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -59,7 +60,14 @@ fn test_closeststring_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let extracted_value = source.evaluate(&extracted).unwrap();
 
     // The extracted center must be syntactically valid and match the BF optimum.
@@ -89,7 +97,14 @@ fn test_closeststring_to_ilp_extract_known_center() {
     target_solution[4] = 1; // x_{2,0}
     target_solution[6] = 2; // R = 2
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0, 0]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(2)));
 }
@@ -100,12 +115,10 @@ fn test_closeststring_to_ilp_rejects_missing_one_hot_symbol() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars()];
 
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "center position 0 has no selected symbol"
+    assert!(
+        !crate::traits::Problem::evaluate(reduction.target_problem(), &target_solution)
+            .unwrap()
+            .is_valid()
     );
 }
 
@@ -135,7 +148,14 @@ fn test_closeststring_to_ilp_single_string_zero_radius() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![1, 0, 1, 1]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(0)));
 }

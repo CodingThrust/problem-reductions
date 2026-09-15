@@ -8,7 +8,8 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::SpinGlass;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::SimpleGraph;
 
 /// Result of reducing QUBO to SpinGlass.
@@ -26,13 +27,14 @@ impl ReductionResult for ReductionQUBOToSG {
     }
 
     /// Solution maps directly (same binary encoding).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.iter().map(|&spin| spin == 1).collect())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution.iter().map(|&spin| spin == 1).collect())
+        })
     }
 }
 
@@ -63,10 +65,9 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
         let mut interactions = Vec::new();
         let mut onsite = vec![0.0; n];
 
-        for i in 0..n {
-            for j in i..n {
-                let q = matrix[i][j];
-                if q.abs() < 1e-10 {
+        for (i, row) in matrix.outer_iterator().enumerate() {
+            for (j, &q) in row.iter() {
+                if j < i || q == 0.0 {
                     continue;
                 }
 
@@ -77,7 +78,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
                     // Off-diagonal: Q_ij * x_i * x_j
                     // J_ij contribution
                     let j_ij = q / 4.0;
-                    if j_ij.abs() > 1e-10 {
+                    if j_ij != 0.0 {
                         interactions.push(((i, j), j_ij));
                     }
                     // h_i and h_j contributions
@@ -117,12 +118,25 @@ where
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl<W> ReductionSGToQUBO<W>
+where
+    W: crate::types::WeightElement + crate::types::NumericSize + crate::variant::VariantParam,
+{
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution
             .iter()
             .map(|&bit| if bit { 1 } else { -1 })
@@ -140,7 +154,7 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_spins();
-        let mut matrix = vec![vec![0.0; n]; n];
+        let mut matrix = vec![std::collections::BTreeMap::new(); n];
 
         // Convert using s = 2x - 1:
         // s_i * s_j = (2x_i - 1)(2x_j - 1) = 4x_i*x_j - 2x_i - 2x_j + 1
@@ -152,19 +166,19 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
         // h_i * s_i = h_i * (2x_i - 1) = 2*h_i*x_i - h_i
         for ((i, j), j_val) in self.interactions() {
             // Off-diagonal: 4 * J_ij
-            matrix[i][j] += 4.0 * j_val;
+            *matrix[i].entry(j).or_insert(0.0) += 4.0 * j_val;
             // Diagonal contributions: -2 * J_ij
-            matrix[i][i] -= 2.0 * j_val;
-            matrix[j][j] -= 2.0 * j_val;
+            *matrix[i].entry(i).or_insert(0.0) -= 2.0 * j_val;
+            *matrix[j].entry(j).or_insert(0.0) -= 2.0 * j_val;
         }
 
         // Convert h fields to diagonal
         for (i, &h) in self.fields().iter().enumerate() {
             // h_i * s_i -> 2*h_i*x_i
-            matrix[i][i] += 2.0 * h;
+            *matrix[i].entry(i).or_insert(0.0) += 2.0 * h;
         }
 
-        let target = QUBO::from_matrix(matrix).map_err(|message| {
+        let target = QUBO::from_rows(matrix).map_err(|message| {
             crate::rules::ReductionError::construction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>(
                 message,
             )
@@ -184,7 +198,7 @@ impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_spins();
-        let mut matrix = vec![vec![0_i64; n]; n];
+        let mut matrix = vec![std::collections::BTreeMap::new(); n];
         let overflow = |operation| {
             crate::rules::ReductionError::integer_overflow::<SpinGlass<SimpleGraph, i64>, QUBO<i64>>(
                 operation,
@@ -195,16 +209,19 @@ impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
             let interaction = coupling
                 .checked_mul(4)
                 .ok_or_else(|| overflow("scaling a spin-glass interaction"))?;
-            matrix[i][j] = matrix[i][j]
+            let coefficient = matrix[i].entry(j).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_add(interaction)
                 .ok_or_else(|| overflow("summing QUBO interaction coefficients"))?;
             let diagonal = coupling
                 .checked_mul(2)
                 .ok_or_else(|| overflow("scaling a spin-glass diagonal contribution"))?;
-            matrix[i][i] = matrix[i][i]
+            let coefficient = matrix[i].entry(i).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_sub(diagonal)
                 .ok_or_else(|| overflow("summing QUBO diagonal coefficients"))?;
-            matrix[j][j] = matrix[j][j]
+            let coefficient = matrix[j].entry(j).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_sub(diagonal)
                 .ok_or_else(|| overflow("summing QUBO diagonal coefficients"))?;
         }
@@ -213,14 +230,15 @@ impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
             let diagonal = field
                 .checked_mul(2)
                 .ok_or_else(|| overflow("scaling a spin-glass field"))?;
-            matrix[i][i] = matrix[i][i]
+            let coefficient = matrix[i].entry(i).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_add(diagonal)
                 .ok_or_else(|| overflow("summing QUBO diagonal coefficients"))?;
         }
 
         Ok(ReductionSGToQUBO {
             target:
-                QUBO::from_matrix(matrix).map_err(
+                QUBO::from_rows(matrix).map_err(
                     crate::rules::ReductionError::construction::<
                         SpinGlass<SimpleGraph, i64>,
                         QUBO<i64>,

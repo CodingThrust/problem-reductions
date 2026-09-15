@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -19,7 +20,14 @@ fn test_partitionintocliques_to_ilp_closed_loop() {
     let target_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("two disjoint edges form two cliques");
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&source_solution).unwrap(), Or(true));
 }
@@ -29,5 +37,8 @@ fn test_partitionintocliques_to_ilp_preserves_infeasibility() {
     let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![]), 2);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
 
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }

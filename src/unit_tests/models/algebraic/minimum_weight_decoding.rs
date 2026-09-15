@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_maps_rhs_to_target() {
@@ -30,7 +29,10 @@ fn test_minimum_weight_decoding_creation() {
     let problem = example_instance();
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_cols(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <MinimumWeightDecoding as Problem>::NAME,
         "MinimumWeightDecoding"
@@ -175,4 +177,12 @@ fn test_minimum_weight_decoding_inconsistent_rows() {
 fn test_minimum_weight_decoding_target_mismatch() {
     let matrix = vec![vec![true, false], vec![false, true]];
     MinimumWeightDecoding::new(matrix, vec![true]);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<MinimumWeightDecoding>(
+        serde_json::json!({"matrix":[[true]],"target":[]})
+    )
+    .is_err());
 }

@@ -1,7 +1,7 @@
 use crate::models::decision::Decision;
 use crate::models::graph::{MaximumIndependentSet, MinimumDominatingSet, MinimumVertexCover};
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, Or};
@@ -84,7 +84,10 @@ fn test_decision_max_evaluate() {
 #[test]
 fn test_decision_dims() {
     let decision = Decision::new(triangle_mvc(), 2);
-    assert_eq!(decision.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&decision).unwrap(),
+        vec![2, 2, 2]
+    );
 }
 
 #[test]
@@ -156,38 +159,36 @@ fn construction_contract_decision_rejects_nested_persisted_shape() {
 
 #[test]
 fn test_decision_reduce_to_aggregate() {
-    use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+    use crate::rules::{ReduceTo, ReductionResult};
 
     let decision = Decision::new(triangle_mvc(), 2);
-    let result = decision
-        .reduce_to_aggregate()
+    let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&decision)
         .expect("reduction should succeed");
     let target = result.target_problem();
     assert_eq!(target.num_vertices(), 3);
 
     let target_val = target.evaluate(&vec![true, true, false]).unwrap();
-    let source_val = result.extract_value(target_val);
+    let source_val = result.map_value(target_val);
     assert_eq!(source_val, Or(true));
 
     let target_val = target.evaluate(&vec![true, true, true]).unwrap();
-    let source_val = result.extract_value(target_val);
+    let source_val = result.map_value(target_val);
     assert_eq!(source_val, Or(false));
 }
 
 #[test]
 fn test_decision_reduce_to_aggregate_infeasible_bound() {
-    use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+    use crate::rules::{ReduceTo, ReductionResult};
 
     let decision = Decision::new(triangle_mvc(), 1);
-    let result = decision
-        .reduce_to_aggregate()
+    let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&decision)
         .expect("reduction should succeed");
     let target = result.target_problem();
 
     for mask in 0..8 {
         let config = vec![mask & 0b001 != 0, mask & 0b010 != 0, mask & 0b100 != 0];
         let target_val = target.evaluate(&config).unwrap();
-        let source_val = result.extract_value(target_val);
+        let source_val = result.map_value(target_val);
         assert_eq!(
             source_val,
             Or(false),
@@ -228,11 +229,10 @@ fn test_decision_mds_evaluate_infeasible_cost() {
 
 #[test]
 fn test_decision_mds_reduce_to_aggregate() {
-    use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+    use crate::rules::{ReduceTo, ReductionResult};
 
     let decision = Decision::new(star_mds(), 1);
-    let result = decision
-        .reduce_to_aggregate()
+    let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, One>>::reduce_to(&decision)
         .expect("reduction should succeed");
     let target = result.target_problem();
     assert_eq!(target.num_vertices(), 5);
@@ -240,13 +240,13 @@ fn test_decision_mds_reduce_to_aggregate() {
     let target_val = target
         .evaluate(&vec![true, false, false, false, false])
         .unwrap();
-    let source_val = result.extract_value(target_val);
+    let source_val = result.map_value(target_val);
     assert_eq!(source_val, Or(true));
 
     let target_val = target
         .evaluate(&vec![true, true, false, false, false])
         .unwrap();
-    let source_val = result.extract_value(target_val);
+    let source_val = result.map_value(target_val);
     assert_eq!(source_val, Or(false));
 }
 
@@ -319,30 +319,36 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     assert_eq!((edge.parameter_declarations_fn)().fields.len(), 2);
     let witness = vec![true, false, true];
     let reduced = (edge.reduce_fn.unwrap())(&decision).unwrap();
+    let target = reduced
+        .witness
+        .target_problem_any()
+        .downcast_ref::<MaximumIndependentSet<SimpleGraph, One>>()
+        .unwrap();
     assert_eq!(
-        *reduced
-            .extract_solution_dyn(&witness)
-            .unwrap()
-            .downcast::<Vec<bool>>()
-            .unwrap(),
-        witness
+        target.evaluate(&witness).unwrap(),
+        crate::types::Max(Some(2))
+    );
+    let target_result = SolveOutcome::optimal(target, witness.clone()).unwrap();
+    let recovered = reduced
+        .witness
+        .recover_result_dyn(&decision, crate::solvers::erase_outcome(target_result))
+        .unwrap();
+    assert_eq!(
+        crate::solvers::downcast_outcome::<Vec<bool>, Or>(recovered).unwrap(),
+        SolveOutcome::Optimal {
+            solution: witness,
+            evaluation: Or(true)
+        }
     );
     assert!(matches!(
         (edge.reduce_fn.unwrap())(decision.inner()),
         Err(crate::rules::ReductionError::SourceTypeMismatch { .. })
     ));
-    let aggregate = (edge.reduce_aggregate_fn.unwrap())(&decision).unwrap();
-    assert_eq!(
-        *aggregate
-            .extract_value_from_solution_dyn(&witness)
-            .unwrap()
-            .downcast::<Or>()
-            .unwrap(),
-        Or(true)
-    );
     assert!(matches!(
-        (edge.reduce_aggregate_fn.unwrap())(decision.inner()),
-        Err(crate::rules::ReductionError::SourceTypeMismatch { .. })
+        reduced
+            .witness
+            .recover_result_dyn(decision.inner(), SolveOutcome::Infeasible),
+        Err(crate::rules::ExtractionError::InvalidTargetSolution(_))
     ));
     let reverse = entries
         .iter()
@@ -355,4 +361,98 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     assert!(reverse.turing);
     assert!(reverse.reduce_fn.is_none());
     assert_eq!((reverse.parameter_declarations_fn)().fields.len(), 2);
+}
+
+#[test]
+fn unit_vertex_cover_uses_registered_construction_and_solver() {
+    use crate::models::decision::DecisionCreateSpec;
+    type Unit = MinimumVertexCover<SimpleGraph, One>;
+    let spec: DecisionCreateSpec<Unit> = serde_json::from_value(serde_json::json!({
+        "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]}, "bound": 1
+    }))
+    .unwrap();
+    let problem: Decision<Unit> = spec.into();
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert_eq!(solution, vec![false, true, false]);
+    assert_eq!(problem.evaluate(&solution), Ok(Or(true)));
+    let restored: Decision<Unit> =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(restored.evaluate(&solution), Ok(Or(true)));
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_edges(), 2);
+}
+
+#[test]
+fn decision_executed_result_maps_witness_and_bound_together() {
+    use crate::rules::{ReduceTo, ReductionResult};
+    use crate::types::Min;
+
+    let witness = vec![true, true, false];
+    for bound in [1, 2] {
+        let decision = Decision::new(triangle_mvc(), bound);
+        let result =
+            <Decision<_> as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&decision)
+                .unwrap();
+        let target = ReductionResult::target_problem(&result);
+        assert!(std::ptr::eq(
+            target,
+            crate::rules::ReductionResult::target_problem(&result),
+        ));
+        let value = target.evaluate(&witness).unwrap();
+        assert_eq!(result.map_value(value), Or(bound == 2));
+        assert_eq!(result.map_value(Min(None)), Or(false));
+        if bound == 2 {
+            assert_eq!(
+                result
+                    .recover_result(
+                        &decision,
+                        SolveOutcome::optimal(result.target_problem(), witness.clone()).unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution"),
+                witness
+            );
+        }
+    }
+}
+
+#[test]
+fn recovery_distinguishes_a_proved_no_from_an_insufficient_incumbent() {
+    use crate::rules::{ExtractionError, ReduceTo, ReductionResult};
+    use SolveOutcome;
+    let source = Decision::new(triangle_mvc(), 2);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    let candidate = vec![true, true, true];
+    assert!(matches!(
+        reduction.recover_result(
+            &source,
+            SolveOutcome::feasible(reduction.target_problem(), candidate).unwrap()
+        ),
+        Err(ExtractionError::InsufficientSolutionQuality)
+    ));
+    let optimum = vec![true, true, false];
+    for outcome in [
+        SolveOutcome::optimal(reduction.target_problem(), optimum.clone()).unwrap(),
+        SolveOutcome::feasible(reduction.target_problem(), optimum).unwrap(),
+    ] {
+        let recovered = reduction.recover_result(&source, outcome).unwrap();
+        assert_eq!(
+            source.evaluate(recovered.solution().unwrap()).unwrap(),
+            Or(true)
+        );
+    }
+    let no_source = Decision::new(triangle_mvc(), 1);
+    let no_reduction =
+        ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&no_source).unwrap();
+    assert_eq!(
+        no_reduction
+            .recover_result(
+                &no_source,
+                SolveOutcome::optimal(no_reduction.target_problem(), vec![true, true, false])
+                    .unwrap()
+            )
+            .unwrap(),
+        SolveOutcome::Infeasible
+    );
 }

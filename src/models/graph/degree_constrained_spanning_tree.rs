@@ -55,7 +55,7 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct DegreeConstrainedSpanningTree<G> {
     /// The underlying graph.
@@ -66,19 +66,42 @@ pub struct DegreeConstrainedSpanningTree<G> {
     edge_list: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct DegreeConstrainedSpanningTreeData<G> {
+    graph: G,
+    max_degree: usize,
+}
+
+impl<'de, G> Deserialize<'de> for DegreeConstrainedSpanningTree<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = DegreeConstrainedSpanningTreeData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.max_degree).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> DegreeConstrainedSpanningTree<G> {
     /// Create a new Degree-Constrained Spanning Tree instance.
     ///
     /// # Panics
     /// Panics if `max_degree` is zero.
     pub fn new(graph: G, max_degree: usize) -> Self {
-        assert!(max_degree >= 1, "max_degree must be at least 1");
+        Self::try_new(graph, max_degree).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, max_degree: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if max_degree == 0 {
+            return Err("max_degree must be at least 1".into());
+        }
         let edge_list = graph.edges();
-        Self {
+        Ok(Self {
             graph,
             max_degree,
             edge_list,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -191,8 +214,12 @@ impl<G> crate::solvers::BruteForceProblem for DegreeConstrainedSpanningTree<G>
 where
     G: Graph + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.edge_list.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.edge_list.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

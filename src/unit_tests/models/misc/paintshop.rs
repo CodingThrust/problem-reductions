@@ -1,15 +1,15 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_paintshop_creation() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
     assert_eq!(problem.num_cars(), 2);
     assert_eq!(problem.sequence_len(), 4);
-    assert_eq!(problem.num_variables(), 2);
+    assert_eq!(problem.num_variables().unwrap(), 2);
 }
 
 #[test]
@@ -153,4 +153,27 @@ fn test_paintshop_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+
+#[test]
+fn deserialize_rebuilds_occurrence_metadata() {
+    let expected = PaintShop::try_new(vec!["a", "b", "a", "b"]).unwrap();
+    let mut json = serde_json::to_value(&expected).unwrap();
+    json["is_first"] = serde_json::json!([false]);
+    json["num_cars"] = serde_json::json!(99);
+    let restored: PaintShop = serde_json::from_value(json).unwrap();
+    assert_eq!(
+        serde_json::to_value(restored).unwrap(),
+        serde_json::to_value(expected).unwrap()
+    );
+}
+
+#[test]
+fn deserialize_rejects_invalid_car_indices_and_counts() {
+    for indices in [vec![0, 1], vec![0]] {
+        assert!(serde_json::from_value::<PaintShop>(serde_json::json!({
+            "sequence_indices": indices, "car_labels": ["a"]
+        }))
+        .is_err());
+    }
 }

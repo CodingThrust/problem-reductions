@@ -52,6 +52,7 @@ inventory::submit! {
 /// assert!(problem.evaluate(&solutions[0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ExactCoverBy3SetsCreateSpec")]
 pub struct ExactCoverBy3Sets {
     /// Size of the universe (elements are 0..universe_size, must be divisible by 3).
     universe_size: usize,
@@ -68,28 +69,8 @@ struct ExactCoverBy3SetsCreateSpec {
 
 impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
     type Error = crate::registry::ConstructionError;
-    fn try_from(mut spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
-        if !spec.universe_size.is_multiple_of(3) {
-            return Err("universe_size must be divisible by 3".into());
-        }
-        for (index, subset) in spec.subsets.iter_mut().enumerate() {
-            if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
-                return Err(format!("subset {index} contains duplicate elements").into());
-            }
-            if let Some(&element) = subset
-                .iter()
-                .find(|&&element| element >= spec.universe_size)
-            {
-                return Err(
-                    format!("subset {index} contains out-of-range element {element}").into(),
-                );
-            }
-            subset.sort();
-        }
-        Ok(Self {
-            universe_size: spec.universe_size,
-            subsets: spec.subsets,
-        })
+    fn try_from(spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.universe_size, spec.subsets)
     }
 }
 
@@ -101,34 +82,33 @@ impl ExactCoverBy3Sets {
     /// Panics if `universe_size` is not divisible by 3, or if any subset
     /// contains duplicate elements or elements outside the universe.
     pub fn new(universe_size: usize, subsets: Vec<[usize; 3]>) -> Self {
-        assert!(
-            universe_size.is_multiple_of(3),
-            "Universe size must be divisible by 3, got {}",
-            universe_size
-        );
-        let mut subsets = subsets;
-        for (i, subset) in subsets.iter_mut().enumerate() {
-            assert!(
-                subset[0] != subset[1] && subset[0] != subset[2] && subset[1] != subset[2],
-                "Subset {} contains duplicate elements: {:?}",
-                i,
-                subset
+        Self::try_new(universe_size, subsets).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        universe_size: usize,
+        mut subsets: Vec<[usize; 3]>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !universe_size.is_multiple_of(3) {
+            return Err(
+                format!("Universe size must be divisible by 3, got {universe_size}").into(),
             );
-            for &elem in subset.iter() {
-                assert!(
-                    elem < universe_size,
-                    "Subset {} contains element {} which is outside universe of size {}",
-                    i,
-                    elem,
-                    universe_size
+        }
+        for (index, subset) in subsets.iter_mut().enumerate() {
+            if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
+                return Err(format!("subset {index} contains duplicate elements").into());
+            }
+            if let Some(&element) = subset.iter().find(|&&element| element >= universe_size) {
+                return Err(
+                    format!("Subset {index} contains element {element} which is outside universe of size {universe_size}").into(),
                 );
             }
             subset.sort();
         }
-        Self {
+        Ok(Self {
             universe_size,
             subsets,
-        }
+        })
     }
 
     /// Get the universe size.
@@ -239,8 +219,12 @@ impl Problem for ExactCoverBy3Sets {
 }
 
 impl crate::solvers::BruteForceProblem for ExactCoverBy3Sets {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.subsets.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.subsets.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

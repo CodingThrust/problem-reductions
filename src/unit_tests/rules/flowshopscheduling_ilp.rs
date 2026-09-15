@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -20,7 +21,14 @@ fn test_flowshopscheduling_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),
@@ -33,8 +41,9 @@ fn test_flowshopscheduling_to_ilp_infeasible() {
     // 2 machines, 3 jobs with large processing times, very tight deadline
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5], vec![5, 5]], 6);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible FSS should produce infeasible ILP"
     );
 }
@@ -47,7 +56,14 @@ fn test_flowshopscheduling_to_ilp_single_job() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("single-job ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -63,6 +79,13 @@ fn test_flowshopscheduling_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

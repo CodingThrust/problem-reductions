@@ -284,7 +284,7 @@
       target = data.nodes[edge.target];
     const outgoing = edge.source === currentIndex;
     const other = outgoing ? target : source;
-    return `<a class="relation-link" href="${ruleHref(edge)}"><div class="relation-title"><span>${outgoing ? "→ " : "← "}${escape(nameOf(other.name))}</span><span aria-hidden="true">↗</span></div><p>${escape(variantLabel(other))}</p><p class="capability">${[edge.witness && "Witness recovery", edge.aggregate && "Aggregate value", edge.turing && "Turing reduction"].filter(Boolean).join(" · ") || "See reduction contract"}</p></a>`;
+    return `<a class="relation-link" href="${ruleHref(edge)}"><div class="relation-title"><span>${outgoing ? "→ " : "← "}${escape(nameOf(other.name))}</span><span aria-hidden="true">↗</span></div><p>${escape(variantLabel(other))}</p><p class="capability">${[edge.witness && "Result recovery", edge.turing && "Turing reduction"].filter(Boolean).join(" · ") || "See reduction contract"}</p></a>`;
   }
 
   function demoPanel() {
@@ -446,8 +446,7 @@
     const vcToMis = sourceName === "MinimumVertexCover";
     document.title = `${nameOf(sourceName)} → ${nameOf(targetName)} — ${baseTitle}`;
     const capabilities = [
-      edge.witness && "Witness recovery",
-      edge.aggregate && "Aggregate value",
+      edge.witness && "Result recovery",
       edge.turing && "Turing reduction",
     ]
       .filter(Boolean)

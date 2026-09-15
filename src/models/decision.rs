@@ -1,6 +1,6 @@
 //! Generic decision wrapper for optimization problems.
 
-use crate::rules::{AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionResult};
+use crate::rules::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::{OptimizationValue, Or};
 use serde::de::DeserializeOwned;
@@ -96,18 +96,10 @@ macro_rules! register_decision_variant {
                         >)?;
                     let result =
                         <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceTo<$inner>>::reduce_to(source)?;
-                    Ok(Box::new(result))
-                }),
-                reduce_aggregate_fn: Some(|any| {
-                    let source = any
-                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
-                        .ok_or_else($crate::rules::ReductionError::source_type_mismatch::<
-                            $crate::models::decision::Decision<$inner>,
-                            $inner,
-                        >)?;
-                    let result =
-                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source)?;
-                    Ok(Box::new(result))
+                    let result = std::rc::Rc::new(result);
+                    Ok($crate::rules::registry::ExecutedStep {
+                        witness: result,
+                    })
                 }),
                 turing: false,
             }
@@ -130,7 +122,6 @@ macro_rules! register_decision_variant {
                 },
                 module_path: module_path!(),
                 reduce_fn: None,
-                reduce_aggregate_fn: None,
                 turing: true,
             }
         }
@@ -202,7 +193,7 @@ where
             type_name: std::any::type_name::<<P::Value as OptimizationValue>::Inner>(),
             description: "Decision objective bound",
             required: true,
-            codec: crate::registry::CreateInputCodec::Scalar,
+            codec: crate::registry::CreateInputCodec::Json,
         });
         inputs
     }
@@ -317,12 +308,21 @@ where
     P: DecisionProblemMeta + crate::solvers::BruteForceProblem,
     P::Value: OptimizationValue,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        self.inner.dimensions()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        self.inner.num_variables()
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        self.inner.dimension(variable)
     }
 }
 
-/// Aggregate reduction result for `Decision<P> -> P`.
+/// Executed reduction from `Decision<P>` to its optimization problem.
+///
+/// The target and decision bound belong to the same execution. An optimum
+/// meeting the bound supplies a decision witness; an optimum missing the bound
+/// recovers `Infeasible`. A feasible candidate missing the bound instead returns
+/// `InsufficientSolutionQuality`, since it does not establish NO.
 #[derive(Debug, Clone)]
 pub struct DecisionToOptimizationResult<P>
 where
@@ -333,19 +333,12 @@ where
     bound: <P::Value as OptimizationValue>::Inner,
 }
 
-impl<P> AggregateReductionResult for DecisionToOptimizationResult<P>
+impl<P> DecisionToOptimizationResult<P>
 where
     P: DecisionProblemMeta + 'static,
-    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+    P::Value: OptimizationValue,
 {
-    type Source = Decision<P>;
-    type Target = P;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: P::Value) -> Or {
+    fn map_value(&self, target_value: P::Value) -> Or {
         Or(<P::Value as OptimizationValue>::meets_bound(
             &target_value,
             &self.bound,
@@ -353,40 +346,10 @@ where
     }
 }
 
-impl<P> ReduceToAggregate<P> for Decision<P>
-where
-    P: DecisionProblemMeta + Clone + 'static,
-    P::Value: OptimizationValue + Serialize + DeserializeOwned,
-{
-    type Result = DecisionToOptimizationResult<P>;
-
-    fn reduce_to_aggregate(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(DecisionToOptimizationResult {
-            target: self.inner.clone(),
-            bound: self.bound.clone(),
-        })
-    }
-}
-
-/// Witness reduction result for `Decision<P> -> P`.
-///
-/// The configuration spaces are identical — a config that is optimal for
-/// `P` and meets the bound is a valid `Decision<P>` witness. The
-/// `extract_solution` is the identity function.
-#[derive(Debug, Clone)]
-pub struct DecisionToOptimizationWitnessResult<P>
-where
-    P: Problem,
-    P::Value: OptimizationValue,
-{
-    target: P,
-}
-
-impl<P> ReductionResult for DecisionToOptimizationWitnessResult<P>
+impl<P> ReductionResult for DecisionToOptimizationResult<P>
 where
     P: DecisionProblemMeta + 'static,
-    P::Solution: Clone,
-    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+    P::Value: OptimizationValue,
 {
     type Source = Decision<P>;
     type Target = P;
@@ -395,27 +358,48 @@ where
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.clone())
+        source: &Self::Source,
+        target: crate::solvers::ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<crate::solvers::ProblemOutcome<Self::Source>> {
+        match target {
+            crate::solvers::SolveOutcome::Infeasible => {
+                Ok(crate::solvers::SolveOutcome::Infeasible)
+            }
+            crate::solvers::SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Ok(crate::solvers::SolveOutcome::Infeasible);
+                }
+                Ok(crate::solvers::SolveOutcome::optimal(source, solution)?)
+            }
+            crate::solvers::SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Err(crate::rules::ExtractionError::InsufficientSolutionQuality);
+                }
+                Ok(crate::solvers::SolveOutcome::feasible(source, solution)?)
+            }
+        }
     }
 }
 
 impl<P> ReduceTo<P> for Decision<P>
 where
     P: DecisionProblemMeta + Clone + 'static,
-    P::Solution: Clone,
-    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+    P::Value: OptimizationValue,
 {
-    type Result = DecisionToOptimizationWitnessResult<P>;
+    type Result = DecisionToOptimizationResult<P>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(DecisionToOptimizationWitnessResult {
+        Ok(DecisionToOptimizationResult {
             target: self.inner.clone(),
+            bound: self.bound.clone(),
         })
     }
 }

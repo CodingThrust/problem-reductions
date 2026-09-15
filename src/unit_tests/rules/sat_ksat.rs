@@ -1,9 +1,10 @@
 use super::*;
+use crate::solvers::SolveOutcome;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::variant::K3;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_sat_to_3sat_exact_size() {
@@ -159,7 +160,14 @@ fn test_sat_to_3sat_solution_extraction() {
 
     // Extract and verify solutions
     for ksat_sol in &ksat_solutions {
-        let sat_sol = reduction.extract_solution(ksat_sol).unwrap();
+        let sat_sol = reduction
+            .recover_result(
+                &sat,
+                SolveOutcome::optimal(reduction.target_problem(), (ksat_sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         // Should only have original 2 variables
         assert_eq!(sat_sol.len(), 2);
         // Should satisfy original problem
@@ -195,7 +203,14 @@ fn test_3sat_to_sat_solution_extraction() {
     let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat).expect("reduction should succeed");
 
     let sol = vec![true, false, true];
-    let extracted = reduction.extract_solution(&sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &ksat,
+            SolveOutcome::optimal(reduction.target_problem(), sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, true]);
 }
 

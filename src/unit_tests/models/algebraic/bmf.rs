@@ -11,7 +11,7 @@ fn test_bmf_creation() {
     assert_eq!(problem.rows(), 2);
     assert_eq!(problem.cols(), 2);
     assert_eq!(problem.rank(), 2);
-    assert_eq!(problem.num_variables(), 8); // 2*2 + 2*2
+    assert_eq!(problem.num_variables().unwrap(), 8); // 2*2 + 2*2
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn test_matrix_hamming_distance_function() {
 fn test_empty_matrix() {
     let matrix: Vec<Vec<bool>> = vec![];
     let problem = BMF::new(matrix, 1);
-    assert_eq!(problem.num_variables(), 0);
+    assert_eq!(problem.num_variables().unwrap(), 0);
     // Empty matrix factors exactly with zero factor size.
     assert_eq!(
         Problem::evaluate(&problem, &(vec![], vec![vec![]])).unwrap(),
@@ -179,7 +179,10 @@ fn test_empty_matrix() {
 #[test]
 fn test_rank_zero_exactness() {
     let nonzero = BMF::new(vec![vec![true, false]], 0);
-    assert_eq!(nonzero.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&nonzero).unwrap(),
+        Vec::<usize>::new()
+    );
     let empty_factors = (vec![vec![]], vec![]);
     assert_eq!(nonzero.hamming_distance(&empty_factors).unwrap(), 1);
     assert!(!nonzero.is_exact(&empty_factors).unwrap());
@@ -218,7 +221,10 @@ fn test_bmf_problem() {
     let problem = BMF::new(matrix, 2);
 
     // dims: B(2*2) + C(2*2) = 8 binary variables
-    assert_eq!(problem.dimensions(), vec![2; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
 
     // Exact factorization: B = I, C = I — total factor size = 4
     assert_eq!(
@@ -246,7 +252,10 @@ fn test_bmf_problem() {
     // 1x1 matrix
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);
-    assert_eq!(problem.dimensions(), vec![2; 2]); // B(1*1) + C(1*1)
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 2]
+    ); // B(1*1) + C(1*1)
     assert_eq!(
         Problem::evaluate(&problem, &(vec![vec![true]], vec![vec![true]])).unwrap(),
         Min(Some(2))
@@ -289,4 +298,20 @@ fn test_bmf_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert!(problem.is_exact(&best).unwrap());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(
+        serde_json::from_value::<BMF>(serde_json::json!({"matrix":[[true],[]],"k":1})).is_err()
+    );
+}
+
+#[test]
+fn deserialize_rebuilds_matrix_dimensions() {
+    let model: BMF = serde_json::from_value(serde_json::json!({
+        "matrix": [[true, false]], "k": 1, "m": 99, "n": 99
+    }))
+    .unwrap();
+    assert_eq!((model.rows(), model.cols(), model.rank()), (1, 2, 1));
 }

@@ -10,7 +10,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::CapacityAssignment;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing CapacityAssignment to ILP.
 ///
@@ -34,18 +35,28 @@ impl ReductionResult for ReductionCAToILP {
     }
 
     /// Extract solution: for each link l, find the unique capacity c where x_{l,c} = 1.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
-        crate::rules::ilp_helpers::one_hot_decode_rows(
+impl ReductionCAToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
             self.num_links,
             self.num_capacities,
             0,
-        )
+        ))
     }
 }
 

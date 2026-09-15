@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -32,7 +31,10 @@ fn test_minimum_cost_circulation_creation() {
     assert_eq!(problem.num_arcs(), 4);
     assert_eq!(problem.capacities(), &[2, 2, 1, 1]);
     assert_eq!(problem.costs(), &[2, -3, 1, -4]);
-    assert_eq!(problem.dimensions(), vec![3, 3, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 2, 2]
+    );
     assert_eq!(
         <MinimumCostCirculation as Problem>::NAME,
         "MinimumCostCirculation"

@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumLeafSpanningTree;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -56,7 +57,14 @@ fn test_maximumleafspanningtree_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // All brute-force optimal solutions have the same value
     let bf_value = problem.evaluate(&best_source[0]).unwrap();
@@ -76,7 +84,14 @@ fn test_maximumleafspanningtree_to_ilp_canonical_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&best_source[0]).unwrap(), Max(Some(4)));
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(4)));
@@ -94,9 +109,23 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     target_solution[0] = 1; // edge (0,1)
     target_solution[1] = 1; // edge (1,2)
     target_solution[2] = 1; // edge (2,3)
+    target_solution[4] = 1; // vertex 0 is a leaf
+    target_solution[7] = 1; // vertex 3 is a leaf
+
+    // Root 0 supplies one unit to each other vertex along the path.
+    target_solution[8] = 3; // 0 -> 1
+    target_solution[10] = 2; // 1 -> 2
+    target_solution[12] = 1; // 2 -> 3
 
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &problem,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true, true, false]
     );
 }
@@ -109,7 +138,14 @@ fn test_reduce_and_solve_via_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(4)));
     assert!(problem.is_valid_solution(&extracted));
 }
@@ -131,7 +167,14 @@ fn test_maximumleafspanningtree_to_ilp_path_graph() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(2)));
 }
 
@@ -144,7 +187,14 @@ fn test_maximumleafspanningtree_to_ilp_star_graph() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(3)));
     assert!(problem.is_valid_solution(&extracted));
 }
@@ -164,7 +214,14 @@ fn test_maximumleafspanningtree_to_ilp_complete_graph() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), bf_value);
     assert_eq!(bf_value, Max(Some(3)));

@@ -2,8 +2,11 @@ use super::*;
 use crate::models::decision::Decision;
 use crate::models::graph::OptimalLinearArrangement;
 use crate::rules::ReduceTo;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -59,7 +62,14 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_closed_loo
     assert_eq!(target.evaluate(&target_witness).unwrap(), Or(true));
 
     // Reconstructed source arrangement must be a valid arrangement of length <= k.
-    let arrangement = reduction.extract_solution(&target_witness).unwrap();
+    let arrangement = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&arrangement).unwrap(), Or(true));
 }
 
@@ -99,10 +109,20 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_edgeless_s
     assert_eq!(target.evaluate(&witness).unwrap(), Or(true));
 
     // Reconstructed source arrangement covers all 3 vertices and is YES.
-    let arrangement = reduction.extract_solution(&witness).unwrap();
+    let arrangement = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(arrangement.len(), 3);
     assert_eq!(source.evaluate(&arrangement).unwrap(), Or(true));
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -134,7 +154,10 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_negative_b
         BruteForce::new().solve(&source).unwrap().is_none(),
         "P_6 has no arrangement of length <= 4"
     );
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -143,19 +166,13 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_extract_in
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
         .expect("reduction should succeed");
 
+    assert!(reduction.target_problem().evaluate(&vec![0, 1, 2]).is_err());
     assert_eq!(
         reduction
-            .extract_solution(&vec![0, 1, 2])
-            .unwrap_err()
-            .to_string(),
-        "target evaluation failed during extraction: invalid configuration: column ordering length does not match the matrix"
-    );
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![0, 0, 1, 2, 3, 4])
-            .unwrap_err()
-            .to_string(),
-        "target column order is not a satisfying augmentation certificate"
+            .target_problem()
+            .evaluate(&vec![0, 0, 1, 2, 3, 4])
+            .unwrap(),
+        crate::types::Or(false)
     );
 }
 
@@ -186,14 +203,25 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
         if let Some(witness) = witness {
             assert_eq!(
                 source
-                    .evaluate(&reduction.extract_solution(&witness).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap(),
                 Or(true)
             );
         } else {
-            assert!(reduction
-                .extract_solution(&(0..target.num_cols()).collect())
-                .is_err());
+            assert!(!ReductionResult::target_problem(&reduction)
+                .evaluate(&(0..target.num_cols()).collect())
+                .unwrap()
+                .is_valid());
         }
     }
 }
@@ -202,9 +230,22 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
 fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_certificate() {
     let source = decision_ola(SimpleGraph::new(3, vec![(0, 2)]), 1);
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source).unwrap();
-    assert!(reduction.extract_solution(&vec![0, 1, 2]).is_err());
-    assert!(reduction.extract_solution(&vec![0, 1, 3]).is_err());
-    let arrangement = reduction.extract_solution(&vec![2, 0, 1]).unwrap();
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![0, 1, 2])
+        .unwrap()
+        .is_valid());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![0, 1, 3]),
+        Err(InvalidConfiguration(_))
+    ));
+    let arrangement = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), vec![2, 0, 1].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(arrangement, vec![1, 2, 0]);
     assert_eq!(source.evaluate(&arrangement).unwrap(), Or(true));
 }

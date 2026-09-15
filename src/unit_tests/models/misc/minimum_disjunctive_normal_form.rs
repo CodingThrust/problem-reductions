@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -15,7 +14,10 @@ fn test_minimum_dnf_creation() {
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.minterms().len(), 6);
     assert_eq!(problem.num_prime_implicants(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 }
 
 #[test]
@@ -143,4 +145,15 @@ fn test_minimum_dnf_wrong_config_length() {
 #[should_panic(expected = "at least one minterm")]
 fn test_minimum_dnf_all_false() {
     MinimumDisjunctiveNormalForm::new(2, vec![false, false, false, false]);
+}
+
+#[test]
+fn deserialize_rebuilds_prime_implicants() {
+    let model: MinimumDisjunctiveNormalForm = serde_json::from_value(serde_json::json!({
+        "num_variables": 2, "truth_table": [false, true, true, false],
+        "prime_implicants": [], "minterms": [99]
+    }))
+    .unwrap();
+    assert_eq!(model.minterms(), &[1, 2]);
+    assert_eq!(model.num_prime_implicants(), 2);
 }

@@ -11,6 +11,7 @@ use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
+use petgraph::unionfind::UnionFind;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -161,7 +162,7 @@ impl MinimumDummyActivitiesPert {
         }
 
         let roots: Vec<usize> = (0..2 * num_tasks)
-            .map(|endpoint| uf.find(endpoint))
+            .map(|endpoint| uf.find_mut(endpoint))
             .collect();
         let mut root_to_dense = BTreeMap::new();
         for &root in &roots {
@@ -240,8 +241,12 @@ impl Problem for MinimumDummyActivitiesPert {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumDummyActivitiesPert {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_arcs()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_arcs())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -286,35 +291,6 @@ struct CandidatePertNetwork {
     start_events: Vec<usize>,
     finish_events: Vec<usize>,
     num_dummy_arcs: usize,
-}
-
-#[derive(Debug)]
-struct UnionFind {
-    parent: Vec<usize>,
-}
-
-impl UnionFind {
-    fn new(size: usize) -> Self {
-        Self {
-            parent: (0..size).collect(),
-        }
-    }
-
-    fn find(&mut self, x: usize) -> usize {
-        if self.parent[x] != x {
-            let root = self.find(self.parent[x]);
-            self.parent[x] = root;
-        }
-        self.parent[x]
-    }
-
-    fn union(&mut self, a: usize, b: usize) {
-        let root_a = self.find(a);
-        let root_b = self.find(b);
-        if root_a != root_b {
-            self.parent[root_b] = root_a;
-        }
-    }
 }
 
 fn start_endpoint(task: usize) -> usize {

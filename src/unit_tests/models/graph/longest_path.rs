@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_nonpositive_lengths() {
     assert!(LongestPath::try_from(LongestPathI64CreateSpec {
@@ -61,7 +60,10 @@ fn test_longest_path_creation() {
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.source_vertex(), 0);
     assert_eq!(problem.target_vertex(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 10]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 10]
+    );
     assert_eq!(problem.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
     assert!(problem.is_weighted());
 

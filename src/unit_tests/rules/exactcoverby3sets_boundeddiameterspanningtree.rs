@@ -1,7 +1,11 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
+use crate::traits::EvaluationError::InvalidConfiguration;
+use crate::traits::Problem;
 
 /// q = 2, m = 2: X = {0..5} with C = [{0,1,2}, {3,4,5}].
 /// Both subsets together form the unique exact cover.
@@ -74,7 +78,14 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let mut target_config = vec![true; reduction.target_problem().num_edges()];
     *target_config.last_mut().unwrap() = false;
     assert_eq!(
-        reduction.extract_solution(&target_config).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true]
     );
 
@@ -82,11 +93,18 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let mut invalid = vec![false; target_config.len()];
     invalid[2] = true;
     invalid[3] = true;
-    assert!(reduction.extract_solution(&invalid).is_err());
-    assert!(reduction.extract_solution(&vec![]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![true; target_config.len()])
-        .is_err());
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&invalid)
+        .unwrap()
+        .is_valid());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![true; target_config.len()])
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
@@ -103,7 +121,10 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     // exist here). Equivalently, the brute-force aggregate evaluates to
     // Or(false).
     assert!(BruteForce::new().solve(target).unwrap().is_none());
-    assert!(reduction.extract_solution(&vec![]).is_err());
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![])
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
@@ -118,7 +139,10 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
             .solve(reduction.target_problem())
             .unwrap()
             .is_none());
-        assert!(reduction.extract_solution(&vec![]).is_err());
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&vec![])
+            .unwrap()
+            .is_valid());
     }
     let source = ExactCoverBy3Sets::new(0, vec![]);
     let reduction =
@@ -129,7 +153,14 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
         .unwrap();
     assert_eq!(witness, vec![true, true]);
     assert_eq!(
-        reduction.extract_solution(&witness).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<bool>::new()
     );
 }
@@ -144,7 +175,14 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_duplicate_sets() {
         .unwrap();
     assert!(!witnesses.is_empty());
     for witness in witnesses {
-        let extracted = reduction.extract_solution(&witness).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(source.is_valid_solution(&extracted).unwrap());
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 1);
     }

@@ -11,7 +11,8 @@ use crate::models::algebraic::MinimumMatrixCover;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing MinimumMatrixCover to ILP.
 #[derive(Debug, Clone)]
@@ -28,12 +29,22 @@ impl ReductionResult for ReductionMinimumMatrixCoverToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionMinimumMatrixCoverToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             // First n variables are the sign variables x_0,...,x_{n-1}
             target_solution[..self.n]
@@ -160,7 +171,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimum_matrix_cover_to_ilp",
         build: || {
             // Use a small 2×2 instance for the rule example
-            let source = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]);
+            let source = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]).unwrap();
             // Config [0,1] → f=(-1,+1) → value = 0·1 + 3·(-1) + 2·(-1) + 0·1 = -5
             // Config [1,0] → f=(+1,-1) → value = 0·1 + 3·(-1) + 2·(-1) + 0·1 = -5
             // Config [0,0] → f=(-1,-1) → value = 0+3+2+0 = 5

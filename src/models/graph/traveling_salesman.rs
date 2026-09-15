@@ -47,12 +47,29 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`)
 /// * `W` - The weight type for edges (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TravelingSalesman<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct TravelingSalesmanData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for TravelingSalesman<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = TravelingSalesmanData::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -80,7 +97,7 @@ impl TryFrom<TravelingSalesmanCreateSpec> for TravelingSalesman<SimpleGraph, i64
             )
             .into());
         }
-        Ok(Self::new(graph, edge_weights))
+        Self::try_new(graph, edge_weights)
     }
 }
 
@@ -118,15 +135,15 @@ fn simple_graph_from_create(
 impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     /// Create a TravelingSalesman problem from a graph with given edge weights.
     pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+        Self::try_new(graph, edge_weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_weights)?;
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a TravelingSalesman problem with unit weights.
@@ -160,6 +177,16 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     pub fn set_weights(&mut self, weights: Vec<W>) {
         assert_eq!(weights.len(), self.graph.num_edges());
         self.edge_weights = weights;
+    }
+
+    fn check_weights(
+        graph: &G,
+        edge_weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match graph num_edges".into());
+        }
+        Ok(())
     }
 
     /// Get the weights for the problem.
@@ -252,8 +279,12 @@ where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_edges())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

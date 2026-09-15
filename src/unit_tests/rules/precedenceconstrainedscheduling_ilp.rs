@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -47,7 +48,14 @@ fn test_precedenceconstrainedscheduling_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible for feasible instance");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         problem.evaluate(&extracted).unwrap().0,
@@ -60,8 +68,9 @@ fn test_precedenceconstrainedscheduling_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionPCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible scheduling instance should produce infeasible ILP"
     );
 }
@@ -75,7 +84,14 @@ fn test_precedenceconstrainedscheduling_to_ilp_extract_solution() {
     // Manually: task 0 at slot 0, task 1 at slot 0, task 2 at slot 1
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=1, x_{1,1}=0, x_{2,0}=0, x_{2,1}=1
     let ilp_solution = vec![1, 0, 1, 0, 0, 1];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0, 1]);
     assert!(
         problem.evaluate(&extracted).unwrap().0,

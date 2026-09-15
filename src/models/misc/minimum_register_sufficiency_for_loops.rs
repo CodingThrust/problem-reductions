@@ -62,11 +62,25 @@ inventory::submit! {
 /// assert_eq!(val, Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumRegisterSufficiencyForLoopsData")]
 pub struct MinimumRegisterSufficiencyForLoops {
     /// Loop length N (number of timesteps in the circular loop).
     loop_length: usize,
     /// Variables as (start_time, duration) pairs representing circular arcs.
     variables: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumRegisterSufficiencyForLoopsData {
+    loop_length: usize,
+    variables: Vec<(usize, usize)>,
+}
+
+impl TryFrom<MinimumRegisterSufficiencyForLoopsData> for MinimumRegisterSufficiencyForLoops {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumRegisterSufficiencyForLoopsData) -> Result<Self, Self::Error> {
+        Self::try_new(data.loop_length, data.variables)
+    }
 }
 
 impl MinimumRegisterSufficiencyForLoops {
@@ -77,27 +91,36 @@ impl MinimumRegisterSufficiencyForLoops {
     /// Panics if `loop_length` is zero, if any duration is zero or exceeds
     /// `loop_length`, or if any `start_time >= loop_length`.
     pub fn new(loop_length: usize, variables: Vec<(usize, usize)>) -> Self {
-        assert!(loop_length > 0, "loop_length must be positive");
-        for (i, &(start, dur)) in variables.iter().enumerate() {
-            assert!(
-                start < loop_length,
-                "Variable {} start_time {} >= loop_length {}",
-                i,
-                start,
-                loop_length
-            );
-            assert!(
-                dur > 0 && dur <= loop_length,
-                "Variable {} duration {} must be in [1, {}]",
-                i,
-                dur,
-                loop_length
-            );
+        Self::try_new(loop_length, variables).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        loop_length: usize,
+        variables: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if loop_length == 0 {
+            return Err("loop_length must be positive".into());
         }
-        Self {
+        for (i, &(start, dur)) in variables.iter().enumerate() {
+            if !(start < loop_length) {
+                return Err(format!(
+                    "Variable {} start_time {} >= loop_length {}",
+                    i, start, loop_length
+                )
+                .into());
+            }
+            if !(dur > 0 && dur <= loop_length) {
+                return Err(format!(
+                    "Variable {} duration {} must be in [1, {}]",
+                    i, dur, loop_length
+                )
+                .into());
+            }
+        }
+        Ok(Self {
             loop_length,
             variables,
-        }
+        })
     }
 
     /// Get the loop length N.
@@ -212,9 +235,12 @@ impl Problem for MinimumRegisterSufficiencyForLoops {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumRegisterSufficiencyForLoops {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.variables.len();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.variables.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.variables.len())
     }
 }
 

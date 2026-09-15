@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_accepts_empty_window() {
@@ -37,7 +36,10 @@ fn test_sequencing_within_intervals_creation() {
     // Task 2: 9 - 3 - 2 + 1 = 5
     // Task 3: 12 - 6 - 3 + 1 = 4
     // Task 4: 12 - 0 - 2 + 1 = 11
-    assert_eq!(problem.dimensions(), vec![4, 6, 5, 4, 11]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 6, 5, 4, 11]
+    );
 }
 
 #[test]
@@ -152,7 +154,10 @@ fn test_sequencing_within_intervals_empty() {
     let problem = SequencingWithinIntervals::new(vec![], vec![], vec![]).unwrap();
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.num_start_slots(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 
@@ -174,7 +179,10 @@ fn test_sequencing_within_intervals_variant() {
 fn test_sequencing_within_intervals_single_task() {
     let problem = SequencingWithinIntervals::new(vec![0], vec![5], vec![3]).unwrap();
     // dims = 5 - 0 - 3 + 1 = 3
-    assert_eq!(problem.dimensions(), vec![3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3]
+    );
     // Any valid config should be feasible (only one task, no overlaps possible)
     assert!(problem.evaluate(&vec![0]).unwrap());
     assert!(problem.evaluate(&vec![1]).unwrap());
@@ -217,7 +225,10 @@ fn test_sequencing_within_intervals_empty_start_domain() {
                 .unwrap();
         let restored: SequencingWithinIntervals =
             serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
-        assert_eq!(restored.dimensions(), vec![2, 0]);
+        assert_eq!(
+            crate::solvers::cartesian_dimensions(&restored).unwrap(),
+            vec![2, 0]
+        );
         assert_eq!(restored.num_start_slots(), 2);
         let (value, witnesses) = BruteForce::new().solve_with_witnesses(&restored).unwrap();
         assert_eq!(value, crate::types::Or(false));

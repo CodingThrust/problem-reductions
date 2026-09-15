@@ -10,7 +10,8 @@
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::models::misc::Factoring;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 /// Result of reducing Factoring to CircuitSAT.
@@ -43,18 +44,22 @@ impl ReductionResult for ReductionFactoringToCircuit {
     /// Extract a Factoring solution from a CircuitSAT solution.
     ///
     /// Returns the decoded factors in ascending order.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not satisfy the multiplication circuit",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionFactoringToCircuit {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let var_names = self.target.variable_names();
 
@@ -69,21 +74,16 @@ impl ReductionResult for ReductionFactoringToCircuit {
                 names
                     .iter()
                     .enumerate()
-                    .try_fold(BigUint::zero(), |value, (index, name)| {
-                        let bit = var_map.get(name.as_str()).copied().ok_or_else(|| {
-                            crate::rules::ExtractionError::invalid(format!(
-                                "target circuit does not contain factor variable {name}"
-                            ))
-                        })?;
-                        Ok::<BigUint, crate::rules::ExtractionError>(if bit {
+                    .fold(BigUint::zero(), |value, (index, name)| {
+                        if var_map[name.as_str()] {
                             value + (BigUint::one() << index)
                         } else {
                             value
-                        })
+                        }
                     })
             };
-            let left = decode(&self.p_vars)?;
-            let right = decode(&self.q_vars)?;
+            let left = decode(&self.p_vars);
+            let right = decode(&self.q_vars);
             if left <= right {
                 (left, right)
             } else {

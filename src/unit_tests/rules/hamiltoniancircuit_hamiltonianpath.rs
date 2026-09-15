@@ -3,6 +3,7 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::Problem;
 
@@ -60,7 +61,14 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_solution() {
 
     // HP solution: s=5, 0, 1, 2, 3, v'=4, t=6
     let hp_config = vec![5, 0, 1, 2, 3, 4, 6];
-    let extracted = reduction.extract_solution(&hp_config).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), hp_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted.len(), 4);
     assert!(
@@ -77,7 +85,14 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_reversed() {
 
     // HP solution reversed: t=6, v'=4, 3, 2, 1, 0, s=5
     let hp_config = vec![6, 4, 3, 2, 1, 0, 5];
-    let extracted = reduction.extract_solution(&hp_config).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), hp_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted.len(), 4);
     assert!(

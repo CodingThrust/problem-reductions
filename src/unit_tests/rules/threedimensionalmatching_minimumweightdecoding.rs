@@ -2,7 +2,10 @@ use super::*;
 use crate::models::algebraic::MinimumWeightDecoding;
 use crate::models::set::ThreeDimensionalMatching;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -117,7 +120,14 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_q_zero() {
     for witness in &target_witnesses {
         // Sentinel codeword is the all-zero vector of length 1.
         assert_eq!(witness, &vec![false]);
-        let extracted = reduction.extract_solution(witness).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (witness).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         // Source has 0 triples → extracted vector has length 0.
         assert_eq!(extracted.len(), source.num_triples());
         assert_eq!(extracted, Vec::<bool>::new());
@@ -139,7 +149,23 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_no_triples() 
         let target_witnesses = solver.find_all_witnesses(target).unwrap();
         assert!(!target_witnesses.is_empty());
         for witness in &target_witnesses {
-            let extracted = reduction.extract_solution(witness).unwrap();
+            let extracted = reduction.map_solution(witness).unwrap();
+            assert_eq!(
+                reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(target, (witness).clone()).unwrap()
+                    )
+                    .unwrap(),
+                SolveOutcome::Infeasible
+            );
+            assert!(matches!(
+                reduction.recover_result(
+                    &source,
+                    SolveOutcome::feasible(target, (witness).clone()).unwrap()
+                ),
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            ));
             assert_eq!(extracted.len(), source.num_triples());
             // Empty triple set cannot cover non-empty universe.
             assert!(
@@ -167,7 +193,14 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
 
     assert!(!target_witnesses.is_empty());
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (witness).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted, *witness);
         assert!(
             source_witnesses.contains(&extracted),
@@ -175,7 +208,8 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
         );
     }
 
-    assert!(reduction
-        .extract_solution(&vec![false, true, false])
-        .is_err());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![false, true, false]),
+        Err(InvalidConfiguration(_))
+    ));
 }

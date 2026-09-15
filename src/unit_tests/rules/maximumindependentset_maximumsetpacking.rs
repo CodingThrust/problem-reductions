@@ -1,8 +1,9 @@
 use super::*;
+use crate::solvers::SolveOutcome;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::types::One;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {
@@ -206,7 +207,14 @@ fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
     let sp_solutions = solver.find_all_witnesses(sp_problem).unwrap();
     assert!(!sp_solutions.is_empty());
 
-    let original_solution = reduction.extract_solution(&sp_solutions[0]).unwrap();
+    let original_solution = reduction
+        .recover_result(
+            &is_problem,
+            SolveOutcome::optimal(reduction.target_problem(), sp_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(original_solution.len(), 3);
     let size: usize = original_solution
         .iter()
@@ -230,7 +238,14 @@ fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
     let is_solutions = solver.find_all_witnesses(is_problem).unwrap();
     assert!(!is_solutions.is_empty());
 
-    let original_solution = reduction.extract_solution(&is_solutions[0]).unwrap();
+    let original_solution = reduction
+        .recover_result(
+            &sp_problem,
+            SolveOutcome::optimal(reduction.target_problem(), is_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(original_solution.len(), 3);
     let size: usize = original_solution
         .iter()

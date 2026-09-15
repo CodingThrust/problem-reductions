@@ -1,6 +1,7 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumIndependentSet;
 use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -60,7 +61,13 @@ fn test_maximumindependentset_to_ilp_via_path_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted: Vec<bool> = chain.extract_solution(&ilp_solution).unwrap();
+    let extracted: Vec<bool> = chain
+        .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, ILP<bool>>(
+            &problem,
+            SolveOutcome::optimal(ilp, ilp_solution).unwrap(),
+        )
+        .map(|outcome| outcome.into_solution().unwrap())
+        .unwrap();
 
     let ilp_size = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(ilp_size, 2);
@@ -76,7 +83,13 @@ fn test_maximumindependentset_to_ilp_via_path_weighted() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution).unwrap();
+    let extracted = chain
+        .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, ILP<bool>>(
+            &problem,
+            SolveOutcome::optimal(ilp, ilp_solution).unwrap(),
+        )
+        .map(|outcome| outcome.into_solution().unwrap())
+        .unwrap();
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(100)));
     assert_eq!(extracted, vec![false, true, false]);
@@ -93,6 +106,12 @@ fn test_maximumindependentset_to_ilp_bf_vs_ilp() {
     let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     let bf_value = problem.evaluate(&bf_value_solution).unwrap();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution).unwrap();
+    let extracted = chain
+        .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, ILP<bool>>(
+            &problem,
+            SolveOutcome::optimal(ilp, ilp_solution).unwrap(),
+        )
+        .map(|outcome| outcome.into_solution().unwrap())
+        .unwrap();
     assert_eq!(problem.evaluate(&extracted).unwrap(), bf_value);
 }

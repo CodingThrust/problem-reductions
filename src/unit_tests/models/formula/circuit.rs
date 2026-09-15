@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -124,7 +123,10 @@ fn test_circuit_sat_creation() {
     )]);
     let problem = CircuitSAT::new(circuit);
     assert_eq!(problem.num_variables(), 3); // c, x, y
-    assert_eq!(problem.dimensions(), vec![2, 2, 2]); // binary variables
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2]
+    ); // binary variables
 }
 
 #[test]
@@ -227,7 +229,10 @@ fn test_circuit_sat_problem() {
     let p = CircuitSAT::new(circuit);
 
     // Variables sorted: c, x, y
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
 
     // c=1, x=1, y=1: c = 1 AND 1 = 1 => satisfied
     assert!(p.evaluate(&vec![true, true, true]).unwrap());

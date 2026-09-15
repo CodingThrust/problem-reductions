@@ -1,6 +1,9 @@
 use super::*;
 use crate::models::formula::CNFClause;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 #[test]
@@ -22,14 +25,31 @@ fn test_ksatisfiability_to_kclique_closed_loop() {
         assert!(witness[6]);
         assert!(
             source
-                .evaluate(&reduction.extract_solution(&witness).unwrap())
+                .evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                )
                 .unwrap()
                 .0
         );
     }
     let witness = vec![false, false, true, true, false, false, true];
     assert_eq!(
-        reduction.extract_solution(&witness).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, false, true]
     );
     let no = KSatisfiability::<K3>::new(
@@ -60,7 +80,14 @@ fn test_kclique_empty_formulas_and_short_clauses() {
             (1, 1)
         );
         assert_eq!(
-            reduction.extract_solution(&vec![true]).unwrap(),
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), vec![true].clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
             vec![false; n]
         );
     }
@@ -84,7 +111,17 @@ fn test_kclique_empty_formulas_and_short_clauses() {
         for witness in solutions {
             assert!(
                 source
-                    .evaluate(&reduction.extract_solution(&witness).unwrap())
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
                     .unwrap()
                     .0
             );
@@ -142,12 +179,29 @@ fn test_kclique_all_two_clause_formulas_and_target_selections() {
                     target_yes = true;
                     assert!(
                         source
-                            .evaluate(&reduction.extract_solution(&witness).unwrap())
+                            .evaluate(
+                                &reduction
+                                    .recover_result(
+                                        &source,
+                                        SolveOutcome::optimal(
+                                            reduction.target_problem(),
+                                            witness.clone()
+                                        )
+                                        .unwrap()
+                                    )
+                                    .map(|result| result.into_solution().expect(
+                                        "qualifying target result must recover a source solution"
+                                    ))
+                                    .unwrap()
+                            )
                             .unwrap()
                             .0
                     );
                 } else {
-                    assert!(reduction.extract_solution(&witness).is_err());
+                    assert!(!ReductionResult::target_problem(&reduction)
+                        .evaluate(&witness)
+                        .unwrap()
+                        .is_valid());
                 }
             }
             assert_eq!(source_yes, target_yes);
@@ -162,14 +216,21 @@ fn test_kclique_rejects_malformed_or_non_clique_selections() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
     let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&source).unwrap();
+    for bad in [vec![], vec![true; 6]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&bad),
+            Err(InvalidConfiguration(_))
+        ));
+    }
     for bad in [
-        vec![],
-        vec![true; 6],
         vec![false; 5],
         vec![true, true, false, false, true],
         vec![true, false, true, false, true],
     ] {
-        assert!(reduction.extract_solution(&bad).is_err());
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&bad)
+            .unwrap()
+            .is_valid());
     }
 }
 

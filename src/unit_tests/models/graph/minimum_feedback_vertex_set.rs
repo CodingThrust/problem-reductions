@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_vertex_weights() {
@@ -52,7 +51,10 @@ fn test_minimum_feedback_vertex_set_basic() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
 
     // dims should be [2; 9]
-    assert_eq!(problem.dimensions(), vec![2usize; 9]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2usize; 9]
+    );
 
     // Valid FVS: {0, 3, 8} → config = [1,0,0,1,0,0,0,0,1]
     let config_valid = vec![true, false, false, true, false, false, false, false, true];
@@ -241,4 +243,12 @@ fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
         })
         .is_err()
     );
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = DirectedGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(MinimumFeedbackVertexSet::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumFeedbackVertexSet<i64>>(json).is_err());
 }

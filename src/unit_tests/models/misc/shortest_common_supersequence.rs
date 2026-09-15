@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -70,7 +69,10 @@ fn test_shortestcommonsupersequence_basic() {
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.max_length(), 12); // 4+4+4
     assert_eq!(problem.total_length(), 12);
-    assert_eq!(problem.dimensions(), vec![4; 12]); // alphabet_size+1 = 4, max_length = 12
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 12]
+    ); // alphabet_size+1 = 4, max_length = 12
     assert_eq!(
         <ShortestCommonSupersequence as Problem>::NAME,
         "ShortestCommonSupersequence"

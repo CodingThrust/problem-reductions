@@ -209,8 +209,12 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
 }
 
 impl crate::solvers::BruteForceProblem for SequencingToMinimizeMaximumCumulativeCost {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks() - variable)
     }
 }
 

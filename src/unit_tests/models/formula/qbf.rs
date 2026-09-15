@@ -21,7 +21,7 @@ fn test_qbf_creation() {
     );
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_clauses(), 2);
-    assert_eq!(problem.num_variables(), 0);
+    assert_eq!(problem.num_variables().unwrap(), 0);
     assert_eq!(problem.quantifiers().len(), 3);
     assert_eq!(problem.clauses().len(), 2);
 }
@@ -47,7 +47,10 @@ fn test_qbf_evaluate_true() {
     );
 
     // dims() is empty; evaluate([]) runs the game-tree search
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&()).unwrap());
     assert!(problem.is_true());
 }
@@ -131,7 +134,10 @@ fn test_qbf_zero_vars() {
     let problem = QuantifiedBooleanFormulas::new(0, vec![], vec![]);
     assert!(problem.evaluate(&()).unwrap());
     assert!(problem.is_true());
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
 }
 
 #[test]
@@ -204,7 +210,10 @@ fn test_qbf_serialization() {
     assert_eq!(deserialized.num_vars(), problem.num_vars());
     assert_eq!(deserialized.num_clauses(), problem.num_clauses());
     assert_eq!(deserialized.quantifiers(), problem.quantifiers());
-    assert_eq!(deserialized.dimensions(), problem.dimensions());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&deserialized).unwrap(),
+        crate::solvers::cartesian_dimensions(&problem).unwrap()
+    );
 }
 
 #[test]
@@ -238,7 +247,10 @@ fn test_qbf_dims() {
         vec![CNFClause::new(vec![1, 2, 3, 4])],
     );
     // dims() is always empty — QBF has no external config variables
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
 }
 
 #[test]

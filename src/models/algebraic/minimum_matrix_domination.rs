@@ -54,11 +54,25 @@ inventory::submit! {
 /// assert_eq!(witness, Some(vec![true, true, true]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumMatrixDominationData")]
 pub struct MinimumMatrixDomination {
     /// The binary matrix.
     matrix: Vec<Vec<bool>>,
     /// Positions of 1-entries in row-major order: (row, col).
     ones: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumMatrixDominationData {
+    matrix: Vec<Vec<bool>>,
+}
+
+impl TryFrom<MinimumMatrixDominationData> for MinimumMatrixDomination {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumMatrixDominationData) -> Result<Self, Self::Error> {
+        Self::try_new(data.matrix)
+    }
 }
 
 impl MinimumMatrixDomination {
@@ -68,21 +82,25 @@ impl MinimumMatrixDomination {
     ///
     /// Panics if the matrix rows have inconsistent lengths.
     pub fn new(matrix: Vec<Vec<bool>>) -> Self {
+        Self::try_new(matrix).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(matrix: Vec<Vec<bool>>) -> Result<Self, crate::registry::ConstructionError> {
         let num_cols = matrix.first().map_or(0, Vec::len);
-        for row in &matrix {
-            assert_eq!(row.len(), num_cols, "All rows must have the same length");
+        if matrix.iter().any(|row| row.len() != num_cols) {
+            return Err("all matrix rows must have the same length".into());
         }
-        let ones: Vec<(usize, usize)> = matrix
+        let ones = matrix
             .iter()
             .enumerate()
             .flat_map(|(i, row)| {
                 row.iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|(_, &value)| value)
                     .map(move |(j, _)| (i, j))
             })
             .collect();
-        Self { matrix, ones }
+        Ok(Self { matrix, ones })
     }
 
     /// Returns a reference to the binary matrix.
@@ -174,8 +192,12 @@ impl Problem for MinimumMatrixDomination {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumMatrixDomination {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_ones()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_ones())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

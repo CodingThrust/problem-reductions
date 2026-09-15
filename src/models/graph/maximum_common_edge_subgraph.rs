@@ -69,11 +69,25 @@ impl LabelledArc {
 /// vector and treated as a set (duplicates are deduplicated by the
 /// constructor).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "LabelledDigraphData")]
 pub struct LabelledDigraph {
     /// Number of vertices `|V|`.
     pub num_vertices: usize,
     /// Labelled directed arcs `(u, label, v)`.
     pub arcs: Vec<LabelledArc>,
+}
+
+#[derive(Deserialize)]
+struct LabelledDigraphData {
+    num_vertices: usize,
+    arcs: Vec<LabelledArc>,
+}
+
+impl TryFrom<LabelledDigraphData> for LabelledDigraph {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: LabelledDigraphData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_vertices, data.arcs)
+    }
 }
 
 impl LabelledDigraph {
@@ -82,19 +96,28 @@ impl LabelledDigraph {
     /// # Panics
     /// Panics if any arc references a vertex index outside `0..num_vertices`.
     pub fn new(num_vertices: usize, arcs: Vec<LabelledArc>) -> Self {
+        Self::try_new(num_vertices, arcs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<LabelledArc>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for arc in &arcs {
-            assert!(
-                arc.src < num_vertices,
-                "labelled arc source {} out of range for num_vertices = {}",
-                arc.src,
-                num_vertices
-            );
-            assert!(
-                arc.dst < num_vertices,
-                "labelled arc destination {} out of range for num_vertices = {}",
-                arc.dst,
-                num_vertices
-            );
+            if !(arc.src < num_vertices) {
+                return Err(format!(
+                    "labelled arc source {} out of range for num_vertices = {}",
+                    arc.src, num_vertices
+                )
+                .into());
+            };
+            if !(arc.dst < num_vertices) {
+                return Err(format!(
+                    "labelled arc destination {} out of range for num_vertices = {}",
+                    arc.dst, num_vertices
+                )
+                .into());
+            };
         }
         // Deduplicate while preserving order so set semantics hold.
         let mut seen = std::collections::HashSet::new();
@@ -104,10 +127,10 @@ impl LabelledDigraph {
                 deduped.push(arc);
             }
         }
-        Self {
+        Ok(Self {
             num_vertices,
             arcs: deduped,
-        }
+        })
     }
 
     /// Number of vertices `|V|`.
@@ -136,7 +159,7 @@ impl LabelledDigraph {
 ///
 /// # Configuration encoding
 ///
-/// `dims()` returns `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
+/// The coordinate cardinalities are `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
 /// For each source vertex `u in V1`, `config[u]` is either an index in
 /// `0..graph_2.num_vertices` (the matched target vertex) or the sentinel
 /// value `graph_2.num_vertices` denoting `bottom` (unmatched). Feasibility
@@ -293,8 +316,18 @@ impl Problem for MaximumCommonEdgeSubgraph {
 }
 
 impl crate::solvers::BruteForceProblem for MaximumCommonEdgeSubgraph {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.graph_2.num_vertices() + 1; self.graph_1.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph_1.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.graph_2.num_vertices())
+            .checked_add(1usize)
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a coordinate cardinality".into(),
+                )
+            })
     }
 }
 

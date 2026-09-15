@@ -1,6 +1,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -30,7 +31,14 @@ fn test_ilp_bool_to_ilp_i64_closed_loop() {
 
     // Extract solution back to source and verify optimality
     let target_solution = ILPSolver::new().solve(target).unwrap();
-    let source_solution = result.extract_solution(&target_solution).unwrap();
+    let source_solution = result
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(result.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&source_solution).unwrap(), source_obj);
 }
 

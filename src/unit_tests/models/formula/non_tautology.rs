@@ -8,8 +8,11 @@ fn test_non_tautology_creation() {
     let problem = NonTautology::new(3, vec![vec![1, 2, 3], vec![-1, -2, -3]]).unwrap();
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_disjuncts(), 2);
-    assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2]
+    );
 }
 
 #[test]

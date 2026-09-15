@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -40,7 +39,10 @@ fn test_quadratic_assignment_creation() {
     let qap = make_test_instance();
     assert_eq!(qap.num_facilities(), 4);
     assert_eq!(qap.num_locations(), 4);
-    assert_eq!(qap.dimensions(), vec![4, 4, 4, 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&qap).unwrap(),
+        vec![4, 4, 4, 4]
+    );
     assert_eq!(qap.cost_matrix().len(), 4);
     assert_eq!(qap.distance_matrix().len(), 4);
 }
@@ -121,7 +123,10 @@ fn test_quadratic_assignment_rectangular() {
     let qap = QuadraticAssignment::new(cost_matrix, distance_matrix);
     assert_eq!(qap.num_facilities(), 2);
     assert_eq!(qap.num_locations(), 3);
-    assert_eq!(qap.dimensions(), vec![3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&qap).unwrap(),
+        vec![3, 3]
+    );
     // Assignment f=(0,1): cost = C[0][1]*D[0][1] + C[1][0]*D[1][0] = 3*1 + 3*1 = 6
     assert_eq!(Problem::evaluate(&qap, &vec![0, 1]).unwrap(), Min(Some(6)));
     // Assignment f=(0,2): cost = 3*D[0][2] + 3*D[2][0] = 3*4 + 3*4 = 24
@@ -159,4 +164,12 @@ fn test_quadratic_assignment_solver() {
         Problem::evaluate(&qap, &best_config).unwrap(),
         Min(Some(56))
     );
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<QuadraticAssignment>(
+        serde_json::json!({"cost_matrix":[[1]],"distance_matrix":[[]]})
+    )
+    .is_err());
 }

@@ -41,8 +41,11 @@ fn test_minimum_hitting_set_creation_accessors_and_dimensions() {
 
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 2);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(problem.num_variables().unwrap(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(problem.sets(), &[vec![1, 2], vec![3]]);
     assert_eq!(problem.get_set(0), Some(&vec![1, 2]));
     assert_eq!(problem.get_set(1), Some(&vec![3]));
@@ -175,4 +178,11 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":3,"sets":[[0,3]]});
+    assert!(serde_json::from_value::<MinimumHittingSet>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("MinimumHittingSet", &Default::default(), json).is_err());
 }

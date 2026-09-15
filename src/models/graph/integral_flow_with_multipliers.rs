@@ -23,6 +23,7 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowWithMultipliersData")]
 pub struct IntegralFlowWithMultipliers {
     graph: DirectedGraph,
     source: usize,
@@ -30,6 +31,30 @@ pub struct IntegralFlowWithMultipliers {
     multipliers: Vec<i64>,
     capacities: Vec<i64>,
     requirement: i64,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowWithMultipliersData {
+    graph: DirectedGraph,
+    source: usize,
+    sink: usize,
+    multipliers: Vec<i64>,
+    capacities: Vec<i64>,
+    requirement: i64,
+}
+
+impl TryFrom<IntegralFlowWithMultipliersData> for IntegralFlowWithMultipliers {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowWithMultipliersData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.source,
+            data.sink,
+            data.multipliers,
+            data.capacities,
+            data.requirement,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -66,40 +91,14 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
         if count < inferred {
             return Err("num_vertices is too small".into());
         }
-        if spec.capacities.len() != spec.arcs.len() {
-            return Err("capacities length must match arcs length".into());
-        }
-        if spec.multipliers.len() != count {
-            return Err("multipliers length must match num_vertices".into());
-        }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".into());
-        }
-        for (v, &m) in spec.multipliers.iter().enumerate() {
-            if v != spec.source && v != spec.sink && m == 0 {
-                return Err("non-terminal multipliers must be positive".into());
-            }
-        }
-        for &c in &spec.capacities {
-            if usize::try_from(c)
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-            {
-                return Err("capacity is too large".into());
-            }
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
-            source: spec.source,
-            sink: spec.sink,
-            multipliers: spec.multipliers,
-            capacities: spec.capacities,
-            requirement: spec.requirement,
-        })
+        Self::try_new(
+            DirectedGraph::new(count, spec.arcs),
+            spec.source,
+            spec.sink,
+            spec.multipliers,
+            spec.capacities,
+            spec.requirement,
+        )
     }
 }
 
@@ -112,52 +111,59 @@ impl IntegralFlowWithMultipliers {
         capacities: Vec<i64>,
         requirement: i64,
     ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_arcs(),
-            "capacities length must match graph num_arcs"
-        );
-        assert_eq!(
-            multipliers.len(),
-            graph.num_vertices(),
-            "multipliers length must match graph num_vertices"
-        );
+        Self::try_new(graph, source, sink, multipliers, capacities, requirement)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        source: usize,
+        sink: usize,
+        multipliers: Vec<i64>,
+        capacities: Vec<i64>,
+        requirement: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_arcs() {
+            return Err("capacities length must match graph num_arcs".into());
+        }
+        if multipliers.len() != graph.num_vertices() {
+            return Err("multipliers length must match num_vertices".into());
+        }
 
         let num_vertices = graph.num_vertices();
-        assert!(
-            source < num_vertices,
-            "source ({source}) must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) must be less than num_vertices ({num_vertices})"
-        );
-        assert_ne!(source, sink, "source and sink must be distinct");
+        if !(source < num_vertices) {
+            return Err(format!(
+                "source ({source}) must be less than num_vertices ({num_vertices})"
+            )
+            .into());
+        }
+        if !(sink < num_vertices) {
+            return Err(
+                format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
+            );
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
 
         for (vertex, &multiplier) in multipliers.iter().enumerate() {
-            if vertex != source && vertex != sink {
-                assert!(multiplier > 0, "non-terminal multipliers must be positive");
+            if vertex != source && vertex != sink && !(multiplier > 0) {
+                return Err("non-terminal multipliers must be positive".into());
             }
         }
 
-        for &capacity in &capacities {
-            let domain = usize::try_from(capacity)
-                .ok()
-                .and_then(|value| value.checked_add(1));
-            assert!(
-                domain.is_some(),
-                "arc capacities must fit into usize for dims()"
-            );
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
         }
 
-        Self {
+        Ok(Self {
             graph,
             source,
             sink,
             multipliers,
             capacities,
             requirement,
-        }
+        })
     }
 
     pub fn graph(&self) -> &DirectedGraph {
@@ -194,13 +200,6 @@ impl IntegralFlowWithMultipliers {
 
     pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
-    }
-
-    fn domain_size(capacity: i64) -> usize {
-        usize::try_from(capacity)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .expect("capacity already validated to fit into usize")
     }
 
     pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
@@ -297,11 +296,12 @@ impl Problem for IntegralFlowWithMultipliers {
 }
 
 impl crate::solvers::BruteForceProblem for IntegralFlowWithMultipliers {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .map(|&capacity| Self::domain_size(capacity))
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(i128::from(self.capacities[variable]) + 1)?)
     }
 }
 

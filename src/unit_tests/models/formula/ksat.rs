@@ -1,9 +1,8 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::variant::{K2, K3, KN};
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_3sat_creation() {
@@ -129,7 +128,10 @@ fn test_ksat_problem_v2() {
         ],
     );
 
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
     assert!(p.evaluate(&vec![true, false, false]).unwrap());
     assert!(!p.evaluate(&vec![true, true, true]).unwrap());
     assert!(!p.evaluate(&vec![false, false, false]).unwrap());
@@ -146,7 +148,10 @@ fn test_ksat_problem_v2_2sat() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
 
-    assert_eq!(p.dimensions(), vec![2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2]
+    );
     assert!(p.evaluate(&vec![true, false]).unwrap());
     assert!(p.evaluate(&vec![false, true]).unwrap());
     assert!(!p.evaluate(&vec![true, true]).unwrap());

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -14,7 +13,10 @@ fn test_subgraph_isomorphism_creation() {
     assert_eq!(problem.num_pattern_vertices(), 2);
     assert_eq!(problem.num_pattern_edges(), 1);
     // dims: 2 pattern vertices, each can map to 4 host vertices
-    assert_eq!(problem.dimensions(), vec![4, 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4]
+    );
 }
 
 #[test]

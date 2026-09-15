@@ -56,6 +56,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "RegisterSufficiencyData")]
 pub struct RegisterSufficiency {
     /// Number of vertices.
     num_vertices: usize,
@@ -63,6 +64,21 @@ pub struct RegisterSufficiency {
     arcs: Vec<(usize, usize)>,
     /// Register bound K.
     bound: usize,
+}
+
+#[derive(Deserialize)]
+struct RegisterSufficiencyData {
+    num_vertices: usize,
+    arcs: Vec<(usize, usize)>,
+    bound: usize,
+}
+
+impl TryFrom<RegisterSufficiencyData> for RegisterSufficiency {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: RegisterSufficiencyData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_vertices, data.arcs, data.bound)
+    }
 }
 
 impl RegisterSufficiency {
@@ -73,21 +89,31 @@ impl RegisterSufficiency {
     /// Panics if any arc index is out of bounds (>= num_vertices),
     /// or if any arc is a self-loop.
     pub fn new(num_vertices: usize, arcs: Vec<(usize, usize)>, bound: usize) -> Self {
+        Self::try_new(num_vertices, arcs, bound).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        bound: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for &(v, u) in &arcs {
-            assert!(
-                v < num_vertices && u < num_vertices,
-                "Arc ({}, {}) out of bounds for {} vertices",
-                v,
-                u,
-                num_vertices
-            );
-            assert!(v != u, "Self-loop ({}, {}) not allowed in a DAG", v, u);
+            if !(v < num_vertices && u < num_vertices) {
+                return Err(format!(
+                    "Arc ({}, {}) out of bounds for {} vertices",
+                    v, u, num_vertices
+                )
+                .into());
+            }
+            if v == u {
+                return Err(format!("Self-loop ({}, {}) not allowed in a DAG", v, u).into());
+            }
         }
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             bound,
-        }
+        })
     }
 
     /// Get the number of vertices.
@@ -391,8 +417,12 @@ impl Problem for RegisterSufficiency {
 }
 
 impl crate::solvers::BruteForceProblem for RegisterSufficiency {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_vertices; self.num_vertices]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vertices)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vertices)
     }
 }
 

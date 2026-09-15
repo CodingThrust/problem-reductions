@@ -3,6 +3,7 @@ use crate::models::set::SetSplitting;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn rule_example_problem() -> NAESatisfiability {
@@ -54,9 +55,18 @@ fn test_naesatisfiability_to_setsplitting_extract_solution_uses_positive_literal
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true, false, true, false])
-            .unwrap(),
-        vec![true, false, true]
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![true, true, false, false, false, true].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![true, true, false]
     );
 }
 
@@ -67,7 +77,14 @@ fn test_naesatisfiability_to_setsplitting_target_witness_extracts_to_satisfying_
     let solver = BruteForce::new();
 
     let target_solution = solver.solve(reduction.target_problem()).unwrap().unwrap();
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&source_solution).unwrap());
 }

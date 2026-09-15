@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -32,7 +31,10 @@ fn test_longest_circuit_creation() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 1, 2]);
-    assert_eq!(problem.dimensions(), vec![2; 10]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 10]
+    );
     assert!(problem.is_weighted());
 }
 

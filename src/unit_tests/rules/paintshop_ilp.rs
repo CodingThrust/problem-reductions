@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -40,7 +41,14 @@ fn test_paintshop_to_ilp_bf_vs_ilp() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
@@ -56,7 +64,14 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 1);
     // Either 0 or 1 is valid; coloring is [x, 1-x], switches = 1
     assert!(problem.evaluate(&extracted).unwrap().is_valid());

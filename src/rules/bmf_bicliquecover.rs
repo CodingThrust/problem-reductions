@@ -11,13 +11,14 @@
 //!
 //! Variable-layout mapping: BMF stores `B` row-major followed by `C`
 //! row-major, while BicliqueCover stores vertex memberships vertex-major.
-//! `extract_solution` transposes the right-vertex half so the extracted
+//! `recover_result` transposes the right-vertex half so the extracted
 //! BMF config matches `B` and `C`.
 
 use crate::models::algebraic::BMF;
 use crate::models::graph::BicliqueCover;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::BipartiteGraph;
 
 /// Convert one vertex-membership row per biclique into BMF factors.
@@ -82,13 +83,14 @@ impl ReductionResult for ReductionBMFToBicliqueCover {
     }
 
     /// Map a BicliqueCover config (vertex-major) back to a BMF config (B row-major, then C row-major).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(config_bc_to_bmf(target_solution, self.m, self.n, self.k))
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(config_bc_to_bmf(solution, self.m, self.n, self.k))
+        })
     }
 }
 

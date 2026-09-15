@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -45,7 +46,14 @@ fn test_maximumlikelihoodranking_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
@@ -62,7 +70,14 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Verify the extracted config is a valid permutation
     let n = problem.num_items();
@@ -88,7 +103,14 @@ fn test_maximumlikelihoodranking_to_ilp_two_items() {
     assert_eq!(ilp.num_constraints(), 0);
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
 
@@ -110,7 +132,14 @@ fn test_maximumlikelihoodranking_to_ilp_single_item() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("single-item ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0]);
 }
 

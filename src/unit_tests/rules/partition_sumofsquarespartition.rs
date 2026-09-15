@@ -1,7 +1,10 @@
 use super::*;
 use crate::models::misc::{Partition, SumOfSquaresPartition};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -31,12 +34,13 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
     let target_witnesses = solver.find_all_witnesses(target_no_even).unwrap();
     assert!(!target_witnesses.is_empty());
     for witness in &target_witnesses {
-        let extracted = reduction_no_even.extract_solution(witness).unwrap();
-        assert_eq!(extracted.len(), source_no_even.num_elements());
-        assert!(
-            !source_no_even.evaluate(&extracted).unwrap().0,
-            "even-sum but unbalanced NO Partition: extracted witness {extracted:?} should not satisfy source"
-        );
+        let recovered = reduction_no_even
+            .recover_result(
+                &source_no_even,
+                SolveOutcome::optimal(target_no_even, witness.clone()).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(recovered, SolveOutcome::Infeasible);
     }
     // Confirm the source is genuinely NO via direct solve.
     let direct_witness = solver.solve(&source_no_even).unwrap();
@@ -48,11 +52,13 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
     let target_witnesses_odd = solver.find_all_witnesses(target_no_odd).unwrap();
     assert!(!target_witnesses_odd.is_empty());
     for witness in &target_witnesses_odd {
-        let extracted = reduction_no_odd.extract_solution(witness).unwrap();
-        assert!(
-            !source_no_odd.evaluate(&extracted).unwrap().0,
-            "odd-sum NO Partition: extracted witness {extracted:?} should not satisfy source"
-        );
+        let recovered = reduction_no_odd
+            .recover_result(
+                &source_no_odd,
+                SolveOutcome::optimal(target_no_odd, witness.clone()).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(recovered, SolveOutcome::Infeasible);
     }
     assert!(solver.solve(&source_no_odd).unwrap().is_none());
 }
@@ -107,18 +113,24 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
     assert!(!target_witnesses.is_empty());
 
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness).unwrap();
-        assert_eq!(extracted.len(), source.num_elements());
+        let mapped = reduction.map_solution(witness).unwrap();
+        assert_eq!(mapped.len(), source.num_elements());
         assert_eq!(
-            extracted,
+            mapped,
             witness[..source.num_elements()]
                 .iter()
                 .map(|&value| value != 0)
                 .collect::<Vec<_>>()
         );
-        assert!(
-            !source.evaluate(&extracted).unwrap().0,
-            "singleton Partition: extracted witness must yield Or(false)"
+        assert!(!source.evaluate(&mapped).unwrap().0);
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(target, witness.clone()).unwrap()
+                )
+                .unwrap(),
+            SolveOutcome::Infeasible
         );
     }
 
@@ -142,7 +154,14 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
         .collect();
 
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (witness).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(
             extracted,
             witness.iter().map(|&value| value != 0).collect::<Vec<_>>()
@@ -153,5 +172,8 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
         );
     }
 
-    assert!(reduction.extract_solution(&vec![0]).is_err());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![0]),
+        Err(InvalidConfiguration(_))
+    ));
 }

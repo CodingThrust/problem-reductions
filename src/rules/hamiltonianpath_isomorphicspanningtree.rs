@@ -7,6 +7,8 @@
 use crate::models::graph::{HamiltonianPath, IsomorphicSpanningTree};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 
 /// Result of reducing HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
@@ -28,13 +30,18 @@ impl ReductionResult for ReductionHPToIST {
     /// The IST config maps tree vertex i to graph vertex config[i]. Since the
     /// tree is P_n (path 0-1-2-...-n-1), this mapping directly gives the
     /// vertex ordering of the Hamiltonian path.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { solution, .. } => {
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
     }
 }
 

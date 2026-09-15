@@ -392,8 +392,12 @@ where
         + num_traits::Zero
         + num_traits::Bounded,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -444,3 +448,56 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/spin_glass.rs"]
 mod tests;
+
+crate::decision_problem_meta!(SpinGlass<SimpleGraph, i64>, "DecisionSpinGlass");
+crate::register_decision_variant!(
+    SpinGlass<SimpleGraph, i64>, "DecisionSpinGlass", "2^num_spins", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Undirected interaction graph edges." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Vertex count, needed to preserve isolated spins." },
+        crate::registry::FieldInfo { name: "couplings", type_name: "Vec<i64>", description: "Pairwise couplings; defaults to one per edge." },
+        crate::registry::FieldInfo { name: "fields", type_name: "Vec<i64>", description: "On-site fields; defaults to zero per vertex." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| SpinGlass::<SimpleGraph, i64>::config_to_spins(&indices).expect("enumerated spin bits are valid")
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_spin_glass_to_spin_glass",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                SpinGlass::<SimpleGraph, i64>::without_fields(
+                    5,
+                    vec![
+                        ((0, 1), 1),
+                        ((1, 2), 1),
+                        ((3, 4), 1),
+                        ((0, 3), 1),
+                        ((1, 3), 1),
+                        ((1, 4), 1),
+                        ((2, 4), 1),
+                    ],
+                )
+                .unwrap(),
+                -3,
+            );
+            let witness = serde_json::json!(vec![1, -1, 1, 1, -1]);
+            crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

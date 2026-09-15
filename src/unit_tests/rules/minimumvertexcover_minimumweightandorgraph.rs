@@ -8,6 +8,7 @@ use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 #[cfg(feature = "example-db")]
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -85,7 +86,14 @@ fn test_weighted_vertices_are_charged_on_sink_arcs() {
     assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(5)));
     assert_eq!(target.arc_weights(), &[1, 1, 1, 1, 1, 1, 4, 1, 3]);
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, true, false]
     );
 }

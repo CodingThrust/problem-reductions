@@ -32,7 +32,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ClosestSubstring;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing ClosestSubstring to ILP.
 ///
@@ -71,51 +72,45 @@ impl ReductionResult for ReductionClosestSubstringToILP {
     /// are per-string window starts. For each center position `r`, we pick the
     /// unique alphabet symbol `a` with `x_{r, a} = 1`; for each input string
     /// `s_i`, we pick the unique window start `p` with `y_{i, p} = 1`.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionClosestSubstringToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let q = self.alphabet_size;
         let ell = self.substring_length;
         let y_base = q * ell;
         let mut out = Vec::with_capacity(ell + self.window_counts.len());
 
-        for position in 0..ell {
-            let block = &target_solution[position * q..(position + 1) * q];
-            out.push(decode_one_hot(block, "center position", position)?);
-        }
+        out.extend(crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            ell,
+            q,
+            0,
+        ));
         for (string, &window_count) in self.window_counts.iter().enumerate() {
             let start = y_base + self.window_offsets[string];
-            out.push(decode_one_hot(
-                &target_solution[start..start + window_count],
-                "string window",
-                string,
-            )?);
+            out.extend(crate::rules::ilp_helpers::one_hot_decode_rows(
+                target_solution,
+                1,
+                window_count,
+                start,
+            ));
         }
 
         Ok(out)
     }
-}
-
-fn decode_one_hot(
-    block: &[i64],
-    block_name: &str,
-    block_index: usize,
-) -> crate::rules::ExtractionResult<usize> {
-    let mut selected = block.iter().enumerate().filter(|(_, value)| **value == 1);
-    let index = selected.next().map(|(index, _)| index).ok_or_else(|| {
-        crate::rules::ExtractionError::invalid(format!(
-            "{block_name} {block_index} has no selected value"
-        ))
-    })?;
-    if selected.next().is_some() || block.iter().any(|&value| value > 1) {
-        return Err(crate::rules::ExtractionError::invalid(format!(
-            "{block_name} {block_index} is not one-hot"
-        )));
-    }
-    Ok(index)
 }
 
 #[reduction(
@@ -166,11 +161,8 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         }
 
         // Tight upper bound on R: the worst-case Hamming distance over a
-        // length-ell window is at most ell. Added as a single-term `<=`
-        // constraint so the solver's bound-tightening pass (which scans for
-        // exactly this pattern) picks it up. Without this, R defaults to the
-        // full i64 domain, which severely degrades HiGHS performance even on
-        // tiny instances.
+        // length-ell window is at most ell. Restricting R to this range
+        // preserves every optimal solution.
         constraints.push(LinearConstraint::le(vec![(r_idx, 1)], ell_i64));
 
         // Window-choice constraints: exactly one window per input string.

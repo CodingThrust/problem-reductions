@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -36,7 +37,14 @@ fn test_hamiltonianpath_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),
@@ -63,7 +71,14 @@ fn test_hamiltonianpath_to_ilp_cycle_graph() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -83,8 +98,9 @@ fn test_hamiltonianpath_to_ilp_no_path() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Disconnected graph should have no Hamiltonian path"
     );
 }
@@ -98,6 +114,13 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

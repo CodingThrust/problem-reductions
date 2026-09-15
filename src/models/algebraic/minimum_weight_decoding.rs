@@ -52,6 +52,7 @@ inventory::submit! {
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumWeightDecodingCreateSpec")]
 pub struct MinimumWeightDecoding {
     /// The n×m binary parity-check matrix H.
     matrix: Vec<Vec<bool>>,
@@ -72,23 +73,7 @@ struct MinimumWeightDecodingCreateSpec {
 impl TryFrom<MinimumWeightDecodingCreateSpec> for MinimumWeightDecoding {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightDecodingCreateSpec) -> Result<Self, Self::Error> {
-        let first = spec
-            .matrix
-            .first()
-            .ok_or("matrix must have at least one row")?;
-        if first.is_empty() {
-            return Err("matrix must have at least one column".into());
-        }
-        if spec.matrix.iter().any(|row| row.len() != first.len()) {
-            return Err("all matrix rows must have the same length".into());
-        }
-        if spec.target.len() != spec.matrix.len() {
-            return Err("rhs length must equal number of rows".into());
-        }
-        Ok(Self {
-            matrix: spec.matrix,
-            target: spec.target,
-        })
+        Self::try_new(spec.matrix, spec.target)
     }
 }
 
@@ -100,18 +85,24 @@ impl MinimumWeightDecoding {
     /// Panics if the matrix is empty, rows have inconsistent lengths,
     /// target length does not match the number of rows, or there are no columns.
     pub fn new(matrix: Vec<Vec<bool>>, target: Vec<bool>) -> Self {
-        assert!(!matrix.is_empty(), "Matrix must have at least one row");
-        let num_cols = matrix[0].len();
-        assert!(num_cols > 0, "Matrix must have at least one column");
-        for row in &matrix {
-            assert_eq!(row.len(), num_cols, "All rows must have the same length");
+        Self::try_new(matrix, target).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        matrix: Vec<Vec<bool>>,
+        target: Vec<bool>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let first = matrix.first().ok_or("matrix must have at least one row")?;
+        if first.is_empty() {
+            return Err("matrix must have at least one column".into());
         }
-        assert_eq!(
-            target.len(),
-            matrix.len(),
-            "Target length must equal number of rows"
-        );
-        Self { matrix, target }
+        if matrix.iter().any(|row| row.len() != first.len()) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if target.len() != matrix.len() {
+            return Err("Target length must equal number of rows".into());
+        }
+        Ok(Self { matrix, target })
     }
 
     /// Returns a reference to the parity-check matrix H.
@@ -181,8 +172,12 @@ impl Problem for MinimumWeightDecoding {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_cols()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_cols())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

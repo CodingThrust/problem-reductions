@@ -15,7 +15,8 @@ use crate::models::algebraic::BMF;
 use crate::models::graph::BicliqueCover;
 use crate::reduction;
 use crate::rules::bmf_bicliquecover::config_bmf_to_bc;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing BicliqueCover to BMF.
 #[derive(Debug, Clone)]
@@ -36,13 +37,14 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 
     /// Map a BMF config (B row-major, C row-major) to a BicliqueCover
     /// config (vertex-major) via the inverse transpose.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(config_bmf_to_bc(target_solution, self.m, self.n, self.k))
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(config_bmf_to_bc(solution, self.m, self.n, self.k))
+        })
     }
 }
 

@@ -59,9 +59,24 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConsecutiveOnesSubmatrixData")]
 pub struct ConsecutiveOnesSubmatrix {
     matrix: Vec<Vec<bool>>,
     bound: i64,
+}
+
+#[derive(Deserialize)]
+struct ConsecutiveOnesSubmatrixData {
+    matrix: Vec<Vec<bool>>,
+    bound: i64,
+}
+
+impl TryFrom<ConsecutiveOnesSubmatrixData> for ConsecutiveOnesSubmatrix {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ConsecutiveOnesSubmatrixData) -> Result<Self, Self::Error> {
+        Self::try_new(data.matrix, data.bound)
+    }
 }
 
 impl ConsecutiveOnesSubmatrix {
@@ -71,19 +86,21 @@ impl ConsecutiveOnesSubmatrix {
     ///
     /// Panics if `bound > n`, or if rows have inconsistent lengths.
     pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
-        let n = if matrix.is_empty() {
-            0
-        } else {
-            matrix[0].len()
-        };
-        for row in &matrix {
-            assert_eq!(row.len(), n, "All rows must have the same length");
+        Self::try_new(matrix, bound).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let n = matrix.first().map_or(0, Vec::len);
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err("all matrix rows must have the same length".into());
         }
-        assert!(
-            bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n),
-            "bound ({bound}) must be <= number of columns ({n})"
-        );
-        Self { matrix, bound }
+        if !(bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n)) {
+            return Err(format!("bound ({bound}) must be <= number of columns ({n})").into());
+        }
+        Ok(Self { matrix, bound })
     }
 
     /// Returns the binary matrix.
@@ -215,8 +232,12 @@ impl Problem for ConsecutiveOnesSubmatrix {
 }
 
 impl crate::solvers::BruteForceProblem for ConsecutiveOnesSubmatrix {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_cols()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_cols())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

@@ -2,9 +2,12 @@ use crate::models::decision::Decision;
 use crate::models::graph::{MinimumDominatingSet, MinimumSumMulticenter};
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
-use crate::types::{Min, One, Or};
+use crate::types::One;
+use crate::types::OptimizationValue;
 
 fn decision_mds(
     num_vertices: usize,
@@ -27,22 +30,28 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_structure() {
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-        .expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(
-        crate::rules::AggregateReductionResult::target_problem(&reduction).k(),
-        target.k()
+        crate::rules::ReductionResult::target_problem(&reduction)
+            .inner()
+            .k(),
+        target.inner().k()
     );
 
     assert_eq!(
-        target.graph().num_vertices(),
+        target.inner().graph().num_vertices(),
         source.inner().graph().num_vertices() + 1
     );
-    assert_eq!(target.graph().edges(), source.inner().graph().edges());
-    assert_eq!(target.vertex_weights(), vec![1i64; 7].as_slice());
-    assert_eq!(target.edge_lengths(), vec![1i64; 7].as_slice());
-    assert_eq!(target.k(), 3);
+    assert_eq!(
+        target.inner().graph().edges(),
+        source.inner().graph().edges()
+    );
+    assert_eq!(target.inner().vertex_weights(), vec![1i64; 7].as_slice());
+    assert_eq!(target.inner().edge_lengths(), vec![1i64; 7].as_slice());
+    assert_eq!(target.inner().k(), 3);
 }
 
 #[test]
@@ -52,8 +61,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_yes_in
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-        .expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
@@ -63,10 +73,20 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_yes_in
     );
 
     for target_solution in target_solutions {
-        assert_eq!(target.evaluate(&target_solution).unwrap().unwrap(), 4);
-        let extracted = reduction.extract_solution(&target_solution).unwrap();
+        assert_eq!(
+            target.inner().evaluate(&target_solution).unwrap().unwrap(),
+            4
+        );
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted, target_solution[..6]);
-        assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
+        assert_eq!(source.evaluate(&extracted).unwrap(), crate::types::Or(true));
     }
 }
 
@@ -77,11 +97,15 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         1,
     );
-    let reduction = ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-        .expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 
-    let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
+    let target_solutions = BruteForce::new()
+        .find_all_witnesses(target.inner())
+        .unwrap();
     assert!(
         !target_solutions.is_empty(),
         "target should still have optimal K-center placements"
@@ -90,18 +114,17 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
     let threshold = i64::try_from(source.inner().graph().num_vertices()).unwrap()
         - i64::try_from(source.k()).unwrap();
     for target_solution in target_solutions {
-        let target_value = target.evaluate(&target_solution).unwrap().unwrap();
+        let target_value = target.inner().evaluate(&target_solution).unwrap().unwrap();
         assert_eq!(target_value, 6);
         assert!(target_value > threshold);
 
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(
-                &reduction,
-                Min(Some(target_value))
-            ),
-            Or(false)
+            crate::types::Or(OptimizationValue::meets_bound(
+                &(crate::types::Min(Some(target_value))),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            )),
+            crate::types::Or(false)
         );
-        assert!(reduction.extract_solution(&target_solution).is_err());
     }
 }
 
@@ -127,39 +150,53 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
             for bound in bounds {
                 let source = decision_mds(n, &edges, bound);
                 let reduction =
-                    ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-                        .unwrap();
+                    ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(
+                        &source,
+                    )
+                    .unwrap();
                 let target = reduction.target_problem();
-                assert!(target.num_vertices() <= n + 2);
-                assert_eq!(target.num_edges(), edges.len());
+                assert!(target.inner().num_vertices() <= n + 2);
+                assert_eq!(target.inner().num_edges(), edges.len());
                 let source_yes = BruteForce::new().solve(&source).unwrap().is_some();
                 let mut optimum = None;
-                for mask in 0usize..1 << target.num_vertices() {
-                    let placement: Vec<_> = (0..target.num_vertices())
+                for mask in 0usize..1 << target.inner().num_vertices() {
+                    let placement: Vec<_> = (0..target.inner().num_vertices())
                         .map(|i| mask & (1 << i) != 0)
                         .collect();
-                    let value = target.evaluate(&placement).unwrap();
+                    let value = target.inner().evaluate(&placement).unwrap();
                     if let Some(cost) = value.0 {
                         optimum = Some(optimum.map_or(cost, |previous: i64| previous.min(cost)));
                     }
-                    let accepted =
-                        crate::rules::AggregateReductionResult::extract_value(&reduction, value).0;
-                    match reduction.extract_solution(&placement) {
-                        Ok(witness) => {
-                            assert!(accepted);
-                            assert_eq!(source.evaluate(&witness).unwrap(), Or(true));
-                        }
-                        Err(_) => assert!(!accepted),
+                    let accepted = crate::types::Or(OptimizationValue::meets_bound(
+                        &(value),
+                        crate::rules::ReductionResult::target_problem(&reduction).bound(),
+                    ))
+                    .0;
+                    if accepted {
+                        let witness = reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::feasible(target, placement).unwrap(),
+                            )
+                            .map(|outcome| outcome.into_solution().unwrap())
+                            .unwrap();
+                        assert_eq!(source.evaluate(&witness).unwrap(), crate::types::Or(true));
                     }
                 }
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, Min(optimum)),
-                    Or(source_yes),
+                    crate::types::Or(OptimizationValue::meets_bound(
+                        &(crate::types::Min(optimum)),
+                        crate::rules::ReductionResult::target_problem(&reduction).bound()
+                    )),
+                    crate::types::Or(source_yes),
                     "n={n}, edges={edges:?}, K={bound}"
                 );
-                assert!(reduction
-                    .extract_solution(&vec![false; target.num_vertices() + 1])
-                    .is_err());
+                assert!(matches!(
+                    ReductionResult::target_problem(&reduction)
+                        .inner()
+                        .evaluate(&vec![false; target.inner().num_vertices() + 1]),
+                    Err(InvalidConfiguration(_))
+                ));
             }
         }
     }

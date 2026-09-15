@@ -16,7 +16,9 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MinimumExternalMacroDataCompression;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 /// Index layout for ILP variables.
 #[derive(Debug, Clone)]
@@ -107,7 +109,7 @@ pub struct ReductionEMDCToILP {
     target: ILP<bool>,
     /// Variable layout for solution extraction.
     layout: VarLayout,
-    /// The source string (needed for extract_solution).
+    /// The source string (needed for solution recovery).
     source_string: Vec<usize>,
     /// Alphabet size.
     alphabet_size: usize,
@@ -121,12 +123,22 @@ impl ReductionResult for ReductionEMDCToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionEMDCToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.layout.n;
             let k = self.alphabet_size;
@@ -135,27 +147,10 @@ impl ReductionResult for ReductionEMDCToILP {
             // Build D-slots
             let mut d_slots = vec![empty; n];
             for j in 0..n {
-                let symbols: Vec<_> = (0..k)
-                    .filter(|&c| target_solution[self.layout.d_var(j, c)] == 1)
-                    .collect();
                 if target_solution[self.layout.d_used_var(j)] == 1 {
-                    match symbols.as_slice() {
-                        [symbol] => d_slots[j] = *symbol,
-                        [] => {
-                            return Err(crate::rules::ExtractionError::invalid(format!(
-                                "dictionary slot {j} is active without a symbol"
-                            )))
-                        }
-                        _ => {
-                            return Err(crate::rules::ExtractionError::invalid(format!(
-                                "dictionary slot {j} selects multiple symbols"
-                            )))
-                        }
-                    }
-                } else if !symbols.is_empty() {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "inactive dictionary slot {j} selects a symbol"
-                    )));
+                    d_slots[j] = (0..k)
+                        .filter(|&c| target_solution[self.layout.d_var(j, c)] == 1)
+                        .sum();
                 }
             }
 
@@ -173,23 +168,14 @@ impl ReductionResult for ReductionEMDCToILP {
                     })
                     .collect();
                 if target_solution[self.layout.lit_var(pos)] == 1 {
-                    if !pointers.is_empty() {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "position {pos} selects both a literal and a pointer"
-                        )));
-                    }
                     // Literal at position pos
                     c_slots[c_pos] = self.source_string[pos];
                     c_pos += 1;
                     pos += 1;
                     continue;
                 }
-                let [(d_start, length)] = pointers.as_slice() else {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "position {pos} must select exactly one pointer"
-                    )));
-                };
-                let ptr_idx = encode_pointer(n, *d_start, *length);
+                let (d_start, length) = pointers[0];
+                let ptr_idx = encode_pointer(n, d_start, length);
                 c_slots[c_pos] = k + 1 + ptr_idx;
                 c_pos += 1;
                 pos += length;
@@ -355,7 +341,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
         // 6. Literal matching: lit[i] can only be active if position i exists
         // (this is always true for i < n, so no constraint needed).
         // But we do need: if lit[i] = 1, the literal is s[i], which is automatic
-        // in the extract_solution. No additional constraint needed because the
+        // in solution recovery. No additional constraint needed because the
         // objective already penalizes literals.
 
         // Objective: minimize sum d_used[j] + sum lit[i] + h * sum ptr[i][l][d_start]
@@ -406,7 +392,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             target_config[layout.lit_var(1)] = 1;
 
             // Verify this is correct
-            let source_config = reduction.extract_solution(&target_config).unwrap();
+            let source_config = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_config.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             debug_assert_eq!(source_config[..n], [k, k]); // D empty
             debug_assert_eq!(source_config[n..], [0, 1]); // C = "ab"
 

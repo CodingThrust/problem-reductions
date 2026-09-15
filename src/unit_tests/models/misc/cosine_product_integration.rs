@@ -1,6 +1,5 @@
 use crate::models::misc::CosineProductIntegration;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -13,7 +12,10 @@ fn test_cosine_product_integration_creation() {
 #[test]
 fn test_cosine_product_integration_dims() {
     let p = CosineProductIntegration::new(vec![1, 2, 3]);
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
 }
 
 #[test]

@@ -6,7 +6,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::DisjointConnectingPaths;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::SimpleGraph;
 use std::collections::VecDeque;
 
@@ -36,12 +37,22 @@ impl ReductionResult for ReductionDCPToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionDCPToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut result = vec![false; self.edges.len()];
         for (k, &(source, sink)) in self.terminal_pairs.iter().enumerate() {
             let offset = k * self.num_edge_vars_per_commodity;
@@ -71,12 +82,7 @@ impl ReductionResult for ReductionDCPToILP {
                 }
             }
             let mut vertex = sink;
-            while vertex != source {
-                let (previous, edge) = predecessor[vertex].ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "commodity flow does not connect its terminal pair",
-                    )
-                })?;
+            while let Some((previous, edge)) = predecessor[vertex] {
                 result[edge] = true;
                 vertex = previous;
             }

@@ -13,7 +13,8 @@
 use crate::models::misc::StaffScheduling;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing ExactCoverBy3Sets to StaffScheduling.
 #[derive(Debug, Clone)]
@@ -33,13 +34,14 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
     ///
     /// StaffScheduling config[j] = number of workers assigned to schedule j.
     /// XC3S config[j] = 1 if subset j is selected, 0 otherwise.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.iter().map(|&count| count > 0).collect())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution.iter().map(|&count| count > 0).collect())
+        })
     }
 }
 

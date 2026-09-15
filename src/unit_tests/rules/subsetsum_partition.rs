@@ -5,6 +5,7 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
 
@@ -32,14 +33,32 @@ fn test_subsetsum_to_partition_sigma_greater_than_two_t_extraction() {
     assert_eq!(reduction.target_problem().sizes(), &[10, 20, 30, 40]);
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, false, true])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![true, false, false, true].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, false]
     );
     assert_eq!(
         reduction
-            .extract_solution(&vec![false, true, true, false])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![false, true, true, false].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, false]
     );
 }
@@ -52,8 +71,17 @@ fn test_subsetsum_to_partition_sigma_equals_two_t_extraction() {
     assert_eq!(reduction.target_problem().sizes(), &[3, 5, 2, 6]);
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, true, false, false])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![true, true, false, false].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true, false, false]
     );
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -50,7 +51,14 @@ fn test_naesatisfiability_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -80,8 +88,9 @@ fn test_naesatisfiability_to_ilp_infeasible() {
 
     let ilp_solver = ILPSolver::new();
     // The ILP should be infeasible: x1 ≥ 1 (at least one true) AND x1 ≤ 0 (at least one false)
-    assert!(
-        ilp_solver.solve(ilp).is_err(),
+    assert_eq!(
+        ilp_solver.solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "ILP should be infeasible for unsatisfiable NAE-SAT"
     );
 }
@@ -106,7 +115,14 @@ fn test_naesatisfiability_to_ilp_negative_literals() {
     let ilp_solution = ilp_solver
         .solve(ilp)
         .expect("NAE-SAT with (¬x1 ∨ x2) is feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),

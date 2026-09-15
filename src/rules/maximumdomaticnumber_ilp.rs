@@ -11,7 +11,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumDomaticNumber;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MaximumDomaticNumber to ILP.
@@ -36,12 +37,22 @@ impl ReductionResult for ReductionDomaticNumberToILP {
     /// Extract solution from ILP back to MaximumDomaticNumber.
     ///
     /// For each vertex v, find the set index i where x_{v,i} = 1.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionDomaticNumberToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.n;
             let mut config = vec![0; n];
@@ -98,7 +109,7 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
 
         // Linking constraints: x_{v,i} <= y_i for each v, i
         // Forces y_i = 1 whenever any vertex is assigned to set i,
-        // ensuring extract_solution always yields a valid partition.
+        // ensuring recovery always yields a valid partition.
         for v in 0..n {
             for i in 0..n {
                 constraints.push(LinearConstraint::le(

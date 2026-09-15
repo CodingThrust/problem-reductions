@@ -38,8 +38,11 @@ fn test_minimum_weight_and_or_graph_creation() {
     assert_eq!(problem.source(), 0);
     assert_eq!(problem.gate_types().len(), 7);
     assert_eq!(problem.arc_weights().len(), 6);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(
         <MinimumWeightAndOrGraph as Problem>::NAME,
         "MinimumWeightAndOrGraph"
@@ -203,4 +206,17 @@ fn test_minimum_weight_and_or_graph_paper_example() {
         optimal_witnesses[0],
         vec![true, true, false, true, false, true]
     );
+}
+
+#[test]
+fn deserialize_rejects_invalid_graph_before_building_outgoing_arcs() {
+    for (arcs, source) in [(vec![(2, 1)], 0), (vec![(0, 1)], 2)] {
+        assert!(
+            serde_json::from_value::<MinimumWeightAndOrGraph>(serde_json::json!({
+                "num_vertices": 2, "arcs": arcs, "source": source,
+                "gate_types": [true, null], "arc_weights": [1]
+            }))
+            .is_err()
+        );
+    }
 }

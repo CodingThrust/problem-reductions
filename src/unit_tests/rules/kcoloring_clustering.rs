@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::variant::K3;
 
@@ -42,7 +43,17 @@ fn test_kcoloring_to_clustering_extract_solution_identity() {
     let reduction = ReduceTo::<Clustering>::reduce_to(&source).expect("reduction should succeed");
     let config = vec![0, 1, 0];
 
-    assert_eq!(reduction.extract_solution(&config).unwrap(), config);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        config
+    );
 }
 
 #[test]
@@ -65,7 +76,14 @@ fn test_kcoloring_to_clustering_empty_graph() {
     assert_eq!(target.num_clusters(), 3);
     assert_eq!(target.diameter_bound(), 0);
     assert_eq!(
-        reduction.extract_solution(&vec![2]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![2].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<usize>::new()
     );
     assert_satisfaction_round_trip_from_satisfaction_target(&source, &reduction, "empty graph");

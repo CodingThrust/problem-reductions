@@ -20,8 +20,11 @@ fn test_dynamic_storage_allocation_basic() {
     assert_eq!(problem.items().len(), 5);
     // dims: D - s(a) + 1 for each item
     // sizes are 2, 3, 1, 3, 2 => dims are 5, 4, 6, 4, 5
-    assert_eq!(problem.dimensions(), vec![5, 4, 6, 4, 5]);
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 6, 4, 5]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 5);
     assert_eq!(
         <DynamicStorageAllocation as Problem>::NAME,
         "DynamicStorageAllocation"

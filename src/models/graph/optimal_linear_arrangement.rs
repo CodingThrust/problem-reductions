@@ -184,9 +184,12 @@ impl<G> crate::solvers::BruteForceProblem for OptimalLinearArrangement<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
     }
 }
 
@@ -285,7 +288,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
         build: || {
             use crate::example_db::specs::assemble_rule_example;
             use crate::export::SolutionPair;
-            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+            use crate::rules::{ReduceTo, ReductionResult};
             use crate::topology::SimpleGraph;
 
             // Path P_4 (0-1-2-3): optimal arrangement has cost 3; bound 3 is YES.
@@ -293,8 +296,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
                 3,
             );
-            let result = source
-                .reduce_to_aggregate()
+            let result = ReduceTo::<OptimalLinearArrangement<SimpleGraph>>::reduce_to(&source)
                 .expect("reduction should succeed");
             let target = result.target_problem();
             let config = vec![0, 1, 2, 3];

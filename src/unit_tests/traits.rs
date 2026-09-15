@@ -1,6 +1,6 @@
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-use crate::types::{Max, Min, Or, Sum};
+use crate::types::{Max, Min, Or};
 
 #[derive(Clone)]
 struct TestSatProblem {
@@ -13,7 +13,12 @@ impl Problem for TestSatProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.num_vars as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -28,8 +33,12 @@ impl Problem for TestSatProblem {
 }
 
 impl crate::solvers::BruteForceProblem for TestSatProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vars)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -40,7 +49,10 @@ fn test_problem_sat() {
         satisfying: vec![vec![1, 0], vec![0, 1]],
     };
 
-    assert_eq!(p.dimensions(), vec![2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2]
+    );
     assert_eq!(p.evaluate(&vec![1, 0]).unwrap(), Or(true));
     assert_eq!(p.evaluate(&vec![0, 0]).unwrap(), Or(false));
 }
@@ -52,8 +64,8 @@ fn test_problem_num_variables() {
         satisfying: vec![],
     };
 
-    assert_eq!(p.num_variables(), 5);
-    assert_eq!(p.dimensions().len(), 5);
+    assert_eq!(p.num_variables().unwrap(), 5);
+    assert_eq!(crate::solvers::cartesian_dimensions(&p).unwrap().len(), 5);
 }
 
 #[test]
@@ -63,8 +75,8 @@ fn test_problem_empty() {
         satisfying: vec![],
     };
 
-    assert_eq!(p.num_variables(), 0);
-    assert!(p.dimensions().is_empty());
+    assert_eq!(p.num_variables().unwrap(), 0);
+    assert!(crate::solvers::cartesian_dimensions(&p).unwrap().is_empty());
 }
 
 #[derive(Clone)]
@@ -77,7 +89,12 @@ impl Problem for TestMaxProblem {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.weights.len() as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -99,12 +116,6 @@ impl Problem for TestMaxProblem {
     }
 }
 
-impl crate::solvers::BruteForceProblem for TestMaxProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
-    }
-}
-
 #[derive(Clone)]
 struct TestMinProblem {
     costs: Vec<i64>,
@@ -115,7 +126,12 @@ impl Problem for TestMinProblem {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.costs.len() as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -134,12 +150,6 @@ impl Problem for TestMinProblem {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i64")]
-    }
-}
-
-impl crate::solvers::BruteForceProblem for TestMinProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.costs.len()]
     }
 }
 
@@ -173,15 +183,20 @@ struct MultiDimProblem {
 impl Problem for MultiDimProblem {
     const NAME: &'static str = "MultiDim";
     type Solution = Vec<usize>;
-    type Value = Sum<i64>;
+    type Value = Min<i64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.dims.len() as u64)])
+    }
 
     fn evaluate(
         &self,
         config: &Self::Solution,
     ) -> Result<Self::Value, crate::traits::EvaluationError> {
-        Ok(Sum(config.iter().map(|&c| c as i64).sum()))
+        Ok(Min(Some(config.iter().map(|&c| c as i64).sum())))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -190,8 +205,12 @@ impl Problem for MultiDimProblem {
 }
 
 impl crate::solvers::BruteForceProblem for MultiDimProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        self.dims.clone()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.dims.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.dims[variable])
     }
 }
 
@@ -201,10 +220,13 @@ fn test_multi_dim_problem() {
         dims: vec![2, 3, 4],
     };
 
-    assert_eq!(p.dimensions(), vec![2, 3, 4]);
-    assert_eq!(p.num_variables(), 3);
-    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Sum(0));
-    assert_eq!(p.evaluate(&vec![1, 2, 3]).unwrap(), Sum(6));
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 3, 4]
+    );
+    assert_eq!(p.num_variables().unwrap(), 3);
+    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(p.evaluate(&vec![1, 2, 3]).unwrap(), Min(Some(6)));
 }
 
 #[test]
@@ -225,7 +247,12 @@ impl Problem for FloatProblem {
     type Solution = Vec<usize>;
     type Value = Max<f64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.weights.len() as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -248,8 +275,12 @@ impl Problem for FloatProblem {
 }
 
 impl crate::solvers::BruteForceProblem for FloatProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.weights.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -259,7 +290,10 @@ fn test_float_value_problem() {
         weights: vec![1.5, 2.5, 3.0],
     };
 
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
     assert!((p.evaluate(&vec![1, 1, 0]).unwrap().0.unwrap() - 4.0).abs() < 1e-10);
     assert!((p.evaluate(&vec![1, 1, 1]).unwrap().0.unwrap() - 7.0).abs() < 1e-10);
 }
@@ -283,6 +317,9 @@ fn test_problem_is_clone() {
     };
     let p2 = p1.clone();
 
-    assert_eq!(p2.dimensions(), vec![2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p2).unwrap(),
+        vec![2, 2]
+    );
     assert_eq!(p2.evaluate(&vec![1, 0]).unwrap(), Or(true));
 }

@@ -21,13 +21,13 @@ choosing numeric fields or implementing arithmetic in a model or reduction.
 
 ## Problem Model
 
-Every problem implements `Problem`. The associated `Value` type is the per-configuration aggregate returned by `evaluate()`. Solvers fold these values across the configuration space, and witness-capable aggregates can also recover representative configurations.
+Every problem implements `Problem`. The associated `Value` type is the per-configuration aggregate returned by `evaluate()`. The brute-force solver folds these values across the configuration space and uses its `SolutionAggregate` capability to select corresponding witnesses. Specialized solvers and ILP backends return their solutions directly; model evaluation does not require that selection capability.
 
 ```rust,ignore
 trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
     type Solution;                         // e.g., Vec<bool>, permutation, tuple
-    type Value: Clone;                     // e.g., Max<i64>, Or, Sum<i64>
+    type Value: EvaluationValue;           // e.g., Max<i64>, Or
     fn parameter_names() -> &'static [&'static str];
     fn parameters(&self) -> ProblemParameters;
     fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
@@ -37,7 +37,8 @@ trait Problem: Clone {
 ```
 
 - **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and reports its canonical instance parameters. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named parameters used by reduction expressions.
-- **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its `dimensions()` method and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
+- **`EvaluationValue`** — requires `Clone` and `is_valid()`, expressing whether one candidate satisfies the model constraints. `Min`, `Max`, `Or`, and `Extremum` implement it. Custom evaluation types implement this check without needing aggregation or solver capabilities. An invalid candidate does not establish that the problem is infeasible.
+- **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its fallible `num_variables()` and `dimension(variable)` methods describe coordinates without allocating their vector. These methods and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
 - **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
 - **Feasibility problems** — typically use `Or`.
 - **Solve contract** — a successful solve always returns the problem's `Solution`; a global count or statistic without a representative solution is not a `Problem` solve.
@@ -93,39 +94,200 @@ SpinGlass couplings and its objective result use `i64`, while the temporary
 temporary calculations are also outside the contract, but numeric fields
 written into its target model must follow the target model's numeric format.
 
-Weight variants are `One`, `i64`, and `f64`, with `One ⊂ i64 ⊂ f64`.
-`i64 → f64` is a fallible reduction using a checked conversion in
-`±(2^53-1)`, not `as f64`.
+Supported weight variants are `One`, `i64`, and `f64`.
+
+### Responsibility boundaries
+
+| Layer | Contract |
+|-------|----------|
+| Model (`Problem`) | Defines instances, witnesses, feasibility, and objectives in its declared mathematical representation. Evaluation is independent of backend tolerances, statuses, and enumeration capacity. |
+| Reduction (`ReduceTo`, `ReductionResult`) | Constructs the target and recovers a complete source result through its mandatory `recover_result`. It owns objective relations, witness mappings, and infeasibility semantics. |
+| Backend adapter | Encodes the target, executes the backend, interprets statuses, decodes numerical results, and validates the returned witness against the original target model. |
+| Solver orchestration | Executes registered capabilities and calls each stored reduction result in reverse order. |
+| CLI / MCP | Uses public construction, evaluation, and solving APIs and presents their results. |
+
+Models and rules do not repair backend results, change constraints to make a
+solver succeed, or independently prove a backend's global optimality. Invalid
+returned witnesses and operational failures must be explicit errors. A backend's
+numerical limitations do not justify a package-wide certificate system or
+downgrading every successful result.
+
+Search-space cardinalities belong to the solver capability, not the mathematical
+model. Actual model storage and witness representation constraints still apply.
+
+### Complete result recovery
+
+Every `ReductionResult` implements `recover_result(source, target_result)`.
+It returns the source status, solution, and evaluation together. There is no
+optional interpretation callback or separate value-only execution path.
+
+| Target result | Rule's obligation |
+|---|---|
+| `Optimal { solution, evaluation }` | Recover a source optimum, or establish source infeasibility using the rule's mathematical relation |
+| `Feasible { solution, evaluation }` | Recover a feasible source solution when justified; otherwise return `InsufficientSolutionQuality` |
+| `Infeasible` | Apply the rule's infeasibility relation |
+| Evaluation, decoding, or execution error | Preserve the error; never turn it into `Infeasible` |
+
+`ProblemOutcome<P>` retains `P::Solution` and `P::Value` as concrete Rust types.
+`SolveOutcome::optimal` and `SolveOutcome::feasible` evaluate the candidate once
+and check `EvaluationValue::is_valid()`. A candidate violating the constraints
+returns `EvaluationError::ConstraintViolation`, not `SolveOutcome::Infeasible`:
+rejecting one candidate does not prove that the problem has no solution.
+Evaluation failures propagate unchanged. `optimal` does not prove optimality;
+the solver or external caller supplies that conclusion. Direct enum construction
+and deserialization do not perform these checks.
+
+The ILP pipeline carries complete results through recovery and JSON serialization;
+it does not discard and recompute the source evaluation. Backend infeasibility
+becomes a mathematical result at the terminal boundary. Only the typed
+`ILPSolver::solve()` outlet converts it to `ILPSolveError::Infeasible` to satisfy
+that method's solution-returning contract.
+
+`ReductionChain::recover_result_json()` returns `(source_result, target_result)`.
+It decodes and evaluates the external target once, then retains the model-computed
+target evaluation for output while recovering the source. CLI callers use both
+returned results; they do not independently evaluate the external candidate.
+
+For example, an independent set of size 2 in a four-vertex graph maps to a
+vertex cover of size 2. Recovery complements the solution and evaluates the
+source cover. An optimal target result produces `Optimal`; a merely feasible
+target result produces `Feasible`.
+
+For `Decision<P> -> P`, an optimum missing the bound establishes NO and recovers
+`Infeasible`. A merely feasible candidate missing it establishes no such result
+and returns `InsufficientSolutionQuality`. Penalty reductions own their analogous
+energy relationships. A decoded invalid witness alone is not a general proof
+that the source is infeasible.
+
+### Executed reduction lifecycle
+
+```text
+source ──reduce_to──> stored result A ──reduce_to──> stored result B
+                           target A                    target B
+                                                          │ solve
+                                                          ▼
+source result <── A.recover_result <── B.recover_result <── target result
+```
+
+Each step constructs one result. `Rc` shares that result across paths with a
+common prefix; recovery never reconstructs the target. The original source and
+intermediate targets supply borrowed source references during reverse traversal.
+Rules do not need extra source-instance fields for evaluation.
+
+| Caller | Recovery entry point |
+|---|---|
+| Concrete rule | `ReductionResult::recover_result` |
+| Typed chain or executed path | `recover_result::<Source, Target>` |
+| Registered ILP pipeline | The same chain's erased recovery |
+| `pred solve bundle.json` | Solve the stored target, then recover the complete result |
+| `pred extract bundle.json --result target-result.json` | Read the external result, validate its target witness, then use the same recovery |
+
+Dynamic methods convert representations and delegate to the typed rule.
+External optimality claims belong to the external solver; parsing or evaluating
+a configuration cannot establish optimality. `pred extract` accepts explicit
+`optimal`, `feasible`, or `infeasible` status, rather than a bare configuration.
+
+Bound-owning `Decision<P>` targets serialize their `inner` instance and `bound`.
+Their `evaluate()` returns `Or`. The `Decision<P> -> P` bridge makes these targets
+usable with optimization backends. Each other rule must explicitly implement
+its source-result relation, including thresholds and sentinel constructions.
+Guarantees must cover every qualifying witness, including tied optima.
+
+`SolutionAggregate` remains a brute-force solver capability for selecting from
+an enumeration. Mathematical wrappers such as `Min`, `Max`, `Or`, and `Sum`
+remain model values. They do not require separate reduction traits or graph
+modes. Turing reductions describe adaptive queries and remain a separate
+execution capability; exact recovery alone does not imply approximation or
+counting preservation.
 
 ### Arithmetic
 
-- Keep arithmetic in the declared type. Exact values use checked `i64`
-  operations; approximate values use finite `f64` operations.
-- Constructors and reductions reject an arithmetic step that would overflow
-  `i64` when producing a stored field. They do not cap every magnitude at
-  `2^53-1`. `evaluate()` never widens, wraps, saturates, or silently
-  approximates.
-- Do not promote an `i64` calculation to `i128`, `BigInt`, or `BigUint` to
-  accept a larger instance.
+- Integer models and reductions preserve integer values in their declared
+  representation. Report actual arithmetic overflow explicitly; do not wrap,
+  saturate, or silently approximate. Reuse an existing exact representation
+  when the mathematical model requires it.
+- Floating-point models and rules use ordinary finite `f64` arithmetic and its
+  rounding. Check non-finite results and do not deliberately discard nonzero
+  coefficients. Backend feasibility tolerances must not expand the model's
+  feasible set. A declared input convention, such as checking probability sums,
+  is distinct from accepting a solver's returned assignment.
+- CVP has separate `coefficient=i64` and `coefficient=f64` variants for both
+  basis and target. Both return integer coefficient vectors. Integer CVP evaluates
+  squared distance as `Min<i64>` with checked arithmetic; floating CVP evaluates
+  it as `Min<f64>` with ordinary rounding and non-finite-result checks. Decision
+  bounds use the corresponding squared-distance type. SubsetSum uses the integer
+  variant with bound equal to its item count. Integer sphere enumeration retains
+  implementation-local exact arithmetic and returns an optimal solution; numerical
+  float enumeration returns a feasible candidate without an optimality claim.
+  A numerical float decision solve returns a satisfying candidate when found;
+  missing its bound reports insufficient solution quality, not infeasibility.
+  Customized solver callbacks carry these statuses through dispatch. No exact
+  CVP integer-to-float edge is registered: coordinate conversion alone does not
+  establish preservation of rounded objective ordering.
+- `i64_to_exact_f64()` accepts integers in `[-(2^53-1), 2^53-1]` and rejects
+  everything outside that supported conversion range. This is a conservative
+  interface limit, not the set of all exactly representable f64 integers. Ordinary conversion
+  into a floating-point model and backend transport are separate
+  responsibilities. Neither a lossless scalar conversion nor `transform = exact`
+  proves error-free floating-point evaluation or backend optimality; the latter
+  describes parameter relationships only.
+- Preserve real construction and witness-structure checks, including bounds
+  derived by the reduction and adjacency preservation in geometric mappings.
+  Do not add exact arithmetic solely to audit a floating-point backend or reject
+  a mathematical reduction because that backend may struggle to solve it.
 
 ### Boundaries
 
-- Use `From` only for value-preserving conversions and `TryFrom` when range,
-  sign, or domain can change. Do not use `as` for model-derived values.
+- Use value-preserving conversions where possible and checked conversions for
+  range/sign changes. A floating-point model's declared rounding is not a
+  lossless-conversion requirement. Reuse `i64_to_exact_f64` where lossless scalar
+  conversion is actually required; backend input acceptance belongs to the
+  adapter and must not narrow integer model domains.
 - Converting a registered parameter getter from `usize` to `u64` is an internal
-  invariant of `Problem::parameters()`, not a recoverable construction error. A valid
-  instance's registered parameters must already fit `u64`; the
-  implementation checks this conversion to prevent silent truncation.
-- Symbolic parameter evaluation may use arbitrary-precision integers for local
-  intermediate arithmetic, but a materialized `ProblemParameters` must fit `u64`.
-- An `i64` to `f64` conversion is explicit and fallible: it succeeds only
-  for `|value| ≤ 2^53-1`. Use one shared helper at weight casts, solver
-  adapters, and other exact-to-float hubs.
-- A lattice-to-`UnitDiskGraph` reduction converts coordinates fallibly and
-  rejects a stored `f64` geometry that would change source adjacency.
-- Rust constructors keep `i64` fields as `i64`. CLI and MCP JSON encoding
-  of an `i64` with `|value| > 2^53-1` errors; there is no string encoding
-  and no clamping.
+  invariant of `Problem::parameters()`, not a recoverable construction error.
+  Check it to prevent silent truncation.
+- Symbolic parameter evaluation may use arbitrary-precision intermediates, but
+  materialized `ProblemParameters` must fit `u64`.
+- A lattice-to-`UnitDiskGraph` reduction must reject a stored geometry that
+  changes source adjacency. This is a mathematical reduction requirement.
+- Rust constructors retain their declared integer fields. Existing serde JSON
+  serialization can emit i64 integer values beyond the consecutive-integer range
+  of f64. Describe the actual codec and consumer representation; do not impose
+  a universal f64 gate on Rust models or claim one exists in CLI/MCP.
+
+### Validation evidence
+
+Model tests check definitions and direct evaluation. Reduction tests check
+construction, witness mappings, objective relationships, and parameter formulas
+using explicit witnesses or small exhaustive enumeration. Choose cases that can
+expose a concrete defect; there is no minimum vertex, assertion, test-function,
+or generated-check count that establishes correctness.
+
+Keep representative solver integration tests and report whether failures occur
+in construction, solving, extraction, or source validation. Backend timeout or
+numerical failure is not evidence that a reduction theorem is false. Test backend
+decoding and transport boundaries once in their shared implementation, not in
+every rule. Retain arithmetic regressions that detect actual coefficient loss or
+incorrect mappings. Do not enlarge tolerances to make a failing test pass.
+
+### Search representation
+
+`BruteForceProblem::num_variables()` and `dimension(variable)` return
+`Result<usize, SolveError>`. The caller supplies an index below the coordinate
+count. Derived counts and cardinalities use checked arithmetic. Shared
+`cartesian_dimensions()` materializes these values with fallible allocation for
+registered solving and inspection; models do not call it during evaluation.
+
+The Cartesian iterator advances coordinates until mixed-radix exhaustion. Its
+complete search count need not fit `usize`, and it does not implement
+`ExactSizeIterator`. An empty product has one empty candidate; any zero-sized
+coordinate makes the product empty. Native masks and dense tables retain their
+actual representation limits and report errors before overflowing or allocating
+an unrepresentable table. These are implementation limits, not difficulty budgets.
+
+`TruthTable` construction and deserialization share checked row-count and shape
+validation. Variable-arity constructors return `ConstructionError` for unsupported
+row counts or allocation failures. Valid tables retain the same JSON format.
 
 ## Variant System
 
@@ -239,54 +401,42 @@ The result struct holds the target problem and the logic to map solutions back:
 
 ```rust,ignore
 #[derive(Debug, Clone)]
-pub struct ReductionISToVC<W> {
-    target: MinimumVertexCover<SimpleGraph, W>,
+pub struct ReductionISToVC {
+    target: MinimumVertexCover<SimpleGraph, i64>,
 }
 
-impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
-    type Source = MaximumIndependentSet<SimpleGraph, W>;
-    type Target = MinimumVertexCover<SimpleGraph, W>;
+impl ReductionResult for ReductionISToVC {
+    type Source = MaximumIndependentSet<SimpleGraph, i64>;
+    type Target = MinimumVertexCover<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target { &self.target }
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_sol: &Vec<bool>,
-    ) -> crate::rules::ExtractionResult<Vec<bool>> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_sol)?;
-        Ok(target_sol.iter().map(|&x| !x).collect())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> ExtractionResult<ProblemOutcome<Self::Source>> {
+        Ok(match target {
+            SolveOutcome::Optimal { solution, .. } =>
+                SolveOutcome::optimal(source, solution.into_iter().map(|x| !x).collect())?,
+            SolveOutcome::Feasible { solution, .. } =>
+                SolveOutcome::feasible(source, solution.into_iter().map(|x| !x).collect())?,
+            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+        })
     }
 }
 ```
 
-### Solution extraction contract
+### Recovery contract
 
-`ReductionResult::extract_solution` accepts one complete target configuration
-and returns the source configuration defined by the reduction. Extraction is a
-fallible boundary, not a recovery mechanism:
+Construction returns `ReductionError`; recovery returns `ExtractionError`.
+Recovery must explicitly cover each result status. Required witness quality
+comes from the rule's proof, not from which caller happens to invoke it.
 
-1. In every direct extractor, call `validate_target_solution()` once before
-   indexing or decoding. Composed extractors delegate this check.
-2. Validate any structure required by the inverse mapping, such as exactly-one
-   blocks, permutations, paths, flows, or schedules.
-3. Apply the reduction's mathematical inverse once and return a source
-   configuration with the required length and domains.
-4. Return `ExtractionError` when a precondition is not satisfied.
-
-Do not truncate or pad input, substitute zero for missing data, select the
-first of several invalid candidates, retry with another mapping, or panic on
-caller-provided configuration data. Empty and singleton instances should flow
-through the same mathematical mapping unless the reduction itself has a
-genuine mathematical case distinction.
-
-Zero and sentinel values remain valid when the source model explicitly gives
-them meaning. For example, `MaximumCommonEdgeSubgraph` includes an "unmapped"
-sentinel in its source dimensions. Missing target data must never be
-interpreted as that sentinel.
-
-Each conditional in an extractor should therefore either reject a named
-invariant violation or implement a case in the reduction's mathematics. A
-normal extractor has one validation phase followed by one decoding phase; it
-does not accumulate compatibility or fallback branches.
+The adapter checks backend output against the target model. Recovery performs
+the mathematical reverse mapping and computes the source evaluation. Do not
+repeat conditions already guaranteed by the target, repair malformed input, or
+add a second solver to certify the supplied optimum. Mathematical sentinels
+retain their model-defined meaning; missing data is an error.
 
 The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 
@@ -347,10 +497,13 @@ Execute an explicitly selected path with `ReductionGraph::reduce_along_path`:
 ```rust,ignore
 let reduction = graph.reduce_along_path(rpath, &factoring_instance)?.unwrap();
 let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
-let source_solution = reduction.extract_solution(&target_solution)?;
+let target_result = SolveOutcome::optimal(target, target_solution)?;
+let source_result = reduction.recover_result::<Factoring, SpinGlass<SimpleGraph, f64>>(
+    &factoring_instance, target_result,
+)?;
 ```
 
-The returned `ReductionChain` stores each intermediate reduction and extracts the source solution by applying the inverse mappings in reverse order. Construction returns `ReductionError`; extraction returns `ExtractionError`.
+The returned `ReductionChain` stores each intermediate result and recovers complete results in reverse order. Construction returns `ReductionError`; recovery returns `ExtractionError`.
 
 <details>
 <summary>Parameter contracts</summary>
@@ -409,20 +562,35 @@ proved infeasibility, and `Err` reports an operational failure.
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
-| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved by HiGHS via `good_lp`. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at a native `ILP<V, C>` with bool/i64 variables and i64/f64 coefficients, solved by the shared HiGHS adapter through its native Rust bindings. |
 
-ILP results are optimal or infeasible according to HiGHS numerical tolerances;
-zero MIP gaps do not imply mathematical exactness. Integer extraction rounds
-variable assignments, validates the original constraints, and recomputes the
-source objective with checked integer arithmetic. Floating-point objective
-comparisons in numerical regression tests use an explicit acceptance policy
-in source units (absolute and relative tolerances of `1e-7` for the QUBO solver
-regression), separate from the `1e-6` variable-rounding tolerance. This test
-policy is not a universal bound on backend objective error.
+### ILP execution boundary
 
-When an ILP target witness misses a source decision threshold, the solver
-returns `ILPSolveError::UnresolvedDecision`, not infeasibility: the witness
-alone cannot prove that no qualifying source solution exists.
+`ILPSolver::solve<P>() -> Result<P::Solution, ILPSolveError>` is the typed entry
+point. Adapter failures retain their classified errors. Registry lookup,
+concrete-terminal dispatch, and reduction-chain execution belong to orchestration. Integer pipelines end
+at native integer ILPs; they do not need a float-coefficient cast edge to execute.
+Explicit coefficient-conversion rules retain their own mathematical contracts.
+
+The shared internal `HighsAdapter` borrows an `ILP<V, C>` and returns its existing
+`Vec<i64>` witness representation. It encodes the backend model, executes it,
+interprets termination, checks returned integer values, and validates constraints
+and objective arithmetic against the original ILP. It does not inspect source
+model names, query reduction registrations, or extract source witnesses.
+Unsupported transport produces `InexactTransport`; a rejected returned witness
+produces `InvalidSolution`. A validation failure must not relax model constraints.
+
+Optimality and infeasibility are backend conclusions under HiGHS's numerical
+contract, not independent mathematical certificates. An accepted optimum requires
+both an optimal backend termination and successful witness validation. Timeouts,
+non-optimal termination, and invalid results are errors, not infeasibility.
+Variable decoding tolerances belong to the adapter; they do not define source or
+target feasibility, nor a universal objective-error allowance for tests.
+
+After accepting a target result, orchestration invokes the stored reduction
+chain's complete recovery. Every intermediate status passes through the previous
+rule. Typed solving, dynamic solving, and explicit CLI bundles share this reverse
+traversal; no caller performs its own source-threshold interpretation.
 
 ## JSON Serialization
 
@@ -438,3 +606,18 @@ let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 ## Contributing
 
 See [Call for Contributions](./open-problems.md) for the recommended issue-based workflow (no coding required).
+
+### QUBO coefficient storage
+
+QUBO stores coefficients in `sprs::CsMat<W>` using CSR order. Construction from
+linear/quadratic terms preserves last-assignment semantics; reductions accumulate
+coefficients with their existing checked arithmetic before compression. Exact
+zeros need no stored entry. Evaluation visits the upper triangle in row/column
+order, retaining checked integer addition and floating-point summation order.
+
+`QUBO::from_sparse` accepts a square CSR or CSC matrix; `matrix()` returns the
+CSR matrix and `get(i, j)` returns an owned coefficient, including zero for an
+unstored in-bounds entry. `from_matrix` and CLI `--matrix` accept dense input.
+Persisted QUBO JSON stores the `sprs` matrix object (`storage`, `nrows`, `ncols`,
+`indptr`, `indices`, `data`); variable count comes from the matrix dimensions.
+Rules, numeric casts, and solver reductions consume sparse coefficients directly.

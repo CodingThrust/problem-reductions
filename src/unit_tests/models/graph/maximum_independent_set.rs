@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_simple_weights() {
     let problem = MaximumIndependentSet::try_from(MaximumIndependentSetSimpleI64CreateSpec {
@@ -10,10 +9,10 @@ fn create_spec_defaults_simple_weights() {
     .unwrap();
     assert_eq!(problem.weights(), &[1, 1, 1]);
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_independent_set_creation() {
@@ -23,7 +22,12 @@ fn test_independent_set_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.dimensions().len(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        4
+    );
 }
 
 #[test]
@@ -248,4 +252,19 @@ fn test_mis_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 4);
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::try_new(1, vec![]).unwrap();
+    assert!(MaximumIndependentSet::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(
+        serde_json::from_value::<MaximumIndependentSet<SimpleGraph, i64>>(json.clone()).is_err()
+    );
+    let variant = std::collections::BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    assert!(crate::registry::load_dyn("MaximumIndependentSet", &variant, json).is_err());
 }

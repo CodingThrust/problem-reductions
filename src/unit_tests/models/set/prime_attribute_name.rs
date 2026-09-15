@@ -44,8 +44,11 @@ fn test_prime_attribute_name_creation() {
     assert_eq!(problem.num_attributes(), 6);
     assert_eq!(problem.num_dependencies(), 3);
     assert_eq!(problem.query_attribute(), 3);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2, 2]
+    );
     assert_eq!(problem.dependencies().len(), 3);
 }
 
@@ -209,4 +212,12 @@ fn test_prime_attribute_name_empty_lhs() {
 #[should_panic(expected = "outside attribute set")]
 fn test_prime_attribute_name_dep_out_of_range() {
     PrimeAttributeName::new(3, vec![(vec![0], vec![5])], 0);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json =
+        serde_json::json!({"num_attributes":3,"dependencies":[[[],[1]]],"query_attribute":0});
+    assert!(serde_json::from_value::<PrimeAttributeName>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("PrimeAttributeName", &Default::default(), json).is_err());
 }

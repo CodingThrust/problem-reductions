@@ -44,13 +44,26 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "KnapsackData")]
 pub struct Knapsack {
-    #[serde(deserialize_with = "nonnegative_i64_vec::deserialize")]
     weights: Vec<i64>,
-    #[serde(deserialize_with = "nonnegative_i64_vec::deserialize")]
     values: Vec<i64>,
-    #[serde(deserialize_with = "nonnegative_i64::deserialize")]
     capacity: i64,
+}
+
+#[derive(Deserialize)]
+struct KnapsackData {
+    weights: Vec<i64>,
+    values: Vec<i64>,
+    capacity: i64,
+}
+
+impl TryFrom<KnapsackData> for Knapsack {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: KnapsackData) -> Result<Self, Self::Error> {
+        Self::try_new(data.weights, data.values, data.capacity)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -78,7 +91,7 @@ impl TryFrom<KnapsackCreateSpec> for Knapsack {
                 .to_string()
                 .into());
         }
-        Ok(Self::new(weights, spec.values, spec.capacity))
+        Self::try_new(weights, spec.values, spec.capacity)
     }
 }
 
@@ -89,25 +102,31 @@ impl Knapsack {
     /// Panics if `weights` and `values` have different lengths, or if any
     /// weight, value, or the capacity is negative.
     pub fn new(weights: Vec<i64>, values: Vec<i64>, capacity: i64) -> Self {
-        assert_eq!(
-            weights.len(),
-            values.len(),
-            "weights and values must have the same length"
-        );
-        assert!(
-            weights.iter().all(|&weight| weight >= 0),
-            "Knapsack weights must be nonnegative"
-        );
-        assert!(
-            values.iter().all(|&value| value >= 0),
-            "Knapsack values must be nonnegative"
-        );
-        assert!(capacity >= 0, "Knapsack capacity must be nonnegative");
-        Self {
+        Self::try_new(weights, values, capacity).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        weights: Vec<i64>,
+        values: Vec<i64>,
+        capacity: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != values.len() {
+            return Err("weights and values must have the same length".into());
+        }
+        if !(weights.iter().all(|&weight| weight >= 0)) {
+            return Err("Knapsack weights must be nonnegative".into());
+        }
+        if !(values.iter().all(|&value| value >= 0)) {
+            return Err("Knapsack values must be nonnegative".into());
+        }
+        if !(capacity >= 0) {
+            return Err("Knapsack capacity must be nonnegative".into());
+        }
+        Ok(Self {
             weights,
             values,
             capacity,
-        }
+        })
     }
 
     /// Returns the item weights.
@@ -197,8 +216,12 @@ impl Problem for Knapsack {
 }
 
 impl crate::solvers::BruteForceProblem for Knapsack {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_items()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_items())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -208,42 +231,6 @@ crate::declare_variants! {
 
 crate::register_brute_force! {
     Knapsack decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
-}
-
-mod nonnegative_i64 {
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<i64, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = i64::deserialize(deserializer)?;
-        if value < 0 {
-            return Err(D::Error::custom(format!(
-                "expected nonnegative integer, got {value}"
-            )));
-        }
-        Ok(value)
-    }
-}
-
-mod nonnegative_i64_vec {
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<i64>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let values = Vec::<i64>::deserialize(deserializer)?;
-        if let Some(value) = values.iter().copied().find(|value| *value < 0) {
-            return Err(D::Error::custom(format!(
-                "expected nonnegative integers, got {value}"
-            )));
-        }
-        Ok(values)
-    }
 }
 
 #[cfg(feature = "example-db")]

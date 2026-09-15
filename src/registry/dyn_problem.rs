@@ -1,11 +1,9 @@
-use serde::Serialize;
 use serde_json::Value;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::traits::{EvaluationError, Problem};
-use crate::types::SolutionAggregate;
+use crate::traits::EvaluationError;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
 ///
@@ -19,13 +17,10 @@ where
 
 /// Type-erased problem interface for dynamic dispatch.
 ///
-/// Implemented for serializable problems whose values support solution witnesses.
+/// Generated for concrete variants at the registration boundary.
 pub trait DynProblem: Any {
-    /// Evaluate a configuration and return the CLI-facing metric string.
-    fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError>;
-    /// Evaluate a candidate witness, returning `None` when it is infeasible.
-    /// This validates feasibility, not global optimality.
-    fn evaluate_witness_dyn(&self, solution: &Value) -> Result<Option<String>, EvaluationError>;
+    /// Evaluate once and return the display value and whether the configuration is feasible.
+    fn evaluate_dyn(&self, solution: &Value) -> Result<(String, bool), EvaluationError>;
     /// Evaluate a configuration and return the result as a serializable JSON value.
     fn evaluate_json(&self, solution: &Value) -> Result<Value, EvaluationError>;
     /// Serialize the problem to a JSON value.
@@ -42,57 +37,71 @@ pub trait DynProblem: Any {
     fn parameters_dyn(&self) -> crate::types::ProblemParameters;
 }
 
-impl<T> DynProblem for T
-where
-    T: Problem + Serialize + 'static,
-    T::Solution: serde::de::DeserializeOwned,
-    T::Value: SolutionAggregate + fmt::Display + Serialize,
-{
-    fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError> {
-        let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
-            EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
-        })?;
-        Ok(format_metric(&self.evaluate(&solution)?))
-    }
+/// Implement the existing dynamic transport boundary for a concrete problem type.
+///
+/// Concrete value semantics determine feasibility; no solver capability is required.
+#[macro_export]
+macro_rules! impl_dyn_problem {
+    ($ty:ty) => {
+        impl $crate::registry::DynProblem for $ty {
+            fn evaluate_dyn(
+                &self,
+                solution: &serde_json::Value,
+            ) -> Result<(String, bool), $crate::traits::EvaluationError> {
+                let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
+                    $crate::traits::EvaluationError::InvalidConfiguration(format!(
+                        "invalid solution JSON: {error}"
+                    ))
+                })?;
+                let value = <$ty as $crate::traits::Problem>::evaluate(self, &solution)?;
+                Ok((
+                    $crate::registry::format_metric(&value),
+                    $crate::traits::EvaluationValue::is_valid(&value),
+                ))
+            }
 
-    fn evaluate_json(&self, solution: &Value) -> Result<Value, EvaluationError> {
-        let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
-            EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
-        })?;
-        Ok(serde_json::to_value(self.evaluate(&solution)?).expect("serialize metric failed"))
-    }
+            fn evaluate_json(
+                &self,
+                solution: &serde_json::Value,
+            ) -> Result<serde_json::Value, $crate::traits::EvaluationError> {
+                let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
+                    $crate::traits::EvaluationError::InvalidConfiguration(format!(
+                        "invalid solution JSON: {error}"
+                    ))
+                })?;
+                Ok(
+                    serde_json::to_value(<$ty as $crate::traits::Problem>::evaluate(
+                        self, &solution,
+                    )?)
+                    .expect("serialize metric failed"),
+                )
+            }
 
-    fn evaluate_witness_dyn(&self, solution: &Value) -> Result<Option<String>, EvaluationError> {
-        let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
-            EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
-        })?;
-        let value = self.evaluate(&solution)?;
-        Ok(T::Value::contributes_to_solution(&value, &value).then(|| format_metric(&value)))
-    }
+            fn serialize_json(&self) -> serde_json::Value {
+                serde_json::to_value(self).expect("serialize failed")
+            }
 
-    fn serialize_json(&self) -> Value {
-        serde_json::to_value(self).expect("serialize failed")
-    }
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+            fn problem_name(&self) -> &'static str {
+                <$ty as $crate::traits::Problem>::NAME
+            }
 
-    fn problem_name(&self) -> &'static str {
-        T::NAME
-    }
+            fn variant_map(&self) -> std::collections::BTreeMap<String, String> {
+                $crate::export::variant_to_map(<$ty as $crate::traits::Problem>::variant())
+            }
 
-    fn variant_map(&self) -> BTreeMap<String, String> {
-        crate::export::variant_to_map(T::variant())
-    }
+            fn parameter_names_dyn(&self) -> &'static [&'static str] {
+                <$ty as $crate::traits::Problem>::parameter_names()
+            }
 
-    fn parameter_names_dyn(&self) -> &'static [&'static str] {
-        T::parameter_names()
-    }
-
-    fn parameters_dyn(&self) -> crate::types::ProblemParameters {
-        self.parameters()
-    }
+            fn parameters_dyn(&self) -> $crate::types::ProblemParameters {
+                <$ty as $crate::traits::Problem>::parameters(self)
+            }
+        }
+    };
 }
 
 /// A loaded type-erased problem.

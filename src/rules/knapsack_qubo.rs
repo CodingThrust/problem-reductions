@@ -14,6 +14,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::misc::Knapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 fn overflow(operation: &'static str) -> crate::rules::ReductionError {
     crate::rules::ReductionError::integer_overflow::<Knapsack, QUBO<i64>>(operation)
@@ -34,12 +36,31 @@ impl ReductionResult for ReductionKnapsackToQUBO {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            }
+        }
+    }
+}
 
+impl ReductionKnapsackToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.num_items].to_vec())
     }
 }
@@ -108,7 +129,7 @@ impl ReduceTo<QUBO<i64>> for Knapsack {
             coeffs[n + j] = weight;
         }
 
-        let mut matrix = vec![vec![0_i64; total]; total];
+        let mut matrix = vec![std::collections::BTreeMap::new(); total];
 
         // Diagonal: P * a_k^2 - 2P * C * a_k - v_k (for items)
         for k in 0..total {
@@ -121,29 +142,33 @@ impl ReduceTo<QUBO<i64>> for Knapsack {
                 .and_then(|value| value.checked_mul(coeffs[k]))
                 .and_then(|value| value.checked_mul(2))
                 .ok_or_else(|| overflow("computing a knapsack QUBO linear penalty"))?;
-            matrix[k][k] = square
+            let mut diagonal = square
                 .checked_sub(linear)
                 .ok_or_else(|| overflow("combining knapsack QUBO diagonal penalties"))?;
             if k < n {
-                matrix[k][k] = matrix[k][k]
+                diagonal = diagonal
                     .checked_sub(values[k])
                     .ok_or_else(|| overflow("adding a knapsack value to the QUBO objective"))?;
             }
+            matrix[k].insert(k, diagonal);
         }
 
         // Off-diagonal (upper triangular): 2P * a_i * a_j
         for i in 0..total {
             for j in (i + 1)..total {
-                matrix[i][j] = penalty
-                    .checked_mul(coeffs[i])
-                    .and_then(|value| value.checked_mul(coeffs[j]))
-                    .and_then(|value| value.checked_mul(2))
-                    .ok_or_else(|| overflow("computing a knapsack QUBO interaction"))?;
+                matrix[i].insert(
+                    j,
+                    penalty
+                        .checked_mul(coeffs[i])
+                        .and_then(|value| value.checked_mul(coeffs[j]))
+                        .and_then(|value| value.checked_mul(2))
+                        .ok_or_else(|| overflow("computing a knapsack QUBO interaction"))?,
+                );
             }
         }
 
         Ok(ReductionKnapsackToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
+            target: QUBO::from_rows(matrix).map_err(|message| {
                 crate::rules::ReductionError::construction::<Knapsack, QUBO<i64>>(message)
             })?,
             num_items: n,

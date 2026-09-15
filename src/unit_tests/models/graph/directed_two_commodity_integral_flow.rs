@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -36,8 +35,16 @@ fn test_directed_two_commodity_integral_flow_creation() {
     let problem = yes_instance();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 8);
-    assert_eq!(problem.dimensions().len(), 16); // 2 * 8
-    assert!(problem.dimensions().iter().all(|&d| d == 2)); // capacity 1 -> domain {0,1}
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        16
+    ); // 2 * 8
+    assert!(crate::solvers::cartesian_dimensions(&problem)
+        .unwrap()
+        .iter()
+        .all(|&d| d == 2)); // capacity 1 -> domain {0,1}
     assert_eq!(problem.source_1(), 0);
     assert_eq!(problem.sink_1(), 4);
     assert_eq!(problem.source_2(), 1);
@@ -207,7 +214,10 @@ fn test_directed_two_commodity_integral_flow_higher_capacity() {
         1,
         1,
     );
-    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3]); // each variable in {0,1,2}
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3, 3]
+    ); // each variable in {0,1,2}
 
     // Both commodities can share: f1=1, f2=1 on both arcs
     let config = vec![1, 1, 1, 1];

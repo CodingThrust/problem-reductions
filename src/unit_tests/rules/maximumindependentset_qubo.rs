@@ -3,6 +3,7 @@ use crate::models::graph::MaximumIndependentSet;
 use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -42,12 +43,18 @@ fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
         path.type_names(),
         vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
     );
-    assert_eq!(qubo.num_variables(), 4);
+    assert_eq!(qubo.num_variables().unwrap(), 4);
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
     for sol in &qubo_solutions {
-        let extracted = chain.extract_solution(sol).unwrap();
+        let extracted = chain
+            .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, QUBO<f64>>(
+                &problem,
+                SolveOutcome::optimal(qubo, (sol).clone()).unwrap(),
+            )
+            .map(|outcome| outcome.into_solution().unwrap())
+            .unwrap();
         assert!(problem.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 2);
     }
@@ -65,7 +72,13 @@ fn test_maximumindependentset_to_qubo_via_path_weighted() {
         .solve(qubo)
         .unwrap()
         .expect("QUBO should be solvable via path");
-    let extracted = chain.extract_solution(&qubo_solution).unwrap();
+    let extracted = chain
+        .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, QUBO<f64>>(
+            &problem,
+            SolveOutcome::optimal(qubo, qubo_solution.clone()).unwrap(),
+        )
+        .map(|outcome| outcome.into_solution().unwrap())
+        .unwrap();
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(100)));
     assert_eq!(extracted, vec![false, true, false]);
@@ -77,14 +90,20 @@ fn test_maximumindependentset_to_qubo_via_path_empty_graph() {
     let (_, chain) = reduce_mis_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
-    assert_eq!(qubo.num_variables(), 3);
+    assert_eq!(qubo.num_variables().unwrap(), 3);
 
     let solver = BruteForce::new();
     let qubo_solution = solver
         .solve(qubo)
         .unwrap()
         .expect("QUBO should be solvable");
-    let extracted = chain.extract_solution(&qubo_solution).unwrap();
+    let extracted = chain
+        .recover_result::<MaximumIndependentSet<SimpleGraph, i64>, QUBO<f64>>(
+            &problem,
+            SolveOutcome::optimal(qubo, qubo_solution.clone()).unwrap(),
+        )
+        .map(|outcome| outcome.into_solution().unwrap())
+        .unwrap();
 
     assert_eq!(extracted, vec![true, true, true]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(3)));

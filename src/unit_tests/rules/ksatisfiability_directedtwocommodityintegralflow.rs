@@ -7,6 +7,7 @@ use crate::models::formula::CNFClause;
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -40,9 +41,24 @@ fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(problem).expect("reduction should succeed");
-    let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    problem.evaluate(&extracted).unwrap().0.then_some(extracted)
+    let ilp_solution = match ILPSolver::new().solve(reduction.target_problem()) {
+        Ok(solution) => solution,
+        Err(crate::solvers::ILPSolveError::Infeasible) => return None,
+        Err(error) => panic!("ILP execution failed: {error}"),
+    };
+    let extracted = reduction
+        .recover_result(
+            problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
+    assert!(
+        problem.evaluate(&extracted).unwrap().0,
+        "decoded flow must be feasible"
+    );
+    Some(extracted)
 }
 
 #[test]
@@ -91,7 +107,17 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
     let assignment = vec![true, true, false];
     let flow = reduction.encode_assignment(&assignment);
     assert!(reduction.target_problem().evaluate(&flow).unwrap().0);
-    assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), flow.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        assignment
+    );
 }
 
 #[test]
@@ -112,7 +138,14 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

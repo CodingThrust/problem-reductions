@@ -35,7 +35,7 @@ inventory::submit! {
 /// and minimizes `sum_t w(t) * C(t)`, where `C(t)` is the completion time of
 /// task `t`.
 ///
-/// Configurations use Lehmer code with `dims() = [n, n-1, ..., 1]`.
+/// Configurations use Lehmer code with `coordinate cardinalities = [n, n-1, ..., 1]`.
 #[derive(Debug, Clone, Serialize)]
 pub struct SequencingToMinimizeWeightedCompletionTime {
     lengths: Vec<i64>,
@@ -256,8 +256,12 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
 }
 
 impl crate::solvers::BruteForceProblem for SequencingToMinimizeWeightedCompletionTime {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks() - variable)
     }
 }
 

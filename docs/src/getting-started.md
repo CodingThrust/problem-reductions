@@ -42,13 +42,15 @@ fn main() {
     assert_eq!(target.num_constraints(), 2);
 
     let target_solution = ILPSolver::new().solve(target).unwrap();
-    let solution = reduction.extract_solution(&target_solution).unwrap();
+    let target_result = SolveOutcome::optimal(target, target_solution).unwrap();
+    let result = reduction.recover_result(&problem, target_result).unwrap();
+    let solution = result.into_solution().unwrap();
     assert_eq!(solution, vec![true, false, true, true]);
     println!("{}", problem.evaluate(&solution).unwrap()); // Max(3)
 }
 ```
 
-The target has one binary variable per set and a constraint for each element shared by multiple sets. `extract_solution` maps a target solution back to the source solution type. `ILPSolver::new().solve(&problem)` executes the exact variant’s registered ILP pipeline and returns its source solution.
+The target has one binary variable per set and a constraint for each element shared by multiple sets. `recover_result` returns the source status, solution, and evaluation together. `ILPSolver::new().solve(&problem)` executes the exact variant’s registered ILP pipeline and returns its source solution.
 
 ## Discover and run a path
 
@@ -61,10 +63,10 @@ Search uses exact variants. This discovers a route from `Factoring` to `SpinGlas
 
 let reduction = graph.reduce_along_path(rpath, &factoring).unwrap().unwrap();
 let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
-// Solve `target`, then call reduction.extract_solution(&target_solution).
+// Solve `target`, then pass its ProblemOutcome to reduction.recover_result.
 ```
 
-`extract_solution` walks the intermediate mappings in reverse. The full [example](https://github.com/CodingThrust/problem-reductions/blob/main/examples/chained_reduction_factoring_to_spinglass.rs) also solves factoring through a direct ILP reduction and checks that the recovered factors multiply to 6:
+`recover_result` walks the intermediate mappings in reverse. The full [example](https://github.com/CodingThrust/problem-reductions/blob/main/examples/chained_reduction_factoring_to_spinglass.rs) also solves factoring through a direct ILP reduction and checks that the recovered factors multiply to 6:
 
 ```bash
 cargo run --example chained_reduction_factoring_to_spinglass

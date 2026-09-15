@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::misc::EnsembleComputation;
 use crate::rules::ReduceTo;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -22,7 +23,14 @@ fn test_ensemblecomputation_to_ilp_closed_loop() {
     let source = feasible_instance();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
     let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
 
@@ -30,14 +38,20 @@ fn test_ensemblecomputation_to_ilp_closed_loop() {
 fn test_ensemblecomputation_to_ilp_infeasible_budget() {
     let source = EnsembleComputation::new(3, vec![vec![0, 1, 2]], 1);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
 fn test_ensemblecomputation_to_ilp_rejects_singleton_target() {
     let source = EnsembleComputation::new(3, vec![vec![0]], 2);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
@@ -45,6 +59,13 @@ fn test_ensemblecomputation_to_ilp_empty_family() {
     let source = EnsembleComputation::new(1, vec![], 2);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
     let target_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(0)));
 }

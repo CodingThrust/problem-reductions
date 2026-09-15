@@ -8,7 +8,9 @@
 use crate::models::decision::Decision;
 use crate::models::graph::{IntegralFlowBundles, MaximumIndependentSet};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::One;
 
@@ -27,20 +29,16 @@ impl ReductionResult for ReductionDecisionMISToIFB {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let feasible =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !feasible.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target flow must satisfy conservation, bundle capacities, and the requirement",
-            ));
-        }
-        Ok((0..self.num_source_vertices)
-            .map(|i| target_solution[2 * i + 1] == 1)
-            .collect())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok((0..self.num_source_vertices)
+                .map(|i| solution[2 * i + 1] == 1)
+                .collect())
+        })
     }
 }
 
@@ -142,7 +140,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .solve(reduction.target_problem())
                 .expect("canonical target evaluation must succeed")
                 .expect("the path has an independent set of size two");
-            let source_witness = reduction.extract_solution(&target_witness).unwrap();
+            let source_witness = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_witness.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),

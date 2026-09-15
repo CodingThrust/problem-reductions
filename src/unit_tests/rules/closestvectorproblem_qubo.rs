@@ -1,9 +1,10 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn canonical_cvp() -> ClosestVectorProblem<i64> {
-    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2]).unwrap()
+    ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2]).unwrap()
 }
 
 fn canonical_bits() -> Vec<bool> {
@@ -44,7 +45,7 @@ fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
     let basis = (0..size)
         .map(|column| (0..size).map(|row| i64::from(row == column)).collect())
         .collect();
-    let source = ClosestVectorProblem::new(basis, vec![1_i64; size]).unwrap();
+    let source = ClosestVectorProblem::<i64>::new(basis, vec![1_i64; size]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let mut bits = vec![false; reduction.target_problem().num_vars()];
     for encoding in &reduction.encodings {
@@ -57,9 +58,16 @@ fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
         }
         assert_eq!(offset, 0);
     }
-    let solution = reduction.extract_solution(&bits).unwrap();
+    let solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), bits.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(solution, vec![1; size]);
-    assert_eq!(source.evaluate(&solution).unwrap().0, Some(0.0));
+    assert_eq!(source.evaluate(&solution).unwrap().0, Some(0));
 }
 
 #[test]
@@ -70,10 +78,17 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
         .solve(reduction.target_problem())
         .unwrap()
         .unwrap();
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source_solution, vec![1, 1]);
-    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(0.0));
+    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(0));
     assert_eq!(reduction.target_problem().num_vars(), 11);
 }
 
@@ -82,24 +97,42 @@ fn test_closestvectorproblem_to_qubo_coefficients() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
     let qubo = reduction.target_problem();
 
-    assert_eq!(qubo.get(0, 0), Some(&-248));
-    assert_eq!(qubo.get(0, 1), Some(&16));
-    assert_eq!(qubo.get(0, 6), Some(&4));
-    assert_eq!(qubo.get(6, 6), Some(&-241));
+    assert_eq!(qubo.get(0, 0), Some(-248));
+    assert_eq!(qubo.get(0, 1), Some(16));
+    assert_eq!(qubo.get(0, 6), Some(4));
+    assert_eq!(qubo.get(6, 6), Some(-241));
 }
 
 #[test]
 fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
     assert_eq!(
-        reduction.extract_solution(&canonical_bits()).unwrap(),
+        reduction
+            .recover_result(
+                &canonical_cvp(),
+                SolveOutcome::optimal(reduction.target_problem(), canonical_bits().clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![1, 1]
     );
 
     let duplicate = vec![
         true, false, false, true, false, true, true, true, true, true, false,
     ];
-    assert_eq!(reduction.extract_solution(&duplicate).unwrap(), vec![1, 1]);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &canonical_cvp(),
+                SolveOutcome::optimal(reduction.target_problem(), duplicate.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![1, 1]
+    );
     assert_eq!(
         reduction
             .target_problem()
@@ -111,27 +144,35 @@ fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
 
 #[test]
 fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
-    let source = ClosestVectorProblem::new(vec![vec![1]], vec![20_i64]).unwrap();
+    let source = ClosestVectorProblem::<i64>::new(vec![vec![1]], vec![20_i64]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let target_solution = BruteForce::new()
         .solve(reduction.target_problem())
         .unwrap()
         .unwrap();
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![20]
     );
 }
 
 #[test]
 fn test_closestvectorproblem_to_qubo_reports_numeric_boundaries() {
-    let absolute_value = ClosestVectorProblem::new(vec![vec![1]], vec![i64::MIN]).unwrap();
+    let absolute_value = ClosestVectorProblem::<i64>::new(vec![vec![1]], vec![i64::MIN]).unwrap();
     assert!(matches!(
         ReduceTo::<QUBO<i64>>::reduce_to(&absolute_value),
         Err(crate::rules::ReductionError::IntegerOverflow { .. })
     ));
 
-    let large_exact = ClosestVectorProblem::new(vec![vec![100_000_000]], vec![1_i64]).unwrap();
+    let large_exact =
+        ClosestVectorProblem::<i64>::new(vec![vec![100_000_000]], vec![1_i64]).unwrap();
     assert!(ReduceTo::<QUBO<i64>>::reduce_to(&large_exact).is_ok());
 }
 
@@ -146,7 +187,7 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "ClosestVectorProblem");
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["num_vars"], 11);
+    assert_eq!(example.target.instance["matrix"]["nrows"], 11);
     assert_eq!(
         example.solutions[0].source_config,
         serde_json::json!([1, 1])
@@ -155,4 +196,26 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
         example.solutions[0].target_config,
         serde_json::to_value(canonical_bits()).unwrap()
     );
+}
+
+#[test]
+fn qubo_energy_matches_squared_distance_up_to_the_dropped_constant() {
+    let source = ClosestVectorProblem::<i64>::new(vec![vec![2]], vec![1_i64]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    assert_eq!(target.num_vars(), 3);
+    // The all-zero encoding represents x=-2, with squared distance (-4-1)^2=25.
+    for index in 0..8 {
+        let bits: Vec<bool> = (0..3).map(|bit| index & (1 << bit) != 0).collect();
+        let coefficient = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), bits.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
+        let energy = target.evaluate(&bits).unwrap().unwrap();
+        assert_eq!(source.squared_distance(&coefficient).unwrap(), energy + 25);
+    }
 }

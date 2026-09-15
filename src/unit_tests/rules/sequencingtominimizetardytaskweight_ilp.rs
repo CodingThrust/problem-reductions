@@ -1,7 +1,10 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 #[test]
@@ -29,7 +32,14 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
@@ -45,7 +55,14 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_all_on_time() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
     assert_eq!(value.0, Some(0));
@@ -69,7 +86,14 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_optimal_ordering() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     let bf = BruteForce::new();
@@ -134,24 +158,40 @@ fn test_tardy_ilp_signed_permutations_and_all_indicators() {
                             (0..count).all(|job| (bits[count * count + job] == 1) == expected[job]);
                         let value = target.evaluate(&bits).unwrap();
                         assert_eq!(value.is_valid(), exact);
-                        let extracted = reduction.extract_solution(&bits);
-                        assert_eq!(extracted.is_ok(), exact);
                         if exact {
+                            let extracted = reduction
+                                .recover_result(
+                                    &source,
+                                    SolveOutcome::optimal(reduction.target_problem(), bits.clone())
+                                        .unwrap(),
+                                )
+                                .map(|result| {
+                                    result.into_solution().expect(
+                                        "qualifying target result must recover a source solution",
+                                    )
+                                });
                             assert_eq!(value.value, source_value.0);
                             assert_eq!(extracted.unwrap(), schedule);
                         }
                     }
                 }
-                assert!(reduction
-                    .extract_solution(&vec![0; target.num_vars() + 1])
-                    .is_err());
+                assert!(matches!(
+                    ReductionResult::target_problem(&reduction).evaluate(&vec![
+                        0;
+                        target.num_vars()
+                            + 1
+                    ]),
+                    Err(InvalidConfiguration(_))
+                ));
                 if count > 0 {
-                    assert!(reduction
-                        .extract_solution(&vec![0; target.num_vars()])
-                        .is_err());
-                    assert!(reduction
-                        .extract_solution(&vec![2; target.num_vars()])
-                        .is_err());
+                    assert!(!ReductionResult::target_problem(&reduction)
+                        .evaluate(&vec![0; target.num_vars()])
+                        .unwrap()
+                        .is_valid());
+                    assert!(!ReductionResult::target_problem(&reduction)
+                        .evaluate(&vec![2; target.num_vars()])
+                        .unwrap()
+                        .is_valid());
                 }
             }
         }
@@ -170,9 +210,15 @@ fn test_tardy_ilp_complete_small_binary_target_space() {
             .map(|i| i64::from(mask & (1 << i) != 0))
             .collect();
         let value = target.evaluate(&bits).unwrap();
-        let extracted = reduction.extract_solution(&bits);
-        assert_eq!(extracted.is_ok(), value.is_valid());
-        if let Ok(schedule) = extracted {
+        if value.is_valid() {
+            let schedule = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), bits.clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert_eq!(source.evaluate(&schedule).unwrap().0, value.value);
             feasible += 1;
         }
@@ -199,7 +245,17 @@ fn test_tardy_ilp_numeric_boundaries_and_representability_errors() {
             reduction.target_problem().evaluate(&bits).unwrap().value,
             source.evaluate(&vec![0]).unwrap().0
         );
-        assert_eq!(reduction.extract_solution(&bits).unwrap(), vec![0]);
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), bits.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
+            vec![0]
+        );
     }
     for (lengths, weights, deadlines) in [
         (vec![i64::MAX, i64::MAX], vec![1, 1], vec![0, 0]),

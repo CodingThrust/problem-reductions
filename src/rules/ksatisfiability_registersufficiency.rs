@@ -12,7 +12,9 @@
 use crate::models::formula::KSatisfiability;
 use crate::models::misc::RegisterSufficiency;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
@@ -292,17 +294,22 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ordering does not satisfy the register bound and dependencies",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToRegisterSufficiency {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut assignment = vec![false; self.source_num_vars];
         let Some(layout) = &self.layout else {
             // Only the empty-conjunction target has a feasible witness here.
@@ -311,12 +318,6 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         let cutoff = target_solution[layout.w(layout.num_vars - 1)];
         for (variable, &original) in self.source_variables.iter().enumerate() {
             let positive = target_solution[layout.x_pos(variable)] < cutoff;
-            let negative = target_solution[layout.x_neg(variable)] < cutoff;
-            if positive && negative {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "both literals of variable {original} precede the extraction cutoff"
-                )));
-            }
             assignment[original] = positive;
         }
         Ok(assignment)
@@ -533,7 +534,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .as_ref()
                 .expect("canonical formula has nonempty clauses")
                 .schedule_for_assignment(&[true, true, true]);
-            let source_config = to_registers.extract_solution(&target_config).unwrap();
+            let source_config = to_registers
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(to_registers.target_problem(), target_config.clone())
+                        .unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .unwrap();
 
             crate::example_db::specs::assemble_rule_example(
                 &source,

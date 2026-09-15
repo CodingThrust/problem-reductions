@@ -7,7 +7,9 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::StringToStringCorrection;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 /// Result of reducing StringToStringCorrection to ILP.
 #[derive(Debug, Clone)]
@@ -54,12 +56,22 @@ impl ReductionResult for ReductionSTSCToILP {
     }
 
     /// Extract operation sequence from ILP solution.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionSTSCToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.n;
             let k = self.bound;
@@ -88,19 +100,7 @@ impl ReductionResult for ReductionSTSCToILP {
                         .filter(|&j| target_solution[idx_s(n, k, t, j)] == 1)
                         .map(|j| current_len + j),
                 );
-                match selected.as_slice() {
-                    [operation] => ops.push(*operation),
-                    [] => {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "edit step {t} has no selected operation"
-                        )))
-                    }
-                    _ => {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "edit step {t} has multiple selected operations"
-                        )))
-                    }
-                }
+                ops.push(selected.into_iter().sum());
             }
             ops
         })
@@ -404,7 +404,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config).unwrap();
+            let source_config = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_config.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

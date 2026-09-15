@@ -7,7 +7,8 @@
 //! QUBO Hamiltonian: H = H_A + H_B
 //!
 //! H_A enforces valid partition (one-hot per vertex) and terminal pinning.
-//! H_B encodes the cut cost objective.
+//! H_B encodes nonnegative cut costs. Negative edges are always deleted during
+//! extraction: deleting them improves the objective and preserves separation.
 //!
 //! Reference: Heidari, Dinneen & Delmas (2022).
 
@@ -15,6 +16,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MinimumMultiwayCut to QUBO.
@@ -24,6 +27,7 @@ pub struct ReductionMinimumMultiwayCutToQUBO {
     num_vertices: usize,
     num_terminals: usize,
     edges: Vec<(usize, usize)>,
+    negative_edges: Vec<bool>,
 }
 
 impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
@@ -34,38 +38,48 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
         &self.target
     }
 
-    /// Decode one-hot assignment: for each vertex find its terminal, then
-    /// for each edge check if endpoints are in different terminals.
-    fn extract_solution(
+    /// Map an optimal target assignment to an optimal edge deletion set.
+    /// The penalty guarantees one-hot, terminal-pinned assignments at every
+    /// optimum. All source instances are feasible by deleting every edge.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            }
+        }
+    }
+}
 
-        Ok({
-            let k = self.num_terminals;
-            let n = self.num_vertices;
-
-            // For each vertex, find which terminal position it is assigned to
-            let assignments: Vec<usize> = (0..n)
-                .map(|vertex| {
-                    let mut selected =
-                        (0..k).filter(|&terminal| target_solution[vertex * k + terminal]);
-                    match (selected.next(), selected.next()) {
-                        (Some(terminal), None) => Ok(terminal),
-                        _ => Err(crate::rules::ExtractionError::invalid(format!(
-                            "vertex {vertex} does not have exactly one terminal assignment"
-                        ))),
-                    }
-                })
-                .collect::<crate::rules::ExtractionResult<_>>()?;
-
-            // For each edge, output 1 (cut) if endpoints differ, 0 (keep) otherwise
-            self.edges
-                .iter()
-                .map(|&(u, v)| assignments[u] != assignments[v])
-                .collect()
-        })
+impl ReductionMinimumMultiwayCutToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        let k = self.num_terminals;
+        let assignments: Vec<usize> = (0..self.num_vertices)
+            .map(|vertex| {
+                (0..k)
+                    .find(|&terminal| target_solution[vertex * k + terminal])
+                    .unwrap()
+            })
+            .collect();
+        Ok(self
+            .edges
+            .iter()
+            .zip(&self.negative_edges)
+            .map(|(&(u, v), &negative)| negative || assignments[u] != assignments[v])
+            .collect())
     }
 }
 
@@ -91,26 +105,24 @@ impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
             .checked_mul(k)
             .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
 
-        // Penalty: sum of all edge weights + 1
+        // Nonnegative cut costs cannot reward invalid assignments. A feasible
+        // pinned partition costs at most their sum, below one penalty unit.
         let alpha = edge_weights.iter().try_fold(0i64, |total, &weight| {
             total
-                .checked_add(
-                    weight
-                        .checked_abs()
-                        .ok_or_else(|| overflow("taking the absolute value of a cut weight"))?,
-                )
-                .ok_or_else(|| overflow("summing absolute cut weights"))
+                .checked_add(weight.max(0))
+                .ok_or_else(|| overflow("summing nonnegative cut weights"))
         })?;
         let alpha = alpha
             .checked_add(1)
             .ok_or_else(|| overflow("computing the partition penalty"))?;
 
-        let mut matrix = vec![vec![0i64; nq]; nq];
+        let mut matrix = vec![std::collections::BTreeMap::new(); nq];
 
         // Helper: add value to upper-triangular position
         let mut add_upper = |i: usize, j: usize, val: i64| {
             let (lo, hi) = if i <= j { (i, j) } else { (j, i) };
-            matrix[lo][hi] = matrix[lo][hi]
+            let coefficient = matrix[lo].entry(hi).or_insert(0i64);
+            *coefficient = coefficient
                 .checked_add(val)
                 .ok_or_else(|| overflow("adding a multiway-cut QUBO coefficient"))?;
             Ok::<(), crate::rules::ReductionError>(())
@@ -158,7 +170,7 @@ impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         // For each edge (u,v) with weight w, for each pair of distinct
         // terminal positions s != t: add w to Q[u*k+s, v*k+t]
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            let w = edge_weights[edge_idx];
+            let w = edge_weights[edge_idx].max(0);
             for s in 0..k {
                 for t in 0..k {
                     if s != t {
@@ -169,15 +181,12 @@ impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         }
 
         Ok(ReductionMinimumMultiwayCutToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<
-                    MinimumMultiwayCut<SimpleGraph, i64>,
-                    QUBO<i64>,
-                >(message)
-            })?,
+            target: QUBO::from_rows(matrix)
+                .map_err(<Self as ReduceTo<QUBO<i64>>>::target_construction)?,
             num_vertices: n,
             num_terminals: k,
             edges,
+            negative_edges: edge_weights.iter().map(|&weight| weight < 0).collect(),
         })
     }
 }

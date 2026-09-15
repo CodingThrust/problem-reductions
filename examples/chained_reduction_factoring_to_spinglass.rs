@@ -1,3 +1,4 @@
+use problemreductions::solvers::SolveOutcome;
 // # Chained Reduction: Factoring -> SpinGlass
 //
 // Mirrors Julia's examples/Ising.jl — reduces a Factoring problem
@@ -27,8 +28,10 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     );
     let rpath = paths
         .iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
-        .expect("explicit Factoring -> CircuitSAT -> SpinGlass route");
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
+        .expect("explicit Factoring -> CircuitSAT -> DecisionSpinGlass -> SpinGlass route");
     println!("  {}", rpath);
     // ANCHOR_END: step1
 
@@ -45,7 +48,14 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let solver = ILPSolver::new();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&factoring).expect("reduction should succeed");
     let ilp_solution = solver.solve(reduction.target_problem()).unwrap();
-    let solution = reduction.extract_solution(&ilp_solution).unwrap();
+    let solution = reduction
+        .recover_result(
+            &factoring,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     // ANCHOR_END: step3
 
     // ANCHOR: step4

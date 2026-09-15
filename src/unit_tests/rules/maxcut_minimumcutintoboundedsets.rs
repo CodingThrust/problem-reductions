@@ -2,6 +2,7 @@ use super::*;
 use crate::models::graph::{MaxCut, MinimumCutIntoBoundedSets};
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -124,7 +125,14 @@ fn test_maxcut_to_minimumcutintoboundedsets_extract_solution_size() {
 
     // Target has 8 vertices, extract should return 3
     let dummy_target_sol = vec![false, true, false, true, false, true, false, true];
-    let extracted = reduction.extract_solution(&dummy_target_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), dummy_target_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 3);
 }
 

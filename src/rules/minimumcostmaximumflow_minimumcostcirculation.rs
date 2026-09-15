@@ -17,7 +17,8 @@
 
 use crate::models::graph::{MinimumCostCirculation, MinimumCostMaximumFlow};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::DirectedGraph;
 
 /// Result of reducing MinimumCostMaximumFlow to MinimumCostCirculation.
@@ -43,13 +44,14 @@ impl ReductionResult for ReductionMCMFToMCC {
     /// Extract the source flow by discarding the return arc: the first
     /// `num_original_arcs` entries of the circulation are exactly the
     /// flow values on the original arcs.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution[..self.num_original_arcs].to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution[..self.num_original_arcs].to_vec())
+        })
     }
 }
 

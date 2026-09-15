@@ -3,6 +3,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumContactMapOverlap;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -49,7 +50,14 @@ fn test_maximumcontactmapoverlap_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("canonical CMO ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // The optimal alignment preserves both contacts of G_1.
     assert!(source.is_valid_solution(&extracted));
@@ -74,7 +82,14 @@ fn test_maximumcontactmapoverlap_to_ilp_trivial_no_contacts() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("empty-contact ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(0)));
 }
@@ -102,7 +117,14 @@ fn test_maximumcontactmapoverlap_to_ilp_order_preserving_forbidden() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));
@@ -129,7 +151,14 @@ fn test_maximumcontactmapoverlap_to_ilp_extract_solution_partial() {
     let mut target_sol = vec![0_i64; reduction.target_problem().num_vars()];
     target_sol[1] = 1;
     target_sol[n2 + 2] = 1;
-    let extracted = reduction.extract_solution(&target_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     // Encoding: vertex j of G_2 is represented as j+1.
     assert_eq!(extracted, vec![2, 3]);
     assert!(source.is_valid_solution(&extracted));

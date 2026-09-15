@@ -2,6 +2,9 @@ use super::{issue_example_source, ReductionFVSToCodeGen};
 use crate::models::misc::MinimumCodeGenerationUnlimitedRegisters;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
+use crate::traits::Problem;
 
 #[test]
 fn test_minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters_closed_loop() {
@@ -48,7 +51,14 @@ fn test_codegen_start_nodes_cover_self_loops_and_parallel_arcs() {
     assert_eq!(target.num_internal(), 7);
     let config = (0..7).collect();
     assert_eq!(target.evaluate(&config).unwrap(), Min(Some(9)));
-    let removed = reduction.extract_solution(&config).unwrap();
+    let removed = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(removed, vec![true, false, true]);
     assert_eq!(source.evaluate(&removed).unwrap(), Min(Some(2)));
 }
@@ -63,14 +73,30 @@ fn test_codegen_empty_graph_and_invalid_orders() {
     let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&empty).unwrap();
     assert_eq!(reduction.target_problem().num_vertices(), 1);
     assert_eq!(
-        reduction.extract_solution(&vec![]).unwrap(),
+        reduction
+            .recover_result(
+                &empty,
+                SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<bool>::new()
     );
     let source = issue_example_source();
     let reduction =
         ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source).unwrap();
-    for config in [vec![], vec![9; 6], vec![0; 6], vec![1, 0, 2, 3, 4, 5]] {
-        assert!(reduction.extract_solution(&config).is_err());
+    for config in [vec![], vec![9; 6]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&config),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for config in [vec![0; 6], vec![1, 0, 2, 3, 4, 5]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&config)
+            .unwrap()
+            .is_valid());
     }
 }
 
@@ -122,7 +148,18 @@ fn test_codegen_every_small_evaluation_permutation() {
                 &mut |p| {
                     let config = p.to_vec();
                     if let Min(Some(cost)) = target.evaluate(&config).unwrap() {
-                        let removed = reduction.extract_solution(&config).unwrap();
+                        let removed = reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), config.clone())
+                                    .unwrap(),
+                            )
+                            .map(|result| {
+                                result.into_solution().expect(
+                                    "qualifying target result must recover a source solution",
+                                )
+                            })
+                            .unwrap();
                         let Min(Some(size)) = source.evaluate(&removed).unwrap() else {
                             panic!("every valid target order must extract an FVS");
                         };

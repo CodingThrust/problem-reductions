@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -58,7 +57,10 @@ fn test_minimum_cost_maximum_flow_creation() {
     assert_eq!(problem.sink(), 3);
     assert_eq!(problem.capacities(), &[2, 1, 1, 1, 2]);
     assert_eq!(problem.costs(), &[1, 0, 0, 1, 2]);
-    assert_eq!(problem.dimensions(), vec![3, 2, 2, 2, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 2, 2, 2, 3]
+    );
     assert_eq!(
         <MinimumCostMaximumFlow as Problem>::NAME,
         "MinimumCostMaximumFlow"

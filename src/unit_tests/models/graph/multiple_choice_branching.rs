@@ -58,7 +58,10 @@ fn test_multiple_choice_branching_creation_and_accessors() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 8);
     assert_eq!(problem.num_partition_groups(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
     assert_eq!(problem.graph().arcs().len(), 8);
     assert_eq!(problem.weights(), &[3, 2, 4, 1, 2, 3, 1, 3]);
     assert_eq!(
@@ -277,5 +280,5 @@ fn test_multiple_choice_branching_set_weights_rejects_wrong_length() {
 #[test]
 fn test_multiple_choice_branching_num_variables() {
     let problem = yes_instance();
-    assert_eq!(problem.num_variables(), 8);
+    assert_eq!(problem.num_variables().unwrap(), 8);
 }

@@ -162,14 +162,18 @@ impl<G> crate::solvers::BruteForceProblem for MinimumIntersectionGraphBasis<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        let m = self.graph.num_edges();
-        if m == 0 {
-            // No edges: no variables needed; empty assignment is trivially valid.
-            return vec![];
-        }
-        vec![2; n * m]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.graph.num_vertices())
+            .checked_mul(self.graph.num_edges())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a search coordinate size".into(),
+                )
+            })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2)
     }
 }
 

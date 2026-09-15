@@ -7,6 +7,9 @@ use crate::models::misc::MinimumAxiomSet;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
+use crate::traits::Problem;
 
 /// Result of reducing ExactCoverBy3Sets to MinimumAxiomSet.
 #[derive(Debug, Clone)]
@@ -27,14 +30,51 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
     /// Extract the chosen source subsets from the set-sentence coordinates.
     ///
     /// For YES-instances, every optimal target witness of value q consists only of
-    /// q set-sentences, which form an exact cover. For NO-instances, the extracted
-    /// vector may be non-satisfying, which is expected for an `Or -> Min` rule.
-    fn extract_solution(
+    /// q set-sentences, which form an exact cover. If a target optimum does not
+    /// decode to an exact cover, the source result is `Infeasible`. Without
+    /// optimality, failure to decode a cover is insufficient evidence of NO.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Optimal {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Ok(SolveOutcome::Infeasible)
+                }
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Feasible {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                }
+            }
+        }
+    }
+}
 
+impl ReductionXC3SToMinimumAxiomSet {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let set_offset = self.source_universe_size;
             (0..self.source_num_subsets)

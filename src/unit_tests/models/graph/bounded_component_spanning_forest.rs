@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -104,7 +103,10 @@ fn test_bounded_component_spanning_forest_creation() {
     assert_eq!(problem.max_weight(), &6);
     assert_eq!(problem.num_vertices(), 8);
     assert_eq!(problem.num_edges(), 10);
-    assert_eq!(problem.dimensions(), vec![3; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 8]
+    );
     assert!(problem.is_weighted());
 }
 

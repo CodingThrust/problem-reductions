@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::BalancedCompleteBipartiteSubgraph;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 
@@ -45,7 +46,10 @@ fn test_infeasible_instance() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = crate::solvers::ILPSolver::new();
-    assert!(solver.solve(ilp).is_err());
+    assert_eq!(
+        solver.solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
@@ -54,7 +58,14 @@ fn test_extract_solution_identity() {
     let reduction: ReductionBCBSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![1, 1, 0, 1, 1, 0];
-    let extracted = reduction.extract_solution(&target_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, false, true, true, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }

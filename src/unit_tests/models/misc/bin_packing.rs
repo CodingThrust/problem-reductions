@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -9,9 +8,17 @@ fn test_bin_packing_creation() {
     assert_eq!(problem.num_items(), 6);
     assert_eq!(problem.sizes(), &[6, 6, 5, 5, 4, 4]);
     assert_eq!(*problem.capacity(), 10);
-    assert_eq!(problem.dimensions().len(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        6
+    );
     // Each variable has domain {0, ..., 5}
-    assert!(problem.dimensions().iter().all(|&d| d == 6));
+    assert!(crate::solvers::cartesian_dimensions(&problem)
+        .unwrap()
+        .iter()
+        .all(|&d| d == 6));
 }
 
 #[test]
@@ -92,7 +99,10 @@ fn test_bin_packing_brute_force_small() {
 fn test_bin_packing_empty_items() {
     let problem = BinPacking::new(Vec::<i64>::new(), 10).unwrap();
     assert_eq!(problem.num_items(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     let result = problem.evaluate(&vec![]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 0);

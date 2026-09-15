@@ -6,8 +6,8 @@
 use crate::models::formula::Satisfiability;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::BruteForceProblem as _;
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use std::collections::HashSet;
 
 /// Result of reducing SAT to CircuitSAT.
@@ -26,12 +26,22 @@ impl ReductionResult for ReductionSATToCircuit {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionSATToCircuit {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             self.source_var_indices
                 .iter()
@@ -55,7 +65,7 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
     type Result = ReductionSATToCircuit;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let num_vars = self.num_variables();
+        let num_vars = self.num_vars();
         let clauses = self.clauses();
 
         let mut assignments = Vec::new();

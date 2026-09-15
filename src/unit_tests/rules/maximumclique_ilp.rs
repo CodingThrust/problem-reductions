@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 
 /// Check if a configuration represents a valid clique in the graph.
 /// A clique is valid if all selected vertices are pairwise adjacent.
@@ -122,7 +123,14 @@ fn test_maximumclique_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Both should find optimal size = 3 (all vertices form a clique)
     let ilp_size = clique_size(&problem, &extracted);
@@ -154,7 +162,14 @@ fn test_ilp_solution_equals_brute_force_path() {
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_size = clique_size(&problem, &extracted);
 
     assert_eq!(bf_size, 2);
@@ -181,7 +196,14 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf_obj = brute_force_max_clique(&problem);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_obj = clique_size(&problem, &extracted);
 
     assert_eq!(bf_obj, 101);
@@ -200,7 +222,14 @@ fn test_solution_extraction() {
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, false, false]);
 
     // Verify this is a valid clique (0 and 1 are adjacent)
@@ -236,7 +265,14 @@ fn test_empty_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Only one vertex should be selected
     assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 1);
@@ -261,7 +297,14 @@ fn test_complete_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // All vertices should be selected
     assert_eq!(extracted, vec![true, true, true, true]);
@@ -284,7 +327,14 @@ fn test_bipartite_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 2);
@@ -311,7 +361,14 @@ fn test_star_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 2);

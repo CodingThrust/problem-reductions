@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -19,9 +18,17 @@ fn test_flow_shop_scheduling_creation() {
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(problem.num_processors(), 3);
     assert_eq!(problem.deadline(), 25);
-    assert_eq!(problem.dimensions().len(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        5
+    );
     // Lehmer code encoding: dims = [5, 4, 3, 2, 1]
-    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 3, 2, 1]
+    );
 }
 
 #[test]
@@ -149,7 +156,10 @@ fn test_flow_shop_scheduling_brute_force_unsatisfiable() {
 fn test_flow_shop_scheduling_empty() {
     let problem = FlowShopScheduling::new(3, vec![], 0);
     assert_eq!(problem.num_jobs(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     // Empty config should be satisfying (no jobs to schedule)
     assert!(problem.evaluate(&vec![]).unwrap());
 }

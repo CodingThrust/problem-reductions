@@ -3,6 +3,7 @@ use crate::models::graph::{BoundedComponentSpanningForest, PartitionIntoPathsOfL
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -92,7 +93,14 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_extract_so
         .expect("reduction should succeed");
 
     let target_config = vec![0, 0, 0, 1, 1, 1];
-    let extracted = result.extract_solution(&target_config).unwrap();
+    let extracted = result
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(result.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
 
     // Verify the extracted solution is valid in the source

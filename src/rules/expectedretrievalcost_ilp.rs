@@ -18,19 +18,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ExpectedRetrievalCost;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
-use crate::rules::traits::{ReduceTo, ReductionResult};
-
-/// Compute the latency distance between sectors on a circular device.
-///
-/// Returns the number of sectors between source and target (not counting source itself),
-/// wrapping around. This matches the `latency_distance` function in the model.
-fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
-    if source < target {
-        target - source - 1
-    } else {
-        num_sectors - source + target - 1
-    }
-}
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing ExpectedRetrievalCost to ILP.
 ///
@@ -66,13 +55,28 @@ impl ReductionResult for ReductionERCToILP {
     }
 
     /// Extract solution: for each record r, find the unique sector s where x_{r,s} = 1.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
-        one_hot_decode_rows(target_solution, self.num_records, self.num_sectors, 0)
+impl ReductionERCToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(one_hot_decode_rows(
+            target_solution,
+            self.num_records,
+            self.num_sectors,
+            0,
+        ))
     }
 }
 
@@ -135,7 +139,7 @@ impl ReduceTo<ILP<bool, f64>> for ExpectedRetrievalCost {
             for s in 0..num_sectors {
                 for r2 in 0..num_records {
                     for s2 in 0..num_sectors {
-                        let lat = latency_distance(num_sectors, s, s2) as f64;
+                        let lat = self.latency_distance(s, s2) as f64;
                         if lat > 0.0 {
                             let coeff = lat * probabilities[r] * probabilities[r2];
                             if coeff.abs() > 0.0 {

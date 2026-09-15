@@ -30,6 +30,7 @@ inventory::submit! {
 /// - `f2(u, v)`
 /// - `f2(v, u)`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "UndirectedTwoCommodityIntegralFlowData")]
 pub struct UndirectedTwoCommodityIntegralFlow {
     graph: SimpleGraph,
     capacities: Vec<i64>,
@@ -39,6 +40,34 @@ pub struct UndirectedTwoCommodityIntegralFlow {
     sink_2: usize,
     requirement_1: i64,
     requirement_2: i64,
+}
+
+#[derive(Deserialize)]
+struct UndirectedTwoCommodityIntegralFlowData {
+    graph: SimpleGraph,
+    capacities: Vec<i64>,
+    source_1: usize,
+    sink_1: usize,
+    source_2: usize,
+    sink_2: usize,
+    requirement_1: i64,
+    requirement_2: i64,
+}
+
+impl TryFrom<UndirectedTwoCommodityIntegralFlowData> for UndirectedTwoCommodityIntegralFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: UndirectedTwoCommodityIntegralFlowData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.capacities,
+            data.source_1,
+            data.sink_1,
+            data.source_2,
+            data.sink_2,
+            data.requirement_1,
+            data.requirement_2,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -129,36 +158,7 @@ impl UndirectedTwoCommodityIntegralFlow {
         requirement_1: i64,
         requirement_2: i64,
     ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_edges(),
-            "capacities length must match graph num_edges"
-        );
-
-        let num_vertices = graph.num_vertices();
-        for (label, vertex) in [
-            ("source_1", source_1),
-            ("sink_1", sink_1),
-            ("source_2", source_2),
-            ("sink_2", sink_2),
-        ] {
-            assert!(
-                vertex < num_vertices,
-                "{label} must be less than num_vertices ({num_vertices})"
-            );
-        }
-
-        for &capacity in &capacities {
-            let domain = usize::try_from(capacity)
-                .ok()
-                .and_then(|value| value.checked_add(1));
-            assert!(
-                domain.is_some(),
-                "edge capacities must fit into usize for dims()"
-            );
-        }
-
-        Self {
+        Self::try_new(
             graph,
             capacities,
             source_1,
@@ -167,7 +167,53 @@ impl UndirectedTwoCommodityIntegralFlow {
             sink_2,
             requirement_1,
             requirement_2,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn try_new(
+        graph: SimpleGraph,
+        capacities: Vec<i64>,
+        source_1: usize,
+        sink_1: usize,
+        source_2: usize,
+        sink_2: usize,
+        requirement_1: i64,
+        requirement_2: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_edges() {
+            return Err("capacities length must match graph num_edges".into());
         }
+
+        let num_vertices = graph.num_vertices();
+        for (label, vertex) in [
+            ("source_1", source_1),
+            ("sink_1", sink_1),
+            ("source_2", source_2),
+            ("sink_2", sink_2),
+        ] {
+            if !(vertex < num_vertices) {
+                return Err(
+                    format!("{label} must be less than num_vertices ({num_vertices})").into(),
+                );
+            }
+        }
+
+        if !(capacities.iter().all(|&capacity| capacity >= 0)) {
+            return Err("capacities must be nonnegative".into());
+        }
+
+        Ok(Self {
+            graph,
+            capacities,
+            source_1,
+            sink_1,
+            source_2,
+            sink_2,
+            requirement_1,
+            requirement_2,
+        })
     }
 
     pub fn graph(&self) -> &SimpleGraph {
@@ -226,13 +272,6 @@ impl UndirectedTwoCommodityIntegralFlow {
 
     fn config_len(&self) -> usize {
         self.num_edges() * 4
-    }
-
-    fn domain_size(capacity: i64) -> usize {
-        usize::try_from(capacity)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .expect("capacity already validated to fit into usize")
     }
 
     fn edge_flows(&self, config: &[usize], edge_index: usize) -> Option<[usize; 4]> {
@@ -403,14 +442,14 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
 }
 
 impl crate::solvers::BruteForceProblem for UndirectedTwoCommodityIntegralFlow {
-    fn dimensions(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .flat_map(|&capacity| {
-                let domain = Self::domain_size(capacity);
-                std::iter::repeat_n(domain, 4)
-            })
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(4 * self.capacities.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(
+            i128::from(self.capacities[variable / 4]) + 1,
+        )?)
     }
 }
 

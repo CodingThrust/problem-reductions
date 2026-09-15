@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::QuadraticDiophantineEquations;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 use crate::variant::K3;
@@ -30,7 +31,14 @@ fn test_ksatisfiability_to_quadraticdiophantineequations_closed_loop() {
         Or(true)
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -45,7 +53,14 @@ fn test_ksatisfiability_to_quadraticdiophantineequations_canonical_witness() {
 
     assert_eq!(target.evaluate(&target_config).unwrap(), Or(true));
 
-    let extracted = reduction.extract_solution(&target_config).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, false]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
 }

@@ -32,7 +32,7 @@ inventory::submit! {
 /// # Representation
 ///
 /// A configuration encodes a permutation using the Lehmer code:
-/// `dims() = [n, n-1, ..., 2, 1]`, yielding `n!` reachable configurations.
+/// `coordinate cardinalities = [n, n-1, ..., 2, 1]`, yielding `n!` reachable configurations.
 /// Each configuration is decoded to a permutation of `0..n`, and a solution is
 /// valid when every consecutive pair `(path[i], path[i+1])` is an arc in the
 /// directed graph.
@@ -118,14 +118,13 @@ impl Problem for DirectedHamiltonianPath {
 }
 
 impl crate::solvers::BruteForceProblem for DirectedHamiltonianPath {
-    fn dimensions(&self) -> Vec<usize> {
-        lehmer_dims(self.graph.num_vertices())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
     }
-}
 
-/// Returns the Lehmer code dimension vector for `n` items: `[n, n-1, ..., 2, 1]`.
-pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
-    (1..=n).rev().collect()
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices() - variable)
+    }
 }
 
 /// Decode a Lehmer code into a permutation.

@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Tucker matrix (3×4) — the classic C1P obstruction.
@@ -18,7 +17,10 @@ fn test_consecutive_ones_submatrix_basic() {
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_cols(), 4);
     assert_eq!(problem.bound(), 3);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <ConsecutiveOnesSubmatrix as Problem>::NAME,
         "ConsecutiveOnesSubmatrix"
@@ -205,7 +207,10 @@ fn test_consecutive_ones_submatrix_empty_matrix_vacuous_case() {
     assert!(problem.matrix().is_empty());
     assert_eq!(problem.num_rows(), 0);
     assert_eq!(problem.num_cols(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 
@@ -232,4 +237,12 @@ fn test_consecutive_ones_submatrix_k_too_large() {
 fn test_consecutive_ones_submatrix_inconsistent_rows() {
     let matrix = vec![vec![true, false], vec![true]];
     ConsecutiveOnesSubmatrix::new(matrix, 1);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<ConsecutiveOnesSubmatrix>(
+        serde_json::json!({"matrix":[[true]],"bound":2})
+    )
+    .is_err());
 }

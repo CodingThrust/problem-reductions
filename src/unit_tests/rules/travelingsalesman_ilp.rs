@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -40,7 +41,14 @@ fn test_reduction_c4_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Verify extracted solution is valid on source problem
     let metric = problem.evaluate(&extracted).unwrap();
@@ -59,7 +67,14 @@ fn test_reduction_k4_weighted_closed_loop() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Solve via brute force for cross-check
     let bf = BruteForce::new();
@@ -87,7 +102,14 @@ fn test_reduction_c5_unweighted_closed_loop() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid());
@@ -108,8 +130,9 @@ fn test_no_hamiltonian_cycle_infeasible() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
 
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Path graph should have no Hamiltonian cycle (infeasible ILP)"
     );
 }
@@ -127,7 +150,14 @@ fn test_solution_extraction_structure() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Should have one value per edge
     assert_eq!(extracted.len(), 4);

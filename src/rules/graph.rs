@@ -11,10 +11,9 @@
 //! - JSON export for documentation and visualization
 
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ParameterContractError, ReduceFn, ReductionEntry,
+    EdgeCapabilities, ExecutedStep, ParameterContractError, ReduceFn, ReductionEntry,
     ReductionParameterContract,
 };
-use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemParameters;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
@@ -22,7 +21,6 @@ use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
-use std::rc::Rc;
 
 type NodePathOrderKey<'a> = (usize, Vec<(&'static str, &'a BTreeMap<String, String>)>);
 
@@ -43,13 +41,12 @@ pub struct ReductionEdgeInfo {
 pub(crate) struct ReductionEdgeData {
     pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
     pub reduce_fn: Option<ReduceFn>,
-    pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     pub turing: bool,
 }
 
 impl ReductionEdgeData {
     fn capabilities(&self) -> EdgeCapabilities {
-        EdgeCapabilities::from_executors(self.reduce_fn, self.reduce_aggregate_fn, self.turing)
+        EdgeCapabilities::from_executors(self.reduce_fn, self.turing)
     }
 }
 
@@ -121,8 +118,6 @@ pub(crate) struct EdgeJson {
     pub(crate) doc_path: String,
     /// Whether the edge supports witness/config workflows.
     pub(crate) witness: bool,
-    /// Whether the edge supports aggregate/value workflows.
-    pub(crate) aggregate: bool,
     /// Whether the edge is a Turing (multi-query) reduction.
     pub(crate) turing: bool,
 }
@@ -330,7 +325,6 @@ pub enum TraversalFlow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReductionMode {
     Witness,
-    Aggregate,
     /// Multi-query (Turing) reductions: solving the source requires multiple
     /// adaptive queries to the target (e.g., binary search over a bound).
     Turing,
@@ -454,7 +448,7 @@ impl ReductionGraph {
                     ReductionEdgeData {
                         parameter_contract,
                         reduce_fn: entry.reduce_fn,
-                        reduce_aggregate_fn: entry.reduce_aggregate_fn,
+
                         turing: entry.turing,
                     },
                 );
@@ -497,7 +491,6 @@ impl ReductionGraph {
     fn edge_supports_mode(edge: &ReductionEdgeData, mode: ReductionMode) -> bool {
         match mode {
             ReductionMode::Witness => edge.reduce_fn.is_some(),
-            ReductionMode::Aggregate => edge.reduce_aggregate_fn.is_some(),
             ReductionMode::Turing => edge.turing,
         }
     }
@@ -1407,7 +1400,6 @@ impl ReductionGraph {
                 parameter_contract_error,
                 doc_path,
                 witness: capabilities.witness,
-                aggregate: capabilities.aggregate,
                 turing: capabilities.turing,
             });
         }
@@ -1528,21 +1520,54 @@ pub struct MatchedEntry {
     pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
 }
 
+/// Recover each intermediate result with its corresponding source instance.
+fn recover_steps(
+    steps: &[ExecutedStep],
+    source: &dyn Any,
+    mut target: crate::solvers::ErasedOutcome,
+) -> crate::rules::ExtractionResult<crate::solvers::ErasedOutcome> {
+    for index in (0..steps.len()).rev() {
+        let input = if index == 0 {
+            source
+        } else {
+            steps[index - 1].witness.target_problem_any()
+        };
+        target = steps[index].witness.recover_result_dyn(input, target)?;
+    }
+    Ok(target)
+}
+
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
 ///
 /// Holds the intermediate reduction results from executing a multi-step
 /// reduction path. Provides access to the final target problem and
 /// solution extraction back to the source problem space.
 pub struct ReductionChain {
-    steps: Vec<Box<dyn DynReductionResult>>,
+    pub(crate) steps: Vec<ExecutedStep>,
 }
 
 impl ReductionChain {
+    pub(crate) fn execute(
+        source: &dyn Any,
+        reducers: &[ReduceFn],
+    ) -> Result<Self, crate::rules::ReductionError> {
+        let mut steps: Vec<ExecutedStep> = Vec::with_capacity(reducers.len());
+        for reduce in reducers {
+            let input = steps
+                .last()
+                .map(|step| step.witness.target_problem_any())
+                .unwrap_or(source);
+            steps.push(reduce(input)?);
+        }
+        Ok(Self { steps })
+    }
+
     /// Get the final target problem as a type-erased reference.
     pub fn target_problem_any(&self) -> &dyn Any {
         self.steps
             .last()
             .expect("ReductionChain has no steps")
+            .witness
             .target_problem_any()
     }
 
@@ -1555,87 +1580,56 @@ impl ReductionChain {
             .expect("ReductionChain target type mismatch")
     }
 
-    /// Extract a solution from target space back to source space.
-    pub fn extract_solution<S: 'static, T: 'static>(
+    /// Recover a typed result through every executed step.
+    pub fn recover_result<
+        S: crate::traits::Problem + 'static,
+        T: crate::traits::Problem + 'static,
+    >(
         &self,
-        target_solution: &T,
-    ) -> crate::rules::ExtractionResult<S> {
-        let mut steps = self.steps.iter().rev();
-        let first = steps.next().expect("ReductionChain has no steps");
-        let mut solution = first.extract_solution_dyn(target_solution)?;
-        for step in steps {
-            solution = step.extract_solution_dyn(solution.as_ref())?;
-        }
-        solution
-            .downcast::<S>()
-            .map(|solution| *solution)
-            .map_err(|_| crate::rules::ExtractionError::invalid("source solution type mismatch"))
+        source: &S,
+        target: crate::solvers::ProblemOutcome<T>,
+    ) -> crate::rules::ExtractionResult<crate::solvers::ProblemOutcome<S>>
+    where
+        S::Solution: 'static,
+        S::Value: 'static,
+        T::Solution: 'static,
+        T::Value: 'static,
+    {
+        crate::solvers::downcast_outcome(recover_steps(
+            &self.steps,
+            source,
+            crate::solvers::erase_outcome(target),
+        )?)
     }
 
-    /// Extract a JSON target witness into a JSON source witness.
-    pub fn extract_solution_json(
+    pub(crate) fn recover_erased(
         &self,
-        target_solution: serde_json::Value,
-    ) -> crate::rules::ExtractionResult<serde_json::Value> {
+        source: &dyn Any,
+        target: crate::solvers::ErasedOutcome,
+    ) -> crate::rules::ExtractionResult<crate::solvers::ErasedOutcome> {
+        recover_steps(&self.steps, source, target)
+    }
+
+    /// Recover the source result and return it with the validated target result.
+    /// The returned pair is `(source, target)`; target evaluation is computed once
+    /// from the model, never trusted from the incoming display string.
+    pub fn recover_result_json(
+        &self,
+        source: &dyn Any,
+        target: crate::solvers::SolveOutcome,
+    ) -> crate::rules::ExtractionResult<(crate::solvers::SolveOutcome, crate::solvers::SolveOutcome)>
+    {
         let last = self.steps.last().expect("ReductionChain has no steps");
-        let mut solution = last.target_solution_from_json(target_solution)?;
-        for step in self.steps.iter().rev() {
-            solution = step.extract_solution_dyn(solution.as_ref())?;
-        }
-        self.steps[0].source_solution_json(solution.as_ref())
-    }
-}
-
-/// A composed aggregate reduction chain produced by
-/// [`ReductionGraph::reduce_aggregate_along_path`].
-pub struct AggregateReductionChain {
-    steps: Vec<Box<dyn DynAggregateReductionResult>>,
-}
-
-impl AggregateReductionChain {
-    /// Get the final target problem as a type-erased reference.
-    pub fn target_problem_any(&self) -> &dyn Any {
-        self.steps
-            .last()
-            .expect("AggregateReductionChain has no steps")
-            .target_problem_any()
-    }
-
-    /// Get a typed reference to the final target problem.
-    ///
-    /// Panics if the actual target type does not match `T`.
-    pub fn target_problem<T: 'static>(&self) -> &T {
-        self.target_problem_any()
-            .downcast_ref::<T>()
-            .expect("AggregateReductionChain target type mismatch")
-    }
-
-    /// Extract an aggregate value from target space back to source space.
-    pub fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
-        self.steps
-            .iter()
-            .rev()
-            .fold(target_value, |value, step| step.extract_value_dyn(value))
+        let (target, target_json) = last.witness.target_result_from_json(target)?;
+        let source = recover_steps(&self.steps, source, target)?;
+        Ok((
+            self.steps[0].witness.source_result_json(source)?,
+            target_json,
+        ))
     }
 }
 
 impl ReductionGraph {
-    fn execute_aggregate_edge(
-        &self,
-        edge_idx: EdgeIndex,
-        input: &dyn Any,
-    ) -> Result<Option<Box<dyn DynAggregateReductionResult>>, crate::rules::ReductionError> {
-        let edge = &self.graph[edge_idx];
-        if !Self::edge_supports_mode(edge, ReductionMode::Aggregate) {
-            return Ok(None);
-        }
-
-        let Some(reduce) = edge.reduce_aggregate_fn else {
-            return Ok(None);
-        };
-        reduce(input).map(Some)
-    }
-
     /// Execute a reduction path on a source problem instance.
     ///
     /// Looks up each edge's `reduce_fn`, chains them, and returns the
@@ -1649,7 +1643,8 @@ impl ReductionGraph {
     ///     return Err("path is not witness-executable".into());
     /// };
     /// let target: &QUBO<f64> = chain.target_problem();
-    /// let source_solution = chain.extract_solution(&target_solution);
+    /// let target_result = SolveOutcome::optimal(target, target_solution)?;
+    /// let source_result = chain.recover_result::<Source, QUBO<f64>>(&source_problem, target_result)?;
     /// ```
     pub fn reduce_along_path(
         &self,
@@ -1679,60 +1674,7 @@ impl ReductionGraph {
             };
             edge_fns.push(reduce);
         }
-        // Execute the chain
-        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        let step = (edge_fns[0])(source)?;
-        steps.push(step);
-        for edge_fn in &edge_fns[1..] {
-            let step = {
-                let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)?
-            };
-            steps.push(step);
-        }
-        Ok(Some(ReductionChain { steps }))
-    }
-
-    /// Execute an aggregate-value reduction path on a source problem instance.
-    pub fn reduce_aggregate_along_path(
-        &self,
-        path: &ReductionPath,
-        source: &dyn Any,
-    ) -> Result<Option<AggregateReductionChain>, crate::rules::ReductionError> {
-        if path.steps.len() < 2 {
-            return Ok(None);
-        }
-
-        let mut edge_indices = Vec::new();
-        for window in path.steps.windows(2) {
-            let Some(src) = self.lookup_node(&window[0].name, &window[0].variant) else {
-                return Ok(None);
-            };
-            let Some(dst) = self.lookup_node(&window[1].name, &window[1].variant) else {
-                return Ok(None);
-            };
-            let Some(edge_idx) = self.graph.find_edge(src, dst) else {
-                return Ok(None);
-            };
-            edge_indices.push(edge_idx);
-        }
-
-        let mut steps: Vec<Box<dyn DynAggregateReductionResult>> = Vec::new();
-        let Some(step) = self.execute_aggregate_edge(edge_indices[0], source)? else {
-            return Ok(None);
-        };
-        steps.push(step);
-        for &edge_idx in &edge_indices[1..] {
-            let step = {
-                let prev_target = steps.last().unwrap().target_problem_any();
-                let Some(step) = self.execute_aggregate_edge(edge_idx, prev_target)? else {
-                    return Ok(None);
-                };
-                step
-            };
-            steps.push(step);
-        }
-        Ok(Some(AggregateReductionChain { steps }))
+        Ok(Some(ReductionChain::execute(source, &edge_fns)?))
     }
 }
 
@@ -1744,7 +1686,7 @@ pub struct ExecutedPath {
     /// The variant-level path.
     pub path: ReductionPath,
     /// The executed reduction steps (one per hop), shared via `Rc`.
-    steps: Vec<Rc<dyn DynReductionResult>>,
+    steps: Vec<ExecutedStep>,
 }
 
 impl ExecutedPath {
@@ -1753,6 +1695,7 @@ impl ExecutedPath {
         self.steps
             .last()
             .expect("ExecutedPath has no steps")
+            .witness
             .target_problem_any()
     }
 
@@ -1765,27 +1708,32 @@ impl ExecutedPath {
                 ReductionGraph::compute_problem_parameters(
                     &target.name,
                     &target.variant,
-                    result.target_problem_any(),
+                    result.witness.target_problem_any(),
                 )
             })
             .collect()
     }
 
-    /// Extract a solution from target space back to source space.
-    pub fn extract_solution<S: 'static, T: 'static>(
+    /// Recover a typed result through the shared executed prefix.
+    pub fn recover_result<
+        S: crate::traits::Problem + 'static,
+        T: crate::traits::Problem + 'static,
+    >(
         &self,
-        target_solution: &T,
-    ) -> crate::rules::ExtractionResult<S> {
-        let mut steps = self.steps.iter().rev();
-        let first = steps.next().expect("ExecutedPath has no steps");
-        let mut solution = first.extract_solution_dyn(target_solution)?;
-        for step in steps {
-            solution = step.extract_solution_dyn(solution.as_ref())?;
-        }
-        solution
-            .downcast::<S>()
-            .map(|solution| *solution)
-            .map_err(|_| crate::rules::ExtractionError::invalid("source solution type mismatch"))
+        source: &S,
+        target: crate::solvers::ProblemOutcome<T>,
+    ) -> crate::rules::ExtractionResult<crate::solvers::ProblemOutcome<S>>
+    where
+        S::Solution: 'static,
+        S::Value: 'static,
+        T::Solution: 'static,
+        T::Value: 'static,
+    {
+        crate::solvers::downcast_outcome(recover_steps(
+            &self.steps,
+            source,
+            crate::solvers::erase_outcome(target),
+        )?)
     }
 }
 
@@ -1796,8 +1744,7 @@ impl ReductionGraph {
         paths: &[ReductionPath],
         source_instance: &dyn Any,
     ) -> Result<Vec<ExecutedPath>, ExecutePathsError> {
-        let mut prefixes: HashMap<Vec<ReductionStep>, Vec<Rc<dyn DynReductionResult>>> =
-            HashMap::new();
+        let mut prefixes: HashMap<Vec<ReductionStep>, ExecutedStep> = HashMap::new();
         let mut executed = Vec::with_capacity(paths.len());
         let mut batch_source: Option<&ReductionStep> = None;
         for (path_index, path) in paths.iter().enumerate() {
@@ -1815,14 +1762,12 @@ impl ReductionGraph {
             } else {
                 batch_source = Some(source);
             }
-            let source_prefix = vec![source.clone()];
-            let mut chain = prefixes.get(&source_prefix).cloned().unwrap_or_default();
-            prefixes.entry(source_prefix.clone()).or_default();
-            let mut prefix = source_prefix;
+            let mut chain: Vec<ExecutedStep> = Vec::with_capacity(path.len());
+            let mut prefix = vec![source.clone()];
             for pair in path.steps.windows(2) {
                 prefix.push(pair[1].clone());
                 if let Some(cached) = prefixes.get(&prefix) {
-                    chain = cached.clone();
+                    chain.push(cached.clone());
                     continue;
                 }
                 let source_node = self
@@ -1857,12 +1802,12 @@ impl ReductionGraph {
                 };
                 let current = chain
                     .last()
-                    .map(|step| step.target_problem_any())
+                    .map(|step| step.witness.target_problem_any())
                     .unwrap_or(source_instance);
                 let result = reduce_fn(current)
                     .map_err(|cause| ExecutePathsError::Reduction { path_index, cause })?;
-                chain.push(Rc::from(result));
-                prefixes.insert(prefix.clone(), chain.clone());
+                prefixes.insert(prefix.clone(), result.clone());
+                chain.push(result);
             }
             executed.push(ExecutedPath {
                 path: path.clone(),

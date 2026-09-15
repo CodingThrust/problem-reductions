@@ -1,9 +1,9 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_minimum_set_covering_create_spec_uses_subsets_input() {
@@ -23,7 +23,7 @@ fn test_set_covering_creation() {
     let problem = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 3);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables().unwrap(), 3);
 }
 
 #[test]
@@ -137,4 +137,16 @@ fn test_setcovering_paper_example() {
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
+}
+
+#[test]
+fn construction_and_json_reject_invalid_data() {
+    assert!(MinimumSetCovering::<i64>::try_new(2, vec![vec![2]]).is_err());
+    assert!(MinimumSetCovering::try_with_weights(2, vec![vec![0]], Vec::<i64>::new()).is_err());
+    for json in [
+        serde_json::json!({"universe_size":2,"sets":[[2]],"weights":[1]}),
+        serde_json::json!({"universe_size":2,"sets":[[0]],"weights":[]}),
+    ] {
+        assert!(serde_json::from_value::<MinimumSetCovering<i64>>(json).is_err());
+    }
 }

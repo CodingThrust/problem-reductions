@@ -8,14 +8,15 @@
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::models::misc::Partition;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::DirectedGraph;
 
 /// Result of reducing Partition to IntegralFlowWithMultipliers.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToIntegralFlowWithMultipliers {
     target: IntegralFlowWithMultipliers,
-    item_arc_count: Option<usize>,
+    item_arc_count: usize,
 }
 
 impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
@@ -26,19 +27,24 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        Ok({
-            let item_arc_count = self.item_arc_count.ok_or_else(|| {
-                crate::rules::ExtractionError::invalid(
-                    "the fixed infeasible target instance has no extractable witness",
-                )
-            })?;
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
-            target_solution[..item_arc_count]
+impl ReductionPartitionToIntegralFlowWithMultipliers {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok({
+            target_solution[..self.item_arc_count]
                 .iter()
                 .map(|&flow| flow > 0)
                 .collect()
@@ -67,7 +73,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
             return Ok(ReductionPartitionToIntegralFlowWithMultipliers {
                 target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1),
-                item_arc_count: None,
+                item_arc_count: source_n,
             });
         }
 
@@ -106,7 +112,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
                 capacities,
                 half_sum,
             ),
-            item_arc_count: Some(source_n),
+            item_arc_count: source_n,
         })
     }
 }

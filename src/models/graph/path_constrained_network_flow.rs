@@ -327,11 +327,14 @@ impl Problem for PathConstrainedNetworkFlow {
 }
 
 impl crate::solvers::BruteForceProblem for PathConstrainedNetworkFlow {
-    fn dimensions(&self) -> Vec<usize> {
-        self.paths
-            .iter()
-            .map(|path| (self.path_bottleneck(path) as usize) + 1)
-            .collect()
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.paths.len())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(
+            i128::from(self.path_bottleneck(&self.paths[variable])) + 1,
+        )?)
     }
 }
 

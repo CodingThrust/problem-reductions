@@ -7,15 +7,13 @@
 
 use crate::models::misc::{Numerical3DimensionalMatching, NumericalMatchingWithTargetSums};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
-use std::collections::BTreeMap;
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing Numerical3DimensionalMatching to NumericalMatchingWithTargetSums.
 #[derive(Debug, Clone)]
 pub struct ReductionN3DMToNMTS {
     target: NumericalMatchingWithTargetSums,
-    source_sizes_w: Vec<i64>,
-    source_bound: i64,
 }
 
 impl ReductionResult for ReductionN3DMToNMTS {
@@ -26,43 +24,39 @@ impl ReductionResult for ReductionN3DMToNMTS {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionN3DMToNMTS {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
-            let mut x_indices_by_pair_sum: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
-            for (x_index, &y_index) in target_solution.iter().enumerate() {
-                let pair_sum = self.target.sizes_x()[x_index]
-                    .checked_add(self.target.sizes_y()[y_index])
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target pair sum overflows the target numeric domain",
-                        )
-                    })?;
-                x_indices_by_pair_sum
-                    .entry(pair_sum)
-                    .or_default()
-                    .push(x_index);
-            }
+            let mut pairs: Vec<_> = target_solution
+                .iter()
+                .enumerate()
+                .map(|(x, &y)| (self.target.sizes_x()[x] + self.target.sizes_y()[y], x, y))
+                .collect();
+            let mut targets: Vec<_> = self.target.targets().iter().copied().enumerate().collect();
+            pairs.sort_unstable();
+            targets.sort_unstable_by_key(|&(w, sum)| (sum, w));
 
-            let mut x_perm = Vec::with_capacity(self.source_sizes_w.len());
-            let mut y_perm = Vec::with_capacity(self.source_sizes_w.len());
-            for &w_size in &self.source_sizes_w {
-                let target_sum = checked_target_sum(self.source_bound, w_size)
-                    .map_err(crate::rules::ExtractionError::invalid)?;
-                let x_index = x_indices_by_pair_sum
-                    .get_mut(&target_sum)
-                    .and_then(Vec::pop)
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target matching does not realize required pair sum {target_sum}"
-                        ))
-                    })?;
-                x_perm.push(x_index);
-                y_perm.push(target_solution[x_index]);
+            // Feasibility equates the pair-sum and target multisets. Target
+            // index w retains the source W order from construction.
+            let mut x_perm = vec![0; targets.len()];
+            let mut y_perm = vec![0; targets.len()];
+            for ((w, _), (_, x, y)) in targets.into_iter().zip(pairs) {
+                x_perm[w] = x;
+                y_perm[w] = y;
             }
 
             x_perm.extend(y_perm);
@@ -102,11 +96,7 @@ impl ReduceTo<NumericalMatchingWithTargetSums> for Numerical3DimensionalMatching
                 .map_err(map_error)?,
         );
 
-        Ok(ReductionN3DMToNMTS {
-            target,
-            source_sizes_w: self.sizes_w().to_vec(),
-            source_bound: self.bound(),
-        })
+        Ok(ReductionN3DMToNMTS { target })
     }
 }
 

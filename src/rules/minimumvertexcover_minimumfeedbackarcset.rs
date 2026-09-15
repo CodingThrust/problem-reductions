@@ -11,6 +11,8 @@
 use crate::models::graph::{MinimumFeedbackArcSet, MinimumVertexCover};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{DirectedGraph, Graph, SimpleGraph};
 
 /// Result of reducing MinimumVertexCover to MinimumFeedbackArcSet.
@@ -30,14 +32,24 @@ impl ReductionResult for ReductionVCToFAS {
     }
 
     /// Extract solution: internal arcs are at positions 0..n in the FAS config.
-    /// If internal arc i is in the FAS (config[i] = 1), vertex i is in the cover.
-    fn extract_solution(
+    /// If internal arc i is in the FAS, vertex i is in the cover.
+    /// Only optimal target results qualify: a feasible incumbent may remove
+    /// crossing arcs, whose removal does not select any source vertex.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution[..self.num_source_vertices].to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = solution[..self.num_source_vertices].to_vec();
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            }
+        }
     }
 }
 
@@ -122,7 +134,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .solve(target)
                 .expect("target evaluation should succeed")
                 .expect("target should have an optimum");
-            let source_witness = reduction.extract_solution(&target_witness).unwrap();
+            let source_witness = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_witness.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
 
             crate::example_db::specs::rule_example_with_witness::<_, MinimumFeedbackArcSet<i64>>(
                 source,

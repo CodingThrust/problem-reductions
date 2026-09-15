@@ -8,7 +8,9 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 // Index helpers
 
@@ -72,13 +74,14 @@ impl ReductionResult for ReductionRTSAToILP {
     }
 
     /// Decode parent array from one-hot parent indicators p_{v,u}.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        one_hot_decode_rows(target_solution, self.n, self.n, 0)
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(one_hot_decode_rows(solution, self.n, self.n, 0))
+        })
     }
 }
 
@@ -406,7 +409,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config).unwrap();
+            let source_config = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_config.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {

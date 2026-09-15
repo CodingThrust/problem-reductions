@@ -54,6 +54,7 @@ inventory::submit! {
 /// assert!(problem.is_exact(&witness).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BMFData")]
 pub struct BMF {
     /// The target matrix A (m x n).
     matrix: Vec<Vec<bool>>,
@@ -65,6 +66,20 @@ pub struct BMF {
     k: usize,
 }
 
+#[derive(Deserialize)]
+struct BMFData {
+    matrix: Vec<Vec<bool>>,
+    k: usize,
+}
+
+impl TryFrom<BMFData> for BMF {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BMFData) -> Result<Self, Self::Error> {
+        Self::try_new(data.matrix, data.k)
+    }
+}
+
 impl BMF {
     /// Create a new BMF problem.
     ///
@@ -72,15 +87,19 @@ impl BMF {
     /// * `matrix` - The target m x n boolean matrix
     /// * `k` - The factorization rank
     pub fn new(matrix: Vec<Vec<bool>>, k: usize) -> Self {
+        Self::try_new(matrix, k).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        matrix: Vec<Vec<bool>>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let m = matrix.len();
-        let n = if m > 0 { matrix[0].len() } else { 0 };
-
-        // Validate matrix dimensions
-        for row in &matrix {
-            assert_eq!(row.len(), n, "All rows must have the same length");
+        let n = matrix.first().map_or(0, Vec::len);
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err("all matrix rows must have the same length".into());
         }
-
-        Self { matrix, m, n, k }
+        Ok(Self { matrix, m, n, k })
     }
 
     /// Get the number of rows.
@@ -247,9 +266,20 @@ impl Problem for BMF {
 }
 
 impl crate::solvers::BruteForceProblem for BMF {
-    fn dimensions(&self) -> Vec<usize> {
-        // B: m*k + C: k*n binary variables
-        vec![2; self.m * self.k + self.k * self.n]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        ((self.m).checked_mul(self.k).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })?)
+        .checked_add((self.k).checked_mul(self.n).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })?)
+        .ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

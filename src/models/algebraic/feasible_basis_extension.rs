@@ -57,6 +57,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "FeasibleBasisExtensionCreateSpec")]
 pub struct FeasibleBasisExtension {
     matrix: Vec<Vec<i64>>,
     rhs: Vec<i64>,
@@ -79,38 +80,7 @@ struct FeasibleBasisExtensionCreateSpec {
 impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: FeasibleBasisExtensionCreateSpec) -> Result<Self, Self::Error> {
-        let m = spec.matrix.len();
-        let first = spec
-            .matrix
-            .first()
-            .ok_or("matrix must have at least one row")?;
-        let n = first.len();
-        if spec.matrix.iter().any(|row| row.len() != n) {
-            return Err("all matrix rows must have the same length".into());
-        }
-        if m >= n {
-            return Err("number of rows must be less than number of columns".into());
-        }
-        if spec.rhs.len() != m {
-            return Err("rhs length must equal number of rows".into());
-        }
-        if spec.required_columns.len() >= m {
-            return Err("required_columns length must be less than number of rows".into());
-        }
-        let mut seen = std::collections::HashSet::new();
-        for &column in &spec.required_columns {
-            if column >= n {
-                return Err(format!("required column {column} is out of bounds").into());
-            }
-            if !seen.insert(column) {
-                return Err(format!("duplicate required column {column}").into());
-            }
-        }
-        Ok(Self {
-            matrix: spec.matrix,
-            rhs: spec.rhs,
-            required_columns: spec.required_columns,
-        })
+        Self::try_new(spec.matrix, spec.rhs, spec.required_columns)
     }
 }
 
@@ -127,46 +97,45 @@ impl FeasibleBasisExtension {
     /// - Any required column index is out of bounds
     /// - Required columns contain duplicates
     pub fn new(matrix: Vec<Vec<i64>>, rhs: Vec<i64>, required_columns: Vec<usize>) -> Self {
+        Self::try_new(matrix, rhs, required_columns).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        matrix: Vec<Vec<i64>>,
+        rhs: Vec<i64>,
+        required_columns: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let m = matrix.len();
-        assert!(m > 0, "Matrix must have at least one row");
-        let n = matrix[0].len();
-        for row in &matrix {
-            assert_eq!(row.len(), n, "All rows must have the same length");
+        let first = matrix.first().ok_or("matrix must have at least one row")?;
+        let n = first.len();
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err("all matrix rows must have the same length".into());
         }
-        assert!(
-            m < n,
-            "Number of rows ({m}) must be less than number of columns ({n})"
-        );
-        assert_eq!(
-            rhs.len(),
-            m,
-            "rhs length ({}) must equal number of rows ({m})",
-            rhs.len()
-        );
-        assert!(
-            required_columns.len() < m,
-            "|S| ({}) must be less than m ({m})",
-            required_columns.len()
-        );
-        for &col in &required_columns {
-            assert!(col < n, "Required column index {col} out of bounds (n={n})");
+        if m >= n {
+            return Err("number of rows must be less than number of columns".into());
         }
-        // Check for duplicates
-        let mut sorted = required_columns.clone();
-        sorted.sort_unstable();
-        for i in 1..sorted.len() {
-            assert_ne!(
-                sorted[i - 1],
-                sorted[i],
-                "Duplicate required column index {}",
-                sorted[i]
+        if rhs.len() != m {
+            return Err("rhs length must equal number of rows".into());
+        }
+        if required_columns.len() >= m {
+            return Err(
+                format!("|S| ({}) must be less than m ({m})", required_columns.len()).into(),
             );
         }
-        Self {
+        let mut seen = std::collections::HashSet::new();
+        for &column in &required_columns {
+            if column >= n {
+                return Err(format!("required column {column} is out of bounds").into());
+            }
+            if !seen.insert(column) {
+                return Err(format!("Duplicate required column index {column}").into());
+            }
+        }
+        Ok(Self {
             matrix,
             rhs,
             required_columns,
-        }
+        })
     }
 
     /// Returns the matrix A.
@@ -463,8 +432,12 @@ impl Problem for FeasibleBasisExtension {
 }
 
 impl crate::solvers::BruteForceProblem for FeasibleBasisExtension {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_columns() - self.num_required()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_columns() - self.num_required())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

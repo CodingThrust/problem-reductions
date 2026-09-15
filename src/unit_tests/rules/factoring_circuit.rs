@@ -1,10 +1,13 @@
 use super::*;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
+include!("../jl_helpers.rs");
 use crate::rules::test_helpers::assert_optimization_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 use std::collections::HashMap;
-include!("../jl_helpers.rs");
 
 #[test]
 fn test_read_bit() {
@@ -226,7 +229,14 @@ fn test_extract_solution() {
         }
     }
 
-    let factoring_sol = reduction.extract_solution(&sol).unwrap();
+    let factoring_sol = reduction
+        .recover_result(
+            &factoring,
+            SolveOutcome::optimal(reduction.target_problem(), sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let (p, q) = factoring_sol.clone();
     assert_eq!(p, BigUint::from(2u32), "p should be 2");
     assert_eq!(q, BigUint::from(3u32), "q should be 3");
@@ -239,7 +249,14 @@ fn test_extract_solution() {
         }
     }
     assert_eq!(
-        reduction.extract_solution(&sol).unwrap(),
+        reduction
+            .recover_result(
+                &factoring,
+                SolveOutcome::optimal(reduction.target_problem(), sol.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         (BigUint::from(2u32), BigUint::from(3u32))
     );
 }
@@ -384,7 +401,14 @@ fn test_factoring_to_circuit_zero_width_closed_loop() {
             let witness = BruteForce::new().solve(reduction.target_problem()).unwrap();
             assert_eq!(witness.is_some(), value == 0);
             if let Some(witness) = witness {
-                let extracted = reduction.extract_solution(&witness).unwrap();
+                let extracted = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.is_valid_factorization(&extracted));
                 assert!(extracted.0.is_zero());
             }
@@ -396,10 +420,18 @@ fn test_factoring_to_circuit_zero_width_closed_loop() {
 fn test_factoring_to_circuit_rejects_invalid_certificates() {
     let source = Factoring::with_factor_bits(6, 2, 2);
     let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
-    assert!(reduction.extract_solution(&vec![]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![false; reduction.target_problem().num_variables()])
-        .is_err());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![
+            false;
+            ReductionResult::target_problem(&reduction)
+                .num_variables()
+        ])
+        .unwrap()
+        .is_valid());
     let values = evaluate_multiplier_circuit(&reduction, 1, 1);
     let config = reduction
         .target_problem()
@@ -407,7 +439,10 @@ fn test_factoring_to_circuit_rejects_invalid_certificates() {
         .iter()
         .map(|name| values[name])
         .collect();
-    assert!(reduction.extract_solution(&config).is_err());
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&config)
+        .unwrap()
+        .is_valid());
 }
 
 #[test]

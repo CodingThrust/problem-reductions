@@ -1,6 +1,9 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::traits::EvaluationError::InvalidConfiguration;
+use crate::traits::Problem;
 
 #[test]
 fn test_partition_to_subsetsum_closed_loop() {
@@ -46,12 +49,6 @@ fn test_partition_to_subsetsum_odd_total() {
     // No witness should exist for the target
     let witness = BruteForce::new().solve(target).unwrap();
     assert!(witness.is_none());
-
-    let error = reduction.extract_solution(&vec![]).unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        "expected 3 subset-selection values, got 0"
-    );
 }
 
 #[test]
@@ -72,7 +69,8 @@ fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
     let source = Partition::new(vec![1, 1, 2, 2]).unwrap();
     let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(reduction
-        .extract_solution(&vec![false, true, false])
-        .is_err());
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![false, true, false]),
+        Err(InvalidConfiguration(_))
+    ));
 }

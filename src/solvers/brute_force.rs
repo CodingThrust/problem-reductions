@@ -4,12 +4,56 @@ use std::any::Any;
 
 use crate::solvers::SolveError;
 use crate::traits::Problem;
-use crate::types::{Aggregate, SolutionAggregate};
+use crate::types::{Aggregate, Extremum, Max, Min, Or};
+use serde::{de::DeserializeOwned, Serialize};
+use std::fmt;
+
+/// Brute-force capability for selecting witnesses from a completed aggregate.
+///
+/// This is not required by model evaluation, reductions, or solvers that return
+/// their solutions directly.
+pub trait SolutionAggregate: Aggregate {
+    /// Whether a solution-level value contributes to the final aggregate value.
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool;
+}
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
+    for Max<V>
+{
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
+        matches!((value, total), (Max(Some(value)), Max(Some(best))) if value == best)
+    }
+}
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
+    for Min<V>
+{
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
+        matches!((value, total), (Min(Some(value)), Min(Some(best))) if value == best)
+    }
+}
+
+impl SolutionAggregate for Or {
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
+        value.0 && total.0
+    }
+}
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
+    for Extremum<V>
+{
+    fn contributes_to_solution(candidate: &Self, total: &Self) -> bool {
+        matches!(
+            (candidate.value.as_ref(), total.value.as_ref()),
+            (Some(value), Some(best)) if candidate.sense == total.sense && value == best
+        )
+    }
+}
 
 type CartesianWitness<P> = Option<(<P as Problem>::Solution, <P as Problem>::Value)>;
 
 #[doc(hidden)]
-pub type BruteForceDimensionsFn = fn(&dyn Any) -> Vec<usize>;
+pub type BruteForceDimensionsFn = fn(&dyn Any) -> Result<Vec<usize>, SolveError>;
 #[doc(hidden)]
 pub type BruteForceSolveFn =
     fn(&dyn Any) -> Result<Option<(serde_json::Value, String)>, SolveError>;
@@ -34,38 +78,43 @@ inventory::collect!(BruteForceRegistration);
 
 /// A problem with a finite Cartesian coordinate space for reference solving.
 pub trait BruteForceProblem: Problem {
-    /// Cardinality of each coordinate in the brute-force search space.
-    fn dimensions(&self) -> Vec<usize>;
+    /// Number of coordinates needed to represent one candidate.
+    fn num_variables(&self) -> Result<usize, SolveError>;
 
-    /// Number of coordinates in the brute-force search space.
-    fn num_variables(&self) -> usize {
-        self.dimensions().len()
+    /// Cardinality of a coordinate. `variable` must be less than `num_variables()`.
+    fn dimension(&self, variable: usize) -> Result<usize, SolveError>;
+}
+
+/// Materialize coordinate cardinalities for enumeration or inspection.
+#[doc(hidden)]
+pub fn cartesian_dimensions<P: BruteForceProblem>(problem: &P) -> Result<Vec<usize>, SolveError> {
+    let count = BruteForceProblem::num_variables(problem)?;
+    let mut dimensions = Vec::new();
+    dimensions.try_reserve_exact(count)?;
+    for variable in 0..count {
+        dimensions.push(problem.dimension(variable)?);
     }
+    Ok(dimensions)
 }
 
 pub(crate) struct CartesianIndices {
     dimensions: Vec<usize>,
     current: Option<Vec<usize>>,
-    remaining: usize,
 }
 
 impl CartesianIndices {
     pub(crate) fn new(dimensions: Vec<usize>) -> Result<Self, SolveError> {
-        let total = if dimensions.is_empty() {
-            1
-        } else if dimensions.contains(&0) {
-            0
+        let current = if dimensions.contains(&0) {
+            None
         } else {
-            dimensions.iter().try_fold(1usize, |total, &dimension| {
-                total
-                    .checked_mul(dimension)
-                    .ok_or_else(|| SolveError::SearchSpaceOverflow(dimensions.clone()))
-            })?
+            let mut current = Vec::new();
+            current.try_reserve_exact(dimensions.len())?;
+            current.resize(dimensions.len(), 0);
+            Some(current)
         };
         Ok(Self {
-            current: (total != 0).then(|| vec![0; dimensions.len()]),
             dimensions,
-            remaining: total,
+            current,
         })
     }
 }
@@ -79,23 +128,22 @@ impl Iterator for CartesianIndices {
         for index in (0..self.dimensions.len()).rev() {
             next[index] += 1;
             if next[index] < self.dimensions[index] {
+                self.current = Some(next);
                 break;
             }
             next[index] = 0;
-        }
-        self.remaining -= 1;
-        if self.remaining != 0 {
-            self.current = Some(next);
         }
         Some(current)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.remaining, Some(self.remaining))
+        if self.current.is_some() {
+            (1, None)
+        } else {
+            (0, Some(0))
+        }
     }
 }
-
-impl ExactSizeIterator for CartesianIndices {}
 
 /// Exact reference solver for variants with a registered finite enumeration.
 #[derive(Debug, Clone, Default)]
@@ -186,7 +234,7 @@ impl BruteForce {
         F: Fn(Vec<usize>) -> P::Solution,
     {
         let mut total = P::Value::identity();
-        for indices in CartesianIndices::new(problem.dimensions())? {
+        for indices in CartesianIndices::new(cartesian_dimensions(problem)?)? {
             total = total.combine(problem.evaluate(&decode(indices))?)?;
             if total.is_absorbing() {
                 break;
@@ -207,7 +255,7 @@ impl BruteForce {
     {
         let total = self.solve_cartesian(problem, &decode)?;
         let mut witnesses = Vec::new();
-        for indices in CartesianIndices::new(problem.dimensions())? {
+        for indices in CartesianIndices::new(cartesian_dimensions(problem)?)? {
             let solution = decode(indices);
             let value = problem.evaluate(&solution)?;
             if P::Value::contributes_to_solution(&value, &total) {
@@ -228,7 +276,7 @@ impl BruteForce {
         F: Fn(Vec<usize>) -> P::Solution,
     {
         let total = self.solve_cartesian(problem, &decode)?;
-        for indices in CartesianIndices::new(problem.dimensions())? {
+        for indices in CartesianIndices::new(cartesian_dimensions(problem)?)? {
             let solution = decode(indices);
             let value = problem.evaluate(&solution)?;
             if P::Value::contributes_to_solution(&value, &total) {

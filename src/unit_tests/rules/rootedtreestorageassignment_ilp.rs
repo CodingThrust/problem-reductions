@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -37,14 +38,23 @@ fn test_rootedtreestorageassignment_to_ilp_bf_vs_ilp() {
 
     match ilp_result {
         Ok(ilp_solution) => {
-            let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &problem,
+                    SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone())
+                        .unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             let ilp_value = problem.evaluate(&extracted).unwrap();
             assert!(ilp_value.0, "ILP solution should be feasible");
             assert!(bf_value.0, "BF should also find feasible solution");
         }
-        Err(_) => {
+        Err(crate::solvers::ILPSolveError::Infeasible) => {
             assert!(!bf_value.0, "both should agree on infeasibility");
         }
+        Err(error) => panic!("ILP execution failed: {error}"),
     }
 }
 
@@ -66,7 +76,11 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
     assert!(bf_witness.is_none(), "source should be infeasible");
-    assert!(ilp_result.is_err(), "reduced ILP should also be infeasible");
+    assert_eq!(
+        ilp_result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
+        "reduced ILP should also be infeasible"
+    );
 }
 
 #[test]
@@ -78,7 +92,14 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 3);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

@@ -7,7 +7,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingWithReleaseTimesAndDeadlines;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing SequencingWithReleaseTimesAndDeadlines to `ILP<bool>`.
 ///
@@ -29,18 +30,28 @@ impl ReductionResult for ReductionSWRTDToILP {
     }
 
     /// Extract by reading each task's start time and sorting tasks by start time.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionSWRTDToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.num_tasks;
             let horizon = self.time_horizon;
             // For each task, find the start time
             let starts =
-                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, horizon, 0)?;
+                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, horizon, 0);
             let mut start_times: Vec<_> = starts.into_iter().enumerate().collect();
             // Sort by start time (break ties by task index)
             start_times.sort_by_key(|&(j, t)| (t, j));

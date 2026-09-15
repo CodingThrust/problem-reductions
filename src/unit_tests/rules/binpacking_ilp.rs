@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -36,7 +37,14 @@ fn test_binpacking_to_ilp_closed_loop() {
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_obj, Min(Some(2)));
@@ -55,7 +63,14 @@ fn test_single_item() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
@@ -71,7 +86,14 @@ fn test_same_weight_items() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));
@@ -87,7 +109,14 @@ fn test_exact_fill() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
@@ -109,7 +138,14 @@ fn test_solution_extraction() {
     ilp_solution[9] = 1; // y_0 = 1
     ilp_solution[10] = 1; // y_1 = 1
 
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 1, 0]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }

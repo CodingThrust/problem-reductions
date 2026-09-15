@@ -1,6 +1,9 @@
 use super::*;
 use crate::models::graph::BicliqueCover;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Or;
 use crate::variant::KN;
@@ -27,7 +30,14 @@ fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
         .solve(target)
         .unwrap()
         .expect("trivial target must be feasible");
-    let coloring = reduction.extract_solution(&witness).unwrap();
+    let coloring = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(coloring.len(), 1);
     assert!(source.is_valid_solution(&coloring));
     // The source brute force agrees.
@@ -102,7 +112,14 @@ fn test_kcoloring_to_bicliquecover_forward_witness_path_q2() {
     // Witness covers all edges with rank <= n + q.
     assert!(target.is_valid_cover(&witness));
     // Extraction recovers a proper coloring.
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.is_valid_solution(&extracted));
 }
 
@@ -121,7 +138,14 @@ fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
     let witness = forward_witness(&source, &coloring);
 
     assert!(target.is_valid_cover(&witness));
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.is_valid_solution(&extracted));
 }
 
@@ -188,7 +212,14 @@ fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
     let witness = forward_witness(&source, &coloring);
     assert!(target.is_valid_cover(&witness));
 
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.is_valid_solution(&extracted));
     // K_3 forces 3 distinct colors.
     let mut seen = std::collections::BTreeSet::new();
@@ -247,7 +278,14 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
     assert!(cell(&witness, 0, 1));
     assert!(cell(&witness, 2, 1));
 
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0]);
 }
 
@@ -262,7 +300,6 @@ fn test_kcoloring_to_bicliquecover_native_loops_are_infeasible() {
             assert_eq!(target.graph().left_edges(), &[(0, 0)]);
             assert!(target.evaluate(&vec![]).unwrap().0.is_none());
             assert!(BruteForce::new().solve(target).unwrap().is_none());
-            assert!(reduction.extract_solution(&vec![]).is_err());
             if q == 0 {
                 assert!(source.evaluate(&vec![0; n]).is_err());
             } else {
@@ -286,7 +323,14 @@ fn test_kcoloring_to_bicliquecover_normalizes_all_color_counts() {
                 assert!(source.evaluate(&coloring).unwrap().0);
                 let witness = forward_witness(&source, &coloring);
                 assert!(target.evaluate(&witness).unwrap().0.is_some());
-                let decoded = reduction.extract_solution(&witness).unwrap();
+                let decoded = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.evaluate(&decoded).unwrap().0);
             }
         }
@@ -298,13 +342,17 @@ fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
     let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
-    for invalid in [
-        vec![],
-        vec![vec![true; 7]; 4],
-        vec![vec![true; 8]; 4],
-        vec![vec![false; 8]; 4],
-    ] {
-        assert!(reduction.extract_solution(&invalid).is_err());
+    for invalid in [vec![], vec![vec![true; 7]; 4]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&invalid),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for invalid in [vec![vec![true; 8]; 4], vec![vec![false; 8]; 4]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&invalid)
+            .unwrap()
+            .is_valid());
     }
     let valid = forward_witness(&source, &[0, 1]);
     assert!(target.evaluate(&valid).unwrap().0.is_some());
@@ -312,7 +360,17 @@ fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
     reordered.reverse();
     assert!(
         source
-            .evaluate(&reduction.extract_solution(&reordered).unwrap())
+            .evaluate(
+                &reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), reordered.clone())
+                            .unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
+            )
             .unwrap()
             .0
     );
@@ -332,7 +390,15 @@ fn test_kcoloring_to_bicliquecover_repeated_reversed_edges() {
     let witness = forward_witness(&repeated, &[0, 1, 0]);
     assert!(
         repeated
-            .evaluate(&b.extract_solution(&witness).unwrap())
+            .evaluate(
+                &b.recover_result(
+                    &repeated,
+                    SolveOutcome::optimal(b.target_problem(), witness.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution")
+            )
             .unwrap()
             .0
     );
@@ -355,9 +421,15 @@ fn test_kcoloring_to_bicliquecover_all_single_vertex_target_configs() {
                 })
                 .collect();
             let value = target.evaluate(&config).unwrap();
-            let decoded = reduction.extract_solution(&config);
-            assert_eq!(decoded.is_ok(), value.0.is_some());
-            if let Ok(coloring) = decoded {
+            if value.0.is_some() {
+                let coloring = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 feasible = true;
                 assert!(source.evaluate(&coloring).unwrap().0);
             }

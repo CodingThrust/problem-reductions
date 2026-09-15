@@ -2,6 +2,7 @@ use super::*;
 use crate::models::graph::MaximumIndependentSet;
 use crate::rules::unitdiskmapping::ksg;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph};
 use crate::types::One;
 
@@ -90,7 +91,14 @@ fn test_mis_simple_one_to_kings_one_closed_loop() {
     let grid_solutions = solver.find_all_witnesses(target).unwrap();
     assert!(!grid_solutions.is_empty());
 
-    let original_solution = result.extract_solution(&grid_solutions[0]).unwrap();
+    let original_solution = result
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(result.target_problem(), grid_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(original_solution.len(), 5);
     let size: usize = original_solution
         .iter()
@@ -120,7 +128,14 @@ fn test_mis_simple_one_to_kings_one_all_four_vertex_graphs() {
         let target_solution =
             solve_mis_config(target.graph().num_vertices(), &target.graph().edges());
         let target_solution = crate::config::config_to_bits(&target_solution);
-        let source_solution = reduction.extract_solution(&target_solution).unwrap();
+        let source_solution = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
 
         assert!(
             is_independent_set(&edges, &crate::config::bits_to_config(&source_solution),),

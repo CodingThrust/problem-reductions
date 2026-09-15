@@ -1,5 +1,8 @@
 use super::*;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -23,7 +26,17 @@ fn test_decisionmaximumindependentset_to_integralflowbundles_closed_loop() {
         assert_eq!(witness.is_some(), bound == 2);
         if let Some(witness) = witness {
             assert_eq!(
-                source.evaluate(&reduction.extract_solution(&witness).unwrap()),
+                source.evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), witness.clone())
+                                .unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                ),
                 Ok(Or(true))
             );
         }
@@ -71,7 +84,21 @@ fn test_decision_ifb_all_small_graphs_thresholds_and_binary_flows() {
                     if target.evaluate(&flow).unwrap().0 {
                         target_exists = true;
                         assert_eq!(
-                            source.evaluate(&reduction.extract_solution(&flow).unwrap()),
+                            source.evaluate(
+                                &reduction
+                                    .recover_result(
+                                        &source,
+                                        SolveOutcome::optimal(
+                                            reduction.target_problem(),
+                                            flow.clone()
+                                        )
+                                        .unwrap()
+                                    )
+                                    .map(|result| result.into_solution().expect(
+                                        "qualifying target result must recover a source solution"
+                                    ))
+                                    .unwrap()
+                            ),
                             Ok(Or(true))
                         );
                     }
@@ -91,18 +118,31 @@ fn test_decision_ifb_loops_parallel_edges_and_invalid_witnesses() {
     let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source).unwrap();
     let valid = vec![0, 0, 1, 1, 1, 1, 1, 1];
     assert_eq!(
-        reduction.extract_solution(&valid).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), valid.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, true, true]
     );
+    assert!(matches!(
+        ReductionResult::target_problem(&reduction).evaluate(&vec![]),
+        Err(InvalidConfiguration(_))
+    ));
     for flow in [
-        vec![],
         vec![usize::MAX; 8],
         vec![0; 8],
         vec![0, 0, 1, 0, 1, 1, 1, 1], // conservation
         vec![1, 1, 0, 0, 1, 1, 1, 1], // self-loop
         vec![0, 0, 2, 2, 1, 1, 1, 1], // path capacity
     ] {
-        assert!(reduction.extract_solution(&flow).is_err());
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&flow)
+            .unwrap()
+            .is_valid());
     }
 }
 

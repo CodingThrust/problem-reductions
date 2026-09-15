@@ -3,6 +3,7 @@ use crate::models::algebraic::{Comparison, ObjectiveSense};
 use crate::models::misc::MinimumFaultDetectionTestSet;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -61,7 +62,14 @@ fn test_minimumfaultdetectiontestset_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![vec![true, false], vec![false, true]]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));
@@ -83,7 +91,10 @@ fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
 
     assert_eq!(problem.evaluate(&vec![vec![false]]).unwrap(), Min(None));
     assert_eq!(problem.evaluate(&vec![vec![true]]).unwrap(), Min(None));
-    assert!(ILPSolver::new().solve(ilp).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
@@ -99,7 +110,14 @@ fn test_reduction_handles_instances_without_internal_vertices() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("ILP should be feasible when there are no internal vertices");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![vec![false]]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));

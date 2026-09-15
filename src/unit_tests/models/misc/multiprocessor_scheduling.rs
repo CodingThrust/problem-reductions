@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_zero_processors() {
@@ -28,7 +27,10 @@ fn test_multiprocessor_scheduling_basic() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.deadline(), 10);
     assert_eq!(problem.total_length(), 20);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
     assert_eq!(
         <MultiprocessorScheduling as Problem>::NAME,
         "MultiprocessorScheduling"
@@ -84,7 +86,10 @@ fn test_multiprocessor_scheduling_invalid_processor_index() {
 fn test_multiprocessor_scheduling_empty_instance() {
     let problem = MultiprocessorScheduling::new(vec![], 2, 10);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     // Empty assignment is always feasible
     assert!(problem.evaluate(&vec![]).unwrap());
 }
@@ -106,7 +111,10 @@ fn test_multiprocessor_scheduling_single_task_exceeds_deadline() {
 #[test]
 fn test_multiprocessor_scheduling_three_processors() {
     let problem = MultiprocessorScheduling::new(vec![3, 3, 3], 3, 3);
-    assert_eq!(problem.dimensions(), vec![3; 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 3]
+    );
     // One task per processor
     assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
     // Two tasks on one processor exceeds deadline
@@ -176,7 +184,7 @@ fn test_multiprocessor_scheduling_deserialization_rejects_zero_processors() {
     }))
     .unwrap_err();
     assert!(
-        err.to_string().contains("expected positive integer, got 0"),
+        err.to_string().contains("num_processors must be positive"),
         "unexpected error: {err}"
     );
 }

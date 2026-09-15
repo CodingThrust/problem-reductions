@@ -12,7 +12,8 @@ use crate::models::formula::Satisfiability;
 use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::sat_maximumindependentset::BoolVar;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::SimpleGraph;
 use crate::variant::K3;
 use std::collections::HashMap;
@@ -240,36 +241,30 @@ impl ReductionResult for ReductionSATToColoring {
     ///
     /// For each variable, we check if its positive literal vertex has TRUE color (0).
     /// If so, the variable is assigned true (1); otherwise false (0).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionSATToColoring {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             // First determine which color is TRUE, FALSE, and AUX
             // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
             let true_color = target_solution[0];
-            let false_color = target_solution[1];
-            let aux_color = target_solution[2];
-
-            if true_color == false_color || true_color == aux_color || false_color == aux_color {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target coloring does not distinguish true, false, and auxiliary colors",
-                ));
-            }
-
             let mut assignment = vec![false; self.num_source_variables];
 
             for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
                 let vertex_color = target_solution[pos_vertex];
-
-                // Sanity check: variable vertices should not have AUX color
-                if vertex_color == aux_color {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "variable {i} has the auxiliary color"
-                    )));
-                }
 
                 // If positive literal has TRUE color, variable is true (1)
                 // Otherwise, variable is false (0)

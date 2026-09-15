@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -18,7 +17,12 @@ fn test_traveling_salesman_creation() {
     let problem = k4_tsp();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 6);
-    assert_eq!(problem.dimensions().len(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        6
+    );
 }
 
 #[test]
@@ -291,4 +295,12 @@ fn create_spec_uses_edge_weights_and_defaults_to_one() {
     .unwrap();
     assert_eq!(problem.weights(), vec![1, 1, 1]);
     assert_eq!(TravelingSalesmanCreateSpec::FIELDS[2].name, "edge_weights");
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = SimpleGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(TravelingSalesman::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "edge_weights": []});
+    assert!(serde_json::from_value::<TravelingSalesman<SimpleGraph, i64>>(json).is_err());
 }

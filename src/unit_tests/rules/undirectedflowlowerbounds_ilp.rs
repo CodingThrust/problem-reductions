@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -61,7 +62,14 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // extract_solution returns edge orientations z_e
     assert_eq!(extracted.len(), 2);
@@ -76,8 +84,9 @@ fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionUFLBToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible instance should produce infeasible ILP"
     );
 }
@@ -91,7 +100,14 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
     // f_{01}=1, f_{10}=0, f_{12}=1, f_{21}=0, z_0=1, z_1=1
     // z_e=1 means u→v direction; model expects config[e]=0 for u→v → extract returns 1-z_e
     let target_solution = vec![1, 0, 1, 0, 1, 1];
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     // z_0=1, z_1=1 → extracted = [1-1, 1-1] = [0, 0] (both u→v = 0→1 and 1→2)
     assert_eq!(extracted, vec![false, false]);
     assert!(

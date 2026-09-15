@@ -1,7 +1,10 @@
 use super::*;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -103,7 +106,14 @@ fn test_circuit_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -140,11 +150,25 @@ fn test_circuit_ilp_native_folds_all_feasible_witnesses() {
                         .map(|i| if (mask >> i) & 1 == 0 { 0 } else { 1 })
                         .collect();
                     if target.evaluate(&solution).unwrap().value.is_some() {
-                        let extracted = reduction.extract_solution(&solution).unwrap();
+                        let extracted = reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                                    .unwrap(),
+                            )
+                            .map(|result| {
+                                result.into_solution().expect(
+                                    "qualifying target result must recover a source solution",
+                                )
+                            })
+                            .unwrap();
                         assert!(source.evaluate(&extracted).unwrap().0);
                         actual.insert(extracted);
                     } else {
-                        assert!(reduction.extract_solution(&solution).is_err());
+                        assert!(!ReductionResult::target_problem(&reduction)
+                            .evaluate(&solution)
+                            .unwrap()
+                            .is_valid());
                     }
                 }
                 assert_eq!(actual, expected, "{expr:?}, output={output}");
@@ -160,14 +184,30 @@ fn test_circuit_ilp_rejects_invalid_target_and_supports_empty_circuit() {
         BooleanExpr::constant(true),
     )]));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
-    for invalid in [vec![], vec![0], vec![0, 0], vec![2, 1], vec![1, 1, 1]] {
-        assert!(reduction.extract_solution(&invalid).is_err());
+    for invalid in [vec![], vec![0], vec![1, 1, 1]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&invalid),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for invalid in [vec![0, 0], vec![2, 1]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&invalid)
+            .unwrap()
+            .is_valid());
     }
     let empty = CircuitSAT::new(Circuit::new(vec![]));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&empty).unwrap();
     assert_eq!(reduction.target_problem().num_vars(), 0);
     assert_eq!(
-        reduction.extract_solution(&vec![]).unwrap(),
+        reduction
+            .recover_result(
+                &empty,
+                SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         Vec::<bool>::new()
     );
 }

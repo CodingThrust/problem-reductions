@@ -33,6 +33,7 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "UndirectedFlowLowerBoundsCreateSpec")]
 pub struct UndirectedFlowLowerBounds {
     graph: SimpleGraph,
     capacities: Vec<i64>,
@@ -96,14 +97,14 @@ impl TryFrom<UndirectedFlowLowerBoundsCreateSpec> for UndirectedFlowLowerBounds 
         {
             return Err(format!("lower bound at edge {index} exceeds its capacity").into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.graph,
             spec.capacities,
             spec.lower_bounds,
             spec.source,
             spec.sink,
             spec.requirement,
-        ))
+        )
     }
 }
 
@@ -116,44 +117,56 @@ impl UndirectedFlowLowerBounds {
         sink: usize,
         requirement: i64,
     ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_edges(),
-            "capacities length must match graph num_edges"
-        );
-        assert_eq!(
-            lower_bounds.len(),
-            graph.num_edges(),
-            "lower_bounds length must match graph num_edges"
-        );
+        Self::try_new(graph, capacities, lower_bounds, source, sink, requirement)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
 
-        let num_vertices = graph.num_vertices();
-        assert!(
-            source < num_vertices,
-            "source must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink must be less than num_vertices ({num_vertices})"
-        );
-        assert!(source != sink, "source and sink must be distinct");
-        assert!(requirement >= 1, "requirement must be at least 1");
-
-        for (edge_index, (&lower, &upper)) in lower_bounds.iter().zip(&capacities).enumerate() {
-            assert!(
-                lower <= upper,
-                "lower bound at edge {edge_index} must be at most its capacity"
-            );
+    fn try_new(
+        graph: SimpleGraph,
+        capacities: Vec<i64>,
+        lower_bounds: Vec<i64>,
+        source: usize,
+        sink: usize,
+        requirement: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_edges() {
+            return Err("capacities length must match graph num_edges".into());
+        }
+        if lower_bounds.len() != graph.num_edges() {
+            return Err("lower_bounds length must match graph num_edges".into());
         }
 
-        Self {
+        let num_vertices = graph.num_vertices();
+        if !(source < num_vertices) {
+            return Err(format!("source must be less than num_vertices ({num_vertices})").into());
+        }
+        if !(sink < num_vertices) {
+            return Err(format!("sink must be less than num_vertices ({num_vertices})").into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if requirement == 0 {
+            return Err("requirement must be at least 1".into());
+        }
+
+        for (edge_index, (&lower, &upper)) in lower_bounds.iter().zip(&capacities).enumerate() {
+            if !(lower <= upper) {
+                return Err(format!(
+                    "lower bound at edge {edge_index} must be at most its capacity"
+                )
+                .into());
+            }
+        }
+
+        Ok(Self {
             graph,
             capacities,
             lower_bounds,
             source,
             sink,
             requirement,
-        }
+        })
     }
 
     pub fn graph(&self) -> &SimpleGraph {
@@ -305,8 +318,12 @@ impl Problem for UndirectedFlowLowerBounds {
 }
 
 impl crate::solvers::BruteForceProblem for UndirectedFlowLowerBounds {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_edges())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

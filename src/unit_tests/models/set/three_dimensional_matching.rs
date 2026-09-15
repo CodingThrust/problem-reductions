@@ -11,8 +11,11 @@ fn test_three_dimensional_matching_creation() {
     );
     assert_eq!(problem.universe_size(), 3);
     assert_eq!(problem.num_triples(), 5);
-    assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(problem.num_variables().unwrap(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2, 2, 2]
+    );
 }
 
 #[test]
@@ -151,4 +154,13 @@ fn test_three_dimensional_matching_duplicate_coordinates() {
     assert!(problem.evaluate(&vec![true, true, false]).unwrap()); // T0+T1: w={0,1}, x={0,1}, y={0,1} all distinct
     assert!(!problem.evaluate(&vec![true, false, true]).unwrap()); // T0+T2: w={0,0} not distinct
     assert!(!problem.evaluate(&vec![false, true, true]).unwrap()); // T1+T2: x={1,1} not distinct
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":2,"triples":[[0,2,0]]});
+    assert!(serde_json::from_value::<ThreeDimensionalMatching>(json.clone()).is_err());
+    assert!(
+        crate::registry::load_dyn("ThreeDimensionalMatching", &Default::default(), json).is_err()
+    );
 }

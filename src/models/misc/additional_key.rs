@@ -61,11 +61,32 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "AdditionalKeyData")]
 pub struct AdditionalKey {
     num_attributes: usize,
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
     relation_attrs: Vec<usize>,
     known_keys: Vec<Vec<usize>>,
+}
+
+#[derive(Deserialize)]
+struct AdditionalKeyData {
+    num_attributes: usize,
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    relation_attrs: Vec<usize>,
+    known_keys: Vec<Vec<usize>>,
+}
+
+impl TryFrom<AdditionalKeyData> for AdditionalKey {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: AdditionalKeyData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_attributes,
+            data.dependencies,
+            data.relation_attrs,
+            data.known_keys,
+        )
+    }
 }
 
 impl AdditionalKey {
@@ -81,42 +102,58 @@ impl AdditionalKey {
         relation_attrs: Vec<usize>,
         known_keys: Vec<Vec<usize>>,
     ) -> Self {
+        Self::try_new(num_attributes, dependencies, relation_attrs, known_keys)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_attributes: usize,
+        dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+        relation_attrs: Vec<usize>,
+        known_keys: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         // Validate all attribute indices
         for &a in &relation_attrs {
-            assert!(
-                a < num_attributes,
-                "relation_attrs element {a} >= num_attributes {num_attributes}"
-            );
+            if !(a < num_attributes) {
+                return Err(format!(
+                    "relation_attrs element {a} >= num_attributes {num_attributes}"
+                )
+                .into());
+            }
         }
         // Validate relation_attrs uniqueness
         let mut sorted_ra = relation_attrs.clone();
         sorted_ra.sort_unstable();
         sorted_ra.dedup();
-        assert_eq!(
-            sorted_ra.len(),
-            relation_attrs.len(),
-            "relation_attrs contains duplicates"
-        );
+        if sorted_ra.len() != relation_attrs.len() {
+            return Err("relation_attrs contains duplicates".into());
+        }
         for (lhs, rhs) in &dependencies {
             for &a in lhs {
-                assert!(
-                    a < num_attributes,
-                    "dependency lhs attribute {a} >= num_attributes {num_attributes}"
-                );
+                if !(a < num_attributes) {
+                    return Err(format!(
+                        "dependency lhs attribute {a} >= num_attributes {num_attributes}"
+                    )
+                    .into());
+                }
             }
             for &a in rhs {
-                assert!(
-                    a < num_attributes,
-                    "dependency rhs attribute {a} >= num_attributes {num_attributes}"
-                );
+                if !(a < num_attributes) {
+                    return Err(format!(
+                        "dependency rhs attribute {a} >= num_attributes {num_attributes}"
+                    )
+                    .into());
+                }
             }
         }
         for key in &known_keys {
             for &a in key {
-                assert!(
-                    a < num_attributes,
-                    "known_keys attribute {a} >= num_attributes {num_attributes}"
-                );
+                if !(a < num_attributes) {
+                    return Err(format!(
+                        "known_keys attribute {a} >= num_attributes {num_attributes}"
+                    )
+                    .into());
+                }
             }
         }
         // Sort known_keys entries internally for consistent comparison
@@ -127,12 +164,12 @@ impl AdditionalKey {
                 k
             })
             .collect();
-        Self {
+        Ok(Self {
             num_attributes,
             dependencies,
             relation_attrs,
             known_keys,
-        }
+        })
     }
 
     /// Returns the number of attributes in the universal set A.
@@ -265,8 +302,12 @@ impl Problem for AdditionalKey {
 }
 
 impl crate::solvers::BruteForceProblem for AdditionalKey {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.relation_attrs.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.relation_attrs.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

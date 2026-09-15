@@ -15,7 +15,8 @@
 use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::EnsembleComputation;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::One;
 
@@ -40,22 +41,26 @@ impl ReductionResult for ReductionVCToEC {
     /// its edge. An L-step program yields at most L minus the number of
     /// distinct required triples; loops instead require endpoint pairs.
     /// This applies to arbitrary programs, without a normal-form assumption.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let crate::types::Min(Some(length)) = value else {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration does not encode a valid ensemble computation",
-            ));
-        };
-        let meaningful_steps = usize::try_from(length).map_err(|_| {
-            crate::rules::ExtractionError::invalid(
-                "ensemble operation count cannot be represented as usize",
-            )
-        })?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl ReductionVCToEC {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        let value = crate::traits::Problem::evaluate(self.target_problem(), target_solution)?;
+        // Evaluation supplies the meaningful prefix, which the mapping needs.
+        // The target witness premise already guarantees a feasible program.
+        let meaningful_steps = value.0.unwrap() as usize;
         let mut cover = vec![false; self.num_vertices];
         let universe_size = self.target.universe_size();
         for &[left, right] in target_solution

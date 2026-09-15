@@ -7,15 +7,14 @@
 use crate::models::misc::{Partition, SubsetSum};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use num_bigint::{BigUint, ToBigUint};
 
 /// Result of reducing Partition to SubsetSum.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToSubsetSum {
     target: SubsetSum,
-    /// Number of elements in the original Partition instance.
-    /// When the total sum is odd, the target has 0 elements but the source has n.
-    source_n: usize,
 }
 
 impl ReductionResult for ReductionPartitionToSubsetSum {
@@ -26,20 +25,18 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        if target_solution.len() != self.source_n {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} subset-selection values, got {}",
-                self.source_n,
-                target_solution.len()
-            )));
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { solution, .. } => {
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
         }
-        Ok(target_solution.to_vec())
     }
 }
 
@@ -52,14 +49,12 @@ impl ReduceTo<SubsetSum> for Partition {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let total = self.total_sum();
-        let source_n = self.num_elements();
 
         Ok(if total % 2 != 0 {
             // Odd total sum: no balanced partition exists.
             // Return a trivially infeasible SubsetSum: no elements, target = 1.
             ReductionPartitionToSubsetSum {
                 target: SubsetSum::new_unchecked(vec![], BigUint::from(1u32)),
-                source_n,
             }
         } else {
             let sizes: Vec<BigUint> = self
@@ -75,7 +70,6 @@ impl ReduceTo<SubsetSum> for Partition {
                 .expect("validated nonnegative Partition total");
             ReductionPartitionToSubsetSum {
                 target: SubsetSum::new_unchecked(sizes, target_val),
-                source_n,
             }
         })
     }

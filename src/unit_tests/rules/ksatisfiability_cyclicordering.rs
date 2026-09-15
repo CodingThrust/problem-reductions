@@ -1,6 +1,9 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::misc::CyclicOrdering;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::variant::K3;
 // Construct the paper's seven local orders and merge their auxiliary
@@ -95,7 +98,14 @@ fn test_ksatisfiability_to_cyclicordering_single_clause_reference_vector() {
     );
 
     let target_solution = forward_witness(&source, &[true, true, true]);
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -141,7 +151,14 @@ fn test_ksatisfiability_to_cyclicordering_extract_solution_from_reference_witnes
             .0
     );
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true, true]
     );
 }
@@ -154,7 +171,17 @@ fn test_ksatisfiability_to_cyclicordering_clause_gadget_truth_patterns() {
         let assignment: Vec<_> = (0..3).map(|bit| mask & (1 << bit) != 0).collect();
         let config = forward_witness(&source, &assignment);
         assert!(reduction.target_problem().evaluate(&config).unwrap().0);
-        assert_eq!(reduction.extract_solution(&config).unwrap(), assignment);
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
+            assignment
+        );
     }
 }
 
@@ -199,7 +226,14 @@ fn test_ksatisfiability_to_cyclicordering_closed_loop() {
         "target solution must evaluate as satisfying"
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(
         source.evaluate(&extracted).unwrap().0,
         "extracted source config must satisfy the source"
@@ -235,7 +269,14 @@ fn repeated_short_and_unsorted_clauses_preserve_all_source_assignments() {
             if source.evaluate(&assignment).unwrap().0 {
                 let config = forward_witness(&source, &assignment);
                 assert!(reduction.target_problem().evaluate(&config).unwrap().0);
-                let extracted = reduction.extract_solution(&config).unwrap();
+                let extracted = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.evaluate(&extracted).unwrap().0);
                 for (original, used) in
                     (0..6).map(|i| (i, normalized.source_variables.contains(&i)))
@@ -254,7 +295,14 @@ fn empty_formula_and_empty_clause_have_opposite_fixed_targets() {
         let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source).unwrap();
         assert_eq!(reduction.target_problem().num_elements(), 1);
         assert_eq!(
-            reduction.extract_solution(&vec![0]).unwrap(),
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), vec![0].clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
             vec![false; num_vars]
         );
         let source =
@@ -271,7 +319,6 @@ fn empty_formula_and_empty_clause_have_opposite_fixed_targets() {
             vec![2, 1, 0],
         ] {
             assert!(!reduction.target_problem().evaluate(&config).unwrap().0);
-            assert!(reduction.extract_solution(&config).is_err());
         }
     }
 }
@@ -283,17 +330,33 @@ fn reject_invalid_orderings_and_accept_every_rotation() {
     let config = forward_witness(&source, &[true, false, true]);
     let n = config.len();
     for shift in 0..n {
-        let rotated = config
+        let rotated: Vec<_> = config
             .iter()
             .map(|position| (position + shift) % n)
             .collect();
         assert_eq!(
-            reduction.extract_solution(&rotated).unwrap(),
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), rotated.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
             vec![true, false, true]
         );
     }
-    for config in [vec![], vec![0; n], vec![n; n], (0..n).collect()] {
-        assert!(reduction.extract_solution(&config).is_err());
+    for config in [vec![], vec![n; n]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&config),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for config in [vec![0; n], (0..n).collect()] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&config)
+            .unwrap()
+            .is_valid());
     }
 }
 

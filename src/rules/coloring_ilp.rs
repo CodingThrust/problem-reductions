@@ -11,7 +11,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K1, K2, K3, K4, KN};
 
@@ -44,13 +45,31 @@ where
     ///
     /// The ILP solution has num_vertices * K binary variables.
     /// For each vertex, we find which color has value 1.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
-        one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
+impl<K: KValue, G> ReductionKColoringToILP<K, G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_colors,
+            0,
+        ))
     }
 }
 

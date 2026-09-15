@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -14,7 +15,14 @@ fn test_knapsack_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &knapsack,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, true, true, false]);
 }
 
@@ -29,7 +37,14 @@ fn test_knapsack_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &knapsack,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = knapsack.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
@@ -61,7 +76,14 @@ fn test_knapsack_to_ilp_zero_capacity() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("zero-capacity ILP should still be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &knapsack,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, false]);
 }
 
@@ -81,7 +103,14 @@ fn test_knapsack_to_ilp_empty_instance() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("empty Knapsack ILP should still be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &knapsack,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, Vec::<bool>::new());
 }
 

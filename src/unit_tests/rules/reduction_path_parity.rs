@@ -9,6 +9,7 @@ use crate::rules::test_helpers::assert_optimization_round_trip_chain;
 use crate::rules::ReductionGraph;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -55,7 +56,13 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
 
     let solver = BruteForce::new();
     let target_solution = solver.solve(target).unwrap().unwrap();
-    let source_solution = chain.extract_solution(&target_solution).unwrap();
+    let source_solution = chain
+        .recover_result::<MaxCut<SimpleGraph, i64>, SpinGlass<SimpleGraph, f64>>(
+            &source,
+            SolveOutcome::optimal(target, target_solution).unwrap(),
+        )
+        .map(|outcome| outcome.into_solution().unwrap())
+        .unwrap();
 
     // Source solution should be valid
     let metric = source.evaluate(&source_solution).unwrap();
@@ -118,7 +125,9 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     let rpath = graph
         .find_all_paths("Factoring", &src_var, "SpinGlass", &dst_var)
         .into_iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit CircuitSAT route");
 
     // Canonical factor order uses the smaller width first.
@@ -131,7 +140,7 @@ fn test_jl_parity_factoring_to_spinglass_path() {
 
     // Verify reduction produces a valid SpinGlass problem
     assert!(
-        target.num_variables() > 0,
+        target.num_variables().unwrap() > 0,
         "SpinGlass should have variables"
     );
 
@@ -144,7 +153,14 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     let ilp_solution = ilp_solver
         .solve(ilp)
         .expect("ILP solver should find factoring solution");
-    let factoring_solution = reduction.extract_solution(&ilp_solution).unwrap();
+    let factoring_solution = reduction
+        .recover_result(
+            &factoring,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let metric = factoring.evaluate(&factoring_solution).unwrap();
     assert!(metric.unwrap(), "Factoring->ILP solution must be valid");
 }

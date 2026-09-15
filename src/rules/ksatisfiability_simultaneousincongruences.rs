@@ -4,12 +4,13 @@
 //! 1 (true) and 2 (false), then forbids each clause's unique falsifying
 //! residue class via the Chinese Remainder Theorem.
 
+use crate::solvers::ProblemOutcome;
 use std::collections::BTreeMap;
 
 use crate::models::algebraic::SimultaneousIncongruences;
 use crate::models::formula::{ksat::first_n_odd_primes, CNFClause, KSatisfiability};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::variant::K3;
 
 #[derive(Debug, Clone)]
@@ -26,18 +27,24 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl Reduction3SATToSimultaneousIncongruences {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
-            let x = u64::try_from(*target_solution).map_err(|_| {
-                crate::rules::ExtractionError::invalid(
-                    "target value cannot be represented in the CRT implementation domain",
-                )
-            })?;
+            let x = *target_solution as u64;
             self.variable_primes
                 .iter()
                 .map(|&prime| x % prime == 1)

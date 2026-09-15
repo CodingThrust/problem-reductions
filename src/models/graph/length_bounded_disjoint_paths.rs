@@ -33,7 +33,7 @@ inventory::submit! {
 /// vertices of different slots must be disjoint. Empty slots (all zeros) are
 /// unused and do not count toward the objective. The objective is to maximize
 /// the number of non-empty valid path slots.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct LengthBoundedDisjointPaths<G> {
     graph: G,
@@ -41,6 +41,26 @@ pub struct LengthBoundedDisjointPaths<G> {
     sink: usize,
     max_paths: usize,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct LengthBoundedDisjointPathsData<G> {
+    graph: G,
+    source: usize,
+    sink: usize,
+    max_length: usize,
+}
+
+impl<'de, G> Deserialize<'de> for LengthBoundedDisjointPaths<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = LengthBoundedDisjointPathsData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.source, data.sink, data.max_length)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -140,26 +160,37 @@ impl<G: Graph> LengthBoundedDisjointPaths<G> {
     /// Panics if `source` or `sink` is not a valid graph vertex, if `source ==
     /// sink`, or if `max_length == 0`.
     pub fn new(graph: G, source: usize, sink: usize, max_length: usize) -> Self {
-        assert!(
-            source < graph.num_vertices(),
-            "source must be a valid graph vertex"
-        );
-        assert!(
-            sink < graph.num_vertices(),
-            "sink must be a valid graph vertex"
-        );
-        assert_ne!(source, sink, "source and sink must be distinct");
-        assert!(max_length > 0, "max_length must be positive");
+        Self::try_new(graph, source, sink, max_length).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        source: usize,
+        sink: usize,
+        max_length: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(source < graph.num_vertices()) {
+            return Err("source must be a valid graph vertex".into());
+        }
+        if !(sink < graph.num_vertices()) {
+            return Err("sink must be a valid graph vertex".into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if max_length == 0 {
+            return Err("max_length must be positive".into());
+        }
         let deg_s = graph.neighbors(source).len();
         let deg_t = graph.neighbors(sink).len();
         let max_paths = deg_s.min(deg_t);
-        Self {
+        Ok(Self {
             graph,
             source,
             sink,
             max_paths,
             max_length,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -243,8 +274,16 @@ impl<G> crate::solvers::BruteForceProblem for LengthBoundedDisjointPaths<G>
 where
     G: Graph + VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.max_paths * self.graph.num_edges()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.max_paths)
+            .checked_mul(self.graph.num_edges())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+            })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

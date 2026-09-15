@@ -33,8 +33,11 @@ fn test_quadratic_congruences_creation_and_accessors() {
     assert_eq!(p.bit_length_b(), 4);
     assert_eq!(p.bit_length_c(), 4);
     // x is encoded as 4 binary digits because c - 1 = 9 has 4 bits.
-    assert_eq!(p.dimensions(), vec![2, 2, 2, 2]);
-    assert_eq!(p.num_variables(), 4);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2, 2]
+    );
+    assert_eq!(p.num_variables().unwrap(), 4);
     assert_eq!(
         <QuadraticCongruences as Problem>::NAME,
         "QuadraticCongruences"
@@ -56,7 +59,10 @@ fn test_quadratic_congruences_evaluate_yes() {
 fn test_quadratic_congruences_evaluate_no() {
     let p = no_problem();
     // c - 1 = 6 has 3 bits.
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
     for x in 1..7 {
         // quadratic residues mod 7 are {0,1,2,4}; 3 is not one
         assert_eq!(p.evaluate(&config_for_x(&p, x)).unwrap(), Or(false));
@@ -74,7 +80,10 @@ fn test_quadratic_congruences_evaluate_invalid_config() {
 fn test_quadratic_congruences_c_le_1() {
     // c=1: search space {1..0} is empty
     let p = QuadraticCongruences::new(0, 5, 1);
-    assert_eq!(p.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(p.evaluate(&BigUint::default()).unwrap(), Or(false));
     assert_eq!(p.evaluate(&bu(1)).unwrap(), Or(false));
 }
@@ -86,7 +95,10 @@ fn test_quadratic_congruences_bigint_witness_encoding_round_trip() {
     let x = (BigUint::from(1u32) << 100usize) + BigUint::from(1u32);
     let config = p.encode_witness(&x).expect("x should be encodable");
 
-    assert_eq!(config.len(), p.dimensions().len());
+    assert_eq!(
+        config.len(),
+        crate::solvers::cartesian_dimensions(&p).unwrap().len()
+    );
     assert_eq!(p.decode_witness(&config), Some(x));
 }
 

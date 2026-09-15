@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -46,7 +47,14 @@ fn test_kclique_to_bcbs_complete_graph() {
 
     let bf = BruteForce::new();
     let witness = bf.solve(target).unwrap().expect("K4 should contain K3");
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     // Exactly 3 vertices should be selected
     assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 3);
@@ -96,7 +104,14 @@ fn test_kclique_to_bcbs_k_equals_2() {
         .solve(target)
         .unwrap()
         .expect("graph has edges, so 2-clique exists");
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 2);
 }
@@ -116,7 +131,14 @@ fn test_kclique_to_bcbs_k_equals_1() {
 
     let bf = BruteForce::new();
     let witness = bf.solve(target).unwrap().expect("should find a 1-clique");
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 1);
 }

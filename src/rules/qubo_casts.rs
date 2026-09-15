@@ -10,20 +10,16 @@ impl_variant_reduction!(
     <i64> => <f64>,
     fields: [num_vars],
     |src| {
-        let matrix = src
-            .matrix()
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .copied()
-                    .map(i64_to_exact_f64)
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                ReductionError::inexact_float_conversion::<QUBO<i64>, QUBO<f64>>(error)
-            })?;
-        QUBO::from_matrix(matrix)
+        let coefficients = src.matrix().data().iter().copied()
+            .map(i64_to_exact_f64).collect::<Result<Vec<_>, _>>()
+            .map_err(ReductionError::inexact_float_conversion::<QUBO<i64>, QUBO<f64>>)?;
+        let matrix = sprs::CsMat::new(
+            src.matrix().shape(),
+            src.matrix().indptr().raw_storage().to_vec(),
+            src.matrix().indices().to_vec(),
+            coefficients,
+        );
+        QUBO::from_sparse(matrix)
             .map_err(ReductionError::construction::<QUBO<i64>, QUBO<f64>>)?
     }
 );

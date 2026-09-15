@@ -64,7 +64,7 @@ inventory::submit! {
 ///
 /// # Configuration encoding
 ///
-/// `dims()` returns `vec![|V_2| + 1; |V_1|]`. For each source vertex `i`,
+/// The coordinate cardinalities are `vec![|V_2| + 1; |V_1|]`. For each source vertex `i`,
 /// `config[i] = 0` denotes `bot` (unmatched) and `config[i] = j + 1` denotes
 /// "matched to vertex `j in V_2`". Feasibility requires that the nonzero
 /// entries are pairwise distinct (injectivity) and strictly increasing along
@@ -261,8 +261,14 @@ impl Problem for MaximumContactMapOverlap {
 }
 
 impl crate::solvers::BruteForceProblem for MaximumContactMapOverlap {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_vertices_2 + 1; self.num_vertices_1]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vertices_1)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.num_vertices_2).checked_add(1usize).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

@@ -97,11 +97,32 @@ inventory::submit! {
 
 /// The Consistency of Database Frequency Tables decision problem.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "ConsistencyOfDatabaseFrequencyTablesData")]
 pub struct ConsistencyOfDatabaseFrequencyTables {
     num_objects: usize,
     attribute_domains: Vec<usize>,
     frequency_tables: Vec<FrequencyTable>,
     known_values: Vec<KnownValue>,
+}
+
+#[derive(Deserialize)]
+struct ConsistencyOfDatabaseFrequencyTablesData {
+    num_objects: usize,
+    attribute_domains: Vec<usize>,
+    frequency_tables: Vec<FrequencyTable>,
+    known_values: Vec<KnownValue>,
+}
+
+impl TryFrom<ConsistencyOfDatabaseFrequencyTablesData> for ConsistencyOfDatabaseFrequencyTables {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: ConsistencyOfDatabaseFrequencyTablesData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_objects,
+            data.attribute_domains,
+            data.frequency_tables,
+            data.known_values,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -220,20 +241,34 @@ impl ConsistencyOfDatabaseFrequencyTables {
         frequency_tables: Vec<FrequencyTable>,
         known_values: Vec<KnownValue>,
     ) -> Self {
+        Self::try_new(
+            num_objects,
+            attribute_domains,
+            frequency_tables,
+            known_values,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_objects: usize,
+        attribute_domains: Vec<usize>,
+        frequency_tables: Vec<FrequencyTable>,
+        known_values: Vec<KnownValue>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cdft_create(
             num_objects,
             &attribute_domains,
             &frequency_tables,
             &known_values,
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
+        )?;
 
-        Self {
+        Ok(Self {
             num_objects,
             attribute_domains,
             frequency_tables,
             known_values,
-        }
+        })
     }
 
     /// Returns the number of objects.
@@ -261,9 +296,9 @@ impl ConsistencyOfDatabaseFrequencyTables {
         &self.known_values
     }
 
-    /// Returns the product of attribute domain sizes.
-    pub fn domain_size_product(&self) -> usize {
-        self.attribute_domains.iter().copied().product()
+    /// Largest attribute domain, or one for the empty attribute list.
+    pub fn max_domain_size(&self) -> usize {
+        self.attribute_domains.iter().copied().max().unwrap_or(1)
     }
 
     /// Returns the sum of all attribute-domain sizes.
@@ -318,7 +353,7 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
         ("num_objects", num_objects),
         ("num_attributes", num_attributes),
         ("total_domain_size", total_domain_size),
-        ("domain_size_product", domain_size_product),
+        ("max_domain_size", max_domain_size),
         ("num_frequency_tables", num_frequency_tables),
         ("num_frequency_cells", num_frequency_cells),
         ("num_known_values", num_known_values),
@@ -386,17 +421,23 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
 }
 
 impl crate::solvers::BruteForceProblem for ConsistencyOfDatabaseFrequencyTables {
-    fn dimensions(&self) -> Vec<usize> {
-        let mut dims = Vec::with_capacity(self.num_assignment_variables());
-        for _ in 0..self.num_objects {
-            dims.extend(self.attribute_domains.iter().copied());
-        }
-        dims
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.num_objects)
+            .checked_mul(self.attribute_domains.len())
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a search coordinate size".into(),
+                )
+            })
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.attribute_domains[variable % self.attribute_domains.len()])
     }
 }
 
 crate::declare_variants! {
-    default ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects" create ConsistencyOfDatabaseFrequencyTablesCreateSpec,
+    default ConsistencyOfDatabaseFrequencyTables => "max_domain_size^(num_attributes * num_objects)" create ConsistencyOfDatabaseFrequencyTablesCreateSpec,
 }
 
 crate::register_brute_force! {

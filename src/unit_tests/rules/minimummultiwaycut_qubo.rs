@@ -1,8 +1,58 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
+
+#[test]
+fn signed_cut_weights_preserve_every_target_optimum() {
+    let solver = BruteForce::new();
+    for weights in [
+        vec![-1, -1, -1],
+        vec![-3, 2, 1],
+        vec![0, -1, 2],
+        vec![i64::MIN, 0, 0],
+    ] {
+        let source = MinimumMultiwayCut::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            vec![0, 1],
+            weights,
+        );
+        let optimum = (0..8)
+            .filter_map(|bits| {
+                source
+                    .evaluate(&(0..3).map(|i| bits & (1 << i) != 0).collect())
+                    .unwrap()
+                    .0
+            })
+            .min()
+            .unwrap();
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        let solutions = solver
+            .find_all_witnesses(reduction.target_problem())
+            .unwrap();
+        assert!(!solutions.is_empty());
+        for solution in solutions {
+            assert_eq!(
+                source
+                    .evaluate(
+                        &reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                                    .unwrap()
+                            )
+                            .unwrap()
+                            .into_solution()
+                            .expect("qualifying target result must recover a source solution")
+                    )
+                    .unwrap(),
+                Min(Some(optimum))
+            );
+        }
+    }
+}
 
 #[test]
 fn test_minimummultiwaycut_to_qubo_closed_loop() {
@@ -20,7 +70,14 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
 
     // All QUBO optimal solutions should extract to valid source solutions with cost 8
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = source.evaluate(&extracted).unwrap();
         assert_eq!(metric, Min(Some(8)));
     }
@@ -42,7 +99,14 @@ fn test_minimummultiwaycut_to_qubo_small() {
 
     // All solutions should extract to valid cuts
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = source.evaluate(&extracted).unwrap();
         // With 2 terminals and path 0-1-2, minimum cut is 1 (cut either edge)
         assert_eq!(metric, Min(Some(1)));
@@ -56,7 +120,7 @@ fn test_minimummultiwaycut_to_qubo_sizes() {
     let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
-    assert_eq!(reduction.target_problem().num_variables(), 15);
+    assert_eq!(reduction.target_problem().num_variables().unwrap(), 15);
 }
 
 #[test]

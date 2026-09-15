@@ -141,12 +141,9 @@ impl KthLargestMTuple {
         self.sets.len()
     }
 
-    /// Returns the total number of m-tuples (product of set sizes).
-    pub fn total_tuples(&self) -> usize {
-        self.sets
-            .iter()
-            .try_fold(1usize, |total, set| total.checked_mul(set.len()))
-            .expect("KthLargestMTuple total tuple count exceeds usize")
+    /// Returns the total number of elements across the input sets.
+    pub fn num_elements(&self) -> usize {
+        self.sets.iter().map(Vec::len).sum()
     }
 
     fn has_at_least_k_qualifying_tuples(&self) -> Result<bool, crate::traits::EvaluationError> {
@@ -208,7 +205,7 @@ impl Problem for KthLargestMTuple {
     type Solution = ();
     type Value = Or;
 
-    crate::problem_parameters![("num_sets", num_sets), ("total_tuples", total_tuples),];
+    crate::problem_parameters![("num_sets", num_sets), ("num_elements", num_elements),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -220,15 +217,19 @@ impl Problem for KthLargestMTuple {
 }
 
 impl crate::solvers::BruteForceProblem for KthLargestMTuple {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(0)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(0)
     }
 }
 
-// Best known: brute-force enumeration of all tuples, O(total_tuples * num_sets).
+// Best known: brute-force enumeration of all tuples, O(product_i |X_i| * num_sets), bounded by AM-GM.
 // No sub-exponential exact algorithm is known for the general case.
 crate::declare_variants! {
-    default KthLargestMTuple => "total_tuples * num_sets" create KthLargestMTupleCreateSpec,
+    default KthLargestMTuple => "(num_elements / num_sets)^num_sets * num_sets" create KthLargestMTupleCreateSpec,
 }
 
 crate::register_brute_force! {

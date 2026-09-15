@@ -2,6 +2,7 @@ use crate::models::formula::{CNFClause, NonTautology, Satisfiability};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_satisfiability_to_non_tautology_structure() {
@@ -58,7 +59,14 @@ fn test_satisfiability_to_non_tautology_extract_solution_is_identity() {
         .expect("target should have a witness");
 
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         target_solution
     );
 }

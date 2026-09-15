@@ -2,6 +2,7 @@ use super::*;
 use crate::models::misc::{CosineProductIntegration, Partition};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn reduce_partition(sizes: &[i64]) -> (Partition, ReductionPartitionToCPI) {
@@ -70,7 +71,14 @@ fn test_partition_to_cosineproductintegration_solution_extraction() {
     let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted.len(), source.num_elements());
         let target_valid = target.evaluate(sol).unwrap();
         let source_valid = source.evaluate(&extracted).unwrap();

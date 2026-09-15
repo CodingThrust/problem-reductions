@@ -2,6 +2,7 @@ use super::*;
 use crate::models::misc::{Numerical3DimensionalMatching, NumericalMatchingWithTargetSums};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn yes_problem() -> Numerical3DimensionalMatching {
@@ -54,7 +55,14 @@ fn test_n3dm_to_nmts_extracts_target_witness_into_source_witness() {
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![2, 0, 1, 0, 2, 1]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -74,7 +82,14 @@ fn test_n3dm_to_nmts_handles_repeated_targets() {
             .0
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).unwrap().0);
 }

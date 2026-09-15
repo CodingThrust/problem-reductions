@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Helper: build expression (1 ∪ 4) + (3 ∪ 6) + (2 ∪ 5)
@@ -32,7 +31,10 @@ fn test_integer_expression_membership_creation() {
     assert_eq!(problem.num_atoms(), 6);
     assert_eq!(problem.expression_size(), 11); // 6 atoms + 3 unions + 2 sums
     assert_eq!(problem.expression_depth(), 3);
-    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2]
+    );
     assert_eq!(
         <IntegerExpressionMembership as Problem>::NAME,
         "IntegerExpressionMembership"
@@ -116,7 +118,10 @@ fn test_integer_expression_membership_single_atom() {
     let expr = IntExpr::Atom(42);
     let problem = IntegerExpressionMembership::new(expr, 42);
     assert_eq!(problem.num_union_nodes(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap()); // empty config, atom == target
 }
 
@@ -133,7 +138,10 @@ fn test_integer_expression_membership_simple_union() {
     let expr = IntExpr::Union(Box::new(IntExpr::Atom(3)), Box::new(IntExpr::Atom(7)));
     let problem = IntegerExpressionMembership::new(expr, 7);
     assert_eq!(problem.num_union_nodes(), 1);
-    assert_eq!(problem.dimensions(), vec![2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2]
+    );
     assert!(!problem.evaluate(&vec![false]).unwrap()); // 3 ≠ 7
     assert!(problem.evaluate(&vec![true]).unwrap()); // 7 == 7
 }

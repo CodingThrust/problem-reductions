@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
 use crate::variant::KN;
 
@@ -42,7 +43,17 @@ fn test_kcoloring_to_partitionintocliques_extract_solution_identity() {
         .expect("reduction should succeed");
     let config = vec![0, 1, 0];
 
-    assert_eq!(reduction.extract_solution(&config).unwrap(), config);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        config
+    );
 }
 
 #[test]

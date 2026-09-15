@@ -29,8 +29,11 @@ fn test_minimum_cardinality_key_creation() {
     let problem = instance1();
     assert_eq!(problem.num_attributes(), 6);
     assert_eq!(problem.num_dependencies(), 4);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 }
 
 #[test]
@@ -176,4 +179,11 @@ fn test_minimum_cardinality_key_paper_example() {
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(witness, solution);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"num_attributes":3,"dependencies":[[[0,3],[1]]]});
+    assert!(serde_json::from_value::<MinimumCardinalityKey>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("MinimumCardinalityKey", &Default::default(), json).is_err());
 }

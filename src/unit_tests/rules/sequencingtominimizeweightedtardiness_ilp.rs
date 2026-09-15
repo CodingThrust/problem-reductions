@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -14,7 +15,14 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -33,7 +41,14 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -43,8 +58,9 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_infeasible() {
     let problem =
         SequencingToMinimizeWeightedTardiness::new(vec![10, 10], vec![1, 1], vec![1, 1], 0);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible STMWT should produce infeasible ILP"
     );
 }
@@ -62,6 +78,13 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_no_tardiness() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

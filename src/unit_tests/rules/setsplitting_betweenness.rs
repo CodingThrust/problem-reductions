@@ -3,6 +3,7 @@ use crate::models::set::SetSplitting;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 fn small_yes_instance() -> SetSplitting {
     SetSplitting::new(3, vec![vec![0, 1, 2]])
@@ -53,8 +54,17 @@ fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
     );
     assert_eq!(
         reduction
-            .extract_solution(&vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, true, false, false]
     );
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::variant::K3;
 use num_bigint::BigUint;
@@ -30,7 +31,14 @@ fn test_ksatisfiability_to_subsetsum_closed_loop() {
 
     // Every SubsetSum solution must map back to a satisfying 3-SAT assignment
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted.len(), 3);
         assert!(ksat.evaluate(&extracted).unwrap());
     }
@@ -73,7 +81,14 @@ fn test_ksatisfiability_to_subsetsum_single_clause() {
     // Each SubsetSum solution maps to a satisfying assignment
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ksat.evaluate(&extracted).unwrap());
         sat_assignments.insert(extracted);
     }
@@ -122,7 +137,14 @@ fn test_ksatisfiability_to_subsetsum_all_negated() {
 
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &ksat,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(ksat.evaluate(&extracted).unwrap());
         sat_assignments.insert(extracted);
     }
@@ -156,7 +178,14 @@ fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
     ];
     assert!(target.evaluate(&specific_config).unwrap());
 
-    let extracted = reduction.extract_solution(&specific_config).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &ksat,
+            SolveOutcome::optimal(reduction.target_problem(), specific_config.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, true]); // x1=T, x2=T, x3=T
     assert!(ksat.evaluate(&extracted).unwrap());
 }

@@ -238,8 +238,12 @@ impl Problem for RootedTreeStorageAssignment {
 }
 
 impl crate::solvers::BruteForceProblem for RootedTreeStorageAssignment {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.universe_size; self.universe_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.universe_size)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.universe_size)
     }
 }
 

@@ -13,7 +13,9 @@ use crate::models::graph::MonochromaticTriangle;
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::satisfiability_naesatisfiability::ReductionSATToNAESAT;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::variant::K3;
 
@@ -51,17 +53,28 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToMonochromaticTriangle {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let nae_solution = (0..self.nae_reduction.target_problem().num_vars())
             .map(|index| target_solution[2 * index])
             .collect();
         // Reuse the formal SAT -> NAE extraction (including sentinel
         // normalization); no assignment search or speculative complement.
-        self.nae_reduction.extract_solution(&nae_solution)
+        self.nae_reduction.map_solution(&nae_solution)
     }
 }
 
@@ -177,7 +190,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("canonical target must be colourable");
-            let source_config = reduction.extract_solution(&target_config).unwrap();
+            let source_config = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_config.to_vec())
+                        .unwrap(),
+                )
+                .map(|result| result.into_solution().unwrap())
+                .unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),

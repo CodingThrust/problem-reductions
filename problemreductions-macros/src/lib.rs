@@ -205,8 +205,6 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
 /// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
-/// - `aggregate = identity` or `aggregate = custom` — register the reduction result's
-///   `AggregateReductionResult` implementation alongside its witness extractor
 ///
 /// ## Syntax
 /// ```ignore
@@ -239,7 +237,6 @@ struct ReductionAttrs {
     relation: Option<ParameterRelationAttr>,
     fields: Option<Vec<(String, String)>>,
     unavailable: Option<Vec<(String, String)>>,
-    aggregate: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -255,7 +252,6 @@ impl syn::parse::Parse for ReductionAttrs {
             relation: None,
             fields: None,
             unavailable: None,
-            aggregate: false,
         };
 
         while !input.is_empty() {
@@ -304,16 +300,6 @@ impl syn::parse::Parse for ReductionAttrs {
                     let content;
                     syn::braced!(content in input);
                     attrs.unavailable = Some(parse_unavailable_fields(&content)?);
-                }
-                "aggregate" => {
-                    let value: syn::Ident = input.parse()?;
-                    if value != "identity" && value != "custom" {
-                        return Err(syn::Error::new(
-                            value.span(),
-                            "expected `identity` or `custom`",
-                        ));
-                    }
-                    attrs.aggregate = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -517,20 +503,6 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    let reduce_aggregate_fn = if attrs.aggregate {
-        quote! {
-            Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError> {
-                let src = src.downcast_ref::<#source_type>().ok_or_else(
-                    crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
-                )?;
-                let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
-                Ok(Box::new(result))
-            })
-        }
-    } else {
-        quote! { None }
-    };
-
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
@@ -572,14 +544,16 @@ fn generate_reduction_entry(
                     unavailable: vec![#(#unavailable_tokens),*],
                 },
                 module_path: module_path!(),
-                reduce_fn: Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+                reduce_fn: Some(|src: &dyn std::any::Any| -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
                     let src = src.downcast_ref::<#source_type>().ok_or_else(
                         crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
                     )?;
                     let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
-                    Ok(Box::new(result))
+                    let result = std::rc::Rc::new(result);
+                    Ok(crate::rules::registry::ExecutedStep {
+                        witness: result,
+                    })
                 }),
-                reduce_aggregate_fn: #reduce_aggregate_fn,
                 turing: false,
             }
         }
@@ -787,7 +761,7 @@ pub fn register_brute_force(input: TokenStream) -> TokenStream {
                         let problem = any
                             .downcast_ref::<#ty>()
                             .expect("brute-force registration received the wrong problem type");
-                        <#ty as crate::solvers::BruteForceProblem>::dimensions(problem)
+                        crate::solvers::cartesian_dimensions(problem)
                     },
                     solve_fn: |any| {
                         let problem = any
@@ -944,6 +918,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
         output.extend(quote! {
             impl crate::traits::DeclaredVariant for #ty {}
+            crate::impl_dyn_problem!(#ty);
 
             crate::inventory::submit! {
                 crate::registry::VariantEntry {
@@ -1278,24 +1253,25 @@ mod tests {
         let implementation: syn::ItemImpl = syn::parse_quote! {
             impl ReduceTo<Target> for Source {}
         };
-        for (declaration, enabled) in [
-            (quote! {}, false),
-            (quote! { aggregate = identity, }, true),
-            (quote! { aggregate = custom, }, true),
-        ] {
-            let attrs: ReductionAttrs = syn::parse2(quote! {
-                #declaration transform = exact { num_vertices = "num_vertices" }
-            })
-            .unwrap();
-            let tokens = generate_reduction_entry(&attrs, &implementation)
-                .unwrap()
-                .to_string();
-            assert_eq!(tokens.contains("reduce_aggregate_fn : Some"), enabled);
-        }
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            aggregate = unknown, transform = exact { num_vertices = "num_vertices" }
+        let attrs: ReductionAttrs = syn::parse2(quote! {
+            transform = exact { num_vertices = "num_vertices" }
         })
-        .is_err());
+        .unwrap();
+        let tokens = generate_reduction_entry(&attrs, &implementation)
+            .unwrap()
+            .to_string();
+        assert!(tokens.contains("reduce_fn : Some"));
+        assert!(tokens.contains("ExecutedStep"));
+        for declaration in [
+            quote! { aggregate = identity },
+            quote! { aggregate = custom },
+            quote! { aggregate = unknown },
+        ] {
+            assert!(syn::parse2::<ReductionAttrs>(quote! {
+                #declaration, transform = exact { num_vertices = "num_vertices" }
+            })
+            .is_err());
+        }
     }
 
     #[test]

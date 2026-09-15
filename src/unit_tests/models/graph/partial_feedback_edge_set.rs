@@ -66,8 +66,11 @@ fn test_partial_feedback_edge_set_creation() {
     assert_eq!(problem.max_cycle_length(), 4);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 9);
-    assert_eq!(problem.num_variables(), 9);
-    assert_eq!(problem.dimensions(), vec![2; 9]);
+    assert_eq!(problem.num_variables().unwrap(), 9);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 9]
+    );
 }
 
 #[test]

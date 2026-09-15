@@ -43,10 +43,26 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumLeafSpanningTree<G> {
     /// The underlying graph.
     graph: G,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct MaximumLeafSpanningTreeData<G> {
+    graph: G,
+}
+
+impl<'de, G> Deserialize<'de> for MaximumLeafSpanningTree<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumLeafSpanningTreeData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph).map_err(serde::de::Error::custom)
+    }
 }
 
 impl<G: Graph> MaximumLeafSpanningTree<G> {
@@ -54,11 +70,14 @@ impl<G: Graph> MaximumLeafSpanningTree<G> {
     ///
     /// The graph must have at least 2 vertices.
     pub fn new(graph: G) -> Self {
-        assert!(
-            graph.num_vertices() >= 2,
-            "graph must have at least 2 vertices"
-        );
-        Self { graph }
+        Self::try_new(graph).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !(graph.num_vertices() >= 2) {
+            return Err("graph must have at least 2 vertices".into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.
@@ -183,8 +202,12 @@ impl<G> crate::solvers::BruteForceProblem for MaximumLeafSpanningTree<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_edges())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

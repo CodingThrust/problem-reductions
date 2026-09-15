@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -16,7 +17,14 @@ fn test_setpacking_to_qubo_closed_loop() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 2);
     }
@@ -33,7 +41,14 @@ fn test_setpacking_to_qubo_disjoint() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         // All 3 sets should be selected
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 3);
@@ -51,7 +66,14 @@ fn test_setpacking_to_qubo_all_overlap() {
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &sp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x).count(), 1);
     }
@@ -64,7 +86,7 @@ fn test_setpacking_to_qubo_structure() {
     let qubo = reduction.target_problem();
 
     // QUBO should have same number of variables as sets
-    assert_eq!(qubo.num_variables(), 3);
+    assert_eq!(qubo.num_variables().unwrap(), 3);
 }
 
 #[test]
@@ -106,7 +128,7 @@ fn test_setpacking_to_qubo_penalty_strict_at_large_weights() {
     let source =
         MaximumSetPacking::with_weights(vec![vec![0], vec![0]], vec![weight, weight]).unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
-    assert!(reduction.target_problem().matrix()[0][1] > weight);
+    assert!(reduction.target_problem().matrix()[[0, 1]] > weight);
     crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,

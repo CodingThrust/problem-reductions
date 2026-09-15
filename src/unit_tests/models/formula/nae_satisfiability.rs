@@ -24,7 +24,7 @@ fn test_nae_satisfiability_creation() {
     assert_eq!(problem.num_vars(), 5);
     assert_eq!(problem.num_clauses(), 5);
     assert_eq!(problem.num_literals(), 15);
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(problem.num_variables().unwrap(), 5);
 }
 
 #[test]

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -29,7 +30,14 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -38,8 +46,9 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
     // Two tasks that can't both fit: both need time 0-1, but overlap
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![2, 2]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible SWRTD should produce infeasible ILP"
     );
 }
@@ -51,8 +60,9 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_rejects_empty_start_window
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![14], vec![0], vec![13]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "a task longer than its release-deadline window must make the ILP infeasible"
     );
 }
@@ -64,6 +74,13 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_single_task() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("single-task ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

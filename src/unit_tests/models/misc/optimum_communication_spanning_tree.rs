@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_edge_weights() {
@@ -36,7 +35,10 @@ fn test_ocst_creation() {
     let problem = k4_problem();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(
         <OptimumCommunicationSpanningTree as Problem>::NAME,
         "OptimumCommunicationSpanningTree"
@@ -218,4 +220,48 @@ fn test_ocst_canonical_example() {
         serde_json::json!([true, false, true, false, false, true])
     );
     assert_eq!(spec.optimal_value, serde_json::json!(20));
+}
+
+#[test]
+fn deserialize_rejects_invalid_communication_matrices() {
+    use serde_json::json;
+    let valid = json!({"edge_weights": [[0, 1], [1, 0]], "requirements": [[0, 1], [1, 0]]});
+    for (field, value, message) in [
+        ("requirements", json!([[0]]), "same size"),
+        (
+            "edge_weights",
+            json!([[0], [1, 0]]),
+            "edge_weights must be square",
+        ),
+        (
+            "requirements",
+            json!([[0], [1, 0]]),
+            "requirements must be square",
+        ),
+        (
+            "edge_weights",
+            json!([[1, 1], [1, 0]]),
+            "diagonal of edge_weights",
+        ),
+        (
+            "requirements",
+            json!([[1, 1], [1, 0]]),
+            "diagonal of requirements",
+        ),
+        (
+            "edge_weights",
+            json!([[0, -1], [-1, 0]]),
+            "edge_weights must be non-negative",
+        ),
+        (
+            "requirements",
+            json!([[0, -1], [-1, 0]]),
+            "requirements must be non-negative",
+        ),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<OptimumCommunicationSpanningTree>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
 }

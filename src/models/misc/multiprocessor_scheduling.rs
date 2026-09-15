@@ -50,11 +50,11 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MultiprocessorSchedulingCreateSpec")]
 pub struct MultiprocessorScheduling {
     /// Processing time for each task.
     lengths: Vec<i64>,
     /// Number of identical processors.
-    #[serde(deserialize_with = "positive_usize::deserialize")]
     num_processors: usize,
     /// Global deadline.
     deadline: i64,
@@ -75,7 +75,7 @@ impl TryFrom<MultiprocessorSchedulingCreateSpec> for MultiprocessorScheduling {
         if spec.num_processors == 0 {
             return Err("num_processors must be positive".to_string().into());
         }
-        Ok(Self::new(spec.lengths, spec.num_processors, spec.deadline))
+        Self::try_new(spec.lengths, spec.num_processors, spec.deadline)
     }
 }
 
@@ -85,17 +85,28 @@ impl MultiprocessorScheduling {
     /// # Panics
     /// Panics if `num_processors` is zero.
     pub fn new(lengths: Vec<i64>, num_processors: usize, deadline: i64) -> Self {
-        assert!(num_processors > 0, "num_processors must be positive");
-        assert!(
-            lengths.iter().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(deadline >= 0, "deadline must be nonnegative");
-        Self {
+        Self::try_new(lengths, num_processors, deadline).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        lengths: Vec<i64>,
+        num_processors: usize,
+        deadline: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if num_processors == 0 {
+            return Err("num_processors must be positive".into());
+        }
+        if !(lengths.iter().all(|&length| length >= 0)) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if !(deadline >= 0) {
+            return Err("deadline must be nonnegative".into());
+        }
+        Ok(Self {
             lengths,
             num_processors,
             deadline,
-        }
+        })
     }
 
     /// Returns the processing times for each task.
@@ -170,8 +181,12 @@ impl Problem for MultiprocessorScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for MultiprocessorScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_processors; self.num_tasks()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_processors)
     }
 }
 
@@ -191,22 +206,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         optimal_config: serde_json::json!(vec![0, 1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
-}
-
-mod positive_usize {
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<usize, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = usize::deserialize(deserializer)?;
-        if value == 0 {
-            return Err(D::Error::custom("expected positive integer, got 0"));
-        }
-        Ok(value)
-    }
 }
 
 #[cfg(test)]

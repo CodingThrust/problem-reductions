@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -84,7 +85,14 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         problem.evaluate(&extracted).unwrap().0,
@@ -97,8 +105,9 @@ fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionD2CIFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible flow instance should produce infeasible ILP"
     );
 }
@@ -110,8 +119,9 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
 
     let reduction: ReductionD2CIFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "commodity 1 must conserve flow at commodity 2's source in the ILP reduction"
     );
 }
@@ -130,7 +140,14 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
     target_solution[8 + 3] = 1; // f2 on arc (1,3)
     target_solution[8 + 7] = 1; // f2 on arc (3,5)
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 16);
     assert!(
         problem.evaluate(&extracted).unwrap().0,

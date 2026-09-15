@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_rhs_length_mismatch() {
@@ -27,7 +26,10 @@ fn test_minimum_weight_solution_creation() {
     let problem = example_instance();
     assert_eq!(problem.num_equations(), 2);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dimensions(), vec![2; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    );
     assert_eq!(
         <MinimumWeightSolutionToLinearEquations as Problem>::NAME,
         "MinimumWeightSolutionToLinearEquations"
@@ -159,4 +161,14 @@ fn test_minimum_weight_solution_inconsistent_rows() {
 fn test_minimum_weight_solution_rhs_mismatch() {
     let matrix = vec![vec![1, 2], vec![3, 4]];
     MinimumWeightSolutionToLinearEquations::new(matrix, vec![1]);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(
+        serde_json::from_value::<MinimumWeightSolutionToLinearEquations>(
+            serde_json::json!({"matrix":[[1]],"rhs":[]})
+        )
+        .is_err()
+    );
 }

@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_preserves_isolated_vertices() {
@@ -31,7 +30,10 @@ fn test_multiple_copy_file_allocation_creation() {
     assert_eq!(problem.num_edges(), 6);
     assert_eq!(problem.usage(), &[10; 6]);
     assert_eq!(problem.storage(), &[1; 6]);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert!(MultipleCopyFileAllocation::variant().is_empty());
 }
 

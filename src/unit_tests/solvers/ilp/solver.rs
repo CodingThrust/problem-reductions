@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{IntegerVariable, LinearConstraint};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::traits::Problem;
 
 fn binary_ilp(
@@ -110,26 +110,6 @@ fn test_ilp_solver_rejects_inexact_integer_transport() {
     assert!(matches!(
         ILPSolver::new().solve(&ilp),
         Err(ILPSolveError::InexactTransport(_))
-    ));
-}
-
-#[test]
-fn test_backend_errors_are_classified_without_losing_the_cause() {
-    assert_eq!(
-        classify_backend_error(ResolutionError::Infeasible, None),
-        ILPSolveError::Infeasible,
-    );
-    assert_eq!(
-        classify_backend_error(ResolutionError::Unbounded, None),
-        ILPSolveError::Unbounded,
-    );
-    assert_eq!(
-        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
-        ILPSolveError::Timeout,
-    );
-    assert!(matches!(
-        classify_backend_error(ResolutionError::Other("SolveError"), None),
-        ILPSolveError::BackendFailure(message) if message.contains("SolveError")
     ));
 }
 
@@ -259,69 +239,43 @@ fn test_registered_ilp_pipeline_success() {
 }
 
 #[test]
-fn test_ilp_solve_dyn_bool() {
-    let ilp = ILP::<bool, f64>::new(1, vec![], vec![(0, 1.0)], ObjectiveSense::Maximize).unwrap();
-    assert!(ILPSolver::new()
-        .solve_dyn(&ilp as &dyn std::any::Any)
-        .is_ok());
-}
-
-#[test]
-fn test_ilp_solve_dyn_i64() {
-    let ilp = ILP::<i64, f64>::with_variables(
-        vec![
-            IntegerVariable::new(Some(0), Some(3)).unwrap(),
-            IntegerVariable::new(Some(0), Some(3)).unwrap(),
-        ],
-        vec![],
-        vec![],
-        ObjectiveSense::Minimize,
-    )
-    .unwrap();
-    assert!(ILPSolver::new()
-        .solve_dyn(&ilp as &dyn std::any::Any)
-        .is_ok());
-}
-
-#[test]
-fn test_ilp_solve_dyn_unknown_type_returns_unsupported_problem_type() {
-    let result = ILPSolver::new().solve_dyn(&42_i64 as &dyn std::any::Any);
-    assert_eq!(result, Err(ILPSolveError::UnsupportedProblemType));
-}
-
-// Test acceptance policy in source-objective units, separate from variable rounding.
-// This allows small absolute numerical differences near zero; it is not a
-// guaranteed objective-error bound derived from HiGHS feasibility tolerances.
-fn objective_close(a: f64, b: f64) -> bool {
-    let abs_tol = 1e-7;
-    let rel_tol = 1e-7;
-    (a - b).abs() <= abs_tol + rel_tol * a.abs().max(b.abs())
-}
-
-#[test]
-fn test_float_qubo_objective_matches_reference_within_tolerance() {
+fn test_float_qubo_objective_matches_reference() {
     use crate::models::algebraic::QUBO;
     use crate::solvers::BruteForce;
 
-    for scale in [1e-9, 1.0] {
-        let matrix = vec![
-            vec![1.0, -5.0, 3.0, -8.0],
-            vec![0.0, -7.0, 8.0, -6.0],
-            vec![0.0, 0.0, 2.0, 9.0],
-            vec![0.0, 0.0, 0.0, -8.0],
-        ]
-        .into_iter()
-        .map(|row| row.into_iter().map(|v| v * scale).collect())
-        .collect();
-        let source = QUBO::<f64>::from_matrix(matrix).unwrap();
-        let actual = ILPSolver::new().solve(&source).unwrap();
-        let reference = BruteForce::new().solve(&source).unwrap().unwrap();
-        let actual_value = source.evaluate(&actual).unwrap();
-        let reference_value = source.evaluate(&reference).unwrap();
-        assert!(actual_value.is_valid());
-        assert!(objective_close(
-            actual_value.0.unwrap(),
-            reference_value.0.unwrap()
-        ));
-    }
+    let source = QUBO::<f64>::from_matrix(vec![
+        vec![0.5, -2.5, 1.5, -4.0],
+        vec![0.0, -3.5, 4.0, -3.0],
+        vec![0.0, 0.0, 1.0, 4.5],
+        vec![0.0, 0.0, 0.0, -4.0],
+    ])
+    .unwrap();
+    let actual = ILPSolver::new().solve(&source).unwrap();
+    let reference = BruteForce::new().solve(&source).unwrap().unwrap();
+    let actual_value = source.evaluate(&actual).unwrap();
+    assert!(actual_value.is_valid());
+    assert_eq!(actual_value, source.evaluate(&reference).unwrap());
+}
+
+#[test]
+fn test_ilp_solver_rejects_objective_overflow_after_backend_success() {
+    let ilp = ILP::<i64>::with_variables(
+        vec![IntegerVariable::new(Some(1025), Some(1025)).unwrap()],
+        vec![],
+        vec![(0, crate::types::MAX_EXACT_F64_INTEGER)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+    assert!(matches!(
+        ILPSolver::new().solve(&ilp),
+        Err(ILPSolveError::InvalidSolution(_))
+    ));
+}
+
+#[test]
+fn test_invalid_public_time_limit_returns_existing_backend_error() {
+    assert!(matches!(
+        ILPSolver::with_time_limit(-1.0).solve(&ILP::<bool>::empty()),
+        Err(ILPSolveError::BackendFailure(_))
+    ));
 }

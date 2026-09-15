@@ -13,7 +13,8 @@
 
 use crate::models::misc::{SequencingWithReleaseTimesAndDeadlines, ThreePartition};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Number of element tasks (= source.num_elements() = 3m).
 fn num_element_tasks(source: &ThreePartition) -> usize {
@@ -47,36 +48,35 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
     ///
     /// Simulate the task permutation to find each task's start time, then assign each element task to its slot
     /// based on start_time / (B + 1).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionThreePartitionToSRTD {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             // Simulate the schedule to find start times
             let mut current_time: i64 = 0;
             let mut slot_assignment = vec![0usize; self.num_element_tasks];
-            let slot_width = self.bound.checked_add(1).ok_or_else(|| {
-                crate::rules::ExtractionError::invalid("slot width overflows i64")
-            })?; // B + 1 (slot width including the filler gap)
+            let slot_width = self.bound + 1;
 
             for &task in target_solution {
                 let start = current_time.max(self.target.release_times()[task]);
-                let finish = start
-                    .checked_add(self.target.lengths()[task])
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid("task finish time overflows i64")
-                    })?;
-                current_time = finish;
+                current_time = start + self.target.lengths()[task];
 
                 // Only element tasks (indices 0..3m) contribute to the partition
                 if task < self.num_element_tasks {
-                    let slot = usize::try_from(start / slot_width).map_err(|_| {
-                        crate::rules::ExtractionError::invalid(
-                            "decoded task slot cannot be represented as usize",
-                        )
-                    })?;
+                    let slot = (start / slot_width) as usize;
                     slot_assignment[task] = slot;
                 }
             }

@@ -81,7 +81,10 @@ fn test_acyclic_partition_creation_and_accessors() {
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 8);
-    assert_eq!(problem.dimensions(), vec![6; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![6; 6]
+    );
     assert_eq!(problem.graph().arcs().len(), 8);
     assert_eq!(problem.vertex_weights(), &[2, 3, 2, 1, 3, 1]);
     assert_eq!(problem.arc_costs(), &[1, 1, 1, 1, 1, 1, 1, 1]);
@@ -211,7 +214,7 @@ fn test_acyclic_partition_serialization() {
 #[test]
 fn test_acyclic_partition_num_variables() {
     let problem = yes_instance();
-    assert_eq!(problem.num_variables(), 6);
+    assert_eq!(problem.num_variables().unwrap(), 6);
 }
 
 #[test]

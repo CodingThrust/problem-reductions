@@ -9,7 +9,8 @@
 use crate::models::formula::NAESatisfiability;
 use crate::models::set::SetSplitting;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionNAESATToSetSplitting {
@@ -25,13 +26,14 @@ impl ReductionResult for ReductionNAESATToSetSplitting {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution[..self.num_source_variables].to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution[..self.num_source_variables].to_vec())
+        })
     }
 }
 

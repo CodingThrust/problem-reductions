@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -59,7 +60,14 @@ fn test_sequencingwithinintervals_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         problem.evaluate(&extracted).unwrap().0,
@@ -72,8 +80,9 @@ fn test_sequencingwithinintervals_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionSWIToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "infeasible instance (forced overlap) should yield infeasible ILP"
     );
 }
@@ -105,7 +114,14 @@ fn test_sequencingwithinintervals_to_ilp_extract_solution() {
     // task 0 at offset 0, task 1 at offset 0
     // vars: x_{0,0}=1, x_{0,1}=0, x_{1,0}=1, x_{1,1}=0
     let ilp_solution = vec![1, 0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0]);
     assert!(
         problem.evaluate(&extracted).unwrap().0,

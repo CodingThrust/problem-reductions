@@ -32,7 +32,7 @@ inventory::submit! {
 ///
 /// Returns a vector where `dist[v]` is the shortest-path distance from
 /// `source` to `v`, or `usize::MAX` if `v` is unreachable.
-pub fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
+pub(crate) fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
     let n = graph.num_vertices();
     let mut dist = vec![usize::MAX; n];
     dist[source] = 0;
@@ -190,8 +190,12 @@ impl<G> crate::solvers::BruteForceProblem for MinimumMetricDimension<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

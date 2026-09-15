@@ -1,9 +1,14 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::models::formula::{CNFClause, Maximum2Satisfiability, Satisfiability};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReduceTo;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
+use crate::types::OptimizationValue;
 
 #[test]
 fn test_satisfiability_to_maximum2satisfiability_structure() {
@@ -12,19 +17,19 @@ fn test_satisfiability_to_maximum2satisfiability_structure() {
         vec![CNFClause::new(vec![1, -2, 3]), CNFClause::new(vec![-1, 2])],
     );
 
-    let reduction =
-        ReduceTo::<Maximum2Satisfiability>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<Maximum2Satisfiability>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let aggregate_target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+    let aggregate_target = crate::rules::ReductionResult::target_problem(&reduction);
     assert!(std::ptr::eq(target, aggregate_target));
-    assert_eq!(aggregate_target.num_clauses(), 30);
-    assert_eq!(target.num_vars(), 7);
-    assert_eq!(target.num_clauses(), 30);
-    assert_eq!(target.clauses()[0].literals, vec![1, 1]);
-    assert_eq!(target.clauses()[4].literals, vec![-1, 2]);
-    assert_eq!(target.clauses()[10].literals, vec![-1, -1]);
-    assert_eq!(target.clauses()[20].literals, vec![-1, -1]);
+    assert_eq!(aggregate_target.inner().num_clauses(), 30);
+    assert_eq!(target.inner().num_vars(), 7);
+    assert_eq!(target.inner().num_clauses(), 30);
+    assert_eq!(target.inner().clauses()[0].literals, vec![1, 1]);
+    assert_eq!(target.inner().clauses()[4].literals, vec![-1, 2]);
+    assert_eq!(target.inner().clauses()[10].literals, vec![-1, -1]);
+    assert_eq!(target.inner().clauses()[20].literals, vec![-1, -1]);
 }
 
 #[test]
@@ -34,11 +39,11 @@ fn test_satisfiability_to_maximum2satisfiability_closed_loop() {
         vec![CNFClause::new(vec![1, -2, 3]), CNFClause::new(vec![-1, 2])],
     );
 
-    let reduction =
-        ReduceTo::<Maximum2Satisfiability>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<Maximum2Satisfiability>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "SAT -> Maximum2Satisfiability closed loop",
@@ -46,6 +51,7 @@ fn test_satisfiability_to_maximum2satisfiability_closed_loop() {
 
     assert_eq!(
         target
+            .inner()
             .evaluate(&BruteForce::new().solve(target).unwrap().unwrap())
             .unwrap()
             .0,
@@ -57,26 +63,34 @@ fn test_satisfiability_to_maximum2satisfiability_closed_loop() {
 fn test_satisfiability_to_maximum2satisfiability_unsatisfiable_gap() {
     let source = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
-    let reduction =
-        ReduceTo::<Maximum2Satisfiability>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<Maximum2Satisfiability>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 
     assert_eq!(
         target
-            .evaluate(&BruteForce::new().solve(target).unwrap().unwrap())
+            .inner()
+            .evaluate(&BruteForce::new().solve(target.inner()).unwrap().unwrap())
             .unwrap()
             .0,
         Some(55)
     );
 
     let target_solution = BruteForce::new()
-        .solve(target)
+        .solve(target.inner())
         .unwrap()
         .expect("MAX-2-SAT target should always have a witness");
-    assert!(reduction.extract_solution(&target_solution).is_err());
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&target_solution)
+        .unwrap()
+        .is_valid());
     assert_eq!(
-        crate::rules::AggregateReductionResult::extract_value(&reduction, Max(Some(55))),
-        Or(false)
+        crate::types::Or(OptimizationValue::meets_bound(
+            &(crate::types::Max(Some(55))),
+            crate::rules::ReductionResult::target_problem(&reduction).bound()
+        )),
+        crate::types::Or(false)
     );
 }
 
@@ -84,15 +98,17 @@ fn test_satisfiability_to_maximum2satisfiability_unsatisfiable_gap() {
 fn test_satisfiability_to_maximum2satisfiability_empty_clause() {
     let source = Satisfiability::new(1, vec![CNFClause::new(vec![])]);
 
-    let reduction =
-        ReduceTo::<Maximum2Satisfiability>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<Maximum2Satisfiability>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 
-    assert_eq!(target.num_vars(), 4);
-    assert_eq!(target.num_clauses(), 20);
+    assert_eq!(target.inner().num_vars(), 4);
+    assert_eq!(target.inner().num_clauses(), 20);
     assert_eq!(
         target
-            .evaluate(&BruteForce::new().solve(target).unwrap().unwrap())
+            .inner()
+            .evaluate(&BruteForce::new().solve(target.inner()).unwrap().unwrap())
             .unwrap()
             .0,
         Some(13)
@@ -143,36 +159,56 @@ fn test_satisfiability_to_maximum2satisfiability_every_target_witness() {
         }
     }
     for source in sources {
-        let reduction = ReduceTo::<Maximum2Satisfiability>::reduce_to(&source).unwrap();
+        let reduction = ReduceTo::<Decision<Maximum2Satisfiability>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
-        let threshold = (target.num_clauses() / 10 * 7) as i64;
+        let threshold = (target.inner().num_clauses() / 10 * 7) as i64;
         let mut best = 0;
-        for bits in 0usize..(1 << target.num_vars()) {
-            let assignment = (0..target.num_vars())
+        for bits in 0usize..(1 << target.inner().num_vars()) {
+            let assignment = (0..target.inner().num_vars())
                 .map(|i| bits & (1 << i) != 0)
                 .collect();
-            let value = target.evaluate(&assignment).unwrap();
+            let value = target.inner().evaluate(&assignment).unwrap();
             best = best.max(value.0.unwrap());
-            let expected = value == Max(Some(threshold));
+            let expected = value == crate::types::Max(Some(threshold));
             assert_eq!(
-                crate::rules::AggregateReductionResult::extract_value(&reduction, value),
-                Or(expected)
+                crate::types::Or(OptimizationValue::meets_bound(
+                    &(value),
+                    crate::rules::ReductionResult::target_problem(&reduction).bound()
+                )),
+                crate::types::Or(expected)
             );
             if expected {
-                let decoded = reduction.extract_solution(&assignment).unwrap();
+                let decoded = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), assignment.clone())
+                            .unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.evaluate(&decoded).unwrap().0);
             } else {
-                assert!(reduction.extract_solution(&assignment).is_err());
+                assert!(!ReductionResult::target_problem(&reduction)
+                    .evaluate(&assignment)
+                    .unwrap()
+                    .is_valid());
             }
         }
         let source_yes = BruteForce::new().solve(&source).unwrap().is_some();
         assert_eq!(best == threshold, source_yes);
-        assert!(reduction
-            .extract_solution(&vec![false; target.num_vars() + 1])
-            .is_err());
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction)
+                .inner()
+                .evaluate(&vec![false; target.inner().num_vars() + 1]),
+            Err(InvalidConfiguration(_))
+        ));
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, Max(None)),
-            Or(false)
+            crate::types::Or(OptimizationValue::meets_bound(
+                &(crate::types::Max(None)),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            )),
+            crate::types::Or(false)
         );
     }
 }

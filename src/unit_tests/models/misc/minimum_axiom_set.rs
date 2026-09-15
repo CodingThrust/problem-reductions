@@ -28,8 +28,11 @@ fn test_minimum_axiom_set_creation() {
     assert_eq!(problem.num_true_sentences(), 8);
     assert_eq!(problem.num_implications(), 8);
     assert_eq!(problem.true_sentences(), &[0, 1, 2, 3, 4, 5, 6, 7]);
-    assert_eq!(problem.dimensions(), vec![2; 8]);
-    assert_eq!(problem.num_variables(), 8);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 8);
 }
 
 #[test]
@@ -125,7 +128,10 @@ fn test_minimum_axiom_set_partial_true_sentences() {
     let problem = MinimumAxiomSet::new(5, vec![0, 1, 2], vec![(vec![0], 1), (vec![1], 2)]);
     assert_eq!(problem.num_sentences(), 5);
     assert_eq!(problem.num_true_sentences(), 3);
-    assert_eq!(problem.dimensions(), vec![2; 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 3]
+    );
 
     // Select sentence 0 only
     let result = problem.evaluate(&vec![true, false, false]).unwrap();
@@ -172,4 +178,21 @@ fn test_minimum_axiom_set_paper_example() {
     let metric = problem.evaluate(&solution).unwrap();
     assert!(metric.is_valid());
     assert_eq!(metric.unwrap(), 2);
+}
+
+#[test]
+fn deserialize_rejects_invalid_sentence_references() {
+    use serde_json::json;
+    let valid = json!({"num_sentences": 2, "true_sentences": [0, 1], "implications": [[[0], 1]]});
+    for (field, value, message) in [
+        ("true_sentences", json!([2]), "True sentence index"),
+        ("true_sentences", json!([0, 0]), "Duplicate true sentence"),
+        ("implications", json!([[[2], 1]]), "antecedent"),
+        ("implications", json!([[[0], 2]]), "consequent"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<MinimumAxiomSet>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
 }

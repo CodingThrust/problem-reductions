@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -98,7 +99,14 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_e
 ) {
     let (source, reduction) = reduce_path(4);
     let schedule = vec![3, 2, 6, 1, 5, 0, 4];
-    let extracted = reduction.extract_solution(&schedule).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), schedule.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![3, 2, 1, 0]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(3)));

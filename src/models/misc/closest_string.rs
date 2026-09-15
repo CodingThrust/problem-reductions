@@ -46,9 +46,24 @@ inventory::submit! {
 /// syntactically feasible; the objective is its worst-case Hamming distance
 /// to the input strings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ClosestStringData")]
 pub struct ClosestString {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
+}
+
+#[derive(Deserialize)]
+struct ClosestStringData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ClosestStringData> for ClosestString {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ClosestStringData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.strings)
+    }
 }
 
 impl ClosestString {
@@ -62,30 +77,34 @@ impl ClosestString {
     /// - `alphabet_size == 0` while any input string is non-empty,
     /// - any symbol in any input string is `>= alphabet_size`.
     pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
-        assert!(
-            !strings.is_empty(),
-            "ClosestString requires at least one input string"
-        );
+        Self::try_new(alphabet_size, strings).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("ClosestString requires at least one input string".into());
+        }
         let string_length = strings[0].len();
-        assert!(
-            strings.iter().all(|s| s.len() == string_length),
-            "all input strings must have the same length"
-        );
-        assert!(
-            alphabet_size > 0 || string_length == 0,
-            "alphabet_size must be > 0 when input strings are non-empty"
-        );
-        assert!(
-            strings
-                .iter()
-                .flat_map(|s| s.iter())
-                .all(|&symbol| symbol < alphabet_size),
-            "input symbols must be less than alphabet_size"
-        );
-        Self {
+        if !(strings.iter().all(|s| s.len() == string_length)) {
+            return Err("all input strings must have the same length".into());
+        }
+        if !(alphabet_size > 0 || string_length == 0) {
+            return Err("alphabet_size must be > 0 when input strings are non-empty".into());
+        }
+        if !(strings
+            .iter()
+            .flat_map(|s| s.iter())
+            .all(|&symbol| symbol < alphabet_size))
+        {
+            return Err("input symbols must be less than alphabet_size".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
-        }
+        })
     }
 
     /// Returns the alphabet size `q`.
@@ -169,8 +188,12 @@ impl Problem for ClosestString {
 }
 
 impl crate::solvers::BruteForceProblem for ClosestString {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.string_length()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.string_length())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.alphabet_size)
     }
 }
 

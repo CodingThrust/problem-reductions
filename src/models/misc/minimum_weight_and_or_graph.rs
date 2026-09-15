@@ -115,13 +115,13 @@ impl TryFrom<MinimumWeightAndOrGraphCreateSpec> for MinimumWeightAndOrGraph {
             )
             .into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.num_vertices,
             spec.arcs,
             spec.source,
             spec.gate_types,
             arc_weights,
-        ))
+        )
     }
 }
 
@@ -140,15 +140,14 @@ impl<'de> Deserialize<'de> for MinimumWeightAndOrGraph {
         D: Deserializer<'de>,
     {
         let data = MinimumWeightAndOrGraphData::deserialize(deserializer)?;
-        let outgoing = Self::build_outgoing(data.num_vertices, &data.arcs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            source: data.source,
-            gate_types: data.gate_types,
-            arc_weights: data.arc_weights,
-            outgoing,
-        })
+        Self::try_new(
+            data.num_vertices,
+            data.arcs,
+            data.source,
+            data.gate_types,
+            data.arc_weights,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -167,49 +166,61 @@ impl MinimumWeightAndOrGraph {
         gate_types: Vec<Option<bool>>,
         arc_weights: Vec<i64>,
     ) -> Self {
-        assert!(
-            source < num_vertices,
-            "Source vertex {} out of bounds for {} vertices",
-            source,
-            num_vertices
-        );
-        assert_eq!(
-            gate_types.len(),
-            num_vertices,
-            "gate_types length {} does not match num_vertices {}",
-            gate_types.len(),
-            num_vertices
-        );
-        assert_eq!(
-            arc_weights.len(),
-            arcs.len(),
-            "arc_weights length {} does not match number of arcs {}",
-            arc_weights.len(),
-            arcs.len()
-        );
-        for (i, &(u, v)) in arcs.iter().enumerate() {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "Arc {} ({}, {}) out of bounds for {} vertices",
-                i,
-                u,
-                v,
+        Self::try_new(num_vertices, arcs, source, gate_types, arc_weights)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        source: usize,
+        gate_types: Vec<Option<bool>>,
+        arc_weights: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(source < num_vertices) {
+            return Err(format!(
+                "Source vertex {} out of bounds for {} vertices",
+                source, num_vertices
+            )
+            .into());
+        };
+        if gate_types.len() != num_vertices {
+            return Err(format!(
+                "gate_types length {} does not match num_vertices {}",
+                gate_types.len(),
                 num_vertices
-            );
+            )
+            .into());
+        };
+        if arc_weights.len() != arcs.len() {
+            return Err(format!(
+                "arc_weights length {} does not match number of arcs {}",
+                arc_weights.len(),
+                arcs.len()
+            )
+            .into());
+        };
+        for (i, &(u, v)) in arcs.iter().enumerate() {
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "Arc {} ({}, {}) out of bounds for {} vertices",
+                    i, u, v, num_vertices
+                )
+                .into());
+            };
         }
-        assert!(
-            gate_types[source].is_some(),
-            "Source vertex must be an AND or OR gate, not a leaf"
-        );
+        if !(gate_types[source].is_some()) {
+            return Err("Source vertex must be an AND or OR gate, not a leaf".into());
+        };
         let outgoing = Self::build_outgoing(num_vertices, &arcs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             source,
             gate_types,
             arc_weights,
             outgoing,
-        }
+        })
     }
 
     /// Build outgoing arc index lists for each vertex.
@@ -350,8 +361,12 @@ impl Problem for MinimumWeightAndOrGraph {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumWeightAndOrGraph {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.arcs.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.arcs.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

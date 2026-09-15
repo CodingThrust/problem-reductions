@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_stackercrane_to_ilp_closed_loop() {
@@ -60,7 +61,15 @@ fn test_stackercrane_to_ilp_all_binary_assignments() {
         for bits in 0..(1 << 12) {
             let solution = (0..12).map(|i| i64::from(bits & (1 << i) != 0)).collect();
             if let Some(cost) = target.evaluate(&solution).unwrap().value {
-                let permutation = reduction.extract_solution(&solution).unwrap();
+                let permutation = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                            .unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert_eq!(
                     source.evaluate(&permutation).unwrap(),
                     crate::types::Min(Some(cost + 1))

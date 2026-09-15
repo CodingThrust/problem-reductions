@@ -11,8 +11,11 @@ fn test_minimum_metric_dimension_creation() {
     let problem = MinimumMetricDimension::new(graph);
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 6);
-    assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(problem.num_variables().unwrap(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
 }
 
 #[test]

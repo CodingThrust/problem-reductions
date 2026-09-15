@@ -1,6 +1,5 @@
 use super::CapacityAssignmentCreateSpec;
 use crate::models::misc::CapacityAssignment;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_validates_monotonicity() {
@@ -32,7 +31,10 @@ fn test_capacity_assignment_basic_properties() {
     assert_eq!(problem.num_capacities(), 3);
     assert_eq!(problem.capacities(), &[1, 2, 3]);
     assert_eq!(problem.delay_budget(), 12);
-    assert_eq!(problem.dimensions(), vec![3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3]
+    );
     assert_eq!(<CapacityAssignment as Problem>::NAME, "CapacityAssignment");
     assert_eq!(<CapacityAssignment as Problem>::variant(), Vec::new());
 }

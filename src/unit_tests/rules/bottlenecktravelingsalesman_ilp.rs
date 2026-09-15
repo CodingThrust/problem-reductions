@@ -1,6 +1,9 @@
 use super::*;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 fn k4_btsp() -> BottleneckTravelingSalesman {
@@ -34,7 +37,14 @@ fn test_bottlenecktravelingsalesman_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(
@@ -64,7 +74,14 @@ fn test_bottlenecktravelingsalesman_to_ilp_c4() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert!(ilp_value.is_valid());
@@ -80,7 +97,14 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid());
 }
@@ -96,8 +120,9 @@ fn test_no_hamiltonian_cycle_infeasible() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(
-        result.is_err(),
+    assert_eq!(
+        result,
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "Path graph should have no Hamiltonian cycle"
     );
 }
@@ -171,7 +196,14 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
         let source = BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges), weights);
         let result = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
         let witness = tour_witness(&source, &tour, &edge_order);
-        let extracted = result.extract_solution(&witness).unwrap();
+        let extracted = result
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(result.target_problem(), witness.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let expected = source.evaluate(&extracted).unwrap().unwrap();
         assert_eq!(
             result.target_problem().evaluate(&witness).unwrap().value,
@@ -181,11 +213,16 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
         for variable in 0..witness.len() {
             let mut invalid = witness.clone();
             invalid[variable] = 2;
-            assert!(result.extract_solution(&invalid).is_err());
+            assert!(!ReductionResult::target_problem(&result)
+                .evaluate(&invalid)
+                .unwrap()
+                .is_valid());
         }
-        assert!(result
-            .extract_solution(&witness[..witness.len() - 1].to_vec())
-            .is_err());
+        assert!(matches!(
+            ReductionResult::target_problem(&result)
+                .evaluate(&witness[..witness.len() - 1].to_vec()),
+            Err(InvalidConfiguration(_))
+        ));
     }
 }
 
@@ -196,12 +233,21 @@ fn test_bottleneck_ilp_maximum_must_be_used_and_dominate() {
     let mut config = tour_witness(&source, &[0, 1, 2, 3], &[0, 3, 5, 2]);
     let selector = 4 * 4 + 2 * 6 * 4;
     config[selector..].fill(0);
-    assert!(result.extract_solution(&config).is_err());
+    assert!(!ReductionResult::target_problem(&result)
+        .evaluate(&config)
+        .unwrap()
+        .is_valid());
     config[selector] = 1; // used, but lower than the maximum edge
-    assert!(result.extract_solution(&config).is_err());
+    assert!(!ReductionResult::target_problem(&result)
+        .evaluate(&config)
+        .unwrap()
+        .is_valid());
     config[selector] = 0;
     config[selector + 1] = 1; // unused
-    assert!(result.extract_solution(&config).is_err());
+    assert!(!ReductionResult::target_problem(&result)
+        .evaluate(&config)
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
@@ -226,9 +272,10 @@ fn test_bottleneck_ilp_dimensions_and_malformed_weights() {
     for (n, m) in [(usize::MAX, 0), (1, usize::MAX), (0, usize::MAX)] {
         assert!(ReductionBTSPToILP::dimensions(n, m).is_err());
     }
-    let source: BottleneckTravelingSalesman = serde_json::from_value(serde_json::json!({
-        "graph": {"num_vertices": 0, "edges": []}, "edge_weights": [1]
-    }))
-    .unwrap();
-    assert!(ReduceTo::<ILP<i64>>::reduce_to(&source).is_err());
+    assert!(
+        serde_json::from_value::<BottleneckTravelingSalesman>(serde_json::json!({
+            "graph": {"num_vertices": 0, "edges": []}, "edge_weights": [1]
+        }))
+        .is_err()
+    );
 }

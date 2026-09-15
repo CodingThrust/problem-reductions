@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_validates_matrix_shape() {
@@ -41,7 +40,10 @@ fn test_feasible_basis_extension_creation() {
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_columns(), 6);
     assert_eq!(problem.num_required(), 2);
-    assert_eq!(problem.dimensions(), vec![2; 4]); // 6 - 2 = 4 free columns
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 4]
+    ); // 6 - 2 = 4 free columns
     assert_eq!(
         <FeasibleBasisExtension as Problem>::NAME,
         "FeasibleBasisExtension"
@@ -247,4 +249,12 @@ fn test_feasible_basis_extension_duplicate_required() {
         vec![1, 2, 3],
         vec![0, 0],
     );
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<FeasibleBasisExtension>(
+        serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
+    )
+    .is_err());
 }

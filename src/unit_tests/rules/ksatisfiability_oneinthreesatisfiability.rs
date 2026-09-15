@@ -1,7 +1,10 @@
 use super::*;
 use crate::models::formula::{CNFClause, OneInThreeSatisfiability};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -104,7 +107,14 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_extract_solution() {
     ];
     assert!(target.evaluate(&target_solution).unwrap().0);
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, false, true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -143,7 +153,14 @@ fn test_oneinthree_native_empty_short_and_sparse_clauses() {
                 .collect();
             if target.evaluate(&config).unwrap().0 {
                 target_exists = true;
-                let extracted = reduction.extract_solution(&config).unwrap();
+                let extracted = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert_eq!(extracted.len(), num_vars);
                 assert!(source.evaluate(&extracted).unwrap().0);
                 for (v, &value) in extracted.iter().enumerate() {
@@ -169,7 +186,14 @@ fn test_oneinthree_all_literal_truth_patterns_and_auxiliary_assignments() {
             .collect();
         if target.evaluate(&config).unwrap().0 {
             extensions[mask & 7] += 1;
-            let extracted = reduction.extract_solution(&config).unwrap();
+            let extracted = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert!(source.evaluate(&extracted).unwrap().0);
         }
     }
@@ -180,8 +204,17 @@ fn test_oneinthree_all_literal_truth_patterns_and_auxiliary_assignments() {
 fn test_oneinthree_rejects_infeasible_target_assignments() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1; 3])]);
     let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).unwrap();
-    for config in [vec![], vec![false; 9], vec![true; 9], vec![false; 10]] {
-        assert!(reduction.extract_solution(&config).is_err());
+    for config in [vec![], vec![false; 10]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&config),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for config in [vec![false; 9], vec![true; 9]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&config)
+            .unwrap()
+            .is_valid());
     }
 }
 

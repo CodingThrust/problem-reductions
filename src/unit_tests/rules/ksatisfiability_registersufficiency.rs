@@ -1,6 +1,8 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::misc::RegisterSufficiency;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 use crate::variant::K3;
@@ -92,7 +94,6 @@ fn test_ksatisfiability_to_register_sufficiency_rejects_invalid_snapshot_order()
 
     let positions = positions_from_order(&order, target.num_vertices());
     assert_eq!(target.evaluate(&positions).unwrap(), Or(false));
-    assert!(reduction.extract_solution(&positions).is_err());
 }
 
 #[test]
@@ -114,7 +115,14 @@ fn test_ksatisfiability_to_register_sufficiency_forward_schedule() {
         Or(true)
     );
 
-    let extracted = reduction.extract_solution(&register_schedule).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), register_schedule.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     assert_eq!(extracted, vec![true]);
 }
@@ -159,11 +167,22 @@ fn test_ksatisfiability_to_registersufficiency_closed_loop_boundaries() {
             let solution = BruteForce::new().solve(reduction.target_problem()).unwrap();
             assert_eq!(solution.is_some(), feasible);
             if let Some(solution) = solution {
-                let extracted = reduction.extract_solution(&solution).unwrap();
+                let extracted = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), solution.clone())
+                            .unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert_eq!(extracted, vec![false; declared]);
                 assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
             } else {
-                assert!(reduction.extract_solution(&vec![0]).is_err());
+                assert!(!ReductionResult::target_problem(&reduction)
+                    .evaluate(&vec![0])
+                    .unwrap()
+                    .is_valid());
             }
         }
     }
@@ -211,13 +230,30 @@ fn test_short_repeated_and_tautological_clauses() {
                         source_value
                     );
                     if source_value.0 {
-                        let decoded = reduction.extract_solution(&positions).unwrap();
+                        let decoded = reduction
+                            .recover_result(
+                                &source,
+                                SolveOutcome::optimal(
+                                    reduction.target_problem(),
+                                    positions.clone(),
+                                )
+                                .unwrap(),
+                            )
+                            .map(|result| {
+                                result.into_solution().expect(
+                                    "qualifying target result must recover a source solution",
+                                )
+                            })
+                            .unwrap();
                         assert_eq!(source.evaluate(&decoded).unwrap(), Or(true));
                         for &i in &reduction.source_variables {
                             assert_eq!(decoded[i], original[i]);
                         }
                     } else {
-                        assert!(reduction.extract_solution(&positions).is_err());
+                        assert!(!ReductionResult::target_problem(&reduction)
+                            .evaluate(&positions)
+                            .unwrap()
+                            .is_valid());
                     }
                 }
             }
@@ -234,7 +270,14 @@ fn test_sparse_original_variables_and_padding_bound() {
     let layout = reduction.layout.as_ref().unwrap();
     assert_eq!(layout.num_vars, 2);
     let positions = layout.schedule_for_assignment(&[true, false]);
-    let decoded = reduction.extract_solution(&positions).unwrap();
+    let decoded = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), positions.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(decoded.len(), 17);
     assert!(decoded[1]);
     assert!(!decoded[16]);
@@ -276,7 +319,14 @@ fn test_feasible_snapshot_may_leave_both_literals_uncomputed() {
             && positions[layout.x_neg(1)] > positions[layout.w(2)]
     );
     assert_eq!(
-        reduction.extract_solution(&positions).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), positions.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false, false]
     );
 }

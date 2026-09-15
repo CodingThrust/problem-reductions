@@ -1,9 +1,9 @@
 use super::*;
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use num_bigint::BigUint;
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_factoring_creation() {
@@ -11,7 +11,7 @@ fn test_factoring_creation() {
     assert_eq!(problem.m(), 3);
     assert_eq!(problem.n(), 3);
     assert_eq!(problem.target(), &BigUint::from(15u32));
-    assert_eq!(problem.num_variables(), 6);
+    assert_eq!(problem.num_variables().unwrap(), 6);
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn test_parameter_getters() {
 fn test_factoring_paper_example() {
     // Paper: N=15, m=2 bits, n=3 bits, p=3, q=5
     let problem = Factoring::with_factor_bits(15, 2, 3);
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(problem.num_variables().unwrap(), 5);
 
     // p=3 -> bits [1,1], q=5 -> bits [1,0,1]
     let config = (BigUint::from(3u32), BigUint::from(5u32));

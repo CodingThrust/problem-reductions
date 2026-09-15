@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -24,7 +23,10 @@ fn test_minimum_code_generation_one_register_creation() {
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_leaves(), 3);
     assert_eq!(problem.num_internal(), 4);
-    assert_eq!(problem.dimensions(), vec![4; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4; 4]
+    );
     assert_eq!(
         <MinimumCodeGenerationOneRegister as Problem>::NAME,
         "MinimumCodeGenerationOneRegister"
@@ -259,4 +261,22 @@ fn test_minimum_code_generation_one_register_lost_value() {
     // So this should NOT be None — the simulation stores v1 automatically.
     let result = problem.simulate(&config).unwrap();
     assert!(result.is_some());
+}
+
+#[test]
+fn deserialize_rejects_invalid_expression_graph() {
+    use serde_json::json;
+    let valid = json!({"num_vertices": 4, "edges": [[0, 1], [0, 2]], "num_leaves": 3});
+    for (field, value, message) in [
+        ("num_leaves", json!(5), "exceeds num_vertices"),
+        ("num_leaves", json!(2), "actual leaf count"),
+        ("edges", json!([[0, 4]]), "out of bounds"),
+        ("edges", json!([[0, 0]]), "Self-loop"),
+        ("edges", json!([[0, 1], [0, 2], [0, 3]]), "out-degree"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<MinimumCodeGenerationOneRegister>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
 }

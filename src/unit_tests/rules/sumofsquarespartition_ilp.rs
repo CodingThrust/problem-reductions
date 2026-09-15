@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -41,7 +42,14 @@ fn test_sumofsquarespartition_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_value = problem.evaluate(&extracted).unwrap();
     assert_eq!(
         ilp_value, bf_value,
@@ -58,13 +66,27 @@ fn test_solution_extraction() {
 
     // element 0→g0, element 1→g1, element 2→g1, element 3→g0
     // x_{0,0}=1,x_{0,1}=0, x_{1,0}=0,x_{1,1}=1, x_{2,0}=0,x_{2,1}=1, x_{3,0}=1,x_{3,1}=0
-    // Set x vars, leave z vars as 0 for extraction test
+    // Set assignment variables and their within-group products.
     let mut ilp_solution = vec![0_i64; 4 * 2 + 4 * 4 * 2];
     ilp_solution[0] = 1; // x_{0,0}
     ilp_solution[3] = 1; // x_{1,1}
     ilp_solution[5] = 1; // x_{2,1}
     ilp_solution[6] = 1; // x_{3,0}
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    for (group, members) in [(0, [0, 3]), (1, [1, 2])] {
+        for i in members {
+            for j in members {
+                ilp_solution[8 + (i * 4 + j) * 2 + group] = 1;
+            }
+        }
+    }
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 1, 1, 0]);
 }
 
@@ -81,7 +103,14 @@ fn test_sumofsquarespartition_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
     // Optimal: {1},{2} -> 1+4=5
     assert_eq!(value, Min(Some(5)));
@@ -95,7 +124,14 @@ fn test_sumofsquarespartition_to_ilp_requires_exact_mip_optimality() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should prove the exact optimum");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(74129)));
 }

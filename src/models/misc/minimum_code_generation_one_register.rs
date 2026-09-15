@@ -57,6 +57,7 @@ inventory::submit! {
 /// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(8)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCodeGenerationOneRegisterData")]
 pub struct MinimumCodeGenerationOneRegister {
     /// Number of vertices |V|.
     num_vertices: usize,
@@ -64,6 +65,20 @@ pub struct MinimumCodeGenerationOneRegister {
     edges: Vec<(usize, usize)>,
     /// Number of leaf vertices (out-degree 0).
     num_leaves: usize,
+}
+
+#[derive(Deserialize)]
+struct MinimumCodeGenerationOneRegisterData {
+    num_vertices: usize,
+    edges: Vec<(usize, usize)>,
+    num_leaves: usize,
+}
+
+impl TryFrom<MinimumCodeGenerationOneRegisterData> for MinimumCodeGenerationOneRegister {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCodeGenerationOneRegisterData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_vertices, data.edges, data.num_leaves)
+    }
 }
 
 impl MinimumCodeGenerationOneRegister {
@@ -80,36 +95,50 @@ impl MinimumCodeGenerationOneRegister {
     /// Panics if any edge index is out of bounds, if any vertex has
     /// out-degree > 2, or if `num_leaves > num_vertices`.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>, num_leaves: usize) -> Self {
-        assert!(
-            num_leaves <= num_vertices,
-            "num_leaves ({num_leaves}) exceeds num_vertices ({num_vertices})"
-        );
+        Self::try_new(num_vertices, edges, num_leaves).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+        num_leaves: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(num_leaves <= num_vertices) {
+            return Err(
+                format!("num_leaves ({num_leaves}) exceeds num_vertices ({num_vertices})").into(),
+            );
+        }
         let mut out_degree = vec![0usize; num_vertices];
         for &(parent, child) in &edges {
-            assert!(
-                parent < num_vertices && child < num_vertices,
-                "Edge ({parent}, {child}) out of bounds for {num_vertices} vertices"
-            );
-            assert!(
-                parent != child,
-                "Self-loop ({parent}, {parent}) not allowed"
-            );
+            if !(parent < num_vertices && child < num_vertices) {
+                return Err(format!(
+                    "Edge ({parent}, {child}) out of bounds for {num_vertices} vertices"
+                )
+                .into());
+            }
+            if parent == child {
+                return Err(format!("Self-loop ({parent}, {parent}) not allowed").into());
+            }
             out_degree[parent] += 1;
         }
         for (v, &deg) in out_degree.iter().enumerate() {
-            assert!(deg <= 2, "Vertex {v} has out-degree {deg} > 2");
+            if !(deg <= 2) {
+                return Err(format!("Vertex {v} has out-degree {deg} > 2").into());
+            }
         }
         // Verify leaf count: leaves are vertices with out-degree 0
         let actual_leaves = out_degree.iter().filter(|&&d| d == 0).count();
-        assert_eq!(
-            actual_leaves, num_leaves,
-            "Declared num_leaves ({num_leaves}) != actual leaf count ({actual_leaves})"
-        );
-        Self {
+        if actual_leaves != num_leaves {
+            return Err(format!(
+                "Declared num_leaves ({num_leaves}) != actual leaf count ({actual_leaves})"
+            )
+            .into());
+        }
+        Ok(Self {
             num_vertices,
             edges,
             num_leaves,
-        }
+        })
     }
 
     /// Get the number of vertices.
@@ -338,9 +367,12 @@ impl Problem for MinimumCodeGenerationOneRegister {
 }
 
 impl crate::solvers::BruteForceProblem for MinimumCodeGenerationOneRegister {
-    fn dimensions(&self) -> Vec<usize> {
-        let n_internal = self.num_internal();
-        vec![n_internal; n_internal]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_internal())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_internal())
     }
 }
 

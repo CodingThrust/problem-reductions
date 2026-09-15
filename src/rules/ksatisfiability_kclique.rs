@@ -9,7 +9,8 @@
 use crate::models::formula::KSatisfiability;
 use crate::models::graph::KClique;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::SimpleGraph;
 use crate::variant::K3;
 
@@ -29,17 +30,22 @@ impl ReductionResult for Reduction3SATToKClique {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target selection is not a clique meeting the threshold",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToKClique {
+    pub(crate) fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         // Variables absent from the selected literals are free; choose false.
         let mut assignment = vec![false; self.source_num_vars];
         for (&selected, &(variable, positive)) in target_solution[..self.literal_assignments.len()]

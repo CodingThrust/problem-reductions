@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_specs_separate_runtime_and_fixed_color_counts() {
@@ -32,10 +31,10 @@ fn fixed_and_runtime_variants_report_num_colors_parameter() {
         <KColoring<KN, SimpleGraph> as Problem>::parameter_names()
     );
 }
+include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::variant::{K1, K2, K3, K4};
-include!("../../jl_helpers.rs");
 
 #[test]
 fn test_kcoloring_creation() {
@@ -43,7 +42,10 @@ fn test_kcoloring_creation() {
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
-    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3, 3]
+    );
 }
 
 #[test]
@@ -176,7 +178,10 @@ fn test_kcoloring_problem() {
 
     // Triangle graph with 3 colors
     let p = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    assert_eq!(p.dimensions(), vec![3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![3, 3, 3]
+    );
     // Valid: each vertex different color
     assert!(p.evaluate(&vec![0, 1, 2]).unwrap());
     // Invalid: vertices 0 and 1 same color

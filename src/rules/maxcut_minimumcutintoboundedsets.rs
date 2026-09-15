@@ -9,7 +9,8 @@
 
 use crate::models::graph::{MaxCut, MinimumCutIntoBoundedSets};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MaxCut to MinimumCutIntoBoundedSets.
@@ -30,13 +31,14 @@ impl ReductionResult for ReductionMaxCutToMinCutBounded {
 
     /// Extract the source solution from the target balanced bisection.
     /// Take only the first `original_n` vertex assignments.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution[..self.original_n].to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution[..self.original_n].to_vec())
+        })
     }
 }
 

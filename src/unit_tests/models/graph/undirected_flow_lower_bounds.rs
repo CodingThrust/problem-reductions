@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_lower_bound_above_capacity() {
@@ -64,7 +63,10 @@ fn test_undirected_flow_lower_bounds_creation() {
     assert_eq!(problem.requirement(), 3);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 7);
-    assert_eq!(problem.dimensions(), vec![2; 7]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 7]
+    );
 }
 
 #[test]

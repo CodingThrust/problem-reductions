@@ -3,6 +3,7 @@ use crate::models::formula::{CNFClause, NAESatisfiability};
 use crate::models::graph::PartitionIntoPerfectMatchings;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -255,7 +256,14 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_r
         .evaluate(&target_solution)
         .unwrap());
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         source_solution
     );
 }
@@ -274,7 +282,14 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
     assert_eq!(target.num_matchings(), 2);
     assert!(target.evaluate(&target_solution).unwrap());
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         source_solution
     );
 }

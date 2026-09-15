@@ -29,13 +29,41 @@ inventory::submit! {
 }
 
 /// Acyclic Partition (Garey & Johnson ND15).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AcyclicPartition<W: WeightElement> {
     graph: DirectedGraph,
     vertex_weights: Vec<W>,
     arc_costs: Vec<W>,
     weight_bound: W::Sum,
     cost_bound: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"))]
+struct AcyclicPartitionData<W: WeightElement> {
+    graph: DirectedGraph,
+    vertex_weights: Vec<W>,
+    arc_costs: Vec<W>,
+    weight_bound: W::Sum,
+    cost_bound: W::Sum,
+}
+
+impl<'de, W> Deserialize<'de> for AcyclicPartition<W>
+where
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = AcyclicPartitionData::<W>::deserialize(deserializer)?;
+        Self::try_new(
+            data.graph,
+            data.vertex_weights,
+            data.arc_costs,
+            data.weight_bound,
+            data.cost_bound,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -94,13 +122,13 @@ impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i64> {
             )
             .into());
         }
-        Ok(Self::new(
+        Self::try_new(
             graph,
             vertex_weights,
             arc_costs,
             spec.weight_bound,
             spec.cost_bound,
-        ))
+        )
     }
 }
 
@@ -113,23 +141,26 @@ impl<W: WeightElement> AcyclicPartition<W> {
         weight_bound: W::Sum,
         cost_bound: W::Sum,
     ) -> Self {
-        assert_eq!(
-            vertex_weights.len(),
-            graph.num_vertices(),
-            "vertex_weights length must match graph num_vertices"
-        );
-        assert_eq!(
-            arc_costs.len(),
-            graph.num_arcs(),
-            "arc_costs length must match graph num_arcs"
-        );
-        Self {
+        Self::try_new(graph, vertex_weights, arc_costs, weight_bound, cost_bound)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        vertex_weights: Vec<W>,
+        arc_costs: Vec<W>,
+        weight_bound: W::Sum,
+        cost_bound: W::Sum,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_vertex_weights(&graph, &vertex_weights)?;
+        Self::check_arc_costs(&graph, &arc_costs)?;
+        Ok(Self {
             graph,
             vertex_weights,
             arc_costs,
             weight_bound,
             cost_bound,
-        }
+        })
     }
 
     /// Get the underlying graph.
@@ -157,6 +188,16 @@ impl<W: WeightElement> AcyclicPartition<W> {
         self.vertex_weights = vertex_weights;
     }
 
+    fn check_vertex_weights(
+        graph: &DirectedGraph,
+        vertex_weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if vertex_weights.len() != graph.num_vertices() {
+            return Err("vertex_weights length must match graph num_vertices".into());
+        }
+        Ok(())
+    }
+
     /// Replace the arc costs.
     pub fn set_arc_costs(&mut self, arc_costs: Vec<W>) {
         assert_eq!(
@@ -165,6 +206,16 @@ impl<W: WeightElement> AcyclicPartition<W> {
             "arc_costs length must match graph num_arcs"
         );
         self.arc_costs = arc_costs;
+    }
+
+    fn check_arc_costs(
+        graph: &DirectedGraph,
+        arc_costs: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if arc_costs.len() != graph.num_arcs() {
+            return Err("arc_costs length must match graph num_arcs".into());
+        }
+        Ok(())
     }
 
     /// Get the per-part weight bound.
@@ -256,8 +307,12 @@ impl<W> crate::solvers::BruteForceProblem for AcyclicPartition<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.graph.num_vertices(); self.graph.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
     }
 }
 

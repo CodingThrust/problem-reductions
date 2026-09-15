@@ -47,11 +47,32 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PrecedenceConstrainedSchedulingData")]
 pub struct PrecedenceConstrainedScheduling {
     num_tasks: usize,
     num_processors: usize,
     deadline: i64,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct PrecedenceConstrainedSchedulingData {
+    num_tasks: usize,
+    num_processors: usize,
+    deadline: i64,
+    precedences: Vec<(usize, usize)>,
+}
+
+impl TryFrom<PrecedenceConstrainedSchedulingData> for PrecedenceConstrainedScheduling {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: PrecedenceConstrainedSchedulingData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_tasks,
+            data.num_processors,
+            data.deadline,
+            data.precedences,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -76,10 +97,8 @@ impl TryFrom<PrecedenceConstrainedSchedulingCreateSpec> for PrecedenceConstraine
                 .to_string()
                 .into());
         }
-        if spec.deadline < 0 || usize::try_from(spec.deadline).is_err() {
-            return Err("deadline must be nonnegative and fit usize"
-                .to_string()
-                .into());
+        if spec.deadline < 0 {
+            return Err("deadline must be nonnegative".to_string().into());
         }
         let precedences = spec.precedences.unwrap_or_default();
         if let Some(&(pred, succ)) = precedences
@@ -92,12 +111,12 @@ impl TryFrom<PrecedenceConstrainedSchedulingCreateSpec> for PrecedenceConstraine
             )
             .into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.num_tasks,
             spec.num_processors,
             spec.deadline,
             precedences,
-        ))
+        )
     }
 }
 
@@ -114,32 +133,42 @@ impl PrecedenceConstrainedScheduling {
         deadline: i64,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
+        Self::try_new(num_tasks, num_processors, deadline, precedences)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_tasks: usize,
+        num_processors: usize,
+        deadline: i64,
+        precedences: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if num_tasks > 0 {
-            assert!(
-                num_processors > 0,
-                "num_processors must be > 0 when there are tasks"
-            );
-            assert!(deadline > 0, "deadline must be > 0 when there are tasks");
+            if num_processors == 0 {
+                return Err("num_processors must be > 0 when there are tasks".into());
+            }
+            if deadline <= 0 {
+                return Err("deadline must be > 0 when there are tasks".into());
+            }
         }
-        assert!(
-            deadline >= 0 && usize::try_from(deadline).is_ok(),
-            "deadline must be nonnegative and fit usize"
-        );
+        if !(deadline >= 0) {
+            return Err("deadline must be nonnegative".into());
+        }
         for &(i, j) in &precedences {
-            assert!(
-                i < num_tasks && j < num_tasks,
-                "Precedence ({}, {}) out of bounds for {} tasks",
-                i,
-                j,
-                num_tasks
-            );
+            if !(i < num_tasks && j < num_tasks) {
+                return Err(format!(
+                    "Precedence ({}, {}) out of bounds for {} tasks",
+                    i, j, num_tasks
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             num_tasks,
             num_processors,
             deadline,
             precedences,
-        }
+        })
     }
 
     /// Get the number of tasks.
@@ -194,24 +223,26 @@ impl Problem for PrecedenceConstrainedScheduling {
                         "schedule length does not match the tasks".into(),
                     ));
                 }
-                let deadline =
-                    usize::try_from(self.deadline).expect("validated deadline must fit usize");
-                if config.iter().any(|&v| v >= deadline) {
+                if config
+                    .iter()
+                    .any(|&v| v as i128 >= i128::from(self.deadline))
+                {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "schedule contains an out-of-range time slot".into(),
                     ));
                 }
                 // Check processor capacity: at most num_processors tasks per time slot
-                let mut slot_count = vec![0usize; deadline];
+                let mut slot_count = std::collections::BTreeMap::new();
                 for &slot in config {
-                    slot_count[slot] += 1;
-                    if slot_count[slot] > self.num_processors {
+                    let count = slot_count.entry(slot).or_insert(0usize);
+                    *count += 1;
+                    if *count > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
                 }
                 // Check precedence constraints: for (i, j), slot[j] >= slot[i] + 1
                 for &(i, j) in &self.precedences {
-                    if config[j] < config[i] + 1 {
+                    if config[j] <= config[i] {
                         return Ok(crate::types::Or(false));
                     }
                 }
@@ -222,11 +253,12 @@ impl Problem for PrecedenceConstrainedScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for PrecedenceConstrainedScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![
-            usize::try_from(self.deadline).expect("validated deadline must fit usize");
-            self.num_tasks
-        ]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_tasks)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(usize::try_from(self.deadline)?)
     }
 }
 

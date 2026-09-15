@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_duplicate_terminals() {
@@ -31,7 +30,12 @@ fn test_steiner_tree_creation() {
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 7);
     assert_eq!(problem.terminals(), &[0, 2, 4]);
-    assert_eq!(problem.dimensions().len(), 7);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        7
+    );
 }
 
 #[test]
@@ -176,10 +180,10 @@ fn test_steiner_tree_edge_weights_and_set_weights() {
 }
 
 #[test]
-#[should_panic(expected = "at least 2 terminals required")]
-fn test_steiner_tree_rejects_single_terminal() {
+#[should_panic(expected = "at least one terminal required")]
+fn test_steiner_tree_rejects_empty_terminals() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let _ = SteinerTree::new(graph, vec![1, 1], vec![0]);
+    let _ = SteinerTree::new(graph, vec![1, 1], vec![]);
 }
 
 #[test]
@@ -198,12 +202,12 @@ fn test_steiner_tree_rejects_wrong_weight_count() {
 
 #[test]
 fn test_steiner_tree_deserialization_rejects_invalid_invariants() {
-    let one_terminal = serde_json::json!({
+    let no_terminals = serde_json::json!({
         "graph": {"num_vertices": 2, "edges": [[0, 1]]},
         "edge_weights": [1],
-        "terminals": [0]
+        "terminals": []
     });
-    assert!(serde_json::from_value::<SteinerTree<SimpleGraph, i64>>(one_terminal).is_err());
+    assert!(serde_json::from_value::<SteinerTree<SimpleGraph, i64>>(no_terminals).is_err());
 
     let wrong_weights = serde_json::json!({
         "graph": {"num_vertices": 2, "edges": [[0, 1]]},
@@ -211,4 +215,25 @@ fn test_steiner_tree_deserialization_rejects_invalid_invariants() {
         "terminals": [0, 1]
     });
     assert!(serde_json::from_value::<SteinerTree<SimpleGraph, i64>>(wrong_weights).is_err());
+}
+
+#[test]
+fn test_steiner_tree_single_terminal_semantics() {
+    let problem = SteinerTree::try_from(SteinerTreeCreateSpec {
+        graph: SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+        edge_weights: vec![-5, 1, 1, -10],
+        terminals: vec![0],
+    })
+    .unwrap();
+    let restored: SteinerTree<SimpleGraph, i64> =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    for (edges, value) in [
+        (vec![false, false, false, false], Min(Some(0))),
+        (vec![true, false, false, false], Min(Some(-5))),
+        (vec![false, false, false, true], Min(None)),
+        (vec![true, false, false, true], Min(None)),
+        (vec![true, true, true, false], Min(None)),
+    ] {
+        assert_eq!(restored.evaluate(&edges).unwrap(), value);
+    }
 }

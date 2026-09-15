@@ -197,8 +197,12 @@ impl Problem for SumOfSquaresPartition {
 }
 
 impl crate::solvers::BruteForceProblem for SumOfSquaresPartition {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_groups; self.sizes.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.sizes.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_groups)
     }
 }
 

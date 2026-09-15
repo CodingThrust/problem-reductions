@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_builds_bipartite_graph_and_rejects_invalid_edges() {
@@ -80,7 +79,10 @@ fn test_balanced_complete_bipartite_subgraph_creation() {
     assert_eq!(problem.num_vertices(), 8);
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.k(), 2);
-    assert_eq!(problem.dimensions(), vec![2; 8]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 8]
+    );
 }
 
 #[test]

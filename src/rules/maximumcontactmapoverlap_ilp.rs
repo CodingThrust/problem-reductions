@@ -17,7 +17,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumContactMapOverlap;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing MaximumContactMapOverlap to ILP.
 ///
@@ -46,26 +47,31 @@ impl ReductionResult for ReductionCMOToILP {
     /// For each source residue `i in V_1`, find the unique `j` with
     /// `x_(i,j) = 1` and encode it as `j + 1` (CMO's `bot` is `0`); if no
     /// `x_(i,*)` is selected, the residue is left unmatched (`0`).
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionCMOToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let n2 = self.num_vertices_2;
-        (0..self.num_vertices_1)
+        Ok((0..self.num_vertices_1)
             .map(|residue| {
-                let mut selected =
-                    (0..n2).filter(|&mapped| target_solution[residue * n2 + mapped] == 1);
-                match (selected.next(), selected.next()) {
-                    (Some(mapped), None) => Ok(mapped + 1),
-                    (None, _) => Ok(0),
-                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "source residue {residue} maps to multiple target residues"
-                    ))),
+                match (0..n2).find(|&mapped| target_solution[residue * n2 + mapped] == 1) {
+                    Some(mapped) => mapped + 1,
+                    None => 0,
                 }
             })
-            .collect()
+            .collect())
     }
 }
 

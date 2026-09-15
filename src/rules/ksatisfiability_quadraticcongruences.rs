@@ -6,12 +6,13 @@
 //! slack equation. Squaring uses twice the linear modulus, and extraction
 //! orients every sign by the distinguished odd coordinate.
 
+use crate::solvers::ProblemOutcome;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::models::algebraic::QuadraticCongruences;
 use crate::models::formula::KSatisfiability;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::variant::K3;
 use num_bigint::{BigInt, BigUint};
 #[cfg(any(test, feature = "example-db"))]
@@ -36,17 +37,22 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target integer does not satisfy the bounded quadratic congruence",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToQuadraticCongruences {
+    pub(crate) fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         // Validation gives 0 < x <= H. Each prime power divides exactly one
         // of H-x and H+x. The coordinate zero sign chooses x or -x so that
         // the odd linear target, rather than its negative, is recovered.

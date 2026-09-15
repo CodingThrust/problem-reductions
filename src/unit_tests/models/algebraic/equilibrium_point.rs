@@ -51,8 +51,11 @@ fn test_equilibrium_point_creation_and_accessors() {
     assert_eq!(p.range_sets()[0], vec![0, 1]);
     assert_eq!(p.range_sets()[1], vec![0, 1]);
     assert_eq!(p.range_sets()[2], vec![0, 1]);
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
-    assert_eq!(p.num_variables(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
+    assert_eq!(p.num_variables().unwrap(), 3);
     assert_eq!(<EquilibriumPoint as Problem>::NAME, "EquilibriumPoint");
     assert_eq!(<EquilibriumPoint as Problem>::variant(), vec![]);
 }

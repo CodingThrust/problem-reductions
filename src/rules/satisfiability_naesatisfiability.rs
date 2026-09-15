@@ -10,7 +10,8 @@
 use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing Satisfiability to NAE-Satisfiability.
 #[derive(Debug, Clone)]
@@ -29,20 +30,23 @@ impl ReductionResult for ReductionSATToNAESAT {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionSATToNAESAT {
+    pub(crate) fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let n = self.source_num_vars;
-        if target_solution.len() != n + 1 {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} target truth values, got {}",
-                n + 1,
-                target_solution.len()
-            )));
-        }
         let sentinel = target_solution[n];
         Ok(target_solution[..n]
             .iter()

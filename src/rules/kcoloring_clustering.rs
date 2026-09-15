@@ -7,7 +7,8 @@
 use crate::models::graph::KColoring;
 use crate::models::misc::Clustering;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::K3;
 
@@ -28,13 +29,14 @@ impl ReductionResult for ReductionKColoringToClustering {
 
     /// Cluster labels are color labels. The empty-graph corner case uses one
     /// dummy target element because Clustering forbids empty instances.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution[..self.source_num_vertices].to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(solution[..self.source_num_vertices].to_vec())
+        })
     }
 }
 

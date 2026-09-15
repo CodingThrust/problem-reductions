@@ -1,12 +1,12 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
-use problemreductions::models::algebraic::{ObjectiveSense, ILP};
+use problemreductions::models::algebraic::ILP;
 use problemreductions::registry::{
     CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
 };
 use problemreductions::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
-use problemreductions::rules::{AggregateReductionResult, VariantReductionResult};
+use problemreductions::solvers::SolutionAggregate;
 use problemreductions::traits::Problem;
-use problemreductions::types::{Aggregate, Extremum, Max, SolutionAggregate};
+use problemreductions::types::{Aggregate, Max};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -67,8 +67,12 @@ impl Problem for AggregateValueSource {
 }
 
 impl problemreductions::solvers::BruteForceProblem for AggregateValueSource {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.values.len()]
+    fn num_variables(&self) -> Result<usize, problemreductions::solvers::SolveError> {
+        Ok(self.values.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, problemreductions::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -109,26 +113,12 @@ impl Problem for AggregateValueTarget {
 }
 
 impl problemreductions::solvers::BruteForceProblem for AggregateValueTarget {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2]
-    }
-}
-
-#[derive(Debug, Clone)]
-struct AggregateValueToIlpReduction {
-    target: ILP<bool>,
-}
-
-impl AggregateReductionResult for AggregateValueToIlpReduction {
-    type Source = AggregateValueSource;
-    type Target = ILP<bool>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
+    fn num_variables(&self) -> Result<usize, problemreductions::solvers::SolveError> {
+        Ok(1usize)
     }
 
-    fn extract_value(&self, _target_value: Extremum<i64>) -> Max<i64> {
-        Max(Some(0))
+    fn dimension(&self, variable: usize) -> Result<usize, problemreductions::solvers::SolveError> {
+        Ok([2][variable])
     }
 }
 
@@ -139,24 +129,23 @@ fn decode_bits(indices: Vec<usize>) -> Vec<bool> {
 fn cartesian_indices(
     dimensions: Vec<usize>,
 ) -> Result<impl Iterator<Item = Vec<usize>>, problemreductions::solvers::SolveError> {
-    let total = if dimensions.is_empty() {
-        1
-    } else if dimensions.contains(&0) {
-        0
+    let mut current = if dimensions.contains(&0) {
+        None
     } else {
-        dimensions.iter().try_fold(1usize, |total, &dimension| {
-            total.checked_mul(dimension).ok_or_else(|| {
-                problemreductions::solvers::SolveError::SearchSpaceOverflow(dimensions.clone())
-            })
-        })?
+        Some(vec![0; dimensions.len()])
     };
-    Ok((0..total).map(move |mut index| {
-        let mut coordinates = vec![0; dimensions.len()];
+    Ok(std::iter::from_fn(move || {
+        let result = current.take()?;
+        let mut next = result.clone();
         for position in (0..dimensions.len()).rev() {
-            coordinates[position] = index % dimensions[position];
-            index /= dimensions[position];
+            next[position] += 1;
+            if next[position] < dimensions[position] {
+                current = Some(next);
+                break;
+            }
+            next[position] = 0;
         }
-        coordinates
+        Some(result)
     }))
 }
 
@@ -166,7 +155,7 @@ where
     P::Value: Aggregate,
 {
     let mut total = P::Value::identity();
-    for indices in cartesian_indices(problem.dimensions())? {
+    for indices in cartesian_indices(problemreductions::solvers::cartesian_dimensions(problem)?)? {
         total = total.combine(problem.evaluate(&decode_bits(indices))?)?;
     }
     Ok(total)
@@ -180,7 +169,7 @@ where
     P::Value: SolutionAggregate,
 {
     let total = solve_cartesian(problem)?;
-    for indices in cartesian_indices(problem.dimensions())? {
+    for indices in cartesian_indices(problemreductions::solvers::cartesian_dimensions(problem)?)? {
         let solution = decode_bits(indices);
         let value = problem.evaluate(&solution)?;
         if P::Value::contributes_to_solution(&value, &total) {
@@ -199,7 +188,7 @@ where
 {
     let total = solve_cartesian(problem)?;
     let mut witnesses = Vec::new();
-    for indices in cartesian_indices(problem.dimensions())? {
+    for indices in cartesian_indices(problemreductions::solvers::cartesian_dimensions(problem)?)? {
         let solution = decode_bits(indices);
         let value = problem.evaluate(&solution)?;
         if P::Value::contributes_to_solution(&value, &total) {
@@ -331,7 +320,7 @@ problemreductions::inventory::submit! {
             let problem = any
                 .downcast_ref::<AggregateValueSource>()
                 .expect("AggregateValueSource brute-force dimensions type mismatch");
-            problemreductions::solvers::BruteForceProblem::dimensions(problem)
+            problemreductions::solvers::cartesian_dimensions(problem)
         },
         solve_fn: solve_dynamic::<AggregateValueSource>,
         solve_typed_fn: solve_typed::<AggregateValueSource>,
@@ -379,7 +368,7 @@ problemreductions::inventory::submit! {
             let problem = any
                 .downcast_ref::<AggregateValueTarget>()
                 .expect("AggregateValueTarget brute-force dimensions type mismatch");
-            problemreductions::solvers::BruteForceProblem::dimensions(problem)
+            problemreductions::solvers::cartesian_dimensions(problem)
         },
         solve_fn: solve_dynamic::<AggregateValueTarget>,
         solve_typed_fn: solve_typed::<AggregateValueTarget>,
@@ -403,16 +392,6 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
-        reduce_aggregate_fn: Some(|any: &dyn Any| {
-            let source = any
-                .downcast_ref::<AggregateValueSource>()
-                .expect("aggregate reduction downcast failed");
-            Ok(Box::new(VariantReductionResult::<AggregateValueSource, AggregateValueTarget>::new(
-                AggregateValueTarget {
-                    base: source.values.iter().sum(),
-                },
-            )))
-        }),
         turing: false,
     }
 }
@@ -443,15 +422,6 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
-        reduce_aggregate_fn: Some(|any: &dyn Any| {
-            let _source = any
-                .downcast_ref::<AggregateValueSource>()
-                .expect("aggregate ILP reduction downcast failed");
-            Ok(Box::new(AggregateValueToIlpReduction {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
-                    .expect("empty ILP is valid"),
-            }))
-        }),
         turing: false,
     }
 }
@@ -490,3 +460,6 @@ pub(crate) fn aggregate_bundle() -> ReductionBundle {
         ],
     }
 }
+
+problemreductions::impl_dyn_problem!(AggregateValueSource);
+problemreductions::impl_dyn_problem!(AggregateValueTarget);

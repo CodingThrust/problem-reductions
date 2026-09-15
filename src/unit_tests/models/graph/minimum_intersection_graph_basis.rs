@@ -12,8 +12,11 @@ fn test_minimum_intersection_graph_basis_creation() {
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
     // 3 vertices * 2 edges = 6 binary variables
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
 }
 
 #[test]
@@ -66,7 +69,10 @@ fn test_minimum_intersection_graph_basis_triangle() {
     let problem = MinimumIntersectionGraphBasis::new(graph);
 
     // 3 vertices * 3 edges = 9 binary variables
-    assert_eq!(problem.dimensions(), vec![2; 9]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 9]
+    );
 
     // Valid: S[0]={0}, S[1]={0}, S[2]={0}
     // config: v0: [1,0,0], v1: [1,0,0], v2: [1,0,0]

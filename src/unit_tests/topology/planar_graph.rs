@@ -44,3 +44,19 @@ fn test_planar_graph_tree() {
     let g = PlanarGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(g.num_edges(), 3);
 }
+
+#[test]
+fn deserialize_checks_the_edge_bound() {
+    let edges: Vec<_> = (0..5)
+        .flat_map(|u| ((u + 1)..5).map(move |v| (u, v)))
+        .collect();
+    assert!(serde_json::from_value::<PlanarGraph>(serde_json::json!({
+        "inner": {"num_vertices": 5, "edges": edges}
+    }))
+    .is_err());
+    let graph: PlanarGraph = serde_json::from_value(serde_json::json!({
+        "inner": {"num_vertices": 2, "edges": [[0, 1]]}
+    }))
+    .unwrap();
+    assert_eq!(graph.num_edges(), 1);
+}

@@ -2,6 +2,7 @@ use super::*;
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 #[test]
@@ -17,7 +18,14 @@ fn test_maximumsetpacking_one_to_i64_cast_closed_loop() {
 
     let solver = BruteForce::new();
     let target_solution = solver.solve(sp_i64).unwrap().unwrap();
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &sp_one,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let metric = sp_one.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
@@ -36,7 +44,14 @@ fn test_maximumsetpacking_i64_to_f64_cast_closed_loop() {
 
     let solver = BruteForce::new();
     let target_solution = solver.solve(sp_f64).unwrap().unwrap();
-    let source_solution = reduction.extract_solution(&target_solution).unwrap();
+    let source_solution = reduction
+        .recover_result(
+            &sp_i64,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let metric = sp_i64.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());

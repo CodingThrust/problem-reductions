@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::misc::RegisterSufficiency;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -50,7 +51,14 @@ fn test_register_sufficiency_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("feasible register-sufficiency instance should yield a feasible ILP");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     let mut sorted = extracted.clone();
@@ -63,8 +71,9 @@ fn test_register_sufficiency_to_ilp_infeasible() {
     let source = infeasible_example();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "register-sufficiency instance with bound one should be infeasible"
     );
 }
@@ -113,7 +122,14 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     let target_config: Vec<i64> = serde_json::from_value(solution.target_config.clone()).unwrap();
     assert_eq!(source.evaluate(&source_config).unwrap(), Or(true));
     assert_eq!(
-        reduction.extract_solution(&target_config).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_config.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         source_config
     );
 }

@@ -1,4 +1,4 @@
-//! Reduction from integer-target CVP to QUBO.
+//! Reduction from integer CVP to QUBO.
 //!
 //! The reduction derives a finite coefficient box from the lattice basis and
 //! target, then expands the squared Euclidean distance over exact-range binary
@@ -8,7 +8,8 @@
 use crate::export::SolutionPair;
 use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use num_bigint::BigInt;
 use num_traits::Zero;
 
@@ -22,7 +23,7 @@ struct EncodingSpan {
     lower: i64,
 }
 
-/// Result of reducing an integer-target CVP instance to QUBO.
+/// Result of reducing an integer CVP instance to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionCVPToQUBO {
     target: Target,
@@ -37,32 +38,33 @@ impl ReductionResult for ReductionCVPToQUBO {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionCVPToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         self.encodings
             .iter()
             .map(|encoding| {
-                let offset = encoding.weights.iter().enumerate().try_fold(
-                    0_i64,
-                    |offset, (index, &weight)| {
-                        if target_solution[encoding.start + index] {
-                            offset.checked_add(weight)
-                        } else {
-                            Some(offset)
-                        }
-                    },
-                );
-                offset
-                    .and_then(|offset| encoding.lower.checked_add(offset))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "decoded closest-vector coefficient overflows i64",
-                        )
-                    })
+                let offset: i64 = encoding
+                    .weights
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, _)| target_solution[encoding.start + index])
+                    .map(|(_, &weight)| weight)
+                    .sum();
+                Ok(encoding.lower + offset)
             })
             .collect()
     }
@@ -110,9 +112,7 @@ fn determinant(matrix: &[Vec<i64>]) -> Result<i64, crate::rules::ReductionError>
 }
 
 fn coefficient_bounds(problem: &Source) -> Result<Vec<i64>, crate::rules::ReductionError> {
-    let rows = problem
-        .independent_rows()
-        .map_err(crate::rules::ReductionError::construction::<Source, Target>)?;
+    let rows = problem.independent_rows();
     let size = problem.num_basis_vectors();
     if size == 0 {
         return Ok(Vec::new());
@@ -293,7 +293,7 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
                     .map(move |&weight| (coefficient, weight))
             })
             .collect::<Vec<_>>();
-        let mut integer_matrix = vec![vec![0_i64; total_bits]; total_bits];
+        let mut integer_matrix = vec![std::collections::BTreeMap::new(); total_bits];
         for u in 0..total_bits {
             let (coefficient_u, weight_u) = bit_terms[u];
             let quadratic = gram[coefficient_u][coefficient_u]
@@ -304,22 +304,27 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
                 .checked_mul(weight_u)
                 .and_then(|value| value.checked_mul(2))
                 .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
-            integer_matrix[u][u] = quadratic
-                .checked_add(linear_term)
-                .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?;
+            integer_matrix[u].insert(
+                u,
+                quadratic
+                    .checked_add(linear_term)
+                    .ok_or_else(|| overflow("computing a closest-vector QUBO diagonal"))?,
+            );
 
-            for v in (u + 1)..total_bits {
-                let (coefficient_v, weight_v) = bit_terms[v];
-                integer_matrix[u][v] = gram[coefficient_u][coefficient_v]
+            for (v, &(coefficient_v, weight_v)) in bit_terms.iter().enumerate().skip(u + 1) {
+                let coefficient = gram[coefficient_u][coefficient_v]
                     .checked_mul(weight_u)
                     .and_then(|value| value.checked_mul(weight_v))
                     .and_then(|value| value.checked_mul(2))
                     .ok_or_else(|| overflow("computing a closest-vector QUBO interaction"))?;
+                if coefficient != 0 {
+                    integer_matrix[u].insert(v, coefficient);
+                }
             }
         }
 
         Ok(ReductionCVPToQUBO {
-            target: QUBO::from_matrix(integer_matrix)
+            target: QUBO::from_rows(integer_matrix)
                 .map_err(crate::rules::ReductionError::construction::<Source, Target>)?,
             encodings,
         })
@@ -328,7 +333,7 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
 
 #[cfg(feature = "example-db")]
 fn canonical_cvp_instance() -> Source {
-    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+    ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
         .expect("canonical closest-vector instance must be valid")
 }
 

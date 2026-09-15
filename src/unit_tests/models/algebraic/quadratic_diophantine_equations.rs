@@ -33,8 +33,11 @@ fn test_quadratic_diophantine_equations_creation_and_accessors() {
     assert_eq!(problem.bit_length_b(), 3);
     assert_eq!(problem.bit_length_c(), 6);
     // max_x = floor(sqrt(53 / 3)) = 4, encoded in 3 binary digits.
-    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2, 2]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 3);
     assert_eq!(
         <QuadraticDiophantineEquations as Problem>::NAME,
         "QuadraticDiophantineEquations"
@@ -69,7 +72,10 @@ fn test_quadratic_diophantine_equations_evaluate_yes() {
 #[test]
 fn test_quadratic_diophantine_equations_evaluate_no() {
     let problem = no_problem();
-    assert_eq!(problem.dimensions(), vec![2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2]
+    );
     assert_eq!(
         problem.evaluate(&config_for_x(&problem, 1)).unwrap(),
         Or(false)
@@ -86,7 +92,10 @@ fn test_quadratic_diophantine_equations_evaluate_invalid_config() {
 #[test]
 fn test_quadratic_diophantine_equations_c_le_a() {
     let problem = QuadraticDiophantineEquations::new(10, 1, 5);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&BigUint::default()).unwrap(), Or(false));
 }
 

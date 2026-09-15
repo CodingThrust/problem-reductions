@@ -1,6 +1,7 @@
 use crate::models::graph::{GraphPartitioning, MaxCut};
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 fn issue_example() -> GraphPartitioning<SimpleGraph> {
@@ -56,7 +57,14 @@ fn test_graphpartitioning_to_maxcut_extract_solution_identity() {
     let target_solution = super::ISSUE_EXAMPLE_WITNESS.to_vec();
 
     assert_eq!(
-        reduction.extract_solution(&target_solution).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         target_solution
     );
 }
@@ -65,4 +73,27 @@ fn test_graphpartitioning_to_maxcut_extract_solution_identity() {
 fn test_graphpartitioning_to_maxcut_penalty_overflow_panics() {
     let result = std::panic::catch_unwind(|| super::penalty_weight(i64::MAX as usize));
     assert!(result.is_err());
+}
+
+#[test]
+fn odd_partition_recovers_infeasibility_from_every_maxcut_optimum() {
+    use crate::solvers::{BruteForce, SolveOutcome};
+    let source = GraphPartitioning::new(SimpleGraph::new(1, vec![]));
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    let optima = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
+    assert_eq!(optima.len(), 2);
+    for solution in optima {
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), solution).unwrap()
+                )
+                .unwrap(),
+            SolveOutcome::Infeasible
+        );
+    }
 }

@@ -4,13 +4,13 @@ use serde::de::{self, DeserializeOwned, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
-/// Largest integer magnitude represented exactly by an IEEE 754 `f64`.
+/// Maximum integer magnitude accepted by the exact `i64` to `f64` conversion.
 pub const MAX_EXACT_F64_INTEGER: i64 = (1_i64 << 53) - 1;
 
-/// An `i64` cannot cross an exact-integer `f64` boundary without precision loss.
+/// An `i64` is outside the supported exact-integer `f64` conversion range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error(
-    "integer {value} is outside the exactly representable f64 range [{min}, {max}]",
+    "integer {value} is outside the supported exact-integer f64 conversion range [{min}, {max}]",
     min = -MAX_EXACT_F64_INTEGER,
     max = MAX_EXACT_F64_INTEGER
 )]
@@ -29,7 +29,8 @@ pub enum NumericArithmeticError {
     NonFiniteResult,
 }
 
-/// Convert an `i64` to `f64` only when the integer value remains exact.
+/// Convert an `i64` to `f64` within the supported range ±(2^53 − 1).
+/// Values outside this range are rejected even if individually representable.
 pub fn i64_to_exact_f64(value: i64) -> Result<f64, ExactI64ToF64Error> {
     if (-MAX_EXACT_F64_INTEGER..=MAX_EXACT_F64_INTEGER).contains(&value) {
         Ok(value as f64)
@@ -38,7 +39,8 @@ pub fn i64_to_exact_f64(value: i64) -> Result<f64, ExactI64ToF64Error> {
     }
 }
 
-/// Bound for objective value types (i64, f64, etc.)
+/// Bound for objective value types (i64, f64, etc.).
+/// Integers reject overflow; floats allow rounding and reject non-finite results.
 pub trait NumericSize:
     Clone
     + Default
@@ -49,9 +51,9 @@ pub trait NumericSize:
     + std::ops::AddAssign
     + 'static
 {
-    /// Add two values when the exact result remains representable and finite.
+    /// Checked addition.
     fn checked_add_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
-    /// Multiply two values when the exact result remains representable and finite.
+    /// Checked multiplication.
     fn checked_mul_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
 }
 
@@ -304,12 +306,6 @@ pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
     }
 }
 
-/// Aggregate value whose optimum identifies contributing solutions.
-pub trait SolutionAggregate: Aggregate {
-    /// Whether a solution-level value contributes to the final aggregate value.
-    fn contributes_to_solution(value: &Self, total: &Self) -> bool;
-}
-
 /// Maximum aggregate over feasible values.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Max<V>(pub Option<V>);
@@ -338,20 +334,18 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
     }
 }
 
-impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
-    for Max<V>
-{
-    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
-        matches!((value, total), (Max(Some(value)), Max(Some(best))) if value == best)
-    }
-}
-
 impl<V: fmt::Display> fmt::Display for Max<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
             Some(value) => write!(f, "Max({value})"),
             None => write!(f, "Max(None)"),
         }
+    }
+}
+
+impl<V: Clone> crate::traits::EvaluationValue for Max<V> {
+    fn is_valid(&self) -> bool {
+        Max::is_valid(self)
     }
 }
 
@@ -397,20 +391,18 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
     }
 }
 
-impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
-    for Min<V>
-{
-    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
-        matches!((value, total), (Min(Some(value)), Min(Some(best))) if value == best)
-    }
-}
-
 impl<V: fmt::Display> fmt::Display for Min<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
             Some(value) => write!(f, "Min({value})"),
             None => write!(f, "Min(None)"),
         }
+    }
+}
+
+impl<V: Clone> crate::traits::EvaluationValue for Min<V> {
+    fn is_valid(&self) -> bool {
+        Min::is_valid(self)
     }
 }
 
@@ -484,6 +476,12 @@ impl<W: fmt::Display> fmt::Display for Sum<W> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Or(pub bool);
 
+impl crate::traits::EvaluationValue for Or {
+    fn is_valid(&self) -> bool {
+        Or::is_valid(self)
+    }
+}
+
 impl Or {
     pub fn is_valid(&self) -> bool {
         self.0
@@ -505,12 +503,6 @@ impl Aggregate for Or {
 
     fn is_absorbing(&self) -> bool {
         self.0
-    }
-}
-
-impl SolutionAggregate for Or {
-    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
-        value.0 && total.0
     }
 }
 
@@ -574,6 +566,12 @@ pub enum ExtremumSense {
 pub struct Extremum<V> {
     pub sense: ExtremumSense,
     pub value: Option<V>,
+}
+
+impl<V: Clone> crate::traits::EvaluationValue for Extremum<V> {
+    fn is_valid(&self) -> bool {
+        Extremum::is_valid(self)
+    }
 }
 
 impl<V> Extremum<V> {
@@ -645,17 +643,6 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
                 }
             }
         })
-    }
-}
-
-impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
-    for Extremum<V>
-{
-    fn contributes_to_solution(candidate: &Self, total: &Self) -> bool {
-        matches!(
-            (candidate.value.as_ref(), total.value.as_ref()),
-            (Some(value), Some(best)) if candidate.sense == total.sense && value == best
-        )
     }
 }
 

@@ -35,7 +35,7 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Configurations use Lehmer code encoding with `dims() = [n, n-1, ..., 1]`.
+/// Configurations use Lehmer code encoding with `coordinate cardinalities = [n, n-1, ..., 1]`.
 /// A config `[c_0, c_1, ..., c_{n-1}]` where `c_i < n - i` is decoded by
 /// maintaining a list of available jobs and picking the `c_i`-th element:
 ///
@@ -58,6 +58,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "FlowShopSchedulingData")]
 pub struct FlowShopScheduling {
     /// Number of processors (machines).
     num_processors: usize,
@@ -65,6 +66,21 @@ pub struct FlowShopScheduling {
     task_lengths: Vec<Vec<i64>>,
     /// Global deadline.
     deadline: i64,
+}
+
+#[derive(Deserialize)]
+struct FlowShopSchedulingData {
+    num_processors: usize,
+    task_lengths: Vec<Vec<i64>>,
+    deadline: i64,
+}
+
+impl TryFrom<FlowShopSchedulingData> for FlowShopScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: FlowShopSchedulingData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_processors, data.task_lengths, data.deadline)
+    }
 }
 
 impl FlowShopScheduling {
@@ -79,26 +95,37 @@ impl FlowShopScheduling {
     /// # Panics
     /// Panics if any job does not have exactly `num_processors` tasks.
     pub fn new(num_processors: usize, task_lengths: Vec<Vec<i64>>, deadline: i64) -> Self {
+        Self::try_new(num_processors, task_lengths, deadline)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_processors: usize,
+        task_lengths: Vec<Vec<i64>>,
+        deadline: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (j, tasks) in task_lengths.iter().enumerate() {
-            assert_eq!(
-                tasks.len(),
-                num_processors,
-                "Job {} has {} tasks, expected {}",
-                j,
-                tasks.len(),
-                num_processors
-            );
+            if tasks.len() != num_processors {
+                return Err(format!(
+                    "Job {} has {} tasks, expected {}",
+                    j,
+                    tasks.len(),
+                    num_processors
+                )
+                .into());
+            }
         }
-        assert!(
-            task_lengths.iter().flatten().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(deadline >= 0, "deadline must be nonnegative");
-        Self {
+        if !(task_lengths.iter().flatten().all(|&length| length >= 0)) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if !(deadline >= 0) {
+            return Err("deadline must be nonnegative".into());
+        }
+        Ok(Self {
             num_processors,
             task_lengths,
             deadline,
-        }
+        })
     }
 
     /// Get the number of processors.
@@ -214,8 +241,12 @@ impl Problem for FlowShopScheduling {
 }
 
 impl crate::solvers::BruteForceProblem for FlowShopScheduling {
-    fn dimensions(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_jobs())
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_jobs())
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_jobs() - variable)
     }
 }
 

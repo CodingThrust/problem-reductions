@@ -3,7 +3,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::EnsembleComputation;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionEnsembleComputationToILP {
@@ -38,34 +39,36 @@ impl ReductionResult for ReductionEnsembleComputationToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl ReductionEnsembleComputationToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut config = Vec::with_capacity(2 * self.budget);
-        let mut inactive = false;
         for step in 0..self.budget {
             let active = target_solution[self.activity_base + step];
             if active == 0 {
-                inactive = true;
-                continue;
-            }
-            if active != 1 || inactive {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "active ensemble-operation slots must form a binary prefix",
-                ));
+                break;
             }
             for left in [true, false] {
-                let selected = (0..self.universe_size + step)
-                    .filter(|&operand| target_solution[self.selector_var(left, step, operand)] == 1)
-                    .collect::<Vec<_>>();
-                if selected.len() != 1 {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "each active ensemble operation must select exactly one operand per side",
-                    ));
-                }
-                config.push(selected[0]);
+                config.push(
+                    (0..self.universe_size + step)
+                        .filter(|&operand| {
+                            target_solution[self.selector_var(left, step, operand)] == 1
+                        })
+                        .sum(),
+                );
             }
         }
         let filler = if self.universe_size >= 2 {

@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::MinimumCutIntoBoundedSets;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -41,7 +42,14 @@ fn test_extract_solution() {
     let reduction: ReductionMinCutBSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![0, 0, 1, 1, 0, 1, 0];
-    let extracted = reduction.extract_solution(&target_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, false, true, true]);
     assert!(source.evaluate(&extracted).unwrap().0.is_some());
 }

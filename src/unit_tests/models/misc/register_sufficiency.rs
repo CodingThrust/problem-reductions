@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -35,7 +34,10 @@ fn test_register_sufficiency_basic() {
             (6, 5)
         ]
     );
-    assert_eq!(problem.dimensions(), vec![7; 7]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![7; 7]
+    );
     assert_eq!(
         <RegisterSufficiency as Problem>::NAME,
         "RegisterSufficiency"
@@ -183,7 +185,10 @@ fn test_register_sufficiency_serialization() {
 fn test_register_sufficiency_empty() {
     let problem = RegisterSufficiency::new(0, vec![], 0);
     assert_eq!(problem.num_vertices(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 

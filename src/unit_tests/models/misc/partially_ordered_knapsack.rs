@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Helper: create the example instance from the issue.
@@ -29,7 +28,10 @@ fn test_partially_ordered_knapsack_basic() {
         &[(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)]
     );
     assert_eq!(problem.capacity(), 11);
-    assert_eq!(problem.dimensions(), vec![2; 6]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 6]
+    );
     assert_eq!(
         <PartiallyOrderedKnapsack as Problem>::NAME,
         "PartiallyOrderedKnapsack"
@@ -169,7 +171,10 @@ fn test_partially_ordered_knapsack_empty_instance() {
     let problem = PartiallyOrderedKnapsack::new(vec![], vec![], vec![], 10);
     assert_eq!(problem.num_items(), 0);
     assert_eq!(problem.num_precedences(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 

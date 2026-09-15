@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_arc_weights() {
@@ -34,8 +33,16 @@ fn test_minimum_feedback_arc_set_creation() {
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 9]);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 9);
-    assert_eq!(problem.dimensions().len(), 9);
-    assert!(problem.dimensions().iter().all(|&d| d == 2));
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem)
+            .unwrap()
+            .len(),
+        9
+    );
+    assert!(crate::solvers::cartesian_dimensions(&problem)
+        .unwrap()
+        .iter()
+        .all(|&d| d == 2));
 }
 
 #[test]
@@ -206,4 +213,12 @@ fn test_minimum_feedback_arc_set_accessors() {
 
     problem.set_weights(vec![2, 3, 4]);
     assert_eq!(problem.weights(), &[2, 3, 4]);
+}
+
+#[test]
+fn construction_and_json_reject_mismatched_weights() {
+    let graph = DirectedGraph::try_new(2, vec![(0, 1)]).unwrap();
+    assert!(MinimumFeedbackArcSet::try_new(graph.clone(), Vec::<i64>::new()).is_err());
+    let json = serde_json::json!({"graph": graph, "weights": []});
+    assert!(serde_json::from_value::<MinimumFeedbackArcSet<i64>>(json).is_err());
 }

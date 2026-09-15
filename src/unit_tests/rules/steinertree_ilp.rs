@@ -1,5 +1,8 @@
 use super::*;
+use crate::rules::ReductionResult;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -10,6 +13,7 @@ fn lift(source: &SteinerTree<SimpleGraph, i64>, chosen: &[bool]) -> Vec<i64> {
     let root = source.terminals()[0];
     let edges = source.graph().edges();
     let mut witness = vec![0; tree_ilp_sizes(n, m, source.terminals().len()).unwrap().0];
+    witness[m + root] = 1;
     let mut adj = vec![vec![]; n];
     for (e, &(u, v)) in edges.iter().enumerate() {
         if chosen[e] {
@@ -65,11 +69,21 @@ fn test_steinertree_to_ilp_closed_loop() {
         (4, vec![(0, 1), (2, 3)], vec![1, -10], vec![0, 1], 1),
         (3, vec![(0, 1), (1, 2)], vec![1, -5], vec![0, 1], -4),
         (3, vec![(0, 1), (1, 2)], vec![2, 3], vec![2, 0], 5),
+        (1, vec![], vec![], vec![0], 0),
+        (2, vec![(0, 1)], vec![5], vec![0], 0),
+        (2, vec![(0, 1)], vec![-5], vec![0], -5),
     ] {
         let source = SteinerTree::new(SimpleGraph::new(n, edges), weights, terminals);
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let witness = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-        let decoded = reduction.extract_solution(&witness).unwrap();
+        let decoded = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(source.evaluate(&decoded).unwrap(), Min(Some(optimum)));
         assert_eq!(
             reduction.target_problem().evaluate(&witness).unwrap().value,
@@ -103,7 +117,17 @@ fn test_steiner_all_source_trees_lift_and_preserve_objective() {
                 target.evaluate(&witness).unwrap().value,
                 source.evaluate(&selected).unwrap().0
             );
-            assert_eq!(reduction.extract_solution(&witness).unwrap(), selected);
+            assert_eq!(
+                reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution"),
+                selected
+            );
         }
     }
 }
@@ -118,19 +142,27 @@ fn test_steiner_every_small_raw_target_and_malformed_witness() {
         let witness: Vec<_> = (0..target.num_vars()).map(|v| (mask >> v) & 1).collect();
         if target.evaluate(&witness).unwrap().is_valid() {
             feasible_count += 1;
-            let decoded = reduction.extract_solution(&witness).unwrap();
+            let decoded = reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution");
             assert_eq!(source.evaluate(&decoded).unwrap(), Min(Some(-3)));
-        } else {
-            assert!(reduction.extract_solution(&witness).is_err());
         }
     }
-    for bad in [
-        vec![],
-        vec![1; target.num_vars() + 1],
-        vec![2; target.num_vars()],
-    ] {
-        assert!(reduction.extract_solution(&bad).is_err());
+    for bad in [vec![], vec![1; target.num_vars() + 1]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&bad),
+            Err(InvalidConfiguration(_))
+        ));
     }
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![2; target.num_vars()])
+        .unwrap()
+        .is_valid());
     assert_eq!(feasible_count, 1);
 }
 
@@ -149,5 +181,29 @@ fn test_steiner_count_boundaries() {
             tree_ilp_sizes(n, m, k),
             Err(crate::rules::ReductionError::IntegerOverflow { .. })
         ));
+    }
+}
+
+#[test]
+fn test_single_terminal_tree_lifts_include_empty_tree() {
+    let source = SteinerTree::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-5], vec![1]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    for selected in [vec![false], vec![true]] {
+        let witness = lift(&source, &selected);
+        assert_eq!(
+            reduction.target_problem().evaluate(&witness).unwrap().value,
+            source.evaluate(&selected).unwrap().0
+        );
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
+            selected
+        );
     }
 }

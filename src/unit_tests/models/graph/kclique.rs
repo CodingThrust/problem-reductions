@@ -1,5 +1,4 @@
 use super::*;
-use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_k_above_vertex_count() {
     assert!(KClique::try_from(KCliqueCreateSpec {
@@ -30,7 +29,10 @@ fn test_kclique_creation() {
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 6);
-    assert_eq!(problem.dimensions(), vec![2; 5]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 5]
+    );
 }
 
 #[test]

@@ -13,7 +13,8 @@
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::misc::LongestCommonSubsequence;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::SimpleGraph;
 use crate::types::One;
 
@@ -46,12 +47,22 @@ impl ReductionResult for ReductionLCSToIS {
     ///
     /// Selected vertices correspond to match nodes. Sort by position in
     /// the first string to get the subsequence order, then pad to `max_length`.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionLCSToIS {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             // Collect selected match nodes with their characters
             let mut selected: Vec<(usize, usize)> = target_solution

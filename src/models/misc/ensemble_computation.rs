@@ -228,8 +228,20 @@ impl Problem for EnsembleComputation {
 }
 
 impl crate::solvers::BruteForceProblem for EnsembleComputation {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.universe_size + self.budget; 2 * self.budget]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (2usize).checked_mul(self.budget).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.universe_size)
+            .checked_add(self.budget)
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a coordinate cardinality".into(),
+                )
+            })
     }
 }
 

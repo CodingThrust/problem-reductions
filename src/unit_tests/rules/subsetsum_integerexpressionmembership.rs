@@ -6,7 +6,7 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
-#[cfg(feature = "example-db")]
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn issue_example_source() -> SubsetSum {
@@ -48,16 +48,24 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
 
     assert_eq!(
         reduction
-            .extract_solution(&issue_example_target_config())
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    issue_example_target_config().clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         issue_example_source_config()
     );
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![true, false, false, true])
-            .unwrap(),
-        vec![true, false, false, true]
-    );
+    // Selecting 1 and 8 does not reach the source target 11.
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![true, false, false, true])
+        .unwrap()
+        .is_valid());
 }
 
 #[test]

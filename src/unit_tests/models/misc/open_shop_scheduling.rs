@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -60,10 +59,16 @@ fn test_open_shop_scheduling_creation() {
 #[test]
 fn test_open_shop_scheduling_dims() {
     let p = issue_example();
-    assert_eq!(p.dimensions(), vec![24usize; 12]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![24usize; 12]
+    );
 
     let p2 = two_by_two();
-    assert_eq!(p2.dimensions(), vec![7usize; 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p2).unwrap(),
+        vec![7usize; 4]
+    );
 }
 
 // ─── evaluate ────────────────────────────────────────────────────────────────
@@ -119,7 +124,10 @@ fn test_open_shop_scheduling_evaluate_wrong_length() {
 #[test]
 fn test_open_shop_scheduling_evaluate_empty() {
     let p = OpenShopScheduling::new(3, vec![]);
-    assert_eq!(p.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(p.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 

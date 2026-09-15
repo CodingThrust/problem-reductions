@@ -10,7 +10,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::BinPacking;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing BinPacking to ILP.
 ///
@@ -37,13 +38,14 @@ impl ReductionResult for ReductionBPToILP {
     /// Extract solution from ILP back to BinPacking.
     ///
     /// For each item i, find the unique bin j where x_{ij} = 1.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        one_hot_decode_rows(target_solution, self.n, self.n, 0)
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| {
+            Ok(one_hot_decode_rows(solution, self.n, self.n, 0))
+        })
     }
 }
 

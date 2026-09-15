@@ -2,6 +2,7 @@ use super::*;
 use crate::models::misc::Partition;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -41,6 +42,22 @@ fn test_partition_to_knapsack_odd_total_is_not_satisfying() {
 
     assert_eq!(target.evaluate(&best).unwrap(), Max(Some(5)));
 
-    let extracted = reduction.extract_solution(&best).unwrap();
+    let extracted = reduction.map_solution(&best).unwrap();
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(target, best.clone()).unwrap()
+            )
+            .unwrap(),
+        SolveOutcome::Infeasible
+    );
+    assert!(matches!(
+        reduction.recover_result(
+            &source,
+            SolveOutcome::feasible(target, best.clone()).unwrap()
+        ),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    ));
     assert!(!source.evaluate(&extracted).unwrap());
 }

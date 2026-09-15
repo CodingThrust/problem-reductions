@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -27,7 +28,14 @@ fn test_feasible_register_assignment_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("feasible source instance should yield a feasible ILP");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     let mut sorted = extracted.clone();
@@ -40,8 +48,9 @@ fn test_feasible_register_assignment_to_ilp_infeasible() {
     let source = FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "register-conflict source instance should reduce to an infeasible ILP"
     );
 }

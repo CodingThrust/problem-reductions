@@ -2,6 +2,7 @@ use super::*;
 use crate::models::misc::{Partition, ProductionPlanning};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_partition_to_productionplanning_closed_loop() {
@@ -52,7 +53,15 @@ fn test_partition_to_productionplanning_extract_solution() {
         ReduceTo::<ProductionPlanning>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&vec![0, 0, 0, 4, 6, 0]).unwrap(),
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![0, 0, 0, 4, 6, 0].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![false, false, false, true, true]
     );
 }

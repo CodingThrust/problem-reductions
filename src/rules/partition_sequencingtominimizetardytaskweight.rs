@@ -1,48 +1,48 @@
 //! Reduction from Partition to Sequencing to Minimize Tardy Task Weight.
 
+use crate::models::decision::Decision;
 use crate::models::misc::{Partition, SequencingToMinimizeTardyTaskWeight};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing Partition to SequencingToMinimizeTardyTaskWeight.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
-    target: SequencingToMinimizeTardyTaskWeight,
+    target: Decision<SequencingToMinimizeTardyTaskWeight>,
 }
 
 impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
     type Source = Partition;
-    type Target = SequencingToMinimizeTardyTaskWeight;
+    type Target = Decision<SequencingToMinimizeTardyTaskWeight>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target schedule does not certify a balanced partition",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
-            let mut source_config = vec![true; self.target.num_tasks()];
+            let mut source_config = vec![true; self.target.inner().num_tasks()];
             let mut completion_time = 0i64;
 
             for &task in target_solution {
-                completion_time = completion_time
-                    .checked_add(self.target.lengths()[task])
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target schedule completion time overflows i64",
-                        )
-                    })?;
-                if completion_time <= self.target.deadlines()[task] {
+                completion_time += self.target.inner().lengths()[task];
+                if completion_time <= self.target.inner().deadlines()[task] {
                     source_config[task] = false;
                 }
             }
@@ -52,28 +52,11 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
     }
 }
 
-impl crate::rules::AggregateReductionResult
-    for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
-{
-    type Source = Partition;
-    type Target = SequencingToMinimizeTardyTaskWeight;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        // The source is nonempty, so the common deadline always exists.
-        crate::types::Or(value.0 == Some(self.target.deadlines()[0]))
-    }
-}
-
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_tasks = "num_elements",
     })]
-impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
+impl ReduceTo<Decision<SequencingToMinimizeTardyTaskWeight>> for Partition {
     type Result = ReductionPartitionToSequencingToMinimizeTardyTaskWeight;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -83,7 +66,10 @@ impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
         let deadlines = vec![common_deadline; self.num_elements()];
 
         Ok(ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
-            target: SequencingToMinimizeTardyTaskWeight::new(lengths, weights, deadlines),
+            target: Decision::new(
+                SequencingToMinimizeTardyTaskWeight::new(lengths, weights, deadlines),
+                common_deadline,
+            ),
         })
     }
 }
@@ -97,7 +83,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                SequencingToMinimizeTardyTaskWeight,
+                Decision<SequencingToMinimizeTardyTaskWeight>,
             >(
                 Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {

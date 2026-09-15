@@ -2,7 +2,7 @@ use super::*;
 use crate::models::misc::{SequencingWithReleaseTimesAndDeadlines, ThreePartition};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
 fn reduce(sizes: Vec<i64>, bound: i64) -> (ThreePartition, ReductionThreePartitionToSRTD) {
@@ -75,7 +75,14 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_solution_extrac
     let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(extracted.len(), source.num_elements());
         let source_valid = source.evaluate(&extracted).unwrap();
         assert!(
@@ -91,6 +98,6 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_dims() {
     let target = reduction.target_problem();
 
     // 7 tasks -> Lehmer dims [7,6,5,4,3,2,1]
-    let dims = target.dimensions();
+    let dims = crate::solvers::cartesian_dimensions(target).unwrap();
     assert_eq!(dims, vec![7, 6, 5, 4, 3, 2, 1]);
 }

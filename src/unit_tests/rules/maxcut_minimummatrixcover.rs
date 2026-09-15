@@ -4,6 +4,7 @@ use crate::models::graph::MaxCut;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReduceTo;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Max, Min};
@@ -203,7 +204,17 @@ fn test_extract_solution_is_identity() {
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![true, false, true];
-    assert_eq!(reduction.extract_solution(&target_sol).unwrap(), target_sol);
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_sol.clone()).unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        target_sol
+    );
 }
 
 #[test]

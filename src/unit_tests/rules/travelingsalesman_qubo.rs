@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -17,7 +18,14 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
 
     // All QUBO solutions should extract to valid TSP solutions
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &tsp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = tsp.evaluate(&extracted).unwrap();
         assert!(metric.is_valid(), "Extracted solution should be valid");
         // K3 has only one Hamiltonian cycle (all 3 edges), cost = 1+2+3 = 6
@@ -45,7 +53,14 @@ fn test_travelingsalesman_to_qubo_k4() {
 
     // Every Hamiltonian cycle in K4 uses exactly 4 edges, so cost = 4
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol).unwrap();
+        let extracted = reduction
+            .recover_result(
+                &tsp,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let metric = tsp.evaluate(&extracted).unwrap();
         assert!(metric.is_valid(), "Extracted solution should be valid");
         assert_eq!(metric, Min(Some(4)));
@@ -66,13 +81,13 @@ fn test_travelingsalesman_to_qubo_sizes() {
     let graph3 = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
     let tsp3 = TravelingSalesman::new(graph3, vec![1i64; 3]);
     let reduction3 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp3).expect("reduction should succeed");
-    assert_eq!(reduction3.target_problem().num_variables(), 9);
+    assert_eq!(reduction3.target_problem().num_variables().unwrap(), 9);
 
     // K4: n=4, QUBO should have n^2 = 16 variables
     let graph4 = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let tsp4 = TravelingSalesman::new(graph4, vec![1i64; 6]);
     let reduction4 = ReduceTo::<QUBO<i64>>::reduce_to(&tsp4).expect("reduction should succeed");
-    assert_eq!(reduction4.target_problem().num_variables(), 16);
+    assert_eq!(reduction4.target_problem().num_variables().unwrap(), 16);
 }
 
 #[test]
@@ -85,4 +100,94 @@ fn test_travelingsalesman_to_qubo_weighted_corpus_regression() {
         &reduction,
         "weighted TSP position encoding",
     );
+}
+
+#[test]
+fn signed_and_small_tours_recover_all_optima_or_infeasibility() {
+    let cases = [
+        (0, vec![], vec![]),
+        (1, vec![], vec![]),
+        (1, vec![(0, 0), (0, 0)], vec![4, -2]),
+        (2, vec![(0, 1)], vec![1]),
+        (2, vec![(0, 1), (0, 1), (0, 1)], vec![4, -2, 1]),
+        (3, vec![(0, 1), (1, 2)], vec![-5, 2]),
+        (3, vec![(0, 1), (1, 2), (0, 2)], vec![-5, 2, 1]),
+        (
+            3,
+            vec![(0, 1), (0, 1), (1, 2), (0, 2), (1, 1)],
+            vec![4, -5, 2, 1, -100],
+        ),
+        (
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+            vec![-9, 1, 2, 3, 4, -8],
+        ),
+    ];
+    for (n, edges, weights) in cases {
+        let m = edges.len();
+        let source = TravelingSalesman::new(SimpleGraph::new(n, edges), weights);
+        let expected = (0..1usize << m)
+            .filter_map(|bits| {
+                source
+                    .evaluate(&(0..m).map(|i| bits & (1 << i) != 0).collect())
+                    .unwrap()
+                    .0
+            })
+            .min();
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        let entry = inventory::iter::<crate::rules::ReductionEntry>
+            .into_iter()
+            .find(|entry| entry.source_name == "TravelingSalesman" && entry.target_name == "QUBO")
+            .unwrap();
+        let chain =
+            crate::rules::ReductionChain::execute(&source, &[entry.reduce_fn.unwrap()]).unwrap();
+
+        let solutions = BruteForce::new()
+            .find_all_witnesses(reduction.target_problem())
+            .unwrap();
+        assert!(!solutions.is_empty());
+        for solution in solutions {
+            let completed = chain
+                .recover_result_json(
+                    &source,
+                    SolveOutcome::Optimal {
+                        solution: serde_json::to_value(&solution).unwrap(),
+                        evaluation: String::new(),
+                    },
+                )
+                .unwrap()
+                .0;
+            assert_eq!(
+                matches!(completed, SolveOutcome::Optimal { .. }),
+                expected.is_some()
+            );
+            assert_eq!(
+                reduction.map_value(reduction.target_problem().evaluate(&solution).unwrap()),
+                Min(expected)
+            );
+            if expected.is_some() {
+                assert_eq!(
+                    source
+                        .evaluate(
+                            &reduction
+                                .recover_result(
+                                    &source,
+                                    SolveOutcome::optimal(
+                                        reduction.target_problem(),
+                                        solution.clone()
+                                    )
+                                    .unwrap()
+                                )
+                                .map(|result| result.into_solution().expect(
+                                    "qualifying target result must recover a source solution"
+                                ))
+                                .unwrap()
+                        )
+                        .unwrap(),
+                    Min(expected)
+                );
+            }
+        }
+        assert_eq!(reduction.map_value(Min(None)), Min(None));
+    }
 }

@@ -1,8 +1,7 @@
 //! Core traits for problem reductions.
 
+use crate::solvers::{ProblemOutcome, SolveOutcome};
 use crate::traits::Problem;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
 use std::any::Any;
 use std::marker::PhantomData;
 
@@ -129,6 +128,8 @@ impl ReductionError {
 /// Failure to map a target witness back into the source configuration space.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ExtractionError {
+    #[error("the target result does not establish the conditions required for source recovery")]
+    InsufficientSolutionQuality,
     #[error("{0}")]
     InvalidTargetSolution(String),
     #[error("{source_problem} -> {target_problem}: {message}")]
@@ -137,7 +138,7 @@ pub enum ExtractionError {
         target_problem: &'static str,
         message: String,
     },
-    #[error("target evaluation failed during extraction: {0}")]
+    #[error("problem evaluation failed during recovery: {0}")]
     Evaluation(#[from] crate::traits::EvaluationError),
 }
 
@@ -160,18 +161,9 @@ impl ExtractionError {
 
 pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
 
-/// Validate a typed target solution and return its evaluated value for reuse.
-pub(crate) fn validate_target_solution<P: Problem>(
-    target: &P,
-    solution: &P::Solution,
-) -> ExtractionResult<P::Value> {
-    Ok(target.evaluate(solution)?)
-}
-
 /// Result of reducing a source problem to a target problem.
 ///
-/// This trait encapsulates the target problem and provides methods
-/// to extract solutions back to the source problem space.
+/// Stores the target and recovers complete source results using the executed mapping.
 pub trait ReductionResult {
     /// The source problem type.
     type Source: Problem;
@@ -181,17 +173,38 @@ pub trait ReductionResult {
     /// Get a reference to the target problem.
     fn target_problem(&self) -> &Self::Target;
 
-    /// Extract a solution from target problem space to source problem space.
-    ///
-    /// # Arguments
-    /// * `target_solution` - A solution to the target problem
-    ///
-    /// # Returns
-    /// The corresponding solution in the source problem space
-    fn extract_solution(
+    /// Recover the complete source result using this execution's mathematical relation.
+    /// `source` must be the instance used to construct this reduction result.
+    /// Optimal results must preserve optimality or prove source infeasibility.
+    /// Feasible incumbents may establish only what the rule proves; insufficient
+    /// witness quality is an error, never evidence of source infeasibility.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>;
+        source: &Self::Source,
+        target: crate::solvers::ProblemOutcome<Self::Target>,
+    ) -> ExtractionResult<crate::solvers::ProblemOutcome<Self::Source>>;
+}
+
+/// Recover using a rule that preserves optimality, feasibility, and infeasibility.
+///
+/// The caller must establish all three implications for its mathematical mapping.
+/// Rules requiring optimum thresholds or rejecting feasible incumbents must instead
+/// interpret those outcomes in their own `recover_result` implementation.
+/// Source evaluation errors propagate; they never establish source infeasibility.
+pub(super) fn recover_preserving_status<P: Problem, S, V>(
+    source: &P,
+    target: SolveOutcome<S, V>,
+    map_solution: impl FnOnce(&S) -> ExtractionResult<P::Solution>,
+) -> ExtractionResult<ProblemOutcome<P>> {
+    match target {
+        SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+        SolveOutcome::Optimal { solution, .. } => {
+            Ok(SolveOutcome::optimal(source, map_solution(&solution)?)?)
+        }
+        SolveOutcome::Feasible { solution, .. } => {
+            Ok(SolveOutcome::feasible(source, map_solution(&solution)?)?)
+        }
+    }
 }
 
 /// Trait for problems that can be reduced to target type T.
@@ -214,12 +227,10 @@ pub trait ReductionResult {
 /// let reduction = sat_problem.reduce_to().expect("reduction should succeed");
 /// let is_problem = reduction.target_problem();
 ///
-/// // Solve and extract solutions
-/// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(is_problem).unwrap();
-/// let sat_solutions: Vec<_> = solutions.iter()
-///     .map(|s| reduction.extract_solution(s))
-///     .collect();
+/// // Solve the target and recover its complete source result.
+/// let solution = BruteForce::new().solve(is_problem)?.unwrap();
+/// let target_result = SolveOutcome::optimal(is_problem, solution)?;
+/// let source_result = reduction.recover_result(&sat_problem, target_result)?;
 /// ```
 pub trait ReduceTo<T: Problem>: Problem {
     /// The reduction result type.
@@ -245,36 +256,6 @@ pub trait ReduceTo<T: Problem>: Problem {
     fn reduce_to(&self) -> Result<Self::Result, ReductionError>;
 }
 
-/// Result of reducing a source problem to a target problem for aggregate values.
-///
-/// Unlike [`ReductionResult`], this trait maps aggregate values back from target
-/// space to source space instead of mapping witness configurations.
-pub trait AggregateReductionResult {
-    /// The source problem type.
-    type Source: Problem;
-    /// The target problem type.
-    type Target: Problem;
-
-    /// Get a reference to the target problem.
-    fn target_problem(&self) -> &Self::Target;
-
-    /// Extract an aggregate value from target problem space back to source space.
-    fn extract_value(
-        &self,
-        target_value: <Self::Target as crate::traits::Problem>::Value,
-    ) -> <Self::Source as crate::traits::Problem>::Value;
-}
-
-/// Trait for problems that can be reduced to target type T for aggregate-value
-/// workflows.
-pub trait ReduceToAggregate<T: Problem>: Problem {
-    /// The reduction result type.
-    type Result: AggregateReductionResult<Source = Self, Target = T>;
-
-    /// Reduce this problem to the target problem type.
-    fn reduce_to_aggregate(&self) -> Result<Self::Result, ReductionError>;
-}
-
 /// Reduction result for an explicit conversion between variants of one model.
 ///
 /// The target witness is also the source witness.
@@ -298,7 +279,6 @@ impl<S, T> ReductionResult for VariantReductionResult<S, T>
 where
     S: Problem,
     T: Problem<Solution = S::Solution>,
-    S::Solution: Clone,
 {
     type Source = S;
     type Target = T;
@@ -307,145 +287,97 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &T::Solution) -> ExtractionResult<S::Solution> {
-        validate_target_solution(self.target_problem(), target_solution)?;
-        Ok(target_solution.clone())
+    fn recover_result(
+        &self,
+        source: &S,
+        target: crate::solvers::ProblemOutcome<T>,
+    ) -> ExtractionResult<crate::solvers::ProblemOutcome<S>> {
+        use crate::solvers::SolveOutcome;
+        Ok(match target {
+            SolveOutcome::Optimal { solution, .. } => SolveOutcome::optimal(source, solution)?,
+            SolveOutcome::Feasible { solution, .. } => SolveOutcome::feasible(source, solution)?,
+            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+        })
     }
 }
 
-impl<S: Problem, T: Problem<Value = S::Value>> AggregateReductionResult
-    for VariantReductionResult<S, T>
-{
-    type Source = S;
-    type Target = T;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: T::Value) -> S::Value {
-        target_value
-    }
-}
-
-/// Type-erased reduction result for runtime-discovered paths.
-///
-/// Implemented automatically for all `ReductionResult` types via blanket impl.
-/// Used internally by `ReductionChain`.
+/// Type erasure for executed reduction results. Mathematical recovery remains typed.
 pub trait DynReductionResult {
-    /// Get the target problem as a type-erased reference.
     fn target_problem_any(&self) -> &dyn Any;
-    /// Extract a solution from target space to source space.
-    fn extract_solution_dyn(&self, target_solution: &dyn Any) -> ExtractionResult<Box<dyn Any>>;
-    /// Serialize a source-space solution after the complete extraction chain.
-    fn source_solution_json(
+    fn recover_result_dyn(
         &self,
-        source_solution: &dyn Any,
-    ) -> ExtractionResult<serde_json::Value>;
-    /// Deserialize the concrete target witness at the dynamic boundary.
-    fn target_solution_from_json(
+        source: &dyn Any,
+        target: crate::solvers::ErasedOutcome,
+    ) -> ExtractionResult<crate::solvers::ErasedOutcome>;
+    /// Decode and evaluate once, returning the typed result and its canonical JSON.
+    fn target_result_from_json(
         &self,
-        target_solution: serde_json::Value,
-    ) -> ExtractionResult<Box<dyn Any>>;
+        target: crate::solvers::SolveOutcome,
+    ) -> ExtractionResult<(crate::solvers::ErasedOutcome, crate::solvers::SolveOutcome)>;
+    fn source_result_json(
+        &self,
+        source: crate::solvers::ErasedOutcome,
+    ) -> ExtractionResult<crate::solvers::SolveOutcome>;
 }
 
 impl<R: ReductionResult + 'static> DynReductionResult for R
 where
+    R::Source: 'static,
     R::Target: 'static,
-    <R::Target as Problem>::Solution: 'static,
-    <R::Target as Problem>::Solution: serde::de::DeserializeOwned,
-    <R::Source as Problem>::Solution: 'static,
-    <R::Source as Problem>::Solution: serde::Serialize,
+    <R::Target as Problem>::Solution: serde::de::DeserializeOwned + serde::Serialize + 'static,
+    <R::Target as Problem>::Value: std::fmt::Display + 'static,
+    <R::Source as Problem>::Solution: serde::Serialize + 'static,
+    <R::Source as Problem>::Value: std::fmt::Display + 'static,
 {
     fn target_problem_any(&self) -> &dyn Any {
-        self.target_problem() as &dyn Any
-    }
-    fn extract_solution_dyn(&self, target_solution: &dyn Any) -> ExtractionResult<Box<dyn Any>> {
-        let target_solution = target_solution
-            .downcast_ref::<<R::Target as Problem>::Solution>()
-            .ok_or_else(|| {
-                ExtractionError::invalid(format!(
-                    "target solution type mismatch: expected {}",
-                    std::any::type_name::<<R::Target as Problem>::Solution>()
-                ))
-            })?;
-        self.extract_solution(target_solution)
-            .map(|solution| Box::new(solution) as Box<dyn Any>)
-            .map_err(|error| error.for_reduction::<R::Source, R::Target>())
+        self.target_problem()
     }
 
-    fn source_solution_json(
+    fn recover_result_dyn(
         &self,
-        source_solution: &dyn Any,
-    ) -> ExtractionResult<serde_json::Value> {
-        let source_solution = source_solution
-            .downcast_ref::<<R::Source as Problem>::Solution>()
-            .ok_or_else(|| ExtractionError::invalid("source solution type mismatch"))?;
-        serde_json::to_value(source_solution).map_err(|error| {
-            ExtractionError::invalid(format!("source solution serialization failed: {error}"))
-        })
+        source: &dyn Any,
+        target: crate::solvers::ErasedOutcome,
+    ) -> ExtractionResult<crate::solvers::ErasedOutcome> {
+        let source = source
+            .downcast_ref::<R::Source>()
+            .ok_or_else(|| ExtractionError::invalid("source problem type mismatch"))?;
+        let target = crate::solvers::downcast_outcome(target)?;
+        self.recover_result(source, target)
+            .map(crate::solvers::erase_outcome)
+            .map_err(ExtractionError::for_reduction::<R::Source, R::Target>)
     }
 
-    fn target_solution_from_json(
+    fn target_result_from_json(
         &self,
-        target_solution: serde_json::Value,
-    ) -> ExtractionResult<Box<dyn Any>> {
-        serde_json::from_value::<<R::Target as Problem>::Solution>(target_solution)
-            .map(|solution| Box::new(solution) as Box<dyn Any>)
-            .map_err(|error| {
-                ExtractionError::invalid(format!("target solution deserialization failed: {error}"))
+        target: crate::solvers::SolveOutcome,
+    ) -> ExtractionResult<(crate::solvers::ErasedOutcome, crate::solvers::SolveOutcome)> {
+        use crate::solvers::SolveOutcome;
+        // Numeric evaluation is model-owned, not parsed from a display string.
+        let decode = |solution| {
+            serde_json::from_value(solution).map_err(|error| {
+                ExtractionError::invalid(format!("invalid solution JSON: {error}"))
             })
+        };
+        let target = match target {
+            SolveOutcome::Optimal { solution, .. } => {
+                SolveOutcome::optimal(self.target_problem(), decode(solution)?)?
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                SolveOutcome::feasible(self.target_problem(), decode(solution)?)?
+            }
+            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+        };
+        let target_json = crate::solvers::outcome_to_json(&target)?;
+        Ok((crate::solvers::erase_outcome(target), target_json))
     }
-}
 
-/// Type-erased aggregate reduction result for runtime-discovered paths.
-pub trait DynAggregateReductionResult {
-    /// Get the target problem as a type-erased reference.
-    fn target_problem_any(&self) -> &dyn Any;
-    /// Extract an aggregate value from target space to source space.
-    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value;
-    /// Map the value of a target solution without erasing the source value's type.
-    /// The caller must establish that the solution realizes the target aggregate
-    /// before interpreting the result as the source aggregate.
-    fn extract_value_from_solution_dyn(
+    fn source_result_json(
         &self,
-        target_solution: &dyn Any,
-    ) -> ExtractionResult<Box<dyn Any>>;
-}
-
-impl<R: AggregateReductionResult + 'static> DynAggregateReductionResult for R
-where
-    R::Target: 'static,
-    <R::Target as Problem>::Solution: 'static,
-    <R::Target as Problem>::Value: Serialize + DeserializeOwned,
-    <R::Source as Problem>::Value: Serialize + 'static,
-{
-    fn target_problem_any(&self) -> &dyn Any {
-        self.target_problem() as &dyn Any
-    }
-
-    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
-        let target_value = serde_json::from_value(target_value)
-            .expect("DynAggregateReductionResult target value deserialize failed");
-        let source_value = self.extract_value(target_value);
-        serde_json::to_value(source_value)
-            .expect("DynAggregateReductionResult source value serialize failed")
-    }
-
-    fn extract_value_from_solution_dyn(
-        &self,
-        target_solution: &dyn Any,
-    ) -> ExtractionResult<Box<dyn Any>> {
-        let target_solution = target_solution
-            .downcast_ref::<<R::Target as Problem>::Solution>()
-            .ok_or_else(|| {
-                ExtractionError::invalid(format!(
-                    "target solution type mismatch: expected {}",
-                    std::any::type_name::<<R::Target as Problem>::Solution>()
-                ))
-            })?;
-        let target_value = self.target_problem().evaluate(target_solution)?;
-        Ok(Box::new(self.extract_value(target_value)))
+        source: crate::solvers::ErasedOutcome,
+    ) -> ExtractionResult<crate::solvers::SolveOutcome> {
+        let source: crate::solvers::ProblemOutcome<R::Source> =
+            crate::solvers::downcast_outcome(source)?;
+        crate::solvers::outcome_to_json(&source)
     }
 }
 

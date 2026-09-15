@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -82,7 +83,14 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_bottleneck() {
     // value 1 and cost 1 (the cheaper 1->3 path).
     let solver = BruteForce::new();
     let target_witness = solver.solve(reduction.target_problem()).unwrap().unwrap();
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     assert_eq!(source.total_cost(&extracted).unwrap(), 1);
 }
@@ -117,7 +125,14 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_parallel_arcs() {
     // parallel arc has cost 1, so optimal source cost = 1.
     let solver = BruteForce::new();
     let target_witness = solver.solve(target).unwrap().unwrap();
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     assert_eq!(source.total_cost(&extracted).unwrap(), 1);
 }
@@ -167,7 +182,14 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
 
     let solver = BruteForce::new();
     let target_witness = solver.solve(target).unwrap().unwrap();
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     // Zero-capacity arc must be 0 in the extracted flow.
     assert_eq!(extracted[2], 0);
@@ -221,7 +243,14 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_value_priority_over_cos
 
     let solver = BruteForce::new();
     let target_witness = solver.solve(reduction.target_problem()).unwrap().unwrap();
-    let extracted = reduction.extract_solution(&target_witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.flow_value(&extracted).unwrap(), 2);
     assert_eq!(source.total_cost(&extracted).unwrap(), 20);
 
@@ -239,14 +268,17 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_extract_solution_length
     let source = canonical_source();
     let reduction =
         ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
-    // Provide a dummy target config of the right length; extract_solution
-    // must truncate to num_original_arcs.
+    // A value-3 flow closes through the added sink-to-source return arc.
     let m = source.num_arcs();
-    let mut padded = vec![0_usize; m + 1];
-    for (i, v) in padded.iter_mut().enumerate().take(m) {
-        *v = i % 2;
-    }
-    let extracted = reduction.extract_solution(&padded).unwrap();
+    let padded = vec![2_usize, 1, 1, 1, 2, 3];
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), padded.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), m);
     assert_eq!(extracted, padded[..m].to_vec());
 }

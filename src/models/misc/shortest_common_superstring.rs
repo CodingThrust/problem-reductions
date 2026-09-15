@@ -63,10 +63,25 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ShortestCommonSuperstringData")]
 pub struct ShortestCommonSuperstring {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+struct ShortestCommonSuperstringData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ShortestCommonSuperstringData> for ShortestCommonSuperstring {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ShortestCommonSuperstringData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.strings)
+    }
 }
 
 impl ShortestCommonSuperstring {
@@ -80,17 +95,29 @@ impl ShortestCommonSuperstring {
     /// Panics if `strings` is empty, or if `alphabet_size` is 0 and any input
     /// string is non-empty.
     pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
-        assert!(!strings.is_empty(), "must have at least one string");
-        let max_length: usize = strings.iter().map(|s| s.len()).sum();
-        assert!(
-            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
-            "alphabet_size must be > 0 when any input string is non-empty"
-        );
-        Self {
+        Self::try_new(alphabet_size, strings).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("must have at least one string".into());
+        }
+        let max_length = strings.iter().try_fold(0usize, |total, string| {
+            total
+                .checked_add(string.len())
+                .ok_or("maximum string length overflows usize")
+        })?;
+        if !(alphabet_size > 0 || strings.iter().all(|s| s.is_empty())) {
+            return Err("alphabet_size must be > 0 when any input string is non-empty".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
             max_length,
-        }
+        })
     }
 
     /// Returns the alphabet size.
@@ -202,8 +229,14 @@ impl Problem for ShortestCommonSuperstring {
 }
 
 impl crate::solvers::BruteForceProblem for ShortestCommonSuperstring {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.alphabet_size + 1; self.max_length]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.max_length)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        (self.alphabet_size).checked_add(1usize).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

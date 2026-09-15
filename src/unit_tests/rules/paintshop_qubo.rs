@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 
 #[test]
 fn test_paintshop_to_qubo_closed_loop() {
@@ -47,7 +48,14 @@ fn test_paintshop_to_qubo_optimal_value() {
 
     // Extract solutions and verify they are optimal for the source
     for sol in &best_target {
-        let source_sol = reduction.extract_solution(sol).unwrap();
+        let source_sol = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), (sol).clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let switches = source.count_switches(&source_sol).unwrap();
         // Optimal is 2 switches
         assert_eq!(switches, 2, "Expected 2 switches for optimal solution");
@@ -56,27 +64,26 @@ fn test_paintshop_to_qubo_optimal_value() {
 
 #[test]
 fn test_paintshop_to_qubo_matrix_structure() {
-    // Issue example: verify the Q matrix matches expected values
+    // Verify the Q matrix matches expected values
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
-    let m = qubo.matrix();
-    // From the issue:
+    // Expected coefficients:
     // Q = [ -1,  -2,   2,   2 ]
     //     [  0,   2,  -2,   0 ]
     //     [  0,   0,   1,  -2 ]
     //     [  0,   0,   0,   0 ]
-    assert_eq!(m[0][0], -1);
-    assert_eq!(m[0][1], -2);
-    assert_eq!(m[0][2], 2);
-    assert_eq!(m[0][3], 2);
-    assert_eq!(m[1][1], 2);
-    assert_eq!(m[1][2], -2);
-    assert_eq!(m[1][3], 0);
-    assert_eq!(m[2][2], 1);
-    assert_eq!(m[2][3], -2);
-    assert_eq!(m[3][3], 0);
+    assert_eq!(qubo.get(0, 0).unwrap(), -1);
+    assert_eq!(qubo.get(0, 1).unwrap(), -2);
+    assert_eq!(qubo.get(0, 2).unwrap(), 2);
+    assert_eq!(qubo.get(0, 3).unwrap(), 2);
+    assert_eq!(qubo.get(1, 1).unwrap(), 2);
+    assert_eq!(qubo.get(1, 2).unwrap(), -2);
+    assert_eq!(qubo.get(1, 3).unwrap(), 0);
+    assert_eq!(qubo.get(2, 2).unwrap(), 1);
+    assert_eq!(qubo.get(2, 3).unwrap(), -2);
+    assert_eq!(qubo.get(3, 3).unwrap(), 0);
 }
 
 #[test]
@@ -113,6 +120,6 @@ fn test_paintshop_to_qubo_canonical_example_spec() {
     assert_eq!(example.source.problem, "PaintShop");
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.source.instance["num_cars"], 4);
-    assert_eq!(example.target.instance["num_vars"], 4);
+    assert_eq!(example.target.instance["matrix"]["nrows"], 4);
     assert!(!example.solutions.is_empty());
 }

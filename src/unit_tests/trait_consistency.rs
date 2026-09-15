@@ -8,7 +8,7 @@ use crate::topology::{BipartiteGraph, DirectedGraph, SimpleGraph};
 use crate::variant::K3;
 
 fn check_brute_force_problem<P: BruteForceProblem>(problem: &P, name: &str) {
-    let dims = problem.dimensions();
+    let dims = crate::solvers::cartesian_dimensions(&problem).unwrap();
     assert!(
         !dims.is_empty() || name.contains("empty"),
         "{} should have dimensions",

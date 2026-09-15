@@ -10,7 +10,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ConsistencyOfDatabaseFrequencyTables;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing ConsistencyOfDatabaseFrequencyTables to ILP.
 #[derive(Debug, Clone)]
@@ -91,34 +92,33 @@ impl ReductionResult for ReductionCDFTToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionCDFTToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let mut source_solution = Vec::with_capacity(self.source.num_assignment_variables());
             for object in 0..self.source.num_objects() {
                 for (attribute, &domain_size) in self.source.attribute_domains().iter().enumerate()
                 {
-                    let mut selected = (0..domain_size).filter(|&candidate| {
-                        target_solution[self.assignment_var_index(object, attribute, candidate)]
-                            == 1
-                    });
-                    let value = match (selected.next(), selected.next()) {
-                        (Some(value), None) => value,
-                        (None, _) => {
-                            return Err(crate::rules::ExtractionError::invalid(format!(
-                                "object {object}, attribute {attribute} has no selected value"
-                            )))
-                        }
-                        (Some(_), Some(_)) => {
-                            return Err(crate::rules::ExtractionError::invalid(format!(
-                                "object {object}, attribute {attribute} has multiple selected values"
-                            )))
-                        }
-                    };
+                    let value = (0..domain_size)
+                        .filter(|&candidate| {
+                            target_solution[self.assignment_var_index(object, attribute, candidate)]
+                                == 1
+                        })
+                        .sum();
                     source_solution.push(value);
                 }
             }

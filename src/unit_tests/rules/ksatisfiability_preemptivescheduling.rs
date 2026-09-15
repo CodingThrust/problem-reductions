@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::{PrecedenceConstrainedScheduling, PreemptiveScheduling};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 use crate::variant::K3;
@@ -32,8 +33,19 @@ fn solve_threshold_schedule_via_ilp(
         target.precedences().to_vec(),
     );
     let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs).expect("reduction should succeed");
-    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem()).ok()?;
-    let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution).unwrap();
+    let ilp_solution = match ILPSolver::new().solve(pcs_to_ilp.target_problem()) {
+        Ok(solution) => solution,
+        Err(crate::solvers::ILPSolveError::Infeasible) => return None,
+        Err(error) => panic!("ILP execution failed: {error}"),
+    };
+    let slot_assignment = pcs_to_ilp
+        .recover_result(
+            &pcs,
+            SolveOutcome::optimal(pcs_to_ilp.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let mut config = vec![vec![false; target.d_max()]; target.num_tasks()];
     for (task, &slot) in slot_assignment.iter().enumerate() {
@@ -71,7 +83,14 @@ fn test_ksatisfiability_to_preemptivescheduling_extract_solution_from_constructe
         Min(Some(4))
     );
 
-    let extracted = reduction.extract_solution(&schedule).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), schedule.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -92,7 +111,14 @@ fn test_ksatisfiability_to_preemptivescheduling_multi_variable_round_trip() {
         construct_schedule_from_assignment(result.target_problem(), &[true, true, false], &source)
             .expect("satisfying assignment should yield a witness schedule");
 
-    let extracted = result.extract_solution(&schedule).unwrap();
+    let extracted = result
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(result.target_problem(), schedule.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, true, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -115,7 +141,14 @@ fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
         Min(Some(i64::try_from(reduction.threshold()).unwrap()))
     );
 
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }

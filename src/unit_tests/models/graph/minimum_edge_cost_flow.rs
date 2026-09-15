@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -44,7 +43,10 @@ fn test_minimum_edge_cost_flow_creation() {
     assert_eq!(problem.max_capacity(), 2);
     assert_eq!(problem.prices(), &[3, 1, 2, 0, 0, 0]);
     assert_eq!(problem.capacities(), &[2, 2, 2, 2, 2, 2]);
-    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3, 3, 3]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3, 3, 3, 3, 3, 3]
+    );
     assert_eq!(
         <MinimumEdgeCostFlow as Problem>::NAME,
         "MinimumEdgeCostFlow"
@@ -148,5 +150,32 @@ fn test_minimum_edge_cost_flow_all_witnesses_optimal() {
     assert!(!all.is_empty());
     for sol in &all {
         assert_eq!(problem.evaluate(sol).unwrap(), Min(Some(3)));
+    }
+}
+
+#[test]
+fn deserialize_rejects_invalid_flow_network_data() {
+    use serde_json::json;
+    let valid = serde_json::to_value(MinimumEdgeCostFlow::new(
+        DirectedGraph::new(2, vec![(0, 1)]),
+        vec![1],
+        vec![2],
+        0,
+        1,
+        1,
+    ))
+    .unwrap();
+    for (field, value, message) in [
+        ("prices", json!([]), "prices length"),
+        ("capacities", json!([]), "capacities length"),
+        ("source", json!(2), "source"),
+        ("sink", json!(2), "sink"),
+        ("sink", json!(0), "distinct"),
+        ("capacities", json!([-1]), "negative"),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value;
+        let error = serde_json::from_value::<MinimumEdgeCostFlow>(input).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
     }
 }

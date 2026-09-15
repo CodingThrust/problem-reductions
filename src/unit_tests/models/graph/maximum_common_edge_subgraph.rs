@@ -41,8 +41,11 @@ fn test_maximum_common_edge_subgraph_creation() {
     assert_eq!(problem.num_arcs_2(), 6);
     assert_eq!(problem.bottom_index(), 4);
     // dims must be [|V2| + 1; |V1|] = [5; 5].
-    assert_eq!(problem.dimensions(), vec![5; 5]);
-    assert_eq!(problem.num_variables(), 5);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5; 5]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 5);
 }
 
 #[test]
@@ -192,4 +195,21 @@ fn test_labelled_digraph_deduplicates_arcs() {
         ],
     );
     assert_eq!(g.num_arcs(), 2);
+}
+
+#[test]
+fn deserialize_checks_and_normalizes_labelled_arcs() {
+    assert!(
+        serde_json::from_value::<LabelledDigraph>(serde_json::json!({
+            "num_vertices": 2, "arcs": [{"src": 0, "label": 1, "dst": 2}]
+        }))
+        .is_err()
+    );
+    let graph: LabelledDigraph = serde_json::from_value(serde_json::json!({
+        "num_vertices": 2, "arcs": [
+            {"src": 0, "label": 1, "dst": 1}, {"src": 0, "label": 1, "dst": 1}
+        ]
+    }))
+    .unwrap();
+    assert_eq!(graph.arcs(), &[LabelledArc::new(0, 1, 1)]);
 }

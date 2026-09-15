@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::registry::load_dyn;
+use crate::solvers::{BruteForce, SolveOutcome, SolverExecution, SolverRequest};
 use crate::traits::Problem;
 
 #[test]
@@ -35,6 +36,45 @@ fn test_subset_dp_shortest_common_superstring_handles_containment_and_scale() {
             vec![0, 1],
         ],
     );
-    let solution = solve(&problem).unwrap();
+    let loaded = load_dyn(
+        ShortestCommonSuperstring::NAME,
+        &Default::default(),
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
+    let result = crate::solvers::solve(&loaded, SolverRequest::Default).unwrap();
+    assert!(matches!(
+        result.solver,
+        SolverExecution::Customized {
+            implementation: "subset-dp"
+        }
+    ));
+    let SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    } = result.outcome
+    else {
+        panic!("the instance has a solution");
+    };
+    assert_eq!(evaluation, "Min(6)");
+    let solution = serde_json::from_value(solution).unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap().0, Some(6));
+}
+
+#[test]
+fn subset_dp_reports_mask_and_table_size_overflow() {
+    for count in [usize::BITS as usize, usize::BITS as usize - 1] {
+        let problem =
+            ShortestCommonSuperstring::new(count, (0..count).map(|symbol| vec![symbol]).collect());
+        let loaded = load_dyn(
+            ShortestCommonSuperstring::NAME,
+            &Default::default(),
+            serde_json::to_value(&problem).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            crate::solvers::solve(&loaded, SolverRequest::Default),
+            Err(SolveError::IntegerOverflow(_))
+        ));
+    }
 }

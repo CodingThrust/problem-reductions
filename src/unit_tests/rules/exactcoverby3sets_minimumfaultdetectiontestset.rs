@@ -3,6 +3,7 @@ use crate::models::misc::MinimumFaultDetectionTestSet;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -81,7 +82,23 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_no_instance_gap() {
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&best).unwrap(), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&best).unwrap();
+    let extracted = reduction.map_solution(&best).unwrap();
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(target, best.clone()).unwrap()
+            )
+            .unwrap(),
+        SolveOutcome::Infeasible
+    );
+    assert!(matches!(
+        reduction.recover_result(
+            &source,
+            SolveOutcome::feasible(target, best.clone()).unwrap()
+        ),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    ));
     assert!(!source.evaluate(&extracted).unwrap());
 }
 
@@ -93,8 +110,17 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_extract_solution_ident
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![vec![true], vec![true], vec![false]])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![vec![true], vec![true], vec![false]].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, true, false]
     );
     assert!(source.evaluate(&vec![true, true, false]).unwrap().0);

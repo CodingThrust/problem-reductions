@@ -16,8 +16,11 @@ fn test_expected_retrieval_cost_basic_accessors() {
     assert_eq!(problem.num_records(), 6);
     assert_eq!(problem.num_sectors(), 3);
     assert_eq!(problem.probabilities(), &[0.2, 0.15, 0.15, 0.2, 0.1, 0.2]);
-    assert_eq!(problem.dimensions(), vec![3; 6]);
-    assert_eq!(problem.num_variables(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![3; 6]
+    );
+    assert_eq!(problem.num_variables().unwrap(), 6);
 }
 
 #[test]

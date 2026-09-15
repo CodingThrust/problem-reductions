@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense};
 use crate::models::graph::GraphPartitioning;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -90,7 +91,14 @@ fn test_graphpartitioning_to_ilp_closed_loop() {
     let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_obj, Min(Some(3)));
@@ -122,7 +130,14 @@ fn test_solution_extraction() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = vec![0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![false, false, false, true, true, true]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));

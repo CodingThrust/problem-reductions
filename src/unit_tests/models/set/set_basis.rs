@@ -38,8 +38,11 @@ fn test_set_basis_creation() {
     assert_eq!(problem.universe_size(), 4);
     assert_eq!(problem.num_sets(), 4);
     assert_eq!(problem.basis_size(), 3);
-    assert_eq!(problem.num_variables(), 12);
-    assert_eq!(problem.dimensions(), vec![2; 12]);
+    assert_eq!(problem.num_variables().unwrap(), 12);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2; 12]
+    );
     assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
     assert_eq!(problem.get_set(4), None);
 }
@@ -131,17 +134,11 @@ fn test_set_basis_rejects_wrong_config_length() {
 }
 
 #[test]
-fn test_set_basis_deserialized_invalid_target_returns_false() {
-    let problem: SetBasis = serde_json::from_value(serde_json::json!({
-        "universe_size": 4,
-        "collection": [[0, 4]],
-        "k": 1
+fn test_set_basis_deserialization_rejects_invalid_target() {
+    assert!(serde_json::from_value::<SetBasis>(serde_json::json!({
+        "universe_size": 4, "collection": [[0, 4]], "k": 1
     }))
-    .unwrap();
-
-    assert!(!problem
-        .evaluate(&vec![vec![true, false, false, false]])
-        .unwrap());
+    .is_err());
 }
 
 #[test]
@@ -183,7 +180,10 @@ fn test_set_basis_is_valid_solution() {
 fn test_set_basis_k_zero_empty_collection() {
     // k = 0 with empty collection: trivially satisfiable (no targets to cover).
     let problem = SetBasis::new(3, vec![], 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 
@@ -191,7 +191,10 @@ fn test_set_basis_k_zero_empty_collection() {
 fn test_set_basis_k_zero_nonempty_collection() {
     // k = 0 with non-empty collection: impossible (no basis sets to cover targets).
     let problem = SetBasis::new(3, vec![vec![0, 1]], 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(!problem.evaluate(&vec![]).unwrap());
 }
 
@@ -204,4 +207,11 @@ fn test_set_basis_empty_collection_with_k_positive() {
     // Any valid config of length k * universe_size = 4 should satisfy.
     assert!(problem.evaluate(&vec![vec![false; 2]; 2]).unwrap());
     assert!(problem.evaluate(&vec![vec![true; 2]; 2]).unwrap());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":3,"collection":[[0,3]],"k":1});
+    assert!(serde_json::from_value::<SetBasis>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("SetBasis", &Default::default(), json).is_err());
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -17,7 +18,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_eq!(target.lcm_moduli(), 15);
+    assert_eq!(target.lcm_moduli().unwrap(), 15);
     assert_eq!(target.num_pairs(), 6);
 
     let solver = BruteForce::new();
@@ -25,7 +26,14 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
         .solve(target)
         .unwrap()
         .expect("target should be satisfiable");
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap());
 }
@@ -82,7 +90,14 @@ fn test_ksatisfiability_to_simultaneous_incongruences_tautological_clause_is_red
         .solve(reduction.target_problem())
         .unwrap()
         .expect("target should remain satisfiable");
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap());
 }

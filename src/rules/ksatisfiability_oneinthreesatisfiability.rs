@@ -8,7 +8,8 @@
 use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
@@ -27,17 +28,22 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not satisfy every one-in-three clause",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToOneInThreeSAT {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut assignment = vec![false; self.source_num_vars];
         for (compact, &original) in self.source_variables.iter().enumerate() {
             assignment[original] = target_solution[compact];

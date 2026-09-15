@@ -2,6 +2,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MonochromaticTriangle;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -46,7 +47,14 @@ fn test_monochromatic_triangle_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("K4 should admit a monochromatic-triangle-free 2-edge-coloring");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(
         extracted,
@@ -69,8 +77,9 @@ fn test_monochromatic_triangle_to_ilp_infeasible_k6() {
     let problem = MonochromaticTriangle::new(SimpleGraph::new(6, edges));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_err(),
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible),
         "K6 should be infeasible by R(3,3)=6"
     );
 }
@@ -81,7 +90,14 @@ fn test_monochromatic_triangle_to_ilp_extract_solution_identity() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let coloring = vec![0, 0, 1, 1, 0, 1];
 
-    let extracted = reduction.extract_solution(&coloring).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), coloring.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![false, false, true, true, false, true]);
     assert!(problem.evaluate(&extracted).unwrap());

@@ -2,8 +2,11 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::BiconnectivityAugmentation;
 use crate::rules::ReduceTo;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 
 fn small_instance() -> BiconnectivityAugmentation<SimpleGraph, i64> {
@@ -30,7 +33,14 @@ fn test_biconnectivityaugmentation_to_ilp_closed_loop() {
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         source.evaluate(&extracted).unwrap().0,
@@ -46,7 +56,14 @@ fn test_extract_solution() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 3);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -59,7 +76,14 @@ fn test_trivial_single_vertex() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("trivial ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -78,7 +102,14 @@ fn test_already_biconnected() {
     let ilp_sol = solver
         .solve(ilp)
         .expect("already biconnected should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -112,7 +143,7 @@ fn test_biconnectivityaugmentation_to_ilp_all_two_vertex_instances() {
                         assert!(expected);
                         assert!(
                             source
-                                .evaluate(&reduction.extract_solution(&z).unwrap())
+                                .evaluate(&reduction.recover_result(&source, SolveOutcome::optimal(reduction.target_problem(), z.clone()).unwrap()).unwrap().into_solution().expect("qualifying target result must recover a source solution"))
                                 .unwrap()
                                 .0
                         );
@@ -142,7 +173,17 @@ fn test_biconnectivityaugmentation_to_ilp_empty_negative_budget() {
                     .is_some(),
                 budget >= 0
             );
-            assert_eq!(reduction.extract_solution(&vec![]).is_ok(), budget >= 0);
+            if budget >= 0 {
+                assert!(reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap()
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution")
+                    .is_empty());
+            }
         }
     }
 }
@@ -156,16 +197,34 @@ fn test_biconnectivityaugmentation_to_ilp_signed_cost_and_certificate_bounds() {
         let z = ILPSolver::new().solve(reduction.target_problem()).unwrap();
         assert!(
             source
-                .evaluate(&reduction.extract_solution(&z).unwrap())
+                .evaluate(
+                    &reduction
+                        .recover_result(
+                            &source,
+                            SolveOutcome::optimal(reduction.target_problem(), z.clone()).unwrap()
+                        )
+                        .unwrap()
+                        .into_solution()
+                        .expect("qualifying target result must recover a source solution")
+                )
                 .unwrap()
                 .0
         );
-        assert!(reduction.extract_solution(&vec![0; z.len()]).is_err());
-        assert!(reduction.extract_solution(&vec![1; z.len() + 1]).is_err());
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&vec![0; z.len()])
+            .unwrap()
+            .is_valid());
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&vec![1; z.len() + 1]),
+            Err(InvalidConfiguration(_))
+        ));
         for value in [-1, 2] {
             let mut bad = z.clone();
             bad[0] = value;
-            assert!(reduction.extract_solution(&bad).is_err());
+            assert!(!ReductionResult::target_problem(&reduction)
+                .evaluate(&bad)
+                .unwrap()
+                .is_valid());
         }
     }
 }

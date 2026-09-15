@@ -15,7 +15,9 @@
 use crate::models::formula::KSatisfiability;
 use crate::models::misc::FeasibleRegisterAssignment;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
@@ -74,17 +76,22 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a feasible register assignment realization",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToFeasibleRegisterAssignment {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let mut assignment = vec![false; self.num_vars];
         let compact_vars = self.source_variables.len();
         for (compact, &original) in self.source_variables.iter().enumerate() {
@@ -253,8 +260,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let ilp_solution = ILPSolver::new()
                 .solve(to_ilp.target_problem())
                 .expect("canonical FRA example must reduce to a feasible ILP");
-            let target_config = to_ilp.extract_solution(&ilp_solution).unwrap();
-            let source_config = to_fra.extract_solution(&target_config).unwrap();
+            let target_config = to_ilp
+                .recover_result(
+                    to_fra.target_problem(),
+                    SolveOutcome::optimal(to_ilp.target_problem(), ilp_solution).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .unwrap();
+            let source_config = to_fra
+                .recover_result(
+                    &source,
+                    SolveOutcome::optimal(to_fra.target_problem(), target_config.clone()).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 to_fra.target_problem(),

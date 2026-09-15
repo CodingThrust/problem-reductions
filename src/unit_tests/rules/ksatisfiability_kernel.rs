@@ -3,6 +3,9 @@ use crate::models::graph::Kernel;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
+use crate::traits::Problem;
 use crate::variant::K3;
 
 #[test]
@@ -72,8 +75,17 @@ fn test_ksatisfiability_to_kernel_extract_solution_reads_variable_gadgets() {
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, false, true, false, false, false])
-            .unwrap(),
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(
+                    reduction.target_problem(),
+                    vec![true, false, false, true, false, false, false].clone()
+                )
+                .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
         vec![true, false]
     );
 }
@@ -119,7 +131,14 @@ fn test_ksatisfiability_to_kernel_native_clause_domain() {
                 .map(|v| mask & (1 << v) != 0)
                 .collect();
             if target.evaluate(&config).unwrap().0 {
-                let decoded = reduction.extract_solution(&config).unwrap();
+                let decoded = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert!(source.evaluate(&decoded).unwrap().0);
                 witnessed[usize::from(decoded[0])] = true;
             }
@@ -152,7 +171,14 @@ fn test_ksatisfiability_to_kernel_sparse_inverse() {
                 .collect();
             if target.evaluate(&config).unwrap().0 {
                 found = true;
-                let decoded = reduction.extract_solution(&config).unwrap();
+                let decoded = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), config.clone()).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .expect("qualifying target result must recover a source solution");
                 assert_eq!(decoded.len(), 6);
                 assert!(source.evaluate(&decoded).unwrap().0);
                 for (variable, value) in decoded.iter().enumerate() {
@@ -173,8 +199,17 @@ fn test_ksatisfiability_to_kernel_sparse_inverse() {
 fn test_ksatisfiability_to_kernel_rejects_non_kernel() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
     let reduction = ReduceTo::<Kernel>::reduce_to(&source).unwrap();
-    for config in [vec![], vec![false; 5], vec![true; 5], vec![false; 6]] {
-        assert!(reduction.extract_solution(&config).is_err());
+    for config in [vec![], vec![false; 6]] {
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&config),
+            Err(InvalidConfiguration(_))
+        ));
+    }
+    for config in [vec![false; 5], vec![true; 5]] {
+        assert!(!ReductionResult::target_problem(&reduction)
+            .evaluate(&config)
+            .unwrap()
+            .is_valid());
     }
 }
 

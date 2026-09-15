@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::types::One;
@@ -54,7 +55,14 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
         .any(|s| s.iter().filter(|&&selected| selected).count() == 3));
 
     // Extract solution: should be the full clique {0,1,2}
-    let source_sol = reduction.extract_solution(&target_solutions[0]).unwrap();
+    let source_sol = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_solutions[0].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&source_sol).unwrap().unwrap(), 3);
 }
 

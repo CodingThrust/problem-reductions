@@ -11,9 +11,9 @@
 //!
 //! `source.evaluate(S) == Or(true)` ⇔ `target.evaluate(x) == Min(Some(q))`,
 //!
-//! where `S = { t_j ∈ T : x_j = 1 }`. We rely on the witness-extraction
-//! route `source.evaluate(extract_solution(x))` rather than comparing the
-//! optimum value directly, mirroring `partition_sumofsquarespartition.rs`.
+//! where `S = { t_j ∈ T : x_j = 1 }`. Thus recovery of an optimum yields
+//! either an exact matching or `Infeasible`. A candidate without optimality
+//! that does not decode to a matching returns `InsufficientSolutionQuality`.
 //!
 //! **Sentinel branch.** `MinimumWeightDecoding::new` panics on zero-row or
 //! zero-column matrices, so degenerate inputs (`q = 0` or `T = []`) emit a
@@ -25,6 +25,9 @@ use crate::models::algebraic::MinimumWeightDecoding;
 use crate::models::set::ThreeDimensionalMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
+use crate::traits::Problem;
 
 /// Result of reducing ThreeDimensionalMatching to MinimumWeightDecoding.
 #[derive(Debug, Clone)]
@@ -47,19 +50,48 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
     /// The target codeword prefix is the source subset indicator over the same
     /// triple index set. The sentinel target appends one synthetic column, so
     /// an empty source maps back to the empty prefix.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if target_solution.len() != self.target.num_cols() {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} target codeword bits, got {}",
-                self.target.num_cols(),
-                target_solution.len()
-            )));
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Optimal {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Ok(SolveOutcome::Infeasible)
+                }
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Feasible {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                }
+            }
         }
+    }
+}
 
+impl ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution[..self.source_num_triples].to_vec())
     }
 }

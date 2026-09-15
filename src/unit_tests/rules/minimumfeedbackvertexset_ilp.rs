@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -39,7 +40,14 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_size = problem.evaluate(&extracted).unwrap();
 
     // Both should find optimal size = 1
@@ -89,7 +97,14 @@ fn test_cycle_of_triangles() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let size = problem.evaluate(&extracted).unwrap();
     assert_eq!(size, Min(Some(3)), "FVS should be 3");
@@ -106,7 +121,14 @@ fn test_dag_no_removal() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let size = problem.evaluate(&extracted).unwrap();
     assert_eq!(size, Min(Some(0)), "DAG needs no removal");
@@ -128,7 +150,14 @@ fn test_single_vertex() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert_eq!(extracted, vec![false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));
@@ -153,7 +182,14 @@ fn test_weighted() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     // Should remove vertex 1 (cheapest)
     assert!(extracted[1], "Should remove vertex true (cheapest)");
@@ -176,7 +212,14 @@ fn test_two_disjoint_cycles() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_size = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_size, Min(Some(2)));
@@ -193,7 +236,14 @@ fn test_solution_extraction() {
 
     // Simulate ILP solution: x_0=1, x_1=0, x_2=0, o_0=0, o_1=0, o_2=1
     let ilp_solution = vec![1, 0, 0, 0, 0, 1];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, false]);
 
     // Verify this is a valid FVS (removing vertex 0 breaks the 3-cycle)

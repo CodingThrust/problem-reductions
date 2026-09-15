@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -44,7 +45,14 @@ fn test_partitionintopathsoflength2_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),
@@ -69,7 +77,14 @@ fn test_solution_extraction() {
         1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, // x vars
         1, 0, 1, 0, 0, 1, 0, 1, // y vars
     ];
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
@@ -85,7 +100,14 @@ fn test_partitionintopathsoflength2_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         problem.evaluate(&extracted).unwrap(),
         Or(true),

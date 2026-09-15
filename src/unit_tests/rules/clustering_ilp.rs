@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -64,8 +65,17 @@ fn test_clustering_to_ilp_solution_extraction() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let extracted = reduction
-        .extract_solution(&vec![1, 0, 1, 0, 0, 1, 0, 1])
-        .unwrap();
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(
+                reduction.target_problem(),
+                vec![1, 0, 1, 0, 0, 1, 0, 1].clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![0, 0, 1, 1]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
@@ -76,5 +86,8 @@ fn test_clustering_to_ilp_infeasible_instance_is_infeasible() {
     let reduction: ReductionClusteringToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
+    assert_eq!(
+        ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }

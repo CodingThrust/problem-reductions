@@ -9,7 +9,8 @@ use crate::models::formula::KSatisfiability;
 use crate::models::graph::{AcyclicPartition, KClique};
 use crate::reduction;
 use crate::rules::ksatisfiability_kclique::Reduction3SATToKClique;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{DirectedGraph, Graph, SimpleGraph};
 use crate::variant::K3;
 
@@ -29,23 +30,28 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target partition does not satisfy the acyclic partition constraints",
-            ));
-        }
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
+
+impl Reduction3SATToAcyclicPartition {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let source_label = target_solution[self.source_vertex];
         let selected = target_solution[..self.sat_to_clique.target_problem().num_vertices()]
             .iter()
             .map(|&label| label == source_label)
             .collect();
-        self.sat_to_clique.extract_solution(&selected)
+        self.sat_to_clique.map_solution(&selected)
     }
 }
 

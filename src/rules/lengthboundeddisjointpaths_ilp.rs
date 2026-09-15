@@ -6,7 +6,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::LengthBoundedDisjointPaths;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 use std::collections::VecDeque;
 
@@ -36,26 +37,28 @@ impl ReductionResult for ReductionLBDPToILP {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionLBDPToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let m = self.edges.len();
         let flow_vars_per_k = 2 * m;
         let activation_offset = self.num_paths * flow_vars_per_k;
         let mut result = vec![vec![false; m]; self.num_paths];
         for (k, path) in result.iter_mut().enumerate() {
             if target_solution[activation_offset + k] == 0 {
-                if target_solution[k * flow_vars_per_k..(k + 1) * flow_vars_per_k]
-                    .iter()
-                    .any(|&flow| flow != 0)
-                {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "inactive path slot contains flow",
-                    ));
-                }
                 continue;
             }
             let mut adjacency = vec![Vec::new(); self.num_vertices];
@@ -86,12 +89,7 @@ impl ReductionResult for ReductionLBDPToILP {
                 }
             }
             let mut vertex = self.sink;
-            while vertex != self.source {
-                let (previous, edge) = predecessor[vertex].ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "active path flow does not connect source to sink",
-                    )
-                })?;
+            while let Some((previous, edge)) = predecessor[vertex] {
                 path[edge] = true;
                 vertex = previous;
             }

@@ -4,73 +4,72 @@
 //! with unit edge weights. A Hamiltonian circuit exists iff the optimal circuit
 //! length equals |V|.
 
+use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianCircuit, LongestCircuit};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing HamiltonianCircuit to LongestCircuit.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToLongestCircuit {
-    target: LongestCircuit<SimpleGraph, i64>,
+    target: Decision<LongestCircuit<SimpleGraph, i64>>,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = LongestCircuit<SimpleGraph, i64>;
+    type Target = Decision<LongestCircuit<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target circuit does not certify a Hamiltonian circuit",
-            ));
-        }
-
-        crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
     }
 }
 
-impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
-    type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = LongestCircuit<SimpleGraph, i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: crate::types::Max<i64>) -> crate::types::Or {
-        crate::types::Or(
-            target_value
-                .0
-                .is_some_and(|length| usize::try_from(length) == Ok(self.target.num_vertices())),
-        )
+impl ReductionHamiltonianCircuitToLongestCircuit {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(crate::rules::graph_helpers::edges_to_cycle_order(
+            self.target.inner().graph(),
+            target_solution,
+        ))
     }
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }
 )]
-impl ReduceTo<LongestCircuit<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<Decision<LongestCircuit<SimpleGraph, i64>>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToLongestCircuit;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
         let target = LongestCircuit::new(SimpleGraph::new(n, edges), vec![1i64; self.num_edges()]);
-        Ok(ReductionHamiltonianCircuitToLongestCircuit { target })
+        Ok(ReductionHamiltonianCircuitToLongestCircuit {
+            target: Decision::new(
+                target,
+                <Self as ReduceTo<Decision<LongestCircuit<SimpleGraph, i64>>>>::exact_i64(
+                    n,
+                    "encoding the circuit bound",
+                )?,
+            ),
+        })
     }
 }
 
@@ -82,7 +81,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "hamiltoniancircuit_to_longestcircuit",
         build: || {
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            crate::example_db::specs::rule_example_with_witness::<_, LongestCircuit<SimpleGraph, i64>>(
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                Decision<LongestCircuit<SimpleGraph, i64>>,
+            >(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![0, 1, 2, 3]),

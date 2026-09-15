@@ -20,7 +20,7 @@ Before any implementation, collect all required information. If called from `iss
 | 3 | **Problem type** | Objective (`Max`/`Min`), witness (`bool`), or aggregate-only (`Sum`/`And`/custom `Aggregate`) | Objective (Maximize) |
 | 4 | **Type parameters** | Graph type `G`, weight type `W`, or other | `G: Graph`, `W: WeightElement` |
 | 5 | **Struct fields** | What the struct holds | `graph: G`, `weights: Vec<W>` |
-| 6 | **Configuration space** | What `dims()` returns | `vec![2; num_vertices]` for binary vertex selection |
+| 6 | **Configuration space** | Mathematical solution representation and domain | One Boolean selection per vertex |
 | 7 | **Feasibility check** | How to validate a configuration | "All selected vertices must be pairwise adjacent" |
 | 8 | **Per-configuration value** | How `evaluate()` computes the aggregate contribution | "Return `Max(Some(total_weight))` for feasible configs" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
@@ -74,15 +74,15 @@ Read these first to understand the patterns:
 ## Pre-review Checklist
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
-- Follow `docs/src/design.md#numeric-types-and-arithmetic`: `usize` is for in-memory indices, collection lengths, and brute-force dimensions; registered problem size parameters use `u64`; signed mathematical integers use `i64`; Boolean data uses `bool`; and approximate real or rational data uses finite `f64`. Use another format only when required by the mathematical problem or schema, such as `BigUint` for arbitrary-precision problems or `One` for unit weights; implementation convenience is not sufficient, and there is no `i32` model or I/O format. Implementation-local values are outside this contract.
+- Read the canonical [numeric contract](../../../docs/src/design.md#numeric-types-and-arithmetic), [responsibility boundaries](../../../docs/src/design.md#responsibility-boundaries), and [validation policy](../../../docs/src/design.md#validation-evidence). Derive fields and arithmetic from the model's mathematical domain. Evaluation must not depend on solver tolerances, statuses, or enumeration cardinality. Reuse existing representations and shared APIs.
 - Keep failure phases explicit: fallible constructors, create specs, serde-facing validation, and random generation return `ConstructionError`; `evaluate()` returns `EvaluationError`; no public model path returns `Result<_, String>`. Stored-field arithmetic and evaluation arithmetic are checked and reported in their own phase.
-- Serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the supported maximum without requiring impractical allocation.
+- Serde/CLI construction uses the same validation as `new`/`try_new`, and focused tests cover actual representation risks without impractical allocation or backend precision stress cases.
 - `ProblemSchemaEntry` metadata is complete (`display_name`, `aliases`, `dimensions`, explicit `category`, and construction `fields`)
 - `Problem::Value` uses the correct aggregate wrapper and witness support is intentional
 - `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
 - A canonical model example is registered for example-db / `pred create --example`
-- If the issue explicitly claims direct ILP solving, the plan also includes the direct `<Problem> -> ILP` rule with exact overhead metadata, feature-gated registration, strong regression tests, and ILP-enabled verification
+- If the issue explicitly claims direct ILP solving, the plan also includes the direct `<Problem> -> ILP` rule with correct parameter metadata, registration, semantic regression tests, and representative solver integration
 - `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
 
 ## Step 1: Determine the category
@@ -215,11 +215,11 @@ This example is now the canonical source for:
 If the issue explicitly says the model is solvable by reducing **directly** to ILP, implement `src/rules/<problem>_ilp.rs` in the **same PR** as the model. This is the one exception to the normal "one item per PR" policy: the direct `<Problem> -> ILP` rule is part of the model feature, not optional follow-up work.
 
 Completeness bar:
-- Feature-gate the rule under `ilp-solver` and register it normally
-- Add exact overhead expressions and any required size-field getters; metadata must match the constructed ILP exactly
-- Add strong tests in `src/unit_tests/rules/<problem>_ilp.rs`: structure/metadata, closed-loop semantics vs the source problem or brute force, extraction, `solve_reduced()` or ILP path coverage when appropriate, and weighted/infeasible/pathological regressions whenever the model semantics admit them
+- Register the native ILP rule normally; there is no ILP solver feature gate
+- Declare parameter equalities or upper bounds using existing metadata; verify the relationship against the constructed ILP
+- Add strong tests in `src/unit_tests/rules/<problem>_ilp.rs`: structure/metadata, closed-loop semantics vs the source problem or brute force, extraction, `solve_reduced()` or ILP path coverage when appropriate, and weighted/infeasible cases and arithmetic regressions justified by the construction
 - Update CLI/example-db/paper paths so the claimed ILP solver route is actually usable and documented
-- Verify with ILP-enabled workspace commands, not just non-ILP unit tests
+- Run the relevant solver integration tests as well as direct mathematical tests; HiGHS is a regular dependency, not an optional feature
 
 A direct ILP rule shipped with a model issue must match the completeness bar of a standalone production ILP reduction. Do not add a stub just to satisfy the issue text.
 
@@ -227,12 +227,12 @@ A direct ILP rule shipped with a model issue must match the completeness bar of 
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
 
-Every model needs **at least 3 test functions** (the structural reviewer enforces this). Choose from the coverage areas below — pick whichever are relevant to the model:
+Choose coverage from the model semantics and concrete implementation risks under the canonical validation policy. There is no required test-function count:
 
-- **Creation/basic** — exercise constructor inputs, key accessors, `dims()` / `num_variables()`.
+- **Creation/basic** — exercise constructor inputs, key accessors, and the mathematical witness domain.
 - **Evaluation** — valid and invalid configs so the feasibility boundary or aggregate contribution is explicit.
 - **Direction / sense** — verify runtime optimization sense only for models that use `Extremum<_>`.
-- **Solver** — brute-force `solve()` returns the correct aggregate value; if witnesses are supported, verify `find_witness()` / `find_all_witnesses()` as well.
+- **Solver** — where registered, brute-force `solve()` returns a correct solution; use `find_all_witnesses()` when the test needs all optimal/satisfying witnesses. Keep solver integration separate from direct model evaluation.
 - **Serialization** — round-trip serde (when the model is used in CLI/example-db flows).
 - **Paper example** — verify the worked example from the paper entry (see below).
 
@@ -298,8 +298,8 @@ make test clippy  # Must pass
 
 If Step 4.7 applied, run ILP-enabled workspace verification instead:
 ```bash
-cargo clippy --all-targets --features ilp-highs -- -D warnings
-cargo test --features "ilp-highs example-db" --workspace --verbose
+cargo clippy --all-targets -- -D warnings
+cargo test --features example-db --workspace --verbose
 ```
 
 Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
@@ -333,4 +333,4 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Calling a panicking constructor from `TryFrom<CreateSpec>` | Share a fallible constructor and preserve its `ConstructionError`. |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
-| Claiming direct ILP solving but leaving `<Problem> -> ILP` for later | If the issue promises a direct ILP path, implement that rule in the same PR with exact overhead metadata and production-level ILP tests |
+| Claiming direct ILP solving but leaving `<Problem> -> ILP` for later | If the issue promises a direct ILP path, implement that rule in the same PR with correct parameter relationships and production-level ILP tests |

@@ -1,6 +1,5 @@
 use crate::models::algebraic::AlgebraicEquationsOverGF2;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -39,7 +38,10 @@ fn test_algebraic_equations_over_gf2_creation_and_accessors() {
     assert_eq!(p.num_variables(), 3);
     assert_eq!(p.num_equations(), 3);
     assert_eq!(p.equations().len(), 3);
-    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2, 2]
+    );
     assert_eq!(p.num_variables(), 3);
     assert_eq!(
         <AlgebraicEquationsOverGF2 as Problem>::NAME,
@@ -71,7 +73,10 @@ fn test_algebraic_equations_over_gf2_evaluate_satisfiable() {
 #[test]
 fn test_algebraic_equations_over_gf2_evaluate_unsatisfiable() {
     let p = unsatisfiable_problem();
-    assert_eq!(p.dimensions(), vec![2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&p).unwrap(),
+        vec![2, 2]
+    );
     // All 4 assignments should fail
     assert_eq!(p.evaluate(&vec![false, false]).unwrap(), Or(false)); // eq0: 0+0=0 ✓, eq1: 0+0+1=1 ✗
     assert_eq!(p.evaluate(&vec![false, true]).unwrap(), Or(false)); // eq0: 0+1=1 ✗

@@ -14,7 +14,12 @@ impl Problem for MaxSumProblem {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.weights.len() as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -37,8 +42,12 @@ impl Problem for MaxSumProblem {
 }
 
 impl crate::solvers::BruteForceProblem for MaxSumProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.weights.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -52,7 +61,12 @@ impl Problem for MinSumProblem {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.weights.len() as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -75,8 +89,12 @@ impl Problem for MinSumProblem {
 }
 
 impl crate::solvers::BruteForceProblem for MinSumProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.weights.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -91,7 +109,12 @@ impl Problem for SatProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", self.num_vars as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -106,8 +129,12 @@ impl Problem for SatProblem {
 }
 
 impl crate::solvers::BruteForceProblem for SatProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_vars)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -119,7 +146,12 @@ impl Problem for EvaluationFailureProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 1usize as u64)])
+    }
 
     fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         if config.as_slice() == [1] {
@@ -137,8 +169,12 @@ impl Problem for EvaluationFailureProblem {
 }
 
 impl crate::solvers::BruteForceProblem for EvaluationFailureProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([2][variable])
     }
 }
 
@@ -150,7 +186,12 @@ impl Problem for AggregationFailureProblem {
     type Solution = Vec<usize>;
     type Value = Max<f64>;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 1usize as u64)])
+    }
 
     fn evaluate(&self, _: &Self::Solution) -> Result<Max<f64>, crate::traits::EvaluationError> {
         Ok(Max(Some(f64::NAN)))
@@ -162,8 +203,12 @@ impl Problem for AggregationFailureProblem {
 }
 
 impl crate::solvers::BruteForceProblem for AggregationFailureProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(1usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([2][variable])
     }
 }
 
@@ -178,7 +223,12 @@ impl Problem for CountingSatProblem {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("num_variables", num_variables)];
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 2usize as u64)])
+    }
 
     fn evaluate(
         &self,
@@ -196,8 +246,12 @@ impl Problem for CountingSatProblem {
 }
 
 impl crate::solvers::BruteForceProblem for CountingSatProblem {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2, 2]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
+    }
+
+    fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok([2, 2][variable])
     }
 }
 
@@ -563,18 +617,284 @@ fn cartesian_indices_zero_dimension_has_no_candidates() {
 }
 
 #[test]
-fn cartesian_indices_is_exact_size() {
+fn cartesian_indices_reports_exhaustion_without_a_total_count() {
     let mut indices = CartesianIndices::new(vec![2, 3]).unwrap();
-    assert_eq!(indices.len(), 6);
-    indices.next();
-    assert_eq!(indices.len(), 5);
+    assert_eq!(indices.size_hint(), (1, None));
+    assert_eq!(indices.by_ref().count(), 6);
+    assert_eq!(indices.size_hint(), (0, Some(0)));
+    assert_eq!(indices.next(), None);
 }
 
 #[test]
-fn cartesian_indices_reports_cardinality_overflow() {
+fn cartesian_indices_visits_a_prefix_when_the_total_exceeds_usize() {
+    let prefix = CartesianIndices::new(vec![usize::MAX, 2])
+        .unwrap()
+        .take(4)
+        .collect::<Vec<_>>();
+    assert_eq!(prefix, vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]]);
+}
+
+#[test]
+fn enumeration_reports_coordinate_count_and_storage_errors() {
+    use crate::models::set::SetBasis;
+    let count_overflow = SetBasis::new(2, vec![], usize::MAX);
     assert!(matches!(
-        CartesianIndices::new(vec![usize::MAX, 2]),
-        Err(crate::solvers::SolveError::SearchSpaceOverflow(dimensions))
-            if dimensions == vec![usize::MAX, 2]
+        BruteForceProblem::num_variables(&count_overflow),
+        Err(SolveError::IntegerOverflow(_))
     ));
+    assert!(matches!(
+        BruteForce::new().solve(&count_overflow),
+        Err(SolveError::IntegerOverflow(_))
+    ));
+    let allocation_overflow = SetBasis::new(1, vec![], usize::MAX);
+    assert!(matches!(
+        cartesian_dimensions(&allocation_overflow),
+        Err(SolveError::Allocation(_))
+    ));
+}
+
+#[test]
+fn window_product_does_not_restrict_construction_or_evaluation() {
+    use crate::models::misc::ClosestSubstring;
+    let problem = ClosestSubstring::new(1, vec![vec![0, 0]; 64], 1).unwrap();
+    let restored: ClosestSubstring =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(restored.evaluate(&vec![0; 65]).unwrap(), Min(Some(0)));
+    assert_eq!(restored.parameters(), problem.parameters());
+    let dimensions = crate::solvers::cartesian_dimensions(&restored).unwrap();
+    assert_eq!(dimensions[0], 1);
+    assert_eq!(&dimensions[1..], &[2; 64]);
+    let prefix: Vec<_> = CartesianIndices::new(dimensions).unwrap().take(2).collect();
+    assert_eq!(prefix.len(), 2);
+    for witness in prefix {
+        assert_eq!(restored.evaluate(&witness).unwrap(), Min(Some(0)));
+    }
+}
+
+#[test]
+fn scalar_counts_report_unrepresentable_search_coordinates() {
+    use crate::models::algebraic::BMF;
+    use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, EnsembleComputation};
+    let cases = [
+        (
+            "biclique slots",
+            crate::models::graph::BicliqueCover::new(
+                crate::topology::BipartiteGraph::new(1, 1, vec![(0, 0)]),
+                usize::MAX,
+            )
+            .num_variables(),
+        ),
+        (
+            "tree slots",
+            crate::models::graph::KthBestSpanningTree::new(
+                crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+                vec![1i64, 1],
+                usize::MAX,
+                2,
+            )
+            .num_variables(),
+        ),
+        (
+            "tile slots",
+            crate::models::misc::SquareTiling::new(1, vec![(0, 0, 0, 0)], usize::MAX)
+                .num_variables(),
+        ),
+        (
+            "factor rows",
+            BMF::new(vec![vec![true]; 2], usize::MAX).num_variables(),
+        ),
+        (
+            "factor columns",
+            BMF::new(vec![vec![true; 2]], usize::MAX).num_variables(),
+        ),
+        (
+            "factor sum",
+            BMF::new(vec![vec![true]], usize::MAX).num_variables(),
+        ),
+        (
+            "operation operands",
+            EnsembleComputation::new(1, vec![], usize::MAX).num_variables(),
+        ),
+        (
+            "database entries",
+            ConsistencyOfDatabaseFrequencyTables::new(usize::MAX, vec![1, 1], vec![], vec![])
+                .num_variables(),
+        ),
+    ];
+    for (context, result) in cases {
+        assert!(
+            matches!(result, Err(SolveError::IntegerOverflow(_))),
+            "{context}: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn scalar_domains_report_unrepresentable_coordinate_cardinalities() {
+    use crate::models::misc::{
+        ConjunctiveQueryFoldability, EnsembleComputation, MinimumExternalMacroDataCompression,
+        MinimumInternalMacroDataCompression,
+    };
+    let external = MinimumExternalMacroDataCompression::new(usize::MAX, vec![0], 1);
+    let cases = [
+        ("external symbol", external.dimension(0)),
+        ("external pointer", external.dimension(1)),
+        (
+            "internal alphabet",
+            MinimumInternalMacroDataCompression::new(usize::MAX, vec![0], 1).dimension(0),
+        ),
+        (
+            "internal sentinel",
+            MinimumInternalMacroDataCompression::new(usize::MAX - 1, vec![0], 1).dimension(0),
+        ),
+        (
+            "operand labels",
+            EnsembleComputation::new(usize::MAX, vec![], 1).dimension(0),
+        ),
+        (
+            "distinguished labels",
+            ConjunctiveQueryFoldability::new(usize::MAX, 1, 1, vec![], vec![], vec![]).dimension(0),
+        ),
+        (
+            "undistinguished labels",
+            ConjunctiveQueryFoldability::new(usize::MAX, 0, 1, vec![], vec![], vec![]).dimension(0),
+        ),
+    ];
+    for (context, result) in cases {
+        assert!(
+            matches!(result, Err(SolveError::IntegerOverflow(_))),
+            "{context}: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn string_domains_reserve_a_representable_sentinel() {
+    use crate::models::misc::{
+        LongestCommonSubsequence, ShortestCommonSupersequence, ShortestCommonSuperstring,
+    };
+    use crate::models::set::ConsecutiveSets;
+    let cases = [
+        (
+            "subsequence",
+            LongestCommonSubsequence::new(usize::MAX, vec![vec![0]]).dimension(0),
+        ),
+        (
+            "supersequence",
+            ShortestCommonSupersequence::new(usize::MAX, vec![vec![0]]).dimension(0),
+        ),
+        (
+            "superstring",
+            ShortestCommonSuperstring::new(usize::MAX, vec![vec![0]]).dimension(0),
+        ),
+        (
+            "consecutive sets",
+            ConsecutiveSets::new(usize::MAX, vec![vec![0]], 1).dimension(0),
+        ),
+    ];
+    for (context, result) in cases {
+        assert!(
+            matches!(result, Err(SolveError::IntegerOverflow(_))),
+            "{context}: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn decision_tree_slots_fail_before_enumeration_storage_is_allocated() {
+    use crate::models::misc::MinimumDecisionTree;
+    let objects = usize::BITS as usize + 1;
+    let tests = objects.ilog2() as usize + 1;
+    let matrix = (0..tests)
+        .map(|bit| {
+            (0..objects)
+                .map(|object| object & (1 << bit) != 0)
+                .collect()
+        })
+        .collect();
+    let problem = MinimumDecisionTree::new(matrix, objects, tests);
+    assert!(matches!(
+        cartesian_dimensions(&problem),
+        Err(SolveError::Evaluation(
+            crate::traits::EvaluationError::IntegerOverflow(_)
+        ))
+    ));
+}
+
+#[test]
+fn large_products_remain_symbolic_in_model_parameters() {
+    use crate::models::misc::{
+        ConsistencyOfDatabaseFrequencyTables, MinimumDiscretePlanarInverseKinematics,
+    };
+    let arm = MinimumDiscretePlanarInverseKinematics::new(
+        vec![1.0; 64],
+        (64.0, 0.0),
+        vec![vec![0.0, 1.0]; 64],
+        vec![vec![(0, 0), (0, 1), (1, 0), (1, 1)]; 63],
+    )
+    .unwrap();
+    let restored: MinimumDiscretePlanarInverseKinematics =
+        serde_json::from_value(serde_json::to_value(&arm).unwrap()).unwrap();
+    assert_eq!(arm.parameters(), restored.parameters());
+    assert_eq!(arm.evaluate(&vec![0; 64]).unwrap(), Min(Some(0.0)));
+    assert_eq!(
+        CartesianIndices::new(cartesian_dimensions(&arm).unwrap())
+            .unwrap()
+            .take(2)
+            .count(),
+        2
+    );
+    let database = ConsistencyOfDatabaseFrequencyTables::new(1, vec![2; 64], vec![], vec![]);
+    let restored: ConsistencyOfDatabaseFrequencyTables =
+        serde_json::from_value(serde_json::to_value(&database).unwrap()).unwrap();
+    assert_eq!(database.parameters(), restored.parameters());
+    assert_eq!(database.evaluate(&vec![0; 64]).unwrap(), Or(true));
+}
+
+#[test]
+fn test_max_solution_selection() {
+    assert!(Max::contributes_to_solution(&Max(Some(7)), &Max(Some(7))));
+    assert!(!Max::contributes_to_solution(&Max(Some(3)), &Max(Some(7))));
+    assert!(!Max::contributes_to_solution(&Max(None), &Max(Some(7))));
+}
+
+#[test]
+fn test_min_solution_selection() {
+    assert!(Min::contributes_to_solution(&Min(Some(3)), &Min(Some(3))));
+    assert!(!Min::contributes_to_solution(&Min(Some(7)), &Min(Some(3))));
+    assert!(!Min::contributes_to_solution(&Min(None), &Min(Some(3))));
+}
+
+#[test]
+fn test_or_solution_selection() {
+    assert!(Or::contributes_to_solution(&Or(true), &Or(true)));
+    assert!(!Or::contributes_to_solution(&Or(false), &Or(true)));
+    assert!(!Or::contributes_to_solution(&Or(true), &Or(false)));
+}
+
+#[test]
+fn test_extremum_solution_selection() {
+    // Matching value and sense -> contributes
+    assert!(Extremum::contributes_to_solution(
+        &Extremum::maximize(Some(10)),
+        &Extremum::maximize(Some(10)),
+    ));
+
+    // Different value -> does not contribute
+    assert!(!Extremum::contributes_to_solution(
+        &Extremum::maximize(Some(5)),
+        &Extremum::maximize(Some(10)),
+    ));
+
+    // None config -> does not contribute
+    assert!(!Extremum::contributes_to_solution(
+        &Extremum::<i64>::maximize(None),
+        &Extremum::maximize(Some(10)),
+    ));
+}
+
+#[test]
+fn test_minimumcutintoboundedsets_selects_optimal_solutions() {
+    type Value = <crate::models::graph::MinimumCutIntoBoundedSets<crate::topology::SimpleGraph, i64> as Problem>::Value;
+    assert!(Value::contributes_to_solution(&Min(Some(3)), &Min(Some(3))));
 }

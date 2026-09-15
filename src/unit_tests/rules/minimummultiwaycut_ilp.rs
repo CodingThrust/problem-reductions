@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::algebraic::ObjectiveSense;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -44,7 +45,14 @@ fn test_minimummultiwaycut_to_ilp_closed_loop() {
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     // Optimal cut cost is 8
@@ -66,7 +74,14 @@ fn test_triangle_with_3_terminals() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let obj = problem.evaluate(&extracted).unwrap();
     assert_eq!(obj, Min(Some(6)));
@@ -85,7 +100,14 @@ fn test_two_terminals() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     let obj = problem.evaluate(&extracted).unwrap();
     assert_eq!(obj, Min(Some(1)));
@@ -123,7 +145,14 @@ fn test_solution_extraction() {
     ilp_solution[15 + 3] = 1; // edge (3,4) cut
     ilp_solution[15 + 4] = 1; // edge (0,4) cut
 
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![true, false, false, true, true, false]);
 
     let obj = problem.evaluate(&extracted).unwrap();

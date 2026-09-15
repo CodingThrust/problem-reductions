@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(g.num_vertices(), 4);
 /// assert_eq!(g.num_edges(), 6);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PlanarGraph {
     inner: SimpleGraph,
 }
@@ -30,23 +30,44 @@ impl PlanarGraph {
     /// # Panics
     /// Panics if the graph violates the necessary planarity condition |E| <= 3|V| - 6.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
-        let inner = SimpleGraph::new(num_vertices, edges);
-        if num_vertices >= 3 {
-            let max_edges = 3 * num_vertices - 6;
-            assert!(
-                inner.num_edges() <= max_edges,
-                "graph has {} edges but a planar graph on {} vertices can have at most {} edges",
-                inner.num_edges(),
-                num_vertices,
-                max_edges
-            );
-        }
-        Self { inner }
+        Self::try_new(num_vertices, edges).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub(crate) fn try_new(
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::try_from(SimpleGraph::try_new(num_vertices, edges)?)
     }
 
     /// Get a reference to the underlying SimpleGraph.
     pub fn inner(&self) -> &SimpleGraph {
         &self.inner
+    }
+}
+
+impl TryFrom<SimpleGraph> for PlanarGraph {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(inner: SimpleGraph) -> Result<Self, Self::Error> {
+        let num_vertices = inner.num_vertices();
+        if num_vertices >= 3 {
+            let max_edges = 3 * (num_vertices as u128) - 6;
+            if inner.num_edges() as u128 > max_edges {
+                return Err(format!("graph has {} edges but a planar graph on {num_vertices} vertices can have at most {max_edges} edges", inner.num_edges()).into());
+            }
+        }
+        Ok(Self { inner })
+    }
+}
+
+impl<'de> Deserialize<'de> for PlanarGraph {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct PlanarGraphData {
+            inner: SimpleGraph,
+        }
+        let data = PlanarGraphData::deserialize(deserializer)?;
+        Self::try_from(data.inner).map_err(serde::de::Error::custom)
     }
 }
 

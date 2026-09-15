@@ -358,8 +358,12 @@ impl Problem for CircuitSAT {
 }
 
 impl crate::solvers::BruteForceProblem for CircuitSAT {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.variables.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.variables.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

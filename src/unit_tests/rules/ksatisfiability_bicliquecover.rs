@@ -19,6 +19,9 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::graph::BicliqueCover;
+use crate::rules::ReductionResult;
+use crate::solvers::SolveOutcome;
+use crate::traits::EvaluationError::InvalidConfiguration;
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -120,13 +123,18 @@ fn test_ksatisfiability_to_bicliquecover_rejects_invalid_covers() {
     sparse[0][0] = true;
     assert!(target.evaluate(&sparse).unwrap().0.is_none());
     for invalid in [
-        sparse,
         vec![],
-        vec![vec![true; target.num_vertices()]; target.k()],
         vec![vec![false; target.num_vertices() - 1]; target.k()],
     ] {
-        assert!(reduction.extract_solution(&invalid).is_err());
+        assert!(matches!(
+            ReductionResult::target_problem(&reduction).evaluate(&invalid),
+            Err(InvalidConfiguration(_))
+        ));
     }
+    assert!(!ReductionResult::target_problem(&reduction)
+        .evaluate(&vec![vec![true; target.num_vertices()]; target.k()])
+        .unwrap()
+        .is_valid());
 }
 
 #[test]
@@ -138,7 +146,14 @@ fn test_ksatisfiability_to_bicliquecover_extracts_every_row_rotation() {
     assert!(cost.0.is_some());
     for _ in 0..cover.len() {
         assert_eq!(reduction.target_problem().evaluate(&cover).unwrap(), cost);
-        let assignment = reduction.extract_solution(&cover).unwrap();
+        let assignment = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), cover.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         assert_eq!(assignment, vec![true]);
         assert!(source.evaluate(&assignment).unwrap().0);
         cover.rotate_left(1);
@@ -166,7 +181,14 @@ fn test_ksatisfiability_to_bicliquecover_closed_loop_smallest() {
         "forward witness must be a valid biclique cover"
     );
 
-    let extracted = reduction.extract_solution(&witness).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 1);
     assert!(
         extracted[0],
@@ -212,7 +234,14 @@ fn test_ksatisfiability_to_bicliquecover_sparse_variable_inverse() {
     assert_eq!(reduction.source_variables, vec![6]);
     assert_eq!(reduction.normalized_n, 2);
     let cover = super::forward_witness_single_variable_single_clause(&source);
-    let assignment = reduction.extract_solution(&cover).unwrap();
+    let assignment = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), cover.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(
         assignment,
         vec![false, false, false, false, false, false, true]
@@ -242,7 +271,17 @@ fn test_ksatisfiability_to_bicliquecover_empty_conjunction_and_clause() {
         let yes = KSatisfiability::<K3>::new(n, vec![]);
         let reduction = ReduceTo::<BicliqueCover>::reduce_to(&yes).unwrap();
         assert_eq!(reduction.target_problem().num_vertices(), 0);
-        assert_eq!(reduction.extract_solution(&vec![]).unwrap(), vec![false; n]);
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &yes,
+                    SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
+            vec![false; n]
+        );
         assert!(yes.evaluate(&vec![false; n]).unwrap().0);
         let no = KSatisfiability::<K3>::new_allow_less(n, vec![CNFClause::new(vec![])]);
         let reduction = ReduceTo::<BicliqueCover>::reduce_to(&no).unwrap();
@@ -252,7 +291,6 @@ fn test_ksatisfiability_to_bicliquecover_empty_conjunction_and_clause() {
             .unwrap()
             .0
             .is_none());
-        assert!(reduction.extract_solution(&vec![]).is_err());
         assert!(!no.evaluate(&vec![false; n]).unwrap().0);
     }
 }

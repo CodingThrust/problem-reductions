@@ -13,8 +13,11 @@ fn test_consecutive_sets_creation() {
     assert_eq!(problem.alphabet_size(), 6);
     assert_eq!(problem.num_subsets(), 5);
     assert_eq!(problem.bound_k(), 6);
-    assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dimensions(), vec![7; 6]); // alphabet_size + 1 = 7
+    assert_eq!(problem.num_variables().unwrap(), 6);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![7; 6]
+    ); // alphabet_size + 1 = 7
 }
 
 #[test]
@@ -138,4 +141,11 @@ fn test_consecutive_sets_duplicate_elements() {
 #[should_panic(expected = "bound_k must be positive")]
 fn test_consecutive_sets_zero_bound() {
     ConsecutiveSets::new(3, vec![vec![0, 1]], 0);
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"alphabet_size":3,"subsets":[[0,0]],"bound_k":3});
+    assert!(serde_json::from_value::<ConsecutiveSets>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("ConsecutiveSets", &Default::default(), json).is_err());
 }

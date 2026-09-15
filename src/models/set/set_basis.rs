@@ -28,6 +28,7 @@ inventory::submit! {
 /// `S` such that every set in `C` can be expressed as the union of some
 /// subcollection of `B`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SetBasisData")]
 pub struct SetBasis {
     /// Size of the universe (elements are `0..universe_size`).
     universe_size: usize,
@@ -35,6 +36,21 @@ pub struct SetBasis {
     collection: Vec<Vec<usize>>,
     /// Number of basis sets to encode in a configuration.
     k: usize,
+}
+
+#[derive(Deserialize)]
+struct SetBasisData {
+    universe_size: usize,
+    collection: Vec<Vec<usize>>,
+    k: usize,
+}
+
+impl TryFrom<SetBasisData> for SetBasis {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: SetBasisData) -> Result<Self, Self::Error> {
+        Self::try_new(data.universe_size, data.collection, data.k)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -60,7 +76,7 @@ impl TryFrom<SetBasisCreateSpec> for SetBasis {
                 .into());
             }
         }
-        Ok(Self::new(spec.universe_size, spec.subsets, spec.k))
+        Self::try_new(spec.universe_size, spec.subsets, spec.k)
     }
 }
 
@@ -71,26 +87,26 @@ impl SetBasis {
     ///
     /// Panics if any element in `collection` lies outside the universe.
     pub fn new(universe_size: usize, collection: Vec<Vec<usize>>, k: usize) -> Self {
-        let mut collection = collection;
-        for (set_index, set) in collection.iter_mut().enumerate() {
+        Self::try_new(universe_size, collection, k).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        universe_size: usize,
+        mut collection: Vec<Vec<usize>>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        for (index, set) in collection.iter_mut().enumerate() {
             set.sort_unstable();
             set.dedup();
-            for &element in set.iter() {
-                assert!(
-                    element < universe_size,
-                    "Set {} contains element {} which is outside universe of size {}",
-                    set_index,
-                    element,
-                    universe_size
-                );
+            if let Some(element) = set.iter().find(|&&element| element >= universe_size) {
+                return Err(format!("set {index} contains element {element} outside universe of size {universe_size}").into());
             }
         }
-
-        Self {
+        Ok(Self {
             universe_size,
             collection,
             k,
-        }
+        })
     }
 
     /// Return the universe size.
@@ -201,8 +217,14 @@ impl Problem for SetBasis {
 }
 
 impl crate::solvers::BruteForceProblem for SetBasis {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.k * self.universe_size]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        (self.k).checked_mul(self.universe_size).ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing the coordinate count".into())
+        })
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 

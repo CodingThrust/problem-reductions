@@ -15,6 +15,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::set::MaximumSetPacking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 /// Result of reducing `MaximumSetPacking<f64>` to `QUBO<f64>`.
 #[derive(Debug, Clone)]
@@ -30,13 +32,18 @@ impl ReductionResult for ReductionSPToQUBO {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            }
+        }
     }
 }
 
@@ -62,21 +69,21 @@ impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
             >("computing the set-packing conflict penalty"));
         }
 
-        let mut matrix = vec![vec![0.0; n]; n];
+        let mut matrix = vec![std::collections::BTreeMap::new(); n];
 
         // Diagonal: -w_i
         for i in 0..n {
-            matrix[i][i] = -weights[i];
+            matrix[i].insert(i, -weights[i]);
         }
 
         // Off-diagonal: P for overlapping pairs
         for (i, j) in self.overlapping_pairs() {
             let (a, b) = if i < j { (i, j) } else { (j, i) };
-            matrix[a][b] += penalty;
+            *matrix[a].entry(b).or_insert(0.0) += penalty;
         }
 
         Ok(ReductionSPToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
+            target: QUBO::from_rows(matrix).map_err(|message| {
                 crate::rules::ReductionError::construction::<MaximumSetPacking<f64>, QUBO<f64>>(
                     message,
                 )

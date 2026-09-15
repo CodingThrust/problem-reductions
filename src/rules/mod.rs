@@ -11,7 +11,6 @@ pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
-mod closestvectorproblem_casts;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;
@@ -43,8 +42,8 @@ pub(crate) mod hamiltoniancircuit_travelingsalesman;
 pub(crate) mod hamiltonianpath_degreeconstrainedspanningtree;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
 pub(crate) mod hamiltonianpathbetweentwovertices_longestpath;
-pub(crate) mod ilp_casts;
 pub(crate) mod ilp_i64_ilp_bool;
+pub(crate) mod ilp_i64_ilp_f64;
 pub(crate) mod integerknapsack_ilp;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
@@ -64,7 +63,6 @@ pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
 pub(crate) mod ksatisfiability_feasibleregisterassignment;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
-pub(crate) mod ksatisfiability_minimumvertexcover;
 pub(crate) mod ksatisfiability_monochromatictriangle;
 pub(crate) mod ksatisfiability_oneinthreesatisfiability;
 pub(crate) mod ksatisfiability_preemptivescheduling;
@@ -271,7 +269,6 @@ pub(crate) mod shortestweightconstrainedpath_ilp;
 pub(crate) mod sparsematrixcompression_ilp;
 pub(crate) mod stackercrane_ilp;
 pub(crate) mod steinertree_ilp;
-pub(crate) mod steinertreeingraphs_ilp;
 pub(crate) mod stringtostringcorrection_ilp;
 pub(crate) mod strongconnectivityaugmentation_ilp;
 pub(crate) mod subgraphisomorphism_ilp;
@@ -285,14 +282,14 @@ pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 #[cfg(test)]
 pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
-    AggregateReductionChain, ExecutePathsError, ExecutedPath, NeighborInfo, NeighborTree,
-    PathParameterError, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
-    ReductionPath, ReductionStep, TraversalFlow,
+    ExecutePathsError, ExecutedPath, NeighborInfo, NeighborTree, PathParameterError,
+    ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep,
+    TraversalFlow,
 };
-pub(crate) use traits::{validate_target_solution, DynReductionResult};
+pub(crate) use traits::DynReductionResult;
 pub use traits::{
-    AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
-    ReductionError, ReductionResult, VariantReductionResult,
+    ExtractionError, ExtractionResult, ReduceTo, ReductionError, ReductionResult,
+    VariantReductionResult,
 };
 
 #[cfg(feature = "example-db")]
@@ -347,7 +344,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_feasibleregisterassignment::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kernel::canonical_rule_example_specs());
-    specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_monochromatictriangle::canonical_rule_example_specs());
     specs.extend(ksatisfiability_oneinthreesatisfiability::canonical_rule_example_specs());
     specs.extend(ksatisfiability_preemptivescheduling::canonical_rule_example_specs());
@@ -571,7 +567,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(sparsematrixcompression_ilp::canonical_rule_example_specs());
         specs.extend(stackercrane_ilp::canonical_rule_example_specs());
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
-        specs.extend(steinertreeingraphs_ilp::canonical_rule_example_specs());
         specs.extend(stringtostringcorrection_ilp::canonical_rule_example_specs());
         specs.extend(strongconnectivityaugmentation_ilp::canonical_rule_example_specs());
         specs.extend(subgraphisomorphism_ilp::canonical_rule_example_specs());
@@ -582,6 +577,33 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(undirectedflowlowerbounds_ilp::canonical_rule_example_specs());
         specs.extend(undirectedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
     }
+    specs.extend(
+        crate::models::algebraic::closest_vector_problem::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::graph::longest_circuit::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::longest_path::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::max_cut::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::formula::maximum_2_satisfiability::decision_canonical_rule_example_specs(),
+    );
+    specs
+        .extend(crate::models::graph::min_max_multicenter::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::graph::minimum_covering_by_cliques::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::graph::minimum_sum_multicenter::decision_canonical_rule_example_specs(),
+    );
+    specs
+        .extend(crate::models::misc::open_shop_scheduling::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::algebraic::qubo::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::algebraic::quadratic_assignment::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::graph::rural_postman::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::misc::sequencing_to_minimize_tardy_task_weight::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::spin_glass::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::misc::stacker_crane::decision_canonical_rule_example_specs());
     specs
 }
 
@@ -611,13 +633,11 @@ macro_rules! impl_variant_reduction {
     ($problem:ident,
      < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
      fields: [$($field:ident),+],
-     $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
             transform = exact {
                 $($field = $field),+
             }
-            $(, aggregate = $aggregate)?
         )]
         impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
             for $problem<$($src_param),+>

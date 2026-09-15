@@ -13,9 +13,9 @@
 //! sign encoding (`config[i] = 1 ⇔ f(i) = +1 ⇔ i ∈ S`).
 //!
 //! **Precondition:** all edge weights must be nonnegative. The reduction
-//! panics on any negative weight, since `MinimumMatrixCover` requires a
+//! returns an error on any negative weight, since `MinimumMatrixCover` requires a
 //! nonnegative integer matrix. Negative-weight `MaxCut` instances are out
-//! of scope and must use a different (preprocessing) reduction.
+//! of scope for this reduction.
 //!
 //! Reference: Garey & Johnson, *Computers and Intractability* (1979),
 //! Appendix A1.2, MS13 ("Transformation from MAXIMUM CUT").
@@ -24,6 +24,8 @@ use crate::models::algebraic::MinimumMatrixCover;
 use crate::models::graph::MaxCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MaxCut to MinimumMatrixCover.
@@ -48,13 +50,18 @@ impl ReductionResult for ReductionMaxCutToMMC {
     /// vertex `i` in `S`. The complementary assignment is equally optimal
     /// because the quadratic form (and the cut) is invariant under
     /// `f -> -f`.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.to_vec())
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
+            SolveOutcome::Feasible { solution, .. } => {
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
     }
 }
 
@@ -79,13 +86,13 @@ impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
                     "edge ({u}, {v}) has negative weight {w}"
                 )));
             }
-            let w64 = w;
-            matrix[u][v] = w64;
-            matrix[v][u] = w64;
+            matrix[u][v] = w;
+            matrix[v][u] = w;
         }
 
         Ok(ReductionMaxCutToMMC {
-            target: MinimumMatrixCover::new(matrix),
+            target: MinimumMatrixCover::new(matrix)
+                .map_err(<Self as ReduceTo<MinimumMatrixCover>>::target_construction)?,
         })
     }
 }

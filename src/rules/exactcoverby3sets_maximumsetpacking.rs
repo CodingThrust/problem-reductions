@@ -8,6 +8,9 @@
 use crate::models::set::{ExactCoverBy3Sets, MaximumSetPacking};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
+use crate::traits::Problem;
 use crate::types::One;
 
 /// Result of reducing ExactCoverBy3Sets to MaximumSetPacking<One>.
@@ -29,12 +32,48 @@ impl ReductionResult for ReductionXC3SToMaximumSetPacking {
     /// The configuration is identity (same binary selection vector).
     /// A packing of q disjoint 3-sets over a 3q-element universe is necessarily
     /// an exact cover, so no additional checking is needed.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Optimal {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Ok(SolveOutcome::Infeasible)
+                }
+            }
+            SolveOutcome::Feasible { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                let evaluation = source.evaluate(&solution)?;
+                if evaluation.0 {
+                    Ok(SolveOutcome::Feasible {
+                        solution,
+                        evaluation,
+                    })
+                } else {
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                }
+            }
+        }
+    }
+}
 
+impl ReductionXC3SToMaximumSetPacking {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok(target_solution.to_vec())
     }
 }

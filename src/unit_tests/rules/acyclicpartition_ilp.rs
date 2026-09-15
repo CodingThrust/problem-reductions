@@ -2,6 +2,7 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::AcyclicPartition;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -32,7 +33,14 @@ fn test_acyclicpartition_to_ilp_closed_loop() {
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(
         source.evaluate(&extracted).unwrap().0,
@@ -60,7 +68,14 @@ fn test_extract_solution() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_sol.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
@@ -82,7 +97,10 @@ fn test_infeasible_instance() {
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
-    assert!(solver.solve(ilp).is_err());
+    assert_eq!(
+        solver.solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
@@ -107,7 +125,14 @@ fn test_acyclicpartition_to_ilp_regression_direct_topological_labels() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("the feasible source instance must yield a feasible ILP");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap().0);
 }

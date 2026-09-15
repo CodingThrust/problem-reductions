@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn two_block_matrix() -> Vec<Vec<bool>> {
@@ -52,7 +51,10 @@ fn test_rectilinear_picture_compression_maximal_rectangles_two_blocks() {
 fn test_rectilinear_picture_compression_dims() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     // 2 maximal rectangles -> 2 binary variables
-    assert_eq!(problem.dimensions(), vec![2, 2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2, 2]
+    );
 }
 
 #[test]
@@ -173,7 +175,10 @@ fn test_rectilinear_picture_compression_single_cell() {
     let problem = RectilinearPictureCompression::new(matrix, 1);
     let rects = problem.maximal_rectangles();
     assert_eq!(rects, vec![(0, 0, 0, 0)]);
-    assert_eq!(problem.dimensions(), vec![2]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![2]
+    );
     assert!(problem.evaluate(&vec![true]).unwrap());
     assert!(!problem.evaluate(&vec![false]).unwrap());
 }
@@ -185,7 +190,10 @@ fn test_rectilinear_picture_compression_all_zeros() {
     let problem = RectilinearPictureCompression::new(matrix, 0);
     let rects = problem.maximal_rectangles();
     assert!(rects.is_empty());
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     // Empty config satisfies (no 1-entries to cover)
     assert!(problem.evaluate(&vec![]).unwrap());
 }
@@ -238,4 +246,16 @@ fn test_rectilinear_picture_compression_empty_row_panics() {
 #[should_panic(expected = "same length")]
 fn test_rectilinear_picture_compression_inconsistent_rows_panics() {
     RectilinearPictureCompression::new(vec![vec![true, false], vec![true]], 1);
+}
+
+#[test]
+fn deserialize_rejects_invalid_matrix_before_building_rectangles() {
+    for matrix in [vec![], vec![vec![]], vec![vec![true], vec![]]] {
+        assert!(
+            serde_json::from_value::<RectilinearPictureCompression>(serde_json::json!({
+                "matrix": matrix, "bound": 1
+            }))
+            .is_err()
+        );
+    }
 }

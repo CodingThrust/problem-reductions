@@ -1,6 +1,7 @@
 use crate::models::algebraic::ILP;
 use crate::models::misc::MinimumInternalMacroDataCompression;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -15,7 +16,14 @@ fn test_imdc_to_ilp_closed_loop_simple() {
 
     let solver = ILPSolver::new();
     let target_witness = solver.solve(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
     assert_eq!(val.0.unwrap(), 2);
@@ -31,7 +39,14 @@ fn test_imdc_to_ilp_closed_loop_repeated() {
 
     let solver = ILPSolver::new();
     let target_witness = solver.solve(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
     assert_eq!(val.0.unwrap(), 4);
@@ -48,7 +63,14 @@ fn test_imdc_to_ilp_closed_loop_low_pointer_cost() {
 
     let solver = ILPSolver::new();
     let target_witness = solver.solve(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
     // Verify against brute force
@@ -63,7 +85,14 @@ fn test_imdc_to_ilp_empty_string() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(target.num_variables(), 0);
-    let source_config = reduction.extract_solution(&vec![]).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), vec![].clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(0)));
 }
 
@@ -77,7 +106,14 @@ fn test_imdc_to_ilp_single_char() {
 
     let solver = ILPSolver::new();
     let target_witness = solver.solve(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness).unwrap();
+    let source_config = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(1)));
 }
 
@@ -113,7 +149,14 @@ fn test_imdc_to_ilp_vs_brute_force() {
         let target_witness = ILPSolver::new()
             .solve(target)
             .expect("ILP should be feasible");
-        let source_config = reduction.extract_solution(&target_witness).unwrap();
+        let source_config = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), target_witness.clone()).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution");
         let ilp_val = source.evaluate(&source_config).unwrap();
 
         assert_eq!(

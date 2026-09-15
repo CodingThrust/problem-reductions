@@ -26,7 +26,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::EulerianPath;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 
 /// Result of reducing EulerianPath to `ILP<i64>`.
 ///
@@ -68,56 +69,42 @@ impl ReductionResult for ReductionEulerianPathToILP {
     ///
     /// Reads the unique active start arc (`s_a = 1`) and walks the active
     /// successor relation (`y_{a,b} = 1`) one step at a time, producing an arc
-    /// permutation of length `m`. Malformed assignments return an extraction
-    /// error instead of fabricating an ordering.
-    fn extract_solution(
+    /// permutation of length `m` under the target path constraints.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionEulerianPathToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let m = self.num_arcs;
             if m == 0 {
                 return Ok(Vec::new());
             }
 
-            // Find the unique active start arc.
-            let mut current = match (0..m).find(|&a| target_solution[self.s_idx(a)] == 1) {
-                Some(a) => a,
-                None => {
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "ILP witness has no active Eulerian-path start arc",
-                    ));
-                }
-            };
-
-            // Walk the active successor relation, recording each visited arc.
+            let mut current = (0..m)
+                .filter(|&a| target_solution[self.s_idx(a)] == 1)
+                .sum();
             let mut order = Vec::with_capacity(m);
-            let mut visited = vec![false; m];
-            order.push(current);
-            visited[current] = true;
-
-            for _ in 1..m {
-                let next = self
+            for _ in 0..m {
+                order.push(current);
+                current = self
                     .pairs
                     .iter()
                     .enumerate()
-                    .find(|&(k, &(a, _))| a == current && target_solution[k] == 1)
-                    .map(|(_, &(_, b))| b);
-
-                match next {
-                    Some(b) if !visited[b] => {
-                        order.push(b);
-                        visited[b] = true;
-                        current = b;
-                    }
-                    _ => {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "ILP witness has no unvisited successor for arc {current}",
-                        )));
-                    }
-                }
+                    .filter(|&(k, &(a, _))| a == current && target_solution[k] == 1)
+                    .map(|(_, &(_, b))| b)
+                    .sum();
             }
             order
         })

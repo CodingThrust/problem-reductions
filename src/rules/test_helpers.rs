@@ -1,7 +1,8 @@
 use crate::rules::{ReductionChain, ReductionResult};
 use crate::solvers::BruteForce;
+use crate::solvers::SolutionAggregate;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
-use crate::types::SolutionAggregate;
 use std::collections::HashSet;
 
 fn verify_optimization_round_trip<Source, TargetSolution, Extract>(
@@ -14,7 +15,7 @@ fn verify_optimization_round_trip<Source, TargetSolution, Extract>(
     Source: Problem + 'static,
     Source::Solution: Eq + std::hash::Hash + std::fmt::Debug + 'static,
     <Source as Problem>::Value: SolutionAggregate + std::fmt::Debug + PartialEq,
-    Extract: Fn(&TargetSolution) -> Source::Solution,
+    Extract: Fn(TargetSolution) -> Source::Solution,
 {
     assert!(
         !target_solutions.is_empty(),
@@ -39,7 +40,7 @@ fn verify_optimization_round_trip<Source, TargetSolution, Extract>(
             .expect("reference set is non-empty"),
     );
     let extracted: HashSet<Source::Solution> =
-        target_solutions.iter().map(extract_solution).collect();
+        target_solutions.into_iter().map(extract_solution).collect();
     assert!(
         !extracted.is_empty(),
         "{context}: no extracted source solutions"
@@ -67,14 +68,14 @@ fn verify_satisfaction_round_trip<Source, TargetSolution, Extract>(
     Source: Problem + 'static,
     Source::Solution: Eq + std::hash::Hash + std::fmt::Debug + 'static,
     <Source as Problem>::Value: SolutionAggregate + std::fmt::Debug,
-    Extract: Fn(&TargetSolution) -> Source::Solution,
+    Extract: Fn(TargetSolution) -> Source::Solution,
 {
     assert!(
         !target_solutions.is_empty(),
         "{context}: target solver found no {target_solution_kind} solutions"
     );
     let extracted: HashSet<Source::Solution> =
-        target_solutions.iter().map(extract_solution).collect();
+        target_solutions.into_iter().map(extract_solution).collect();
     assert!(
         !extracted.is_empty(),
         "{context}: no extracted source solutions"
@@ -113,7 +114,16 @@ pub(crate) fn assert_optimization_round_trip_from_optimization_target<R>(
     verify_optimization_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution).unwrap(),
+        |target_solution| {
+            reduction
+                .recover_result(
+                    source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution")
+        },
         "optimal",
         context,
     );
@@ -138,7 +148,16 @@ pub(crate) fn assert_optimization_round_trip_from_satisfaction_target<R>(
     verify_optimization_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution).unwrap(),
+        |target_solution| {
+            reduction
+                .recover_result(
+                    source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution")
+        },
         "satisfying",
         context,
     );
@@ -164,7 +183,12 @@ pub(crate) fn assert_optimization_round_trip_chain<Source, Target>(
         target_solutions,
         |target_solution| {
             chain
-                .extract_solution::<Source::Solution, Target::Solution>(target_solution)
+                .recover_result::<Source, Target>(
+                    source,
+                    SolveOutcome::optimal(chain.target_problem::<Target>(), target_solution)
+                        .unwrap(),
+                )
+                .map(|outcome| outcome.into_solution().unwrap())
                 .unwrap()
         },
         "optimal",
@@ -191,7 +215,16 @@ pub(crate) fn assert_satisfaction_round_trip_from_optimization_target<R>(
     verify_satisfaction_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution).unwrap(),
+        |target_solution| {
+            reduction
+                .recover_result(
+                    source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution")
+        },
         "optimal",
         context,
     );
@@ -216,7 +249,16 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     verify_satisfaction_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution).unwrap(),
+        |target_solution| {
+            reduction
+                .recover_result(
+                    source,
+                    SolveOutcome::optimal(reduction.target_problem(), target_solution).unwrap(),
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution")
+        },
         "satisfying",
         context,
     );
@@ -227,6 +269,7 @@ where
     R: ReductionResult,
     R::Source: Problem + 'static,
     R::Target: Problem<Solution = Vec<i64>> + 'static,
+    <R::Target as Problem>::Value: SolutionAggregate,
     <R::Source as Problem>::Value: SolutionAggregate + std::fmt::Debug + PartialEq,
 {
     use crate::solvers::ILPSolver;
@@ -238,7 +281,14 @@ where
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(source.evaluate(&extracted).unwrap(), bf_value);
 }
 
@@ -251,6 +301,7 @@ mod tests {
         assert_satisfaction_round_trip_from_satisfaction_target,
     };
     use crate::rules::ReductionResult;
+    use crate::solvers::{ProblemOutcome, SolveOutcome};
     use crate::traits::Problem;
     use crate::types::{Max, Or};
 
@@ -288,8 +339,12 @@ mod tests {
     }
 
     impl crate::solvers::BruteForceProblem for ToyExtremumProblem {
-        fn dimensions(&self) -> Vec<usize> {
-            vec![2, 2]
+        fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+            Ok(2usize)
+        }
+
+        fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+            Ok([2, 2][variable])
         }
     }
 
@@ -322,8 +377,12 @@ mod tests {
     }
 
     impl crate::solvers::BruteForceProblem for ToyOrProblem {
-        fn dimensions(&self) -> Vec<usize> {
-            vec![2, 2]
+        fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+            Ok(2usize)
+        }
+
+        fn dimension(&self, variable: usize) -> Result<usize, crate::solvers::SolveError> {
+            Ok([2, 2][variable])
         }
     }
 
@@ -375,13 +434,32 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(
+        fn recover_result(
             &self,
-            target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-        ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
-        {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+            source: &Self::Source,
+            target: ProblemOutcome<Self::Target>,
+        ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+            match target {
+                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+                SolveOutcome::Optimal { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::optimal(source, solution)?)
+                }
+                SolveOutcome::Feasible { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::feasible(source, solution)?)
+                }
+            }
+        }
+    }
 
+    impl OptToOptReduction {
+        fn map_solution(
+            &self,
+            target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+        ) -> crate::rules::ExtractionResult<
+            <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+        > {
             Ok(target_solution.to_vec())
         }
     }
@@ -398,13 +476,32 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(
+        fn recover_result(
             &self,
-            target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-        ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
-        {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+            source: &Self::Source,
+            target: ProblemOutcome<Self::Target>,
+        ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+            match target {
+                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+                SolveOutcome::Optimal { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::optimal(source, solution)?)
+                }
+                SolveOutcome::Feasible { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::feasible(source, solution)?)
+                }
+            }
+        }
+    }
 
+    impl OptToSatReduction {
+        fn map_solution(
+            &self,
+            target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+        ) -> crate::rules::ExtractionResult<
+            <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+        > {
             Ok(target_solution.to_vec())
         }
     }
@@ -421,13 +518,32 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(
+        fn recover_result(
             &self,
-            target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-        ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
-        {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+            source: &Self::Source,
+            target: ProblemOutcome<Self::Target>,
+        ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+            match target {
+                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+                SolveOutcome::Optimal { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::optimal(source, solution)?)
+                }
+                SolveOutcome::Feasible { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::feasible(source, solution)?)
+                }
+            }
+        }
+    }
 
+    impl SatToOptReduction {
+        fn map_solution(
+            &self,
+            target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+        ) -> crate::rules::ExtractionResult<
+            <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+        > {
             Ok(target_solution.to_vec())
         }
     }
@@ -444,13 +560,32 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(
+        fn recover_result(
             &self,
-            target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-        ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>
-        {
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+            source: &Self::Source,
+            target: ProblemOutcome<Self::Target>,
+        ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+            match target {
+                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+                SolveOutcome::Optimal { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::optimal(source, solution)?)
+                }
+                SolveOutcome::Feasible { solution, .. } => {
+                    let solution = self.map_solution(&solution)?;
+                    Ok(SolveOutcome::feasible(source, solution)?)
+                }
+            }
+        }
+    }
 
+    impl SatToSatReduction {
+        fn map_solution(
+            &self,
+            target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+        ) -> crate::rules::ExtractionResult<
+            <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+        > {
             Ok(target_solution.to_vec())
         }
     }

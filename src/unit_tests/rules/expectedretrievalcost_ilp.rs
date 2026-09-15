@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -48,7 +49,14 @@ fn test_expectedretrievalcost_to_ilp_bf_vs_ilp() {
     let bf_cost = problem.expected_cost(&bf_witness).unwrap().unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let ilp_cost = problem.expected_cost(&extracted).unwrap().unwrap();
 
     // ILP cost should match BF optimal cost
@@ -65,20 +73,35 @@ fn test_solution_extraction() {
     let reduction: ReductionERCToILP =
         ReduceTo::<ILP<bool, f64>>::reduce_to(&problem).expect("reduction should succeed");
 
-    // record 0 -> sector 0, record 1 -> sector 1
-    // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1
-    let mut ilp_solution = vec![0_i64; 4 + 16]; // n + n^2
-                                                // x vars
-    ilp_solution[0] = 1; // x_{0,0}
-    ilp_solution[3] = 1; // x_{1,1}
-                         // z vars: z_{r,s,r',s'} at offset 4 + (r*2+s)*4 + (r'*2+s')
-                         // z_{0,0,0,0} = x_{0,0}*x_{0,0} = 1: offset 4 + 0*4 + 0 = 4
-    ilp_solution[4] = 1;
-    // z_{1,1,1,1} = x_{1,1}*x_{1,1} = 1: offset 4 + 3*4 + 3 = 4+15=19
-    ilp_solution[19] = 1;
-
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1]);
+    for assignment in [vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]] {
+        let mut target = vec![0; reduction.target_problem().num_vars()];
+        for (r, &sector) in assignment.iter().enumerate() {
+            target[reduction.x_var(r, sector)] = 1;
+        }
+        for (r, &sector) in assignment.iter().enumerate() {
+            for (other, &other_sector) in assignment.iter().enumerate() {
+                target[reduction.z_var(r, sector, other, other_sector)] = 1;
+            }
+        }
+        assert_eq!(
+            reduction
+                .recover_result(
+                    &problem,
+                    SolveOutcome::optimal(reduction.target_problem(), target.clone()).unwrap()
+                )
+                .unwrap()
+                .into_solution()
+                .expect("qualifying target result must recover a source solution"),
+            assignment
+        );
+        assert_eq!(
+            reduction
+                .target_problem()
+                .evaluate_objective(&target)
+                .unwrap(),
+            problem.expected_cost(&assignment).unwrap().unwrap()
+        );
+    }
 }
 
 #[test]
@@ -91,7 +114,14 @@ fn test_expectedretrievalcost_to_ilp_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &problem,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     let value = problem.evaluate(&extracted).unwrap();
     assert!(
         matches!(value, Min(Some(_))),

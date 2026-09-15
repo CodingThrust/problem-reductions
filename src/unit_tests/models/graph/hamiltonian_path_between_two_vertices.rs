@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -17,7 +16,10 @@ fn test_hamiltonian_path_between_two_vertices_basic() {
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.source_vertex(), 0);
     assert_eq!(problem.target_vertex(), 3);
-    assert_eq!(problem.dimensions(), vec![4, 4, 4, 4]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![4, 4, 4, 4]
+    );
 
     // Valid path: 0->1->2->3
     assert!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap());

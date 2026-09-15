@@ -76,11 +76,32 @@ pub enum QueryArg {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "ConjunctiveBooleanQueryData")]
 pub struct ConjunctiveBooleanQuery {
     domain_size: usize,
     relations: Vec<Relation>,
     num_variables: usize,
     conjuncts: Vec<(usize, Vec<QueryArg>)>,
+}
+
+#[derive(Deserialize)]
+struct ConjunctiveBooleanQueryData {
+    domain_size: usize,
+    relations: Vec<Relation>,
+    num_variables: usize,
+    conjuncts: Vec<(usize, Vec<QueryArg>)>,
+}
+
+impl TryFrom<ConjunctiveBooleanQueryData> for ConjunctiveBooleanQuery {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: ConjunctiveBooleanQueryData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.domain_size,
+            data.relations,
+            data.num_variables,
+            data.conjuncts,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -185,57 +206,73 @@ impl ConjunctiveBooleanQuery {
         num_variables: usize,
         conjuncts: Vec<(usize, Vec<QueryArg>)>,
     ) -> Self {
+        Self::try_new(domain_size, relations, num_variables, conjuncts)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        domain_size: usize,
+        relations: Vec<Relation>,
+        num_variables: usize,
+        conjuncts: Vec<(usize, Vec<QueryArg>)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (i, rel) in relations.iter().enumerate() {
             for (j, tuple) in rel.tuples.iter().enumerate() {
-                assert!(
-                    tuple.len() == rel.arity,
-                    "Relation {i}: tuple {j} has length {}, expected arity {}",
-                    tuple.len(),
-                    rel.arity
-                );
+                if !(tuple.len() == rel.arity) {
+                    return Err(format!(
+                        "Relation {i}: tuple {j} has length {}, expected arity {}",
+                        tuple.len(),
+                        rel.arity
+                    )
+                    .into());
+                }
                 for (k, &val) in tuple.iter().enumerate() {
-                    assert!(
-                        val < domain_size,
-                        "Relation {i}: tuple {j}, entry {k} is {val}, must be < {domain_size}"
-                    );
+                    if !(val < domain_size) {
+                        return Err(format!(
+                            "Relation {i}: tuple {j}, entry {k} is {val}, must be < {domain_size}"
+                        )
+                        .into());
+                    }
                 }
             }
         }
         for (i, (rel_idx, args)) in conjuncts.iter().enumerate() {
-            assert!(
-                *rel_idx < relations.len(),
-                "Conjunct {i}: relation index {rel_idx} out of range (have {} relations)",
-                relations.len()
-            );
-            assert!(
-                args.len() == relations[*rel_idx].arity,
-                "Conjunct {i}: has {} args, expected arity {}",
-                args.len(),
-                relations[*rel_idx].arity
-            );
+            if !(*rel_idx < relations.len()) {
+                return Err(format!(
+                    "Conjunct {i}: relation index {rel_idx} out of range (have {} relations)",
+                    relations.len()
+                )
+                .into());
+            }
+            if !(args.len() == relations[*rel_idx].arity) {
+                return Err(format!(
+                    "Conjunct {i}: has {} args, expected arity {}",
+                    args.len(),
+                    relations[*rel_idx].arity
+                )
+                .into());
+            }
             for (k, arg) in args.iter().enumerate() {
                 match arg {
                     QueryArg::Variable(v) => {
-                        assert!(
-                            *v < num_variables,
-                            "Conjunct {i}, arg {k}: Variable({v}) >= num_variables ({num_variables})"
-                        );
+                        if !(*v < num_variables) {
+                            return Err(format!("Conjunct {i}, arg {k}: Variable({v}) >= num_variables ({num_variables})").into());
+                        }
                     }
                     QueryArg::Constant(c) => {
-                        assert!(
-                            *c < domain_size,
-                            "Conjunct {i}, arg {k}: Constant({c}) >= domain_size ({domain_size})"
-                        );
+                        if !(*c < domain_size) {
+                            return Err(format!("Conjunct {i}, arg {k}: Constant({c}) >= domain_size ({domain_size})").into());
+                        }
                     }
                 }
             }
         }
-        Self {
+        Ok(Self {
             domain_size,
             relations,
             num_variables,
             conjuncts,
-        }
+        })
     }
 
     /// Returns the size of the finite domain.
@@ -317,8 +354,12 @@ impl Problem for ConjunctiveBooleanQuery {
 }
 
 impl crate::solvers::BruteForceProblem for ConjunctiveBooleanQuery {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![self.domain_size; self.num_variables]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_variables)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.domain_size)
     }
 }
 

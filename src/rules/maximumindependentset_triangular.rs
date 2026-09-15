@@ -9,6 +9,8 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
 use crate::rules::unitdiskmapping::triangular;
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
 use crate::types::One;
 
@@ -27,12 +29,31 @@ impl ReductionResult for ReductionISSimpleToTriangular {
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal { solution, .. } => {
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible { .. } => {
+                Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            }
+        }
+    }
+}
 
+impl ReductionISSimpleToTriangular {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         let encoded = crate::config::bits_to_config(target_solution);
         let mapped = triangular::map_config_back(&self.mapping_result, &encoded)?;
         Ok(crate::config::config_to_bits(&mapped))

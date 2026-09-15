@@ -52,12 +52,29 @@ inventory::submit! {
 /// // Minimum dominating set is just the center vertex
 /// assert!(solutions.contains(&vec![true, false, false, false]));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumDominatingSet<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumDominatingSetData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumDominatingSet<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumDominatingSetData::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -81,19 +98,21 @@ impl<W: Clone + Default> TryFrom<MinimumDominatingSetCreateSpec<W>>
             )
             .into());
         }
-        Ok(Self::new(spec.graph, spec.weights))
+        Self::try_new(spec.graph, spec.weights)
     }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
     /// Create a Dominating Set problem from a graph with given weights.
     pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+        Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.
@@ -205,8 +224,12 @@ where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.graph.num_vertices())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
@@ -227,7 +250,7 @@ impl TryFrom<MinimumDominatingSetOneCreateSpec> for MinimumDominatingSet<SimpleG
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDominatingSetOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        Ok(Self::new(spec.graph, weights))
+        Self::try_new(spec.graph, weights)
     }
 }
 
@@ -360,7 +383,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
             build: || {
                 use crate::example_db::specs::assemble_rule_example;
                 use crate::export::SolutionPair;
-                use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+                use crate::rules::{ReduceTo, ReductionResult};
 
                 let source = crate::models::decision::Decision::new(
                     MinimumDominatingSet::new(
@@ -369,8 +392,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
                     ),
                     2,
                 );
-                let result = source
-                    .reduce_to_aggregate()
+                let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&source)
                     .expect("reduction should succeed");
                 let target = result.target_problem();
                 let config = vec![false, false, true, true, false];
@@ -390,7 +412,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
             build: || {
                 use crate::example_db::specs::assemble_rule_example;
                 use crate::export::SolutionPair;
-                use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+                use crate::rules::{ReduceTo, ReductionResult};
 
                 let source = crate::models::decision::Decision::new(
                     MinimumDominatingSet::new(
@@ -399,8 +421,7 @@ pub(crate) fn decision_canonical_rule_example_specs(
                     ),
                     2,
                 );
-                let result = source
-                    .reduce_to_aggregate()
+                let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, One>>::reduce_to(&source)
                     .expect("reduction should succeed");
                 let target = result.target_problem();
                 let config = vec![false, false, true, true, false];

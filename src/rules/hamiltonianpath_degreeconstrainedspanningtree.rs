@@ -4,7 +4,8 @@
 
 use crate::models::graph::{DegreeConstrainedSpanningTree, HamiltonianPath};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing HamiltonianPath to DegreeConstrainedSpanningTree.
@@ -21,13 +22,26 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
         &self.target
     }
 
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
-        extract_hamiltonian_order(self.target.graph(), target_solution)
+impl ReductionHamiltonianPathToDegreeConstrainedSpanningTree {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(extract_hamiltonian_order(
+            self.target.graph(),
+            target_solution,
+        ))
     }
 }
 
@@ -49,13 +63,10 @@ impl ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>> for HamiltonianPath<Si
     }
 }
 
-fn extract_hamiltonian_order(
-    graph: &SimpleGraph,
-    target_solution: &[bool],
-) -> crate::rules::ExtractionResult<Vec<usize>> {
+fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[bool]) -> Vec<usize> {
     let num_vertices = graph.num_vertices();
     if num_vertices < 2 {
-        return Ok((0..num_vertices).collect());
+        return (0..num_vertices).collect();
     }
 
     let edges = graph.edges();
@@ -74,46 +85,24 @@ fn extract_hamiltonian_order(
         .filter_map(|(vertex, neighbors)| (neighbors.len() == 1).then_some(vertex))
         .collect();
     endpoints.sort_unstable();
-    if endpoints.len() != 2 {
-        return Err(crate::rules::ExtractionError::invalid(
-            "selected edges do not form a Hamiltonian path",
-        ));
-    }
-
     let mut order = Vec::with_capacity(num_vertices);
-    let mut visited = vec![false; num_vertices];
     let mut previous = None;
     let mut current = endpoints[0];
-
     loop {
-        if visited[current] {
-            return Err(crate::rules::ExtractionError::invalid(
-                "selected edges contain a cycle",
-            ));
-        }
-        visited[current] = true;
         order.push(current);
-
-        let next = adjacency[current]
+        match adjacency[current]
             .iter()
             .copied()
-            .find(|&neighbor| Some(neighbor) != previous && !visited[neighbor]);
-        match next {
-            Some(next_vertex) => {
+            .find(|&neighbor| Some(neighbor) != previous)
+        {
+            Some(next) => {
                 previous = Some(current);
-                current = next_vertex;
+                current = next;
             }
             None => break,
         }
     }
-
-    if order.len() == num_vertices {
-        Ok(order)
-    } else {
-        Err(crate::rules::ExtractionError::invalid(
-            "selected edges do not span every source vertex",
-        ))
-    }
+    order
 }
 
 #[cfg(feature = "example-db")]

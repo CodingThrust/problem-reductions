@@ -9,7 +9,8 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing TravelingSalesman to ILP.
@@ -32,32 +33,41 @@ impl ReductionResult for ReductionTSPToILP {
 
     /// Extract solution: read tour permutation from x variables,
     /// then map to edge selection for the source problem.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionTSPToILP {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.num_vertices;
 
-            let tour = one_hot_decode(target_solution, n, n, 0)?;
+            let tour = one_hot_decode(target_solution, n, n, 0);
 
             // Map tour to edge selection
             let mut edge_selection = vec![false; self.source_edges.len()];
             for k in 0..n {
                 let u = tour[k];
                 let v = tour[(k + 1) % n];
-                let edge = self
+                for (edge, _) in self
                     .source_edges
                     .iter()
-                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target tour uses absent source edge ({u}, {v})"
-                        ))
-                    })?;
-                edge_selection[edge] = true;
+                    .enumerate()
+                    .filter(|&(_, &(a, b))| (a == u && b == v) || (a == v && b == u))
+                    .take(1)
+                {
+                    edge_selection[edge] = true;
+                }
             }
 
             edge_selection

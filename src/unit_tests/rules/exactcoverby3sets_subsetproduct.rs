@@ -2,6 +2,7 @@ use crate::models::misc::SubsetProduct;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::SolveOutcome;
 use num_bigint::BigUint;
 
 #[test]
@@ -41,9 +42,15 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true])
-            .unwrap(),
-        vec![true, false, true]
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), vec![true, true, false].clone())
+                    .unwrap()
+            )
+            .unwrap()
+            .into_solution()
+            .expect("qualifying target result must recover a source solution"),
+        vec![true, true, false]
     );
 }
 

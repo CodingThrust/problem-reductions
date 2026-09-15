@@ -86,6 +86,7 @@ pub enum Term {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConjunctiveQueryFoldabilityData")]
 pub struct ConjunctiveQueryFoldability {
     /// Size of the finite domain D.
     domain_size: usize,
@@ -99,6 +100,30 @@ pub struct ConjunctiveQueryFoldability {
     query1_conjuncts: Vec<(usize, Vec<Term>)>,
     /// Atoms of query Q2: each atom is `(relation_index, argument_list)`.
     query2_conjuncts: Vec<(usize, Vec<Term>)>,
+}
+
+#[derive(Deserialize)]
+struct ConjunctiveQueryFoldabilityData {
+    domain_size: usize,
+    num_distinguished: usize,
+    num_undistinguished: usize,
+    relation_arities: Vec<usize>,
+    query1_conjuncts: Vec<(usize, Vec<Term>)>,
+    query2_conjuncts: Vec<(usize, Vec<Term>)>,
+}
+
+impl TryFrom<ConjunctiveQueryFoldabilityData> for ConjunctiveQueryFoldability {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: ConjunctiveQueryFoldabilityData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.domain_size,
+            data.num_distinguished,
+            data.num_undistinguished,
+            data.relation_arities,
+            data.query1_conjuncts,
+            data.query2_conjuncts,
+        )
+    }
 }
 
 impl ConjunctiveQueryFoldability {
@@ -129,6 +154,25 @@ impl ConjunctiveQueryFoldability {
         query1_conjuncts: Vec<(usize, Vec<Term>)>,
         query2_conjuncts: Vec<(usize, Vec<Term>)>,
     ) -> Self {
+        Self::try_new(
+            domain_size,
+            num_distinguished,
+            num_undistinguished,
+            relation_arities,
+            query1_conjuncts,
+            query2_conjuncts,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        domain_size: usize,
+        num_distinguished: usize,
+        num_undistinguished: usize,
+        relation_arities: Vec<usize>,
+        query1_conjuncts: Vec<(usize, Vec<Term>)>,
+        query2_conjuncts: Vec<(usize, Vec<Term>)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let instance = Self {
             domain_size,
             num_distinguished,
@@ -137,55 +181,63 @@ impl ConjunctiveQueryFoldability {
             query1_conjuncts,
             query2_conjuncts,
         };
-        instance.validate();
-        instance
+        instance.validate()?;
+        Ok(instance)
     }
 
-    /// Validate the instance, panicking on any inconsistency.
-    fn validate(&self) {
+    /// Check relation arities and argument indices.
+    fn validate(&self) -> Result<(), crate::registry::ConstructionError> {
         for (query_name, conjuncts) in [
             ("Q1", &self.query1_conjuncts),
             ("Q2", &self.query2_conjuncts),
         ] {
             for (atom_idx, (rel_idx, args)) in conjuncts.iter().enumerate() {
-                assert!(
-                    *rel_idx < self.relation_arities.len(),
-                    "Atom {atom_idx} of {query_name}: relation index {rel_idx} out of range \
+                if !(*rel_idx < self.relation_arities.len()) {
+                    return Err(format!(
+                        "Atom {atom_idx} of {query_name}: relation index {rel_idx} out of range \
                      (num_relations = {})",
-                    self.relation_arities.len()
-                );
+                        self.relation_arities.len()
+                    )
+                    .into());
+                };
                 let arity = self.relation_arities[*rel_idx];
-                assert_eq!(
-                    args.len(),
-                    arity,
-                    "Atom {atom_idx} of {query_name}: relation {rel_idx} has arity {arity} \
+                if args.len() != arity {
+                    return Err(format!(
+                        "Atom {atom_idx} of {query_name}: relation {rel_idx} has arity {arity} \
                      but got {} arguments",
-                    args.len()
-                );
+                        args.len()
+                    )
+                    .into());
+                };
                 for term in args {
                     match term {
-                        Term::Constant(i) => assert!(
-                            *i < self.domain_size,
-                            "Atom {atom_idx} of {query_name}: Constant({i}) out of range \
+                        Term::Constant(i) => {
+                            if !(*i < self.domain_size) {
+                                return Err(format!(
+                                    "Atom {atom_idx} of {query_name}: Constant({i}) out of range \
                              (domain_size = {})",
-                            self.domain_size
-                        ),
-                        Term::Distinguished(i) => assert!(
-                            *i < self.num_distinguished,
-                            "Atom {atom_idx} of {query_name}: Distinguished({i}) out of range \
-                             (num_distinguished = {})",
-                            self.num_distinguished
-                        ),
-                        Term::Undistinguished(i) => assert!(
-                            *i < self.num_undistinguished,
-                            "Atom {atom_idx} of {query_name}: Undistinguished({i}) out of range \
-                             (num_undistinguished = {})",
-                            self.num_undistinguished
-                        ),
+                                    self.domain_size
+                                )
+                                .into());
+                            }
+                        }
+                        Term::Distinguished(i) => {
+                            if !(*i < self.num_distinguished) {
+                                return Err(format!("Atom {atom_idx} of {query_name}: Distinguished({i}) out of range \
+                             (num_distinguished = {})", self.num_distinguished).into());
+                            }
+                        }
+                        Term::Undistinguished(i) => {
+                            if !(*i < self.num_undistinguished) {
+                                return Err(format!("Atom {atom_idx} of {query_name}: Undistinguished({i}) out of range \
+                             (num_undistinguished = {})", self.num_undistinguished).into());
+                            }
+                        }
                     }
                 }
             }
         }
+        Ok(())
     }
 
     /// Returns the size of the finite domain D.
@@ -325,9 +377,22 @@ impl Problem for ConjunctiveQueryFoldability {
 
 impl crate::solvers::BruteForceProblem for ConjunctiveQueryFoldability {
     /// Each undistinguished variable can map to any element of `D ∪ X ∪ Y`.
-    fn dimensions(&self) -> Vec<usize> {
-        let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
-        vec![range; self.num_undistinguished]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.num_undistinguished)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        ((self.domain_size)
+            .checked_add(self.num_distinguished)
+            .ok_or_else(|| {
+                crate::solvers::SolveError::IntegerOverflow(
+                    "computing a coordinate cardinality".into(),
+                )
+            })?)
+        .checked_add(self.num_undistinguished)
+        .ok_or_else(|| {
+            crate::solvers::SolveError::IntegerOverflow("computing a coordinate cardinality".into())
+        })
     }
 }
 

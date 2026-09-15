@@ -55,7 +55,6 @@ pub struct MappingResult<T = KsgTapeEntry> {
     /// Tape entries recording gadget applications (for unapply during solution extraction).
     pub tape: Vec<T>,
     /// Doubled cells (where two copy lines overlap) for map_config_back.
-    #[serde(default)]
     pub doubled_cells: HashSet<(usize, usize)>,
 }
 
@@ -230,16 +229,8 @@ impl MappingResult<KsgTapeEntry> {
         &self,
         grid_config: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        self.map_config_back_internal(grid_config)
-            .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
-    }
-
-    fn map_config_back_internal(
-        &self,
-        grid_config: &[usize],
-    ) -> Result<Vec<usize>, ReductionError> {
         if grid_config.len() != self.positions.len() {
-            return Err(mapping_invalid(
+            return Err(crate::rules::ExtractionError::invalid(
                 "grid configuration length must match the mapped vertex count",
             ));
         }
@@ -248,12 +239,18 @@ impl MappingResult<KsgTapeEntry> {
         let mut config_2d = vec![vec![0usize; cols]; rows];
 
         for (idx, &(row, col)) in self.positions.iter().enumerate() {
-            let row = usize::try_from(row)
-                .map_err(|_| mapping_invalid("mapping result contains a negative grid row"))?;
-            let col = usize::try_from(col)
-                .map_err(|_| mapping_invalid("mapping result contains a negative grid column"))?;
+            let row = usize::try_from(row).map_err(|_| {
+                crate::rules::ExtractionError::invalid(
+                    "mapping result contains a negative grid row",
+                )
+            })?;
+            let col = usize::try_from(col).map_err(|_| {
+                crate::rules::ExtractionError::invalid(
+                    "mapping result contains a negative grid column",
+                )
+            })?;
             if row >= rows || col >= cols {
-                return Err(mapping_invalid(
+                return Err(crate::rules::ExtractionError::invalid(
                     "mapping result contains a position outside its grid dimensions",
                 ));
             }
@@ -261,7 +258,8 @@ impl MappingResult<KsgTapeEntry> {
         }
 
         // Step 2: Unapply gadgets in reverse order
-        unapply_gadgets(&self.tape, &mut config_2d)?;
+        unapply_gadgets(&self.tape, &mut config_2d)
+            .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))?;
 
         // Step 3: Extract vertex configs from copylines
         map_config_copyback(
@@ -271,6 +269,7 @@ impl MappingResult<KsgTapeEntry> {
             &config_2d,
             &self.doubled_cells,
         )
+        .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
     }
 }
 
@@ -280,16 +279,8 @@ impl MappingResult<WeightedKsgTapeEntry> {
         &self,
         grid_config: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        self.map_config_back_internal(grid_config)
-            .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
-    }
-
-    fn map_config_back_internal(
-        &self,
-        grid_config: &[usize],
-    ) -> Result<Vec<usize>, ReductionError> {
         if grid_config.len() != self.positions.len() {
-            return Err(mapping_invalid(
+            return Err(crate::rules::ExtractionError::invalid(
                 "grid configuration length must match the mapped vertex count",
             ));
         }
@@ -298,12 +289,18 @@ impl MappingResult<WeightedKsgTapeEntry> {
         let mut config_2d = vec![vec![0usize; cols]; rows];
 
         for (idx, &(row, col)) in self.positions.iter().enumerate() {
-            let row = usize::try_from(row)
-                .map_err(|_| mapping_invalid("mapping result contains a negative grid row"))?;
-            let col = usize::try_from(col)
-                .map_err(|_| mapping_invalid("mapping result contains a negative grid column"))?;
+            let row = usize::try_from(row).map_err(|_| {
+                crate::rules::ExtractionError::invalid(
+                    "mapping result contains a negative grid row",
+                )
+            })?;
+            let col = usize::try_from(col).map_err(|_| {
+                crate::rules::ExtractionError::invalid(
+                    "mapping result contains a negative grid column",
+                )
+            })?;
             if row >= rows || col >= cols {
-                return Err(mapping_invalid(
+                return Err(crate::rules::ExtractionError::invalid(
                     "mapping result contains a position outside its grid dimensions",
                 ));
             }
@@ -311,7 +308,8 @@ impl MappingResult<WeightedKsgTapeEntry> {
         }
 
         // Step 2: Unapply gadgets in reverse order
-        unapply_weighted_gadgets(&self.tape, &mut config_2d)?;
+        unapply_weighted_gadgets(&self.tape, &mut config_2d)
+            .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))?;
 
         // Step 3: Extract vertex configs from copylines
         map_config_copyback(
@@ -321,6 +319,7 @@ impl MappingResult<WeightedKsgTapeEntry> {
             &config_2d,
             &self.doubled_cells,
         )
+        .map_err(|error| crate::rules::ExtractionError::invalid(error.to_string()))
     }
 }
 

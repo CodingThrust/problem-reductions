@@ -1,6 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -70,7 +71,23 @@ fn test_exactcoverby3sets_to_minimumaxiomset_no_instance_gap() {
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&optimal).unwrap(), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&optimal).unwrap();
+    let extracted = reduction.map_solution(&optimal).unwrap();
+    assert_eq!(
+        reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(target, optimal.clone()).unwrap()
+            )
+            .unwrap(),
+        SolveOutcome::Infeasible
+    );
+    assert!(matches!(
+        reduction.recover_result(
+            &source,
+            SolveOutcome::feasible(target, optimal.clone()).unwrap()
+        ),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    ));
     assert!(!source.evaluate(&extracted).unwrap());
 }
 
@@ -81,9 +98,19 @@ fn test_extract_solution_reads_only_set_sentence_axioms() {
         ReduceTo::<MinimumAxiomSet>::reduce_to(&source).expect("reduction should succeed");
 
     let extracted = reduction
-        .extract_solution(&vec![
-            true, false, true, false, false, true, false, false, false, true, true,
-        ])
-        .unwrap();
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(
+                reduction.target_problem(),
+                vec![
+                    true, false, true, false, false, true, false, false, false, true, true,
+                ]
+                .clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
     assert_eq!(extracted, vec![false, false, false, true, true]);
 }

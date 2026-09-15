@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
+use crate::solvers::SolveOutcome;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -26,7 +27,14 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
+    let extracted = reduction
+        .recover_result(
+            &source,
+            SolveOutcome::optimal(reduction.target_problem(), ilp_solution.clone()).unwrap(),
+        )
+        .unwrap()
+        .into_solution()
+        .expect("qualifying target result must recover a source solution");
 
     assert!(source.evaluate(&extracted).unwrap());
 }

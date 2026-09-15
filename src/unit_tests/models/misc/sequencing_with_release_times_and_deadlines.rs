@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -16,7 +15,10 @@ fn test_sequencing_rtd_basic() {
     assert_eq!(problem.deadlines(), &[5, 6, 10, 3, 12]);
     assert_eq!(problem.time_horizon(), 12);
     // Lehmer code dims: [5, 4, 3, 2, 1]
-    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![5, 4, 3, 2, 1]
+    );
     assert_eq!(
         <SequencingWithReleaseTimesAndDeadlines as Problem>::NAME,
         "SequencingWithReleaseTimesAndDeadlines"
@@ -73,14 +75,20 @@ fn test_sequencing_rtd_empty_instance() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![], vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.time_horizon(), 0);
-    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        Vec::<usize>::new()
+    );
     assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
 fn test_sequencing_rtd_single_task() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2], vec![1], vec![5]);
-    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(
+        crate::solvers::cartesian_dimensions(&problem).unwrap(),
+        vec![1]
+    );
     // Only one permutation: task 0 starts at max(1,0)=1, finish=3 <= 5
     assert!(problem.evaluate(&vec![0]).unwrap());
 }

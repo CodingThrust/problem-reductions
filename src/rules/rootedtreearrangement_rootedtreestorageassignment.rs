@@ -12,7 +12,8 @@
 use crate::models::graph::RootedTreeArrangement;
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing RootedTreeArrangement to RootedTreeStorageAssignment.
@@ -36,12 +37,22 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
     /// The target config is a parent array defining a rooted tree on X = V.
     /// The source config is [parent_array | identity_mapping] since X = V
     /// means the mapping f is the identity.
-    fn extract_solution(
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        recover_preserving_status(source, target, |solution| self.map_solution(solution))
+    }
+}
 
+impl ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
         Ok({
             let n = self.num_vertices;
             // target_solution is the parent array of the rooted tree on X = V

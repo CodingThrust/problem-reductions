@@ -12,6 +12,8 @@ use crate::models::algebraic::QUBO;
 use crate::models::misc::MinimumDiscretePlanarInverseKinematics;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::solvers::ProblemOutcome;
+use crate::solvers::SolveOutcome;
 
 fn block_offsets(block_sizes: &[usize]) -> Vec<usize> {
     let mut offsets = Vec::with_capacity(block_sizes.len());
@@ -29,6 +31,8 @@ pub struct ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     target: QUBO<f64>,
     block_offsets: Vec<usize>,
     block_sizes: Vec<usize>,
+    omitted_constant: f64,
+    feasible_energy_upper: f64,
 }
 
 impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
@@ -39,32 +43,68 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
         &self.target
     }
 
-    fn extract_solution(
+    /// Decode a qualifying optimum after the energy relation establishes source
+    /// feasibility. Such an optimum is one-hot and obeys every allowed pair.
+    fn recover_result(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        source: &Self::Source,
+        target: ProblemOutcome<Self::Target>,
+    ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
+        match target {
+            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
+            SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Ok(SolveOutcome::Infeasible);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::optimal(source, solution)?)
+            }
+            SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            } => {
+                if !self.map_value(evaluation).is_valid() {
+                    return Err(crate::rules::ExtractionError::InsufficientSolutionQuality);
+                }
+                let solution = self.map_solution(&solution)?;
+                Ok(SolveOutcome::feasible(source, solution)?)
+            }
+        }
+    }
+}
 
-        self.block_offsets
+impl ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
+    fn map_solution(
+        &self,
+        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<
+        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
+    > {
+        Ok(self
+            .block_offsets
             .iter()
             .zip(&self.block_sizes)
-            .enumerate()
-            .map(|(link, (&start, &size))| {
-                let mut selected = target_solution[start..start + size]
+            .map(|(&start, &size)| {
+                target_solution[start..start + size]
                     .iter()
-                    .enumerate()
-                    .filter_map(|(orientation, &bit)| bit.then_some(orientation));
-                match (selected.next(), selected.next()) {
-                    (Some(orientation), None) => Ok(orientation),
-                    (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "link {link} has no selected orientation"
-                    ))),
-                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
-                        "link {link} has multiple selected orientations"
-                    ))),
-                }
+                    .position(|&bit| bit)
+                    .unwrap()
             })
-            .collect()
+            .collect())
+    }
+}
+
+impl ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
+    fn map_value(&self, value: crate::types::Min<f64>) -> crate::types::Min<f64> {
+        crate::types::Min(
+            value
+                .0
+                .filter(|&energy| energy < self.feasible_energy_upper)
+                .map(|energy| energy + self.omitted_constant),
+        )
     }
 }
 
@@ -95,12 +135,25 @@ impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
         // instance is one-hot and pair-feasible.
         let sum_abs_x: f64 = x_coeffs.iter().map(|coeff| coeff.abs()).sum();
         let sum_abs_y: f64 = y_coeffs.iter().map(|coeff| coeff.abs()).sum();
-        let penalty = 1.0 + (sum_abs_x + gx.abs()).powi(2) + (sum_abs_y + gy.abs()).powi(2);
+        let distance_bound = (sum_abs_x + gx.abs()).powi(2) + (sum_abs_y + gy.abs()).powi(2);
+        // Leave a gap proportional to the scale, rather than adding one to a
+        // large floating-point number that may round back to itself.
+        let penalty = 2.0 * (1.0 + distance_bound);
+        let omitted_constant = gx * gx + gy * gy + penalty * block_sizes.len() as f64;
+        let feasible_energy_upper = 1.5 * (1.0 + distance_bound) - omitted_constant;
+        if !omitted_constant.is_finite() || !feasible_energy_upper.is_finite() {
+            return Err(crate::rules::ReductionError::non_finite_result::<
+                Self,
+                QUBO<f64>,
+            >(
+                "computing the inverse-kinematics energy relation"
+            ));
+        }
 
-        let mut matrix = vec![vec![0.0; total_vars]; total_vars];
+        let mut matrix = vec![std::collections::BTreeMap::new(); total_vars];
         let mut add_upper = |i: usize, j: usize, value: f64| {
             let (lo, hi) = if i <= j { (i, j) } else { (j, i) };
-            matrix[lo][hi] += value;
+            *matrix[lo].entry(hi).or_insert(0.0) += value;
         };
 
         // Position objective: (X - g_x)^2 + (Y - g_y)^2, dropping the
@@ -156,14 +209,12 @@ impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
         }
 
         Ok(ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<
-                    MinimumDiscretePlanarInverseKinematics,
-                    QUBO<f64>,
-                >(message)
-            })?,
+            target: QUBO::from_rows(matrix)
+                .map_err(<Self as ReduceTo<QUBO<f64>>>::target_construction)?,
             block_offsets,
             block_sizes,
+            omitted_constant,
+            feasible_energy_upper,
         })
     }
 }

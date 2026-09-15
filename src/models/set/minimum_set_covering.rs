@@ -55,7 +55,7 @@ inventory::submit! {
 ///     assert!(problem.evaluate(&sol).unwrap().is_valid());
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumSetCovering<W = i64> {
     /// Size of the universe (elements are 0..universe_size).
     universe_size: usize,
@@ -63,6 +63,21 @@ pub struct MinimumSetCovering<W = i64> {
     sets: Vec<Vec<usize>>,
     /// Weights for each set.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumSetCoveringData<W> {
+    universe_size: usize,
+    sets: Vec<Vec<usize>>,
+    weights: Vec<W>,
+}
+
+impl<'de, W: Clone + Default + Deserialize<'de>> Deserialize<'de> for MinimumSetCovering<W> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumSetCoveringData::deserialize(deserializer)?;
+        Self::try_with_weights(data.universe_size, data.sets, data.weights)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -96,11 +111,7 @@ impl TryFrom<MinimumSetCoveringCreateSpec> for MinimumSetCovering<i64> {
                 .into());
             }
         }
-        Ok(Self::with_weights(
-            spec.universe_size,
-            spec.subsets,
-            spec.weights,
-        ))
+        Self::try_with_weights(spec.universe_size, spec.subsets, spec.weights)
     }
 }
 
@@ -110,23 +121,49 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
     where
         W: WeightElement,
     {
-        let num_sets = sets.len();
-        let weights = vec![W::unit(); num_sets];
-        Self {
-            universe_size,
-            sets,
-            weights,
-        }
+        Self::try_new(universe_size, sets).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        universe_size: usize,
+        sets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError>
+    where
+        W: WeightElement,
+    {
+        let weights = vec![W::unit(); sets.len()];
+        Self::try_with_weights(universe_size, sets, weights)
     }
 
     /// Create a new Set Covering problem with custom weights.
     pub fn with_weights(universe_size: usize, sets: Vec<Vec<usize>>, weights: Vec<W>) -> Self {
-        assert_eq!(sets.len(), weights.len());
-        Self {
+        Self::try_with_weights(universe_size, sets, weights)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_with_weights(
+        universe_size: usize,
+        sets: Vec<Vec<usize>>,
+        weights: Vec<W>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if sets.len() != weights.len() {
+            return Err(format!(
+                "weights has {} entries, expected one for each of {} subsets",
+                weights.len(),
+                sets.len()
+            )
+            .into());
+        }
+        for (index, set) in sets.iter().enumerate() {
+            if let Some(element) = set.iter().find(|&&element| element >= universe_size) {
+                return Err(format!("set {index} contains element {element} outside universe of size {universe_size}").into());
+            }
+        }
+        Ok(Self {
             universe_size,
             sets,
             weights,
-        }
+        })
     }
 
     /// Get the universe size.
@@ -223,8 +260,12 @@ impl<W> crate::solvers::BruteForceProblem for MinimumSetCovering<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
-    fn dimensions(&self) -> Vec<usize> {
-        vec![2; self.sets.len()]
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(self.sets.len())
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2usize)
     }
 }
 
