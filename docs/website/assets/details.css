@@ -1,0 +1,44 @@
+.detail-variant { color: #c4dda6; font-size: 14px; overflow-wrap: anywhere; }
+.detail-source { color: #9aa797; font-size: 13px; margin: 14px 0 22px; }
+.typst-detail h3 { margin: 24px 0 10px; font-size: 17px; font-weight: 600; }
+.typst-detail p { margin: 10px 0; }
+.typst-detail svg { max-width: 100%; filter: invert(.9); }
+.typst-math > svg { display: inline-block !important; vertical-align: baseline; }
+div.typst-math { overflow-x: auto; margin: 14px 0; }
+.typst-detail figure { margin: 20px 0; }
+.typst-detail figure > svg { filter: none; background: #eef3e8; border-radius: 4px; padding: 16px; box-sizing: border-box; width: min(100%, 260px) !important; height: auto !important; margin-inline: auto; }
+.typst-detail figcaption { color: #a9b5a4; font-size: 13px; margin-top: 10px; }
+.typst-detail figcaption svg { filter: invert(.9); }
+.typst-detail pre { overflow: auto; max-height: 240px; padding: 12px; border: 1px solid var(--line); border-radius: 4px; font-size: 14px; line-height: 1.7; }
+:is(.graph-detail, .reference-detail) a { color: #c4dda6; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.detail-references { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 13px; }
+.detail-references summary { cursor: pointer; }
+.detail-references h2 { display: none; }
+.detail-references ul { padding: 0; }
+.detail-references li { margin: 14px 0; overflow-wrap: anywhere; }
+.detail-pdf { display: inline-block; margin-top: 24px; font-size: 14px; }
+
+.graph-detail .detail-atlas { display: inline-flex; font-size: 14px; margin-bottom: 10px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 4px; text-decoration: none; }
+.graph-detail .detail-atlas:hover { background: var(--pale); }
+.reference-detail { min-width: 0; padding-block: 12px 36px; border-top: 0; }
+.reference-detail:has(.detail-references) { padding-bottom: 0; }
+.reference-detail .detail-references { padding: 0; border-bottom: 0; }
+.reference-detail .detail-references > summary { padding-block: 20px; font-size: 16px; font-weight: 500; }
+.reference-detail .detail-references > summary::marker { color: var(--muted); }
+.reference-detail .detail-references[open] { padding-bottom: 24px; }
+.reference-detail > .detail-source { margin: 0 0 24px; font-size: 13px; }
+.reference-detail .typst-detail { font-size: 16px; line-height: 1.9; }
+.reference-detail .typst-detail h3 { font-size: 19px; margin: 36px 0 14px; }
+.reference-detail .typst-detail h3:first-of-type { margin-top: 0; }
+.reference-detail .typst-detail p { margin: 14px 0; }
+.reference-detail .typst-detail figure { margin: 32px 0; }
+.reference-detail .typst-detail figure > svg { display: block; width: min(100%, 420px) !important; padding: 24px; }
+.reference-detail .typst-detail figcaption { max-width: 60ch; margin: 14px auto 0; line-height: 1.7; }
+.reference-detail div.typst-math { padding-block: 12px; margin: 20px 0; text-align: center; }
+.reference-detail div.typst-math > svg { max-width: none; }
+.reference-detail .typst-detail pre { margin: 24px 0; padding: 16px; max-height: 180px; }
+@media (max-width: 600px) {
+  .detail-header, .reading-layout { width: calc(100% - 36px); }
+  .detail-header { padding-block: 28px 24px; }
+  .detail-header h1 { font-size: 32px; }
+}
