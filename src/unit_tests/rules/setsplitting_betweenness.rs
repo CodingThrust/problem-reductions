@@ -33,6 +33,31 @@ fn test_setsplitting_to_betweenness_closed_loop() {
 }
 
 #[test]
+fn repeated_elements_obey_set_semantics_including_singletons() {
+    for subset in [
+        vec![0, 0, 1],
+        vec![1, 0, 1, 0, 1],
+        vec![0, 0],
+        vec![1, 1, 1, 1],
+    ] {
+        let source = SetSplitting::new(2, vec![subset]);
+        let reduction = ReduceTo::<Betweenness>::reduce_to(&source).unwrap();
+        if BruteForce::new().solve(&source).unwrap().is_some() {
+            assert_satisfaction_round_trip_from_satisfaction_target(
+                &source,
+                &reduction,
+                "set multiplicity",
+            );
+        } else {
+            assert!(BruteForce::new()
+                .solve(reduction.target_problem())
+                .unwrap()
+                .is_none());
+        }
+    }
+}
+
+#[test]
 fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
     let source = issue_yes_instance();
     let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");

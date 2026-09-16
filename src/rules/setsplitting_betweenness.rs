@@ -74,6 +74,14 @@ impl ReduceTo<Betweenness> for SetSplitting {
 
         for subset in normalized_subsets {
             match subset.as_slice() {
+                [u] => {
+                    // A singleton cannot contain both colors. These two
+                    // incompatible orders encode that same impossibility.
+                    let auxiliary = num_elements;
+                    num_elements += 1;
+                    triples.push((*u, pole, auxiliary));
+                    triples.push((pole, *u, auxiliary));
+                }
                 [u, v] => triples.push((*u, pole, *v)),
                 [u, v, w] => {
                     let auxiliary = num_elements;
@@ -86,7 +94,7 @@ impl ReduceTo<Betweenness> for SetSplitting {
                         SetSplitting,
                         Betweenness,
                     >(
-                        "normalized subset must contain two or three elements"
+                        "normalized subset must contain one, two or three elements",
                     ));
                 }
             }

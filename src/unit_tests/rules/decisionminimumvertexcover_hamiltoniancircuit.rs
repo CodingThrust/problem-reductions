@@ -163,3 +163,38 @@ fn unit_cover_bound_handles_negative_and_empty_graphs() {
         }
     }
 }
+
+#[test]
+fn loops_force_vertices_before_the_loopless_construction() {
+    for (n, edges, bound, cover) in [
+        (2, vec![(0, 0), (0, 1)], 1, vec![true, false]),
+        (
+            4,
+            vec![(0, 0), (0, 1), (1, 2), (2, 3)],
+            2,
+            vec![true, false, true, false],
+        ),
+    ] {
+        let source = decision_mvc(n, &edges, bound);
+        let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap();
+        let witness = reduction.build_target_witness(&cover);
+        let recovered = reduction
+            .recover_result(
+                &source,
+                SolveOutcome::optimal(reduction.target_problem(), witness).unwrap(),
+            )
+            .unwrap()
+            .into_solution()
+            .unwrap();
+        assert!(recovered[0]);
+        assert!(source.evaluate(&recovered).unwrap().0);
+    }
+    for (edges, bound) in [(vec![(0, 0), (1, 1)], 1), (vec![(0, 0), (1, 2)], 1)] {
+        let source = decision_mvc(3, &edges, bound);
+        let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap();
+        assert!(BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none());
+    }
+}

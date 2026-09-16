@@ -40,6 +40,48 @@ fn test_threedimensionalmatching_to_threepartition_q1_overhead_and_bounds() {
 }
 
 #[test]
+fn empty_triple_sets_preserve_empty_and_nonempty_universe_truth() {
+    let entry = inventory::iter::<crate::rules::ReductionEntry>
+        .into_iter()
+        .find(|e| {
+            e.source_name == ThreeDimensionalMatching::NAME && e.target_name == ThreePartition::NAME
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    for q in [0, 1] {
+        let (source, reduction) = reduce(q, &[]);
+        let bound = transform.evaluate(&source.parameters()).unwrap();
+        assert!(
+            reduction.target_problem().num_elements() as u64 <= bound.get("num_elements").unwrap()
+        );
+        assert!(reduction.target_problem().num_groups() as u64 <= bound.get("num_groups").unwrap());
+        if q == 0 {
+            crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target(
+                &source,
+                &reduction,
+                "empty matching domain",
+            );
+        } else {
+            assert!(BruteForce::new().solve(&source).unwrap().is_none());
+            assert!(BruteForce::new()
+                .solve(reduction.target_problem())
+                .unwrap()
+                .is_none());
+        }
+    }
+}
+
+#[test]
+fn target_sum_overflow_is_a_construction_error() {
+    let source = ThreeDimensionalMatching::new(20, (0..20).map(|i| (i, i, i)).collect());
+    assert!(matches!(
+        ReduceTo::<ThreePartition>::reduce_to(&source),
+        Err(crate::rules::ReductionError::Construction { .. })
+    ));
+}
+
+#[test]
 fn test_threedimensionalmatching_to_threepartition_q2_overhead_matches_vector() {
     let (_source, reduction) = reduce(2, &[(0, 0, 0), (1, 1, 1)]);
     let target = reduction.target_problem();

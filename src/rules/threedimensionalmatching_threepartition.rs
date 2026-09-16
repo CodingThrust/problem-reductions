@@ -279,6 +279,9 @@ impl ReductionThreeDimensionalMatchingToThreePartition {
     ) -> crate::rules::ExtractionResult<
         <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
     > {
+        if self.num_source_triples == 0 {
+            return Ok(Vec::new());
+        }
         let mut groups = vec![Vec::with_capacity(3); self.target.num_groups()];
         let mut positions = Vec::with_capacity(target_solution.len());
         for (element, &group) in target_solution.iter().enumerate() {
@@ -344,9 +347,9 @@ fn enumerate_pair_keys(num_regulars: usize) -> Option<Vec<(usize, usize)>> {
 }
 
 #[reduction(
-    transform = exact {
-        num_elements = "24 * num_triples * num_triples - 3 * num_triples",
-        num_groups = "8 * num_triples * num_triples - num_triples",
+    transform = upper_bound {
+        num_elements = "24 * num_triples * num_triples - 3 * num_triples + 6",
+        num_groups = "8 * num_triples * num_triples - num_triples + 2",
     })]
 impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreePartition;
@@ -356,16 +359,13 @@ impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
         let t = self.num_triples();
 
         if q == 0 {
-            return Err(crate::rules::ReductionError::invalid_target::<
-                ThreeDimensionalMatching,
-                ThreePartition,
-            >("source universe must be nonempty"));
-        }
-        if t == 0 {
-            return Err(crate::rules::ReductionError::invalid_target::<
-                ThreeDimensionalMatching,
-                ThreePartition,
-            >("source must contain at least one triple"));
+            // The empty matching covers the empty universe.
+            return Ok(ReductionThreeDimensionalMatchingToThreePartition {
+                target: ThreePartition::new(vec![1, 1, 1], 3),
+                step2_items: Vec::new(),
+                pair_keys: Vec::new(),
+                num_source_triples: 0,
+            });
         }
 
         let mut covered_w = vec![false; q];
@@ -576,7 +576,8 @@ impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
             .ok_or_else(|| arithmetic_overflow("computing the 3-Partition bound"))?;
 
         Ok(ReductionThreeDimensionalMatchingToThreePartition {
-            target: ThreePartition::new(sizes, bound),
+            target: ThreePartition::try_new(sizes, bound)
+                .map_err(<Self as ReduceTo<ThreePartition>>::target_construction)?,
             step2_items,
             pair_keys,
             num_source_triples: t,

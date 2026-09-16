@@ -295,14 +295,53 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
 }
 
 #[test]
-fn test_naesatisfiability_to_partitionintoperfectmatchings_rejects_long_clauses() {
-    let source = NAESatisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
-    let error =
-        ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::rules::ReductionError::InvalidTarget { .. }
-    ));
+fn long_nae_clauses_preserve_assignments_with_auxiliary_variables() {
+    let entry = inventory::iter::<crate::rules::ReductionEntry>
+        .into_iter()
+        .find(|e| {
+            e.source_name == NAESatisfiability::NAME
+                && e.target_name == PartitionIntoPerfectMatchings::<SimpleGraph>::NAME
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    for literals in [vec![1, 2, 3, 4], vec![1, -2, 1, 3, -4, 2], vec![1, 1, 1, 1]] {
+        let source = NAESatisfiability::new(4, vec![CNFClause::new(literals)]);
+        let reduction =
+            ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source).unwrap();
+        let layout = &reduction.layout;
+        let bound = transform.evaluate(&source.parameters()).unwrap();
+        assert!(layout.num_vertices as u64 <= bound.get("num_vertices").unwrap());
+        assert!(layout.edges.len() as u64 <= bound.get("num_edges").unwrap());
+        for bits in 0..16 {
+            let assignment: Vec<_> = (0..4).map(|i| bits & (1 << i) != 0).collect();
+            let mut extendible = false;
+            for aux in 0..(1 << (layout.variables.len() - 4)) {
+                let mut extended = assignment.clone();
+                extended.extend((0..layout.variables.len() - 4).map(|i| aux & (1 << i) != 0));
+                let satisfies = layout.clauses.iter().all(|clause| {
+                    let values = clause
+                        .literals
+                        .map(|l| extended[l.unsigned_abs() as usize - 1] == (l > 0));
+                    values.iter().any(|&v| v) && values.iter().any(|&v| !v)
+                });
+                extendible |= satisfies;
+            }
+            assert_eq!(extendible, source.evaluate(&assignment).unwrap().0);
+            if extendible {
+                let target = reduction.construct_target_solution(&assignment);
+                let recovered = reduction
+                    .recover_result(
+                        &source,
+                        SolveOutcome::optimal(reduction.target_problem(), target).unwrap(),
+                    )
+                    .unwrap()
+                    .into_solution()
+                    .unwrap();
+                assert_eq!(recovered, assignment);
+            }
+        }
+    }
 }
 
 #[cfg(feature = "example-db")]

@@ -20,7 +20,7 @@ enum ConstructionKind {
 
 #[derive(Debug, Clone)]
 struct TheoremConstruction {
-    num_source_vertices: usize,
+    forced_cover: Vec<bool>,
     selector_count: usize,
     edges: Vec<(usize, usize)>,
     incident_edges: Vec<Vec<usize>>,
@@ -73,7 +73,7 @@ impl TheoremConstruction {
 
     #[cfg(any(test, feature = "example-db"))]
     fn exact_selected_vertices(&self, source_cover: &[bool]) -> Option<Vec<usize>> {
-        if source_cover.len() != self.num_source_vertices || !self.covers_all_edges(source_cover) {
+        if source_cover.len() != self.forced_cover.len() || !self.covers_all_edges(source_cover) {
             return None;
         }
 
@@ -187,7 +187,7 @@ impl TheoremConstruction {
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<bool>> {
         Ok({
-            let mut source_cover = vec![false; self.num_source_vertices];
+            let mut source_cover = self.forced_cover.clone();
             let mut positions = vec![usize::MAX; target_solution.len()];
             for (idx, &vertex) in target_solution.iter().enumerate() {
                 positions[vertex] = idx;
@@ -276,6 +276,7 @@ fn normalize_edges(edges: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
         .map(|(u, v)| if u < v { (u, v) } else { (v, u) })
         .collect();
     normalized.sort_unstable();
+    normalized.dedup();
     normalized
 }
 
@@ -295,7 +296,18 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_source_vertices = self.inner().graph().num_vertices();
-        let raw_bound = *self.bound();
+        // Every loop forces its vertex into every cover. Apply the loopless
+        // theorem only to edges not already covered by these forced vertices.
+        let mut forced_cover = vec![false; num_source_vertices];
+        let mut edges = normalize_edges(self.inner().graph().edges());
+        for &(u, v) in &edges {
+            if u == v {
+                forced_cover[u] = true;
+            }
+        }
+        let raw_bound = i128::from(*self.bound())
+            - forced_cover.iter().filter(|&&selected| selected).count() as i128;
+        edges.retain(|&(u, v)| !forced_cover[u] && !forced_cover[v]);
         if raw_bound < 0 {
             return Ok(ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::path(3)),
@@ -305,7 +317,6 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
             });
         }
 
-        let edges = normalize_edges(self.inner().graph().edges());
         let mut incident_edges = vec![Vec::new(); num_source_vertices];
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
             incident_edges[u].push(edge_idx);
@@ -320,8 +331,8 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
             .collect();
         let active_count = active_vertices.len();
 
-        if i128::from(raw_bound) >= active_count as i128 {
-            let mut source_cover = vec![false; num_source_vertices];
+        if raw_bound >= active_count as i128 {
+            let mut source_cover = forced_cover;
             for vertex in active_vertices {
                 source_cover[vertex] = true;
             }
@@ -341,7 +352,7 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
         }
 
         let construction = TheoremConstruction {
-            num_source_vertices,
+            forced_cover,
             selector_count: usize::try_from(raw_bound)
                 .expect("nonnegative bound is smaller than the active vertex count"),
             edges,

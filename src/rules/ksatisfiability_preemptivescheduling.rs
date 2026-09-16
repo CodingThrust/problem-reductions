@@ -3,8 +3,9 @@
 //! This follows Ullman's 1975 construction via a unit-task precedence
 //! scheduling instance. Since every task has length 1, preemption is inert:
 //! the constructed instance is a valid preemptive scheduling problem whose
-//! optimal makespan hits the threshold `T = num_vars + 3` iff the 3-SAT
-//! instance is satisfiable.
+//! optimal makespan hits the threshold `T = num_vars + 3` iff a nontrivial
+//! 3-SAT instance is satisfiable. Empty conjunctions and empty clauses use
+//! constant instances; shorter nonempty clauses repeat literals.
 //!
 //! Reference: Jeffrey D. Ullman, "NP-complete scheduling problems", JCSS 10,
 //! 1975; Garey & Johnson, Appendix A5.2.
@@ -15,6 +16,7 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
 use crate::solvers::SolveOutcome;
+#[cfg(any(test, feature = "example-db"))]
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -39,10 +41,6 @@ struct UllmanConstruction {
 
 fn time_limit(num_vars: usize) -> usize {
     num_vars + 3
-}
-
-fn processor_upper_bound(num_vars: usize, num_clauses: usize) -> usize {
-    (2 * num_vars + 2).max(6 * num_clauses)
 }
 
 fn slot_capacities(num_vars: usize, num_clauses: usize) -> Vec<usize> {
@@ -75,8 +73,11 @@ fn build_ullman_construction(source: &KSatisfiability<K3>) -> UllmanConstruction
     let num_vars = source.num_vars();
     let num_clauses = source.num_clauses();
     let time_limit = time_limit(num_vars);
-    let num_processors = processor_upper_bound(num_vars, num_clauses);
     let capacities = slot_capacities(num_vars, num_clauses);
+    // Ullman's clock requires a nonempty filler layer in EVERY slot.
+    // A chain through all T layers forces layer i into slot i in any
+    // T-slot schedule, leaving exactly capacities[i] slots for original jobs.
+    let num_processors = capacities.iter().max().unwrap() + 1;
 
     let mut next_job = 0usize;
 
@@ -152,8 +153,8 @@ fn build_ullman_construction(source: &KSatisfiability<K3>) -> UllmanConstruction
     for (clause_index, clause) in source.clauses().iter().enumerate() {
         for (pattern_index, &clause_job) in clause_jobs[clause_index].iter().enumerate() {
             let pattern = pattern_index + 1;
-            for position in 0..3 {
-                let literal = clause.literals[position];
+            // Repeating literals preserves disjunction for short clauses.
+            for (position, &literal) in clause.literals.iter().cycle().take(3).enumerate() {
                 let bit_is_one = ((pattern >> (2 - position)) & 1) == 1;
                 precedences.push((
                     literal_endpoint(
@@ -196,13 +197,6 @@ fn build_ullman_construction(source: &KSatisfiability<K3>) -> UllmanConstruction
     }
 }
 
-fn task_slot(config: &[Vec<bool>], task: usize, d_max: usize) -> Option<usize> {
-    let task_slice = config.get(task)?;
-    (task_slice.len() == d_max)
-        .then(|| task_slice.iter().position(|&value| value))
-        .flatten()
-}
-
 #[cfg(any(test, feature = "example-db"))]
 fn set_task_slot(task_slots: &mut [Option<usize>], job: usize, slot: usize) {
     task_slots[job] = Some(slot);
@@ -214,9 +208,9 @@ fn clause_pattern_for_assignment(
     assignment: &[bool],
 ) -> usize {
     let mut pattern = 0usize;
-    for (position, &literal) in clause.literals.iter().enumerate() {
+    for (position, &literal) in clause.literals.iter().cycle().take(3).enumerate() {
         let variable = literal.unsigned_abs() as usize - 1;
-        let value = assignment.get(variable).copied().unwrap_or(false);
+        let value = assignment[variable];
         let literal_true = if literal > 0 { value } else { !value };
         if literal_true {
             pattern |= 1 << (2 - position);
@@ -231,6 +225,13 @@ fn construct_schedule_from_assignment(
     assignment: &[bool],
     source: &KSatisfiability<K3>,
 ) -> Option<Vec<Vec<bool>>> {
+    if source.num_clauses() == 0 || source.clauses().iter().any(|c| c.literals.is_empty()) {
+        return source
+            .evaluate(&assignment.to_vec())
+            .unwrap()
+            .0
+            .then(|| vec![vec![true]]);
+    }
     let construction = build_ullman_construction(source);
     if assignment.len() != source.num_vars() || target.num_tasks() != construction.num_jobs {
         return None;
@@ -345,56 +346,47 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
         match target {
             SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Optimal {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Ok(SolveOutcome::Infeasible)
+            SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                if evaluation.0.expect("valid schedule has a makespan") > self.threshold as i64 {
+                    return Ok(SolveOutcome::Infeasible);
                 }
+                // A threshold schedule must decode to a satisfying assignment.
+                // A mapping failure is an error, never evidence of infeasibility.
+                Ok(SolveOutcome::optimal(source, self.map_solution(&solution))?)
             }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Feasible {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+            SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            } => {
+                if evaluation.0.expect("valid schedule has a makespan") > self.threshold as i64 {
+                    return Err(crate::rules::ExtractionError::InsufficientSolutionQuality);
                 }
+                Ok(SolveOutcome::feasible(
+                    source,
+                    self.map_solution(&solution),
+                )?)
             }
         }
     }
 }
 
 impl Reduction3SATToPreemptiveScheduling {
-    fn map_solution(
-        &self,
-        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<
-        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
-    > {
-        Ok({
-            let d_max = self.target.d_max();
-            self.positive_start_jobs
-                .iter()
-                .map(|&job| task_slot(target_solution, job, d_max) == Some(0))
-                .collect()
-        })
+    fn map_solution(&self, target_solution: &[Vec<bool>]) -> Vec<bool> {
+        self.positive_start_jobs
+            .iter()
+            .map(|&job| target_solution[job][0])
+            .collect()
     }
 }
 
 #[reduction(
     transform = upper_bound {
-        num_tasks = "(2 * num_vars + 2 + 6 * num_clauses) * (num_vars + 3)",
-        num_processors = "2 * num_vars + 2 + 6 * num_clauses",
-        d_max = "(2 * num_vars + 2 + 6 * num_clauses) * (num_vars + 3)",
+        num_tasks = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
+        num_processors = "2 * num_vars + 3 + 6 * num_clauses",
+        d_max = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
     },
     unavailable = {
         num_precedences = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -404,6 +396,19 @@ impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {
     type Result = Reduction3SATToPreemptiveScheduling;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let has_empty_clause = self
+            .clauses()
+            .iter()
+            .any(|clause| clause.literals.is_empty());
+        if self.num_clauses() == 0 || has_empty_clause {
+            // The empty conjunction is true; any empty disjunction is false.
+            return Ok(Reduction3SATToPreemptiveScheduling {
+                target: PreemptiveScheduling::new(vec![1], 1, vec![])
+                    .map_err(<Self as ReduceTo<PreemptiveScheduling>>::target_construction)?,
+                positive_start_jobs: vec![0; self.num_vars()],
+                threshold: usize::from(!has_empty_clause),
+            });
+        }
         let construction = build_ullman_construction(self);
         let target = PreemptiveScheduling::new(
             vec![1_i64; construction.num_jobs],

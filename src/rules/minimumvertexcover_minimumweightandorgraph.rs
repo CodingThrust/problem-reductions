@@ -13,7 +13,7 @@ use crate::topology::SimpleGraph;
 pub struct ReductionVCToAndOrGraph {
     target: MinimumWeightAndOrGraph,
     sink_arc_start: usize,
-    num_source_vertices: usize,
+    forced_cover: Vec<bool>,
 }
 
 impl ReductionResult for ReductionVCToAndOrGraph {
@@ -29,27 +29,19 @@ impl ReductionResult for ReductionVCToAndOrGraph {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        recover_preserving_status(source, target, |solution| self.map_solution(solution))
-    }
-}
-
-impl ReductionVCToAndOrGraph {
-    fn map_solution(
-        &self,
-        target_solution: &<<Self as ReductionResult>::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<
-        <<Self as ReductionResult>::Source as crate::traits::Problem>::Solution,
-    > {
-        Ok({
-            (0..self.num_source_vertices)
-                .map(|j| target_solution[self.sink_arc_start + j])
-                .collect()
+        recover_preserving_status(source, target, |solution| {
+            Ok(self
+                .forced_cover
+                .iter()
+                .enumerate()
+                .map(|(j, &forced)| forced || solution[self.sink_arc_start + j])
+                .collect())
         })
     }
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "1 + num_edges + 2 * num_vertices",
         num_arcs = "3 * num_edges + num_vertices",
     }
@@ -59,7 +51,15 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> 
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
-        let edges = self.graph().edges();
+        // Adding a negative-weight vertex preserves coverage and strictly
+        // lowers cost, so every optimum contains all such vertices.
+        let forced_cover: Vec<_> = self.weights().iter().map(|&w| w < 0).collect();
+        let edges: Vec<_> = self
+            .graph()
+            .edges()
+            .into_iter()
+            .filter(|&(u, v)| !forced_cover[u] && !forced_cover[v])
+            .collect();
         let m = edges.len();
 
         let num_target_vertices = 1 + m + (2 * n);
@@ -91,7 +91,7 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> 
         let sink_arc_start = arcs.len();
         for (j, &weight) in self.weights().iter().enumerate() {
             arcs.push((cover_vertex(j), sink_vertex(j)));
-            arc_weights.push(weight);
+            arc_weights.push(weight.max(0));
         }
 
         let target =
@@ -100,7 +100,7 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> 
         Ok(ReductionVCToAndOrGraph {
             target,
             sink_arc_start,
-            num_source_vertices: n,
+            forced_cover,
         })
     }
 }
