@@ -123,7 +123,7 @@ clipboard actions, the mathematical example, legacy docs, and mobile overflow.
 
 ## Documentation
 
-Open problems has its own website navigation tab at `index.html#open-problems`.
+Open questions has its own website navigation tab at `index.html#open-questions`.
 
 The guide has seven pages listed in `docs/src/SUMMARY.md`: an overview, the CLI
 (quick start, command reference), agent skills, the Rust library

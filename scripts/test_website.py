@@ -58,25 +58,25 @@ class WebsiteTests(unittest.TestCase):
         expect(home).to_have_attribute('aria-current', 'page')
         expect(self.page.locator('main .hero')).to_be_visible()
 
-    def test_open_problems_has_its_own_navigation_tab(self):
+    def test_open_questions_has_its_own_navigation_tab(self):
         self.visit()
-        tab = self.page.get_by_role('navigation', name='Main navigation').get_by_role('link', name='Open problems', exact=True)
+        tab = self.page.get_by_role('navigation', name='Main navigation').get_by_role('link', name='Open questions', exact=True)
         tab.click()
         expect(tab).to_have_attribute('aria-current', 'page')
         self.assertEqual(tab.locator('xpath=following-sibling::a').count(), 0)
         expect(tab.locator('span')).to_have_text('↗')
-        expect(self.page.get_by_role('heading', name='Open problems', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('heading', name='Open questions', exact=True)).to_be_visible()
         expect(self.page.locator('main')).to_contain_text('To be released.')
         self.page.goto(self.base + 'introduction.html')
-        expect(self.page.locator('.sidebar')).not_to_contain_text('Open problems')
+        expect(self.page.locator('.sidebar')).not_to_contain_text('Open questions')
         expect(self.page.locator('.sidebar').get_by_text('Research', exact=True)).to_have_count(0)
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator("#cy canvas").first).to_be_visible()
-        tab = self.page.get_by_role('link', name='Open problems', exact=True)
+        tab = self.page.get_by_role('link', name='Open questions', exact=True)
         self.assertEqual(tab.locator('xpath=following-sibling::a').count(), 0)
         expect(tab.locator('span')).to_have_text('↗')
         tab.click()
-        expect(self.page.get_by_role('heading', name='Open problems', exact=True)).to_be_visible()
+        expect(self.page.get_by_role('heading', name='Open questions', exact=True)).to_be_visible()
 
     def test_home_formulas_load_as_typeset_vectors(self):
         self.visit()
