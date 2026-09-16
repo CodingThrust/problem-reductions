@@ -63,6 +63,8 @@ class WebsiteTests(unittest.TestCase):
         tab = self.page.get_by_role('navigation', name='Main navigation').get_by_role('link', name='Open problems', exact=True)
         tab.click()
         expect(tab).to_have_attribute('aria-current', 'page')
+        self.assertEqual(tab.locator('xpath=following-sibling::a').count(), 0)
+        expect(tab.locator('span')).to_have_text('↗')
         expect(self.page.get_by_role('heading', name='Open problems', exact=True)).to_be_visible()
         expect(self.page.locator('main')).to_contain_text('To be released.')
         self.page.goto(self.base + 'introduction.html')
@@ -70,7 +72,10 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.sidebar').get_by_text('Research', exact=True)).to_have_count(0)
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.get_by_role('link', name='Open problems', exact=True).click()
+        tab = self.page.get_by_role('link', name='Open problems', exact=True)
+        self.assertEqual(tab.locator('xpath=following-sibling::a').count(), 0)
+        expect(tab.locator('span')).to_have_text('↗')
+        tab.click()
         expect(self.page.get_by_role('heading', name='Open problems', exact=True)).to_be_visible()
 
     def test_home_formulas_load_as_typeset_vectors(self):
