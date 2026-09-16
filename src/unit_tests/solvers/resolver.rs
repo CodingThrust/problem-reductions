@@ -623,11 +623,10 @@ fn decision_closest_vector_solver_preserves_bound_after_serialization() {
 
     for (weights, sum, expected) in [(vec![1u32, 2], 3u32, true), (vec![2, 4], 3, false)] {
         let source = SubsetSum::new(weights, sum);
-        let reduction =
-            ReduceTo::<Decision<ClosestVectorProblem<i64>>>::reduce_to(&source).unwrap();
+        let reduction = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         let loaded = load_dyn(
-            <Decision<ClosestVectorProblem<i64>>>::NAME,
+            <Decision<ClosestVectorProblem>>::NAME,
             &BTreeMap::from([("coefficient".into(), "i64".into())]),
             serde_json::to_value(target).unwrap(),
         )

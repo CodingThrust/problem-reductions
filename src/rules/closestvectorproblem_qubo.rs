@@ -13,7 +13,7 @@ use crate::solvers::ProblemOutcome;
 use num_bigint::BigInt;
 use num_traits::Zero;
 
-type Source = ClosestVectorProblem<i64>;
+type Source = ClosestVectorProblem;
 type Target = QUBO<i64>;
 
 #[derive(Debug, Clone)]
@@ -234,7 +234,7 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
 #[reduction(transform = unavailable {
     num_vars = "the exact encoding size depends on the concrete basis and target values",
 })]
-impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
+impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
     type Result = ReductionCVPToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -333,7 +333,7 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
 
 #[cfg(feature = "example-db")]
 fn canonical_cvp_instance() -> Source {
-    ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
         .expect("canonical closest-vector instance must be valid")
 }
 

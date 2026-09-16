@@ -10,13 +10,13 @@ use crate::solvers::ProblemOutcome;
 /// Result of reducing SubsetSum to ClosestVectorProblem.
 #[derive(Debug, Clone)]
 pub struct ReductionSubsetSumToClosestVectorProblem {
-    target: Decision<ClosestVectorProblem<i64>>,
+    target: Decision<ClosestVectorProblem>,
     num_elements: usize,
 }
 
 impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
     type Source = SubsetSum;
-    type Target = Decision<ClosestVectorProblem<i64>>;
+    type Target = Decision<ClosestVectorProblem>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -54,7 +54,7 @@ impl ReductionSubsetSumToClosestVectorProblem {
         let overflow = || {
             crate::rules::ReductionError::integer_overflow::<
                 SubsetSum,
-                Decision<ClosestVectorProblem<i64>>,
+                Decision<ClosestVectorProblem>,
             >("sizing the binary-carry lattice")
         };
         let bits = usize::try_from(bit_width).map_err(|_| overflow())?;
@@ -77,7 +77,7 @@ impl ReductionSubsetSumToClosestVectorProblem {
         num_basis_vectors = "n+b-1 depends on input bit length b, which is not a registered SubsetSum parameter",
     },
 )]
-impl ReduceTo<Decision<ClosestVectorProblem<i64>>> for SubsetSum {
+impl ReduceTo<Decision<ClosestVectorProblem>> for SubsetSum {
     type Result = ReductionSubsetSumToClosestVectorProblem;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -114,13 +114,12 @@ impl ReduceTo<Decision<ClosestVectorProblem<i64>>> for SubsetSum {
         for bit in 0..bits {
             target[rows - 1 - bit] = i64::from(self.target().bit(bit as u64));
         }
-        let target = ClosestVectorProblem::<i64>::new(basis, target).map_err(
-            <Self as ReduceTo<Decision<ClosestVectorProblem<i64>>>>::target_construction,
-        )?;
+        let target = ClosestVectorProblem::new(basis, target)
+            .map_err(<Self as ReduceTo<Decision<ClosestVectorProblem>>>::target_construction)?;
         Ok(ReductionSubsetSumToClosestVectorProblem {
             target: Decision::new(
                 target,
-                <Self as ReduceTo<Decision<ClosestVectorProblem<i64>>>>::exact_i64(
+                <Self as ReduceTo<Decision<ClosestVectorProblem>>>::exact_i64(
                     n,
                     "representing the subset count",
                 )?,
@@ -137,10 +136,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "subsetsum_to_closestvectorproblem",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<
-                _,
-                Decision<ClosestVectorProblem<i64>>,
-            >(
+            crate::example_db::specs::rule_example_with_witness::<_, Decision<ClosestVectorProblem>>(
                 SubsetSum::new(vec![3u32, 7, 1, 8], 11u32),
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, false, false, true]),

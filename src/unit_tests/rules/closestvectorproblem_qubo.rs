@@ -3,8 +3,8 @@ use crate::solvers::BruteForce;
 use crate::solvers::SolveOutcome;
 use crate::traits::Problem;
 
-fn canonical_cvp() -> ClosestVectorProblem<i64> {
-    ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2]).unwrap()
+fn canonical_cvp() -> ClosestVectorProblem {
+    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2]).unwrap()
 }
 
 fn canonical_bits() -> Vec<bool> {
@@ -45,7 +45,7 @@ fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
     let basis = (0..size)
         .map(|column| (0..size).map(|row| i64::from(row == column)).collect())
         .collect();
-    let source = ClosestVectorProblem::<i64>::new(basis, vec![1_i64; size]).unwrap();
+    let source = ClosestVectorProblem::new(basis, vec![1_i64; size]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let mut bits = vec![false; reduction.target_problem().num_vars()];
     for encoding in &reduction.encodings {
@@ -144,7 +144,7 @@ fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
 
 #[test]
 fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
-    let source = ClosestVectorProblem::<i64>::new(vec![vec![1]], vec![20_i64]).unwrap();
+    let source = ClosestVectorProblem::new(vec![vec![1]], vec![20_i64]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let target_solution = BruteForce::new()
         .solve(reduction.target_problem())
@@ -165,14 +165,13 @@ fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
 
 #[test]
 fn test_closestvectorproblem_to_qubo_reports_numeric_boundaries() {
-    let absolute_value = ClosestVectorProblem::<i64>::new(vec![vec![1]], vec![i64::MIN]).unwrap();
+    let absolute_value = ClosestVectorProblem::new(vec![vec![1]], vec![i64::MIN]).unwrap();
     assert!(matches!(
         ReduceTo::<QUBO<i64>>::reduce_to(&absolute_value),
         Err(crate::rules::ReductionError::IntegerOverflow { .. })
     ));
 
-    let large_exact =
-        ClosestVectorProblem::<i64>::new(vec![vec![100_000_000]], vec![1_i64]).unwrap();
+    let large_exact = ClosestVectorProblem::new(vec![vec![100_000_000]], vec![1_i64]).unwrap();
     assert!(ReduceTo::<QUBO<i64>>::reduce_to(&large_exact).is_ok());
 }
 
@@ -200,7 +199,7 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
 
 #[test]
 fn qubo_energy_matches_squared_distance_up_to_the_dropped_constant() {
-    let source = ClosestVectorProblem::<i64>::new(vec![vec![2]], vec![1_i64]).unwrap();
+    let source = ClosestVectorProblem::new(vec![vec![2]], vec![1_i64]).unwrap();
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
     assert_eq!(target.num_vars(), 3);

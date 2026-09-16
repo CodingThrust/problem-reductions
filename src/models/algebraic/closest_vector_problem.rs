@@ -10,54 +10,68 @@ use num_rational::BigRational;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-macro_rules! cvp_create_spec {
-    ($name:ident, $target:ty) => {
-        #[derive(Debug, Deserialize, crate::CreateSpec)]
-        struct $name {
-            /// Basis matrix as semicolon-separated column vectors.
-            #[create(codec = "semicolon-separated")]
-            basis: Vec<Vec<$target>>,
-            /// Target vector.
-            #[create(name = "target_vec", codec = "comma-separated")]
-            target: Vec<$target>,
-        }
-
-        impl TryFrom<$name> for ClosestVectorProblem<$target> {
-            type Error = ConstructionError;
-
-            fn try_from(spec: $name) -> Result<Self, Self::Error> {
-                ClosestVectorProblem::<$target>::new(spec.basis, spec.target)
-            }
-        }
-    };
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ClosestVectorProblemCreateSpec {
+    /// Basis matrix as semicolon-separated column vectors.
+    #[create(codec = "semicolon-separated")]
+    basis: Vec<Vec<i64>>,
+    /// Target vector.
+    #[create(name = "target_vec", codec = "comma-separated")]
+    target: Vec<i64>,
 }
 
-cvp_create_spec!(ClosestVectorProblemI64CreateSpec, i64);
-cvp_create_spec!(ClosestVectorProblemF64CreateSpec, f64);
+impl TryFrom<ClosestVectorProblemCreateSpec> for ClosestVectorProblem {
+    type Error = ConstructionError;
+
+    fn try_from(spec: ClosestVectorProblemCreateSpec) -> Result<Self, Self::Error> {
+        ClosestVectorProblem::new(spec.basis, spec.target)
+    }
+}
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ClosestVectorProblem",
         display_name: "Closest Vector Problem",
         aliases: &["CVP"],
-        dimensions: &[VariantDimension::new("coefficient", "i64", &["i64", "f64"])],
+        dimensions: &[VariantDimension::new("coefficient", "i64", &["i64"])],
         category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find the closest point in a lattice to a target vector",
-        fields: ClosestVectorProblemI64CreateSpec::FIELDS,
+        fields: ClosestVectorProblemCreateSpec::FIELDS,
     }
 }
 
-/// Euclidean Closest Vector Problem with integer or floating-point coordinates.
+/// Euclidean Closest Vector Problem with integer coordinates.
 #[derive(Debug, Clone, Serialize)]
-pub struct ClosestVectorProblem<T = i64> {
+pub struct ClosestVectorProblem {
     /// Basis matrix stored as column vectors.
-    basis: Vec<Vec<T>>,
+    basis: Vec<Vec<i64>>,
     /// Target vector in the ambient space.
-    target: Vec<T>,
+    target: Vec<i64>,
 }
 
-impl<T> ClosestVectorProblem<T> {
+impl ClosestVectorProblem {
+    /// Construct a CVP instance with a full-column-rank basis.
+    pub fn new(basis: Vec<Vec<i64>>, target: Vec<i64>) -> Result<Self, ConstructionError> {
+        let instance = Self { basis, target };
+        instance.validate_dimensions()?;
+        let matrix = (0..instance.ambient_dimension())
+            .map(|row| {
+                instance
+                    .basis
+                    .iter()
+                    .map(|column| BigRational::from_integer(column[row].into()))
+                    .collect()
+            })
+            .collect();
+        if independent_rows(matrix, instance.num_basis_vectors()).is_none() {
+            return Err(ConstructionError::Conversion(
+                "closest-vector basis columns must be linearly independent".into(),
+            ));
+        }
+        Ok(instance)
+    }
+
     /// Number of basis vectors.
     pub fn num_basis_vectors(&self) -> usize {
         self.basis.len()
@@ -67,11 +81,11 @@ impl<T> ClosestVectorProblem<T> {
         self.target.len()
     }
     /// Basis columns in the variant's numeric domain.
-    pub fn basis(&self) -> &[Vec<T>] {
+    pub fn basis(&self) -> &[Vec<i64>] {
         &self.basis
     }
     /// Target coordinates.
-    pub fn target(&self) -> &[T] {
+    pub fn target(&self) -> &[i64] {
         &self.target
     }
 
@@ -103,77 +117,7 @@ impl<T> ClosestVectorProblem<T> {
         }
         Ok(())
     }
-}
 
-macro_rules! cvp_numeric_impl {
-    ($numeric:ty, $name:literal, $rational:expr) => {
-        impl ClosestVectorProblem<$numeric> {
-            /// Construct a CVP instance with full-column-rank basis.
-            pub fn new(
-                basis: Vec<Vec<$numeric>>,
-                target: Vec<$numeric>,
-            ) -> Result<Self, ConstructionError> {
-                use crate::types::WeightElement;
-                let instance = Self { basis, target };
-                instance.validate_dimensions()?;
-                for value in instance.basis.iter().flatten().chain(&instance.target) {
-                    value.validate_element("CVP coordinate")?;
-                }
-                let matrix = (0..instance.ambient_dimension())
-                    .map(|row| {
-                        instance
-                            .basis
-                            .iter()
-                            .map(|column| ($rational)(column[row]))
-                            .collect()
-                    })
-                    .collect();
-                if independent_rows(matrix, instance.num_basis_vectors()).is_none() {
-                    return Err(ConstructionError::Conversion(
-                        "closest-vector basis columns must be linearly independent".into(),
-                    ));
-                }
-                Ok(instance)
-            }
-        }
-
-        impl<'de> Deserialize<'de> for ClosestVectorProblem<$numeric> {
-            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                #[derive(Deserialize)]
-                struct Raw {
-                    basis: Vec<Vec<$numeric>>,
-                    target: Vec<$numeric>,
-                }
-                let raw = Raw::deserialize(deserializer)?;
-                Self::new(raw.basis, raw.target).map_err(serde::de::Error::custom)
-            }
-        }
-
-        impl Problem for ClosestVectorProblem<$numeric> {
-            const NAME: &'static str = "ClosestVectorProblem";
-            type Solution = Vec<i64>;
-            type Value = Min<$numeric>;
-            crate::problem_parameters![
-                ("ambient_dimension", ambient_dimension),
-                ("num_basis_vectors", num_basis_vectors),
-            ];
-            fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError> {
-                Ok(Min(Some(self.squared_distance(solution)?)))
-            }
-            fn variant() -> Vec<(&'static str, &'static str)> {
-                vec![("coefficient", $name)]
-            }
-        }
-    };
-}
-
-cvp_numeric_impl!(i64, "i64", |value: i64| BigRational::from_integer(
-    value.into()
-));
-cvp_numeric_impl!(f64, "f64", |value: f64| BigRational::from_float(value)
-    .expect("validated finite coordinate"));
-
-impl ClosestVectorProblem<i64> {
     pub(crate) fn independent_rows(&self) -> Vec<usize> {
         let matrix = (0..self.ambient_dimension())
             .map(|row| {
@@ -207,25 +151,31 @@ impl ClosestVectorProblem<i64> {
     }
 }
 
-impl ClosestVectorProblem<f64> {
-    /// Squared distance in row/column order with ordinary floating-point rounding.
-    pub fn squared_distance(&self, solution: &[i64]) -> Result<f64, EvaluationError> {
-        self.validate_solution(solution)?;
-        let finite = |value: f64| {
-            value.is_finite().then_some(value).ok_or_else(|| {
-                EvaluationError::NonFiniteResult("computing CVP squared distance".into())
-            })
-        };
-        let mut squared = 0.0;
-        for (row, &target) in self.target.iter().enumerate() {
-            let mut coordinate = 0.0;
-            for (&coefficient, column) in solution.iter().zip(&self.basis) {
-                coordinate = finite(coordinate + finite(coefficient as f64 * column[row])?)?;
-            }
-            let difference = finite(coordinate - target)?;
-            squared = finite(squared + finite(difference * difference)?)?;
+impl<'de> Deserialize<'de> for ClosestVectorProblem {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Raw {
+            basis: Vec<Vec<i64>>,
+            target: Vec<i64>,
         }
-        Ok(squared)
+        let raw = Raw::deserialize(deserializer)?;
+        Self::new(raw.basis, raw.target).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Problem for ClosestVectorProblem {
+    const NAME: &'static str = "ClosestVectorProblem";
+    type Solution = Vec<i64>;
+    type Value = Min<i64>;
+    crate::problem_parameters![
+        ("ambient_dimension", ambient_dimension),
+        ("num_basis_vectors", num_basis_vectors),
+    ];
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError> {
+        Ok(Min(Some(self.squared_distance(solution)?)))
+    }
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![("coefficient", "i64")]
     }
 }
 
@@ -250,8 +200,7 @@ fn independent_rows(mut matrix: Vec<Vec<BigRational>>, n: usize) -> Option<Vec<u
 }
 
 crate::declare_variants! {
-    default ClosestVectorProblem<i64> => "2^(num_basis_vectors * log(num_basis_vectors))" create ClosestVectorProblemI64CreateSpec,
-    ClosestVectorProblem<f64> => "2^(num_basis_vectors * log(num_basis_vectors))" create ClosestVectorProblemF64CreateSpec,
+    default ClosestVectorProblem => "2^(num_basis_vectors * log(num_basis_vectors))" create ClosestVectorProblemCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
@@ -259,7 +208,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "closest_vector_problem",
         instance: Box::new(
-            ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+            ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
                 .expect("canonical closest-vector instance must be valid"),
         ),
         optimal_config: serde_json::json!(vec![1, 1]),
@@ -271,13 +220,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[path = "../../unit_tests/models/algebraic/closest_vector_problem.rs"]
 mod tests;
 
-crate::decision_problem_meta!(ClosestVectorProblem<i64>, "DecisionClosestVectorProblem");
-crate::decision_problem_meta!(ClosestVectorProblem<f64>, "DecisionClosestVectorProblem");
+crate::decision_problem_meta!(ClosestVectorProblem, "DecisionClosestVectorProblem");
 
 inventory::submit! {
     crate::registry::ProblemSchemaEntry {
         name: "DecisionClosestVectorProblem", display_name: "Decision ClosestVectorProblem", aliases: &[],
-        dimensions: &[VariantDimension::new("coefficient", "i64", &["i64", "f64"])], category: crate::registry::ProblemCategory::Algebraic, module_path: module_path!(),
+        dimensions: &[VariantDimension::new("coefficient", "i64", &["i64"])], category: crate::registry::ProblemCategory::Algebraic, module_path: module_path!(),
         description: "Does a feasible solution meet the objective bound?",
         fields: &[
         crate::registry::FieldInfo { name: "basis", type_name: "Vec<Vec<i64>>", description: "Basis matrix as semicolon-separated column vectors." },
@@ -287,54 +235,29 @@ inventory::submit! {
     }
 }
 crate::declare_variants! {
-    default crate::models::decision::Decision<ClosestVectorProblem<i64>> => "2^(num_basis_vectors * log(num_basis_vectors))" create crate::models::decision::DecisionCreateSpec<ClosestVectorProblem<i64>>,
-    crate::models::decision::Decision<ClosestVectorProblem<f64>> => "2^(num_basis_vectors * log(num_basis_vectors))" create crate::models::decision::DecisionCreateSpec<ClosestVectorProblem<f64>>,
+    default crate::models::decision::Decision<ClosestVectorProblem> => "2^(num_basis_vectors * log(num_basis_vectors))" create crate::models::decision::DecisionCreateSpec<ClosestVectorProblem>,
 }
-crate::register_decision_variant!(@edges ClosestVectorProblem<i64>, "DecisionClosestVectorProblem");
-crate::register_decision_variant!(@edges ClosestVectorProblem<f64>, "DecisionClosestVectorProblem");
+crate::register_decision_variant!(@edges ClosestVectorProblem, "DecisionClosestVectorProblem");
 
 #[cfg(feature = "example-db")]
 pub(crate) fn decision_canonical_rule_example_specs(
 ) -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![
-        crate::example_db::specs::RuleExampleSpec {
-            id: "decision_closest_vector_problem_to_closest_vector_problem",
-            build: || {
-                let source = crate::models::decision::Decision::new(
-                    ClosestVectorProblem::<i64>::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
-                        .expect("canonical closest-vector instance must be valid"),
-                    0,
-                );
-                let witness = serde_json::json!(vec![1, 1]);
-                crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem<i64>>(
-                    source,
-                    crate::export::SolutionPair {
-                        source_config: witness.clone(),
-                        target_config: witness,
-                    },
-                )
-            },
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_closest_vector_problem_to_closest_vector_problem",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+                    .expect("canonical closest-vector instance must be valid"),
+                0,
+            );
+            let witness = serde_json::json!(vec![1, 1]);
+            crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
         },
-        crate::example_db::specs::RuleExampleSpec {
-            id: "decision_closest_vector_problem_float_to_closest_vector_problem",
-            build: || {
-                let source = crate::models::decision::Decision::new(
-                    ClosestVectorProblem::<f64>::new(
-                        vec![vec![1.0, 0.0], vec![0.5, 0.8]],
-                        vec![1.6, 0.9],
-                    )
-                    .expect("canonical oblique-grid instance must be valid"),
-                    0.03,
-                );
-                let witness = serde_json::json!(vec![1, 1]);
-                crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem<f64>>(
-                    source,
-                    crate::export::SolutionPair {
-                        source_config: witness.clone(),
-                        target_config: witness,
-                    },
-                )
-            },
-        },
-    ]
+    }]
 }
