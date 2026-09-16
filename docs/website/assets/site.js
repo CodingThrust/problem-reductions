@@ -490,9 +490,9 @@
       main.innerHTML = homeHTML;
       hydrateHome();
     } else if (parts[0] === "atlas") atlasPage();
-    else if (parts[0] === "open-problems") {
-      document.title = `Open problems — ${baseTitle}`;
-      main.innerHTML = '<div class="wrap page-header"><h1>Open problems</h1><p>To be released.</p></div>';
+    else if (parts[0] === "open-questions") {
+      document.title = `Open questions — ${baseTitle}`;
+      main.innerHTML = '<div class="wrap page-header"><h1>Open questions</h1><p>To be released.</p></div>';
     }
     else if (parts[0] === "problem") problemPage(parts[1], params);
     else if (parts[0] === "reduction") rulePage(parts[1], parts[2], params);
