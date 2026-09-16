@@ -463,6 +463,22 @@ class WebsiteTests(unittest.TestCase):
         divider.press('End')
         expect(divider).to_have_attribute('aria-valuenow', divider.get_attribute('aria-valuemax'))
 
+    def test_graph_hint_stays_top_right_when_panel_resizes(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#cy canvas').first).to_be_visible()
+        divider = self.page.get_by_role('separator', name='Resize details panel')
+        for key in ['Home', 'End']:
+            divider.press(key)
+            legend = self.page.locator('.graph-legend').bounding_box()
+            note = self.page.locator('.graph-canvas-note').bounding_box()
+            canvas = self.page.locator('.graph-canvas').bounding_box()
+            self.assertLessEqual(note['y'] + note['height'], legend['y'])
+            self.assertAlmostEqual(note['y'] - canvas['y'], 18)
+            self.assertAlmostEqual(canvas['x'] + canvas['width'] - note['x'] - note['width'], 18)
+            for box in [legend, note]:
+                self.assertGreaterEqual(box['x'], canvas['x'])
+                self.assertLessEqual(box['x'] + box['width'], canvas['x'] + canvas['width'])
+
     def test_graph_local_view_keeps_selection_and_neighbor_labels_readable(self):
         self.page.goto(self.base + "graph.html")
         expect(self.page.locator("#cy canvas").first).to_be_visible()

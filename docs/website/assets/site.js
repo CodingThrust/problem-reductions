@@ -203,29 +203,35 @@
           reductions. Every connection has explicit variants, size bounds, and
           code you can inspect.
         </p>
-        <div class="atlas-controls">
-          <label class="atlas-search"
-            ><span aria-hidden="true">⌕</span
-            ><input
-              id="atlas-search"
-              type="search"
-              placeholder="Search problems, aliases, or descriptions…"
-              aria-label="Search problems"
-              value="${escape(query)}"
-              autocomplete="off"
-            /><kbd>/</kbd></label
-          ><span class="result-count" role="status" aria-live="polite"></span>
-          <a class="text-link" href="./graph.html"
-            >Explore the reduction graph <span aria-hidden="true">↗</span></a
-          >
-        </div>
       </div>
       <div class="wrap atlas-layout">
         <aside class="filters" aria-label="Filter problems by category">
           <p class="context-label">Input structure</p>
           ${[["all", "All problems"], ...Object.entries(categories)].map(([key, label]) => `<button class="filter-button" data-filter="${key}" aria-pressed="${filter === key}"><span>${label}</span><span>${key === "all" ? families.length : families.filter((name) => variantsOf(name)[0].category === key).length}</span></button>`).join("")}
         </aside>
-        <div class="atlas-results" id="atlas-results"></div>
+        <div class="atlas-catalog">
+          <div class="atlas-controls">
+            <label class="atlas-search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <circle cx="10" cy="10" r="6"></circle>
+                <path d="m15 15 5 5"></path>
+              </svg>
+              <input
+                id="atlas-search"
+                type="search"
+                placeholder="Search problems, aliases, or descriptions…"
+                aria-label="Search problems"
+                value="${escape(query)}"
+                autocomplete="off"
+              /><kbd>/</kbd></label
+            ><span class="result-count" role="status" aria-live="polite"></span>
+            <a class="text-link" href="./graph.html"
+              >Explore the reduction graph <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="atlas-results" id="atlas-results"></div>
+        </div>
       </div>`;
     renderResults();
     document
@@ -260,7 +266,7 @@
       );
     }).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
     document.querySelector(".result-count").textContent =
-      `${results.length} of ${families.length} problem families`;
+      `${results.length} problem${results.length === 1 ? "" : "s"}`;
     document.querySelector("#atlas-results").innerHTML = results.length
       ? results
           .map((name) => {
