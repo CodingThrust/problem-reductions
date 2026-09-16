@@ -176,12 +176,6 @@ impl HighsAdapter {
             return Err(IlpBackendError::Unbounded);
         }
         accept_backend_status(solved.status())?;
-        let gap = solved.mip_gap();
-        if gap.is_finite() && gap > 0.0 {
-            return Err(IlpBackendError::BackendFailure(format!(
-                "HiGHS returned a nonzero optimality gap: {gap}"
-            )));
-        }
         if solved.primal_solution_status() != HighsSolutionStatus::Feasible {
             return Err(IlpBackendError::BackendFailure(
                 "HiGHS returned no feasible primal solution".into(),

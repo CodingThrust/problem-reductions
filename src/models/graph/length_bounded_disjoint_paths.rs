@@ -49,6 +49,7 @@ struct LengthBoundedDisjointPathsData<G> {
     graph: G,
     source: usize,
     sink: usize,
+    max_paths: usize,
     max_length: usize,
 }
 
@@ -58,8 +59,16 @@ where
 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let data = LengthBoundedDisjointPathsData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.source, data.sink, data.max_length)
-            .map_err(serde::de::Error::custom)
+        let max_paths = data.max_paths;
+        let instance = Self::try_new(data.graph, data.source, data.sink, data.max_length)
+            .map_err(serde::de::Error::custom)?;
+        if max_paths != instance.max_paths {
+            return Err(serde::de::Error::custom(format!(
+                "max_paths must equal min(deg(source), deg(sink)): expected {}, got {max_paths}",
+                instance.max_paths
+            )));
+        }
+        Ok(instance)
     }
 }
 

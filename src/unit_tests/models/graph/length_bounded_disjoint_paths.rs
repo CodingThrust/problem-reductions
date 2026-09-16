@@ -190,6 +190,17 @@ fn test_length_bounded_disjoint_paths_serialization() {
 }
 
 #[test]
+fn test_length_bounded_disjoint_paths_rejects_inconsistent_max_paths() {
+    let mut json = serde_json::to_value(sample_problem()).unwrap();
+    json["max_paths"] = serde_json::json!(2);
+    let error =
+        serde_json::from_value::<LengthBoundedDisjointPaths<SimpleGraph>>(json).unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("max_paths must equal min(deg(source), deg(sink)): expected 3, got 2"));
+}
+
+#[test]
 fn test_length_bounded_disjoint_paths_graph_getter() {
     let problem = sample_problem();
     assert_eq!(problem.graph().num_vertices(), 5);
