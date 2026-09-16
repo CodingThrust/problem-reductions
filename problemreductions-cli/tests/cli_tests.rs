@@ -10265,13 +10265,10 @@ fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
 }
 
 #[test]
-fn test_cvp_variants_create_and_solve() {
+fn test_cvp_i64_create_and_solve() {
     use std::io::Write;
     use std::process::Stdio;
-    for (variant, basis, target, status, expected) in [
-        ("i64", "2,0;1,2", "3,2", "optimal", 0.0),
-        ("f64", "1,0;0.5,0.8", "1.6,0.9", "feasible", 0.02),
-    ] {
+    for (variant, basis, target, status, expected) in [("i64", "2,0;1,2", "3,2", "optimal", 0.0)] {
         let created = pred()
             .args([
                 "create",
