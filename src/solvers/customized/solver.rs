@@ -5,7 +5,7 @@ use super::fd_subset_search::{
     is_minimal_key, is_superkey, BranchDecision,
 };
 use crate::models::graph::{
-    MinimumCostCirculation, MinimumIntersectionGraphBasis, PartialFeedbackEdgeSet,
+    KColoring, MinimumCostCirculation, MinimumIntersectionGraphBasis, PartialFeedbackEdgeSet,
     RootedTreeArrangement,
 };
 use crate::models::misc::{
@@ -14,9 +14,10 @@ use crate::models::misc::{
 };
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
 use crate::solvers::registry::CustomizedSolverRegistration;
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use std::collections::HashSet;
+use crate::variant::K2;
+use std::collections::{HashSet, VecDeque};
 
 macro_rules! register_customized_solver {
     ($problem:ty, $implementation:literal, $solve:expr) => {
@@ -94,11 +95,45 @@ register_customized_solver!(
     |problem| Ok(TimetableDesign::solve_via_required_assignments(problem))
 );
 
+register_customized_solver!(KColoring<K2, SimpleGraph>, "bipartite-coloring", |problem| {
+    Ok(solve_two_coloring(problem))
+});
+
 register_customized_solver!(
     crate::models::algebraic::ClosestVectorProblem,
     "cvp-sphere-enumeration",
     |problem| super::closest_vector_problem::solve(problem).map(Some)
 );
+
+fn solve_two_coloring(problem: &KColoring<K2, SimpleGraph>) -> Option<Vec<usize>> {
+    let mut adjacency = vec![Vec::new(); problem.num_vertices()];
+    for (left, right) in problem.graph().edges() {
+        adjacency[left].push(right);
+        adjacency[right].push(left);
+    }
+
+    let mut colors = vec![usize::MAX; problem.num_vertices()];
+    let mut queue = VecDeque::new();
+    for start in 0..problem.num_vertices() {
+        if colors[start] != usize::MAX {
+            continue;
+        }
+        colors[start] = 0;
+        queue.push_back(start);
+        while let Some(vertex) = queue.pop_front() {
+            let next_color = 1 - colors[vertex];
+            for &neighbor in &adjacency[vertex] {
+                if colors[neighbor] == usize::MAX {
+                    colors[neighbor] = next_color;
+                    queue.push_back(neighbor);
+                } else if colors[neighbor] == colors[vertex] {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(colors)
+}
 
 register_customized_solver!(
     crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem>,

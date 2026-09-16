@@ -34,7 +34,7 @@ fn fixed_and_runtime_variants_report_num_colors_parameter() {
 include!("../../jl_helpers.rs");
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::variant::{K1, K2, K3, K4};
+use crate::variant::{K2, K3, KN};
 
 #[test]
 fn test_kcoloring_creation() {
@@ -136,7 +136,7 @@ fn test_is_valid_coloring_wrong_len() {
 fn test_empty_graph() {
     use crate::traits::Problem;
 
-    let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
+    let problem = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![]), 1);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -152,10 +152,10 @@ fn test_complete_graph_k4() {
     use crate::traits::Problem;
 
     // K4 needs 4 colors
-    let problem = KColoring::<K4, _>::new(SimpleGraph::new(
+    let problem = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();

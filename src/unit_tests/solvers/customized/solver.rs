@@ -1,9 +1,10 @@
-use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
+use crate::models::graph::{KColoring, PartialFeedbackEdgeSet, RootedTreeArrangement};
 use crate::solvers::brute_force::CartesianIndices;
 use crate::solvers::registry::solver_capability_registry;
 use crate::solvers::ExactProblemKey;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
+use crate::variant::K2;
 
 struct CustomizedTestSolver;
 
@@ -79,6 +80,18 @@ fn test_customized_solver_returns_none_for_unsupported_problem() {
     let problem = crate::models::misc::GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2);
     let solver = CustomizedTestSolver::new();
     assert!(solver.solve_dyn(&problem).is_none());
+}
+
+#[test]
+fn test_two_coloring_solver_handles_disconnected_and_non_bipartite_graphs() {
+    let bipartite = KColoring::<K2, _>::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4)]));
+    let coloring = CustomizedTestSolver::new()
+        .solve_dyn(&bipartite)
+        .expect("bipartite graph must have a two-coloring");
+    assert!(bipartite.evaluate(&coloring).unwrap().0);
+
+    let triangle = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]));
+    assert!(super::solve_two_coloring(&triangle).is_none());
 }
 
 // --- FD model parity tests against BruteForce ---
