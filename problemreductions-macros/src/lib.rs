@@ -503,7 +503,7 @@ fn generate_reduction_entry(
     let trait_path = impl_block
         .trait_
         .as_ref()
-        .map(|(_, path, _)| path)
+        .map(|(path, _)| path)
         .ok_or_else(|| syn::Error::new_spanned(impl_block, "Expected impl ReduceTo<T> for S"))?;
 
     // Extract target type from ReduceTo<Target>
