@@ -23,12 +23,12 @@
     node((0, 0), box(width: 28mm, align(center)[*Problem A*\ #text(size: 8pt)[source problem]]), fill: box-fill, corner-radius: 6pt, inset: 10pt, name: <a>),
     node((1, 0), box(width: 28mm, align(center)[*Problem B*\ #text(size: 8pt)[target problem]]), fill: box-fill, corner-radius: 6pt, inset: 10pt, name: <b>),
     node((2, 0), box(width: 28mm, align(center)[*Solution B*\ #text(size: 8pt)[solver output]]), fill: box-fill, corner-radius: 6pt, inset: 10pt, name: <sol-b>),
-    node((1, 1), box(width: 28mm, align(center)[*Solution A*\ #text(size: 8pt)[extracted result]]), fill: success-fill, stroke: 1.5pt + success, corner-radius: 6pt, inset: 10pt, name: <sol-a>),
+    node((1, 1), box(width: 28mm, align(center)[*Solution A*\ #text(size: 8pt)[recovered result]]), fill: success-fill, stroke: 1.5pt + success, corner-radius: 6pt, inset: 10pt, name: <sol-a>),
 
     // Edges with labels
     edge(<a>, <b>, "->", stroke: 1.5pt + accent, label: text(size: 9pt)[`reduce_to`], label-sep: 5pt, label-pos: 0.5, label-side: left),
-    edge(<b>, <sol-b>, "->", stroke: 1.5pt + accent, label: text(size: 9pt)[`find_witness`], label-sep: 5pt, label-pos: 0.5, label-side: left),
-    edge(<sol-b>, <sol-a>, "->", stroke: 1.5pt + success, label: text(size: 9pt)[`extract_solution`], label-sep: 2pt, label-pos: 0.5, label-side: left),
+    edge(<b>, <sol-b>, "->", stroke: 1.5pt + accent, label: text(size: 9pt)[`solve`], label-sep: 5pt, label-pos: 0.5, label-side: left),
+    edge(<sol-b>, <sol-a>, "->", stroke: 1.5pt + success, label: text(size: 9pt)[`recover_result`], label-sep: 2pt, label-pos: 0.5, label-side: left),
   )
 }
 

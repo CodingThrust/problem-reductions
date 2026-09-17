@@ -762,6 +762,73 @@ fn test_evaluate() {
 }
 
 #[test]
+fn test_legacy_dense_qubo_json_evaluates_and_solves() {
+    // QUBO files written before sparse storage persist `{num_vars, matrix: [[...]]}`.
+    let tmp = std::env::temp_dir().join("pred_test_legacy_dense_qubo.json");
+    std::fs::write(
+        &tmp,
+        format!(
+            r#"{{"type":"QUBO","variant":{{"weight":"i64"}},"data":{}}}"#,
+            include_str!("../../tests/data/qubo_legacy_dense.json")
+        ),
+    )
+    .unwrap();
+
+    for (args, expected) in [
+        (
+            vec!["evaluate", "--config", "[true,false,true]"],
+            serde_json::json!({"problem": "QUBO", "config": [true, false, true], "result": "Min(-3)"}),
+        ),
+        (
+            vec!["solve", "--solver", "brute-force"],
+            serde_json::json!({
+                "problem": "QUBO",
+                "status": "optimal",
+                "solution": [false, false, true],
+                "evaluation": "Min(-6)",
+                "solver": {"kind": "brute-force"},
+            }),
+        ),
+    ] {
+        let output = pred()
+            .args(["--json", args[0], tmp.to_str().unwrap()])
+            .args(&args[1..])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json, expected);
+    }
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_create_qubo_writes_sparse_entries() {
+    let output = pred()
+        .args(["create", "QUBO", "--matrix", "3,-5,0;0,0,7;0,0,-6"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "type": "QUBO",
+            "variant": {"weight": "i64"},
+            "data": {"num_vars": 3, "entries": [[0, 0, 3], [0, 1, -5], [1, 2, 7], [2, 2, -6]]},
+        })
+    );
+}
+
+#[test]
 fn test_evaluate_sat() {
     let problem_json = r#"{
         "type": "Satisfiability",
@@ -10052,7 +10119,7 @@ fn test_extract_rejects_tampered_target_data() {
     // what the reduction chain actually produces.
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
-    bundle["target"]["data"]["matrix"]["data"][0] = serde_json::json!(999.0);
+    bundle["target"]["data"]["entries"][0][2] = serde_json::json!(999.0);
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 
@@ -10291,59 +10358,186 @@ fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
     std::fs::remove_dir_all(directory).unwrap();
 }
 
+/// Reduce a 4-vertex path MIS to QUBO in a fresh directory; the final
+/// MaximumSetPacking -> QUBO step cannot recover from unproven candidates.
+fn extract_test_mis_qubo_bundle(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let directory = std::env::temp_dir().join(name);
+    std::fs::create_dir_all(&directory).unwrap();
+    let problem_file = directory.join("source.json");
+    let bundle_file = directory.join("bundle.json");
+    let created = pred()
+        .args(["-o", problem_file.to_str().unwrap()])
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3"])
+        .output()
+        .unwrap();
+    assert!(created.status.success());
+    let reduced = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &bundle_file,
+    );
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    (directory, bundle_file)
+}
+
+fn extract_test_run(
+    directory: &std::path::Path,
+    bundle_file: &std::path::Path,
+    result: &str,
+) -> std::process::Output {
+    let result_file = directory.join("result.json");
+    std::fs::write(&result_file, result).unwrap();
+    pred()
+        .args(["--json", "extract", bundle_file.to_str().unwrap()])
+        .args(["--result", result_file.to_str().unwrap()])
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn test_extract_rejects_bare_configuration_with_expected_shape() {
+    let (directory, bundle_file) = extract_test_mis_qubo_bundle("pred_extract_bare_configuration");
+    for result in [
+        "[0,1,0,1]",
+        r#"{"solution":[false,true,false,true]}"#,
+        r#"{"status":"optimal"}"#,
+        r#"{"status":"sampled","solution":[false,true,false,true]}"#,
+    ] {
+        let output = extract_test_run(&directory, &bundle_file, result);
+        assert!(!output.status.success(), "accepted {result}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(r#"wrap it as {"status": "feasible", "solution": [...]}"#),
+            "{result}: {stderr}"
+        );
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn test_extract_infeasible_target_result() {
+    let (directory, bundle_file) = extract_test_mis_qubo_bundle("pred_extract_infeasible_result");
+    let output = extract_test_run(&directory, &bundle_file, r#"{"status":"infeasible"}"#);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        result,
+        serde_json::json!({
+            "problem": "MaximumIndependentSet",
+            "status": "infeasible",
+            "solver": {"kind": "external"},
+            "intermediate": {"problem": "QUBO", "status": "infeasible"},
+        })
+    );
+
+    let output = extract_test_run(
+        &directory,
+        &bundle_file,
+        r#"{"status":"infeasible","evaluation":"Min(0)"}"#,
+    );
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("infeasible results must not contain evaluation"));
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn test_extract_rejects_feasible_result_the_rule_cannot_use() {
+    let (directory, bundle_file) =
+        extract_test_mis_qubo_bundle("pred_extract_insufficient_quality");
+    let solution = "[false,true,false,true]";
+    let output = extract_test_run(
+        &directory,
+        &bundle_file,
+        &format!(r#"{{"status":"feasible","solution":{solution}}}"#),
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains(
+        "the target result does not establish the conditions required for source recovery"
+    ));
+
+    // The same witness is usable once the solver claims optimality.
+    let output = extract_test_run(
+        &directory,
+        &bundle_file,
+        &format!(r#"{{"status":"optimal","solution":{solution}}}"#),
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
 #[test]
 fn test_cvp_i64_create_and_solve() {
     use std::io::Write;
     use std::process::Stdio;
-    for (variant, basis, target, status, expected) in [("i64", "2,0;1,2", "3,2", "optimal", 0.0)] {
-        let created = pred()
-            .args([
-                "create",
-                &format!("CVP/{variant}"),
-                "--basis",
-                basis,
-                "--target-vec",
-                target,
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            created.status.success(),
-            "{}",
-            String::from_utf8_lossy(&created.stderr)
-        );
-        let instance: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
-        assert_eq!(instance["variant"]["coefficient"], variant);
-        let mut child = pred()
-            .args(["solve", "-"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(&created.stdout)
-            .unwrap();
-        let solved = child.wait_with_output().unwrap();
-        assert!(
-            solved.status.success(),
-            "{}",
-            String::from_utf8_lossy(&solved.stderr)
-        );
-        let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
-        assert_eq!(result["status"], status);
-        assert_eq!(result["solution"], serde_json::json!([1, 1]));
-        let display = result["evaluation"].as_str().unwrap();
-        let value: f64 = display
-            .strip_prefix("Min(")
-            .unwrap()
-            .strip_suffix(')')
-            .unwrap()
-            .parse()
-            .unwrap();
-        assert!((value - expected).abs() < 1e-12);
-    }
+    let created = pred()
+        .args([
+            "create",
+            "CVP/i64",
+            "--basis",
+            "2,0;1,2",
+            "--target-vec",
+            "3,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let instance: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
+    assert_eq!(instance["variant"]["coefficient"], "i64");
+    let mut child = pred()
+        .args(["solve", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&created.stdout)
+        .unwrap();
+    let solved = child.wait_with_output().unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(result["status"], "optimal");
+    assert_eq!(result["solution"], serde_json::json!([1, 1]));
+    let display = result["evaluation"].as_str().unwrap();
+    let value: f64 = display
+        .strip_prefix("Min(")
+        .unwrap()
+        .strip_suffix(')')
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(value.abs() < 1e-12);
 }

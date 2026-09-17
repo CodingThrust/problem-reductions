@@ -77,7 +77,7 @@ fn test_graphpartitioning_to_qubo_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "GraphPartitioning");
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["matrix"]["nrows"], 6);
+    assert_eq!(example.target.instance["num_vars"], 6);
     assert!(!example.solutions.is_empty());
 }
 

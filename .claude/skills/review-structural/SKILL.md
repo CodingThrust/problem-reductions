@@ -85,8 +85,8 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 9 | Canonical rule example registered | `Grep("canonical_rule_example_specs", rule file)` and verify it is included by `src/rules/mod.rs` |
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
-| 12 | Extraction contract | Follow the canonical responsibility boundaries. Both external extraction and internal rule mappings rely on documented premises; parsing and type conversion stay at the transport boundary. Reject repeated feasibility checks and error branches excluded by construction. Solver orchestration interprets aggregate thresholds to determine source answers. No independent optimality certification is required. |
-| 13 | Numeric and error contracts | Check the [witness/aggregate contract](../../../docs/src/design.md#witness-and-aggregate-reductions) and actual construction arithmetic under the canonical policy. Do not reject different objective directions/value types or demand backend precision tests for every rule. Verify public reduction paths return `ReductionError`, preserve target `ConstructionError` as its construction cause, and never stringify or silently handle either failure. |
+| 12 | Extraction contract | Follow the canonical responsibility boundaries. Both external extraction and internal rule mappings rely on documented premises; parsing and type conversion stay at the transport boundary. Reject repeated feasibility checks and error branches excluded by construction. Rules own the mathematical interpretation of optimum values, source infeasibility, and insufficient feasible candidates; solver and CLI callers invoke the same `recover_result` and add no interpretation branches. No independent optimality certification is required. |
+| 13 | Numeric and error contracts | Check the [complete-result recovery contract](../../../docs/src/design.md#complete-result-recovery) and actual construction arithmetic under the canonical policy. Do not reject different objective directions/value types or demand backend precision tests for every rule. Verify public reduction paths return `ReductionError`, preserve target `ConstructionError` as its construction cause, and never stringify or silently handle either failure. |
 
 ## Step 2b: Blacklisted File Check
 
@@ -116,7 +116,7 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 5. **Numeric safety** — Are element and total types distinct where required, do serde and constructors enforce the same range, and are overflow and non-finite values rejected explicitly?
 
 ### For Rules:
-1. **`extract_solution` correctness** — Does it implement the mathematical inverse? Is every branch either a defined mathematical case or an `ExtractionError`, with no defaulting, truncation, clamping, panic, or recovery?
+1. **`recover_result` correctness** — Does it implement the mathematical inverse and handle `Optimal`, `Feasible`, and `Infeasible` explicitly? Is every branch either a defined mathematical case or an `ExtractionError`, with no defaulting, truncation, clamping, panic, or recovery?
 2. **Overhead accuracy** — Does `overhead = { field = "expr" }` reflect the actual size relationship?
 3. **Example quality** — Is it tutorial-style? Does the JSON export include both source and target data?
 4. **Paper quality** — Is the reduction-rule statement precise? Is the proof sketch sound?

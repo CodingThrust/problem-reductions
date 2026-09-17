@@ -120,6 +120,6 @@ fn test_paintshop_to_qubo_canonical_example_spec() {
     assert_eq!(example.source.problem, "PaintShop");
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.source.instance["num_cars"], 4);
-    assert_eq!(example.target.instance["matrix"]["nrows"], 4);
+    assert_eq!(example.target.instance["num_vars"], 4);
     assert!(!example.solutions.is_empty());
 }

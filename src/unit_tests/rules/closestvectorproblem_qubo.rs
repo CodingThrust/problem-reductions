@@ -186,7 +186,7 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "ClosestVectorProblem");
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["matrix"]["nrows"], 11);
+    assert_eq!(example.target.instance["num_vars"], 11);
     assert_eq!(
         example.solutions[0].source_config,
         serde_json::json!([1, 1])

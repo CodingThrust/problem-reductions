@@ -4895,18 +4895,16 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 // Expand small sparse QUBO examples only for typesetting their matrices.
 #let qubo-matrix(instance) = {
-  let m = instance.matrix
-  range(m.nrows).map(i => {
-    let row = range(m.ncols).map(_ => 0)
-    for k in range(m.indptr.at(i), m.indptr.at(i + 1)) {
-      row.at(m.indices.at(k)) = m.data.at(k)
-    }
-    row
-  })
+  let n = instance.num_vars
+  let Q = range(n).map(_ => range(n).map(_ => 0))
+  for (i, j, value) in instance.entries {
+    Q.at(i).at(j) = value
+  }
+  Q
 }
 #{
   let x = load-model-example("QUBO")
-  let n = x.instance.matrix.nrows
+  let n = x.instance.num_vars
   let Q = qubo-matrix(x.instance)
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
@@ -11970,7 +11968,7 @@ with the target, rather than stored separately by solution extraction.
 
         *Step 2 -- Derive a safe box.* Here $A=((2,1),(0,2))$, $norm(bold(t))_1=5$, and the selected-row bounds are $bold(C)=(8,7)$. Since $op("adj")(A)=((2,-1),(0,2))$, the reduction obtains $M_1=23$ and $M_2=14$.
 
-        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.matrix.nrows variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
+        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.num_vars variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
 
         *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq, so $B bold(x)=bold(t)$ #sym.checkmark.
 
@@ -12406,7 +12404,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
-#let ks_qubo_num_slack = ks_qubo.target.instance.matrix.nrows - ks_qubo_num_items
+#let ks_qubo_num_slack = ks_qubo.target.instance.num_vars - ks_qubo_num_items
 #let ks_qubo_penalty = 1 + ks_qubo.source.instance.values.fold(0, (a, b) => a + b)
 #let ks_qubo_selected = ks_qubo_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let ks_qubo_sel_weight = ks_qubo_selected.fold(0, (a, i) => a + ks_qubo.source.instance.weights.at(i))
@@ -12425,7 +12423,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 2 -- Introduce slack variables.* The inequality $sum_i w_i x_i lt.eq C$ becomes an equality by adding $B = #ks_qubo_num_slack$ binary slack bits that encode unused capacity:
     $ #ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) = #ks_qubo.source.instance.capacity $
-    This gives $n + B = #ks_qubo_num_items + #ks_qubo_num_slack = #ks_qubo.target.instance.matrix.nrows$ QUBO variables.
+    This gives $n + B = #ks_qubo_num_items + #ks_qubo_num_slack = #ks_qubo.target.instance.num_vars$ QUBO variables.
 
     *Step 3 -- Add the penalty objective.* With penalty $P = 1 + sum_i v_i = #ks_qubo_penalty$, the QUBO minimizes
     $ H = -(#ks_qubo.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$)) + #ks_qubo_penalty (#ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) - #ks_qubo.source.instance.capacity)^2 $
@@ -12466,7 +12464,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 2 -- One-hot variables.* Introduce one binary selector per sampled orientation:
     $ underbrace(y_(1,0) y_(1,1), "link 1") #h(6pt) underbrace(y_(2,0) y_(2,1), "link 2") $
-    The QUBO therefore has $2 + 2 = #mdpik_qubo.target.instance.matrix.nrows$ variables.
+    The QUBO therefore has $2 + 2 = #mdpik_qubo.target.instance.num_vars$ variables.
 
     *Step 3 -- Quadratic energy.* The geometric coefficients are $c = (2, 0, 1, 0)$ for the $x$-coordinate and $s = (0, 2, 0, 1)$ for the $y$-coordinate, so the position term is
     $ (2 y_(1,0) + y_(2,0) - 2)^2 + (2 y_(1,1) + y_(2,1) - 1)^2. $
@@ -12580,8 +12578,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred solve bundle.json",
       "pred evaluate qubo.json --config " + cli-config(qubo_ilp_sol.source_config),
     )
-    Source: $n = #qubo_ilp.source.instance.matrix.nrows$ binary variables, 3 off-diagonal terms \
-    Target: #qubo_ilp.target.instance.variables.len() ILP variables ($#qubo_ilp.source.instance.matrix.nrows$ original $+ #(qubo_ilp.target.instance.variables.len() - qubo_ilp.source.instance.matrix.nrows)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
+    Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
+    Target: #qubo_ilp.target.instance.variables.len() ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.variables.len() - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
     Canonical optimal witness: $bold(x) = (#fmt-values(qubo_ilp_sol.source_config))$ #sym.checkmark
   ],
 )[
@@ -13969,7 +13967,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + cli-config(tsp_qubo_sol.source_config),
     )
-    *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.matrix.nrows$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
+    *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.num_vars$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
     $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) underbrace(x_(2,0) x_(2,1) x_(2,2), "vertex 2") $
 
     *Step 2 -- Penalize invalid permutations.* The penalty $A = 1 + |w_(01)| + |w_(02)| + |w_(12)| = 1 + 1 + 2 + 3 = 7$ ensures any row/column constraint violation outweighs any tour cost. Row constraints (each vertex at exactly one position) and column constraints (each position has one vertex) contribute diagonal $-7$ and off-diagonal $+14$ within each group.\
@@ -17841,7 +17839,8 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example DecisionMaximumIndependentSet/One -o independent-set.json",
       "pred reduce independent-set.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred extract bundle.json --config " + cli-config(mis_ifb_sol.target_config),
+      "echo '" + json.encode((status: "feasible", solution: mis_ifb_sol.target_config), pretty: false) + "' > result.json",
+      "pred extract bundle.json --result result.json",
     )
     Source bound: #mis_ifb.source.instance.bound; selected vertices: #fmt-values(mis_ifb_sol.source_config) \
     Target: #mis_ifb.target.instance.graph.num_vertices vertices, #mis_ifb.target.instance.graph.arcs.len() arcs, #mis_ifb.target.instance.bundles.len() bundles; requirement #mis_ifb.target.instance.requirement \

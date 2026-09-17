@@ -615,6 +615,11 @@ order, retaining checked integer addition and floating-point summation order.
 `QUBO::from_sparse` accepts a square CSR or CSC matrix; `matrix()` returns the
 CSR matrix and `get(i, j)` returns an owned coefficient, including zero for an
 unstored in-bounds entry. `from_matrix` and CLI `--matrix` accept dense input.
-Persisted QUBO JSON stores the `sprs` matrix object (`storage`, `nrows`, `ncols`,
-`indptr`, `indices`, `data`); variable count comes from the matrix dimensions.
+Persisted QUBO JSON is a project-owned sparse shape, independent of `sprs`
+internals: `{"num_vars": n, "entries": [[row, column, value], ...]}` lists every
+stored coefficient in row-major order. Loading accepts entries in any order and
+stores exactly what is listed, like `from_sparse`; it rejects an index outside
+`0..num_vars` and a repeated `(row, column)`. Loading also accepts the legacy
+dense shape `{"num_vars": n, "matrix": [[...], ...]}` and reads it like
+`from_matrix`. A file must contain exactly one of `entries` and `matrix`.
 Rules, numeric casts, and solver reductions consume sparse coefficients directly.

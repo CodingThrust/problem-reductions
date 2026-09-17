@@ -99,7 +99,7 @@ fn test_knapsack_to_qubo_canonical_example_spec() {
     assert_eq!(example.source.problem, "Knapsack");
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.source.instance["capacity"], 7);
-    assert_eq!(example.target.instance["matrix"]["nrows"], 7);
+    assert_eq!(example.target.instance["num_vars"], 7);
     assert!(!example.solutions.is_empty());
 }
 
