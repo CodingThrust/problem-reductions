@@ -17,7 +17,7 @@ path = "src/bin/pred_sym.rs"
 
 [features]
 all = ["mcp"]
-mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subscriber"]
+mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing-subscriber"]
 
 [dependencies]
 problemreductions = { version = "0.6.0", path = "..", features = ["example-db"] }
@@ -29,7 +29,6 @@ num-bigint = "0.4.8"
 clap_complete = "4.6.11"
 owo-colors = { version = "4.4.0", features = ["supports-colors"] }
 rmcp = { version = "3.4.0", features = ["server", "macros", "transport-io"], optional = true }
-tokio = { version = "1.53.1", features = ["full"], optional = true }
+tokio = { version = "1.53.1", features = ["rt-multi-thread"], optional = true }
 schemars = { version = "1.2.2", optional = true }
-tracing = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3.23", optional = true }
