@@ -51,6 +51,8 @@ python3 -m http.server 3001 --bind 127.0.0.1 --directory book
 ```
 
 Open <http://localhost:3001>. `make doc` also builds Rust API documentation.
+`make website`, `make doc`, and `make mdbook` share the `paper-data` prerequisite,
+which exports the `docs/paper/data/examples.json` that the Typst source reads.
 The deployment workflow builds the PDF and API and combines everything in `book/`.
 The fast `make website` preview includes the guide; API/PDF links require those
 additional builds, as in deployment.
@@ -133,7 +135,7 @@ restating them.
 
 `docs/src/static/docs-theme.css` supplies the restrained dark reading theme;
 `docs-theme.js` adds the GitHub and atlas links. Native mdBook search, code copying, and
-sidebar navigation remain available. Both mdBook 0.4.37 (deployment) and 0.5.2
+sidebar navigation remain available. Both mdBook 0.4.37 and 0.5.2 (deployment)
 are supported.
 
 The website builder emits `book/markdown/` from the same source pages, expanding
