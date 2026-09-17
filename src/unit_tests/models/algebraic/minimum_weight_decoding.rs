@@ -176,3 +176,11 @@ fn test_minimum_weight_decoding_target_mismatch() {
     let matrix = vec![vec![true, false], vec![false, true]];
     MinimumWeightDecoding::new(matrix, vec![true]);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<MinimumWeightDecoding>(
+        serde_json::json!({"matrix":[[true]],"target":[]})
+    )
+    .is_err());
+}
