@@ -222,7 +222,16 @@ the corresponding solution in the original source problem space without
 having to shell back into `pred solve`.
 
 Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
---config is the target problem's solution encoded as JSON (e.g. '[1,0,1,0]').")]
+--result is the target solver's result as JSON (use - for stdin), e.g.
+  {\"status\":\"feasible\",\"solution\":[true,false,true,false]}
+`solution` uses the target problem's solution encoding; `evaluation` is optional
+and is checked against the computed value when present.
+
+Status:
+  optimal     the solver PROVED optimality; recovery may conclude the source is infeasible
+  feasible    a valid solution without an optimality proof (samplers, QAOA, annealers)
+  infeasible  the solver PROVED the target has no solution; takes no `solution`
+Use feasible unless optimality is proven: a false optimal claim can yield a wrong source answer.")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
@@ -335,9 +344,9 @@ pub struct ReduceArgs {
 
 #[derive(clap::Args)]
 pub struct ExtractArgs {
-    /// Reduction bundle JSON (from pred reduce).
+    /// Reduction bundle JSON (from pred reduce). Use - for stdin.
     pub input: PathBuf,
-    /// JSON result file from the target solver, with an explicit solve status.
+    /// Target solver result JSON with an explicit solve status. Use - for stdin.
     #[arg(long)]
     pub result: PathBuf,
 }
