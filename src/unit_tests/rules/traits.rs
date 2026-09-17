@@ -209,7 +209,7 @@ fn test_reduction() {
 }
 
 #[test]
-fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
+fn decision_recovery_keeps_evaluation_errors_distinct_from_infeasible() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::ExtractionError;
@@ -256,29 +256,29 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
 }
 
 #[derive(Clone)]
-struct AggregateSourceProblem;
+struct OffsetSourceProblem;
 
 #[derive(Clone)]
-struct AggregateTargetProblem;
+struct OffsetTargetProblem;
 
 thread_local! {
     static TARGET_EVALUATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-impl AggregateSourceProblem {
+impl OffsetSourceProblem {
     fn num_variables(&self) -> usize {
         1
     }
 }
 
-impl AggregateTargetProblem {
+impl OffsetTargetProblem {
     fn num_variables(&self) -> usize {
         1
     }
 }
 
-impl Problem for AggregateSourceProblem {
-    const NAME: &'static str = "AggregateSource";
+impl Problem for OffsetSourceProblem {
+    const NAME: &'static str = "OffsetSource";
     type Solution = Vec<usize>;
     type Value = Min<u64>;
 
@@ -296,8 +296,8 @@ impl Problem for AggregateSourceProblem {
     }
 }
 
-impl Problem for AggregateTargetProblem {
-    const NAME: &'static str = "AggregateTarget";
+impl Problem for OffsetTargetProblem {
+    const NAME: &'static str = "OffsetTarget";
     type Solution = Vec<usize>;
     type Value = Min<u64>;
 
@@ -316,14 +316,14 @@ impl Problem for AggregateTargetProblem {
     }
 }
 
-struct TestAggregateReduction {
-    target: AggregateTargetProblem,
+struct TestOffsetReduction {
+    target: OffsetTargetProblem,
     offset: u64,
 }
 
-impl ReductionResult for TestAggregateReduction {
-    type Source = AggregateSourceProblem;
-    type Target = AggregateTargetProblem;
+impl ReductionResult for TestOffsetReduction {
+    type Source = OffsetSourceProblem;
+    type Target = OffsetTargetProblem;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -348,21 +348,21 @@ impl ReductionResult for TestAggregateReduction {
     }
 }
 
-impl ReduceTo<AggregateTargetProblem> for AggregateSourceProblem {
-    type Result = TestAggregateReduction;
+impl ReduceTo<OffsetTargetProblem> for OffsetSourceProblem {
+    type Result = TestOffsetReduction;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(TestAggregateReduction {
-            target: AggregateTargetProblem,
+        Ok(TestOffsetReduction {
+            target: OffsetTargetProblem,
             offset: 3,
         })
     }
 }
 
 #[test]
-fn test_aggregate_reduction_extracts_value() {
-    let source = AggregateSourceProblem;
-    let result = <AggregateSourceProblem as ReduceTo<AggregateTargetProblem>>::reduce_to(&source)
+fn test_offset_reduction_recovers_shifted_result() {
+    let source = OffsetSourceProblem;
+    let result = <OffsetSourceProblem as ReduceTo<OffsetTargetProblem>>::reduce_to(&source)
         .expect("reduction should succeed");
 
     assert_eq!(
@@ -380,16 +380,16 @@ fn test_aggregate_reduction_extracts_value() {
 }
 
 #[test]
-fn test_dyn_aggregate_reduction_result_extracts_value() {
-    let result = TestAggregateReduction {
-        target: AggregateTargetProblem,
+fn test_dyn_reduction_result_recovers_shifted_result() {
+    let result = TestOffsetReduction {
+        target: OffsetTargetProblem,
         offset: 2,
     };
     let dyn_result: &dyn DynReductionResult = &result;
 
     assert!(dyn_result
         .target_problem_any()
-        .downcast_ref::<AggregateTargetProblem>()
+        .downcast_ref::<OffsetTargetProblem>()
         .is_some());
     TARGET_EVALUATIONS.with(|count| count.set(0));
     let (target, target_json) = dyn_result
@@ -406,7 +406,7 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
     );
     assert_eq!(TARGET_EVALUATIONS.with(|count| count.get()), 1);
     let recovered = dyn_result
-        .recover_result_dyn(&AggregateSourceProblem, target)
+        .recover_result_dyn(&OffsetSourceProblem, target)
         .unwrap();
     assert_eq!(TARGET_EVALUATIONS.with(|count| count.get()), 1);
     assert_eq!(
@@ -420,8 +420,8 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
 
 #[test]
 fn external_evaluation_is_optional_but_must_match_when_present() {
-    let result = TestAggregateReduction {
-        target: AggregateTargetProblem,
+    let result = TestOffsetReduction {
+        target: OffsetTargetProblem,
         offset: 2,
     };
     for status in ["optimal", "feasible"] {
