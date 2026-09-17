@@ -62,6 +62,36 @@ fn float_constraints_use_float_arithmetic() {
 }
 
 #[test]
+fn float_ilp_rejects_integer_values_without_an_exact_f64_image() {
+    use crate::traits::EvaluationError;
+    use crate::types::MAX_EXACT_F64_INTEGER;
+
+    let ilp = ILP::<i64, f64>::new(
+        1,
+        vec![LinearConstraint::le(vec![(0, 1.0)], 1.0e16)],
+        vec![(0, 1.0)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+
+    assert_eq!(
+        ilp.evaluate_objective(&[MAX_EXACT_F64_INTEGER]).unwrap(),
+        MAX_EXACT_F64_INTEGER as f64
+    );
+    assert!(ilp.is_feasible(&[MAX_EXACT_F64_INTEGER]).unwrap());
+    assert!(matches!(
+        ilp.is_feasible(&[MAX_EXACT_F64_INTEGER + 1]),
+        Err(EvaluationError::InexactFloatConversion(_))
+    ));
+    for value in [MAX_EXACT_F64_INTEGER + 1, -MAX_EXACT_F64_INTEGER - 1] {
+        assert!(matches!(
+            ilp.evaluate_objective(&[value]),
+            Err(EvaluationError::InexactFloatConversion(_))
+        ));
+    }
+}
+
+#[test]
 fn float_ilp_rejects_non_finite_coefficients() {
     assert!(matches!(
         ILP::<bool, f64>::new(

@@ -78,7 +78,11 @@ impl ILPCoefficient for f64 {
     const NAME: &'static str = "f64";
 
     fn from_integer(value: i64) -> Result<Self, EvaluationError> {
-        Ok(value as f64)
+        crate::types::i64_to_exact_f64(value).map_err(|_| {
+            EvaluationError::InexactFloatConversion(
+                "transporting an integer variable into an f64 ILP expression".into(),
+            )
+        })
     }
 
     fn satisfies(lhs: Self, comparison: Comparison, rhs: Self) -> bool {
