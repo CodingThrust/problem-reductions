@@ -10295,55 +10295,53 @@ fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
 fn test_cvp_i64_create_and_solve() {
     use std::io::Write;
     use std::process::Stdio;
-    for (variant, basis, target, status, expected) in [("i64", "2,0;1,2", "3,2", "optimal", 0.0)] {
-        let created = pred()
-            .args([
-                "create",
-                &format!("CVP/{variant}"),
-                "--basis",
-                basis,
-                "--target-vec",
-                target,
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            created.status.success(),
-            "{}",
-            String::from_utf8_lossy(&created.stderr)
-        );
-        let instance: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
-        assert_eq!(instance["variant"]["coefficient"], variant);
-        let mut child = pred()
-            .args(["solve", "-"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(&created.stdout)
-            .unwrap();
-        let solved = child.wait_with_output().unwrap();
-        assert!(
-            solved.status.success(),
-            "{}",
-            String::from_utf8_lossy(&solved.stderr)
-        );
-        let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
-        assert_eq!(result["status"], status);
-        assert_eq!(result["solution"], serde_json::json!([1, 1]));
-        let display = result["evaluation"].as_str().unwrap();
-        let value: f64 = display
-            .strip_prefix("Min(")
-            .unwrap()
-            .strip_suffix(')')
-            .unwrap()
-            .parse()
-            .unwrap();
-        assert!((value - expected).abs() < 1e-12);
-    }
+    let created = pred()
+        .args([
+            "create",
+            "CVP/i64",
+            "--basis",
+            "2,0;1,2",
+            "--target-vec",
+            "3,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let instance: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
+    assert_eq!(instance["variant"]["coefficient"], "i64");
+    let mut child = pred()
+        .args(["solve", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&created.stdout)
+        .unwrap();
+    let solved = child.wait_with_output().unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(result["status"], "optimal");
+    assert_eq!(result["solution"], serde_json::json!([1, 1]));
+    let display = result["evaluation"].as_str().unwrap();
+    let value: f64 = display
+        .strip_prefix("Min(")
+        .unwrap()
+        .strip_suffix(')')
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(value.abs() < 1e-12);
 }
