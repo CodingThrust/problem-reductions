@@ -2,11 +2,14 @@
 
 from pathlib import Path
 import re
+import subprocess
 import tempfile
 import unittest
 
 from build_graph_details import SafeDetailHTML
 from finalize_website import finalize
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebsiteBuildTests(unittest.TestCase):
@@ -41,6 +44,13 @@ class WebsiteBuildTests(unittest.TestCase):
             app = (root / scripts[1].split('?')[0]).read_text()
             self.assertIn('releases/', app)
             self.assertFalse((root / 'assets').exists())
+
+    def test_graph_layout_is_reproducible(self):
+        command = ['node', str(ROOT / 'scripts/generate_website_graph_layout.js'),
+                   str(ROOT / 'docs/src/reductions/reduction_graph.json')]
+        first, second = (subprocess.run(command, check=True, capture_output=True).stdout
+                         for _ in range(2))
+        self.assertEqual(first, second)
 
 
 if __name__ == '__main__':
