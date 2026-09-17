@@ -4,6 +4,14 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
+fn test_cosine_product_integration_deserialization_rejects_empty_coefficients() {
+    assert!(serde_json::from_value::<CosineProductIntegration>(
+        serde_json::json!({"coefficients": []})
+    )
+    .is_err());
+}
+
+#[test]
 fn test_cosine_product_integration_creation() {
     let p = CosineProductIntegration::new(vec![2, 3, 5]);
     assert_eq!(p.coefficients(), &[2, 3, 5]);

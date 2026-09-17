@@ -55,8 +55,22 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "CosineProductIntegrationData")]
 pub struct CosineProductIntegration {
     coefficients: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct CosineProductIntegrationData {
+    coefficients: Vec<i64>,
+}
+
+impl TryFrom<CosineProductIntegrationData> for CosineProductIntegration {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: CosineProductIntegrationData) -> Result<Self, Self::Error> {
+        Self::try_new(data.coefficients)
+    }
 }
 
 impl CosineProductIntegration {
@@ -66,11 +80,14 @@ impl CosineProductIntegration {
     ///
     /// Panics if `coefficients` is empty.
     pub fn new(coefficients: Vec<i64>) -> Self {
-        assert!(
-            !coefficients.is_empty(),
-            "CosineProductIntegration requires at least one coefficient"
-        );
-        Self { coefficients }
+        Self::try_new(coefficients).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(coefficients: Vec<i64>) -> Result<Self, crate::registry::ConstructionError> {
+        if coefficients.is_empty() {
+            return Err("CosineProductIntegration requires at least one coefficient".into());
+        }
+        Ok(Self { coefficients })
     }
 
     /// Returns the cosine coefficients.
