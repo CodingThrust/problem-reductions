@@ -57,8 +57,7 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize)]
 pub struct MonochromaticTriangle<G> {
     /// The underlying graph.
     graph: G,
@@ -66,6 +65,23 @@ pub struct MonochromaticTriangle<G> {
     triangles: Vec<[usize; 3]>,
     /// Ordered edge list (mirrors `graph.edges()` order).
     edge_list: Vec<(usize, usize)>,
+}
+
+// The persisted triangle and edge lists are derived data; loading rebuilds them.
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct MonochromaticTriangleData<G> {
+    graph: G,
+}
+
+impl<'de, G> Deserialize<'de> for MonochromaticTriangle<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MonochromaticTriangleData::<G>::deserialize(deserializer)?;
+        Ok(Self::new(data.graph))
+    }
 }
 
 impl<G: Graph> MonochromaticTriangle<G> {
