@@ -132,16 +132,21 @@
           }
         });
       }
-      if (article.querySelector('a[role="doc-noteref"]')) {
+      if (article.querySelector('[role="doc-noteref"] a')) {
         const notes = document.createElement("aside");
-        const footnotes = await loadDetail("footnotes");
-        if (!article.isConnected) return;
         notes.className = "typst-detail detail-footnotes";
-        notes.innerHTML = footnotes;
-        const used = new Set([...article.querySelectorAll('a[role="doc-noteref"]')].map((link) => link.hash.slice(1)));
-        notes.querySelectorAll('li').forEach((item) => {
-          if (!used.has(item.id)) item.remove();
-        });
+        try {
+          notes.innerHTML = await loadDetail("footnotes");
+          const used = new Set([...article.querySelectorAll('[role="doc-noteref"] a')].map((link) => link.hash.slice(1)));
+          notes.querySelectorAll('li').forEach((item) => {
+            if (!used.has(item.id)) item.remove();
+          });
+        } catch (error) {
+          // The article is already rendered; only its footnotes degrade.
+          notes.textContent = error.message;
+          notes.setAttribute("role", "alert");
+        }
+        if (!article.isConnected) return;
         article.after(notes);
       }
     } catch (error) {
