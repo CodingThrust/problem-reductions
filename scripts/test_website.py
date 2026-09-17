@@ -692,6 +692,21 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
         expect(self.page.locator('.typst-detail[role="alert"]')).to_have_count(0)
 
+    def test_graph_footnote_errors_keep_the_article(self):
+        self.page.route('**/assets/details/footnotes.html', lambda route: route.fulfill(status=503))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator("#cy canvas").first).to_be_visible()
+        self.page.locator('[data-family="QUBO"]').click()
+        expect(self.page.locator('.detail-footnotes[role="alert"]')).to_contain_text('503')
+        expect(self.page.locator('article.typst-detail')).to_contain_text('Definition')
+        expect(self.page.locator('article.typst-detail[role="alert"]')).to_have_count(0)
+        self.page.unroute('**/assets/details/footnotes.html')
+        self.page.locator('[data-variant="QUBO/weight=i64"]').click()
+        expect(self.page.locator('.detail-footnotes li')).to_have_count(1)
+        expect(self.page.locator('.detail-footnotes[role="alert"]')).to_have_count(0)
+        self.page.locator('article.typst-detail [role="doc-noteref"] a').click()
+        expect(self.page.locator('.detail-footnotes li')).to_be_in_viewport()
+
     def test_graph_data_errors_are_visible(self):
         self.page.route('**/assets/graph-data.js*', lambda route: route.fulfill(status=503))
         self.page.goto(self.base + 'graph.html')
