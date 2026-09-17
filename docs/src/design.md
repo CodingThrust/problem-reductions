@@ -200,9 +200,10 @@ Guarantees must cover every qualifying witness, including tied optima.
 `SolutionAggregate` remains a brute-force solver capability for selecting from
 an enumeration. Mathematical wrappers such as `Min`, `Max`, `Or`, and `Sum`
 remain model values. They do not require separate reduction traits or graph
-modes. Turing reductions describe adaptive queries and remain a separate
-execution capability; exact recovery alone does not imply approximation or
-counting preservation.
+modes. Turing edges describe multiple adaptive queries and are retained only as
+theoretical graph relationships, not executable reductions. The library does not
+provide a Turing reduction solver. Default path search and execution exclude these
+edges. Exact recovery alone does not imply approximation or counting preservation.
 
 ### Arithmetic
 

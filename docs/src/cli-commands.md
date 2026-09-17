@@ -89,6 +89,9 @@ For a problem file, JSON inspection includes `parameter_values`, the model's act
 
 ## Reduce
 
+`pred path` searches only executable reductions. The graph also records theoretical
+Turing relations requiring multiple queries; these are not executable paths.
+
 ```bash
 pred path MIS QUBO --json -o paths.json
 python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json

@@ -742,7 +742,7 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types; most are solver-executable witness, aggregate, or Turing reductions, while a few are proof-only NP-hardness embeddings that are excluded from runtime path search.
+A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library catalogues #graph-data.edges.len() edges connecting #graph-data.nodes.len() problem types. Executable reductions construct a target instance and recover a source result. The graph also retains proof-only NP-hardness embeddings and theoretical Turing relations; both are excluded from runtime path search. Turing relations require multiple adaptive queries and have no executor in the library.
 
 == Notation
 

@@ -107,7 +107,7 @@ make papers-pull   # Pull PDFs from shared remote
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
 - `src/models/decision.rs` - Generic `Decision<P>` wrapper converting optimization problems to decision problems
-- `src/solvers/` - BruteForce reference solver returning problem solutions, ILP solver, decision search (binary search via Decision queries), and the exact-variant solver capability registry. Solver dispatch uses only registered customized implementations and fixed ILP pipelines; reduction-graph reachability does not imply solver availability. Run `pred inspect <instance>` to see the registered capabilities for that instance.
+- `src/solvers/` - BruteForce reference solver returning problem solutions, ILP solver, and the exact-variant solver capability registry. Solver dispatch uses only registered customized implementations and fixed ILP pipelines; reduction-graph reachability does not imply solver availability. Turing edges are theoretical graph metadata, not executable reductions. Run `pred inspect <instance>` to see the registered capabilities for that instance.
 - `src/traits.rs` - `Problem` trait
 - `src/rules/traits.rs` - `ReduceTo<T>` and mandatory `ReductionResult::recover_result`
 - `src/registry/` - Compile-time reduction metadata collection

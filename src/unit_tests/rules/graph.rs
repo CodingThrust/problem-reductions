@@ -859,7 +859,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
 }
 
 #[test]
-fn witness_path_search_rejects_turing_only_edge() {
+fn default_path_search_rejects_turing_only_edge() {
     let source_variant = BTreeMap::new();
     let target_variant = BTreeMap::new();
     let graph = build_two_node_graph(
@@ -875,12 +875,12 @@ fn witness_path_search_rejects_turing_only_edge() {
     );
 
     assert!(graph
-        .find_all_paths_mode(
+        .find_paths_up_to(
             AggregateChainSource::NAME,
             &source_variant,
             AggregateChainMiddle::NAME,
             &target_variant,
-            ReductionMode::Witness
+            1,
         )
         .is_empty());
     assert!(!graph

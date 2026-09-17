@@ -141,12 +141,13 @@ pub struct ExecutedStep {
 /// Witness/config reduction executor stored in the inventory.
 pub type ReduceFn = fn(&dyn Any) -> Result<ExecutedStep, crate::rules::ReductionError>;
 
-/// Execution capabilities carried by a reduction edge.
+/// Executability and theoretical multi-query relations carried by a reduction edge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EdgeCapabilities {
     pub witness: bool,
     /// Turing (multi-query) reduction: solving the source requires multiple
     /// adaptive queries to the target (e.g., binary search over a decision bound).
+    /// This is graph metadata only; the library does not execute Turing reductions.
     #[serde(default)]
     pub turing: bool,
 }

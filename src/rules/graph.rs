@@ -327,6 +327,7 @@ pub enum ReductionMode {
     Witness,
     /// Multi-query (Turing) reductions: solving the source requires multiple
     /// adaptive queries to the target (e.g., binary search over a bound).
+    /// Queries theoretical graph relationships only; these paths are not executable.
     Turing,
 }
 

@@ -105,7 +105,8 @@ macro_rules! register_decision_variant {
             }
         }
 
-        // Reverse edge: P → Decision<P> (Turing/multi-query reduction via binary search)
+        // Theory-only reverse edge: P → Decision<P> requires multiple queries.
+        // Retained for graph display; there is no Turing reduction executor.
         $crate::inventory::submit! {
             $crate::rules::ReductionEntry {
                 source_name: <$inner as $crate::traits::Problem>::NAME,

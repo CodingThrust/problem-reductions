@@ -2,7 +2,6 @@
 
 mod brute_force;
 pub(crate) mod customized;
-pub mod decision_search;
 mod outcome;
 mod pipelines;
 mod registry;
