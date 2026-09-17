@@ -2,6 +2,30 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
+
+#[test]
+fn test_minimum_code_generation_unlimited_registers_validates_persisted_input() {
+    let valid = serde_json::json!({"num_vertices":3,"left_arcs":[[0,1]],"right_arcs":[[0,2]]});
+    let restored: MinimumCodeGenerationUnlimitedRegisters =
+        serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("left_arcs", serde_json::json!([[0, 3]])),
+        ("right_arcs", serde_json::json!([[3, 0]])),
+        ("left_arcs", serde_json::json!([[0, 0]])),
+        ("right_arcs", serde_json::json!([[0, 0]])),
+        ("left_arcs", serde_json::json!([[0, 1], [0, 2]])),
+        ("left_arcs", serde_json::json!([])),
+        ("right_arcs", serde_json::json!([[1, 2]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumCodeGenerationUnlimitedRegisters>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::types::Min;
 
 #[test]

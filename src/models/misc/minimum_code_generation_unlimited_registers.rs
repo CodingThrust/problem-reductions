@@ -62,6 +62,7 @@ inventory::submit! {
 /// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(4)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCodeGenerationUnlimitedRegistersData")]
 pub struct MinimumCodeGenerationUnlimitedRegisters {
     /// Number of vertices |V|.
     num_vertices: usize,
@@ -69,6 +70,22 @@ pub struct MinimumCodeGenerationUnlimitedRegisters {
     left_arcs: Vec<(usize, usize)>,
     /// Right operand arcs (parent, child) — child's register is preserved.
     right_arcs: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCodeGenerationUnlimitedRegistersData {
+    num_vertices: usize,
+    left_arcs: Vec<(usize, usize)>,
+    right_arcs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<MinimumCodeGenerationUnlimitedRegistersData>
+    for MinimumCodeGenerationUnlimitedRegisters
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCodeGenerationUnlimitedRegistersData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_vertices, data.left_arcs, data.right_arcs)
+    }
 }
 
 impl MinimumCodeGenerationUnlimitedRegisters {
@@ -90,56 +107,67 @@ impl MinimumCodeGenerationUnlimitedRegisters {
         left_arcs: Vec<(usize, usize)>,
         right_arcs: Vec<(usize, usize)>,
     ) -> Self {
+        Self::try_new(num_vertices, left_arcs, right_arcs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        left_arcs: Vec<(usize, usize)>,
+        right_arcs: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let mut left_count = vec![0usize; num_vertices];
         let mut right_count = vec![0usize; num_vertices];
 
         for &(parent, child) in &left_arcs {
-            assert!(
-                parent < num_vertices && child < num_vertices,
-                "Left arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
-            );
-            assert!(
-                parent != child,
-                "Self-loop ({parent}, {parent}) not allowed"
-            );
+            if parent >= num_vertices || child >= num_vertices {
+                return Err(format!(
+                    "Left arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
+                )
+                .into());
+            }
+            if parent == child {
+                return Err(format!("Self-loop ({parent}, {parent}) not allowed").into());
+            }
             left_count[parent] += 1;
         }
         for &(parent, child) in &right_arcs {
-            assert!(
-                parent < num_vertices && child < num_vertices,
-                "Right arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
-            );
-            assert!(
-                parent != child,
-                "Self-loop ({parent}, {parent}) not allowed"
-            );
+            if parent >= num_vertices || child >= num_vertices {
+                return Err(format!(
+                    "Right arc ({parent}, {child}) out of bounds for {num_vertices} vertices"
+                )
+                .into());
+            }
+            if parent == child {
+                return Err(format!("Self-loop ({parent}, {parent}) not allowed").into());
+            }
             right_count[parent] += 1;
         }
 
         for v in 0..num_vertices {
             let out = left_count[v] + right_count[v];
-            assert!(out <= 2, "Vertex {v} has out-degree {out} > 2");
+            if out > 2 {
+                return Err(format!("Vertex {v} has out-degree {out} > 2").into());
+            }
             // Binary vertex: exactly one left and one right
-            if out == 2 {
-                assert!(
-                    left_count[v] == 1 && right_count[v] == 1,
-                    "Binary vertex {v} must have exactly 1 left and 1 right arc"
+            if out == 2 && !(left_count[v] == 1 && right_count[v] == 1) {
+                return Err(
+                    format!("Binary vertex {v} must have exactly 1 left and 1 right arc").into(),
                 );
             }
             // Unary vertex: one left arc (result overwrites operand register)
-            if out == 1 {
-                assert!(
-                    left_count[v] == 1 && right_count[v] == 0,
+            if out == 1 && !(left_count[v] == 1 && right_count[v] == 0) {
+                return Err(format!(
                     "Unary vertex {v} must have exactly 1 left arc and 0 right arcs"
-                );
+                )
+                .into());
             }
         }
 
-        Self {
+        Ok(Self {
             num_vertices,
             left_arcs,
             right_arcs,
-        }
+        })
     }
 
     /// Get the number of vertices.

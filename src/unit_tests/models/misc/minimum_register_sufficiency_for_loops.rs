@@ -2,6 +2,27 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
+
+#[test]
+fn test_minimum_register_sufficiency_for_loops_validates_persisted_input() {
+    let valid = serde_json::json!({"loop_length":3,"variables":[[0,1],[1,2]]});
+    let restored: MinimumRegisterSufficiencyForLoops =
+        serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("loop_length", serde_json::json!(0)),
+        ("variables", serde_json::json!([[3, 1]])),
+        ("variables", serde_json::json!([[0, 0]])),
+        ("variables", serde_json::json!([[0, 4]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumRegisterSufficiencyForLoops>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::types::Min;
 
 #[test]

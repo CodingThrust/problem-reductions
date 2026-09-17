@@ -4,6 +4,24 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
+fn test_register_sufficiency_validates_persisted_input() {
+    let valid = serde_json::json!({"num_vertices":3,"arcs":[[0,1],[0,2]],"bound":2});
+    let restored: RegisterSufficiency = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("arcs", serde_json::json!([[3, 0]])),
+        ("arcs", serde_json::json!([[0, 0]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<RegisterSufficiency>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn test_register_sufficiency_basic() {
     let problem = RegisterSufficiency::new(
         7,
