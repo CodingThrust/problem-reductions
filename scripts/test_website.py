@@ -2,6 +2,7 @@
 """Browser checks against a built, served website (see docs/website/README.md)."""
 
 import os
+import re
 import unittest
 from urllib.parse import urljoin
 
@@ -437,6 +438,8 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#graph-detail')).to_be_empty()
         divider = self.page.get_by_role('separator', name='Resize details panel')
         expect(divider).to_have_attribute('aria-valuenow', '320')
+        expect(divider).to_have_attribute('aria-valuemin', '240')
+        expect(divider).to_have_attribute('aria-valuemax', re.compile(r'^\d+$'))
         before = self.page.evaluate("""() => {
             const cy = document.querySelector('#cy')._cyreg.cy;
             return {pan: {...cy.pan()}, zoom: cy.zoom(),
