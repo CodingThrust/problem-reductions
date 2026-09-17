@@ -1,4 +1,38 @@
 use super::*;
+
+#[test]
+fn test_sequencing_to_minimize_weighted_tardiness_rejects_invalid_inputs() {
+    let valid = serde_json::to_value(SequencingToMinimizeWeightedTardiness::new(
+        vec![1],
+        vec![1],
+        vec![2],
+        0,
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("weights", serde_json::json!([])),
+        ("deadlines", serde_json::json!([])),
+        ("lengths", serde_json::json!([-1])),
+        ("weights", serde_json::json!([-1])),
+        ("deadlines", serde_json::json!([-1])),
+        ("bound", serde_json::json!(-1)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<SequencingToMinimizeWeightedTardiness>(invalid.clone())
+                .is_err(),
+            "{field}"
+        );
+        let spec =
+            serde_json::from_value::<SequencingToMinimizeWeightedTardinessCreateSpec>(invalid)
+                .unwrap();
+        assert!(
+            SequencingToMinimizeWeightedTardiness::try_from(spec).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
