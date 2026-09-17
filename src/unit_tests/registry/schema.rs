@@ -68,10 +68,6 @@ fn test_schema_fields_populated() {
         "MaximumIndependentSet should have fields"
     );
     let field_names: Vec<&str> = is_schema.fields.iter().map(|f| f.name.as_str()).collect();
-    assert_eq!(
-        is_schema.module_path,
-        "problemreductions::models::graph::maximum_independent_set"
-    );
     assert!(
         field_names.contains(&"graph"),
         "MaximumIndependentSet should have 'graph' field"

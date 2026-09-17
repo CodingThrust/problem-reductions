@@ -231,13 +231,13 @@ class WebsiteTests(unittest.TestCase):
             !link.textContent.includes('Result recovery') && !link.textContent.includes('See contract'))'''))
         self.visit('reduction/MaximumIndependentSet/DecisionMaximumIndependentSet')
         expect(self.page.locator('.reading-aside .rule-kind')).to_have_text('Turing reduction')
-        self.visit('reduction/CircuitSAT/DecisionSpinGlass')
+        self.visit('reduction/CircuitSAT/SpinGlass')
         expect(self.page.locator('.reading-aside .rule-kind')).to_have_count(0)
         expect(self.page.locator('.reading-aside')).not_to_contain_text('Status')
         expect(self.page.locator('.reading-aside')).not_to_contain_text('Capabilities')
 
     def test_rule_parameter_upper_bounds_use_inequalities(self):
-        self.visit('reduction/CircuitSAT/DecisionSpinGlass')
+        self.visit('reduction/CircuitSAT/SpinGlass')
         expect(self.page.locator('.parameter-operator')).to_have_text(['≤', '≤'])
         expect(self.page.locator('.parameter-relation math')).to_have_count(2)
         self.page.set_viewport_size({'width': 390, 'height': 900})

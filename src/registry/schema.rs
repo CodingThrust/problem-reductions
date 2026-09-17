@@ -142,8 +142,6 @@ inventory::collect!(ProblemSchemaEntry);
 pub struct ProblemSchemaJson {
     /// Problem name.
     pub name: String,
-    /// Rust module owning the registered problem schema.
-    pub module_path: String,
     /// Problem description.
     pub description: String,
     /// Structural catalog category.
@@ -169,7 +167,6 @@ pub fn collect_schemas() -> Vec<ProblemSchemaJson> {
         .into_iter()
         .map(|entry| ProblemSchemaJson {
             name: entry.name.to_string(),
-            module_path: entry.module_path.to_string(),
             description: entry.description.to_string(),
             category: entry.category,
             fields: entry
