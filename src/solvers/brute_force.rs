@@ -3,7 +3,7 @@
 use std::any::Any;
 
 use crate::solvers::SolveError;
-use crate::traits::Problem;
+use crate::traits::{EvaluationValue, Problem};
 use crate::types::{Aggregate, Extremum, Max, Min, Or};
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt;
@@ -12,7 +12,7 @@ use std::fmt;
 ///
 /// This is not required by model evaluation, reductions, or solvers that return
 /// their solutions directly.
-pub trait SolutionAggregate: Aggregate {
+pub trait SolutionAggregate: Aggregate + EvaluationValue {
     /// Whether a solution-level value contributes to the final aggregate value.
     fn contributes_to_solution(value: &Self, total: &Self) -> bool;
 }

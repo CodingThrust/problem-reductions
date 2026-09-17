@@ -301,7 +301,7 @@ pub(crate) fn assert_suboptimal_feasible_target_is_insufficient<R>(
     optimum: &<R::Target as Problem>::Solution,
 ) where
     R: ReductionResult,
-    <R::Target as Problem>::Value: crate::traits::EvaluationValue + std::fmt::Debug + PartialEq,
+    <R::Target as Problem>::Value: std::fmt::Debug + PartialEq,
 {
     let target = reduction.target_problem();
     assert_ne!(

@@ -421,7 +421,7 @@ impl<V> Min<V> {
 }
 
 /// Trait for aggregate values that represent optimization objectives.
-pub trait OptimizationValue: Aggregate {
+pub trait OptimizationValue: Aggregate + crate::traits::EvaluationValue {
     /// The inner numeric type used for comparisons with decision bounds.
     type Inner: Clone + PartialOrd + fmt::Debug + Serialize + DeserializeOwned;
 

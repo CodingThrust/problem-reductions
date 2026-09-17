@@ -1,7 +1,7 @@
 //! Core traits for problem reductions.
 
 use crate::solvers::{ProblemOutcome, SolveOutcome};
-use crate::traits::Problem;
+use crate::traits::{EvaluationValue, Problem};
 use std::any::Any;
 use std::marker::PhantomData;
 
@@ -166,9 +166,9 @@ pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
 /// Stores the target and recovers complete source results using the executed mapping.
 pub trait ReductionResult {
     /// The source problem type.
-    type Source: Problem;
+    type Source: Problem<Value: EvaluationValue>;
     /// The target problem type.
-    type Target: Problem;
+    type Target: Problem<Value: EvaluationValue>;
 
     /// Get a reference to the target problem.
     fn target_problem(&self) -> &Self::Target;
@@ -191,7 +191,7 @@ pub trait ReductionResult {
 /// Rules requiring optimum thresholds or rejecting feasible incumbents must instead
 /// interpret those outcomes in their own `recover_result` implementation.
 /// Source evaluation errors propagate; they never establish source infeasibility.
-pub(super) fn recover_preserving_status<P: Problem, S, V>(
+pub(super) fn recover_preserving_status<P: Problem<Value: EvaluationValue>, S, V>(
     source: &P,
     target: SolveOutcome<S, V>,
     map_solution: impl FnOnce(&S) -> ExtractionResult<P::Solution>,
@@ -277,8 +277,8 @@ impl<S: Problem, T: Problem> VariantReductionResult<S, T> {
 
 impl<S, T> ReductionResult for VariantReductionResult<S, T>
 where
-    S: Problem,
-    T: Problem<Solution = S::Solution>,
+    S: Problem<Value: EvaluationValue>,
+    T: Problem<Solution = S::Solution, Value: EvaluationValue>,
 {
     type Source = S;
     type Target = T;

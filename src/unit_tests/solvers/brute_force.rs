@@ -1,6 +1,6 @@
 use super::*;
 use crate::traits::Problem;
-use crate::types::{AggregationError, Max, Min, Or, Sum};
+use crate::types::{AggregationError, And, Max, Min, Or, Sum};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -527,6 +527,97 @@ fn test_solve_with_witnesses_max() {
 #[test]
 fn test_sum_fold_preserves_zero_identity() {
     assert_eq!(Sum::<u64>::identity().combine(Sum(6)).unwrap(), Sum(6));
+}
+
+/// Unregistered fold-only problem over three binary variables. `Sum` and `And`
+/// are evaluation and fold values; they are not `EvaluationValue`s, so this
+/// problem cannot enter the solve or recovery APIs.
+#[derive(Clone)]
+struct FoldProblem<V> {
+    value: fn(&[usize]) -> V,
+    evaluations: Rc<Cell<usize>>,
+}
+
+impl<V> FoldProblem<V> {
+    fn new(value: fn(&[usize]) -> V) -> Self {
+        Self {
+            value,
+            evaluations: Rc::new(Cell::new(0)),
+        }
+    }
+}
+
+impl<V: Clone> Problem for FoldProblem<V> {
+    const NAME: &'static str = "FoldProblem";
+    type Solution = Vec<usize>;
+    type Value = V;
+
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 3)])
+    }
+
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        self.evaluations.set(self.evaluations.get() + 1);
+        Ok((self.value)(config))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl<V: Clone> crate::solvers::BruteForceProblem for FoldProblem<V> {
+    fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
+        Ok(3)
+    }
+
+    fn dimension(&self, _variable: usize) -> Result<usize, crate::solvers::SolveError> {
+        Ok(2)
+    }
+}
+
+#[test]
+fn test_sum_valued_problem_folds_the_exact_count() {
+    // Count the assignments with at least two ones: 110, 101, 011, 111.
+    let problem = FoldProblem::new(|config| Sum(u64::from(config.iter().sum::<usize>() >= 2)));
+
+    assert_eq!(problem.evaluate(&vec![1, 0, 1]).unwrap(), Sum(1));
+    assert_eq!(problem.evaluate(&vec![1, 0, 0]).unwrap(), Sum(0));
+    problem.evaluations.set(0);
+
+    let total = BruteForce::new().solve_cartesian(&problem, |c| c).unwrap();
+    assert_eq!(total, Sum(4));
+    // A sum is never absorbing, so the fold visits every configuration.
+    assert_eq!(problem.evaluations.get(), 8);
+}
+
+#[test]
+fn test_and_valued_problem_folds_every_true_value() {
+    let problem = FoldProblem::new(|config| And(config.len() == 3));
+
+    let total = BruteForce::new().solve_cartesian(&problem, |c| c).unwrap();
+    assert_eq!(total, And(true));
+    assert_eq!(problem.evaluations.get(), 8);
+}
+
+#[test]
+fn test_and_valued_problem_stops_at_the_first_false_value() {
+    // Enumeration order is 000, 001, 010, ...; the third configuration fails.
+    let problem = FoldProblem::new(|config| And(config != [0, 1, 0]));
+
+    assert_eq!(problem.evaluate(&vec![0, 1, 0]).unwrap(), And(false));
+    problem.evaluations.set(0);
+
+    let total = BruteForce::new().solve_cartesian(&problem, |c| c).unwrap();
+    assert_eq!(total, And(false));
+    // `And(false)` is absorbing, so the remaining five configurations are skipped.
+    assert_eq!(problem.evaluations.get(), 3);
 }
 
 #[test]

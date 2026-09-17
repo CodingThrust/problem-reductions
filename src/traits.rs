@@ -22,6 +22,9 @@ pub enum EvaluationError {
 ///
 /// Independent of aggregation and solver capabilities. An invalid value rejects
 /// this candidate; it does not establish that the problem has no feasible solution.
+/// Required wherever a candidate is labeled feasible: solve outcomes, reduction
+/// recovery, and registration. `Problem::Value` itself does not require it, so
+/// fold-only values such as `Sum` and `And` remain usable for evaluation.
 pub trait EvaluationValue: Clone {
     fn is_valid(&self) -> bool;
 }
@@ -37,7 +40,7 @@ pub trait Problem: Clone {
     /// Mathematical witness type for this problem.
     type Solution;
     /// The evaluation value type.
-    type Value: EvaluationValue;
+    type Value: Clone;
     /// Canonical parameter names for this problem model.
     fn parameter_names() -> &'static [&'static str];
     /// Measure the complete canonical parameters of this concrete instance.

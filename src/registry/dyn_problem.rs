@@ -40,6 +40,8 @@ pub trait DynProblem: Any {
 /// Implement the existing dynamic transport boundary for a concrete problem type.
 ///
 /// Concrete value semantics determine feasibility; no solver capability is required.
+/// Registration therefore requires `Problem::Value: EvaluationValue`; problems with
+/// fold-only values such as `Sum` or `And` stay unregistered.
 #[macro_export]
 macro_rules! impl_dyn_problem {
     ($ty:ty) => {

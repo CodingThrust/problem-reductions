@@ -81,6 +81,47 @@ impl<S, V> SolveOutcome<S, V> {
     ///
     /// Returns an evaluation error if evaluation fails or the candidate violates
     /// the constraints. This checks feasibility, not optimality.
+    ///
+    /// The value type must be an [`EvaluationValue`]:
+    ///
+    /// ```
+    /// # use problemreductions::traits::{EvaluationError, Problem};
+    /// # use problemreductions::types::{Max, ProblemParameters, Sum};
+    /// # use problemreductions::solvers::SolveOutcome;
+    /// # #[derive(Clone)]
+    /// # struct Constant<V>(V);
+    /// # impl<V: Clone> Problem for Constant<V> {
+    /// #     const NAME: &'static str = "Constant";
+    /// #     type Solution = ();
+    /// #     type Value = V;
+    /// #     fn parameter_names() -> &'static [&'static str] { &[] }
+    /// #     fn parameters(&self) -> ProblemParameters { ProblemParameters::new(vec![]) }
+    /// #     fn evaluate(&self, _: &()) -> Result<V, EvaluationError> { Ok(self.0.clone()) }
+    /// #     fn variant() -> Vec<(&'static str, &'static str)> { vec![] }
+    /// # }
+    /// assert!(SolveOutcome::optimal(&Constant(Max(Some(1_u64))), ()).is_ok());
+    /// ```
+    ///
+    /// Fold-only values such as `Sum` and `And` carry no candidate feasibility,
+    /// so the same problem with a `Sum` value is rejected at compile time:
+    ///
+    /// ```compile_fail,E0277
+    /// # use problemreductions::traits::{EvaluationError, Problem};
+    /// # use problemreductions::types::{Max, ProblemParameters, Sum};
+    /// # use problemreductions::solvers::SolveOutcome;
+    /// # #[derive(Clone)]
+    /// # struct Constant<V>(V);
+    /// # impl<V: Clone> Problem for Constant<V> {
+    /// #     const NAME: &'static str = "Constant";
+    /// #     type Solution = ();
+    /// #     type Value = V;
+    /// #     fn parameter_names() -> &'static [&'static str] { &[] }
+    /// #     fn parameters(&self) -> ProblemParameters { ProblemParameters::new(vec![]) }
+    /// #     fn evaluate(&self, _: &()) -> Result<V, EvaluationError> { Ok(self.0.clone()) }
+    /// #     fn variant() -> Vec<(&'static str, &'static str)> { vec![] }
+    /// # }
+    /// assert!(SolveOutcome::optimal(&Constant(Sum(1_u64)), ()).is_ok());
+    /// ```
     pub fn optimal<P: Problem<Solution = S, Value = V>>(
         problem: &P,
         solution: S,
