@@ -24,6 +24,7 @@ inventory::submit! {
 
 /// Integral Flow with Bundles (Garey & Johnson ND36).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowBundlesData")]
 pub struct IntegralFlowBundles {
     graph: DirectedGraph,
     source: usize,
@@ -31,6 +32,30 @@ pub struct IntegralFlowBundles {
     bundles: Vec<Vec<usize>>,
     bundle_capacities: Vec<i64>,
     requirement: i64,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowBundlesData {
+    graph: DirectedGraph,
+    source: usize,
+    sink: usize,
+    bundles: Vec<Vec<usize>>,
+    bundle_capacities: Vec<i64>,
+    requirement: i64,
+}
+
+impl TryFrom<IntegralFlowBundlesData> for IntegralFlowBundles {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowBundlesData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.source,
+            data.sink,
+            data.bundles,
+            data.bundle_capacities,
+            data.requirement,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -67,57 +92,14 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
         if count < inferred {
             return Err("num_vertices is too small".into());
         }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".into());
-        }
-        if spec.bundles.len() != spec.bundle_capacities.len() {
-            return Err("bundles length must match bundle_capacities length".into());
-        }
-        if spec.requirement == 0 {
-            return Err("requirement must be positive".into());
-        }
-        let mut covered = vec![false; spec.arcs.len()];
-        let mut upper = vec![i64::MAX; spec.arcs.len()];
-        for (i, (bundle, &capacity)) in spec.bundles.iter().zip(&spec.bundle_capacities).enumerate()
-        {
-            if capacity == 0 {
-                return Err(format!("bundle capacity {i} must be positive").into());
-            }
-            let mut seen = BTreeSet::new();
-            for &arc in bundle {
-                if arc >= spec.arcs.len() {
-                    return Err(format!("bundle {i} arc is out of range").into());
-                }
-                if !seen.insert(arc) {
-                    return Err(format!("bundle {i} contains duplicate arc").into());
-                }
-                covered[arc] = true;
-                upper[arc] = upper[arc].min(capacity);
-            }
-        }
-        for (arc, &is_covered) in covered.iter().enumerate() {
-            if !is_covered {
-                return Err(format!("arc {arc} must belong to a bundle").into());
-            }
-            if usize::try_from(upper[arc])
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-            {
-                return Err(format!("arc {arc} upper bound is too large").into());
-            }
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
-            source: spec.source,
-            sink: spec.sink,
-            bundles: spec.bundles,
-            bundle_capacities: spec.bundle_capacities,
-            requirement: spec.requirement,
-        })
+        Self::try_new(
+            DirectedGraph::new(count, spec.arcs),
+            spec.source,
+            spec.sink,
+            spec.bundles,
+            spec.bundle_capacities,
+            spec.requirement,
+        )
     }
 }
 
@@ -131,24 +113,36 @@ impl IntegralFlowBundles {
         bundle_capacities: Vec<i64>,
         requirement: i64,
     ) -> Self {
+        Self::try_new(graph, source, sink, bundles, bundle_capacities, requirement)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        source: usize,
+        sink: usize,
+        bundles: Vec<Vec<usize>>,
+        bundle_capacities: Vec<i64>,
+        requirement: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
         let num_arcs = graph.num_arcs();
 
-        assert!(
-            source < num_vertices,
-            "source ({source}) >= num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) >= num_vertices ({num_vertices})"
-        );
-        assert!(source != sink, "source and sink must be distinct");
-        assert_eq!(
-            bundles.len(),
-            bundle_capacities.len(),
-            "bundles length must match bundle_capacities length"
-        );
-        assert!(requirement > 0, "requirement must be positive");
+        if !(source < num_vertices) {
+            return Err(format!("source ({source}) >= num_vertices ({num_vertices})").into());
+        }
+        if !(sink < num_vertices) {
+            return Err(format!("sink ({sink}) >= num_vertices ({num_vertices})").into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if bundles.len() != bundle_capacities.len() {
+            return Err("bundles length must match bundle_capacities length".into());
+        }
+        if requirement <= 0 {
+            return Err("requirement must be positive".into());
+        }
 
         let mut arc_covered = vec![false; num_arcs];
         let mut arc_upper_bounds = vec![i64::MAX; num_arcs];
@@ -156,48 +150,49 @@ impl IntegralFlowBundles {
         for (bundle_index, (bundle, &capacity)) in
             bundles.iter().zip(&bundle_capacities).enumerate()
         {
-            assert!(
-                capacity > 0,
-                "bundle capacity at index {bundle_index} must be positive"
-            );
+            if !(capacity > 0) {
+                return Err(
+                    format!("bundle capacity at index {bundle_index} must be positive").into(),
+                );
+            }
 
             let mut seen = BTreeSet::new();
             for &arc_index in bundle {
-                assert!(
-                    arc_index < num_arcs,
-                    "bundle {bundle_index} references arc {arc_index}, but num_arcs is {num_arcs}"
-                );
-                assert!(
-                    seen.insert(arc_index),
-                    "bundle {bundle_index} contains duplicate arc index {arc_index}"
-                );
+                if !(arc_index < num_arcs) {
+                    return Err(format!("bundle {bundle_index} arc is out of range: index {arc_index}, num_arcs {num_arcs}").into());
+                }
+                if !(seen.insert(arc_index)) {
+                    return Err(format!(
+                        "bundle {bundle_index} contains duplicate arc index {arc_index}"
+                    )
+                    .into());
+                }
                 arc_covered[arc_index] = true;
                 arc_upper_bounds[arc_index] = arc_upper_bounds[arc_index].min(capacity);
             }
         }
 
         for (arc_index, covered) in arc_covered.iter().copied().enumerate() {
-            assert!(
-                covered,
-                "arc {arc_index} must belong to at least one bundle"
-            );
-            let domain = usize::try_from(arc_upper_bounds[arc_index])
+            if !(covered) {
+                return Err(format!("arc {arc_index} must belong to at least one bundle").into());
+            }
+            if usize::try_from(arc_upper_bounds[arc_index])
                 .ok()
-                .and_then(|bound| bound.checked_add(1));
-            assert!(
-                domain.is_some(),
-                "bundle-derived upper bound for arc {arc_index} must fit into usize for dims()"
-            );
+                .and_then(|bound| bound.checked_add(1))
+                .is_none()
+            {
+                return Err(format!("bundle-derived upper bound for arc {arc_index} must fit into usize for dimensions()").into());
+            }
         }
 
-        Self {
+        Ok(Self {
             graph,
             source,
             sink,
             bundles,
             bundle_capacities,
             requirement,
-        }
+        })
     }
 
     /// Get the underlying directed graph.
