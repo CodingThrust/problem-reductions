@@ -762,6 +762,11 @@
         const size = Math.max(240, Math.min(maxPanelWidth(), width));
         workspace.style.setProperty("--inspector-width", `${size}px`);
       }
+      function describeDivider() {
+        divider.setAttribute("aria-valuenow", Math.round(inspector.getBoundingClientRect().width));
+        divider.setAttribute("aria-valuemax", Math.round(maxPanelWidth()));
+      }
+      describeDivider();
       divider.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) return;
         if (finishMotion) finishMotion();
@@ -797,8 +802,7 @@
         cy.panBy({ x: (width - canvasWidth) / 2, y: (height - canvasHeight) / 2 });
         canvasWidth = width;
         canvasHeight = height;
-        divider.setAttribute("aria-valuenow", Math.round(inspector.getBoundingClientRect().width));
-        divider.setAttribute("aria-valuemax", Math.round(maxPanelWidth()));
+        describeDivider();
         updateLabels();
       }).observe(canvas);
       search.addEventListener("input", () => transition(applySearch));
