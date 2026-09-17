@@ -1,72 +1,73 @@
 (async () => {
   "use strict";
 
-  const data = window.REDUCTIONS;
-  const schemas = new Map(data.schemas.map((schema) => [schema.name, schema]));
-  const aliases = new Map([
-    ["MIS", "MaximumIndependentSet"],
-    ["MVC", "MinimumVertexCover"],
-    ["SAT", "Satisfiability"],
-    ["3SAT", "KSatisfiability"],
-    ["3-SAT", "KSatisfiability"],
-  ]);
-  const colors = {
-    graph: "#b9d99b",
-    formula: "#9bbfc0",
-    set: "#d1a78d",
-    algebraic: "#d8c87e",
-    misc: "#bd9dbc",
-  };
-  const families = new Map();
-
-  data.nodes.forEach((node) => {
-    const family = families.get(node.name) || {
-      name: node.name,
-      category: node.category,
-      variants: [],
-      incoming: new Set(),
-      outgoing: new Set(),
-      rules: 0,
-    };
-    family.variants.push(node);
-    families.set(node.name, family);
-  });
-
-  const connections = new Map();
-  data.edges.forEach((edge) => {
-    const source = data.nodes[edge.source].name;
-    const target = data.nodes[edge.target].name;
-    if (source === target) return;
-    const key = `${source}\u0000${target}`;
-    const connection = connections.get(key) || { source, target, count: 0 };
-    connection.count += 1;
-    connections.set(key, connection);
-    families.get(source).outgoing.add(target);
-    families.get(target).incoming.add(source);
-    families.get(source).rules += 1;
-    families.get(target).rules += 1;
-  });
-
-  const displayName = (name) =>
-    schemas.get(name)?.display_name ||
-    name
-      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-      .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
-
-  const variantKey = (variant) =>
-    Object.entries(variant)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join(",");
-
-  const search = document.querySelector("#graph-search");
-  const inspector = document.querySelector(".graph-inspector");
-  const selectionType = document.querySelector("#selection-type");
-  const detail = document.querySelector("#graph-detail");
-  const tooltip = document.querySelector("#graph-tooltip");
-  let scope = "core";
-
   try {
+      const data = window.REDUCTIONS;
+      if (!data) throw new Error("Cannot load graph data. Reload the page to get the current release.");
+      const schemas = new Map(data.schemas.map((schema) => [schema.name, schema]));
+      const aliases = new Map([
+        ["MIS", "MaximumIndependentSet"],
+        ["MVC", "MinimumVertexCover"],
+        ["SAT", "Satisfiability"],
+        ["3SAT", "KSatisfiability"],
+        ["3-SAT", "KSatisfiability"],
+      ]);
+      const colors = {
+        graph: "#b9d99b",
+        formula: "#9bbfc0",
+        set: "#d1a78d",
+        algebraic: "#d8c87e",
+        misc: "#bd9dbc",
+      };
+      const families = new Map();
+
+      data.nodes.forEach((node) => {
+        const family = families.get(node.name) || {
+          name: node.name,
+          category: node.category,
+          variants: [],
+          incoming: new Set(),
+          outgoing: new Set(),
+          rules: 0,
+        };
+        family.variants.push(node);
+        families.set(node.name, family);
+      });
+
+      const connections = new Map();
+      data.edges.forEach((edge) => {
+        const source = data.nodes[edge.source].name;
+        const target = data.nodes[edge.target].name;
+        if (source === target) return;
+        const key = `${source}\u0000${target}`;
+        const connection = connections.get(key) || { source, target, count: 0 };
+        connection.count += 1;
+        connections.set(key, connection);
+        families.get(source).outgoing.add(target);
+        families.get(target).incoming.add(source);
+        families.get(source).rules += 1;
+        families.get(target).rules += 1;
+      });
+
+      const displayName = (name) =>
+        schemas.get(name)?.display_name ||
+        name
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+
+      const variantKey = (variant) =>
+        Object.entries(variant)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, value]) => `${key}=${value}`)
+          .join(",");
+
+      const search = document.querySelector("#graph-search");
+      const inspector = document.querySelector(".graph-inspector");
+      const selectionType = document.querySelector("#selection-type");
+      const detail = document.querySelector("#graph-detail");
+      const tooltip = document.querySelector("#graph-tooltip");
+      let scope = "core";
+
       const elements = [];
       families.forEach((family) => {
         const neighbors = new Set([...family.incoming, ...family.outgoing]);
