@@ -126,3 +126,14 @@ fn test_closest_string_serialization() {
         problem.evaluate(&vec![0, 0, 0]).unwrap()
     );
 }
+
+#[test]
+fn deserialize_rejects_invalid_input() {
+    for json in [
+        serde_json::json!({"alphabet_size": 2, "strings": []}),
+        serde_json::json!({"alphabet_size": 2, "strings": [[0], [0, 1]]}),
+        serde_json::json!({"alphabet_size": 2, "strings": [[2]]}),
+    ] {
+        assert!(serde_json::from_value::<ClosestString>(json).is_err());
+    }
+}
