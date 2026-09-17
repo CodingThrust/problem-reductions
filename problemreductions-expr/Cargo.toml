@@ -7,11 +7,11 @@ license = "MIT"
 repository = "https://github.com/CodingThrust/problem-reductions"
 
 [dependencies]
-num-bigint = { version = "0.4", features = ["serde"] }
-num-rational = { version = "0.4", features = ["serde"] }
-num-traits = "0.2"
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
+num-bigint = { version = "0.4.8", features = ["serde"] }
+num-rational = { version = "0.4.2", features = ["serde"] }
+num-traits = "0.2.19"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.20"
 
 [dev-dependencies]
-serde_json = "1.0"
+serde_json = "1.0.151"

@@ -21,26 +21,25 @@ example-db = []
 benchmarks = ["dep:criterion"]
 
 [dependencies]
-petgraph = { version = "0.8", features = ["serde-1"] }
-bitvec = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+petgraph = { version = "0.8.3", features = ["serde-1"] }
+bitvec = "1.1.1"
+serde = { version = "1.0.229", features = ["derive"] }
 # Persisted problem and reduction data must preserve every finite f64 on replay.
-serde_json = { version = "1.0", features = ["float_roundtrip"] }
-thiserror = "2.0"
-num-bigint = { version = "0.4", features = ["serde"] }
-num-rational = { version = "0.4", features = ["serde"] }
-num-traits = "0.2"
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+thiserror = "2.0.20"
+num-bigint = { version = "0.4.8", features = ["serde"] }
+num-rational = { version = "0.4.2", features = ["serde"] }
+num-traits = "0.2.19"
 sprs = { version = "0.11.5", default-features = false, features = ["serde"] }
 highs = "=2.4.0"
-inventory = "0.3"
-ordered-float = "5.0"
-rand = "0.10"
-criterion = { version = "0.8", optional = true }
+inventory = "0.3.24"
+rand = "0.10.2"
+criterion = { version = "0.8.2", optional = true }
 problemreductions-macros = { version = "0.6.0", path = "problemreductions-macros" }
 problemreductions-expr = { version = "0.6.0", path = "problemreductions-expr" }
 
 [dev-dependencies]
-proptest = "1.0"
+proptest = "1.11.0"
 
 [[bench]]
 name = "solver_benchmarks"

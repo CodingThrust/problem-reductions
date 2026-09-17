@@ -615,14 +615,14 @@ impl McpServer {
 
 #[rmcp::tool_handler]
 impl rmcp::ServerHandler for McpServer {
-    fn get_info(&self) -> rmcp::model::ServerInfo {
+    fn get_info(&self) -> rmcp::model::ServerConfig {
         let capabilities = rmcp::model::ServerCapabilities::builder()
             .enable_tools()
             .enable_prompts()
             .build();
         let server_info =
             rmcp::model::Implementation::new("problemreductions", env!("CARGO_PKG_VERSION"));
-        rmcp::model::ServerInfo::new(capabilities)
+        rmcp::model::ServerConfig::new(capabilities)
             .with_server_info(server_info)
             .with_instructions(
                 "MCP server for NP-hard problem reductions. \
@@ -647,11 +647,13 @@ impl rmcp::ServerHandler for McpServer {
         &self,
         request: rmcp::model::GetPromptRequestParams,
         _context: rmcp::service::RequestContext<rmcp::RoleServer>,
-    ) -> Result<rmcp::model::GetPromptResult, rmcp::ErrorData> {
+    ) -> Result<rmcp::model::GetPromptResponse, rmcp::ErrorData> {
         let args = request.arguments.unwrap_or_default();
-        super::prompts::get_prompt(&request.name, &args).ok_or_else(|| {
-            rmcp::ErrorData::invalid_params(format!("Unknown prompt: {}", request.name), None)
-        })
+        super::prompts::get_prompt(&request.name, &args)
+            .map(Into::into)
+            .ok_or_else(|| {
+                rmcp::ErrorData::invalid_params(format!("Unknown prompt: {}", request.name), None)
+            })
     }
 }
 
