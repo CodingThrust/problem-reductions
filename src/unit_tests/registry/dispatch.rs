@@ -5,7 +5,7 @@ use crate::registry::variant::find_variant_entry;
 use crate::registry::{load_dyn, serialize_any, DynProblem, LoadedDynProblem};
 use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
 use crate::topology::SimpleGraph;
-use crate::types::{Max, Sum};
+use crate::types::Max;
 use crate::Problem;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -375,7 +375,6 @@ fn test_format_metric_uses_display() {
     assert_eq!(format_metric(&Max::<i64>(None)), "Max(None)");
     assert_eq!(format_metric(&Min(Some(7))), "Min(7)");
     assert_eq!(format_metric(&Or(true)), "Or(true)");
-    assert_eq!(format_metric(&Sum(99u64)), "Sum(99)");
 }
 
 #[test]

@@ -42,7 +42,7 @@ trait Problem: Clone {
 - **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
 - **Feasibility problems** — typically use `Or`.
 - **Solve contract** — a successful solve always returns the problem's `Solution`; a global count or statistic without a representative solution is not a `Problem` solve.
-- **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
+- **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Or`, `Extremum<V>`, `ExtremumSense`.
 
 ## Construction inputs
 
@@ -198,7 +198,7 @@ its source-result relation, including thresholds and sentinel constructions.
 Guarantees must cover every qualifying witness, including tied optima.
 
 `SolutionAggregate` remains a brute-force solver capability for selecting from
-an enumeration. Mathematical wrappers such as `Min`, `Max`, `Or`, and `Sum`
+an enumeration. Mathematical wrappers such as `Min`, `Max`, `Or`, and `Extremum`
 remain model values. They do not require separate reduction traits or graph
 modes. Turing edges describe multiple adaptive queries and are retained only as
 theoretical graph relationships, not executable reductions. The library does not

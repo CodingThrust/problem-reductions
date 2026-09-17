@@ -284,8 +284,6 @@ impl std::fmt::Display for One {
 /// Failure while combining configuration values during a solve.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AggregationError {
-    #[error("aggregate arithmetic overflow or non-finite result")]
-    ArithmeticOverflow,
     #[error("aggregate values are not comparable")]
     UnorderedComparison,
     #[error("cannot combine extrema with different optimization senses")]
@@ -449,29 +447,6 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Optimiza
     }
 }
 
-/// Additive fold value.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Sum<W>(pub W);
-
-impl<W: fmt::Debug + NumericSize + Serialize + DeserializeOwned> Aggregate for Sum<W> {
-    fn identity() -> Self {
-        Sum(W::zero())
-    }
-
-    fn combine(self, other: Self) -> Result<Self, AggregationError> {
-        self.0
-            .checked_add_value(other.0)
-            .map(Sum)
-            .map_err(|_| AggregationError::ArithmeticOverflow)
-    }
-}
-
-impl<W: fmt::Display> fmt::Display for Sum<W> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Sum({})", self.0)
-    }
-}
-
 /// Disjunction aggregate for existential satisfaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Or(pub bool);
@@ -529,30 +504,6 @@ impl PartialEq<bool> for Or {
 impl PartialEq<Or> for bool {
     fn eq(&self, other: &Or) -> bool {
         *self == other.0
-    }
-}
-
-/// Conjunction aggregate for universal satisfaction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct And(pub bool);
-
-impl Aggregate for And {
-    fn identity() -> Self {
-        And(true)
-    }
-
-    fn combine(self, other: Self) -> Result<Self, AggregationError> {
-        Ok(And(self.0 && other.0))
-    }
-
-    fn is_absorbing(&self) -> bool {
-        !self.0
-    }
-}
-
-impl fmt::Display for And {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "And({})", self.0)
     }
 }
 
