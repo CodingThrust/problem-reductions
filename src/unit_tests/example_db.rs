@@ -899,12 +899,13 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
         name: "DecisionMinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i64".to_string()),
+            ("weight".to_string(), "One".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "KSatisfiability");
     assert_eq!(example.target.problem, "DecisionMinimumVertexCover");
+    assert_eq!(example.target.variant, target.variant);
 }
 
 #[test]
