@@ -276,7 +276,201 @@ fn sparse_qubo_validates_shape_values_and_serialized_structure() {
     let problem = QUBO::from_sparse(column_matrix).unwrap();
     assert!(problem.matrix().is_csr());
     assert_eq!(problem.evaluate(&vec![true, true]).unwrap(), Min(Some(5)));
-    let mut json = serde_json::to_value(&problem).unwrap();
-    json["matrix"]["indptr"] = serde_json::json!([0, 3, 2]);
-    assert!(serde_json::from_value::<QUBO<i64>>(json).is_err());
+    assert_eq!(
+        serde_json::to_string(&problem).unwrap(),
+        r#"{"num_vars":2,"entries":[[0,0,2],[0,1,3]]}"#
+    );
+}
+
+fn assignments(n: usize) -> impl Iterator<Item = Vec<bool>> {
+    (0..1usize << n).map(move |mask| (0..n).map(|i| mask & (1 << i) != 0).collect())
+}
+
+fn load_error<W>(json: &str) -> String
+where
+    W: WeightElement + serde::de::DeserializeOwned,
+{
+    serde_json::from_str::<QUBO<W>>(json)
+        .err()
+        .expect("QUBO JSON should be rejected")
+        .to_string()
+}
+
+#[test]
+fn qubo_json_writes_row_major_entries() {
+    // The lower-triangle 99 is stored by from_matrix and therefore persisted, though never evaluated.
+    let problem = QUBO::from_matrix(vec![vec![3, -5, 0], vec![99, 0, 7], vec![0, 0, -6]]).unwrap();
+    assert_eq!(
+        serde_json::to_string(&problem).unwrap(),
+        r#"{"num_vars":3,"entries":[[0,0,3],[0,1,-5],[1,0,99],[1,2,7],[2,2,-6]]}"#
+    );
+    let floating = QUBO::new(vec![0.5, 0.0, -2.0], vec![((0, 2), 1e16)]).unwrap();
+    assert_eq!(
+        serde_json::to_string(&floating).unwrap(),
+        r#"{"num_vars":3,"entries":[[0,0,0.5],[0,2,1e+16],[2,2,-2.0]]}"#
+    );
+    assert_eq!(
+        serde_json::to_string(&QUBO::<i64>::from_matrix(vec![]).unwrap()).unwrap(),
+        r#"{"num_vars":0,"entries":[]}"#
+    );
+}
+
+#[test]
+fn qubo_json_round_trip_preserves_storage_and_every_evaluation() {
+    let integer = QUBO::from_matrix(vec![vec![3, -5, 0], vec![99, 0, 7], vec![0, 0, -6]]).unwrap();
+    let restored: QUBO<i64> =
+        serde_json::from_str(&serde_json::to_string(&integer).unwrap()).unwrap();
+    assert_eq!(restored.matrix(), integer.matrix());
+    for solution in assignments(3) {
+        assert_eq!(
+            restored.evaluate(&solution).unwrap(),
+            integer.evaluate(&solution).unwrap()
+        );
+    }
+
+    let floating = QUBO::from_matrix(vec![
+        vec![1e16, 1.0, -1e16, 0.0],
+        vec![99.0, 0.5, 0.0, -0.25],
+        vec![0.0, 0.0, -2.0, 0.0],
+        vec![0.0, 0.0, 0.0, 1.0],
+    ])
+    .unwrap();
+    let restored: QUBO<f64> =
+        serde_json::from_str(&serde_json::to_string(&floating).unwrap()).unwrap();
+    assert_eq!(restored.matrix(), floating.matrix());
+    for solution in assignments(4) {
+        assert_eq!(
+            restored.evaluate(&solution).unwrap().unwrap().to_bits(),
+            floating.evaluate(&solution).unwrap().unwrap().to_bits()
+        );
+    }
+}
+
+#[test]
+fn qubo_json_entries_behave_like_from_sparse() {
+    // Any entry order is accepted; explicit zeros and lower-triangle entries stay stored.
+    let restored: QUBO<i64> = serde_json::from_str(
+        r#"{"num_vars":3,"entries":[[2,2,-6],[1,0,99],[0,1,-5],[1,1,0],[0,0,3]]}"#,
+    )
+    .unwrap();
+    let expected = QUBO::from_sparse(CsMat::new(
+        (3, 3),
+        vec![0, 2, 4, 5],
+        vec![0, 1, 0, 1, 2],
+        vec![3i64, -5, 99, 0, -6],
+    ))
+    .unwrap();
+    assert_eq!(restored.matrix(), expected.matrix());
+    assert_eq!(
+        serde_json::to_string(&restored).unwrap(),
+        r#"{"num_vars":3,"entries":[[0,0,3],[0,1,-5],[1,0,99],[1,1,0],[2,2,-6]]}"#
+    );
+    assert_eq!(
+        restored.evaluate(&vec![true, true, false]).unwrap(),
+        Min(Some(-2))
+    );
+}
+
+#[test]
+fn qubo_json_legacy_dense_matrix_loads_like_from_matrix() {
+    let legacy = include_str!("../../../../tests/data/qubo_legacy_dense.json");
+    let restored: QUBO<i64> = serde_json::from_str(legacy).unwrap();
+    let expected = QUBO::from_matrix(vec![vec![3, -5, 0], vec![99, 0, 7], vec![0, 0, -6]]).unwrap();
+    assert_eq!(restored.matrix(), expected.matrix());
+    for solution in assignments(3) {
+        assert_eq!(
+            restored.evaluate(&solution).unwrap(),
+            expected.evaluate(&solution).unwrap()
+        );
+    }
+    let floating: QUBO<f64> =
+        serde_json::from_str(r#"{"num_vars":3,"matrix":[[0.5,1,0],[0,0,0],[0,0,-2]]}"#).unwrap();
+    assert_eq!(
+        serde_json::to_string(&floating).unwrap(),
+        r#"{"num_vars":3,"entries":[[0,0,0.5],[0,1,1.0],[2,2,-2.0]]}"#
+    );
+}
+
+#[test]
+fn qubo_json_rejects_malformed_shapes() {
+    const SHAPE: &str = "problem construction failed: QUBO JSON must contain exactly one of \
+                         `entries` (sparse) or `matrix` (legacy dense)";
+    assert_eq!(load_error::<i64>(r#"{"num_vars":3}"#), SHAPE);
+    assert_eq!(
+        load_error::<i64>(r#"{"num_vars":1,"entries":[],"matrix":[[0]]}"#),
+        SHAPE
+    );
+    assert_eq!(
+        load_error::<i64>(r#"{"num_vars":3,"entries":[[0,3,1]]}"#),
+        "problem construction failed: QUBO entry index (0, 3) is outside 0..3"
+    );
+    assert_eq!(
+        load_error::<i64>(r#"{"num_vars":3,"entries":[[3,0,1]]}"#),
+        "problem construction failed: QUBO entry index (3, 0) is outside 0..3"
+    );
+    assert_eq!(
+        load_error::<i64>(r#"{"num_vars":3,"entries":[[1,2,4],[0,0,1],[1,2,5]]}"#),
+        "problem construction failed: QUBO entry (1, 2) is listed more than once"
+    );
+    assert_eq!(
+        load_error::<i64>(r#"{"num_vars":3,"matrix":[[1,2,3],[0,4],[0,0,5]]}"#),
+        "problem construction failed: QUBO matrix row 1 has length 2, expected 3"
+    );
+    assert_eq!(
+        load_error::<i64>(r#"{"num_vars":3,"matrix":[[1,2],[0,4]]}"#),
+        "problem construction failed: QUBO num_vars is 3, but the dense matrix has 2 rows"
+    );
+    assert!(load_error::<i64>(r#"{"entries":[]}"#).starts_with("missing field `num_vars`"));
+    // The unreleased sprs CSR layout is not a supported shape.
+    assert!(load_error::<i64>(
+        r#"{"matrix":{"storage":"CSR","nrows":1,"ncols":1,"indptr":[0,1],"indices":[0],"data":[1]}}"#
+    )
+    .starts_with("invalid type: map, expected a sequence"));
+    assert!(load_error::<i64>(r#"{"num_vars":1,"entries":[[0,0,0.5]]}"#)
+        .starts_with("invalid type: floating point `0.5`, expected i64"));
+}
+
+#[test]
+fn qubo_json_rejects_non_finite_coefficients() {
+    // JSON cannot spell a non-finite number, so the rejection is checked on the parsed mirror.
+    let sparse = QuboData {
+        num_vars: 3,
+        entries: Some(vec![(0, 0, 1.0), (1, 2, f64::INFINITY)]),
+        matrix: None,
+    };
+    assert_eq!(
+        QUBO::try_from(sparse).unwrap_err().to_string(),
+        "non-finite floating-point construction value: QUBO coefficient must be finite at (1, 2)"
+    );
+    let dense = QuboData {
+        num_vars: 3,
+        entries: None,
+        matrix: Some(vec![
+            vec![0.0, 0.0, 0.0],
+            vec![0.0, 0.0, 0.0],
+            vec![0.0, 0.0, f64::NAN],
+        ]),
+    };
+    assert_eq!(
+        QUBO::try_from(dense).unwrap_err().to_string(),
+        "non-finite floating-point construction value: QUBO coefficient must be finite at (2, 2)"
+    );
+    assert!(
+        load_error::<f64>(r#"{"num_vars":1,"entries":[[0,0,1e999]]}"#)
+            .starts_with("number out of range")
+    );
+}
+
+#[test]
+fn qubo_json_rejects_unallocatable_num_vars() {
+    assert_eq!(
+        QUBO::<i64>::from_entries(usize::MAX, vec![])
+            .unwrap_err()
+            .to_string(),
+        "integer overflow during construction: counting QUBO rows"
+    );
+    assert!(QUBO::<i64>::from_entries(usize::MAX - 1, vec![])
+        .unwrap_err()
+        .to_string()
+        .starts_with("problem construction failed: allocating QUBO rows:"));
 }

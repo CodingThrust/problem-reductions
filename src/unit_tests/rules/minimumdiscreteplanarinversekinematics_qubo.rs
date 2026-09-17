@@ -135,7 +135,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_canonical_example_spec() 
         "MinimumDiscretePlanarInverseKinematics"
     );
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["matrix"]["nrows"], 4);
+    assert_eq!(example.target.instance["num_vars"], 4);
     assert_eq!(
         example.solutions[0].source_config,
         serde_json::json!([0, 1])

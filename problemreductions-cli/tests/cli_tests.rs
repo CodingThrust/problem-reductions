@@ -762,6 +762,73 @@ fn test_evaluate() {
 }
 
 #[test]
+fn test_legacy_dense_qubo_json_evaluates_and_solves() {
+    // QUBO files written before sparse storage persist `{num_vars, matrix: [[...]]}`.
+    let tmp = std::env::temp_dir().join("pred_test_legacy_dense_qubo.json");
+    std::fs::write(
+        &tmp,
+        format!(
+            r#"{{"type":"QUBO","variant":{{"weight":"i64"}},"data":{}}}"#,
+            include_str!("../../tests/data/qubo_legacy_dense.json")
+        ),
+    )
+    .unwrap();
+
+    for (args, expected) in [
+        (
+            vec!["evaluate", "--config", "[true,false,true]"],
+            serde_json::json!({"problem": "QUBO", "config": [true, false, true], "result": "Min(-3)"}),
+        ),
+        (
+            vec!["solve", "--solver", "brute-force"],
+            serde_json::json!({
+                "problem": "QUBO",
+                "status": "optimal",
+                "solution": [false, false, true],
+                "evaluation": "Min(-6)",
+                "solver": {"kind": "brute-force"},
+            }),
+        ),
+    ] {
+        let output = pred()
+            .args(["--json", args[0], tmp.to_str().unwrap()])
+            .args(&args[1..])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json, expected);
+    }
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_create_qubo_writes_sparse_entries() {
+    let output = pred()
+        .args(["create", "QUBO", "--matrix", "3,-5,0;0,0,7;0,0,-6"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "type": "QUBO",
+            "variant": {"weight": "i64"},
+            "data": {"num_vars": 3, "entries": [[0, 0, 3], [0, 1, -5], [1, 2, 7], [2, 2, -6]]},
+        })
+    );
+}
+
+#[test]
 fn test_evaluate_sat() {
     let problem_json = r#"{
         "type": "Satisfiability",
@@ -10052,7 +10119,7 @@ fn test_extract_rejects_tampered_target_data() {
     // what the reduction chain actually produces.
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
-    bundle["target"]["data"]["matrix"]["data"][0] = serde_json::json!(999.0);
+    bundle["target"]["data"]["entries"][0][2] = serde_json::json!(999.0);
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 

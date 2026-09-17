@@ -38,6 +38,10 @@ inventory::submit! {
 /// finite floating-point coefficients. An explicit variant reduction converts
 /// exactly representable integer coefficients to `f64`.
 ///
+/// Persisted JSON is `{"num_vars": n, "entries": [[row, column, value], ...]}`, listing the
+/// stored coefficients in row-major order. Loading also accepts the legacy dense
+/// `{"num_vars": n, "matrix": [[...], ...]}` shape, which is read like [`QUBO::from_matrix`].
+///
 /// # Example
 ///
 /// ```
@@ -57,7 +61,7 @@ inventory::submit! {
 /// // Optimal is x = [0, 1] with value -2
 /// assert!(solutions.contains(&vec![false, true]));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(
     try_from = "QuboData<W>",
     bound(deserialize = "W: WeightElement + Deserialize<'de>")
@@ -66,15 +70,51 @@ pub struct QUBO<W = i64> {
     matrix: CsMat<W>,
 }
 
+/// Persisted sparse shape: every stored coefficient as `[row, column, value]` in row-major order.
+#[derive(Serialize)]
+struct QuboEntries<'a, W> {
+    num_vars: usize,
+    entries: Vec<(usize, usize, &'a W)>,
+}
+
+impl<W: Serialize> Serialize for QUBO<W> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        QuboEntries {
+            num_vars: self.num_vars(),
+            entries: self
+                .matrix
+                .iter()
+                .map(|(value, (row, column))| (row, column, value))
+                .collect(),
+        }
+        .serialize(serializer)
+    }
+}
+
+/// Accepted JSON: sparse `entries`, or the legacy dense `matrix` written before sparse storage.
 #[derive(Deserialize)]
 struct QuboData<W> {
-    matrix: CsMat<W>,
+    num_vars: usize,
+    entries: Option<Vec<(usize, usize, W)>>,
+    matrix: Option<Vec<Vec<W>>>,
 }
 
 impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
     type Error = ConstructionError;
     fn try_from(data: QuboData<W>) -> Result<Self, Self::Error> {
-        Self::from_sparse(data.matrix)
+        match (data.entries, data.matrix) {
+            (Some(entries), None) => Self::from_entries(data.num_vars, entries),
+            (None, Some(matrix)) if matrix.len() == data.num_vars => Self::from_matrix(matrix),
+            (None, Some(matrix)) => Err(ConstructionError::Conversion(format!(
+                "QUBO num_vars is {}, but the dense matrix has {} rows",
+                data.num_vars,
+                matrix.len()
+            ))),
+            _ => Err(ConstructionError::Conversion(
+                "QUBO JSON must contain exactly one of `entries` (sparse) or `matrix` (legacy dense)"
+                    .into(),
+            )),
+        }
     }
 }
 
@@ -161,6 +201,62 @@ impl<W: WeightElement> QUBO<W> {
             }
             offsets.push(values.len());
         }
+        Self::from_csr_parts(n, offsets, indices, values)
+    }
+
+    // Stores exactly the listed coefficients, like `from_sparse`; explicit zeros and
+    // lower-triangle entries are kept.
+    fn from_entries(
+        num_vars: usize,
+        mut entries: Vec<(usize, usize, W)>,
+    ) -> Result<Self, ConstructionError> {
+        if let Some(&(row, column, _)) = entries
+            .iter()
+            .find(|&&(row, column, _)| row >= num_vars || column >= num_vars)
+        {
+            return Err(ConstructionError::Conversion(format!(
+                "QUBO entry index ({row}, {column}) is outside 0..{num_vars}"
+            )));
+        }
+        entries.sort_by_key(|&(row, column, _)| (row, column));
+        if let Some(pair) = entries
+            .windows(2)
+            .find(|pair| (pair[0].0, pair[0].1) == (pair[1].0, pair[1].1))
+        {
+            return Err(ConstructionError::Conversion(format!(
+                "QUBO entry ({}, {}) is listed more than once",
+                pair[0].0, pair[0].1
+            )));
+        }
+        let mut offsets = Vec::new();
+        num_vars
+            .checked_add(1)
+            .ok_or_else(|| ConstructionError::IntegerOverflow("counting QUBO rows".into()))
+            .and_then(|len| {
+                offsets.try_reserve_exact(len).map_err(|error| {
+                    ConstructionError::Conversion(format!("allocating QUBO rows: {error}"))
+                })
+            })?;
+        offsets.resize(num_vars + 1, 0);
+        for &(row, _, _) in &entries {
+            offsets[row + 1] += 1;
+        }
+        for row in 0..num_vars {
+            offsets[row + 1] += offsets[row];
+        }
+        let (indices, values) = entries
+            .into_iter()
+            .map(|(_, column, value)| (column, value))
+            .unzip();
+        Self::from_csr_parts(num_vars, offsets, indices, values)
+    }
+
+    fn from_csr_parts(
+        n: usize,
+        offsets: Vec<usize>,
+        indices: Vec<usize>,
+        values: Vec<W>,
+    ) -> Result<Self, ConstructionError> {
         let matrix = CsMat::try_new((n, n), offsets, indices, values)
             .map_err(|(_, _, _, error)| ConstructionError::Conversion(error.to_string()))?;
         Self::from_sparse(matrix)
