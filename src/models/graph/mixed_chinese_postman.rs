@@ -35,11 +35,30 @@ inventory::submit! {
 /// edge. The minimum-cost closed walk is then computed via the directed Chinese
 /// Postman subproblem, using all available arcs (including both directions of
 /// every undirected edge) for degree-balancing detours.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MixedChinesePostman<W: WeightElement<Sum = i64>> {
     graph: MixedGraph,
     arc_weights: Vec<W>,
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "W: WeightElement<Sum = i64> + Deserialize<'de>"))]
+struct MixedChinesePostmanData<W: WeightElement<Sum = i64>> {
+    graph: MixedGraph,
+    arc_weights: Vec<W>,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, W> Deserialize<'de> for MixedChinesePostman<W>
+where
+    W: WeightElement<Sum = i64> + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MixedChinesePostmanData::<W>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.arc_weights, data.edge_weights)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! mixed_chinese_postman_create_spec {

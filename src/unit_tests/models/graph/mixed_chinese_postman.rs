@@ -179,3 +179,41 @@ fn test_mixed_chinese_postman_ignores_isolated_vertices() {
         Min(Some(69))
     );
 }
+
+#[test]
+fn test_mixed_chinese_postman_deserialization_rejects_invalid_weights() {
+    let valid = serde_json::to_value(sample_instance()).unwrap();
+    let restored: MixedChinesePostman<i64> = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), valid);
+
+    let cases = [
+        (
+            "arc_weights",
+            serde_json::json!([2, 3, 1]),
+            "arc_weights length must match num_arcs",
+        ),
+        (
+            "edge_weights",
+            serde_json::json!([2, 3, 1, 2, 7]),
+            "edge_weights length must match num_edges",
+        ),
+        (
+            "arc_weights",
+            serde_json::json!([2, 3, -1, 4]),
+            "arc weight at index 2 must be nonnegative",
+        ),
+        (
+            "edge_weights",
+            serde_json::json!([2, -3, 1, 2]),
+            "edge weight at index 1 must be nonnegative",
+        ),
+    ];
+    for (field, value, expected) in cases {
+        let mut json = valid.clone();
+        json[field] = value;
+        let error = serde_json::from_value::<MixedChinesePostman<i64>>(json)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(error, format!("problem construction failed: {expected}"));
+    }
+}
