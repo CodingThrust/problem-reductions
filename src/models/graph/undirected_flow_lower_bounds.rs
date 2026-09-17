@@ -61,42 +61,6 @@ struct UndirectedFlowLowerBoundsCreateSpec {
 impl TryFrom<UndirectedFlowLowerBoundsCreateSpec> for UndirectedFlowLowerBounds {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: UndirectedFlowLowerBoundsCreateSpec) -> Result<Self, Self::Error> {
-        let edges = spec.graph.num_edges();
-        if spec.capacities.len() != edges {
-            return Err(format!(
-                "capacities has {} entries, expected {edges}",
-                spec.capacities.len()
-            )
-            .into());
-        }
-        if spec.lower_bounds.len() != edges {
-            return Err(format!(
-                "lower_bounds has {} entries, expected {edges}",
-                spec.lower_bounds.len()
-            )
-            .into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if spec.source >= vertices || spec.sink >= vertices {
-            return Err("source and sink must be valid graph vertices"
-                .to_string()
-                .into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string().into());
-        }
-        if spec.requirement == 0 {
-            return Err("requirement must be at least 1".to_string().into());
-        }
-        if let Some((index, _)) = spec
-            .lower_bounds
-            .iter()
-            .zip(&spec.capacities)
-            .enumerate()
-            .find(|(_, (&lower, &upper))| lower > upper)
-        {
-            return Err(format!("lower bound at edge {index} exceeds its capacity").into());
-        }
         Self::try_new(
             spec.graph,
             spec.capacities,
@@ -146,7 +110,7 @@ impl UndirectedFlowLowerBounds {
         if source == sink {
             return Err("source and sink must be distinct".into());
         }
-        if requirement == 0 {
+        if requirement < 1 {
             return Err("requirement must be at least 1".into());
         }
 

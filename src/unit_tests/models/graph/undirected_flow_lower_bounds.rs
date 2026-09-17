@@ -128,3 +128,53 @@ fn test_undirected_flow_lower_bounds_paper_example() {
     let all = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(all.contains(&config));
 }
+
+#[test]
+fn test_undirected_flow_lower_bounds_rejects_nonpositive_requirement_on_every_path() {
+    let expected = "problem construction failed: requirement must be at least 1";
+    for requirement in [0, -5, i64::MIN] {
+        let graph = || SimpleGraph::new(2, vec![(0, 1)]);
+
+        let error =
+            UndirectedFlowLowerBounds::try_new(graph(), vec![1], vec![0], 0, 1, requirement)
+                .unwrap_err();
+        assert_eq!(error.to_string(), expected);
+
+        let error = UndirectedFlowLowerBounds::try_from(UndirectedFlowLowerBoundsCreateSpec {
+            graph: graph(),
+            capacities: vec![1],
+            lower_bounds: vec![0],
+            source: 0,
+            sink: 1,
+            requirement,
+        })
+        .unwrap_err();
+        assert_eq!(error.to_string(), expected);
+
+        let mut json = serde_json::to_value(UndirectedFlowLowerBounds::new(
+            graph(),
+            vec![1],
+            vec![0],
+            0,
+            1,
+            1,
+        ))
+        .unwrap();
+        json["requirement"] = serde_json::json!(requirement);
+        let error = serde_json::from_value::<UndirectedFlowLowerBounds>(json).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+    }
+}
+
+#[test]
+#[should_panic(expected = "requirement must be at least 1")]
+fn test_undirected_flow_lower_bounds_new_panics_on_negative_requirement() {
+    UndirectedFlowLowerBounds::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1],
+        vec![0],
+        0,
+        1,
+        -5,
+    );
+}
