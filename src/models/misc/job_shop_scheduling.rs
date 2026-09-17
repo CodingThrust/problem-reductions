@@ -25,9 +25,24 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "JobShopSchedulingData")]
 pub struct JobShopScheduling {
     num_processors: usize,
     jobs: Vec<Vec<(usize, i64)>>,
+}
+
+#[derive(Deserialize)]
+struct JobShopSchedulingData {
+    num_processors: usize,
+    jobs: Vec<Vec<(usize, i64)>>,
+}
+
+impl TryFrom<JobShopSchedulingData> for JobShopScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: JobShopSchedulingData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_processors, data.jobs)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -63,14 +78,39 @@ impl TryFrom<JobShopSchedulingCreateSpec> for JobShopScheduling {
             return Err("num_processors must be positive".to_string().into());
         }
 
-        for (job_index, job) in spec.jobs.iter().enumerate() {
-            for (task_index, &(processor, _)) in job.iter().enumerate() {
+        Self::try_new(num_processors, spec.jobs)
+    }
+}
+
+struct FlattenedTasks {
+    job_task_ids: Vec<Vec<usize>>,
+    machine_task_ids: Vec<Vec<usize>>,
+    lengths: Vec<i64>,
+}
+
+impl JobShopScheduling {
+    pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, i64)>>) -> Self {
+        Self::try_new(num_processors, jobs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_processors: usize,
+        jobs: Vec<Vec<(usize, i64)>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if jobs.iter().any(|job| !job.is_empty()) && num_processors == 0 {
+            return Err("num_processors must be positive when tasks are present".into());
+        }
+        if jobs.iter().flatten().any(|&(_, length)| length < 0) {
+            return Err("operation lengths must be nonnegative".into());
+        }
+
+        for (job_index, job) in jobs.iter().enumerate() {
+            for (task_index, &(processor, _length)) in job.iter().enumerate() {
                 if processor >= num_processors {
-                    return Err(format!(
-                        "job {job_index} task {task_index} uses processor {processor}, but num_processors is {num_processors}"
-                    ).into());
+                    return Err(format!("job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}").into());
                 }
             }
+
             for (task_index, pair) in job.windows(2).enumerate() {
                 if pair[0].0 == pair[1].0 {
                     return Err(format!(
@@ -84,53 +124,8 @@ impl TryFrom<JobShopSchedulingCreateSpec> for JobShopScheduling {
 
         Ok(Self {
             num_processors,
-            jobs: spec.jobs,
-        })
-    }
-}
-
-struct FlattenedTasks {
-    job_task_ids: Vec<Vec<usize>>,
-    machine_task_ids: Vec<Vec<usize>>,
-    lengths: Vec<i64>,
-}
-
-impl JobShopScheduling {
-    pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, i64)>>) -> Self {
-        let num_tasks: usize = jobs.iter().map(Vec::len).sum();
-        if num_tasks > 0 {
-            assert!(
-                num_processors > 0,
-                "num_processors must be positive when tasks are present"
-            );
-        }
-        assert!(
-            jobs.iter().flatten().all(|&(_, length)| length >= 0),
-            "operation lengths must be nonnegative"
-        );
-
-        for (job_index, job) in jobs.iter().enumerate() {
-            for (task_index, &(processor, _length)) in job.iter().enumerate() {
-                assert!(
-                    processor < num_processors,
-                    "job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}"
-                );
-            }
-
-            for (task_index, pair) in job.windows(2).enumerate() {
-                assert_ne!(
-                    pair[0].0,
-                    pair[1].0,
-                    "job {job_index} tasks {task_index} and {} must use different processors",
-                    task_index + 1
-                );
-            }
-        }
-
-        Self {
-            num_processors,
             jobs,
-        }
+        })
     }
 
     pub fn num_processors(&self) -> usize {

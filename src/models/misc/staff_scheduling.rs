@@ -27,11 +27,33 @@ inventory::submit! {
 /// pattern. A configuration is satisfying iff the total assigned workers does
 /// not exceed `num_workers` and every period's staffing requirement is met.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "StaffSchedulingData")]
 pub struct StaffScheduling {
     shifts_per_schedule: usize,
     schedules: Vec<Vec<bool>>,
     requirements: Vec<i64>,
     num_workers: i64,
+}
+
+#[derive(Deserialize)]
+struct StaffSchedulingData {
+    shifts_per_schedule: usize,
+    schedules: Vec<Vec<bool>>,
+    requirements: Vec<i64>,
+    num_workers: i64,
+}
+
+impl TryFrom<StaffSchedulingData> for StaffScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: StaffSchedulingData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.shifts_per_schedule,
+            data.schedules,
+            data.requirements,
+            data.num_workers,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -50,39 +72,7 @@ impl TryFrom<StaffSchedulingCreateSpec> for StaffScheduling {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: StaffSchedulingCreateSpec) -> Result<Self, Self::Error> {
-        if usize::try_from(spec.num_workers)
-            .ok()
-            .and_then(|workers| workers.checked_add(1))
-            .is_none()
-        {
-            return Err("num_workers must be nonnegative and encodable by dims()"
-                .to_string()
-                .into());
-        }
-        for (schedule_index, schedule) in spec.schedules.iter().enumerate() {
-            if schedule.len() != spec.requirements.len() {
-                return Err(format!(
-                    "schedules[{schedule_index}] has {} periods, expected {}",
-                    schedule.len(),
-                    spec.requirements.len()
-                )
-                .into());
-            }
-            let active_periods = schedule.iter().filter(|&&active| active).count();
-            if active_periods != spec.k {
-                return Err(format!(
-                    "schedules[{schedule_index}] has {active_periods} active periods, expected {}",
-                    spec.k
-                )
-                .into());
-            }
-        }
-        Ok(Self::new(
-            spec.k,
-            spec.schedules,
-            spec.requirements,
-            spec.num_workers,
-        ))
+        Self::try_new(spec.k, spec.schedules, spec.requirements, spec.num_workers)
     }
 }
 
@@ -101,38 +91,51 @@ impl StaffScheduling {
         requirements: Vec<i64>,
         num_workers: i64,
     ) -> Self {
-        assert!(
-            usize::try_from(num_workers)
-                .ok()
-                .and_then(|workers| workers.checked_add(1))
-                .is_some(),
-            "num_workers must be nonnegative and encodable by dims()"
-        );
+        Self::try_new(shifts_per_schedule, schedules, requirements, num_workers)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        shifts_per_schedule: usize,
+        schedules: Vec<Vec<bool>>,
+        requirements: Vec<i64>,
+        num_workers: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if usize::try_from(num_workers)
+            .ok()
+            .and_then(|workers| workers.checked_add(1))
+            .is_none()
+        {
+            return Err("num_workers must be nonnegative and encodable by dims()".into());
+        }
 
         let num_periods = requirements.len();
         for (index, schedule) in schedules.iter().enumerate() {
-            assert_eq!(
-                schedule.len(),
-                num_periods,
-                "schedule {} has {} periods, expected {}",
-                index,
-                schedule.len(),
-                num_periods
-            );
+            if schedule.len() != num_periods {
+                return Err(format!(
+                    "schedule {} has {} periods, expected {}",
+                    index,
+                    schedule.len(),
+                    num_periods
+                )
+                .into());
+            }
             let ones = schedule.iter().filter(|&&active| active).count();
-            assert_eq!(
-                ones, shifts_per_schedule,
-                "schedule {} has {} active periods, expected {}",
-                index, ones, shifts_per_schedule
-            );
+            if ones != shifts_per_schedule {
+                return Err(format!(
+                    "schedule {} has {} active periods, expected {}",
+                    index, ones, shifts_per_schedule
+                )
+                .into());
+            }
         }
 
-        Self {
+        Ok(Self {
             shifts_per_schedule,
             schedules,
             requirements,
             num_workers,
-        }
+        })
     }
 
     /// Get the number of periods.
