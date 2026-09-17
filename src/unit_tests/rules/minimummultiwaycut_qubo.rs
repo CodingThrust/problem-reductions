@@ -161,3 +161,24 @@ fn test_minimummultiwaycut_to_qubo_terminal_pinning() {
         }
     }
 }
+
+#[test]
+fn test_minimummultiwaycut_to_qubo_rejects_feasible_target_incumbent() {
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
+    let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let optimum = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+
+    // One-hot assignment 0,1 -> terminal 0; 2 -> terminal 2; 3,4 -> terminal 4.
+    // It cuts edges (1,2), (2,3), (0,4), (1,3) for cost 13; the optimum is 8.
+    let mut candidate = vec![false; 15];
+    for (vertex, component) in [0, 0, 1, 2, 2].into_iter().enumerate() {
+        candidate[vertex * 3 + component] = true;
+    }
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &source, &reduction, candidate, &optimum,
+    );
+}

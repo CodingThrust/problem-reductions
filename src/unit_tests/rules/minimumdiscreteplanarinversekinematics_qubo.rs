@@ -238,3 +238,96 @@ fn nonfinite_energy_relation_is_a_construction_error() {
         Err(crate::rules::ReductionError::NonFiniteResult { .. })
     ));
 }
+
+/// Decode three two-sample one-hot blocks, or `None` when a block is not one-hot.
+fn decode_one_hot_pairs(assignment: &[bool]) -> Option<Vec<usize>> {
+    assignment
+        .chunks(2)
+        .map(|block| match block {
+            [true, false] => Some(0),
+            [false, true] => Some(1),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn test_minimumdiscreteplanarinversekinematics_to_qubo_feasible_target_incumbents() {
+    // Three unit links pointing right or left; the second joint forbids (left, right).
+    let source = MinimumDiscretePlanarInverseKinematics::new(
+        vec![1.0, 1.0, 1.0],
+        (1.0, 0.0),
+        vec![vec![0.0, PI]; 3],
+        vec![
+            vec![(0, 0), (0, 1), (1, 0), (1, 1)],
+            vec![(0, 0), (0, 1), (1, 1)],
+        ],
+    )
+    .unwrap();
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
+    let qubo = reduction.target_problem();
+    assert_eq!(qubo.num_vars(), 6);
+
+    let mut suboptimal = 0;
+    let mut rejected = 0;
+    for bits in 0..1usize << 6 {
+        let candidate: Vec<bool> = (0..6).map(|i| bits & (1 << i) != 0).collect();
+        let expected = decode_one_hot_pairs(&candidate)
+            .map(|config| (source.evaluate(&config).unwrap(), config))
+            .filter(|(evaluation, _)| evaluation.0.is_some());
+        let recovered =
+            reduction.recover_result(&source, SolveOutcome::feasible(qubo, candidate).unwrap());
+        match expected {
+            Some((evaluation, solution)) => {
+                // (right, right, right) ends at (3, 0), squared distance 4 from the goal.
+                suboptimal += usize::from(matches!(evaluation, Min(Some(v)) if v > 1.0));
+                assert_eq!(
+                    recovered,
+                    Ok(SolveOutcome::Feasible {
+                        solution,
+                        evaluation,
+                    })
+                );
+            }
+            None => {
+                rejected += 1;
+                assert_eq!(
+                    recovered,
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                );
+            }
+        }
+    }
+    // Six of the eight one-hot assignments satisfy the transition constraints.
+    assert_eq!(rejected, 64 - 6);
+    assert!(suboptimal > 0);
+}
+
+#[test]
+fn test_minimumdiscreteplanarinversekinematics_to_qubo_infeasible_source_recovers_infeasible() {
+    // The middle link would need sample 0 and sample 1 at once.
+    let source = MinimumDiscretePlanarInverseKinematics::new(
+        vec![1.0, 1.0, 1.0],
+        (0.0, 0.0),
+        vec![vec![0.0, PI]; 3],
+        vec![vec![(0, 0)], vec![(1, 0)]],
+    )
+    .unwrap();
+    assert_eq!(BruteForce::new().solve(&source).unwrap(), None);
+
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).unwrap();
+    let qubo = reduction.target_problem();
+    let optimum = BruteForce::new().solve(qubo).unwrap().unwrap();
+    assert_eq!(
+        reduction.recover_result(
+            &source,
+            SolveOutcome::optimal(qubo, optimum.clone()).unwrap()
+        ),
+        Ok(SolveOutcome::Infeasible)
+    );
+    // The same assignment without an optimality proof establishes nothing.
+    assert_eq!(
+        reduction.recover_result(&source, SolveOutcome::feasible(qubo, optimum).unwrap()),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    );
+}

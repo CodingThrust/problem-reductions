@@ -188,3 +188,29 @@ fn test_mis_simple_one_to_triangular_graph_methods() {
     assert_eq!(positions.len(), n);
     assert_eq!(graph.num_positions(), n);
 }
+
+#[test]
+fn test_mis_simple_one_to_triangular_rejects_feasible_target_incumbent() {
+    use crate::test_unitdiskmapping_algorithms::common::solve_weighted_mis_config;
+
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![One; 4],
+    );
+    let reduction =
+        ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i64>>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem();
+    let optimum = crate::config::config_to_bits(&solve_weighted_mis_config(
+        target.graph().num_vertices(),
+        &target.graph().edges(),
+        target.weights(),
+    ));
+
+    // The empty set is independent in the triangular graph but says nothing about the source optimum.
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &source,
+        &reduction,
+        vec![false; target.graph().num_vertices()],
+        &optimum,
+    );
+}

@@ -84,3 +84,49 @@ fn test_hamiltoniancircuit_to_travelingsalesman_extract_solution_cycle() {
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).unwrap());
 }
+
+/// Edge selection of the closed tour visiting `order` in the complete target graph.
+fn tour_edges(graph: &SimpleGraph, order: &[usize]) -> Vec<bool> {
+    graph
+        .edges()
+        .into_iter()
+        .map(|(u, v)| {
+            (0..order.len()).any(|i| {
+                let (a, b) = (order[i], order[(i + 1) % order.len()]);
+                (a, b) == (u, v) || (a, b) == (v, u)
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn test_hamiltoniancircuit_to_travelingsalesman_feasible_target_incumbents() {
+    let source = cycle4_hc();
+    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem();
+
+    // 0-1-2-3 uses only source edges (cost 4): the incumbent already is a Hamiltonian circuit.
+    let circuit = tour_edges(target.graph(), &[0, 1, 2, 3]);
+    assert_eq!(target.evaluate(&circuit).unwrap(), Min(Some(4)));
+    let recovered = reduction
+        .recover_result(&source, SolveOutcome::feasible(target, circuit).unwrap())
+        .unwrap();
+    let SolveOutcome::Feasible {
+        solution,
+        evaluation,
+    } = recovered
+    else {
+        panic!("a Hamiltonian incumbent must stay feasible, got {recovered:?}");
+    };
+    assert_eq!(evaluation, crate::types::Or(true));
+    assert_eq!(source.evaluate(&solution).unwrap(), crate::types::Or(true));
+
+    // 0-1-3-2 uses the two diagonals (cost 6): a valid tour that proves nothing about the source.
+    let detour = tour_edges(target.graph(), &[0, 1, 3, 2]);
+    assert_eq!(target.evaluate(&detour).unwrap(), Min(Some(6)));
+    assert_eq!(
+        reduction.recover_result(&source, SolveOutcome::feasible(target, detour).unwrap()),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    );
+}

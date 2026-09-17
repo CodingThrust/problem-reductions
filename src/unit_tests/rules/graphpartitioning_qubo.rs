@@ -103,3 +103,21 @@ fn odd_partition_recovers_infeasibility_from_every_qubo_optimum() {
         );
     }
 }
+
+#[test]
+fn test_graphpartitioning_to_qubo_rejects_feasible_target_incumbent() {
+    let source = example_problem();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let optimum = crate::solvers::BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+
+    // Balanced but suboptimal: {0, 2, 4} | {1, 3, 5} cuts 5 edges; the optimum cuts 3.
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &source,
+        &reduction,
+        vec![true, false, true, false, true, false],
+        &optimum,
+    );
+}

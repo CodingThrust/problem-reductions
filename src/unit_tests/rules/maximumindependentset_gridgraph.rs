@@ -148,3 +148,23 @@ fn test_mis_simple_one_to_kings_one_all_four_vertex_graphs() {
         );
     }
 }
+
+#[test]
+fn test_mis_simple_one_to_kings_one_rejects_feasible_target_incumbent() {
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        vec![One; 5],
+    );
+    let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, One>>::reduce_to(&problem)
+        .expect("reduction should succeed");
+    let target = result.target_problem();
+    let optimum = BruteForce::new().solve(target).unwrap().unwrap();
+
+    // The empty set is independent in the grid graph but says nothing about the source optimum.
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &problem,
+        &result,
+        vec![false; target.graph().num_vertices()],
+        &optimum,
+    );
+}

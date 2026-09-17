@@ -292,6 +292,31 @@ where
     assert_eq!(source.evaluate(&extracted).unwrap(), bf_value);
 }
 
+/// Assert that a rule without an incumbent guarantee refuses a valid target
+/// candidate that the supplied target optimum strictly improves on.
+pub(crate) fn assert_suboptimal_feasible_target_is_insufficient<R>(
+    source: &R::Source,
+    reduction: &R,
+    candidate: <R::Target as Problem>::Solution,
+    optimum: &<R::Target as Problem>::Solution,
+) where
+    R: ReductionResult,
+    <R::Target as Problem>::Value: crate::traits::EvaluationValue + std::fmt::Debug + PartialEq,
+{
+    let target = reduction.target_problem();
+    assert_ne!(
+        target.evaluate(&candidate).unwrap(),
+        target.evaluate(optimum).unwrap(),
+        "candidate must be strictly suboptimal"
+    );
+    let candidate = SolveOutcome::feasible(target, candidate)
+        .expect("candidate must be a valid target solution");
+    assert!(matches!(
+        reduction.recover_result(source, candidate),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    ));
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

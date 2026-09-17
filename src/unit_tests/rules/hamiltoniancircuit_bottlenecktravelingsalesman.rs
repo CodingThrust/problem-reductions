@@ -93,3 +93,49 @@ fn test_hamiltoniancircuit_to_bottlenecktravelingsalesman_extract_solution_cycle
     assert_eq!(extracted.len(), 5);
     assert!(source.evaluate(&extracted).unwrap().is_valid());
 }
+
+/// Edge selection of the closed tour visiting `order` in the complete target graph.
+fn tour_edges(graph: &SimpleGraph, order: &[usize]) -> Vec<bool> {
+    graph
+        .edges()
+        .into_iter()
+        .map(|(u, v)| {
+            (0..order.len()).any(|i| {
+                let (a, b) = (order[i], order[(i + 1) % order.len()]);
+                (a, b) == (u, v) || (a, b) == (v, u)
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn test_hamiltoniancircuit_to_bottlenecktravelingsalesman_feasible_target_incumbents() {
+    let source = cycle5_hc();
+    let reduction = ReduceTo::<BottleneckTravelingSalesman>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem();
+
+    // 0-1-2-3-4 uses only source edges (bottleneck 1): the incumbent is a Hamiltonian circuit.
+    let circuit = tour_edges(target.graph(), &[0, 1, 2, 3, 4]);
+    assert_eq!(target.evaluate(&circuit).unwrap(), Min(Some(1)));
+    let recovered = reduction
+        .recover_result(&source, SolveOutcome::feasible(target, circuit).unwrap())
+        .unwrap();
+    let SolveOutcome::Feasible {
+        solution,
+        evaluation,
+    } = recovered
+    else {
+        panic!("a Hamiltonian incumbent must stay feasible, got {recovered:?}");
+    };
+    assert_eq!(evaluation, crate::types::Or(true));
+    assert_eq!(source.evaluate(&solution).unwrap(), crate::types::Or(true));
+
+    // 0-2-4-1-3 is the pentagram (bottleneck 2): a valid tour that proves nothing about the source.
+    let pentagram = tour_edges(target.graph(), &[0, 2, 4, 1, 3]);
+    assert_eq!(target.evaluate(&pentagram).unwrap(), Min(Some(2)));
+    assert_eq!(
+        reduction.recover_result(&source, SolveOutcome::feasible(target, pentagram).unwrap()),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    );
+}

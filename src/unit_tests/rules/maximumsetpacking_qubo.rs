@@ -156,3 +156,21 @@ fn test_setpacking_to_qubo_non_finite_penalty_is_typed_error() {
         Err(crate::rules::ReductionError::NonFiniteResult { .. })
     ));
 }
+
+#[test]
+fn test_setpacking_to_qubo_rejects_feasible_target_incumbent() {
+    let sp = MaximumSetPacking::<f64>::new(vec![vec![0, 2], vec![1, 2], vec![0, 3]]);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
+    let optimum = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+
+    // Packing only {0,2} is valid, but {1,2} and {0,3} together pack two sets.
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &sp,
+        &reduction,
+        vec![true, false, false],
+        &optimum,
+    );
+}

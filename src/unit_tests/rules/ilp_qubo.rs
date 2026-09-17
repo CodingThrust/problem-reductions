@@ -392,3 +392,90 @@ fn test_ilp_qubo_checked_dimensions_and_energy_interval() {
         ));
     }
 }
+
+#[test]
+fn test_ilp_to_qubo_feasible_target_incumbents() {
+    use crate::Problem;
+    // maximize x0 + 2*x1 + 3*x2  s.t.  x0 + x1 <= 1,  x1 + x2 <= 1
+    let ilp = ILP::<bool>::new(
+        3,
+        vec![
+            LinearConstraint::le(vec![(0, 1), (1, 1)], 1),
+            LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
+        ],
+        vec![(0, 1), (1, 2), (2, 3)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).unwrap();
+    let qubo = reduction.target_problem();
+    let num_target_vars = qubo.num_vars();
+
+    // Every target assignment is a valid QUBO incumbent. It may be mapped back only
+    // when its penalty vanishes, and then it must be the source-feasible prefix.
+    let mut recovered_sources = std::collections::BTreeSet::new();
+    let mut rejected = 0;
+    for bits in 0..1usize << num_target_vars {
+        let candidate: Vec<bool> = (0..num_target_vars).map(|i| bits & (1 << i) != 0).collect();
+        let prefix: Vec<i64> = candidate[..3].iter().map(|&bit| i64::from(bit)).collect();
+        match reduction.recover_result(&ilp, SolveOutcome::feasible(qubo, candidate).unwrap()) {
+            Ok(SolveOutcome::Feasible {
+                solution,
+                evaluation,
+            }) => {
+                assert!(ilp.is_feasible(&prefix).unwrap());
+                assert_eq!(solution, prefix);
+                assert_eq!(evaluation, ilp.evaluate(&prefix).unwrap());
+                recovered_sources.insert(prefix);
+            }
+            Err(crate::rules::ExtractionError::InsufficientSolutionQuality) => rejected += 1,
+            other => panic!("unexpected incumbent recovery: {other:?}"),
+        }
+    }
+
+    // Exactly the five source-feasible assignments are reachable, including the
+    // suboptimal ones such as x = (1, 0, 0) with objective 1 < 4.
+    let feasible_sources: std::collections::BTreeSet<Vec<i64>> = (0..8)
+        .map(|bits| (0..3).map(|i| i64::from(bits & (1 << i) != 0)).collect())
+        .filter(|x: &Vec<i64>| ilp.is_feasible(x).unwrap())
+        .collect();
+    assert_eq!(feasible_sources.len(), 5);
+    assert_eq!(recovered_sources, feasible_sources);
+    assert!(rejected > 0);
+}
+
+#[test]
+fn test_ilp_to_qubo_infeasible_source_recovers_infeasible() {
+    for sense in [ObjectiveSense::Minimize, ObjectiveSense::Maximize] {
+        let source = ILP::<bool>::new(
+            3,
+            vec![
+                LinearConstraint::eq(vec![(0, 1)], 0),
+                LinearConstraint::eq(vec![(0, 1)], 1),
+            ],
+            vec![(1, 2), (2, -1)],
+            sense,
+        )
+        .unwrap();
+        assert!((0..8).all(|bits| {
+            let x: Vec<i64> = (0..3).map(|i| i64::from(bits & (1 << i) != 0)).collect();
+            !source.is_feasible(&x).unwrap()
+        }));
+
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        let qubo = reduction.target_problem();
+        let optimum = BruteForce::new().solve(qubo).unwrap().unwrap();
+        assert_eq!(
+            reduction.recover_result(
+                &source,
+                SolveOutcome::optimal(qubo, optimum.clone()).unwrap()
+            ),
+            Ok(SolveOutcome::Infeasible)
+        );
+        // The same assignment without an optimality proof establishes nothing.
+        assert_eq!(
+            reduction.recover_result(&source, SolveOutcome::feasible(qubo, optimum).unwrap()),
+            Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+        );
+    }
+}

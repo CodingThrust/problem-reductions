@@ -177,3 +177,29 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
         Err(InvalidConfiguration(_))
     ));
 }
+
+#[test]
+fn test_partition_to_sumofsquarespartition_feasible_target_incumbents() {
+    // sizes [3, 1, 1, 2, 2, 1], S = 10.
+    let (source, reduction) = reduce_partition(&[3, 1, 1, 2, 2, 1]);
+    let target = reduction.target_problem();
+
+    // {3, 2} | {1, 1, 2, 1}: 5^2 + 5^2 = 50 = S^2 / 2, already a balanced partition.
+    let balanced = vec![0, 1, 1, 0, 1, 1];
+    assert_eq!(target.evaluate(&balanced).unwrap(), Min(Some(50)));
+    assert_eq!(
+        reduction.recover_result(&source, SolveOutcome::feasible(target, balanced).unwrap()),
+        Ok(SolveOutcome::Feasible {
+            solution: vec![false, true, true, false, true, true],
+            evaluation: crate::types::Or(true),
+        })
+    );
+
+    // {3, 1, 1, 2} | {2, 1}: 7^2 + 3^2 = 58 > 50 proves nothing about the source.
+    let unbalanced = vec![0, 0, 0, 0, 1, 1];
+    assert_eq!(target.evaluate(&unbalanced).unwrap(), Min(Some(58)));
+    assert_eq!(
+        reduction.recover_result(&source, SolveOutcome::feasible(target, unbalanced).unwrap()),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    );
+}

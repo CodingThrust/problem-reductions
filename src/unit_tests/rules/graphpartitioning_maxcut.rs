@@ -97,3 +97,22 @@ fn odd_partition_recovers_infeasibility_from_every_maxcut_optimum() {
         );
     }
 }
+
+#[test]
+fn test_graphpartitioning_to_maxcut_rejects_feasible_target_incumbent() {
+    let source = issue_example();
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
+    let optimum = crate::solvers::BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+
+    // Balanced but suboptimal: {0, 2, 4} | {1, 3, 5} cuts 5 source edges; the optimum cuts 3.
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &source,
+        &reduction,
+        vec![true, false, true, false, true, false],
+        &optimum,
+    );
+}

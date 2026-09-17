@@ -102,3 +102,21 @@ fn test_knapsack_to_qubo_canonical_example_spec() {
     assert_eq!(example.target.instance["matrix"]["nrows"], 7);
     assert!(!example.solutions.is_empty());
 }
+
+#[test]
+fn test_knapsack_to_qubo_rejects_feasible_target_incumbent() {
+    let knapsack = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&knapsack).expect("reduction should succeed");
+    let optimum = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+
+    // A QUBO incumbent carries no optimality proof, so the slack penalty may be active.
+    crate::rules::test_helpers::assert_suboptimal_feasible_target_is_insufficient(
+        &knapsack,
+        &reduction,
+        vec![false; 7],
+        &optimum,
+    );
+}

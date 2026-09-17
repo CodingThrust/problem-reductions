@@ -188,3 +188,95 @@ fn signed_and_small_tours_recover_all_optima_or_infeasibility() {
         assert_eq!(reduction.map_value(Min(None)), Min(None));
     }
 }
+
+/// Decode a position-encoded assignment (`x[v * n + p]`: vertex `v` at position `p`)
+/// into the source edge selection, or `None` when it is not a permutation matrix.
+fn decode_tour(
+    source: &TravelingSalesman<SimpleGraph, i64>,
+    assignment: &[bool],
+) -> Option<Vec<bool>> {
+    let n = source.num_vertices();
+    let order: Vec<usize> = (0..n)
+        .map(|p| {
+            let mut at_position = (0..n).filter(|&v| assignment[v * n + p]);
+            at_position.next().filter(|_| at_position.next().is_none())
+        })
+        .collect::<Option<_>>()?;
+    if assignment.iter().filter(|&&bit| bit).count() != n || (0..n).any(|v| !order.contains(&v)) {
+        return None;
+    }
+    Some(
+        source
+            .edges()
+            .into_iter()
+            .map(|(u, v, _)| {
+                (0..n).any(|i| {
+                    let (a, b) = (order[i], order[(i + 1) % n]);
+                    (a, b) == (u, v) || (a, b) == (v, u)
+                })
+            })
+            .collect(),
+    )
+}
+
+#[test]
+fn test_travelingsalesman_to_qubo_feasible_target_incumbents() {
+    // K4 with tour costs 22, 22 and 10, so most valid tours are suboptimal.
+    let tsp = TravelingSalesman::new(SimpleGraph::complete(4), vec![9i64, 1, 2, 3, 4, 8]);
+    let optimum = BruteForce::new().solve(&tsp).unwrap().unwrap();
+    assert_eq!(tsp.evaluate(&optimum).unwrap(), Min(Some(10)));
+
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).unwrap();
+    let qubo = reduction.target_problem();
+    let mut suboptimal_tours = 0;
+    let mut rejected = 0;
+    for bits in 0..1usize << 16 {
+        let candidate: Vec<bool> = (0..16).map(|i| bits & (1 << i) != 0).collect();
+        let expected = decode_tour(&tsp, &candidate);
+        let recovered =
+            reduction.recover_result(&tsp, SolveOutcome::feasible(qubo, candidate).unwrap());
+        match expected {
+            Some(tour) => {
+                let evaluation = tsp.evaluate(&tour).unwrap();
+                suboptimal_tours += usize::from(evaluation == Min(Some(22)));
+                assert_eq!(
+                    recovered,
+                    Ok(SolveOutcome::Feasible {
+                        solution: tour,
+                        evaluation,
+                    })
+                );
+            }
+            None => {
+                rejected += 1;
+                assert_eq!(
+                    recovered,
+                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+                );
+            }
+        }
+    }
+    // 4! position assignments, two thirds of which encode a cost-22 tour.
+    assert_eq!(suboptimal_tours, 16);
+    assert_eq!(rejected, (1 << 16) - 24);
+}
+
+#[test]
+fn test_travelingsalesman_to_qubo_infeasible_source_recovers_infeasible() {
+    // A path on four vertices has no Hamiltonian cycle.
+    let tsp = TravelingSalesman::new(SimpleGraph::path(4), vec![1i64, 2, 3]);
+    assert_eq!(BruteForce::new().solve(&tsp).unwrap(), None);
+
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&tsp).unwrap();
+    let qubo = reduction.target_problem();
+    let optimum = BruteForce::new().solve(qubo).unwrap().unwrap();
+    assert_eq!(
+        reduction.recover_result(&tsp, SolveOutcome::optimal(qubo, optimum.clone()).unwrap()),
+        Ok(SolveOutcome::Infeasible)
+    );
+    // The same assignment without an optimality proof establishes nothing.
+    assert_eq!(
+        reduction.recover_result(&tsp, SolveOutcome::feasible(qubo, optimum).unwrap()),
+        Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
+    );
+}
