@@ -80,7 +80,7 @@ All verification artifacts are ephemeral — they exist only in conversation con
 
 **Proceed to implementation only when verification reports VERIFIED. For FAILED or INCOMPLETE, report the concrete defect or missing evidence and resolve it before implementing.**
 
-If verification passes, the verified Python `reduce()` and `extract_solution()` functions, along with the YES/NO instances, carry forward in conversation context to inform Steps 2-5. Use them as the canonical spec for the Rust implementation.
+If verification passes, the checked construction, recovery mapping, and YES/NO instances carry forward in conversation context to inform Steps 2-5. Use them as the canonical spec for the Rust `reduce_to()` and `recover_result()` implementation.
 
 ## Step 2: Implement the reduction
 

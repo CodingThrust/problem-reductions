@@ -25,7 +25,7 @@ Extract the construction, mathematical domain, correctness argument, witness
 mapping, parameter formulas, worked example, and references. Consult the cited
 literature when needed to resolve a mathematical claim.
 
-Read the canonical [witness/aggregate contract](../../../docs/src/design.md#witness-and-aggregate-reductions),
+Read the canonical [complete-result recovery contract](../../../docs/src/design.md#complete-result-recovery),
 [arithmetic policy](../../../docs/src/design.md#arithmetic), and
 [validation policy](../../../docs/src/design.md#validation-evidence).
 

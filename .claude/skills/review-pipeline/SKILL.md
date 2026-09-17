@@ -152,7 +152,7 @@ Run three independent sub-reviews. All three are **read-only** — they evaluate
 Invoke `/review-structural` (file: `.claude/skills/review-structural/SKILL.md`) with the pre-generated `IMPL_REPORT`. This runs the model/rule checklists, build checks, semantic review, and issue compliance checks.
 
 **Mathematical correctness is critical.** In addition to the standard structural checks, verify:
-- **For rules**: Is the reduction mathematically correct? Trace through the `reduce_to()` logic with a small example and confirm the target instance encodes the same problem. Check that `extract_solution` correctly inverts the mapping. Verify the paper proof sketch is sound — not just present, but logically valid.
+- **For rules**: Is the reduction mathematically correct? Trace through the `reduce_to()` logic with a small example and confirm the target instance encodes the same problem. Check that `recover_result` correctly inverts the mapping for each target status. Verify the paper proof sketch is sound — not just present, but logically valid.
 - **For models**: Does `evaluate()` correctly compute the objective for the mathematical definition? Are edge cases handled (empty graph, zero weights, infeasible configs)?
 - **Overhead expressions**: Manually count the sizes in `reduce_to()` output and verify they match the `overhead = { ... }` formulas.
 
