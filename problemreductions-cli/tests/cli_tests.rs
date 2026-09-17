@@ -10291,6 +10291,135 @@ fn test_extract_preserves_feasible_status_and_rejects_invalid_witnesses() {
     std::fs::remove_dir_all(directory).unwrap();
 }
 
+/// Reduce a 4-vertex path MIS to QUBO in a fresh directory; the final
+/// MaximumSetPacking -> QUBO step cannot recover from unproven candidates.
+fn extract_test_mis_qubo_bundle(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let directory = std::env::temp_dir().join(name);
+    std::fs::create_dir_all(&directory).unwrap();
+    let problem_file = directory.join("source.json");
+    let bundle_file = directory.join("bundle.json");
+    let created = pred()
+        .args(["-o", problem_file.to_str().unwrap()])
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3"])
+        .output()
+        .unwrap();
+    assert!(created.status.success());
+    let reduced = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO/f64",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &bundle_file,
+    );
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    (directory, bundle_file)
+}
+
+fn extract_test_run(
+    directory: &std::path::Path,
+    bundle_file: &std::path::Path,
+    result: &str,
+) -> std::process::Output {
+    let result_file = directory.join("result.json");
+    std::fs::write(&result_file, result).unwrap();
+    pred()
+        .args(["--json", "extract", bundle_file.to_str().unwrap()])
+        .args(["--result", result_file.to_str().unwrap()])
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn test_extract_rejects_bare_configuration_with_expected_shape() {
+    let (directory, bundle_file) = extract_test_mis_qubo_bundle("pred_extract_bare_configuration");
+    for result in [
+        "[0,1,0,1]",
+        r#"{"solution":[false,true,false,true]}"#,
+        r#"{"status":"optimal"}"#,
+        r#"{"status":"sampled","solution":[false,true,false,true]}"#,
+    ] {
+        let output = extract_test_run(&directory, &bundle_file, result);
+        assert!(!output.status.success(), "accepted {result}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(r#"wrap it as {"status": "feasible", "solution": [...]}"#),
+            "{result}: {stderr}"
+        );
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn test_extract_infeasible_target_result() {
+    let (directory, bundle_file) = extract_test_mis_qubo_bundle("pred_extract_infeasible_result");
+    let output = extract_test_run(&directory, &bundle_file, r#"{"status":"infeasible"}"#);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        result,
+        serde_json::json!({
+            "problem": "MaximumIndependentSet",
+            "status": "infeasible",
+            "solver": {"kind": "external"},
+            "intermediate": {"problem": "QUBO", "status": "infeasible"},
+        })
+    );
+
+    let output = extract_test_run(
+        &directory,
+        &bundle_file,
+        r#"{"status":"infeasible","evaluation":"Min(0)"}"#,
+    );
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("infeasible results must not contain evaluation"));
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn test_extract_rejects_feasible_result_the_rule_cannot_use() {
+    let (directory, bundle_file) =
+        extract_test_mis_qubo_bundle("pred_extract_insufficient_quality");
+    let solution = "[false,true,false,true]";
+    let output = extract_test_run(
+        &directory,
+        &bundle_file,
+        &format!(r#"{{"status":"feasible","solution":{solution}}}"#),
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains(
+        "the target result does not establish the conditions required for source recovery"
+    ));
+
+    // The same witness is usable once the solver claims optimality.
+    let output = extract_test_run(
+        &directory,
+        &bundle_file,
+        &format!(r#"{{"status":"optimal","solution":{solution}}}"#),
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
 #[test]
 fn test_cvp_i64_create_and_solve() {
     use std::io::Write;
