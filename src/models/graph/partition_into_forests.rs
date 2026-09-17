@@ -8,6 +8,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::VariantParam;
+use petgraph::unionfind::UnionFind;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -159,14 +160,7 @@ fn is_valid_forest_partition<G: Graph>(graph: &G, num_forests: usize, config: &[
     // For each forest class, verify the induced subgraph is acyclic using union-find.
     // An undirected graph is acyclic iff union-find never sees an edge (u, v) where
     // u and v already share a component.
-    let mut parent: Vec<usize> = (0..n).collect();
-
-    fn find(parent: &mut Vec<usize>, x: usize) -> usize {
-        if parent[x] != x {
-            parent[x] = find(parent, parent[x]);
-        }
-        parent[x]
-    }
+    let mut components = UnionFind::<usize>::new(n);
 
     for (u, v) in graph.edges() {
         if config[u] != config[v] {
@@ -174,12 +168,9 @@ fn is_valid_forest_partition<G: Graph>(graph: &G, num_forests: usize, config: &[
             continue;
         }
         // Both u and v are in the same class; check for cycle
-        let ru = find(&mut parent, u);
-        let rv = find(&mut parent, v);
-        if ru == rv {
+        if !components.union(u, v) {
             return false; // Cycle detected
         }
-        parent[ru] = rv; // Union
     }
 
     true
