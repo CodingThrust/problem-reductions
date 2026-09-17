@@ -692,6 +692,13 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
         expect(self.page.locator('.typst-detail[role="alert"]')).to_have_count(0)
 
+    def test_graph_data_errors_are_visible(self):
+        self.page.route('**/assets/graph-data.js*', lambda route: route.fulfill(status=503))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('.graph-canvas-note')).to_contain_text('Unable to load graph: Cannot load graph data')
+        self.assertEqual(len(self.errors), 1)
+        self.errors.clear()
+
     def test_graph_details_inherit_typst_content_without_changing_variant(self):
         self.page.goto(self.base + "graph.html")
         expect(self.page.locator("#cy canvas").first).to_be_visible()
