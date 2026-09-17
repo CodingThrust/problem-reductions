@@ -1,4 +1,21 @@
 use super::*;
+
+#[test]
+fn test_minimum_cost_circulation_deserialization_rejects_invalid_fields() {
+    let valid = serde_json::to_value(canonical_instance()).unwrap();
+    for (field, value) in [
+        ("capacities", serde_json::json!([])),
+        ("costs", serde_json::json!([])),
+        ("capacities", serde_json::json!([-1, 2, 1, 1])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumCostCirculation>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
