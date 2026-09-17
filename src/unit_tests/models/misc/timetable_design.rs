@@ -2,6 +2,34 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_timetable_design_validates_persisted_input() {
+    let valid = serde_json::to_value(TimetableDesign::new(
+        1,
+        1,
+        1,
+        vec![vec![true]],
+        vec![vec![true]],
+        vec![vec![1]],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("craftsman_avail", serde_json::json!([])),
+        ("craftsman_avail", serde_json::json!([[]])),
+        ("task_avail", serde_json::json!([])),
+        ("task_avail", serde_json::json!([[]])),
+        ("requirements", serde_json::json!([])),
+        ("requirements", serde_json::json!([[]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<TimetableDesign>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn create_spec_rejects_matrix_shape_mismatch() {
     assert_eq!(TimetableDesignCreateSpec::FIELDS[3].name, "craftsman_avail");
     assert!(TimetableDesign::try_from(TimetableDesignCreateSpec {

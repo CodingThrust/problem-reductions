@@ -1,6 +1,23 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_maximum_common_edge_subgraph_validates_persisted_input() {
+    let valid =
+        serde_json::to_value(LabelledDigraph::new(2, vec![LabelledArc::new(0, 0, 1)])).unwrap();
+    for (field, value) in [
+        ("arcs", serde_json::json!([{"src":2,"label":0,"dst":1}])),
+        ("arcs", serde_json::json!([{"src":0,"label":0,"dst":2}])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<LabelledDigraph>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 use crate::types::Max;
 

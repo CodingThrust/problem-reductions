@@ -1,6 +1,29 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_acyclic_partition_validates_persisted_input() {
+    let valid = serde_json::to_value(AcyclicPartition::new(
+        DirectedGraph::new(2, vec![(0, 1)]),
+        vec![1i64, 1],
+        vec![1i64],
+        2,
+        2,
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("vertex_weights", serde_json::json!([])),
+        ("arc_costs", serde_json::json!([])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<AcyclicPartition<i64>>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;

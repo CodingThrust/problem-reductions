@@ -2,6 +2,37 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_production_planning_validates_persisted_input() {
+    let valid = serde_json::to_value(ProductionPlanning::new(
+        1,
+        vec![1],
+        vec![1],
+        vec![1],
+        vec![1],
+        vec![1],
+        3,
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("num_periods", serde_json::json!(0)),
+        ("demands", serde_json::json!([])),
+        ("capacities", serde_json::json!([-1])),
+        ("demands", serde_json::json!([-1])),
+        ("setup_costs", serde_json::json!([-1])),
+        ("production_costs", serde_json::json!([-1])),
+        ("inventory_costs", serde_json::json!([-1])),
+        ("cost_bound", serde_json::json!(-1)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<ProductionPlanning>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn create_spec_rejects_period_vector_mismatch() {
     assert_eq!(ProductionPlanningCreateSpec::FIELDS[0].name, "num_periods");
     assert!(ProductionPlanning::try_from(ProductionPlanningCreateSpec {

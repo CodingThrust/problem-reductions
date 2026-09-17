@@ -24,9 +24,23 @@ inventory::submit! {
 
 /// The Bottleneck Traveling Salesman problem on a simple weighted graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BottleneckTravelingSalesmanData")]
 pub struct BottleneckTravelingSalesman {
     graph: SimpleGraph,
     edge_weights: Vec<i64>,
+}
+
+#[derive(Deserialize)]
+struct BottleneckTravelingSalesmanData {
+    graph: SimpleGraph,
+    edge_weights: Vec<i64>,
+}
+
+impl TryFrom<BottleneckTravelingSalesmanData> for BottleneckTravelingSalesman {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: BottleneckTravelingSalesmanData) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_weights)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -46,15 +60,7 @@ impl TryFrom<BottleneckTravelingSalesmanCreateSpec> for BottleneckTravelingSales
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        Ok(Self::new(graph, edge_weights))
+        Self::try_new(graph, edge_weights)
     }
 }
 
@@ -92,15 +98,18 @@ fn simple_graph_from_create(
 impl BottleneckTravelingSalesman {
     /// Create a BottleneckTravelingSalesman problem from a graph with edge weights.
     pub fn new(graph: SimpleGraph, edge_weights: Vec<i64>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+        Self::try_new(graph, edge_weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: SimpleGraph,
+        edge_weights: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_weights)?;
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -115,8 +124,17 @@ impl BottleneckTravelingSalesman {
 
     /// Set new weights for the problem.
     pub fn set_weights(&mut self, weights: Vec<i64>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+        Self::check_weights(&self.graph, &weights).unwrap_or_else(|error| panic!("{error}"));
         self.edge_weights = weights;
+    }
+    fn check_weights(
+        graph: &SimpleGraph,
+        weights: &[i64],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".into());
+        }
+        Ok(())
     }
 
     /// Get all edges with their weights.

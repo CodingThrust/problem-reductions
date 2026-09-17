@@ -1,6 +1,22 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_paintshop_validates_persisted_input() {
+    let valid = serde_json::to_value(PaintShop::new(vec!["a", "b", "a", "b"])).unwrap();
+    for (field, value) in [
+        ("sequence_indices", serde_json::json!([2, 1, 0, 1])),
+        ("sequence_indices", serde_json::json!([0, 1, 0])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<PaintShop>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 

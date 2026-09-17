@@ -34,12 +34,33 @@ inventory::submit! {
 ///
 /// A configuration is `k` consecutive binary blocks of length `|E|`.
 /// Each block selects the edges of one candidate spanning tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct KthBestSpanningTree<W: WeightElement> {
     graph: SimpleGraph,
     weights: Vec<W>,
     k: usize,
     bound: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"))]
+struct KthBestSpanningTreeData<W: WeightElement> {
+    graph: SimpleGraph,
+    weights: Vec<W>,
+    k: usize,
+    bound: W::Sum,
+}
+
+impl<'de, W> Deserialize<'de> for KthBestSpanningTree<W>
+where
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = KthBestSpanningTreeData::<W>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.weights, data.k, data.bound)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -61,18 +82,7 @@ impl TryFrom<KthBestSpanningTreeCreateSpec> for KthBestSpanningTree<i64> {
         let weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if spec.k == 0 {
-            return Err("k must be positive".to_string().into());
-        }
-        Ok(Self::new(graph, weights, spec.k, spec.bound))
+        Self::try_new(graph, weights, spec.k, spec.bound)
     }
 }
 
@@ -112,19 +122,28 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
     /// Panics if the number of weights does not match the number of edges, or
     /// if `k` is zero.
     pub fn new(graph: SimpleGraph, weights: Vec<W>, k: usize, bound: W::Sum) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_edges(),
-            "weights length must match graph num_edges"
-        );
-        assert!(k > 0, "k must be positive");
+        Self::try_new(graph, weights, k, bound).unwrap_or_else(|error| panic!("{error}"))
+    }
 
-        Self {
+    fn try_new(
+        graph: SimpleGraph,
+        weights: Vec<W>,
+        k: usize,
+        bound: W::Sum,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("weights length must match graph num_edges".into());
+        }
+        if k == 0 {
+            return Err("k must be positive".into());
+        }
+
+        Ok(Self {
             graph,
             weights,
             k,
             bound,
-        }
+        })
     }
 
     /// Get the underlying graph.
