@@ -1,4 +1,35 @@
 use super::*;
+
+#[test]
+fn test_conjunctive_boolean_query_validates_persisted_input() {
+    let valid = serde_json::to_value(ConjunctiveBooleanQuery::new(
+        2,
+        vec![Relation {
+            arity: 1,
+            tuples: vec![vec![0]],
+        }],
+        1,
+        vec![(0, vec![QueryArg::Variable(0)])],
+    ))
+    .unwrap();
+    let restored: ConjunctiveBooleanQuery = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("relations", serde_json::json!([{"arity":1,"tuples":[[]]}])),
+        ("relations", serde_json::json!([{"arity":1,"tuples":[[2]]}])),
+        ("conjuncts", serde_json::json!([[1,[{"Variable":0}]]])),
+        ("conjuncts", serde_json::json!([[0, []]])),
+        ("conjuncts", serde_json::json!([[0,[{"Variable":1}]]])),
+        ("conjuncts", serde_json::json!([[0,[{"Constant":2}]]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<ConjunctiveBooleanQuery>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

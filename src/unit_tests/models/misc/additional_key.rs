@@ -1,4 +1,31 @@
 use super::*;
+
+#[test]
+fn test_additional_key_validates_persisted_input() {
+    let valid = serde_json::to_value(AdditionalKey::new(
+        2,
+        vec![(vec![0], vec![1])],
+        vec![0, 1],
+        vec![vec![0]],
+    ))
+    .unwrap();
+    let restored: AdditionalKey = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("relation_attrs", serde_json::json!([2])),
+        ("relation_attrs", serde_json::json!([0, 0])),
+        ("dependencies", serde_json::json!([[[2], [0]]])),
+        ("dependencies", serde_json::json!([[[0], [2]]])),
+        ("known_keys", serde_json::json!([[2]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<AdditionalKey>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
