@@ -16,6 +16,7 @@ pub(crate) mod coloring_qubo;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
 pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
+mod decisionminimumvertexcover_casts;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
 pub(crate) mod ensemblecomputation_ilp;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;

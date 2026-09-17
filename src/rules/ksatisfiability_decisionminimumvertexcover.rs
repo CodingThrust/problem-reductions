@@ -18,18 +18,19 @@ use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
 use crate::topology::SimpleGraph;
+use crate::types::One;
 use crate::variant::K3;
 
 /// Result of reducing KSatisfiability<K3> to Decision<MinimumVertexCover>.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToDecisionMVC {
-    target: Decision<MinimumVertexCover<SimpleGraph, i64>>,
+    target: Decision<MinimumVertexCover<SimpleGraph, One>>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for Reduction3SATToDecisionMVC {
     type Source = KSatisfiability<K3>;
-    type Target = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    type Target = Decision<MinimumVertexCover<SimpleGraph, One>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -59,7 +60,7 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
         num_edges = "num_vars + 6 * num_clauses",
     }
 )]
-impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, i64>>> for KSatisfiability<K3> {
+impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiability<K3> {
     type Result = Reduction3SATToDecisionMVC;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -72,7 +73,7 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, i64>>> for KSatisfiabilit
             .ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     KSatisfiability<K3>,
-                    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                    Decision<MinimumVertexCover<SimpleGraph, One>>,
                 >("computing the target cover bound")
             })?;
         let total_vertices = 2 * n + 3 * m;
@@ -107,7 +108,7 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, i64>>> for KSatisfiabilit
         }
 
         let graph = SimpleGraph::new(total_vertices, edges);
-        let weights = vec![1i64; total_vertices];
+        let weights = vec![One; total_vertices];
         let target = MinimumVertexCover::new(graph, weights);
 
         Ok(Reduction3SATToDecisionMVC {
@@ -134,7 +135,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                Decision<MinimumVertexCover<SimpleGraph, One>>,
             >(
                 source,
                 SolutionPair {

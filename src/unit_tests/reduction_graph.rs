@@ -1007,16 +1007,41 @@ fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge(
 
     assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
-        Decision<MinimumVertexCover<SimpleGraph, i64>>,
+        Decision<MinimumVertexCover<SimpleGraph, One>>,
     >(ReductionMode::Witness));
     assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
-        Decision<MinimumVertexCover<SimpleGraph, i64>>,
+        Decision<MinimumVertexCover<SimpleGraph, One>>,
     >(ReductionMode::Witness));
     assert!(!graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
-        Decision<MinimumVertexCover<SimpleGraph, i64>>,
+        Decision<MinimumVertexCover<SimpleGraph, One>>,
     >(ReductionMode::Turing));
+}
+
+#[test]
+fn test_ksatisfiability_k3_reaches_unit_and_integer_decision_vertex_cover_targets() {
+    // Variant-level NP-hardness chains: HamiltonianCircuit consumes the unit-weight
+    // decision cover, ComparativeContainment the integer-weight one.
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&KSatisfiability::<K3>::variant());
+    let targets = [
+        (
+            "HamiltonianCircuit",
+            HamiltonianCircuit::<SimpleGraph>::variant(),
+        ),
+        (
+            "ComparativeContainment",
+            ComparativeContainment::<i64>::variant(),
+        ),
+    ];
+
+    for (name, variant) in targets {
+        let dst = ReductionGraph::variant_to_map(&variant);
+        let paths = graph.find_paths_up_to("KSatisfiability", &src, name, &dst, 1);
+        assert_eq!(paths.len(), 1, "no witness path from 3-SAT to {name}");
+        assert_eq!(paths[0].steps.last().unwrap().variant, dst);
+    }
 }
 
 #[test]
