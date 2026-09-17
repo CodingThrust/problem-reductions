@@ -19053,7 +19053,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This $O(t^2)$ reduction @garey1979 first checks whether every coordinate of $W$, $X$, and $Y$ appears in some triple; uncovered coordinates yield a fixed infeasible 3-Partition instance. Otherwise it composes the classical 3DM $arrow.r$ ABCD-Partition, ABCD-Partition $arrow.r$ 4-Partition, and 4-Partition $arrow.r$ 3-Partition constructions, producing $24 t^2 - 3 t$ integers arranged into $8 t^2 - t$ triples.
 ][
-  _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If some coordinate of $W union X union Y$ is absent from all triples, the source instance is trivially NO, so the implementation returns a fixed infeasible 3-Partition instance with sizes $(6, 6, 6, 6, 7, 9)$ and bound $20$.
+  _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If $q=0$, the empty matching is a solution: return sizes $(1,1,1)$ with bound $3$, and recover the empty matching. Otherwise, if some coordinate of $W union X union Y$ is absent from all triples (including $t=0$), return the fixed infeasible instance $(6,6,6,6,7,9)$ with bound $20$. Including these constant cases, $24t^2-3t+6$ elements and $8t^2-t+2$ groups are upper bounds, not exact counts.
 
   Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
   $ u_l = 10 r^4 - c_l r^3 - b_l r^2 - a_l r, $
