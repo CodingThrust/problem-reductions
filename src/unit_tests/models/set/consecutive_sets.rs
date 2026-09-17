@@ -139,3 +139,10 @@ fn test_consecutive_sets_duplicate_elements() {
 fn test_consecutive_sets_zero_bound() {
     ConsecutiveSets::new(3, vec![vec![0, 1]], 0);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"alphabet_size":3,"subsets":[[0,0]],"bound_k":3});
+    assert!(serde_json::from_value::<ConsecutiveSets>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("ConsecutiveSets", &Default::default(), json).is_err());
+}

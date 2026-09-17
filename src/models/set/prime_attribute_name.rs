@@ -60,6 +60,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PrimeAttributeNameData")]
 pub struct PrimeAttributeName {
     /// Number of attributes (elements are 0..num_attributes).
     num_attributes: usize,
@@ -67,6 +68,21 @@ pub struct PrimeAttributeName {
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
     /// The query attribute index.
     query_attribute: usize,
+}
+
+#[derive(Deserialize)]
+struct PrimeAttributeNameData {
+    num_attributes: usize,
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    query_attribute: usize,
+}
+
+impl TryFrom<PrimeAttributeNameData> for PrimeAttributeName {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PrimeAttributeNameData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_attributes, data.dependencies, data.query_attribute)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -83,35 +99,7 @@ impl TryFrom<PrimeAttributeNameCreateSpec> for PrimeAttributeName {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: PrimeAttributeNameCreateSpec) -> Result<Self, Self::Error> {
-        if spec.query_attribute >= spec.universe_size {
-            return Err(format!(
-                "query_attribute {} is outside universe of size {}",
-                spec.query_attribute, spec.universe_size
-            )
-            .into());
-        }
-        for (dependency_index, (lhs, rhs)) in spec.dependencies.iter().enumerate() {
-            if lhs.is_empty() {
-                return Err(
-                    format!("dependencies[{dependency_index}] has an empty left side").into(),
-                );
-            }
-            if let Some(&attribute) = lhs
-                .iter()
-                .chain(rhs)
-                .find(|&&attribute| attribute >= spec.universe_size)
-            {
-                return Err(format!(
-                    "dependencies[{dependency_index}] contains attribute {attribute} outside universe of size {}",
-                    spec.universe_size
-                ).into());
-            }
-        }
-        Ok(Self::new(
-            spec.universe_size,
-            spec.dependencies,
-            spec.query_attribute,
-        ))
+        Self::try_new(spec.universe_size, spec.dependencies, spec.query_attribute)
     }
 }
 
@@ -127,29 +115,35 @@ impl PrimeAttributeName {
         dependencies: Vec<(Vec<usize>, Vec<usize>)>,
         query_attribute: usize,
     ) -> Self {
-        assert!(
-            query_attribute < num_attributes,
-            "Query attribute {} is outside attribute set of size {}",
-            query_attribute,
-            num_attributes
-        );
-        for (i, (lhs, rhs)) in dependencies.iter().enumerate() {
-            assert!(!lhs.is_empty(), "Dependency {} has empty LHS", i);
-            for &attr in lhs.iter().chain(rhs.iter()) {
-                assert!(
-                    attr < num_attributes,
-                    "Dependency {} references attribute {} which is outside attribute set of size {}",
-                    i,
-                    attr,
-                    num_attributes
-                );
+        Self::try_new(num_attributes, dependencies, query_attribute)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_attributes: usize,
+        dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+        query_attribute: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if query_attribute >= num_attributes {
+            return Err(format!("Query attribute {query_attribute} is outside attribute set of size {num_attributes}").into());
+        }
+        for (index, (lhs, rhs)) in dependencies.iter().enumerate() {
+            if lhs.is_empty() {
+                return Err(format!("Dependency {index} has empty LHS").into());
+            }
+            if let Some(attribute) = lhs
+                .iter()
+                .chain(rhs.iter())
+                .find(|&&attribute| attribute >= num_attributes)
+            {
+                return Err(format!("dependency {index} contains attribute {attribute} outside attribute set of size {num_attributes}").into());
             }
         }
-        Self {
+        Ok(Self {
             num_attributes,
             dependencies,
             query_attribute,
-        }
+        })
     }
 
     /// Get the number of attributes.
