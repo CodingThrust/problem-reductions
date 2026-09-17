@@ -89,7 +89,7 @@ fmt-check:
 
 # Run clippy
 clippy:
-	cargo clippy --all-targets --features "$(TEST_FEATURES)" -- -D warnings
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 node_modules/elkjs/package.json: package.json package-lock.json
 	npm ci

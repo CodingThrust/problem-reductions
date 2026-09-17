@@ -298,7 +298,7 @@ make test clippy  # Must pass
 
 If Step 4.7 applied, run ILP-enabled workspace verification instead:
 ```bash
-cargo clippy --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --features example-db --workspace --verbose
 ```
 
