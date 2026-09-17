@@ -32,3 +32,8 @@ boost-paragraph = 1
 expand = true
 heading-split-level = 3
 copy-js = true
+
+# Pages that moved to the website keep their published URLs.
+[output.html.redirect]
+"/reduction-graph.html" = "graph.html"
+"/open-problems.html" = "index.html#open-questions"

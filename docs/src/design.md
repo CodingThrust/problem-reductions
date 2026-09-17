@@ -605,7 +605,7 @@ let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 
 ## Contributing
 
-See [Call for Contributions](./open-problems.md) for the recommended issue-based workflow (no coding required).
+See [Call for Contributions](index.html#open-questions) for the recommended issue-based workflow (no coding required).
 
 ### QUBO coefficient storage
 
