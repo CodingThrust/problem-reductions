@@ -66,11 +66,28 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "StringToStringCorrectionData")]
 pub struct StringToStringCorrection {
     alphabet_size: usize,
     source: Vec<usize>,
     target: Vec<usize>,
     bound: usize,
+}
+
+#[derive(Deserialize)]
+struct StringToStringCorrectionData {
+    alphabet_size: usize,
+    source: Vec<usize>,
+    target: Vec<usize>,
+    bound: usize,
+}
+
+impl TryFrom<StringToStringCorrectionData> for StringToStringCorrection {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: StringToStringCorrectionData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.source, data.target, data.bound)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -105,22 +122,12 @@ impl TryFrom<StringToStringCorrectionCreateSpec> for StringToStringCorrection {
             .transpose()?
             .unwrap_or(0);
         let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
-        if alphabet_size < inferred_alphabet_size {
-            return Err(format!(
-                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
-            ).into());
-        }
-        if alphabet_size == 0 && (!spec.source_string.is_empty() || !spec.target_string.is_empty())
-        {
-            return Err("alphabet size must be positive when either string is non-empty".into());
-        }
-
-        Ok(Self {
+        Self::try_new(
             alphabet_size,
-            source: spec.source_string,
-            target: spec.target_string,
-            bound: spec.bound,
-        })
+            spec.source_string,
+            spec.target_string,
+            spec.bound,
+        )
     }
 }
 
@@ -133,24 +140,31 @@ impl StringToStringCorrection {
     /// non-empty, or if any symbol in `source` or `target` is
     /// `>= alphabet_size`.
     pub fn new(alphabet_size: usize, source: Vec<usize>, target: Vec<usize>, bound: usize) -> Self {
-        assert!(
-            alphabet_size > 0 || (source.is_empty() && target.is_empty()),
-            "alphabet_size must be > 0 when source or target is non-empty"
-        );
-        assert!(
-            source.iter().all(|&s| s < alphabet_size),
-            "all source symbols must be < alphabet_size"
-        );
-        assert!(
-            target.iter().all(|&s| s < alphabet_size),
-            "all target symbols must be < alphabet_size"
-        );
-        Self {
+        Self::try_new(alphabet_size, source, target, bound)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        source: Vec<usize>,
+        target: Vec<usize>,
+        bound: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if !(alphabet_size > 0 || (source.is_empty() && target.is_empty())) {
+            return Err("alphabet_size must be > 0 when source or target is non-empty".into());
+        }
+        if !(source.iter().all(|&s| s < alphabet_size)) {
+            return Err("all source symbols must be < alphabet_size".into());
+        }
+        if !(target.iter().all(|&s| s < alphabet_size)) {
+            return Err("all target symbols must be < alphabet_size".into());
+        }
+        Ok(Self {
             alphabet_size,
             source,
             target,
             bound,
-        }
+        })
     }
 
     /// Returns the alphabet size.
