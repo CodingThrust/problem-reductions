@@ -17,7 +17,7 @@ Before any implementation, collect all required information. If called from `iss
 |---|------|-------------|---------|
 | 1 | **Problem name** | Struct name with optimization prefix | `MaximumClique`, `MinimumDominatingSet` |
 | 2 | **Mathematical definition** | Formal definition with objective/constraints | "Given graph G=(V,E), find max-weight subset S where all pairs in S are adjacent" |
-| 3 | **Problem type** | Objective (`Max`/`Min`), witness (`bool`), or aggregate-only (`Sum`/`And`/custom `Aggregate`) | Objective (Maximize) |
+| 3 | **Problem type** | Objective (`Max`/`Min`/`Extremum`) or witness (`Or`) | Objective (Maximize) |
 | 4 | **Type parameters** | Graph type `G`, weight type `W`, or other | `G: Graph`, `W: WeightElement` |
 | 5 | **Struct fields** | What the struct holds | `graph: G`, `weights: Vec<W>` |
 | 6 | **Configuration space** | Mathematical solution representation and domain | One Boolean selection per vertex |
@@ -26,7 +26,7 @@ Before any implementation, collect all required information. If called from `iss
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
-| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Objective: one optimal solution + optimal value. Witness: one valid/satisfying solution + why it is valid. Aggregate-only: the final aggregate value and how it is derived |
+| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Objective: one optimal solution + optimal value. Witness: one valid/satisfying solution + why it is valid |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -129,7 +129,7 @@ Key decisions:
 - **Schema metadata:** `ProblemSchemaEntry` must include the explicit structural `category` and reflect the construction interface through `display_name`, `aliases`, `dimensions`, and `fields`
 - **Objective problems:** use `type Value = Max<_>`, `Min<_>`, or `Extremum<_>` when the model should expose optimization-style witness helpers
 - **Witness problems:** use `type Value = Or` for existential feasibility problems
-- **Aggregate-only problems:** use a value-only aggregate such as `Sum<_>`, `And`, or a custom `Aggregate` when witnesses are not meaningful
+- **Fold-only values:** `Sum<_>` and `And` are valid `Problem::Value` types for evaluation and `Aggregate` folding, but they do not implement `EvaluationValue`, so such a problem cannot be registered with `declare_variants!`, solved, or used as a reduction endpoint
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
 - **`dims()`:** returns the configuration space dimensions (e.g., `vec![2; n]` for binary variables)
 - **`evaluate()`:** must return `Result<Value, EvaluationError>`. Invalid configurations remain the aggregate's invalid/false contribution; arithmetic overflow and non-finite computed values are errors.
@@ -155,7 +155,7 @@ crate::declare_variants! {
 - A compiled `complexity_eval_fn` plus registry-backed load/serialize/solve dispatch metadata are auto-generated alongside the symbolic expression
 - See `src/models/graph/maximum_independent_set.rs` for the reference pattern
 
-`declare_variants!` now handles objective, witness-capable, and aggregate-only models uniformly. Use manual `VariantEntry` wiring only for unusual dynamic-registration work, not for ordinary models.
+`declare_variants!` handles objective and witness models uniformly; it requires `Problem::Value: EvaluationValue`. Use manual `VariantEntry` wiring only for unusual dynamic-registration work, not for ordinary models.
 
 ## Step 3: Register the model
 
@@ -320,10 +320,9 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Omitting or inferring the model category | Set the required `ProblemSchemaEntry.category` explicitly to one of `Algebraic`, `Formula`, `Graph`, `Misc`, or `Set`; never parse `module_path!()`. |
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
-| Using the wrong aggregate wrapper | Objective models use `Max` / `Min` / `Extremum`, witness models use `bool`, aggregate-only models use a fold value like `Sum` / `And` |
+| Using the wrong aggregate wrapper | Objective models use `Max` / `Min` / `Extremum`, witness models use `Or` |
 | Not registering in `mod.rs` | Must update both `<category>/mod.rs` and `models/mod.rs` |
 | Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
-| Wrong aggregate wrapper | Use `Max` / `Min` / `Extremum` for objective problems, `Or` for existential witness problems, and `Sum` / `And` (or a custom aggregate) for value-only folds |
 | Wrong `declare_variants!` syntax | Entries no longer use `opt` / `sat`; one entry per problem may be marked `default` |
 | Adding aliases in CLI code | Declare problem aliases in `ProblemSchemaEntry.aliases` and variant aliases in `declare_variants!` |
 | Adding a hand-written decision model | Use `Decision<P>` wrapper instead — see `decision_problem_meta!` + `register_decision_variant!` in `src/models/graph/minimum_vertex_cover.rs` for the pattern |

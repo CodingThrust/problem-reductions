@@ -109,7 +109,7 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 ## Step 4: Semantic Review
 
 ### For Models:
-1. **`evaluate()` correctness** — Does it check feasibility before computing the objective when the model has invalid configurations? Objective models should return `Max/Min/Extremum(None)` for infeasible configs, witness problems should return `false`, and aggregate-only models should return the per-configuration contribution that matches the intended fold semantics.
+1. **`evaluate()` correctness** — Does it check feasibility before computing the objective when the model has invalid configurations? Objective models should return `Max/Min/Extremum(None)` for infeasible configs, and witness problems should return `Or(false)`.
 2. **`dims()` correctness** — Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
 3. **Size getter consistency** — Do inherent getter methods (e.g., `num_vertices()`, `num_edges()`) match names used in overhead expressions?
 4. **Weight handling** — Are weights managed via inherent methods, not traits?
@@ -131,7 +131,7 @@ Only if a linked issue was provided.
 |---|-------|
 | 1 | Problem name matches issue |
 | 2 | Mathematical definition matches |
-| 3 | Problem framing (objective / witness / aggregate-only) matches |
+| 3 | Problem framing (objective / witness) matches |
 | 4 | Type parameters match |
 | 5 | Configuration space matches |
 | 6 | Feasibility check matches |

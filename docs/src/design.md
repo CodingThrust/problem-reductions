@@ -27,7 +27,7 @@ Every problem implements `Problem`. The associated `Value` type is the per-confi
 trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
     type Solution;                         // e.g., Vec<bool>, permutation, tuple
-    type Value: EvaluationValue;           // e.g., Max<i64>, Or
+    type Value: Clone;                     // e.g., Max<i64>, Or
     fn parameter_names() -> &'static [&'static str];
     fn parameters(&self) -> ProblemParameters;
     fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
@@ -37,12 +37,12 @@ trait Problem: Clone {
 ```
 
 - **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and reports its canonical instance parameters. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named parameters used by reduction expressions.
-- **`EvaluationValue`** — requires `Clone` and `is_valid()`, expressing whether one candidate satisfies the model constraints. `Min`, `Max`, `Or`, and `Extremum` implement it. Custom evaluation types implement this check without needing aggregation or solver capabilities. An invalid candidate does not establish that the problem is infeasible.
+- **`EvaluationValue`** — requires `Clone` and `is_valid()`, expressing whether one candidate satisfies the model constraints. `Min`, `Max`, `Or`, and `Extremum` implement it. Custom evaluation types implement this check without needing aggregation or solver capabilities. An invalid candidate does not establish that the problem is infeasible. `Problem::Value` does not require it. It is required where a candidate is labeled feasible: `SolveOutcome::optimal` and `feasible`, the source and target of a `ReductionResult`, `SolutionAggregate`, `OptimizationValue`, and `declare_variants!` registration.
 - **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its fallible `num_variables()` and `dimension(variable)` methods describe coordinates without allocating their vector. These methods and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
 - **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
 - **Feasibility problems** — typically use `Or`.
 - **Solve contract** — a successful solve always returns the problem's `Solution`; a global count or statistic without a representative solution is not a `Problem` solve.
-- **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
+- **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`. All six values implement the `Aggregate` fold (`identity`, `combine`, `is_absorbing`). `Sum` and `And` are evaluation and fold values only: a problem may evaluate to them and fold them, but they do not implement `EvaluationValue`, so passing such a problem to a solve or recovery API, or registering it, is a compile error.
 
 ## Construction inputs
 
@@ -198,9 +198,10 @@ its source-result relation, including thresholds and sentinel constructions.
 Guarantees must cover every qualifying witness, including tied optima.
 
 `SolutionAggregate` remains a brute-force solver capability for selecting from
-an enumeration. Mathematical wrappers such as `Min`, `Max`, `Or`, and `Sum`
-remain model values. They do not require separate reduction traits or graph
-modes. Turing edges describe multiple adaptive queries and are retained only as
+an enumeration. `Min`, `Max`, `Or`, `Extremum`, `Sum`, and `And` remain model
+values; solving, recovery, and registration accept only the first four, which
+implement `EvaluationValue`. They do not require separate reduction traits or
+graph modes. Turing edges describe multiple adaptive queries and are retained only as
 theoretical graph relationships, not executable reductions. The library does not
 provide a Turing reduction solver. Default path search and execution exclude these
 edges. Exact recovery alone does not imply approximation or counting preservation.

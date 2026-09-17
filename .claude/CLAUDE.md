@@ -125,7 +125,7 @@ Problem (core trait — all problems must implement)
 │
 ├── const NAME: &'static str           // e.g., "MaximumIndependentSet"
 ├── type Solution                      // mathematical witness representation
-├── type Value: EvaluationValue        // per-solution value with is_valid()
+├── type Value: Clone                  // per-solution evaluation value
 ├── fn parameter_names()               // canonical problem-owned parameter schema
 ├── fn parameters(&self) -> ProblemParameters // concrete instance parameter values
 ├── fn evaluate(&self, solution) -> Result<Value, EvaluationError>
@@ -151,6 +151,7 @@ Common aggregate wrappers live in `src/types.rs`:
 ```rust
 Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 ```
+All six values implement the `Aggregate` fold. `Sum` and `And` are evaluation and fold values only; they do not implement `EvaluationValue`.
 
 `OptimizationValue` trait (in `src/types.rs`) enables generic Decision conversion:
 - `Min<V>`: meets bound when value ≤ bound
@@ -166,12 +167,12 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `BruteForce::solve()` returns `Result<Option<P::Solution>, SolveError>`; `None` means exhaustive search proved infeasibility
 - `BruteForce::find_all_witnesses()` is a reference-testing helper for collecting every optimal or satisfying solution
 - Each executed step constructs one result and shares it through `Rc`. Document the rule's domain, witness premise, source guarantee, and infeasibility interpretation; all tied qualifying optima must map correctly.
-- `EvaluationValue` exposes candidate feasibility through `is_valid()`; `Min`, `Max`, `Or`, and `Extremum` implement it. `SolveOutcome::optimal()` and `feasible()` evaluate once and reject constraint-violating candidates with `EvaluationError::ConstraintViolation`. This does not prove problem infeasibility or optimality.
+- `EvaluationValue` exposes candidate feasibility through `is_valid()`; `Min`, `Max`, `Or`, and `Extremum` implement it. `Problem::Value` does not require it; `SolveOutcome`, `ReductionResult` endpoints, `SolutionAggregate`, `OptimizationValue`, and `declare_variants!` registration do, so a `Sum`- or `And`-valued problem evaluates and folds but fails to compile in solve, recovery, and registration. `SolveOutcome::optimal()` and `feasible()` evaluate once and reject constraint-violating candidates with `EvaluationError::ConstraintViolation`. This does not prove problem infeasibility or optimality.
 - `SolutionAggregate` belongs to `solvers::BruteForce` witness selection. Models, pure reduction mappings, dynamic evaluation, and non-enumerative solving do not require it. See [executed lifecycle](../docs/src/design.md#executed-reduction-lifecycle).
 - `ReductionResult` provides `target_problem()` and mandatory `recover_result(source, target_outcome)`. Recovery returns typed `Optimal`, `Feasible`, or `Infeasible` outcomes, including solution and evaluation. Each rule handles all statuses explicitly; no optional completion callback or separate value-only path exists.
 - `pred solve bundle.json` and `pred extract bundle.json --result target-result.json` use the same complete recovery. External results declare their status; the transport boundary validates target feasibility, while the external solver supplies the optimality claim. Insufficient witness quality is an error, never evidence of source infeasibility.
 - Decode only the reduction's defined mathematical mapping. Preserve reachable mathematical and representation errors; do not add fallback values or recovery branches for violations already excluded by the calling contract. Explicit mathematical alternatives and sentinels are allowed.
-- CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
+- CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, or `Or(true)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i64`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
