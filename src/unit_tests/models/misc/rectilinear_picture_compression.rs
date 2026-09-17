@@ -3,6 +3,20 @@ use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
+#[test]
+fn test_rectilinear_picture_compression_rejects_invalid_json_without_panicking() {
+    for matrix in [
+        serde_json::json!([]),
+        serde_json::json!([[]]),
+        serde_json::json!([[true], []]),
+    ] {
+        assert!(serde_json::from_value::<RectilinearPictureCompression>(
+            serde_json::json!({"matrix": matrix, "bound": 1})
+        )
+        .is_err());
+    }
+}
+
 fn two_block_matrix() -> Vec<Vec<bool>> {
     vec![
         vec![true, true, false, false],

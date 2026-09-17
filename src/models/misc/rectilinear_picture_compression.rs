@@ -78,7 +78,7 @@ impl<'de> Deserialize<'de> for RectilinearPictureCompression {
             bound: i64,
         }
         let inner = Inner::deserialize(deserializer)?;
-        Ok(Self::new(inner.matrix, inner.bound))
+        Self::try_new(inner.matrix, inner.bound).map_err(serde::de::Error::custom)
     }
 }
 
@@ -89,20 +89,30 @@ impl RectilinearPictureCompression {
     ///
     /// Panics if `matrix` is empty or has inconsistent row lengths.
     pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
-        assert!(!matrix.is_empty(), "Matrix must not be empty");
+        Self::try_new(matrix, bound).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if matrix.is_empty() {
+            return Err("Matrix must not be empty".into());
+        }
         let cols = matrix[0].len();
-        assert!(cols > 0, "Matrix must have at least one column");
-        assert!(
-            matrix.iter().all(|row| row.len() == cols),
-            "All rows must have the same length"
-        );
+        if cols == 0 {
+            return Err("Matrix must have at least one column".into());
+        }
+        if matrix.iter().any(|row| row.len() != cols) {
+            return Err("All rows must have the same length".into());
+        }
         let mut instance = Self {
             matrix,
             bound,
             maximal_rects: Vec::new(),
         };
         instance.maximal_rects = instance.compute_maximal_rectangles();
-        instance
+        Ok(instance)
     }
 
     /// Returns the number of rows in the matrix.
