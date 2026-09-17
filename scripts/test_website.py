@@ -562,6 +562,29 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#selection-type')).to_have_text('Details')
         expect(selected).to_have_attribute('aria-current', 'false')
 
+    def test_graph_list_selection_keeps_keyboard_focus(self):
+        self.page.goto(self.base + "graph.html")
+        expect(self.page.locator("#cy canvas").first).to_be_visible()
+        family = self.page.locator('#browser-list [data-family="QUBO"]')
+        family.focus()
+        self.page.keyboard.press('Enter')
+        expect(family).to_have_attribute('aria-current', 'true')
+        expect(family).to_be_focused()
+        self.page.keyboard.press('Tab')
+        self.page.keyboard.press('Enter')
+        variant = self.page.locator('#browser-list [data-variant][aria-current="true"]')
+        expect(variant).to_be_focused()
+        family.focus()
+        self.page.keyboard.press('Enter')
+        expect(family).to_have_attribute('aria-expanded', 'false')
+        expect(family).to_be_focused()
+        self.page.evaluate("""() => {
+            document.activeElement.blur();
+            document.querySelector('#cy')._cyreg.cy.getElementById('QUBO').emit('tap');
+        }""")
+        expect(family).to_have_attribute('aria-current', 'true')
+        self.assertEqual(self.page.evaluate('document.activeElement.tagName'), 'BODY')
+
     def test_atlas_ilp_prioritizes_documentation_over_metadata(self):
         self.visit('problem/ILP')
         expect(self.page.locator('article.typst-detail')).to_contain_text('Lenstra')

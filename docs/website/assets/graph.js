@@ -635,7 +635,11 @@
           empty.textContent = "No matches. Try another search.";
           fragment.append(empty);
         }
+        // Re-rendering replaces the focused button; keyboard focus follows its counterpart.
+        const focused = browserList.contains(document.activeElement) && document.activeElement.dataset;
         browserList.replaceChildren(fragment);
+        if (focused) [...browserList.querySelectorAll("button")].find((button) =>
+          ["family", "variant", "rule"].every((key) => button.dataset[key] === focused[key]))?.focus();
       }
 
       browserSearch.addEventListener("input", renderBrowser);
