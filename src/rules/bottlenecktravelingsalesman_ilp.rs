@@ -97,13 +97,6 @@ impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
         let edges = self.graph().edges();
         let m = edges.len();
         let weights = self.weights();
-        if weights.len() != m {
-            return Err(
-                crate::rules::ReductionError::invalid_target::<Self, ILP<i64>>(
-                    "edge weights must match the source edges",
-                ),
-            );
-        }
         let (num_x, num_z, num_vars, num_constraints) = ReductionBTSPToILP::dimensions(n, m)?;
         let x = |vertex: usize, position: usize| vertex * n + position;
         let z = |edge: usize, position: usize, direction: usize| {
