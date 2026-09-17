@@ -3,6 +3,32 @@ use crate::models::misc::CapacityAssignment;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_capacity_assignment_validates_persisted_input() {
+    let valid =
+        serde_json::json!({"capacities":[1,2],"cost":[[1,2]],"delay":[[2,1]],"delay_budget":2});
+    let restored: CapacityAssignment = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("capacities", serde_json::json!([])),
+        ("capacities", serde_json::json!([0, 2])),
+        ("capacities", serde_json::json!([-1, 2])),
+        ("capacities", serde_json::json!([2, 1])),
+        ("cost", serde_json::json!([])),
+        ("cost", serde_json::json!([[1]])),
+        ("delay", serde_json::json!([[1]])),
+        ("cost", serde_json::json!([[2, 1]])),
+        ("delay", serde_json::json!([[1, 2]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<CapacityAssignment>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn create_spec_validates_monotonicity() {
     assert!(CapacityAssignment::try_from(CapacityAssignmentCreateSpec {
         capacities: vec![1, 2],
