@@ -68,6 +68,9 @@ fn normalize_subsets(universe_size: usize, subsets: &[Vec<usize>]) -> (usize, Ve
 
     for subset in subsets {
         let mut remainder = subset.clone();
+        // Repeated occurrences represent the same set element.
+        remainder.sort_unstable();
+        remainder.dedup();
         while remainder.len() > 3 {
             let positive_aux = next_element;
             let negative_aux = next_element + 1;
@@ -154,7 +157,7 @@ impl SetSplitting {
         (universe_size, size2, size3)
     }
 
-    /// Universe size after decomposing all subsets to size 2 or 3.
+    /// Universe size after deduplicating subsets and decomposing sizes above 3.
     pub fn normalized_universe_size(&self) -> usize {
         self.normalized_stats().0
     }
