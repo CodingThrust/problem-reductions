@@ -7,7 +7,9 @@ mod outcome;
 mod pipelines;
 mod registry;
 mod resolver;
-pub(crate) use outcome::{downcast_outcome, erase_outcome, outcome_to_json, ErasedOutcome};
+pub(crate) use outcome::{
+    check_reported_evaluation, downcast_outcome, erase_outcome, outcome_to_json, ErasedOutcome,
+};
 pub use outcome::{ProblemOutcome, SolveOutcome};
 
 pub mod ilp;

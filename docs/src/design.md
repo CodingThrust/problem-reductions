@@ -144,8 +144,12 @@ becomes a mathematical result at the terminal boundary. Only the typed
 that method's solution-returning contract.
 
 `ReductionChain::recover_result_json()` returns `(source_result, target_result)`.
-It decodes and evaluates the external target once, then retains the model-computed
-target evaluation for output while recovering the source. CLI callers use both
+It accepts target-result JSON with an optional `evaluation`, decodes and evaluates
+the target once, and rejects any supplied evaluation that does not match the model.
+Integer and Boolean comparisons are exact; floating-point comparisons use
+`abs(reported - computed) <= 1e-9 * max(1, abs(reported), abs(computed))`.
+An `infeasible` result must not contain `evaluation`.
+It retains the model-computed target evaluation for output while recovering the source. CLI callers use both
 returned results; they do not independently evaluate the external candidate.
 
 For example, an independent set of size 2 in a four-vertex graph maps to a

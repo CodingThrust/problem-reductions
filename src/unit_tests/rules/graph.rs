@@ -2202,10 +2202,7 @@ fn composed_witness_agrees_across_direct_chain_path_and_json() {
         chain
             .recover_result_json(
                 &source,
-                SolveOutcome::Optimal {
-                    solution: json!(target_solution),
-                    evaluation: String::new(),
-                }
+                json!({"status": "optimal", "solution": target_solution})
             )
             .unwrap()
             .0,

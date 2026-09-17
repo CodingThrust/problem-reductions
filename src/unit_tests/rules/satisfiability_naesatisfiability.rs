@@ -117,10 +117,7 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
     ));
     assert!(crate::rules::DynReductionResult::target_result_from_json(
         &reduction,
-        SolveOutcome::Optimal {
-            solution: serde_json::json!([false, 2, false]),
-            evaluation: String::new()
-        }
+        serde_json::json!({"status": "optimal", "solution": [false, 2, false]})
     )
     .is_err());
 }

@@ -3,6 +3,44 @@ use crate::traits::{EvaluationError, EvaluationValue, Problem};
 use crate::types::{Extremum, Max, Min, Or, ProblemParameters};
 use std::cell::Cell;
 
+#[test]
+fn reported_evaluations_compare_numeric_values_without_losing_integer_precision() {
+    use super::check_reported_evaluation;
+    use serde_json::json;
+
+    for reported in ["Min(2)", "Min(2.0)", "Min(2e0)", "Min(2.000000001)"] {
+        assert!(check_reported_evaluation(&json!(reported), &Min(Some(2.0f64))).is_ok());
+    }
+    for reported in [
+        "Min(2.001)",
+        "Max(2)",
+        "Min(NaN)",
+        "Min(inf)",
+        "Min(abc)",
+        "Min(2",
+        "Min2)",
+    ] {
+        assert!(check_reported_evaluation(&json!(reported), &Min(Some(2.0f64))).is_err());
+    }
+    assert!(check_reported_evaluation(&json!("Min(0.0000000005)"), &Min(Some(0.0f64))).is_ok());
+    assert!(check_reported_evaluation(&json!("Max(2e0)"), &Max(Some(2.0f64))).is_ok());
+    assert!(
+        check_reported_evaluation(&json!("Min(2e0)"), &Extremum::minimize(Some(2.0f64))).is_ok()
+    );
+    assert!(
+        check_reported_evaluation(&json!("Max(2e0)"), &Extremum::maximize(Some(2.0f64))).is_ok()
+    );
+    assert!(check_reported_evaluation(&json!("Min(+002)"), &Min(Some(2i64))).is_ok());
+    assert!(check_reported_evaluation(&json!("Min(3)"), &Min(Some(2i64))).is_err());
+    assert!(check_reported_evaluation(
+        &json!("Min(9007199254740992)"),
+        &Min(Some(9007199254740993i64))
+    )
+    .is_err());
+    assert!(check_reported_evaluation(&json!("Or(true)"), &Or(true)).is_ok());
+    assert!(check_reported_evaluation(&json!("Or(false)"), &Or(true)).is_err());
+}
+
 #[derive(Clone)]
 struct Evaluated<V> {
     value: Result<V, EvaluationError>,

@@ -710,10 +710,7 @@ fn rule_specs_solution_pairs_are_consistent() {
                 let extracted = chain
                     .recover_result_json(
                         source.as_any(),
-                        SolveOutcome::Optimal {
-                            solution: pair.target_config.clone(),
-                            evaluation: target_eval.0.clone(),
-                        },
+                        serde_json::json!({"status": "optimal", "solution": pair.target_config, "evaluation": target_eval.0}),
                     )
                     .map(|(outcome, _)| outcome.into_solution().unwrap())
                     .unwrap();
@@ -730,15 +727,18 @@ fn rule_specs_solution_pairs_are_consistent() {
 
                 assert_eq!(
                     chain
-                        .recover_result_json(source.as_any(), SolveOutcome::Infeasible)
+                        .recover_result_json(
+                            source.as_any(),
+                            serde_json::json!({"status": "infeasible"})
+                        )
                         .unwrap()
                         .0,
                     SolveOutcome::Infeasible,
                     "Rule {label}: target infeasibility must propagate"
                 );
-                match chain.recover_result_json(source.as_any(), SolveOutcome::Feasible {
-                    solution: pair.target_config.clone(), evaluation: target_eval.0.clone(),
-                }) {
+                match chain.recover_result_json(source.as_any(), serde_json::json!({
+                    "status": "feasible", "solution": pair.target_config, "evaluation": target_eval.0,
+                })) {
                     Ok((SolveOutcome::Feasible { solution, evaluation }, _)) => {
                         let (actual, valid) = source.evaluate_dyn(&solution).unwrap();
                         assert!(valid, "Rule {label}: feasible recovery returned an invalid source witness");
@@ -753,10 +753,7 @@ fn rule_specs_solution_pairs_are_consistent() {
                     chain
                         .recover_result_json(
                             source.as_any(),
-                            SolveOutcome::Optimal {
-                                solution: malformed,
-                                evaluation: String::new()
-                            }
+                            serde_json::json!({"status": "optimal", "solution": malformed})
                         )
                         .is_err(),
                     "Rule {label}: extraction accepted malformed target-solution JSON"

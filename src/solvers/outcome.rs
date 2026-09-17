@@ -17,6 +17,65 @@ pub enum SolveOutcome<S = serde_json::Value, V = String> {
 /// A result retaining the model's concrete solution and value types.
 pub type ProblemOutcome<P> = SolveOutcome<<P as Problem>::Solution, <P as Problem>::Value>;
 
+/// Check the optional display-form evaluation at the external JSON boundary.
+pub(crate) fn check_reported_evaluation<V: std::fmt::Display + 'static>(
+    reported: &serde_json::Value,
+    actual: &V,
+) -> crate::rules::ExtractionResult<()> {
+    use crate::types::{Extremum, Max, Min};
+    use std::any::TypeId;
+
+    let expected = actual.to_string();
+    let matches = reported.as_str().is_some_and(|reported| {
+        if reported == expected {
+            return true;
+        }
+        let Some((wrapper, expected_value)) = expected.split_once('(') else {
+            return false;
+        };
+        let Some(value) = reported
+            .strip_prefix(wrapper)
+            .and_then(|s| s.strip_prefix('('))
+            .and_then(|s| s.strip_suffix(')'))
+        else {
+            return false;
+        };
+        let expected_value = expected_value.trim_end_matches(')');
+        if [
+            TypeId::of::<Min<f64>>(),
+            TypeId::of::<Max<f64>>(),
+            TypeId::of::<Extremum<f64>>(),
+        ]
+        .contains(&TypeId::of::<V>())
+        {
+            let (Ok(value), Ok(expected_value)) =
+                (value.parse::<f64>(), expected_value.parse::<f64>())
+            else {
+                return false;
+            };
+            // Absolute and relative tolerances apply only to floating-point evaluations.
+            value.is_finite()
+                && expected_value.is_finite()
+                && (value - expected_value).abs()
+                    <= 1e-9 * value.abs().max(expected_value.abs()).max(1.0)
+        } else {
+            match (
+                value.parse::<num_bigint::BigInt>(),
+                expected_value.parse::<num_bigint::BigInt>(),
+            ) {
+                (Ok(value), Ok(expected_value)) => value == expected_value,
+                _ => false,
+            }
+        }
+    });
+    if !matches {
+        return Err(crate::rules::ExtractionError::invalid(format!(
+            "invalid or mismatched evaluation: received {reported}, expected {expected}"
+        )));
+    }
+    Ok(())
+}
+
 impl<S, V> SolveOutcome<S, V> {
     /// Evaluate and validate a candidate whose optimality is established by the caller.
     ///

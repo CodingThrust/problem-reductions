@@ -312,7 +312,7 @@ pub trait DynReductionResult {
     /// Decode and evaluate once, returning the typed result and its canonical JSON.
     fn target_result_from_json(
         &self,
-        target: crate::solvers::SolveOutcome,
+        target: serde_json::Value,
     ) -> ExtractionResult<(crate::solvers::ErasedOutcome, crate::solvers::SolveOutcome)>;
     fn source_result_json(
         &self,
@@ -349,24 +349,42 @@ where
 
     fn target_result_from_json(
         &self,
-        target: crate::solvers::SolveOutcome,
+        target: serde_json::Value,
     ) -> ExtractionResult<(crate::solvers::ErasedOutcome, crate::solvers::SolveOutcome)> {
         use crate::solvers::SolveOutcome;
-        // Numeric evaluation is model-owned, not parsed from a display string.
-        let decode = |solution| {
-            serde_json::from_value(solution).map_err(|error| {
-                ExtractionError::invalid(format!("invalid solution JSON: {error}"))
-            })
-        };
-        let target = match target {
-            SolveOutcome::Optimal { solution, .. } => {
-                SolveOutcome::optimal(self.target_problem(), decode(solution)?)?
+        #[derive(serde::Deserialize)]
+        #[serde(tag = "status", rename_all = "snake_case")]
+        enum Candidate<S> {
+            Optimal { solution: S },
+            Feasible { solution: S },
+            Infeasible,
+        }
+        let reported = target.get("evaluation").cloned();
+        let candidate = serde_json::from_value(target).map_err(|error| {
+            ExtractionError::invalid(format!("invalid target result JSON: {error}"))
+        })?;
+        let target = match candidate {
+            Candidate::Optimal { solution } => {
+                SolveOutcome::optimal(self.target_problem(), solution)?
             }
-            SolveOutcome::Feasible { solution, .. } => {
-                SolveOutcome::feasible(self.target_problem(), decode(solution)?)?
+            Candidate::Feasible { solution } => {
+                SolveOutcome::feasible(self.target_problem(), solution)?
             }
-            SolveOutcome::Infeasible => SolveOutcome::Infeasible,
+            Candidate::Infeasible => SolveOutcome::Infeasible,
         };
+        if let Some(reported) = reported {
+            match &target {
+                SolveOutcome::Optimal { evaluation, .. }
+                | SolveOutcome::Feasible { evaluation, .. } => {
+                    crate::solvers::check_reported_evaluation(&reported, evaluation)?;
+                }
+                SolveOutcome::Infeasible => {
+                    return Err(ExtractionError::invalid(
+                        "infeasible results must not contain evaluation",
+                    ));
+                }
+            }
+        }
         let target_json = crate::solvers::outcome_to_json(&target)?;
         Ok((crate::solvers::erase_outcome(target), target_json))
     }

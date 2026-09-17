@@ -231,10 +231,7 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
     let step = (edge.reduce_fn.unwrap())(&source).unwrap();
     let target = step
         .witness
-        .target_result_from_json(SolveOutcome::Optimal {
-            solution: json!([true, false]),
-            evaluation: String::new(),
-        })
+        .target_result_from_json(json!({"status": "optimal", "solution": [true, false]}))
         .unwrap()
         .0;
     assert!(matches!(
@@ -242,10 +239,8 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
         SolveOutcome::Infeasible
     ));
     assert!(matches!(
-        step.witness.target_result_from_json(SolveOutcome::Optimal {
-            solution: json!([true]),
-            evaluation: String::new(),
-        }),
+        step.witness
+            .target_result_from_json(json!({"status": "optimal", "solution": [true]})),
         Err(ExtractionError::Evaluation(_))
     ));
     assert!(matches!(
@@ -398,10 +393,9 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
         .is_some());
     TARGET_EVALUATIONS.with(|count| count.set(0));
     let (target, target_json) = dyn_result
-        .target_result_from_json(SolveOutcome::Optimal {
-            solution: json!([7]),
-            evaluation: "untrusted external evaluation".into(),
-        })
+        .target_result_from_json(
+            json!({"status": "optimal", "solution": [7], "evaluation": "Min(7)"}),
+        )
         .unwrap();
     assert_eq!(
         target_json,
@@ -422,4 +416,62 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
             evaluation: Min(Some(9))
         }
     );
+}
+
+#[test]
+fn external_evaluation_is_optional_but_must_match_when_present() {
+    let result = TestAggregateReduction {
+        target: AggregateTargetProblem,
+        offset: 2,
+    };
+    for status in ["optimal", "feasible"] {
+        let input = json!({"status": status, "solution": [7]});
+        for evaluation in [None, Some(json!("Min(7)")), Some(json!("Min(+007)"))] {
+            let mut input = input.clone();
+            if let Some(evaluation) = evaluation {
+                input["evaluation"] = evaluation;
+            }
+            TARGET_EVALUATIONS.with(|count| count.set(0));
+            let (_, output) = result.target_result_from_json(input).unwrap();
+            assert_eq!(TARGET_EVALUATIONS.with(|count| count.get()), 1);
+            assert_eq!(
+                serde_json::to_value(output).unwrap(),
+                json!({"status": status, "solution": [7], "evaluation": "Min(7)"})
+            );
+        }
+        for evaluation in [
+            json!("Min(8)"),
+            json!("Max(7)"),
+            json!("garbage"),
+            json!(""),
+            json!(null),
+            json!(7),
+            json!({"Min": 7}),
+        ] {
+            let mut input = input.clone();
+            input["evaluation"] = evaluation;
+            let error = result
+                .target_result_from_json(input)
+                .err()
+                .unwrap()
+                .to_string();
+            assert!(error.contains("evaluation"), "{error}");
+            assert!(error.contains("Min(7)"), "{error}");
+        }
+    }
+    assert!(matches!(
+        result
+            .target_result_from_json(json!({"status": "infeasible"}))
+            .unwrap()
+            .1,
+        SolveOutcome::Infeasible
+    ));
+    for evaluation in [json!(null), json!("Min(7)")] {
+        let error = result
+            .target_result_from_json(json!({"status": "infeasible", "evaluation": evaluation}))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("must not contain evaluation"), "{error}");
+    }
 }

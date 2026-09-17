@@ -231,13 +231,7 @@ fn extraction_maps_feasible_witnesses_through_typed_and_dynamic_paths() {
     );
     assert_eq!(
         chain
-            .recover_result_json(
-                &source,
-                SolveOutcome::Feasible {
-                    solution: json!([0]),
-                    evaluation: String::new(),
-                }
-            )
+            .recover_result_json(&source, json!({"status": "feasible", "solution": [0]}))
             .unwrap()
             .0,
         SolveOutcome::Feasible {

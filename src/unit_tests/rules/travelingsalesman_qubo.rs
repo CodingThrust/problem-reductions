@@ -150,10 +150,7 @@ fn signed_and_small_tours_recover_all_optima_or_infeasibility() {
             let completed = chain
                 .recover_result_json(
                     &source,
-                    SolveOutcome::Optimal {
-                        solution: serde_json::to_value(&solution).unwrap(),
-                        evaluation: String::new(),
-                    },
+                    serde_json::json!({"status": "optimal", "solution": solution}),
                 )
                 .unwrap()
                 .0;

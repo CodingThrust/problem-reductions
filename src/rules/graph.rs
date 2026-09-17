@@ -1612,11 +1612,11 @@ impl ReductionChain {
 
     /// Recover the source result and return it with the validated target result.
     /// The returned pair is `(source, target)`; target evaluation is computed once
-    /// from the model, never trusted from the incoming display string.
+    /// from the model. An optional incoming evaluation must match that value.
     pub fn recover_result_json(
         &self,
         source: &dyn Any,
-        target: crate::solvers::SolveOutcome,
+        target: serde_json::Value,
     ) -> crate::rules::ExtractionResult<(crate::solvers::SolveOutcome, crate::solvers::SolveOutcome)>
     {
         let last = self.steps.last().expect("ReductionChain has no steps");

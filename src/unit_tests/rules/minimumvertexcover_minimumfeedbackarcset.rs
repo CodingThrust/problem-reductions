@@ -200,10 +200,7 @@ fn feasible_feedback_arc_set_does_not_establish_a_vertex_cover() {
     ));
     // The external JSON boundary must report the same rule-level failure.
     let target = reduction
-        .target_result_from_json(SolveOutcome::Feasible {
-            solution: serde_json::json!(candidate),
-            evaluation: String::new(),
-        })
+        .target_result_from_json(serde_json::json!({"status": "feasible", "solution": candidate}))
         .unwrap()
         .0;
     assert!(matches!(

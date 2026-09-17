@@ -181,10 +181,7 @@ fn optimum_energy_recovers_distance_and_infeasibility() {
             let completed = chain
                 .recover_result_json(
                     &source,
-                    SolveOutcome::Optimal {
-                        solution: serde_json::to_value(&solution).unwrap(),
-                        evaluation: String::new(),
-                    },
+                    serde_json::json!({"status": "optimal", "solution": solution}),
                 )
                 .unwrap()
                 .0;

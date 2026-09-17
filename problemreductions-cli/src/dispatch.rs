@@ -295,7 +295,7 @@ impl BundleReplay {
     /// Recover an externally supplied or internally solved target result.
     pub(crate) fn recover_result(
         &self,
-        target_outcome: SolveOutcome,
+        target_outcome: serde_json::Value,
         solver: SolverExecution,
     ) -> Result<BundleSolveResult> {
         let (source_outcome, target_outcome) = self
@@ -312,7 +312,7 @@ impl BundleReplay {
 
     pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
         let result = self.target.solve(request)?;
-        self.recover_result(result.outcome, result.solver)
+        self.recover_result(serde_json::to_value(result.outcome)?, result.solver)
     }
 }
 
@@ -444,10 +444,7 @@ mod tests {
                     assert_eq!(
                         replay
                             .recover_result(
-                                SolveOutcome::Optimal {
-                                    solution: target,
-                                    evaluation: String::new()
-                                },
+                                json!({"status": "optimal", "solution": target}),
                                 SolverExecution::External
                             )
                             .unwrap()
@@ -536,10 +533,7 @@ mod tests {
                 assert_eq!(
                     replay
                         .recover_result(
-                            SolveOutcome::Optimal {
-                                solution: json!([true, false]),
-                                evaluation: String::new()
-                            },
+                            json!({"status": "optimal", "solution": [true, false]}),
                             SolverExecution::External
                         )
                         .unwrap()

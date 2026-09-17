@@ -105,7 +105,13 @@ The bundle contains the source instance, the target instance, and the variant-le
 The example shape assumes a Boolean target solution; use the actual target's
 solution representation. Use `feasible` when optimality is not established, or
 `{"status":"infeasible"}` when the target solver proves infeasibility.
-The command checks the target witness and recomputes its evaluation. Insufficient
+The command checks the target witness and computes its evaluation. `evaluation`
+may be omitted; if provided, it must be a correctly formatted string matching the
+computed value. Integer and Boolean values are compared exactly. Floating-point
+values match when `abs(reported - computed) <= 1e-9 * max(1, abs(reported), abs(computed))`.
+Malformed or mismatched values (including `null`) are errors. An `infeasible`
+result must not include `evaluation`. Results with a solution always include the
+model-computed evaluation in the output. This check does not prove optimality. Insufficient
 candidate quality is an error, not a source NO answer.
 
 ## Solve
