@@ -744,7 +744,7 @@ fn rule_specs_solution_pairs_are_consistent() {
                         assert!(valid, "Rule {label}: feasible recovery returned an invalid source witness");
                         assert_eq!(evaluation, actual);
                     }
-                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality) => {}
+                    Err(error) if error.is_insufficient_quality() => {}
                     result => panic!("Rule {label}: feasible recovery returned an unjustified status: {result:?}"),
                 }
 

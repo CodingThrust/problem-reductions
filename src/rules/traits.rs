@@ -130,6 +130,15 @@ impl ReductionError {
 pub enum ExtractionError {
     #[error("the target result does not establish the conditions required for source recovery")]
     InsufficientSolutionQuality,
+    /// [`Self::InsufficientSolutionQuality`] located at the reduction that reported it.
+    #[error(
+        "{source_problem} -> {target_problem}: {}",
+        Self::InsufficientSolutionQuality
+    )]
+    InsufficientSolutionQualityAt {
+        source_problem: &'static str,
+        target_problem: &'static str,
+    },
     #[error("{0}")]
     InvalidTargetSolution(String),
     #[error("{source_problem} -> {target_problem}: {message}")]
@@ -147,12 +156,24 @@ impl ExtractionError {
         Self::InvalidTargetSolution(message.into())
     }
 
+    /// Whether the target result was too weak for recovery, with or without edge context.
+    pub fn is_insufficient_quality(&self) -> bool {
+        matches!(
+            self,
+            Self::InsufficientSolutionQuality | Self::InsufficientSolutionQualityAt { .. }
+        )
+    }
+
     fn for_reduction<S: Problem, T: Problem>(self) -> Self {
         match self {
             Self::InvalidTargetSolution(message) => Self::Reduction {
                 source_problem: S::NAME,
                 target_problem: T::NAME,
                 message,
+            },
+            Self::InsufficientSolutionQuality => Self::InsufficientSolutionQualityAt {
+                source_problem: S::NAME,
+                target_problem: T::NAME,
             },
             error => error,
         }

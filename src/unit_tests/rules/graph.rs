@@ -2208,3 +2208,39 @@ fn composed_witness_agrees_across_direct_chain_path_and_json() {
         }
     );
 }
+
+#[test]
+fn insufficient_quality_names_the_failing_hop_of_a_chain() {
+    use crate::models::misc::Partition;
+    // Total 11 is odd, so no Knapsack candidate decodes to a balanced partition.
+    let source = Partition::new(vec![2, 4, 5]).unwrap();
+    let path = ReductionPath {
+        steps: [
+            (Partition::NAME, Partition::variant()),
+            (Knapsack::NAME, Knapsack::variant()),
+            (ILP::<bool>::NAME, ILP::<bool>::variant()),
+        ]
+        .into_iter()
+        .map(|(name, variant)| ReductionStep {
+            name: name.into(),
+            variant: ReductionGraph::variant_to_map(&variant),
+        })
+        .collect(),
+    };
+    let chain = ReductionGraph::new()
+        .reduce_along_path(&path, &source)
+        .unwrap()
+        .unwrap();
+    // Knapsack -> ILP preserves the feasible incumbent; Partition -> Knapsack cannot use it.
+    let incumbent =
+        SolveOutcome::feasible(chain.target_problem::<ILP<bool>>(), vec![0, 0, 1]).unwrap();
+    let error = chain
+        .recover_result::<Partition, ILP<bool>>(&source, incumbent)
+        .unwrap_err();
+    assert!(error.is_insufficient_quality());
+    assert_eq!(
+        error.to_string(),
+        "Partition -> Knapsack: the target result does not establish the conditions required \
+         for source recovery"
+    );
+}

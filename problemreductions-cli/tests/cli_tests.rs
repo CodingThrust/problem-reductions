@@ -10469,8 +10469,10 @@ fn test_extract_rejects_feasible_result_the_rule_cannot_use() {
     );
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty());
+    // The error names the hop that rejected the incumbent, not the chain's endpoints.
     assert!(String::from_utf8_lossy(&output.stderr).contains(
-        "the target result does not establish the conditions required for source recovery"
+        "MaximumSetPacking -> QUBO: the target result does not establish the conditions \
+         required for source recovery"
     ));
 
     // The same witness is usable once the solver claims optimality.
@@ -10484,6 +10486,97 @@ fn test_extract_rejects_feasible_result_the_rule_cannot_use() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+const EXTRACT_OPTIMALITY_NOTE: &str =
+    "note: source infeasibility rests on the external solver's optimality claim";
+const EXTRACT_INFEASIBILITY_NOTE: &str =
+    "note: source infeasibility rests on the external solver's infeasibility claim";
+
+fn extract_test_partition_knapsack_bundle(
+    name: &str,
+    sizes: &str,
+) -> (std::path::PathBuf, std::path::PathBuf) {
+    let directory = std::env::temp_dir().join(name);
+    std::fs::create_dir_all(&directory).unwrap();
+    let problem_file = directory.join("source.json");
+    let bundle_file = directory.join("bundle.json");
+    let created = pred()
+        .args(["-o", problem_file.to_str().unwrap()])
+        .args(["create", "Partition", "--sizes", sizes])
+        .output()
+        .unwrap();
+    assert!(created.status.success());
+    let reduced = reduce_named_to_file(
+        &problem_file,
+        "Partition",
+        "Knapsack",
+        &["Partition", "Knapsack"],
+        &bundle_file,
+    );
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    (directory, bundle_file)
+}
+
+#[test]
+fn test_extract_notes_source_infeasibility_resting_on_an_external_claim() {
+    // Total 11 is odd: the Knapsack optimum 5 decodes to an unbalanced partition.
+    let (directory, bundle_file) =
+        extract_test_partition_knapsack_bundle("pred_extract_external_claim_note", "2,4,5");
+    for (result, note) in [
+        (
+            r#"{"status":"optimal","solution":[false,false,true]}"#,
+            EXTRACT_OPTIMALITY_NOTE,
+        ),
+        (r#"{"status":"infeasible"}"#, EXTRACT_INFEASIBILITY_NOTE),
+    ] {
+        let output = extract_test_run(&directory, &bundle_file, result);
+        assert!(output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(stderr.lines().count(), 1, "{stderr}");
+        assert!(stderr.starts_with(note), "{stderr}");
+
+        // The note never reaches stdout: --quiet drops it and leaves the JSON byte-identical.
+        let quiet = pred()
+            .args(["--quiet", "--json", "extract"])
+            .arg(&bundle_file)
+            .arg("--result")
+            .arg(directory.join("result.json"))
+            .output()
+            .unwrap();
+        assert!(quiet.stderr.is_empty());
+        assert_eq!(output.stdout, quiet.stdout);
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["status"], "infeasible");
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("note:"));
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn test_extract_has_no_claim_note_when_a_source_solution_is_recovered() {
+    let (directory, bundle_file) =
+        extract_test_partition_knapsack_bundle("pred_extract_no_claim_note", "3,1,1,2,2,1");
+    for status in ["feasible", "optimal"] {
+        let output = extract_test_run(
+            &directory,
+            &bundle_file,
+            &format!(r#"{{"status":"{status}","solution":[true,false,false,true,false,false]}}"#),
+        );
+        assert!(output.status.success());
+        assert!(
+            output.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["status"], status);
+    }
     std::fs::remove_dir_all(directory).unwrap();
 }
 

@@ -429,6 +429,9 @@ impl ReductionResult for ReductionISToVC {
 Construction returns `ReductionError`; recovery returns `ExtractionError`.
 Recovery must explicitly cover each result status. Required witness quality
 comes from the rule's proof, not from which caller happens to invoke it.
+A rule reports `InsufficientSolutionQuality`; type-erased and chain recovery
+relocate it to `InsufficientSolutionQualityAt { source_problem, target_problem }`
+so the message names the failing hop. `is_insufficient_quality()` matches both.
 
 The adapter checks backend output against the target model. Recovery performs
 the mathematical reverse mapping and computes the source evaluation. Do not

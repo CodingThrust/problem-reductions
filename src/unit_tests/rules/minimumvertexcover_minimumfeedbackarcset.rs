@@ -198,13 +198,16 @@ fn feasible_feedback_arc_set_does_not_establish_a_vertex_cover() {
         reduction.recover_result(&source, target),
         Err(ExtractionError::InsufficientSolutionQuality),
     ));
-    // The external JSON boundary must report the same rule-level failure.
+    // The external JSON boundary must report the same rule-level failure, located at this edge.
     let target = reduction
         .target_result_from_json(serde_json::json!({"status": "feasible", "solution": candidate}))
         .unwrap()
         .0;
     assert!(matches!(
         reduction.recover_result_dyn(&source, target),
-        Err(ExtractionError::InsufficientSolutionQuality),
+        Err(ExtractionError::InsufficientSolutionQualityAt {
+            source_problem: "MinimumVertexCover",
+            target_problem: "MinimumFeedbackArcSet",
+        }),
     ));
 }

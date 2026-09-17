@@ -231,7 +231,8 @@ Status:
   optimal     the solver PROVED optimality; recovery may conclude the source is infeasible
   feasible    a valid solution without an optimality proof (samplers, QAOA, annealers)
   infeasible  the solver PROVED the target has no solution; takes no `solution`
-Use feasible unless optimality is proven: a false optimal claim can yield a wrong source answer.")]
+Use feasible unless optimality is proven: a false optimal claim can yield a wrong source answer.
+When a source `infeasible` result rests on an optimal or infeasible claim, a note says so on stderr.")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
