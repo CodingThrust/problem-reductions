@@ -10,11 +10,11 @@ coverage:
     project:
       default:
         target: 95%
-        threshold: 2%
+        threshold: 0%
     patch:
       default:
         target: 95%
-        threshold: 2%
+        threshold: 0%
 
 # Exclude proc-macro crate from coverage since it runs at compile time
 # and traditional runtime coverage tools cannot measure it.
