@@ -17,7 +17,6 @@ use crate::models::misc::FeasibleRegisterAssignment;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
@@ -239,6 +238,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     use crate::models::algebraic::ILP;
     use crate::models::formula::CNFClause;
     use crate::solvers::ILPSolver;
+    use crate::solvers::SolveOutcome;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_feasibleregisterassignment",

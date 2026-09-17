@@ -9,7 +9,6 @@ use crate::models::misc::StringToStringCorrection;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 /// Result of reducing StringToStringCorrection to ILP.
 #[derive(Debug, Clone)]
@@ -391,6 +390,7 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "stringtostringcorrection_to_ilp",
         build: || {

@@ -221,7 +221,10 @@ fn test_ksatisfiability_to_bicliquecover_construct_two_vars_no_panic() {
     // m_normalized = 2 source + 2 * 2 = 6.
     // k_f = 4*2 + 2*ceil(log2 6) + 6 = 8 + 6 + 6 = 20.
     // rank = 20 + 4 + 2 = 26.
-    assert_eq!(reduction.normalized_n, 4);
+    assert_eq!(
+        normalize(&source, &reduction.source_variables).unwrap().0,
+        4
+    );
     assert_eq!(target.k(), 26);
 }
 
@@ -232,7 +235,10 @@ fn test_ksatisfiability_to_bicliquecover_sparse_variable_inverse() {
     let source = KSatisfiability::<K3>::new_allow_less(7, vec![CNFClause::new(vec![7])]);
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
     assert_eq!(reduction.source_variables, vec![6]);
-    assert_eq!(reduction.normalized_n, 2);
+    assert_eq!(
+        normalize(&source, &reduction.source_variables).unwrap().0,
+        2
+    );
     let cover = super::forward_witness_single_variable_single_clause(&source);
     let assignment = reduction
         .recover_result(

@@ -11,7 +11,6 @@ use crate::models::misc::MinimumCodeGenerationUnlimitedRegisters;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::types::One;
 
 /// Result of the unit-weight FVS to code-generation reduction.
@@ -134,6 +133,7 @@ fn issue_example_source() -> MinimumFeedbackVertexSet<One> {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
     use crate::solvers::BruteForce;
+    use crate::solvers::SolveOutcome;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters",

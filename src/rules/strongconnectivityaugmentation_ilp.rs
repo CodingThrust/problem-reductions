@@ -9,7 +9,6 @@ use crate::models::graph::StrongConnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionSCAToILP {
@@ -197,6 +196,7 @@ impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     use crate::topology::DirectedGraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "strongconnectivityaugmentation_to_ilp",

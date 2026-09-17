@@ -7,7 +7,6 @@ use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -341,6 +340,7 @@ fn issue_example_source() -> CircuitSAT {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
     use crate::solvers::BruteForce;
+    use crate::solvers::SolveOutcome;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "circuitsat_to_satisfiability",

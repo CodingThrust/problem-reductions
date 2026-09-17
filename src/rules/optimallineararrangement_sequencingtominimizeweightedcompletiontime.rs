@@ -16,7 +16,6 @@ use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing OptimalLinearArrangement to SequencingToMinimizeWeightedCompletionTime.
@@ -129,6 +128,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     use crate::example_db::specs::assemble_rule_example;
     use crate::export::SolutionPair;
     use crate::solvers::BruteForce;
+    use crate::solvers::SolveOutcome;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "optimallineararrangement_to_sequencingtominimizeweightedcompletiontime",

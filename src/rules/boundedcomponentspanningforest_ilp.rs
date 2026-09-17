@@ -10,7 +10,6 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::{Graph, SimpleGraph};
 
 #[derive(Debug, Clone)]
@@ -192,6 +191,7 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "boundedcomponentspanningforest_to_ilp",
         build: || {

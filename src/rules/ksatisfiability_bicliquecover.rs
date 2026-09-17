@@ -64,9 +64,6 @@ pub struct ReductionKSatisfiabilityToBicliqueCover {
     target: BicliqueCover,
     /// Number of variables in the source 3-CNF formula.
     source_num_vars: usize,
-    /// Number of normalized variables `n = 2^ell` (a power of two and
-    /// at least twice the number of appearing variables). Zero for sentinels.
-    normalized_n: usize,
     /// Bipartite-local offset of the `S_1` block on the left side.
     /// Used to locate vertex `s_11^u` for B_1 identification.
     s1_left_offset: usize,
@@ -268,7 +265,6 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
             return Ok(ReductionKSatisfiabilityToBicliqueCover {
                 target: BicliqueCover::new(BipartiteGraph::new(size, size, edges), 0),
                 source_num_vars,
-                normalized_n: 0,
                 s1_left_offset: 0,
                 s1_right_offset: 0,
                 source_variables: vec![],
@@ -505,7 +501,6 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
         Ok(ReductionKSatisfiabilityToBicliqueCover {
             target,
             source_num_vars,
-            normalized_n: n,
             s1_left_offset: s_offset,
             s1_right_offset: s_offset,
             source_variables,
@@ -765,7 +760,8 @@ fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -
     let mut config = vec![vec![false; num_vertices]; k];
 
     // Bipartite-local helpers, mirroring `reduce_to`.
-    let n = reduction.normalized_n;
+    let (n, _) = normalize(source, &reduction.source_variables)
+        .expect("canonical normalization must succeed");
     let ell = ceil_log2(n).max(1);
     let m = 3usize; // hard-coded for the canonical case
     let k_f = free_edge_budget(ell, m).expect("canonical free-edge budget must fit usize");

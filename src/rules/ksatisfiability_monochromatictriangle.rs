@@ -15,7 +15,6 @@ use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::satisfiability_naesatisfiability::ReductionSATToNAESAT;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 use crate::variant::K3;
 
@@ -180,6 +179,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     use crate::export::SolutionPair;
     use crate::models::formula::CNFClause;
     use crate::solvers::ILPSolver;
+    use crate::solvers::SolveOutcome;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_monochromatictriangle",

@@ -8,7 +8,6 @@ use crate::models::algebraic::{ConsecutiveOnesSubmatrix, LinearConstraint, Objec
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionCOSToILP {
@@ -218,6 +217,7 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "consecutiveonessubmatrix_to_ilp",
         build: || {

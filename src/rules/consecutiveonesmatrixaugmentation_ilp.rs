@@ -11,7 +11,6 @@ use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionCOMAToILP {
@@ -204,6 +203,7 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "consecutiveonesmatrixaugmentation_to_ilp",
         build: || {

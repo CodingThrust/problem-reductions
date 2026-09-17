@@ -9,7 +9,6 @@ use crate::models::misc::PaintShop;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 #[derive(Debug, Clone)]
 pub struct ReductionPaintShopToILP {
@@ -125,6 +124,7 @@ impl ReduceTo<ILP<bool>> for PaintShop {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "paintshop_to_ilp",
         build: || {

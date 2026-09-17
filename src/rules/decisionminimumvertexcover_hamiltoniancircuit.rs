@@ -65,6 +65,7 @@ impl TheoremConstruction {
         ))
     }
 
+    #[cfg(any(test, feature = "example-db"))]
     fn covers_all_edges(&self, selected: &[bool]) -> bool {
         self.edges
             .iter()

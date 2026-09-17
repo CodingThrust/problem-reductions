@@ -18,7 +18,6 @@ use crate::models::misc::MinimumExternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 
 /// Index layout for ILP variables.
 #[derive(Debug, Clone)]
@@ -371,6 +370,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
 
     // s = "ab" (len 2), alphabet {a,b} (size 2), h=2
     // Optimal: uncompressed, D="" C="ab", cost = 0+2+0 = 2

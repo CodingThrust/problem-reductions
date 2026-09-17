@@ -29,7 +29,6 @@ use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::Graph;
 
 /// Result of reducing UndirectedTwoCommodityIntegralFlow to `ILP<i64>`.
@@ -212,6 +211,7 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::solvers::SolveOutcome;
     use crate::topology::SimpleGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
