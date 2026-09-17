@@ -37,6 +37,20 @@ fn test_max_and_min_report_unordered_comparisons() {
 }
 
 #[test]
+fn test_sum_identity_and_combine() {
+    assert_eq!(Sum::<u64>::identity(), Sum(0));
+    assert_eq!(Sum(4_u64).combine(Sum(3_u64)).unwrap(), Sum(7));
+}
+
+#[test]
+fn test_sum_combine_reports_overflow() {
+    assert_eq!(
+        Sum(u64::MAX).combine(Sum(1)),
+        Err(AggregationError::ArithmeticOverflow)
+    );
+}
+
+#[test]
 fn test_weight_multiplication_reports_integer_overflow() {
     assert!(matches!(
         <i64 as WeightElement>::checked_mul_sum(i64::MAX, 2, "test multiplication"),
@@ -59,6 +73,27 @@ fn test_or_identity_and_combine() {
     assert_eq!(Or(false).combine(Or(false)).unwrap(), Or(false));
     assert!(!Or(false).is_absorbing());
     assert!(Or(true).is_absorbing());
+}
+
+#[test]
+fn test_and_identity_and_combine() {
+    assert_eq!(And::identity(), And(true));
+    assert_eq!(And(true).combine(And(false)).unwrap(), And(false));
+    assert_eq!(And(true).combine(And(true)).unwrap(), And(true));
+    assert!(!And(true).is_absorbing());
+    assert!(And(false).is_absorbing());
+}
+
+#[test]
+fn test_sum_has_no_absorbing_value() {
+    assert!(!Sum(0_u64).is_absorbing());
+    assert!(!Sum(u64::MAX).is_absorbing());
+}
+
+#[test]
+fn test_and_absorbing_value_is_false() {
+    assert!(!And(true).is_absorbing());
+    assert!(And(false).is_absorbing());
 }
 
 #[test]
@@ -303,9 +338,20 @@ fn test_min_display() {
 }
 
 #[test]
+fn test_sum_display() {
+    assert_eq!(format!("{}", Sum(56_u64)), "Sum(56)");
+}
+
+#[test]
 fn test_or_display() {
     assert_eq!(format!("{}", Or(true)), "Or(true)");
     assert_eq!(format!("{}", Or(false)), "Or(false)");
+}
+
+#[test]
+fn test_and_display() {
+    assert_eq!(format!("{}", And(true)), "And(true)");
+    assert_eq!(format!("{}", And(false)), "And(false)");
 }
 
 #[test]

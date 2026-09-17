@@ -68,19 +68,19 @@ fn named_path(names: &[&str]) -> ReductionPath {
 }
 
 #[derive(Clone)]
-struct OffsetChainSource;
+struct AggregateChainSource;
 
 #[derive(Clone)]
-struct OffsetChainMiddle;
+struct AggregateChainMiddle;
 
 #[derive(Clone)]
-struct OffsetChainTarget;
+struct AggregateChainTarget;
 
 #[derive(Clone)]
 struct NaturalVariantProblem;
 
-impl Problem for OffsetChainSource {
-    const NAME: &'static str = "OffsetChainSource";
+impl Problem for AggregateChainSource {
+    const NAME: &'static str = "AggregateChainSource";
     type Solution = Vec<usize>;
     type Value = Min<u64>;
 
@@ -103,7 +103,7 @@ impl Problem for OffsetChainSource {
     }
 }
 
-impl crate::solvers::BruteForceProblem for OffsetChainSource {
+impl crate::solvers::BruteForceProblem for AggregateChainSource {
     fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
         Ok(1usize)
     }
@@ -113,8 +113,8 @@ impl crate::solvers::BruteForceProblem for OffsetChainSource {
     }
 }
 
-impl Problem for OffsetChainMiddle {
-    const NAME: &'static str = "OffsetChainMiddle";
+impl Problem for AggregateChainMiddle {
+    const NAME: &'static str = "AggregateChainMiddle";
     type Solution = Vec<usize>;
     type Value = Min<u64>;
 
@@ -137,7 +137,7 @@ impl Problem for OffsetChainMiddle {
     }
 }
 
-impl crate::solvers::BruteForceProblem for OffsetChainMiddle {
+impl crate::solvers::BruteForceProblem for AggregateChainMiddle {
     fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
         Ok(1usize)
     }
@@ -147,8 +147,8 @@ impl crate::solvers::BruteForceProblem for OffsetChainMiddle {
     }
 }
 
-impl Problem for OffsetChainTarget {
-    const NAME: &'static str = "OffsetChainTarget";
+impl Problem for AggregateChainTarget {
+    const NAME: &'static str = "AggregateChainTarget";
     type Solution = Vec<usize>;
     type Value = Min<u64>;
 
@@ -171,7 +171,7 @@ impl Problem for OffsetChainTarget {
     }
 }
 
-impl crate::solvers::BruteForceProblem for OffsetChainTarget {
+impl crate::solvers::BruteForceProblem for AggregateChainTarget {
     fn num_variables(&self) -> Result<usize, crate::solvers::SolveError> {
         Ok(1usize)
     }
@@ -215,13 +215,13 @@ impl crate::solvers::BruteForceProblem for NaturalVariantProblem {
     }
 }
 
-struct SourceToMiddleOffsetResult {
-    target: OffsetChainMiddle,
+struct SourceToMiddleAggregateResult {
+    target: AggregateChainMiddle,
 }
 
-impl ReductionResult for SourceToMiddleOffsetResult {
-    type Source = OffsetChainSource;
-    type Target = OffsetChainMiddle;
+impl ReductionResult for SourceToMiddleAggregateResult {
+    type Source = AggregateChainSource;
+    type Target = AggregateChainMiddle;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -246,13 +246,13 @@ impl ReductionResult for SourceToMiddleOffsetResult {
     }
 }
 
-struct MiddleToTargetOffsetResult {
-    target: OffsetChainTarget,
+struct MiddleToTargetAggregateResult {
+    target: AggregateChainTarget,
 }
 
-impl ReductionResult for MiddleToTargetOffsetResult {
-    type Source = OffsetChainMiddle;
-    type Target = OffsetChainTarget;
+impl ReductionResult for MiddleToTargetAggregateResult {
+    type Source = AggregateChainMiddle;
+    type Target = AggregateChainTarget;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -277,47 +277,47 @@ impl ReductionResult for MiddleToTargetOffsetResult {
     }
 }
 
-fn reduce_source_to_middle_offset(
+fn reduce_source_to_middle_aggregate(
     any: &dyn Any,
 ) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
-    any.downcast_ref::<OffsetChainSource>().ok_or(
+    any.downcast_ref::<AggregateChainSource>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
-            source_problem: OffsetChainSource::NAME,
-            target_problem: OffsetChainMiddle::NAME,
-            expected: std::any::type_name::<OffsetChainSource>(),
+            source_problem: AggregateChainSource::NAME,
+            target_problem: AggregateChainMiddle::NAME,
+            expected: std::any::type_name::<AggregateChainSource>(),
         },
     )?;
     Ok(crate::rules::registry::ExecutedStep {
-        witness: std::rc::Rc::new(SourceToMiddleOffsetResult {
-            target: OffsetChainMiddle,
+        witness: std::rc::Rc::new(SourceToMiddleAggregateResult {
+            target: AggregateChainMiddle,
         }),
     })
 }
 
-fn reduce_middle_to_target_offset(
+fn reduce_middle_to_target_aggregate(
     any: &dyn Any,
 ) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
-    any.downcast_ref::<OffsetChainMiddle>().ok_or(
+    any.downcast_ref::<AggregateChainMiddle>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
-            source_problem: OffsetChainMiddle::NAME,
-            target_problem: OffsetChainTarget::NAME,
-            expected: std::any::type_name::<OffsetChainMiddle>(),
+            source_problem: AggregateChainMiddle::NAME,
+            target_problem: AggregateChainTarget::NAME,
+            expected: std::any::type_name::<AggregateChainMiddle>(),
         },
     )?;
     Ok(crate::rules::registry::ExecutedStep {
-        witness: std::rc::Rc::new(MiddleToTargetOffsetResult {
-            target: OffsetChainTarget,
+        witness: std::rc::Rc::new(MiddleToTargetAggregateResult {
+            target: AggregateChainTarget,
         }),
     })
 }
 
 struct SourceToMiddleWitnessResult {
-    target: OffsetChainMiddle,
+    target: AggregateChainMiddle,
 }
 
 impl ReductionResult for SourceToMiddleWitnessResult {
-    type Source = OffsetChainSource;
-    type Target = OffsetChainMiddle;
+    type Source = AggregateChainSource;
+    type Target = AggregateChainMiddle;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -358,16 +358,16 @@ impl SourceToMiddleWitnessResult {
 fn reduce_source_to_middle_witness(
     any: &dyn Any,
 ) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
-    any.downcast_ref::<OffsetChainSource>().ok_or(
+    any.downcast_ref::<AggregateChainSource>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
-            source_problem: OffsetChainSource::NAME,
-            target_problem: OffsetChainMiddle::NAME,
-            expected: std::any::type_name::<OffsetChainSource>(),
+            source_problem: AggregateChainSource::NAME,
+            target_problem: AggregateChainMiddle::NAME,
+            expected: std::any::type_name::<AggregateChainSource>(),
         },
     )?;
     Ok(crate::rules::registry::ExecutedStep {
         witness: std::rc::Rc::new(SourceToMiddleWitnessResult {
-            target: OffsetChainMiddle,
+            target: AggregateChainMiddle,
         }),
     })
 }
@@ -376,8 +376,8 @@ fn fail_source_to_middle_witness(
     _any: &dyn Any,
 ) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
     Err(crate::rules::ReductionError::InvalidTarget {
-        source_problem: OffsetChainSource::NAME,
-        target_problem: OffsetChainMiddle::NAME,
+        source_problem: AggregateChainSource::NAME,
+        target_problem: AggregateChainMiddle::NAME,
         message: "synthetic target construction failure".to_string(),
     })
 }
@@ -392,12 +392,12 @@ fn reduce_counted_source_to_middle_witness(
 }
 
 struct MiddleToTargetWitnessResult {
-    target: OffsetChainTarget,
+    target: AggregateChainTarget,
 }
 
 impl ReductionResult for MiddleToTargetWitnessResult {
-    type Source = OffsetChainMiddle;
-    type Target = OffsetChainTarget;
+    type Source = AggregateChainMiddle;
+    type Target = AggregateChainTarget;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -438,16 +438,16 @@ impl MiddleToTargetWitnessResult {
 fn reduce_middle_to_target_witness(
     any: &dyn Any,
 ) -> Result<crate::rules::registry::ExecutedStep, crate::rules::ReductionError> {
-    any.downcast_ref::<OffsetChainMiddle>().ok_or(
+    any.downcast_ref::<AggregateChainMiddle>().ok_or(
         crate::rules::ReductionError::SourceTypeMismatch {
-            source_problem: OffsetChainMiddle::NAME,
-            target_problem: OffsetChainTarget::NAME,
-            expected: std::any::type_name::<OffsetChainMiddle>(),
+            source_problem: AggregateChainMiddle::NAME,
+            target_problem: AggregateChainTarget::NAME,
+            expected: std::any::type_name::<AggregateChainMiddle>(),
         },
     )?;
     Ok(crate::rules::registry::ExecutedStep {
         witness: std::rc::Rc::new(MiddleToTargetWitnessResult {
-            target: OffsetChainTarget,
+            target: AggregateChainTarget,
         }),
     })
 }
@@ -521,29 +521,29 @@ fn execute_paths_executes_a_shared_prefix_once() {
     };
     let graph = ReductionGraph::from_test_edges(
         &[
-            OffsetChainSource::NAME,
-            OffsetChainMiddle::NAME,
-            OffsetChainTarget::NAME,
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
         ],
         &[
             (
-                OffsetChainSource::NAME,
-                OffsetChainMiddle::NAME,
+                AggregateChainSource::NAME,
+                AggregateChainMiddle::NAME,
                 witness_edge(reduce_counted_source_to_middle_witness),
             ),
             (
-                OffsetChainMiddle::NAME,
-                OffsetChainTarget::NAME,
+                AggregateChainMiddle::NAME,
+                AggregateChainTarget::NAME,
                 witness_edge(reduce_middle_to_target_witness),
             ),
         ],
     );
     let mut paths = vec![
-        named_path(&[OffsetChainSource::NAME, OffsetChainMiddle::NAME]),
+        named_path(&[AggregateChainSource::NAME, AggregateChainMiddle::NAME]),
         named_path(&[
-            OffsetChainSource::NAME,
-            OffsetChainMiddle::NAME,
-            OffsetChainTarget::NAME,
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
         ]),
     ];
 
@@ -551,7 +551,7 @@ fn execute_paths_executes_a_shared_prefix_once() {
     paths.push(paths[1].clone());
 
     let executed = graph
-        .execute_paths(&paths, &OffsetChainSource)
+        .execute_paths(&paths, &AggregateChainSource)
         .expect("both paths are executable");
 
     assert_eq!(executed.len(), 4);
@@ -559,8 +559,8 @@ fn execute_paths_executes_a_shared_prefix_once() {
         assert_eq!(execution.steps.len(), path.len());
         assert_eq!(
             execution
-                .recover_result::<OffsetChainSource, OffsetChainTarget>(
-                    &OffsetChainSource,
+                .recover_result::<AggregateChainSource, AggregateChainTarget>(
+                    &AggregateChainSource,
                     SolveOutcome::Optimal {
                         solution: vec![1usize],
                         evaluation: Min(Some(1))
@@ -759,24 +759,24 @@ fn test_find_direct_path() {
 }
 
 #[test]
-fn test_reduction_chain_recovers_result_backwards() {
+fn test_aggregate_reduction_chain_extracts_value_backwards() {
     let source_variant = BTreeMap::new();
     let middle_variant = BTreeMap::new();
     let target_variant = BTreeMap::new();
 
     let nodes = vec![
         VariantNode {
-            name: OffsetChainSource::NAME,
+            name: AggregateChainSource::NAME,
             variant: source_variant.clone(),
             complexity: "",
         },
         VariantNode {
-            name: OffsetChainMiddle::NAME,
+            name: AggregateChainMiddle::NAME,
             variant: middle_variant.clone(),
             complexity: "",
         },
         VariantNode {
-            name: OffsetChainTarget::NAME,
+            name: AggregateChainTarget::NAME,
             variant: target_variant.clone(),
             complexity: "",
         },
@@ -792,7 +792,7 @@ fn test_reduction_chain_recovers_result_backwards() {
         middle_idx,
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
-            reduce_fn: Some(reduce_source_to_middle_offset),
+            reduce_fn: Some(reduce_source_to_middle_aggregate),
             turing: false,
         },
     );
@@ -801,7 +801,7 @@ fn test_reduction_chain_recovers_result_backwards() {
         target_idx,
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
-            reduce_fn: Some(reduce_middle_to_target_offset),
+            reduce_fn: Some(reduce_middle_to_target_aggregate),
             turing: false,
         },
     );
@@ -810,43 +810,44 @@ fn test_reduction_chain_recovers_result_backwards() {
         graph,
         nodes,
         name_to_nodes: HashMap::from([
-            (OffsetChainSource::NAME, vec![source_idx]),
-            (OffsetChainMiddle::NAME, vec![middle_idx]),
-            (OffsetChainTarget::NAME, vec![target_idx]),
+            (AggregateChainSource::NAME, vec![source_idx]),
+            (AggregateChainMiddle::NAME, vec![middle_idx]),
+            (AggregateChainTarget::NAME, vec![target_idx]),
         ]),
         default_variants: HashMap::new(),
     };
     let path = ReductionPath {
         steps: vec![
             ReductionStep {
-                name: OffsetChainSource::NAME.to_string(),
+                name: AggregateChainSource::NAME.to_string(),
                 variant: source_variant,
             },
             ReductionStep {
-                name: OffsetChainMiddle::NAME.to_string(),
+                name: AggregateChainMiddle::NAME.to_string(),
                 variant: middle_variant,
             },
             ReductionStep {
-                name: OffsetChainTarget::NAME.to_string(),
+                name: AggregateChainTarget::NAME.to_string(),
                 variant: target_variant,
             },
         ],
     };
 
     let chain = reduction_graph
-        .reduce_along_path(&path, &OffsetChainSource as &dyn Any)
-        .expect("offset reduction should not fail")
-        .expect("expected offset reduction chain");
+        .reduce_along_path(&path, &AggregateChainSource as &dyn Any)
+        .expect("aggregate reduction should not fail")
+        .expect("expected aggregate reduction chain");
 
     assert_eq!(
-        crate::solvers::cartesian_dimensions(chain.target_problem::<OffsetChainTarget>()).unwrap(),
+        crate::solvers::cartesian_dimensions(chain.target_problem::<AggregateChainTarget>())
+            .unwrap(),
         vec![1]
     );
     assert_eq!(
         chain
-            .recover_result::<OffsetChainSource, OffsetChainTarget>(
-                &OffsetChainSource,
-                SolveOutcome::optimal(chain.target_problem::<OffsetChainTarget>(), vec![7])
+            .recover_result::<AggregateChainSource, AggregateChainTarget>(
+                &AggregateChainSource,
+                SolveOutcome::optimal(chain.target_problem::<AggregateChainTarget>(), vec![7])
                     .unwrap()
             )
             .unwrap(),
@@ -862,9 +863,9 @@ fn default_path_search_rejects_turing_only_edge() {
     let source_variant = BTreeMap::new();
     let target_variant = BTreeMap::new();
     let graph = build_two_node_graph(
-        OffsetChainSource::NAME,
+        AggregateChainSource::NAME,
         source_variant.clone(),
-        OffsetChainMiddle::NAME,
+        AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
@@ -875,18 +876,18 @@ fn default_path_search_rejects_turing_only_edge() {
 
     assert!(graph
         .find_paths_up_to(
-            OffsetChainSource::NAME,
+            AggregateChainSource::NAME,
             &source_variant,
-            OffsetChainMiddle::NAME,
+            AggregateChainMiddle::NAME,
             &target_variant,
             1,
         )
         .is_empty());
     assert!(!graph
         .find_all_paths_mode(
-            OffsetChainSource::NAME,
+            AggregateChainSource::NAME,
             &source_variant,
-            OffsetChainMiddle::NAME,
+            AggregateChainMiddle::NAME,
             &target_variant,
             ReductionMode::Turing
         )
@@ -898,9 +899,9 @@ fn turing_path_search_rejects_witness_only_edge() {
     let source_variant = BTreeMap::new();
     let target_variant = BTreeMap::new();
     let graph = build_two_node_graph(
-        OffsetChainSource::NAME,
+        AggregateChainSource::NAME,
         source_variant.clone(),
-        OffsetChainMiddle::NAME,
+        AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
@@ -912,18 +913,18 @@ fn turing_path_search_rejects_witness_only_edge() {
 
     assert!(graph
         .find_all_paths_mode(
-            OffsetChainSource::NAME,
+            AggregateChainSource::NAME,
             &source_variant,
-            OffsetChainMiddle::NAME,
+            AggregateChainMiddle::NAME,
             &target_variant,
             ReductionMode::Turing
         )
         .is_empty());
     assert!(!graph
         .find_all_paths_mode(
-            OffsetChainSource::NAME,
+            AggregateChainSource::NAME,
             &source_variant,
-            OffsetChainMiddle::NAME,
+            AggregateChainMiddle::NAME,
             &target_variant,
             ReductionMode::Witness
         )
@@ -971,24 +972,24 @@ fn witness_executor_does_not_imply_turing_capability() {
 fn reduce_result_along_path_rejects_single_step_path() {
     let source_variant = BTreeMap::new();
     let graph = build_two_node_graph(
-        OffsetChainSource::NAME,
+        AggregateChainSource::NAME,
         source_variant.clone(),
-        OffsetChainMiddle::NAME,
+        AggregateChainMiddle::NAME,
         BTreeMap::new(),
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
-            reduce_fn: Some(reduce_source_to_middle_offset),
+            reduce_fn: Some(reduce_source_to_middle_aggregate),
             turing: false,
         },
     );
     let single_step_path = ReductionPath {
         steps: vec![ReductionStep {
-            name: OffsetChainSource::NAME.to_string(),
+            name: AggregateChainSource::NAME.to_string(),
             variant: source_variant,
         }],
     };
     assert!(graph
-        .reduce_along_path(&single_step_path, &OffsetChainSource as &dyn Any)
+        .reduce_along_path(&single_step_path, &AggregateChainSource as &dyn Any)
         .expect("single-step path lookup should not fail")
         .is_none());
 }
@@ -998,9 +999,9 @@ fn reduce_result_returns_none_for_turing_only_edge() {
     let source_variant = BTreeMap::new();
     let target_variant = BTreeMap::new();
     let graph = build_two_node_graph(
-        OffsetChainSource::NAME,
+        AggregateChainSource::NAME,
         source_variant.clone(),
-        OffsetChainMiddle::NAME,
+        AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
@@ -1012,17 +1013,17 @@ fn reduce_result_returns_none_for_turing_only_edge() {
     let path = ReductionPath {
         steps: vec![
             ReductionStep {
-                name: OffsetChainSource::NAME.to_string(),
+                name: AggregateChainSource::NAME.to_string(),
                 variant: source_variant,
             },
             ReductionStep {
-                name: OffsetChainMiddle::NAME.to_string(),
+                name: AggregateChainMiddle::NAME.to_string(),
                 variant: target_variant,
             },
         ],
     };
     assert!(graph
-        .reduce_along_path(&path, &OffsetChainSource as &dyn Any)
+        .reduce_along_path(&path, &AggregateChainSource as &dyn Any)
         .expect("Turing-only edge lookup should not fail")
         .is_none());
 }
@@ -1032,9 +1033,9 @@ fn reduce_along_path_preserves_edge_failure() {
     let source_variant = BTreeMap::new();
     let target_variant = BTreeMap::new();
     let graph = build_two_node_graph(
-        OffsetChainSource::NAME,
+        AggregateChainSource::NAME,
         source_variant.clone(),
-        OffsetChainMiddle::NAME,
+        AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
             parameter_contract: empty_parameter_contract(),
@@ -1046,25 +1047,25 @@ fn reduce_along_path_preserves_edge_failure() {
     let path = ReductionPath {
         steps: vec![
             ReductionStep {
-                name: OffsetChainSource::NAME.to_string(),
+                name: AggregateChainSource::NAME.to_string(),
                 variant: source_variant,
             },
             ReductionStep {
-                name: OffsetChainMiddle::NAME.to_string(),
+                name: AggregateChainMiddle::NAME.to_string(),
                 variant: target_variant,
             },
         ],
     };
 
-    let error = match graph.reduce_along_path(&path, &OffsetChainSource as &dyn Any) {
+    let error = match graph.reduce_along_path(&path, &AggregateChainSource as &dyn Any) {
         Err(error) => error,
         Ok(_) => panic!("registered edge failure must be returned"),
     };
     assert_eq!(
         error,
         crate::rules::ReductionError::InvalidTarget {
-            source_problem: OffsetChainSource::NAME,
-            target_problem: OffsetChainMiddle::NAME,
+            source_problem: AggregateChainSource::NAME,
+            target_problem: AggregateChainMiddle::NAME,
             message: "synthetic target construction failure".to_string(),
         }
     );
@@ -2094,11 +2095,11 @@ fn witness_and_value_mapping_share_one_executed_construction() {
     static CONSTRUCTIONS: AtomicUsize = AtomicUsize::new(0);
 
     let chain = crate::rules::ReductionChain::execute(
-        &OffsetChainSource,
+        &AggregateChainSource,
         &[|_| {
             CONSTRUCTIONS.fetch_add(1, Ordering::SeqCst);
             let result = Rc::new(SourceToMiddleWitnessResult {
-                target: OffsetChainMiddle,
+                target: AggregateChainMiddle,
             });
             Ok(ExecutedStep { witness: result })
         }],
@@ -2108,17 +2109,20 @@ fn witness_and_value_mapping_share_one_executed_construction() {
     assert!(std::ptr::eq(
         step.witness
             .target_problem_any()
-            .downcast_ref::<OffsetChainMiddle>()
+            .downcast_ref::<AggregateChainMiddle>()
             .unwrap(),
-        chain.target_problem::<OffsetChainMiddle>(),
+        chain.target_problem::<AggregateChainMiddle>(),
     ));
     let witness = vec![7usize];
     assert_eq!(
         chain
-            .recover_result::<OffsetChainSource, OffsetChainMiddle>(
-                &OffsetChainSource,
-                SolveOutcome::optimal(chain.target_problem::<OffsetChainMiddle>(), witness.clone())
-                    .unwrap(),
+            .recover_result::<AggregateChainSource, AggregateChainMiddle>(
+                &AggregateChainSource,
+                SolveOutcome::optimal(
+                    chain.target_problem::<AggregateChainMiddle>(),
+                    witness.clone()
+                )
+                .unwrap(),
             )
             .unwrap(),
         SolveOutcome::Optimal {

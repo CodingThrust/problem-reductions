@@ -66,8 +66,9 @@
     node((0, 2), box(width: 48mm, align(left)[
       #strong[Common Value Types]\
       #text(size: 8pt, fill: secondary)[
-        `Max<V> | Min<V> | Extremum<V> | Or`\
-        #text(style: "italic")[all implement `SolutionAggregate`]
+        `Max<V> | Min<V> | Extremum<V>`\
+        `Or | Sum<W> | And`\
+        #text(style: "italic")[only selecting values implement `SolutionAggregate`]
       ]
     ]), fill: type-fill, corner-radius: 6pt, inset: 10pt, name: <values>),
 

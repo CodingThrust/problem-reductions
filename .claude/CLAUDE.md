@@ -149,7 +149,7 @@ solves.
 
 Common aggregate wrappers live in `src/types.rs`:
 ```rust
-Max<V>, Min<V>, Or, Extremum<V>, ExtremumSense
+Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 ```
 
 `OptimizationValue` trait (in `src/types.rs`) enables generic Decision conversion:
@@ -171,7 +171,7 @@ Max<V>, Min<V>, Or, Extremum<V>, ExtremumSense
 - `ReductionResult` provides `target_problem()` and mandatory `recover_result(source, target_outcome)`. Recovery returns typed `Optimal`, `Feasible`, or `Infeasible` outcomes, including solution and evaluation. Each rule handles all statuses explicitly; no optional completion callback or separate value-only path exists.
 - `pred solve bundle.json` and `pred extract bundle.json --result target-result.json` use the same complete recovery. External results declare their status; the transport boundary validates target feasibility, while the external solver supplies the optimality claim. Insufficient witness quality is an error, never evidence of source infeasibility.
 - Decode only the reduction's defined mathematical mapping. Preserve reachable mathematical and representation errors; do not add fallback values or recovery branches for violations already excluded by the calling contract. Explicit mathematical alternatives and sentinels are allowed.
-- CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, or `Or(true)`)
+- CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i64`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type

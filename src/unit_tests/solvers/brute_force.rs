@@ -1,6 +1,6 @@
 use super::*;
 use crate::traits::Problem;
-use crate::types::{AggregationError, Max, Min, Or};
+use crate::types::{AggregationError, Max, Min, Or, Sum};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -443,6 +443,15 @@ fn test_solver_solve_stops_after_first_optimal_configuration() {
 }
 
 #[test]
+fn test_sum_fold_combines_values_without_problem_solving() {
+    let total = [Sum(1_u64), Sum(2), Sum(3)]
+        .into_iter()
+        .try_fold(Sum::identity(), Aggregate::combine)
+        .unwrap();
+    assert_eq!(total, Sum(6));
+}
+
+#[test]
 fn test_solver_find_all_witnesses() {
     let problem = SatProblem {
         num_vars: 2,
@@ -454,6 +463,15 @@ fn test_solver_find_all_witnesses() {
     assert_eq!(witnesses.len(), 2);
     assert!(witnesses.contains(&vec![1, 0]));
     assert!(witnesses.contains(&vec![0, 1]));
+}
+
+#[test]
+fn test_sum_fold_uses_every_input_value() {
+    let total = [Sum(0_u64), Sum(2), Sum(1), Sum(3)]
+        .into_iter()
+        .try_fold(Sum::identity(), Aggregate::combine)
+        .unwrap();
+    assert_eq!(total, Sum(6));
 }
 
 #[test]
@@ -504,6 +522,11 @@ fn test_solve_with_witnesses_max() {
     let (value, witnesses) = solver.solve_with_witnesses(&problem).unwrap();
     assert_eq!(value, Max(Some(6)));
     assert_eq!(witnesses, vec![vec![1, 1, 1]]);
+}
+
+#[test]
+fn test_sum_fold_preserves_zero_identity() {
+    assert_eq!(Sum::<u64>::identity().combine(Sum(6)).unwrap(), Sum(6));
 }
 
 #[test]
