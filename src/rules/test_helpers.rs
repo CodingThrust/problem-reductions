@@ -325,8 +325,9 @@ mod tests {
         assert_satisfaction_round_trip_from_optimization_target,
         assert_satisfaction_round_trip_from_satisfaction_target,
     };
+    use crate::rules::traits::recover_preserving_status;
     use crate::rules::ReductionResult;
-    use crate::solvers::{ProblemOutcome, SolveOutcome};
+    use crate::solvers::ProblemOutcome;
     use crate::traits::Problem;
     use crate::types::{Max, Or};
 
@@ -464,17 +465,7 @@ mod tests {
             source: &Self::Source,
             target: ProblemOutcome<Self::Target>,
         ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-            match target {
-                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-                SolveOutcome::Optimal { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::optimal(source, solution)?)
-                }
-                SolveOutcome::Feasible { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::feasible(source, solution)?)
-                }
-            }
+            recover_preserving_status(source, target, |solution| self.map_solution(solution))
         }
     }
 
@@ -506,17 +497,7 @@ mod tests {
             source: &Self::Source,
             target: ProblemOutcome<Self::Target>,
         ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-            match target {
-                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-                SolveOutcome::Optimal { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::optimal(source, solution)?)
-                }
-                SolveOutcome::Feasible { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::feasible(source, solution)?)
-                }
-            }
+            recover_preserving_status(source, target, |solution| self.map_solution(solution))
         }
     }
 
@@ -548,17 +529,7 @@ mod tests {
             source: &Self::Source,
             target: ProblemOutcome<Self::Target>,
         ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-            match target {
-                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-                SolveOutcome::Optimal { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::optimal(source, solution)?)
-                }
-                SolveOutcome::Feasible { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::feasible(source, solution)?)
-                }
-            }
+            recover_preserving_status(source, target, |solution| self.map_solution(solution))
         }
     }
 
@@ -590,17 +561,7 @@ mod tests {
             source: &Self::Source,
             target: ProblemOutcome<Self::Target>,
         ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-            match target {
-                SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-                SolveOutcome::Optimal { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::optimal(source, solution)?)
-                }
-                SolveOutcome::Feasible { solution, .. } => {
-                    let solution = self.map_solution(&solution)?;
-                    Ok(SolveOutcome::feasible(source, solution)?)
-                }
-            }
+            recover_preserving_status(source, target, |solution| self.map_solution(solution))
         }
     }
 

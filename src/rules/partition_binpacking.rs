@@ -14,10 +14,8 @@
 
 use crate::models::misc::{BinPacking, Partition};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_by_source_evaluation, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
-use crate::traits::Problem;
 
 /// Result of reducing Partition to BinPacking.
 #[derive(Debug, Clone)]
@@ -33,38 +31,15 @@ impl ReductionResult for ReductionPartitionToBinPacking {
         &self.target
     }
 
+    /// A balanced partition packs into two bins, and no packing uses fewer, so every
+    /// optimum then fills two bins of capacity `S/2` to exactly `S/2` each; any other
+    /// optimum proves NO.
     fn recover_result(
         &self,
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Optimal {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Ok(SolveOutcome::Infeasible)
-                }
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Feasible {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
-                }
-            }
-        }
+        recover_by_source_evaluation(source, target, |solution| self.map_solution(solution))
     }
 }
 

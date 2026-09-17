@@ -72,6 +72,89 @@ fn recovery_propagates_mapping_and_evaluation_failures() {
     }
 }
 
+#[test]
+fn recovery_by_source_evaluation_separates_a_proved_no_from_a_weak_incumbent() {
+    use crate::models::misc::Partition;
+    use crate::rules::traits::recover_by_source_evaluation;
+    use crate::rules::ExtractionError;
+    use crate::traits::EvaluationError;
+    use crate::types::Or;
+
+    let source = Partition::new(vec![1, 1]).unwrap();
+    let decode = |solution: &Vec<usize>| Ok(solution.iter().map(|&value| value == 1).collect());
+    let balanced = vec![true, false];
+    assert_eq!(
+        recover_by_source_evaluation(
+            &source,
+            SolveOutcome::optimal(&TargetProblem, vec![1, 0]).unwrap(),
+            decode,
+        )
+        .unwrap(),
+        SolveOutcome::Optimal {
+            solution: balanced.clone(),
+            evaluation: Or(true),
+        }
+    );
+    assert_eq!(
+        recover_by_source_evaluation(
+            &source,
+            SolveOutcome::feasible(&TargetProblem, vec![1, 0]).unwrap(),
+            decode,
+        )
+        .unwrap(),
+        SolveOutcome::Feasible {
+            solution: balanced,
+            evaluation: Or(true),
+        }
+    );
+    // Only an optimum whose decoding is source-invalid proves NO.
+    assert_eq!(
+        recover_by_source_evaluation(
+            &source,
+            SolveOutcome::optimal(&TargetProblem, vec![1, 1]).unwrap(),
+            decode,
+        )
+        .unwrap(),
+        SolveOutcome::Infeasible
+    );
+    assert!(matches!(
+        recover_by_source_evaluation(
+            &source,
+            SolveOutcome::feasible(&TargetProblem, vec![1, 1]).unwrap(),
+            decode,
+        ),
+        Err(ExtractionError::InsufficientSolutionQuality)
+    ));
+    assert_eq!(
+        recover_by_source_evaluation(
+            &source,
+            crate::solvers::ProblemOutcome::<TargetProblem>::Infeasible,
+            |_| panic!("infeasibility has no witness to map"),
+        )
+        .unwrap(),
+        SolveOutcome::Infeasible
+    );
+
+    // Mapping and evaluation failures are errors under either status, never NO.
+    for outcome in [
+        SolveOutcome::optimal(&TargetProblem, vec![1, 1]).unwrap(),
+        SolveOutcome::feasible(&TargetProblem, vec![1, 1]).unwrap(),
+    ] {
+        assert!(matches!(
+            recover_by_source_evaluation(&source, outcome.clone(), |_| {
+                Err(ExtractionError::invalid("undecodable"))
+            }),
+            Err(ExtractionError::InvalidTargetSolution(_))
+        ));
+        assert!(matches!(
+            recover_by_source_evaluation(&source, outcome, |_| Ok(vec![true])),
+            Err(ExtractionError::Evaluation(
+                EvaluationError::InvalidConfiguration(_)
+            ))
+        ));
+    }
+}
+
 #[derive(Clone)]
 struct SourceProblem;
 #[derive(Clone)]

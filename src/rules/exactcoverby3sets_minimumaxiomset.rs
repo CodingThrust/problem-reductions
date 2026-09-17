@@ -6,10 +6,8 @@
 use crate::models::misc::MinimumAxiomSet;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_by_source_evaluation, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
-use crate::traits::Problem;
 
 /// Result of reducing ExactCoverBy3Sets to MinimumAxiomSet.
 #[derive(Debug, Clone)]
@@ -38,33 +36,7 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Optimal {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Ok(SolveOutcome::Infeasible)
-                }
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Feasible {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
-                }
-            }
-        }
+        recover_by_source_evaluation(source, target, |solution| self.map_solution(solution))
     }
 }
 

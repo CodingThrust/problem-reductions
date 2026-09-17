@@ -228,6 +228,41 @@ pub(super) fn recover_preserving_status<P: Problem<Value: EvaluationValue>, S, V
     }
 }
 
+/// Recover by evaluating the decoded target solution on the source.
+///
+/// Use only when a feasible source forces EVERY tied target optimum to decode to a
+/// valid source solution, so an optimal target whose decoding is source-invalid
+/// proves source infeasibility. The caller must also establish that target
+/// infeasibility implies source infeasibility.
+/// A feasible incumbent carries no such proof: a valid decoding is a feasible source
+/// solution, and an invalid one is `InsufficientSolutionQuality`.
+/// Mapping and evaluation errors propagate; they never establish source infeasibility.
+pub(super) fn recover_by_source_evaluation<P: Problem<Value: EvaluationValue>, S, V>(
+    source: &P,
+    target: SolveOutcome<S, V>,
+    map_solution: impl FnOnce(&S) -> ExtractionResult<P::Solution>,
+) -> ExtractionResult<ProblemOutcome<P>> {
+    let (solution, optimal) = match &target {
+        SolveOutcome::Infeasible => return Ok(SolveOutcome::Infeasible),
+        SolveOutcome::Optimal { solution, .. } => (solution, true),
+        SolveOutcome::Feasible { solution, .. } => (solution, false),
+    };
+    let solution = map_solution(solution)?;
+    let evaluation = source.evaluate(&solution)?;
+    match (evaluation.is_valid(), optimal) {
+        (true, true) => Ok(SolveOutcome::Optimal {
+            solution,
+            evaluation,
+        }),
+        (true, false) => Ok(SolveOutcome::Feasible {
+            solution,
+            evaluation,
+        }),
+        (false, true) => Ok(SolveOutcome::Infeasible),
+        (false, false) => Err(ExtractionError::InsufficientSolutionQuality),
+    }
+}
+
 /// Trait for problems that can be reduced to target type T.
 ///
 /// # Example

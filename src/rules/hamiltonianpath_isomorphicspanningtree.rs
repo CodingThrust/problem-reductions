@@ -6,9 +6,8 @@
 
 use crate::models::graph::{HamiltonianPath, IsomorphicSpanningTree};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_preserving_status, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
 use crate::topology::SimpleGraph;
 
 /// Result of reducing HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
@@ -35,13 +34,7 @@ impl ReductionResult for ReductionHPToIST {
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => Ok(SolveOutcome::optimal(source, solution)?),
-            SolveOutcome::Feasible { solution, .. } => {
-                Ok(SolveOutcome::feasible(source, solution)?)
-            }
-        }
+        recover_preserving_status(source, target, |solution| Ok(solution.clone()))
     }
 }
 

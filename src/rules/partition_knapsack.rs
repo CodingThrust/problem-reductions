@@ -2,10 +2,8 @@
 
 use crate::models::misc::{Knapsack, Partition};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::rules::traits::{recover_by_source_evaluation, ReduceTo, ReductionResult};
 use crate::solvers::ProblemOutcome;
-use crate::solvers::SolveOutcome;
-use crate::traits::Problem;
 
 /// Result of reducing Partition to Knapsack.
 #[derive(Debug, Clone)]
@@ -21,38 +19,14 @@ impl ReductionResult for ReductionPartitionToKnapsack {
         &self.target
     }
 
+    /// A balanced partition fills the capacity `S/2`, so every Knapsack optimum then has
+    /// value `S/2` and is itself a balanced half; an optimum below `S/2` proves NO.
     fn recover_result(
         &self,
         source: &Self::Source,
         target: ProblemOutcome<Self::Target>,
     ) -> crate::rules::ExtractionResult<ProblemOutcome<Self::Source>> {
-        match target {
-            SolveOutcome::Infeasible => Ok(SolveOutcome::Infeasible),
-            SolveOutcome::Optimal { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Optimal {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Ok(SolveOutcome::Infeasible)
-                }
-            }
-            SolveOutcome::Feasible { solution, .. } => {
-                let solution = self.map_solution(&solution)?;
-                let evaluation = source.evaluate(&solution)?;
-                if evaluation.0 {
-                    Ok(SolveOutcome::Feasible {
-                        solution,
-                        evaluation,
-                    })
-                } else {
-                    Err(crate::rules::ExtractionError::InsufficientSolutionQuality)
-                }
-            }
-        }
+        recover_by_source_evaluation(source, target, |solution| self.map_solution(solution))
     }
 }
 
