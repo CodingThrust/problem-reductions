@@ -2,6 +2,26 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_minimum_decision_tree_validates_persisted_input() {
+    let valid =
+        serde_json::to_value(MinimumDecisionTree::new(vec![vec![false, true]], 2, 1)).unwrap();
+    for (field, value) in [
+        ("num_objects", serde_json::json!(1)),
+        ("num_tests", serde_json::json!(0)),
+        ("num_tests", serde_json::json!(2)),
+        ("test_matrix", serde_json::json!([[false]])),
+        ("test_matrix", serde_json::json!([[false, false]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumDecisionTree>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn create_spec_rejects_indistinguishable_objects() {
     assert!(
         MinimumDecisionTree::try_from(MinimumDecisionTreeCreateSpec {

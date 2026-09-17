@@ -1,6 +1,24 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_minimum_axiom_set_validates_persisted_input() {
+    let valid = serde_json::to_value(MinimumAxiomSet::new(2, vec![1], vec![(vec![0], 1)])).unwrap();
+    for (field, value) in [
+        ("true_sentences", serde_json::json!([2])),
+        ("true_sentences", serde_json::json!([1, 1])),
+        ("implications", serde_json::json!([[[2], 1]])),
+        ("implications", serde_json::json!([[[0], 2]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumAxiomSet>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 
 /// Helper: build the canonical 8-sentence example from the issue.

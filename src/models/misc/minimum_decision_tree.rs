@@ -50,6 +50,7 @@ inventory::submit! {
 /// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumDecisionTreeCreateSpec")]
 pub struct MinimumDecisionTree {
     /// Binary matrix: test_matrix[j][i] = true iff object i passes test j.
     test_matrix: Vec<Vec<bool>>,
@@ -73,38 +74,7 @@ struct MinimumDecisionTreeCreateSpec {
 impl TryFrom<MinimumDecisionTreeCreateSpec> for MinimumDecisionTree {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDecisionTreeCreateSpec) -> Result<Self, Self::Error> {
-        if spec.num_objects < 2 {
-            return Err("num_objects must be at least 2".into());
-        }
-        if spec.num_tests == 0 {
-            return Err("num_tests must be positive".into());
-        }
-        if spec.test_matrix.len() != spec.num_tests {
-            return Err("test_matrix row count must equal num_tests".into());
-        }
-        if spec
-            .test_matrix
-            .iter()
-            .any(|row| row.len() != spec.num_objects)
-        {
-            return Err("each test_matrix row must have num_objects columns".into());
-        }
-        for a in 0..spec.num_objects {
-            for b in a + 1..spec.num_objects {
-                if !(0..spec.num_tests)
-                    .any(|test| spec.test_matrix[test][a] != spec.test_matrix[test][b])
-                {
-                    return Err(
-                        format!("objects {a} and {b} are not distinguished by any test").into(),
-                    );
-                }
-            }
-        }
-        Ok(Self {
-            test_matrix: spec.test_matrix,
-            num_objects: spec.num_objects,
-            num_tests: spec.num_tests,
-        })
+        Self::try_new(spec.test_matrix, spec.num_objects, spec.num_tests)
     }
 }
 
@@ -116,35 +86,44 @@ impl MinimumDecisionTree {
     /// - If test_matrix dimensions don't match
     /// - If tests don't distinguish all object pairs
     pub fn new(test_matrix: Vec<Vec<bool>>, num_objects: usize, num_tests: usize) -> Self {
-        assert!(num_objects >= 2, "Need at least 2 objects");
-        assert!(num_tests >= 1, "Need at least 1 test");
-        assert_eq!(
-            test_matrix.len(),
-            num_tests,
-            "test_matrix must have num_tests rows"
-        );
+        Self::try_new(test_matrix, num_objects, num_tests).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        test_matrix: Vec<Vec<bool>>,
+        num_objects: usize,
+        num_tests: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if num_objects < 2 {
+            return Err("Need at least 2 objects".into());
+        }
+        if num_tests == 0 {
+            return Err("Need at least 1 test".into());
+        }
+        if test_matrix.len() != num_tests {
+            return Err("test_matrix must have num_tests rows".into());
+        }
         for (j, row) in test_matrix.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                num_objects,
-                "test_matrix[{j}] must have num_objects columns"
-            );
+            if row.len() != num_objects {
+                return Err(format!("test_matrix[{j}] must have num_objects columns").into());
+            }
         }
         // Check that every pair of objects is distinguished by at least one test
         for a in 0..num_objects {
             for b in (a + 1)..num_objects {
                 let distinguished = (0..num_tests).any(|j| test_matrix[j][a] != test_matrix[j][b]);
-                assert!(
-                    distinguished,
-                    "Objects {a} and {b} are not distinguished by any test"
-                );
+                if !distinguished {
+                    return Err(
+                        format!("Objects {a} and {b} are not distinguished by any test").into(),
+                    );
+                }
             }
         }
-        Self {
+        Ok(Self {
             test_matrix,
             num_objects,
             num_tests,
-        }
+        })
     }
 
     /// Get the number of objects.
