@@ -77,7 +77,7 @@ pub struct SolverCapabilitiesView {
 pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabilitiesView> {
     let key = ExactProblemKey::new(problem.problem_name(), problem.variant_map());
     let registered = solver_capabilities(&key)
-        .map_err(|error| anyhow::anyhow!("cannot inspect brute-force coordinates: {error}"))?;
+        .map_err(|error| anyhow::anyhow!("cannot build the solver capability registry: {error}"))?;
     let customized = registered
         .customized
         .map(|entry| CustomizedSolverCapabilityView {
