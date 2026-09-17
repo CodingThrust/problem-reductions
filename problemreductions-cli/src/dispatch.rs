@@ -487,7 +487,7 @@ mod tests {
             let route = crate::commands::reduce::parse_path_json(
                 r#"{"path":[{
                     "from":{"name":"KSatisfiability","variant":{"k":"K3"}},
-                    "to":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                    "to":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"One"}}
                 }]}"#,
             ).unwrap();
             let bundle = crate::commands::reduce::execute_route(source, route).unwrap();

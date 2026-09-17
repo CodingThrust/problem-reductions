@@ -16548,6 +16548,16 @@ Problems parameterized by graph type, weight type, target type, or clause width 
   _Solution extraction._ Return the target configuration unchanged.
 ]
 
+#reduction-rule("DecisionMinimumVertexCover", "DecisionMinimumVertexCover")[
+  A unit-weight Decision Minimum Vertex Cover instance converts to the integer-weight variant by mapping every unit weight to $1_ZZ$ and keeping the graph and the bound.
+][
+  _Construction._ Given $(G, k)$ with unit weights, construct the integer-weight instance $(G, w, k)$ with $w(v) = 1$ for every vertex $v$.
+
+  _Correctness._ For every vertex set $C$, $sum_(v in C) w(v) = |C|$, so $C$ is a vertex cover of cost at most $k$ in the target if and only if it is a vertex cover of size at most $k$ in the source. The size map is the exact identity.
+
+  _Solution extraction._ Return the target configuration unchanged.
+]
+
 #reduction-rule("KSatisfiability", "KSatisfiability")[
   A $k$-SAT instance with fixed clause width ($k = 2$ or $k = 3$) converts to generic $k$-SAT by constructing the registered $K_N$ variant. The clauses and variables are preserved verbatim; the target uses `new_allow_less` to accept clauses with fewer than $k$ literals.
 ][
