@@ -33,6 +33,7 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "UndirectedFlowLowerBoundsCreateSpec")]
 pub struct UndirectedFlowLowerBounds {
     graph: SimpleGraph,
     capacities: Vec<i64>,
@@ -60,50 +61,14 @@ struct UndirectedFlowLowerBoundsCreateSpec {
 impl TryFrom<UndirectedFlowLowerBoundsCreateSpec> for UndirectedFlowLowerBounds {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: UndirectedFlowLowerBoundsCreateSpec) -> Result<Self, Self::Error> {
-        let edges = spec.graph.num_edges();
-        if spec.capacities.len() != edges {
-            return Err(format!(
-                "capacities has {} entries, expected {edges}",
-                spec.capacities.len()
-            )
-            .into());
-        }
-        if spec.lower_bounds.len() != edges {
-            return Err(format!(
-                "lower_bounds has {} entries, expected {edges}",
-                spec.lower_bounds.len()
-            )
-            .into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if spec.source >= vertices || spec.sink >= vertices {
-            return Err("source and sink must be valid graph vertices"
-                .to_string()
-                .into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string().into());
-        }
-        if spec.requirement == 0 {
-            return Err("requirement must be at least 1".to_string().into());
-        }
-        if let Some((index, _)) = spec
-            .lower_bounds
-            .iter()
-            .zip(&spec.capacities)
-            .enumerate()
-            .find(|(_, (&lower, &upper))| lower > upper)
-        {
-            return Err(format!("lower bound at edge {index} exceeds its capacity").into());
-        }
-        Ok(Self::new(
+        Self::try_new(
             spec.graph,
             spec.capacities,
             spec.lower_bounds,
             spec.source,
             spec.sink,
             spec.requirement,
-        ))
+        )
     }
 }
 
@@ -116,44 +81,56 @@ impl UndirectedFlowLowerBounds {
         sink: usize,
         requirement: i64,
     ) -> Self {
-        assert_eq!(
-            capacities.len(),
-            graph.num_edges(),
-            "capacities length must match graph num_edges"
-        );
-        assert_eq!(
-            lower_bounds.len(),
-            graph.num_edges(),
-            "lower_bounds length must match graph num_edges"
-        );
+        Self::try_new(graph, capacities, lower_bounds, source, sink, requirement)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
 
-        let num_vertices = graph.num_vertices();
-        assert!(
-            source < num_vertices,
-            "source must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink must be less than num_vertices ({num_vertices})"
-        );
-        assert!(source != sink, "source and sink must be distinct");
-        assert!(requirement >= 1, "requirement must be at least 1");
-
-        for (edge_index, (&lower, &upper)) in lower_bounds.iter().zip(&capacities).enumerate() {
-            assert!(
-                lower <= upper,
-                "lower bound at edge {edge_index} must be at most its capacity"
-            );
+    fn try_new(
+        graph: SimpleGraph,
+        capacities: Vec<i64>,
+        lower_bounds: Vec<i64>,
+        source: usize,
+        sink: usize,
+        requirement: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.len() != graph.num_edges() {
+            return Err("capacities length must match graph num_edges".into());
+        }
+        if lower_bounds.len() != graph.num_edges() {
+            return Err("lower_bounds length must match graph num_edges".into());
         }
 
-        Self {
+        let num_vertices = graph.num_vertices();
+        if source >= num_vertices {
+            return Err(format!("source must be less than num_vertices ({num_vertices})").into());
+        }
+        if sink >= num_vertices {
+            return Err(format!("sink must be less than num_vertices ({num_vertices})").into());
+        }
+        if source == sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if requirement < 1 {
+            return Err("requirement must be at least 1".into());
+        }
+
+        for (edge_index, (&lower, &upper)) in lower_bounds.iter().zip(&capacities).enumerate() {
+            if lower > upper {
+                return Err(format!(
+                    "lower bound at edge {edge_index} must be at most its capacity"
+                )
+                .into());
+            }
+        }
+
+        Ok(Self {
             graph,
             capacities,
             lower_bounds,
             source,
             sink,
             requirement,
-        }
+        })
     }
 
     pub fn graph(&self) -> &SimpleGraph {
