@@ -807,15 +807,26 @@
         });
       });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "/" && document.activeElement !== search) {
+        const typing =
+          /INPUT|TEXTAREA|SELECT/.test(event.target.tagName) ||
+          event.target.isContentEditable;
+        if (event.key === "/" && !typing) {
           event.preventDefault();
           search.focus();
         }
-        if (event.key === "Escape") {
+        if (event.key !== "Escape") return;
+        if (!typing) {
           search.value = "";
           transition(clearSelection);
-          search.blur();
+          return;
         }
+        // Escape in a field resets only that field, through its own input handler.
+        event.preventDefault();
+        if (event.target.value) {
+          event.target.value = "";
+          event.target.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        event.target.blur();
       });
 
       applyScope();
