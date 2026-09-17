@@ -198,3 +198,67 @@ fn test_maximum_contact_map_overlap_panics_on_duplicate_contact() {
 fn test_maximum_contact_map_overlap_panics_on_endpoint_out_of_range() {
     let _ = MaximumContactMapOverlap::new(3, vec![(0, 3)], 2, vec![]);
 }
+
+#[test]
+fn test_maximum_contact_map_overlap_try_new_and_deserialization_reject_invalid_contacts() {
+    let valid = serde_json::json!({
+        "num_vertices_1": 4,
+        "contacts_1": [[0, 1], [1, 2], [2, 3]],
+        "num_vertices_2": 3,
+        "contacts_2": [[0, 1], [0, 2]],
+    });
+    let restored: MaximumContactMapOverlap = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), valid);
+
+    let cases = [
+        (
+            "contacts_1",
+            vec![(0, 1), (2, 2)],
+            "G_1 contact has self-loop: (2, 2)",
+        ),
+        (
+            "contacts_2",
+            vec![(0, 1), (1, 0)],
+            "G_2 has duplicate contact after normalization: (0, 1)",
+        ),
+        (
+            "contacts_1",
+            vec![(0, 4)],
+            "G_1 contact endpoint out of range for num_vertices = 4: (0, 4)",
+        ),
+        (
+            "contacts_2",
+            vec![(3, 0)],
+            "G_2 contact endpoint out of range for num_vertices = 3: (3, 0)",
+        ),
+    ];
+    for (field, contacts, expected) in cases {
+        let expected = format!("problem construction failed: {expected}");
+        let mut json = valid.clone();
+        json[field] = serde_json::json!(contacts);
+        let error = serde_json::from_value::<MaximumContactMapOverlap>(json).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+
+        let (contacts_1, contacts_2) = match field {
+            "contacts_1" => (contacts, vec![(0, 1), (0, 2)]),
+            _ => (vec![(0, 1), (1, 2), (2, 3)], contacts),
+        };
+        let error = MaximumContactMapOverlap::try_new(4, contacts_1, 3, contacts_2).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+    }
+}
+
+#[test]
+fn test_maximum_contact_map_overlap_deserialization_canonicalizes_contacts() {
+    let restored: MaximumContactMapOverlap = serde_json::from_value(serde_json::json!({
+        "num_vertices_1": 3,
+        "contacts_1": [[2, 0]],
+        "num_vertices_2": 3,
+        "contacts_2": [[1, 0]],
+    }))
+    .unwrap();
+    assert_eq!(
+        restored,
+        MaximumContactMapOverlap::new(3, vec![(0, 2)], 3, vec![(0, 1)])
+    );
+}

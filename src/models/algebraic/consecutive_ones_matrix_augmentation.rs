@@ -22,6 +22,7 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConsecutiveOnesMatrixAugmentationCreateSpec")]
 pub struct ConsecutiveOnesMatrixAugmentation {
     matrix: Vec<Vec<bool>>,
     bound: i64,

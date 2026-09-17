@@ -70,6 +70,7 @@ inventory::submit! {
 /// entries are pairwise distinct (injectivity) and strictly increasing along
 /// the index order of `V_1` (order-preserving).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(try_from = "MaximumContactMapOverlapData")]
 pub struct MaximumContactMapOverlap {
     num_vertices_1: usize,
     contacts_1: Vec<(usize, usize)>,
@@ -77,51 +78,91 @@ pub struct MaximumContactMapOverlap {
     contacts_2: Vec<(usize, usize)>,
 }
 
-/// Canonicalize a contact set: each pair is normalized to `(min, max)`, no
-/// self-loops are allowed, all endpoints must be in range, and duplicates
-/// (after normalization) cause a panic.
+#[derive(Deserialize)]
+struct MaximumContactMapOverlapData {
+    num_vertices_1: usize,
+    contacts_1: Vec<(usize, usize)>,
+    num_vertices_2: usize,
+    contacts_2: Vec<(usize, usize)>,
+}
+
+impl TryFrom<MaximumContactMapOverlapData> for MaximumContactMapOverlap {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MaximumContactMapOverlapData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.num_vertices_1,
+            data.contacts_1,
+            data.num_vertices_2,
+            data.contacts_2,
+        )
+    }
+}
+
+/// Canonicalize a contact set: each pair is normalized to `(min, max)`.
+/// Self-loops, out-of-range endpoints, and duplicates (after normalization)
+/// are rejected.
 fn canonicalize_contacts(
     raw: Vec<(usize, usize)>,
     num_vertices: usize,
     side: &str,
-) -> Vec<(usize, usize)> {
+) -> Result<Vec<(usize, usize)>, crate::registry::ConstructionError> {
     let mut seen: HashSet<(usize, usize)> = HashSet::new();
     let mut out = Vec::with_capacity(raw.len());
     for (u, v) in raw {
-        assert!(
-            u < num_vertices && v < num_vertices,
-            "{side} contact endpoint out of range for num_vertices = {num_vertices}: ({u}, {v})"
-        );
-        assert!(u != v, "{side} contact has self-loop: ({u}, {v})");
+        if u >= num_vertices || v >= num_vertices {
+            return Err(format!(
+                "{side} contact endpoint out of range for num_vertices = {num_vertices}: ({u}, {v})"
+            )
+            .into());
+        }
+        if u == v {
+            return Err(format!("{side} contact has self-loop: ({u}, {v})").into());
+        }
         let (a, b) = if u < v { (u, v) } else { (v, u) };
-        assert!(
-            seen.insert((a, b)),
-            "{side} has duplicate contact after normalization: ({a}, {b})"
-        );
+        if !seen.insert((a, b)) {
+            return Err(
+                format!("{side} has duplicate contact after normalization: ({a}, {b})").into(),
+            );
+        }
         out.push((a, b));
     }
-    out
+    Ok(out)
 }
 
 impl MaximumContactMapOverlap {
     /// Construct a new instance from two ordered contact maps.
     ///
-    /// Contacts are canonicalized to `(min, max)` pairs. Self-loops, duplicate
-    /// contacts (after normalization), and out-of-range endpoints panic.
+    /// Contacts are canonicalized to `(min, max)` pairs.
+    ///
+    /// # Panics
+    ///
+    /// Panics on self-loops, duplicate contacts (after normalization), and
+    /// out-of-range endpoints.
     pub fn new(
         num_vertices_1: usize,
         contacts_1: Vec<(usize, usize)>,
         num_vertices_2: usize,
         contacts_2: Vec<(usize, usize)>,
     ) -> Self {
-        let contacts_1 = canonicalize_contacts(contacts_1, num_vertices_1, "G_1");
-        let contacts_2 = canonicalize_contacts(contacts_2, num_vertices_2, "G_2");
-        Self {
+        Self::try_new(num_vertices_1, contacts_1, num_vertices_2, contacts_2)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Create an instance, returning validation errors instead of panicking.
+    pub fn try_new(
+        num_vertices_1: usize,
+        contacts_1: Vec<(usize, usize)>,
+        num_vertices_2: usize,
+        contacts_2: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let contacts_1 = canonicalize_contacts(contacts_1, num_vertices_1, "G_1")?;
+        let contacts_2 = canonicalize_contacts(contacts_2, num_vertices_2, "G_2")?;
+        Ok(Self {
             num_vertices_1,
             contacts_1,
             num_vertices_2,
             contacts_2,
-        }
+        })
     }
 
     /// Number of ordered residues/vertices in `G_1`.

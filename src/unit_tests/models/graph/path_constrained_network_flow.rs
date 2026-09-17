@@ -175,3 +175,54 @@ fn test_path_constrained_network_flow_paper_example() {
     assert_eq!(all.len(), 2);
     assert!(all.contains(&config));
 }
+
+#[test]
+fn test_path_constrained_network_flow_deserialization_rejects_invalid_instances() {
+    let valid = serde_json::to_value(yes_instance()).unwrap();
+    let restored: PathConstrainedNetworkFlow = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), valid);
+
+    let cases = [
+        (
+            "paths",
+            serde_json::json!([[99]]),
+            "arc index 99 out of bounds",
+        ),
+        ("paths", serde_json::json!([[]]), "must be non-empty"),
+        ("paths", serde_json::json!([[0, 5]]), "not contiguous"),
+        (
+            "paths",
+            serde_json::json!([[0, 2, 5, 8], [0, 2]]),
+            "path 1: ",
+        ),
+        (
+            "paths",
+            serde_json::json!([[0, 2]]),
+            "must end at sink 7, ended at 3",
+        ),
+        (
+            "capacities",
+            serde_json::json!([1, 1]),
+            "capacities length must match graph num_arcs",
+        ),
+        (
+            "source",
+            serde_json::json!(8),
+            "source (8) >= num_vertices (8)",
+        ),
+        ("sink", serde_json::json!(8), "sink (8) >= num_vertices (8)"),
+        (
+            "sink",
+            serde_json::json!(0),
+            "source and sink must be distinct",
+        ),
+    ];
+    for (field, value, expected) in cases {
+        let mut json = valid.clone();
+        json[field] = value;
+        let error = serde_json::from_value::<PathConstrainedNetworkFlow>(json)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(expected), "{field}: {error}");
+    }
+}

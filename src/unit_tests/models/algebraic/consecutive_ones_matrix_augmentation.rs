@@ -162,3 +162,31 @@ fn test_consecutive_ones_matrix_augmentation_rejects_ragged_matrix() {
 fn test_consecutive_ones_matrix_augmentation_rejects_negative_bound() {
     ConsecutiveOnesMatrixAugmentation::new(issue_yes_matrix(), -1);
 }
+
+#[test]
+fn test_consecutive_ones_matrix_augmentation_deserialization_rejects_invalid_instances() {
+    let valid = serde_json::json!({
+        "matrix": [[true, false, true], [false, true, true], [true, true, false]],
+        "bound": 1,
+    });
+    let restored: ConsecutiveOnesMatrixAugmentation =
+        serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), valid);
+
+    let cases = [
+        (
+            "matrix",
+            serde_json::json!([[true, false, true], [false, true], [true, true, false]]),
+            "all matrix rows must have the same length",
+        ),
+        ("bound", serde_json::json!(-1), "bound must be nonnegative"),
+    ];
+    for (field, value, expected) in cases {
+        let mut json = valid.clone();
+        json[field] = value;
+        let error = serde_json::from_value::<ConsecutiveOnesMatrixAugmentation>(json)
+            .unwrap_err()
+            .to_string();
+        assert_eq!(error, format!("problem construction failed: {expected}"));
+    }
+}
