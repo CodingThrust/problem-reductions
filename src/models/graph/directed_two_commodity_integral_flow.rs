@@ -68,6 +68,7 @@ inventory::submit! {
 /// assert!(solver.solve(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "DirectedTwoCommodityIntegralFlowData")]
 pub struct DirectedTwoCommodityIntegralFlow {
     /// The directed graph G = (V, A).
     graph: DirectedGraph,
@@ -85,6 +86,34 @@ pub struct DirectedTwoCommodityIntegralFlow {
     requirement_1: i64,
     /// Flow requirement R_2 for commodity 2.
     requirement_2: i64,
+}
+
+#[derive(Deserialize)]
+struct DirectedTwoCommodityIntegralFlowData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    source_1: usize,
+    sink_1: usize,
+    source_2: usize,
+    sink_2: usize,
+    requirement_1: i64,
+    requirement_2: i64,
+}
+
+impl TryFrom<DirectedTwoCommodityIntegralFlowData> for DirectedTwoCommodityIntegralFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: DirectedTwoCommodityIntegralFlowData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.capacities,
+            data.source_1,
+            data.sink_1,
+            data.source_2,
+            data.sink_2,
+            data.requirement_1,
+            data.requirement_2,
+        )
+    }
 }
 
 impl DirectedTwoCommodityIntegralFlow {
@@ -106,25 +135,7 @@ impl DirectedTwoCommodityIntegralFlow {
         requirement_1: i64,
         requirement_2: i64,
     ) -> Self {
-        let n = graph.num_vertices();
-        assert_eq!(
-            capacities.len(),
-            graph.num_arcs(),
-            "capacities length must match graph num_arcs"
-        );
-        assert!(
-            capacities.iter().all(|&capacity| capacity >= 0),
-            "capacities must be nonnegative"
-        );
-        assert!(
-            requirement_1 >= 0 && requirement_2 >= 0,
-            "flow requirements must be nonnegative"
-        );
-        assert!(source_1 < n, "source_1 ({source_1}) >= num_vertices ({n})");
-        assert!(sink_1 < n, "sink_1 ({sink_1}) >= num_vertices ({n})");
-        assert!(source_2 < n, "source_2 ({source_2}) >= num_vertices ({n})");
-        assert!(sink_2 < n, "sink_2 ({sink_2}) >= num_vertices ({n})");
-        Self {
+        Self::try_new(
             graph,
             capacities,
             source_1,
@@ -133,7 +144,53 @@ impl DirectedTwoCommodityIntegralFlow {
             sink_2,
             requirement_1,
             requirement_2,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn try_new(
+        graph: DirectedGraph,
+        capacities: Vec<i64>,
+        source_1: usize,
+        sink_1: usize,
+        source_2: usize,
+        sink_2: usize,
+        requirement_1: i64,
+        requirement_2: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let n = graph.num_vertices();
+        if capacities.len() != graph.num_arcs() {
+            return Err("capacities length must match graph num_arcs".into());
         }
+        if capacities.iter().any(|&capacity| capacity < 0) {
+            return Err("capacities must be nonnegative".into());
+        }
+        if requirement_1 < 0 || requirement_2 < 0 {
+            return Err("flow requirements must be nonnegative".into());
+        }
+        if source_1 >= n {
+            return Err(format!("source_1 ({source_1}) >= num_vertices ({n})").into());
+        }
+        if sink_1 >= n {
+            return Err(format!("sink_1 ({sink_1}) >= num_vertices ({n})").into());
+        }
+        if source_2 >= n {
+            return Err(format!("source_2 ({source_2}) >= num_vertices ({n})").into());
+        }
+        if sink_2 >= n {
+            return Err(format!("sink_2 ({sink_2}) >= num_vertices ({n})").into());
+        }
+        Ok(Self {
+            graph,
+            capacities,
+            source_1,
+            sink_1,
+            source_2,
+            sink_2,
+            requirement_1,
+            requirement_2,
+        })
     }
 
     /// Get a reference to the underlying directed graph.

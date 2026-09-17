@@ -1,4 +1,24 @@
 use super::*;
+
+#[test]
+fn test_undirected_two_commodity_integral_flow_invalid_json() {
+    let valid = serde_json::to_value(canonical_instance()).unwrap();
+    for (field, value) in [
+        ("capacities", serde_json::json!([])),
+        ("capacities", serde_json::json!([-1, 1, 2])),
+        ("source_1", serde_json::json!(4)),
+        ("sink_1", serde_json::json!(4)),
+        ("source_2", serde_json::json!(4)),
+        ("sink_2", serde_json::json!(4)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<UndirectedTwoCommodityIntegralFlow>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]

@@ -1,4 +1,26 @@
 use super::*;
+
+#[test]
+fn test_directed_two_commodity_integral_flow_invalid_json() {
+    let valid = serde_json::to_value(yes_instance()).unwrap();
+    for (field, value) in [
+        ("capacities", serde_json::json!([])),
+        ("capacities", serde_json::json!([-1, 1, 1, 1, 1, 1, 1, 1])),
+        ("source_1", serde_json::json!(6)),
+        ("sink_1", serde_json::json!(6)),
+        ("source_2", serde_json::json!(6)),
+        ("sink_2", serde_json::json!(6)),
+        ("requirement_1", serde_json::json!(-1)),
+        ("requirement_2", serde_json::json!(-1)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<DirectedTwoCommodityIntegralFlow>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
