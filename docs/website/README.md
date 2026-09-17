@@ -78,7 +78,9 @@ python3 scripts/build_website.py
 
 The builder overlays the website's `index.html` and `assets/` onto mdBook's output.
 Existing documentation URLs, `introduction.html`, the paper, and Rust API paths
-stay available. Running `mdbook build` by itself restores mdBook's homepage; run
+stay available; the retired `reduction-graph.html` and `open-problems.html` redirect
+to their website counterparts through `[output.html.redirect]` in `book.toml`.
+Running `mdbook build` by itself restores mdBook's homepage; run
 the website builder afterward. The GitHub Pages workflow does this automatically.
 
 ## Design and data

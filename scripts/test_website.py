@@ -300,6 +300,14 @@ class WebsiteTests(unittest.TestCase):
         self.page.get_by_role('navigation', name='Documentation resources').get_by_role('link', name='Home ↗', exact=True).click()
         expect(self.page.locator('main .hero')).to_be_visible()
 
+    def test_legacy_documentation_urls_redirect(self):
+        self.page.goto(self.base + 'reduction-graph.html')
+        self.page.wait_for_url(self.base + 'graph.html')
+        expect(self.page.locator("#cy canvas").first).to_be_visible()
+        self.page.goto(self.base + 'open-problems.html')
+        self.page.wait_for_url(self.base + 'index.html#open-questions')
+        expect(self.page.get_by_role('heading', name='Open questions', exact=True)).to_be_visible()
+
     def test_docs_sidebar_drag_resizes_content(self):
         self.page.goto(self.base + 'introduction.html')
         sidebar = self.page.locator('.sidebar')
