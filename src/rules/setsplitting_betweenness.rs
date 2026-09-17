@@ -1,11 +1,12 @@
 //! Reduction from Set Splitting to Betweenness.
 //!
-//! Decompose each subset to size 2 or 3 using complementarity pairs, then
+//! Deduplicate each subset and decompose sizes above 3 using complementarity pairs, then
 //! place a single pole element `p` in the Betweenness instance. A size-2
 //! subset `{u, v}` becomes `(u, p, v)`, forcing opposite sides of the pole.
 //! A size-3 subset `{u, v, w}` becomes `(u, d, v)` and `(d, p, w)` with one
 //! fresh auxiliary element `d`, which is satisfiable exactly when the three
 //! elements are not monochromatic with respect to the pole.
+//! A singleton becomes two incompatible order constraints, preserving infeasibility.
 
 use crate::models::misc::Betweenness;
 use crate::models::set::SetSplitting;
@@ -63,6 +64,14 @@ impl ReduceTo<Betweenness> for SetSplitting {
 
         for subset in normalized_subsets {
             match subset.as_slice() {
+                [u] => {
+                    // A singleton cannot contain both colors. These orders
+                    // cannot both hold for three distinct elements.
+                    let auxiliary = num_elements;
+                    num_elements += 1;
+                    triples.push((*u, pole, auxiliary));
+                    triples.push((pole, *u, auxiliary));
+                }
                 [u, v] => triples.push((*u, pole, *v)),
                 [u, v, w] => {
                     let auxiliary = num_elements;
@@ -75,7 +84,7 @@ impl ReduceTo<Betweenness> for SetSplitting {
                         SetSplitting,
                         Betweenness,
                     >(
-                        "normalized subset must contain two or three elements"
+                        "normalized subset must contain one, two or three elements",
                     ));
                 }
             }
