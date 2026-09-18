@@ -103,7 +103,7 @@ impl GroupingBySwapping {
         if !(string.iter().all(|&symbol| symbol < alphabet_size)) {
             return Err("input symbols must be less than alphabet_size".into());
         }
-        if !(!string.is_empty() || budget == 0) {
+        if string.is_empty() && budget != 0 {
             return Err("budget must be 0 when string is empty".into());
         }
         Ok(Self {
