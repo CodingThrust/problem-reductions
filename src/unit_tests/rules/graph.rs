@@ -76,9 +76,9 @@ fn problem_step<P: Problem>() -> ReductionStep {
 }
 
 #[test]
-fn completed_decision_recovery_shares_construction_and_handles_both_answers() {
+fn decision_chain_shares_construction_for_solution_and_value_mapping() {
     use crate::models::Decision;
-    use crate::solvers::{BruteForce, SolveOutcome};
+    use crate::solvers::BruteForce;
     type Cover = MinimumVertexCover<SimpleGraph, i64>;
     let graph = ReductionGraph::new();
     let path = ReductionPath {
@@ -93,6 +93,7 @@ fn completed_decision_recovery_shares_construction_and_handles_both_answers() {
             bound,
         );
         let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        assert!(chain.has_value_mapping());
         let step = chain.steps[0].as_ref();
         assert!(
             crate::rules::aggregate_view::<crate::rules::VariantReductionResult<Cover, Cover>>(
@@ -110,27 +111,29 @@ fn completed_decision_recovery_shares_construction_and_handles_both_answers() {
         ));
         let target = chain.target_problem::<Cover>();
         for solution in BruteForce::new().find_all_witnesses(target).unwrap() {
-            let result = SolveOutcome::Optimal {
-                evaluation: target.evaluate(&solution).unwrap().to_string(),
-                solution: json!(solution),
-            };
-            let recovered = chain.extract_result(&source, &result).unwrap();
-            if bound == 1 {
-                assert_eq!(recovered, SolveOutcome::Infeasible);
-            } else {
-                assert!(
-                    matches!(recovered, SolveOutcome::Optimal { evaluation, .. } if evaluation == "Or(true)")
-                );
-            }
+            let value = serde_json::to_value(target.evaluate(&solution).unwrap()).unwrap();
+            assert_eq!(chain.extract_value(value).unwrap(), json!(bound == 2));
+            assert_eq!(
+                chain.extract_solution_json(json!(solution)).is_ok(),
+                bound == 2
+            );
         }
+        assert!(chain.extract_value(json!(true)).is_err());
     }
 }
 
 #[test]
-fn completed_recovery_propagates_value_only_results_through_multiple_mappings() {
+fn solution_and_aggregate_chains_map_values_through_multiple_steps() {
     use crate::models::formula::CNFClause;
-    use crate::solvers::{BruteForce, SolveOutcome};
+    use crate::solvers::BruteForce;
     let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: vec![
+            problem_step::<Satisfiability>(),
+            problem_step::<NAESatisfiability>(),
+            problem_step::<MaxCut<SimpleGraph, i64>>(),
+        ],
+    };
     for unsatisfiable in [false, true] {
         let clauses = if unsatisfiable {
             vec![vec![1], vec![-1]]
@@ -138,71 +141,34 @@ fn completed_recovery_propagates_value_only_results_through_multiple_mappings() 
             vec![vec![1]]
         };
         let source = Satisfiability::new(1, clauses.into_iter().map(CNFClause::new).collect());
-        let decision_path = ReductionPath {
-            steps: vec![
-                problem_step::<Satisfiability>(),
-                problem_step::<NAESatisfiability>(),
-            ],
-        };
-        let decision_chain = graph
-            .reduce_along_path(&decision_path, &source)
-            .unwrap()
-            .unwrap();
-        let nae = decision_chain.target_problem::<NAESatisfiability>();
-        assert!(decision_chain
-            .extract_solution_json(json!([false, false]))
-            .is_err());
-        let values = graph
-            .reduce_aggregate_along_path(&decision_path, &source)
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            values.target_problem::<NAESatisfiability>().num_vars(),
-            nae.num_vars()
-        );
-        let target_result = match BruteForce::new().solve(nae).unwrap() {
-            Some(solution) => SolveOutcome::Optimal {
-                evaluation: nae.evaluate(&solution).unwrap().to_string(),
-                solution: json!(solution),
-            },
-            None => SolveOutcome::Infeasible,
-        };
-        let expected = decision_chain
-            .extract_result(&source, &target_result)
-            .unwrap();
-        assert_eq!(matches!(expected, SolveOutcome::Infeasible), unsatisfiable);
-
-        let path = ReductionPath {
-            steps: vec![
-                problem_step::<Satisfiability>(),
-                problem_step::<NAESatisfiability>(),
-                problem_step::<MaxCut<SimpleGraph, i64>>(),
-            ],
-        };
         let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let aggregates = graph
+            .reduce_aggregate_along_path(&path, &source)
+            .unwrap()
+            .unwrap();
+        assert!(chain.has_value_mapping());
         let target = chain.target_problem::<MaxCut<SimpleGraph, i64>>();
         for solution in BruteForce::new().find_all_witnesses(target).unwrap() {
-            let result = SolveOutcome::Optimal {
-                evaluation: target.evaluate(&solution).unwrap().to_string(),
-                solution: json!(solution),
-            };
-            let recovered = chain.extract_result(&source, &result).unwrap();
-            assert_eq!(matches!(recovered, SolveOutcome::Infeasible), unsatisfiable);
-            if let SolveOutcome::Optimal { solution, .. } = recovered {
-                assert_eq!(
-                    source
-                        .evaluate(&serde_json::from_value(solution).unwrap())
-                        .unwrap(),
-                    crate::types::Or(true)
-                );
+            let value = serde_json::to_value(target.evaluate(&solution).unwrap()).unwrap();
+            assert_eq!(
+                chain.extract_value(value.clone()).unwrap(),
+                json!(!unsatisfiable)
+            );
+            assert_eq!(
+                aggregates.extract_value(value).unwrap(),
+                json!(!unsatisfiable)
+            );
+            if !unsatisfiable {
+                let recovered = chain.extract_solution::<Vec<bool>, _>(&solution).unwrap();
+                assert_eq!(source.evaluate(&recovered).unwrap(), crate::types::Or(true));
             }
         }
     }
 }
 
 #[test]
-fn completed_optimization_recovery_validates_results_and_requires_value_mappings_for_absence() {
-    use crate::solvers::{BruteForce, SolveOutcome};
+fn solution_only_chain_rejects_value_mapping() {
+    use crate::solvers::BruteForce;
     type Independent = MaximumIndependentSet<SimpleGraph, i64>;
     type Cover = MinimumVertexCover<SimpleGraph, i64>;
     let source = Independent::new(SimpleGraph::path(3), vec![1; 3]);
@@ -213,68 +179,17 @@ fn completed_optimization_recovery_validates_results_and_requires_value_mappings
         .reduce_along_path(&path, &source)
         .unwrap()
         .unwrap();
-    let target = chain.target_problem::<Cover>();
-    let solution = BruteForce::new().solve(target).unwrap().unwrap();
-    let result = SolveOutcome::Optimal {
-        evaluation: target.evaluate(&solution).unwrap().to_string(),
-        solution: json!(solution),
-    };
-    assert!(
-        matches!(chain.extract_result(&source, &result).unwrap(), SolveOutcome::Optimal { evaluation, .. } if evaluation == "Max(2)")
+    assert!(!chain.has_value_mapping());
+    assert!(chain.extract_value(json!(1)).is_err());
+    let solution = BruteForce::new()
+        .solve(chain.target_problem::<Cover>())
+        .unwrap()
+        .unwrap();
+    let recovered = chain.extract_solution::<Vec<bool>, _>(&solution).unwrap();
+    assert_eq!(
+        source.evaluate(&recovered).unwrap(),
+        crate::types::Max(Some(2))
     );
-    assert!(chain
-        .extract_result(&source, &SolveOutcome::Infeasible)
-        .is_err());
-    assert!(chain.extract_result(target, &result).is_err());
-    for (solution, evaluation) in [
-        (json!([true]), "Min(1)"),
-        (json!([false, false, false]), "Min(None)"),
-        (json!([false, true, false]), "Min(999)"),
-    ] {
-        assert!(chain
-            .extract_result(
-                &source,
-                &SolveOutcome::Optimal {
-                    solution,
-                    evaluation: evaluation.into()
-                }
-            )
-            .is_err());
-    }
-}
-
-#[test]
-fn completed_recovery_rejects_inconsistent_value_and_witness_mappings() {
-    use crate::rules::VariantReductionResult;
-    use crate::solvers::SolveOutcome;
-    type Cover = MinimumVertexCover<SimpleGraph, i64>;
-    let source = Cover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1; 2]);
-    let target = Cover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![2; 2]);
-    let chain = ReductionChain {
-        steps: vec![Box::new(VariantReductionResult::<Cover, Cover>::new(
-            target,
-        ))],
-        aggregate_views: vec![Some(
-            crate::rules::aggregate_view::<VariantReductionResult<Cover, Cover>>,
-        )],
-        path: ReductionPath {
-            steps: vec![problem_step::<Cover>(), problem_step::<Cover>()],
-        },
-    };
-    let error = chain
-        .extract_result(
-            &source,
-            &SolveOutcome::Optimal {
-                solution: json!([true, false]),
-                evaluation: "Min(2)".into(),
-            },
-        )
-        .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("does not realize the mapped aggregate"));
-    let problem: &dyn crate::registry::DynProblem = &source;
-    assert!(problem.aggregate_witness_evaluation(&json!(true)).is_err());
 }
 
 #[test]
@@ -300,7 +215,7 @@ fn counting_and_universal_values_compose_without_witness_recovery() {
     assert_eq!(count, Sum(3));
     assert_eq!(
         chain
-            .extract_value_dyn(serde_json::to_value(count).unwrap())
+            .extract_value(serde_json::to_value(count).unwrap())
             .unwrap(),
         json!(3)
     );
@@ -320,11 +235,11 @@ fn counting_and_universal_values_compose_without_witness_recovery() {
             .unwrap();
         assert_eq!(
             chain
-                .extract_value_dyn(serde_json::to_value(value).unwrap())
+                .extract_value(serde_json::to_value(value).unwrap())
                 .unwrap(),
             json!(tautology)
         );
-        assert!(chain.extract_value_dyn(json!(123)).is_err());
+        assert!(chain.extract_value(json!(123)).is_err());
     }
 }
 
@@ -962,8 +877,8 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         chain.target_problem::<AggregateChainTarget>().dimensions(),
         vec![1]
     );
-    assert_eq!(chain.extract_value_dyn(json!(7)).unwrap(), json!(12));
-    assert!(chain.extract_value_dyn(json!("not an aggregate")).is_err());
+    assert_eq!(chain.extract_value(json!(7)).unwrap(), json!(12));
+    assert!(chain.extract_value(json!("not an aggregate")).is_err());
 }
 
 #[test]

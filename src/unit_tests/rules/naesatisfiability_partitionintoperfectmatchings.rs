@@ -280,14 +280,82 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
 }
 
 #[test]
-fn test_naesatisfiability_to_partitionintoperfectmatchings_rejects_long_clauses() {
-    let source = NAESatisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
-    let error =
-        ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::rules::ReductionError::InvalidTarget { .. }
-    ));
+fn test_long_clauses_preserve_assignments() {
+    let entry = inventory::iter::<crate::rules::ReductionEntry>
+        .into_iter()
+        .find(|e| {
+            e.source_name == NAESatisfiability::NAME
+                && e.target_name == PartitionIntoPerfectMatchings::<SimpleGraph>::NAME
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    for literals in [
+        vec![1, -2],
+        vec![1, 2, 3],
+        vec![1, 2, 3, 4],
+        vec![1, -2, 1, 3, -4, 2],
+        vec![1, 1, 1, 1],
+    ] {
+        let source = NAESatisfiability::new(4, vec![CNFClause::new(literals)]);
+        let result =
+            ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source).unwrap();
+        let layout = &result.layout;
+        let bound = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        assert!(layout.num_vertices as u64 <= bound.get("num_vertices").unwrap());
+        assert!(layout.edges.len() as u64 <= bound.get("num_edges").unwrap());
+        for bits in 0..16 {
+            let assignment: Vec<_> = (0..4).map(|i| bits & (1 << i) != 0).collect();
+            let extendible = (0..(1 << (layout.variables.len() - 4))).any(|aux| {
+                let mut extended = assignment.clone();
+                extended.extend((0..layout.variables.len() - 4).map(|i| aux & (1 << i) != 0));
+                layout.clauses.iter().all(|clause| {
+                    let values = clause
+                        .literals
+                        .map(|l| extended[l.unsigned_abs() as usize - 1] == (l > 0));
+                    values.iter().any(|&v| v) && values.iter().any(|&v| !v)
+                })
+            });
+            assert_eq!(extendible, source.evaluate(&assignment).unwrap().0);
+            if extendible {
+                let witness = result.construct_target_solution(&assignment);
+                assert!(result.target_problem().evaluate(&witness).unwrap().0);
+                assert_eq!(result.extract_solution(&witness).unwrap(), assignment);
+            }
+        }
+        assert!(result
+            .extract_solution(&vec![0; layout.num_vertices])
+            .is_err());
+        assert!(result.extract_solution(&vec![]).is_err());
+    }
+}
+
+#[test]
+fn test_auxiliary_literal_overflow_is_an_error() {
+    let source = NAESatisfiability::new(i64::MAX as usize, vec![CNFClause::new(vec![1; 4])]);
+    assert!(ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source).is_err());
+}
+
+#[test]
+fn test_registered_partition_value_mapping() {
+    let source = NAESatisfiability::new(1, vec![]);
+    let entry = inventory::iter::<crate::rules::ReductionEntry>
+        .into_iter()
+        .find(|e| {
+            e.source_name == NAESatisfiability::NAME
+                && e.target_name == PartitionIntoPerfectMatchings::<SimpleGraph>::NAME
+        })
+        .unwrap();
+    let result = (entry.reduce_aggregate_fn.unwrap())(&source).unwrap();
+    for (assignment, expected) in [(vec![0usize, 0, 1, 1], true), (vec![0; 4], false)] {
+        assert_eq!(
+            result.extract_value_from_solution_dyn(&assignment).unwrap(),
+            serde_json::json!(expected)
+        );
+    }
 }
 
 #[cfg(feature = "example-db")]

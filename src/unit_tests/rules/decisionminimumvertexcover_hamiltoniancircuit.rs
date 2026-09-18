@@ -115,3 +115,62 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_rejects_non_unit_weight
         crate::rules::ReductionError::InvalidTarget { .. }
     ));
 }
+
+#[test]
+fn test_self_loops_consume_cover_budget() {
+    for (edges, bound, cover) in [
+        (vec![(0, 0), (0, 1)], 1, vec![true, false, false, false]),
+        (
+            vec![(0, 0), (1, 2), (2, 3)],
+            2,
+            vec![true, false, true, false],
+        ),
+    ] {
+        let source = decision_mvc(4, &edges, &[1; 4], bound);
+        let result = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap();
+        let witness = result.build_target_witness(&cover);
+        assert!(result.target_problem().evaluate(&witness).unwrap().0);
+        let extracted = result.extract_solution(&witness).unwrap();
+        assert!(extracted[0]);
+        assert!(source.evaluate(&extracted).unwrap().0);
+        assert!(result.extract_solution(&vec![]).is_err());
+    }
+    for bound in [-1, 0, 1] {
+        let source = decision_mvc(2, &[(0, 0), (1, 1)], &[1, 1], bound);
+        let result = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap();
+        assert!(BruteForce::new().solve(&source).unwrap().is_none());
+        assert!(BruteForce::new()
+            .solve(result.target_problem())
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            crate::rules::AggregateReductionResult::extract_value(&result, crate::types::Or(false)),
+            crate::types::Or(false)
+        );
+        assert!(result.extract_solution(&vec![0, 1, 2]).is_err());
+    }
+}
+
+#[test]
+fn test_registered_aggregate_preserves_decision() {
+    let entries = crate::rules::registry::reduction_entries();
+    let edge = entries
+        .iter()
+        .find(|edge| {
+            edge.source_name == "DecisionMinimumVertexCover"
+                && (edge.source_variant_fn)()
+                    == Decision::<MinimumVertexCover<SimpleGraph, i64>>::variant()
+                && edge.target_name == "HamiltonianCircuit"
+        })
+        .unwrap();
+    for bound in [0, 1] {
+        let source = decision_mvc(1, &[(0, 0)], &[1], bound);
+        let result = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
+        assert_eq!(
+            result
+                .extract_value_from_solution_dyn(&vec![0usize, 1, 2])
+                .unwrap(),
+            serde_json::json!(bound == 1),
+        );
+    }
+}

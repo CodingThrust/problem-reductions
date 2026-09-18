@@ -1534,119 +1534,37 @@ pub struct MatchedEntry {
 ///
 /// Holds the intermediate reduction results from executing a multi-step
 /// reduction path. Provides access to the final target problem and
-/// solution extraction back to the source problem space.
+/// solution and aggregate-value mappings back to the source problem space.
+/// Solver status and result recovery belong to the execution layer.
 pub struct ReductionChain {
     steps: Vec<Box<dyn DynReductionResult>>,
     aggregate_views: Vec<Option<crate::rules::registry::AggregateViewFn>>,
-    path: ReductionPath,
 }
 
 impl ReductionChain {
-    fn problem_at<'a>(
-        &'a self,
-        index: usize,
-        source: &'a dyn crate::registry::DynProblem,
-    ) -> crate::rules::ExtractionResult<&'a dyn crate::registry::DynProblem> {
-        if index == 0 {
-            return Ok(source);
-        }
-        let node = &self.path.steps[index];
-        crate::registry::find_variant_entry(&node.name, &node.variant)
-            .and_then(|entry| (entry.borrow_fn)(self.steps[index - 1].target_problem_any()))
-            .ok_or_else(|| {
-                crate::rules::ExtractionError::invalid(format!(
-                    "cannot borrow executed problem {}",
-                    node.name
-                ))
-            })
+    /// Whether every step can map an aggregate value using its existing construction.
+    pub fn has_value_mapping(&self) -> bool {
+        self.aggregate_views.iter().all(Option::is_some)
     }
 
-    /// Recover a completed exact result through the executed witness/value mappings.
-    ///
-    /// The caller must establish target optimality or infeasibility; witness
-    /// evaluation alone cannot establish either. Numerical backend status must
-    /// not be passed here as an exact certificate. `source` must be the instance
-    /// used to execute this chain. Value-only problems use `AggregateReductionChain`.
-    /// A missing mapping is an error, not evidence of source infeasibility.
-    pub fn extract_result(
+    /// Map a target aggregate back to the source using the executed reductions.
+    /// Every step must provide a value mapping. This does not establish that
+    /// the supplied value is the target optimum or aggregate.
+    pub fn extract_value(
         &self,
-        source: &dyn crate::registry::DynProblem,
-        target_result: &crate::solvers::SolveOutcome,
-    ) -> crate::rules::ExtractionResult<crate::solvers::SolveOutcome> {
-        use crate::rules::ExtractionError;
-        use crate::solvers::SolveOutcome;
-        if source.problem_name() != self.path.steps[0].name
-            || source.variant_map() != self.path.steps[0].variant
-        {
-            return Err(ExtractionError::invalid(
-                "source does not match the executed path",
-            ));
-        }
-        let target = self.problem_at(self.steps.len(), source)?;
-        let (mut witness, mut value) = match target_result {
-            SolveOutcome::Optimal {
-                solution,
-                evaluation,
-            } => {
-                let value = target.evaluate_json(solution)?;
-                let actual = target
-                    .aggregate_witness_evaluation(&value)?
-                    .ok_or_else(|| ExtractionError::invalid("target witness is infeasible"))?;
-                if evaluation != &actual {
-                    return Err(ExtractionError::invalid(
-                        "target evaluation does not match the witness",
-                    ));
-                }
-                (Some(solution.clone()), value)
-            }
-            SolveOutcome::Infeasible => (None, target.empty_aggregate_json()?),
-        };
-        let mut evaluation = None;
-        for index in (0..self.steps.len()).rev() {
-            let step = self.steps[index].as_ref();
-            let input = self.problem_at(index, source)?;
-            let mapped = self.aggregate_views[index]
-                .map(|view| view(step)?.extract_value_dyn(value.clone()))
-                .transpose()?;
-            if let Some(mapped_value) = &mapped {
-                if input.aggregate_witness_evaluation(mapped_value)?.is_none() {
-                    witness = None;
-                    value = mapped_value.clone();
-                    evaluation = None;
-                    continue;
-                }
-            }
-            let target_witness = witness.take().ok_or_else(|| {
-                ExtractionError::invalid(format!(
-                    "{} -> {} cannot recover a source witness from this value-only result",
-                    self.path.steps[index].name,
-                    self.path.steps[index + 1].name,
-                ))
-            })?;
-            let typed = step.target_solution_from_json(target_witness)?;
-            let recovered = step.extract_solution_dyn(typed.as_ref())?;
-            let solution = step.source_solution_json(recovered.as_ref())?;
-            value = input.evaluate_json(&solution)?;
-            evaluation = Some(
-                input
-                    .aggregate_witness_evaluation(&value)?
-                    .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?,
-            );
-            if mapped.is_some_and(|mapped| mapped != value) {
-                return Err(ExtractionError::invalid(
-                    "extracted witness does not realize the mapped aggregate",
-                ));
-            }
-            witness = Some(solution);
-        }
-        Ok(match witness {
-            Some(solution) => SolveOutcome::Optimal {
-                solution,
-                evaluation: evaluation.expect("a recovered witness has an evaluation"),
+        target_value: serde_json::Value,
+    ) -> crate::rules::ExtractionResult<serde_json::Value> {
+        self.steps.iter().zip(&self.aggregate_views).rev().try_fold(
+            target_value,
+            |value, (step, view)| {
+                let view = view.ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid("reduction has no value mapping")
+                })?;
+                view(step.as_ref())?.extract_value_dyn(value)
             },
-            None => SolveOutcome::Infeasible,
-        })
+        )
     }
+
     /// Get the final target problem as a type-erased reference.
     pub fn target_problem_any(&self) -> &dyn Any {
         self.steps
@@ -1720,7 +1638,7 @@ impl AggregateReductionChain {
     }
 
     /// Extract an aggregate value from target space back to source space.
-    pub fn extract_value_dyn(
+    pub fn extract_value(
         &self,
         target_value: serde_json::Value,
     ) -> crate::rules::ExtractionResult<serde_json::Value> {
@@ -1807,7 +1725,6 @@ impl ReductionGraph {
         Ok(Some(ReductionChain {
             steps,
             aggregate_views,
-            path: path.clone(),
         }))
     }
 

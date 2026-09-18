@@ -201,8 +201,13 @@ pub struct BundleReplay {
 }
 
 enum BundleChain {
-    Witness(problemreductions::rules::ReductionChain),
+    Witness(Vec<WitnessStep>),
     Aggregate(problemreductions::rules::AggregateReductionChain),
+}
+
+struct WitnessStep {
+    chain: problemreductions::rules::ReductionChain,
+    source_variant: &'static problemreductions::registry::VariantEntry,
 }
 
 impl BundleReplay {
@@ -271,13 +276,30 @@ impl BundleReplay {
 
         let graph = ReductionGraph::new();
         let chain = match mode {
-            problemreductions::rules::ReductionMode::Witness => BundleChain::Witness(
-                graph
-                    .reduce_along_path(&reduction_path, source.as_any())?
-                    .ok_or_else(|| {
+            problemreductions::rules::ReductionMode::Witness => {
+                let mut steps: Vec<WitnessStep> = Vec::new();
+                for edge in reduction_path.steps.windows(2) {
+                    let input = steps
+                        .last()
+                        .map_or(source.as_any(), |step| step.chain.target_problem_any());
+                    let path = problemreductions::rules::ReductionPath {
+                        steps: edge.to_vec(),
+                    };
+                    let chain = graph.reduce_along_path(&path, input)?.ok_or_else(|| {
                         anyhow::anyhow!("Bundle requires a witness-capable reduction path")
-                    })?,
-            ),
+                    })?;
+                    let source_variant = problemreductions::registry::find_variant_entry(
+                        &edge[0].name,
+                        &edge[0].variant,
+                    )
+                    .context("missing intermediate problem registration")?;
+                    steps.push(WitnessStep {
+                        chain,
+                        source_variant,
+                    });
+                }
+                BundleChain::Witness(steps)
+            }
             problemreductions::rules::ReductionMode::Aggregate => BundleChain::Aggregate(
                 graph
                     .reduce_aggregate_along_path(&reduction_path, source.as_any())?
@@ -295,7 +317,7 @@ impl BundleReplay {
         // could solve/validate against the bundle's stated target but then
         // extract through a completely different chain target.
         let target_any = match &chain {
-            BundleChain::Witness(chain) => chain.target_problem_any(),
+            BundleChain::Witness(steps) => steps.last().unwrap().chain.target_problem_any(),
             BundleChain::Aggregate(chain) => chain.target_problem_any(),
         };
         let replayed_target_data = serialize_any_problem(&last.name, &last.variant, target_any)?;
@@ -321,10 +343,15 @@ impl BundleReplay {
         &self,
         target_config: &serde_json::Value,
     ) -> Result<(serde_json::Value, String)> {
-        let BundleChain::Witness(chain) = &self.chain else {
+        let BundleChain::Witness(steps) = &self.chain else {
             anyhow::bail!("value-only reductions do not recover witnesses")
         };
-        let source_config = chain.extract_solution_json(target_config.clone())?;
+        let source_config = steps
+            .iter()
+            .rev()
+            .try_fold(target_config.clone(), |solution, step| {
+                step.chain.extract_solution_json(solution)
+            })?;
         let source_eval = self.source.evaluate_witness_dyn(&source_config)?.ok_or_else(|| {
             problemreductions::rules::ExtractionError::invalid(format!(
                 "extracted solution is infeasible for {}; the reduction did not establish a source solution",
@@ -338,14 +365,85 @@ impl BundleReplay {
         let BundleChain::Aggregate(chain) = &self.chain else {
             anyhow::bail!("value recovery requires an aggregate-capable path")
         };
-        Ok(chain.extract_value_dyn(value)?)
+        Ok(chain.extract_value(value)?)
     }
 
-    pub fn extract_result(&self, result: &SolveOutcome) -> Result<SolveOutcome> {
-        let BundleChain::Witness(chain) = &self.chain else {
+    /// Execute recovery of an exact completed result. The caller establishes
+    /// optimality or infeasibility; evaluating a candidate cannot establish it.
+    pub(crate) fn extract_result(&self, result: &SolveOutcome) -> Result<SolveOutcome> {
+        use problemreductions::rules::ExtractionError;
+        let BundleChain::Witness(steps) = &self.chain else {
             anyhow::bail!("value-only reductions require an aggregate value")
         };
-        Ok(chain.extract_result(&*self.source, result)?)
+        let (mut witness, mut value) = match result {
+            SolveOutcome::Optimal {
+                solution,
+                evaluation,
+            } => {
+                let value = self.target.evaluate_json(solution)?;
+                let actual = self
+                    .target
+                    .aggregate_witness_evaluation(&value)?
+                    .ok_or_else(|| ExtractionError::invalid("target witness is infeasible"))?;
+                if evaluation != &actual {
+                    return Err(ExtractionError::invalid(
+                        "target evaluation does not match the witness",
+                    )
+                    .into());
+                }
+                (Some(solution.clone()), value)
+            }
+            SolveOutcome::Infeasible => (None, self.target.empty_aggregate_json()?),
+        };
+        let mut evaluation = None;
+        for (index, step) in steps.iter().enumerate().rev() {
+            let input: &dyn DynProblem = if index == 0 {
+                &*self.source
+            } else {
+                (step.source_variant.borrow_fn)(steps[index - 1].chain.target_problem_any())
+                    .context("intermediate problem type mismatch")?
+            };
+            let mapped = if step.chain.has_value_mapping() {
+                Some(step.chain.extract_value(value.clone())?)
+            } else {
+                None
+            };
+            if let Some(mapped_value) = &mapped {
+                if input.aggregate_witness_evaluation(mapped_value)?.is_none() {
+                    witness = None;
+                    value = mapped_value.clone();
+                    evaluation = None;
+                    continue;
+                }
+            }
+            let target_witness = witness.take().ok_or_else(|| {
+                ExtractionError::invalid(format!(
+                    "cannot recover a {} witness from this value-only result",
+                    input.problem_name()
+                ))
+            })?;
+            let solution = step.chain.extract_solution_json(target_witness)?;
+            value = input.evaluate_json(&solution)?;
+            evaluation = Some(
+                input
+                    .aggregate_witness_evaluation(&value)?
+                    .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?,
+            );
+            if mapped.is_some_and(|mapped| mapped != value) {
+                return Err(ExtractionError::invalid(
+                    "extracted witness does not realize the mapped aggregate",
+                )
+                .into());
+            }
+            witness = Some(solution);
+        }
+        Ok(match witness {
+            Some(solution) => SolveOutcome::Optimal {
+                solution,
+                evaluation: evaluation.expect("a recovered witness has an evaluation"),
+            },
+            None => SolveOutcome::Infeasible,
+        })
     }
 
     /// Solve the target and map the result back to the source problem.
@@ -466,6 +564,162 @@ mod tests {
     use problemreductions::models::misc::BinPacking;
     use problemreductions::topology::SimpleGraph;
     use serde_json::json;
+
+    fn problem_step<P: problemreductions::Problem>() -> problemreductions::rules::ReductionStep {
+        problemreductions::rules::ReductionStep {
+            name: P::NAME.into(),
+            variant: ReductionGraph::variant_to_map(&P::variant()),
+        }
+    }
+
+    fn replay<P: problemreductions::Problem + serde::Serialize>(
+        source: &P,
+        targets: Vec<problemreductions::rules::ReductionStep>,
+    ) -> BundleReplay {
+        use problemreductions::rules::{ReductionMode, ReductionPath};
+        let mut steps = vec![problem_step::<P>()];
+        steps.extend(targets);
+        let bundle = crate::commands::reduce::execute_route(
+            ProblemJson {
+                problem_type: P::NAME.into(),
+                variant: ReductionGraph::variant_to_map(&P::variant()),
+                data: serde_json::to_value(source).unwrap(),
+            },
+            ReductionPath { steps },
+            ReductionMode::Witness,
+        )
+        .unwrap();
+        BundleReplay::prepare(&bundle, ReductionMode::Witness).unwrap()
+    }
+
+    #[test]
+    fn completed_recovery_composes_solution_only_and_value_mapping_steps() {
+        use problemreductions::models::{Decision, MinimumVertexCover};
+        type Cover = MinimumVertexCover<SimpleGraph, i64>;
+        type Independent = MaximumIndependentSet<SimpleGraph, i64>;
+        for bound in [1, 2] {
+            let source = Decision::new(
+                Cover::new(
+                    SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+                    vec![1; 3],
+                ),
+                bound,
+            );
+            let replay = replay(
+                &source,
+                vec![problem_step::<Cover>(), problem_step::<Independent>()],
+            );
+            for solution in [
+                json!([true, false, false]),
+                json!([false, true, false]),
+                json!([false, false, true]),
+            ] {
+                let recovered = replay
+                    .extract_result(&SolveOutcome::Optimal {
+                        solution,
+                        evaluation: "Max(1)".into(),
+                    })
+                    .unwrap();
+                assert_eq!(matches!(recovered, SolveOutcome::Infeasible), bound == 1);
+                if let SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
+                } = recovered
+                {
+                    assert_eq!(evaluation, "Or(true)");
+                    assert_eq!(
+                        replay.source.evaluate_witness_dyn(&solution).unwrap(),
+                        Some(evaluation)
+                    );
+                }
+            }
+            assert!(replay.extract_result(&SolveOutcome::Infeasible).is_err());
+            for (solution, evaluation) in [
+                (json!([true]), "Max(1)"),
+                (json!([true, true, true]), "Max(None)"),
+                (json!([true, false, false]), "Max(99)"),
+            ] {
+                assert!(replay
+                    .extract_result(&SolveOutcome::Optimal {
+                        solution,
+                        evaluation: evaluation.into()
+                    })
+                    .is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn completed_recovery_carries_negative_answers_through_value_mappings() {
+        use problemreductions::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
+        use problemreductions::models::graph::MaxCut;
+        use problemreductions::solvers::BruteForce;
+        use problemreductions::Problem;
+        for unsatisfiable in [false, true] {
+            let clauses = if unsatisfiable {
+                vec![vec![1], vec![-1]]
+            } else {
+                vec![vec![1]]
+            };
+            let source = Satisfiability::new(1, clauses.into_iter().map(CNFClause::new).collect());
+            let replay = replay(
+                &source,
+                vec![
+                    problem_step::<NAESatisfiability>(),
+                    problem_step::<MaxCut<SimpleGraph, i64>>(),
+                ],
+            );
+            let target = replay
+                .target
+                .as_any()
+                .downcast_ref::<MaxCut<SimpleGraph, i64>>()
+                .unwrap();
+            for solution in BruteForce::new().find_all_witnesses(target).unwrap() {
+                let recovered = replay
+                    .extract_result(&SolveOutcome::Optimal {
+                        evaluation: target.evaluate(&solution).unwrap().to_string(),
+                        solution: json!(solution),
+                    })
+                    .unwrap();
+                assert_eq!(matches!(recovered, SolveOutcome::Infeasible), unsatisfiable);
+            }
+        }
+    }
+
+    #[test]
+    fn completed_recovery_checks_value_and_solution_agreement() {
+        use problemreductions::models::algebraic::{ObjectiveSense, ILP, QUBO};
+        use problemreductions::Problem;
+        let source = ILP::<bool>::new(1, vec![], vec![(0, 1)], ObjectiveSense::Maximize).unwrap();
+        let mut replay = replay(&source, vec![problem_step::<QUBO<i64>>()]);
+        let target_result = replay
+            .target
+            .solve(SolverRequest::BruteForce)
+            .unwrap()
+            .outcome;
+        assert!(matches!(
+            replay.extract_result(&target_result).unwrap(),
+            SolveOutcome::Optimal { .. }
+        ));
+        // A different source objective must not agree with the executed value mapping.
+        let different =
+            ILP::<bool>::new(1, vec![], vec![(0, 2)], ObjectiveSense::Maximize).unwrap();
+        replay.source = load_problem(
+            ILP::<bool>::NAME,
+            &ReductionGraph::variant_to_map(&ILP::<bool>::variant()),
+            serde_json::to_value(different).unwrap(),
+        )
+        .unwrap();
+        assert!(replay
+            .extract_result(&target_result)
+            .unwrap_err()
+            .to_string()
+            .contains("does not realize the mapped aggregate"));
+        assert!(replay
+            .source
+            .aggregate_witness_evaluation(&json!(true))
+            .is_err());
+    }
 
     #[test]
     fn aggregate_only_bundle_executes_and_recovers_without_witnesses() {
