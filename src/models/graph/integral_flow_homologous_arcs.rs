@@ -143,23 +143,23 @@ impl IntegralFlowHomologousArcs {
         if capacities.len() != num_arcs {
             return Err("capacities length must match graph.num_arcs()".into());
         }
-        if !(source < num_vertices) {
+        if source >= num_vertices {
             return Err(format!(
                 "source ({source}) must be less than num_vertices ({num_vertices})"
             )
             .into());
         }
-        if !(sink < num_vertices) {
+        if sink >= num_vertices {
             return Err(
                 format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
             );
         }
 
         for &(a, b) in &homologous_pairs {
-            if !(a < num_arcs) {
+            if a >= num_arcs {
                 return Err(format!("homologous arc index {a} out of range").into());
             }
-            if !(b < num_arcs) {
+            if b >= num_arcs {
                 return Err(format!("homologous arc index {b} out of range").into());
             }
         }

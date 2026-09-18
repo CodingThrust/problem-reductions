@@ -128,10 +128,10 @@ impl IntegralFlowBundles {
         let num_vertices = graph.num_vertices();
         let num_arcs = graph.num_arcs();
 
-        if !(source < num_vertices) {
+        if source >= num_vertices {
             return Err(format!("source ({source}) >= num_vertices ({num_vertices})").into());
         }
-        if !(sink < num_vertices) {
+        if sink >= num_vertices {
             return Err(format!("sink ({sink}) >= num_vertices ({num_vertices})").into());
         }
         if source == sink {
@@ -150,7 +150,7 @@ impl IntegralFlowBundles {
         for (bundle_index, (bundle, &capacity)) in
             bundles.iter().zip(&bundle_capacities).enumerate()
         {
-            if !(capacity > 0) {
+            if capacity <= 0 {
                 return Err(
                     format!("bundle capacity at index {bundle_index} must be positive").into(),
                 );
@@ -158,7 +158,7 @@ impl IntegralFlowBundles {
 
             let mut seen = BTreeSet::new();
             for &arc_index in bundle {
-                if !(arc_index < num_arcs) {
+                if arc_index >= num_arcs {
                     return Err(format!("bundle {bundle_index} arc is out of range: index {arc_index}, num_arcs {num_arcs}").into());
                 }
                 if !(seen.insert(arc_index)) {

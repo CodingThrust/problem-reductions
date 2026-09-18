@@ -131,13 +131,13 @@ impl IntegralFlowWithMultipliers {
         }
 
         let num_vertices = graph.num_vertices();
-        if !(source < num_vertices) {
+        if source >= num_vertices {
             return Err(format!(
                 "source ({source}) must be less than num_vertices ({num_vertices})"
             )
             .into());
         }
-        if !(sink < num_vertices) {
+        if sink >= num_vertices {
             return Err(
                 format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
             );
@@ -147,7 +147,7 @@ impl IntegralFlowWithMultipliers {
         }
 
         for (vertex, &multiplier) in multipliers.iter().enumerate() {
-            if vertex != source && vertex != sink && !(multiplier > 0) {
+            if vertex != source && vertex != sink && multiplier <= 0 {
                 return Err("non-terminal multipliers must be positive".into());
             }
         }
