@@ -51,6 +51,7 @@ fn symbolic_size_edge(fields: &[(&'static str, &str)], turing: bool) -> Reductio
         ),
         reduce_fn: Some(|_| panic!("size search must not execute reductions")),
         reduce_aggregate_fn: None,
+        aggregate_view_fn: None,
         turing,
     }
 }
@@ -64,6 +65,266 @@ fn named_path(names: &[&str]) -> ReductionPath {
                 variant: BTreeMap::new(),
             })
             .collect(),
+    }
+}
+
+fn problem_step<P: Problem>() -> ReductionStep {
+    ReductionStep {
+        name: P::NAME.into(),
+        variant: ReductionGraph::variant_to_map(&P::variant()),
+    }
+}
+
+#[test]
+fn completed_decision_recovery_shares_construction_and_handles_both_answers() {
+    use crate::models::Decision;
+    use crate::solvers::{BruteForce, SolveOutcome};
+    type Cover = MinimumVertexCover<SimpleGraph, i64>;
+    let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: vec![problem_step::<Decision<Cover>>(), problem_step::<Cover>()],
+    };
+    for bound in [1, 2] {
+        let source = Decision::new(
+            Cover::new(
+                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+                vec![1; 3],
+            ),
+            bound,
+        );
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let step = chain.steps[0].as_ref();
+        assert!(
+            crate::rules::aggregate_view::<crate::rules::VariantReductionResult<Cover, Cover>>(
+                step
+            )
+            .is_err()
+        );
+        let aggregate = chain.aggregate_views[0].unwrap()(step).unwrap();
+        assert!(std::ptr::eq(
+            step.target_problem_any().downcast_ref::<Cover>().unwrap(),
+            aggregate
+                .target_problem_any()
+                .downcast_ref::<Cover>()
+                .unwrap(),
+        ));
+        let target = chain.target_problem::<Cover>();
+        for solution in BruteForce::new().find_all_witnesses(target).unwrap() {
+            let result = SolveOutcome::Optimal {
+                evaluation: target.evaluate(&solution).unwrap().to_string(),
+                solution: json!(solution),
+            };
+            let recovered = chain.extract_result(&source, &result).unwrap();
+            if bound == 1 {
+                assert_eq!(recovered, SolveOutcome::Infeasible);
+            } else {
+                assert!(
+                    matches!(recovered, SolveOutcome::Optimal { evaluation, .. } if evaluation == "Or(true)")
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn completed_recovery_propagates_value_only_results_through_multiple_mappings() {
+    use crate::models::formula::CNFClause;
+    use crate::solvers::{BruteForce, SolveOutcome};
+    let graph = ReductionGraph::new();
+    for unsatisfiable in [false, true] {
+        let clauses = if unsatisfiable {
+            vec![vec![1], vec![-1]]
+        } else {
+            vec![vec![1]]
+        };
+        let source = Satisfiability::new(1, clauses.into_iter().map(CNFClause::new).collect());
+        let decision_path = ReductionPath {
+            steps: vec![
+                problem_step::<Satisfiability>(),
+                problem_step::<NAESatisfiability>(),
+            ],
+        };
+        let decision_chain = graph
+            .reduce_along_path(&decision_path, &source)
+            .unwrap()
+            .unwrap();
+        let nae = decision_chain.target_problem::<NAESatisfiability>();
+        assert!(decision_chain
+            .extract_solution_json(json!([false, false]))
+            .is_err());
+        let values = graph
+            .reduce_aggregate_along_path(&decision_path, &source)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            values.target_problem::<NAESatisfiability>().num_vars(),
+            nae.num_vars()
+        );
+        let target_result = match BruteForce::new().solve(nae).unwrap() {
+            Some(solution) => SolveOutcome::Optimal {
+                evaluation: nae.evaluate(&solution).unwrap().to_string(),
+                solution: json!(solution),
+            },
+            None => SolveOutcome::Infeasible,
+        };
+        let expected = decision_chain
+            .extract_result(&source, &target_result)
+            .unwrap();
+        assert_eq!(matches!(expected, SolveOutcome::Infeasible), unsatisfiable);
+
+        let path = ReductionPath {
+            steps: vec![
+                problem_step::<Satisfiability>(),
+                problem_step::<NAESatisfiability>(),
+                problem_step::<MaxCut<SimpleGraph, i64>>(),
+            ],
+        };
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<MaxCut<SimpleGraph, i64>>();
+        for solution in BruteForce::new().find_all_witnesses(target).unwrap() {
+            let result = SolveOutcome::Optimal {
+                evaluation: target.evaluate(&solution).unwrap().to_string(),
+                solution: json!(solution),
+            };
+            let recovered = chain.extract_result(&source, &result).unwrap();
+            assert_eq!(matches!(recovered, SolveOutcome::Infeasible), unsatisfiable);
+            if let SolveOutcome::Optimal { solution, .. } = recovered {
+                assert_eq!(
+                    source
+                        .evaluate(&serde_json::from_value(solution).unwrap())
+                        .unwrap(),
+                    crate::types::Or(true)
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn completed_optimization_recovery_validates_results_and_requires_value_mappings_for_absence() {
+    use crate::solvers::{BruteForce, SolveOutcome};
+    type Independent = MaximumIndependentSet<SimpleGraph, i64>;
+    type Cover = MinimumVertexCover<SimpleGraph, i64>;
+    let source = Independent::new(SimpleGraph::path(3), vec![1; 3]);
+    let path = ReductionPath {
+        steps: vec![problem_step::<Independent>(), problem_step::<Cover>()],
+    };
+    let chain = ReductionGraph::new()
+        .reduce_along_path(&path, &source)
+        .unwrap()
+        .unwrap();
+    let target = chain.target_problem::<Cover>();
+    let solution = BruteForce::new().solve(target).unwrap().unwrap();
+    let result = SolveOutcome::Optimal {
+        evaluation: target.evaluate(&solution).unwrap().to_string(),
+        solution: json!(solution),
+    };
+    assert!(
+        matches!(chain.extract_result(&source, &result).unwrap(), SolveOutcome::Optimal { evaluation, .. } if evaluation == "Max(2)")
+    );
+    assert!(chain
+        .extract_result(&source, &SolveOutcome::Infeasible)
+        .is_err());
+    assert!(chain.extract_result(target, &result).is_err());
+    for (solution, evaluation) in [
+        (json!([true]), "Min(1)"),
+        (json!([false, false, false]), "Min(None)"),
+        (json!([false, true, false]), "Min(999)"),
+    ] {
+        assert!(chain
+            .extract_result(
+                &source,
+                &SolveOutcome::Optimal {
+                    solution,
+                    evaluation: evaluation.into()
+                }
+            )
+            .is_err());
+    }
+}
+
+#[test]
+fn completed_recovery_rejects_inconsistent_value_and_witness_mappings() {
+    use crate::rules::VariantReductionResult;
+    use crate::solvers::SolveOutcome;
+    type Cover = MinimumVertexCover<SimpleGraph, i64>;
+    let source = Cover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1; 2]);
+    let target = Cover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![2; 2]);
+    let chain = ReductionChain {
+        steps: vec![Box::new(VariantReductionResult::<Cover, Cover>::new(
+            target,
+        ))],
+        aggregate_views: vec![Some(
+            crate::rules::aggregate_view::<VariantReductionResult<Cover, Cover>>,
+        )],
+        path: ReductionPath {
+            steps: vec![problem_step::<Cover>(), problem_step::<Cover>()],
+        },
+    };
+    let error = chain
+        .extract_result(
+            &source,
+            &SolveOutcome::Optimal {
+                solution: json!([true, false]),
+                evaluation: "Min(2)".into(),
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("does not realize the mapped aggregate"));
+    let problem: &dyn crate::registry::DynProblem = &source;
+    assert!(problem.aggregate_witness_evaluation(&json!(true)).is_err());
+}
+
+#[test]
+fn counting_and_universal_values_compose_without_witness_recovery() {
+    use crate::rules::traits::tests::{
+        CountingOrCircuit, CountingTseitinFormula, UniversalFormula,
+    };
+    use crate::rules::{ReduceToAggregate, VariantReductionResult};
+    use crate::solvers::BruteForce;
+    let source = CountingOrCircuit;
+    let first = source.reduce_to_aggregate().unwrap();
+    let second = VariantReductionResult::<CountingTseitinFormula, CountingTseitinFormula>::new(
+        first.target_problem().clone(),
+    );
+    let chain = AggregateReductionChain {
+        steps: vec![Box::new(first), Box::new(second)],
+    };
+    let count = BruteForce::new()
+        .solve_cartesian(chain.target_problem::<CountingTseitinFormula>(), |bits| {
+            bits
+        })
+        .unwrap();
+    assert_eq!(count, Sum(3));
+    assert_eq!(
+        chain
+            .extract_value_dyn(serde_json::to_value(count).unwrap())
+            .unwrap(),
+        json!(3)
+    );
+
+    for tautology in [false, true] {
+        let source = UniversalFormula {
+            variable: 0,
+            tautology,
+        };
+        let first = source.reduce_to_aggregate().unwrap();
+        let second = first.target_problem().reduce_to_aggregate().unwrap();
+        let chain = AggregateReductionChain {
+            steps: vec![Box::new(first), Box::new(second)],
+        };
+        let value = BruteForce::new()
+            .solve_cartesian(chain.target_problem::<UniversalFormula>(), |bits| bits)
+            .unwrap();
+        assert_eq!(
+            chain
+                .extract_value_dyn(serde_json::to_value(value).unwrap())
+                .unwrap(),
+            json!(tautology)
+        );
+        assert!(chain.extract_value_dyn(json!(123)).is_err());
     }
 }
 
@@ -397,6 +658,7 @@ fn execute_paths_executes_a_shared_prefix_once() {
         parameter_contract: empty_parameter_contract(),
         reduce_fn: Some(reduce_fn),
         reduce_aggregate_fn: None,
+        aggregate_view_fn: None,
         turing: false,
     };
     let graph = ReductionGraph::from_test_edges(
@@ -471,6 +733,7 @@ fn path_parameter_contract_errors_are_typed_and_isolated() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(|_| panic!("metadata inspection must not execute reductions")),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -492,6 +755,7 @@ fn path_parameter_contract_errors_are_typed_and_isolated() {
             parameter_contract: invalid_contract,
             reduce_fn: Some(|_| panic!("metadata inspection must not execute reductions")),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -646,6 +910,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -656,6 +921,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_middle_to_target_aggregate),
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -696,7 +962,8 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         chain.target_problem::<AggregateChainTarget>().dimensions(),
         vec![1]
     );
-    assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
+    assert_eq!(chain.extract_value_dyn(json!(7)).unwrap(), json!(12));
+    assert!(chain.extract_value_dyn(json!("not an aggregate")).is_err());
 }
 
 #[test]
@@ -712,6 +979,7 @@ fn witness_path_search_rejects_aggregate_only_edge() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -749,6 +1017,7 @@ fn aggregate_path_search_rejects_witness_only_edge() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -786,6 +1055,7 @@ fn witness_executor_does_not_imply_aggregate_capability() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(reduce_natural_variant_witness),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -822,6 +1092,7 @@ fn reduce_aggregate_along_path_rejects_single_step_path() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -850,6 +1121,7 @@ fn reduce_aggregate_returns_none_for_witness_only_edge() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         },
     );
@@ -884,6 +1156,7 @@ fn reduce_along_path_preserves_edge_failure() {
             parameter_contract: empty_parameter_contract(),
             reduce_fn: Some(fail_source_to_middle_witness),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         },
     );

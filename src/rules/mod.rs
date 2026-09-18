@@ -6,6 +6,8 @@ pub use registry::{
     EdgeCapabilities, ParameterContractError, ReductionEntry, ReductionParameterContract,
     ReductionParameterDeclarations, UnavailableParameterField,
 };
+#[doc(hidden)]
+pub use traits::aggregate_view;
 
 pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;

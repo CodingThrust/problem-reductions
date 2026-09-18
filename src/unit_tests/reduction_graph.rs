@@ -931,12 +931,8 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
         );
         let aggregate = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
         assert_eq!(
-            *aggregate
-                .extract_value_from_solution_dyn(&witness)
-                .unwrap()
-                .downcast::<Or>()
-                .unwrap(),
-            Or(expected)
+            aggregate.extract_value_from_solution_dyn(&witness).unwrap(),
+            serde_json::json!(expected)
         );
     }
 }
@@ -1087,6 +1083,7 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
             ),
             reduce_fn: Some(reduce),
             reduce_aggregate_fn: None,
+            aggregate_view_fn: None,
             turing: false,
         }
     }

@@ -140,6 +140,10 @@ pub type ReduceFn =
 pub type AggregateReduceFn =
     fn(&dyn Any) -> Result<Box<dyn DynAggregateReductionResult>, crate::rules::ReductionError>;
 
+/// Value mapping borrowed from an already constructed witness reduction.
+pub type AggregateViewFn =
+    fn(&dyn DynReductionResult) -> crate::rules::ExtractionResult<&dyn DynAggregateReductionResult>;
+
 /// Execution capabilities carried by a reduction edge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EdgeCapabilities {
@@ -189,6 +193,8 @@ pub struct ReductionEntry {
     /// `ReduceToAggregate::reduce_to_aggregate()`, and returns either a boxed
     /// `DynAggregateReductionResult` or the edge's `ReductionError`.
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
+    /// Shares the witness construction when both mappings are available.
+    pub aggregate_view_fn: Option<AggregateViewFn>,
     /// Whether this is a Turing (multi-query) reduction.
     pub turing: bool,
 }

@@ -136,7 +136,7 @@ fn solve_problem(
 
 /// Solve a reduction bundle: solve the target problem, then map the solution back.
 fn solve_bundle(bundle: ReductionBundle, request: SolverRequest, out: &OutputConfig) -> Result<()> {
-    let replay = BundleReplay::prepare(&bundle)?;
+    let replay = BundleReplay::prepare(&bundle, problemreductions::rules::ReductionMode::Witness)?;
     let result = replay.solve(request).map_err(add_solver_hint)?;
 
     let emitted = out.emit(

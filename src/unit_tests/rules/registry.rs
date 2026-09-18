@@ -11,6 +11,7 @@ fn entry_with(declarations: fn() -> ReductionParameterDeclarations) -> Reduction
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
+        aggregate_view_fn: None,
         turing: false,
     }
 }

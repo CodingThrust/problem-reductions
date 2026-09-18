@@ -165,7 +165,8 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `BruteForce::solve()` returns `Result<Option<P::Solution>, SolveError>`; `None` means exhaustive search proved infeasibility
 - `BruteForce::find_all_witnesses()` is a reference-testing helper for collecting every optimal or satisfying solution
-- `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
+- `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows. Neither requires a rule-category tag. When both are registered, completed-result recovery borrows both mappings from the same constructed reduction.
+- `ReductionChain::extract_result()` consumes a completed exact target result; callers must establish optimality or infeasibility. A missing mapping or failed witness extraction is an error, not proof of infeasibility. Counting and universal aggregates use `AggregateReductionChain::extract_value_dyn()` without a representative witness.
 - Every direct `extract_solution()` must call `validate_target_solution()` once before decoding; composed extractors delegate validation to the first direct decoder.
 - Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
@@ -210,7 +211,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
 - `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
-- `Decision<P> → P` is an aggregate-only edge (solve optimization, compare to bound); `P → Decision<P>` is a Turing edge (binary search over decision bound)
+- `Decision<P> → P` supports both mappings: compare the exact optimum to the bound, and recover a witness only if it meets the bound. `P → Decision<P>` is a non-executable Turing edge.
 
 ### Extension Points
 - New models register dynamic load/serialize metadata through `declare_variants!` and, when finite enumeration exists, register it separately through `register_brute_force!`; neither belongs in CLI match arms

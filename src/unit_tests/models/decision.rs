@@ -197,6 +197,72 @@ fn test_decision_reduce_to_aggregate_infeasible_bound() {
 }
 
 #[test]
+fn decision_reduction_recovers_answers_and_all_tied_witnesses() {
+    use crate::rules::{AggregateReductionResult, ReduceTo, ReductionResult};
+    use crate::types::Min;
+
+    for bound in [1, 2] {
+        let source = Decision::new(triangle_mvc(), bound);
+        let reduction =
+            ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let (optimum, witnesses) = BruteForce::new()
+            .solve_with_witnesses(ReductionResult::target_problem(&reduction))
+            .unwrap();
+        assert_eq!(optimum, Min(Some(2)));
+        assert_eq!(reduction.extract_value(optimum), Or(bound == 2));
+        assert_eq!(witnesses.len(), 3);
+        for witness in witnesses {
+            let recovered = reduction.extract_solution(&witness);
+            if bound == 2 {
+                assert_eq!(source.evaluate(&recovered.unwrap()), Ok(Or(true)));
+            } else {
+                assert!(matches!(
+                    recovered,
+                    Err(crate::rules::ExtractionError::InvalidTargetSolution(_))
+                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn decision_reduction_rejects_invalid_and_insufficient_witnesses() {
+    use crate::rules::{ReduceTo, ReductionResult};
+
+    let source = Decision::new(triangle_mvc(), 2);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    for witness in [vec![true, false, false], vec![true, true, true]] {
+        assert!(matches!(
+            reduction.extract_solution(&witness),
+            Err(crate::rules::ExtractionError::InvalidTargetSolution(_))
+        ));
+    }
+    assert!(matches!(
+        reduction.extract_solution(&vec![true]),
+        Err(crate::rules::ExtractionError::Evaluation(
+            crate::traits::EvaluationError::InvalidConfiguration(_)
+        ))
+    ));
+
+    let source = Decision::new(
+        MaximumIndependentSet::new(SimpleGraph::path(3), vec![1_i64; 3]),
+        2,
+    );
+    let reduction =
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    assert_eq!(
+        reduction
+            .extract_solution(&vec![true, false, true])
+            .unwrap(),
+        vec![true, false, true]
+    );
+    assert!(matches!(
+        reduction.extract_solution(&vec![false, true, false]),
+        Err(crate::rules::ExtractionError::InvalidTargetSolution(_))
+    ));
+}
+
+#[test]
 fn test_decision_mds_creation() {
     let mds = star_mds();
     let decision = Decision::new(mds, 1);
@@ -333,12 +399,8 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     ));
     let aggregate = (edge.reduce_aggregate_fn.unwrap())(&decision).unwrap();
     assert_eq!(
-        *aggregate
-            .extract_value_from_solution_dyn(&witness)
-            .unwrap()
-            .downcast::<Or>()
-            .unwrap(),
-        Or(true)
+        aggregate.extract_value_from_solution_dyn(&witness).unwrap(),
+        serde_json::json!(true)
     );
     assert!(matches!(
         (edge.reduce_aggregate_fn.unwrap())(decision.inner()),

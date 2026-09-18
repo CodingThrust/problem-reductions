@@ -284,7 +284,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_registered_aggregate_path() {
         let best = BruteForce::new().solve(target).unwrap().unwrap();
         let optimum = target.evaluate(&best).unwrap();
         assert_eq!(
-            chain.extract_value_dyn(serde_json::to_value(optimum).unwrap()),
+            chain
+                .extract_value_dyn(serde_json::to_value(optimum).unwrap())
+                .unwrap(),
             serde_json::to_value(Or(expected)).unwrap(),
         );
         assert_eq!(

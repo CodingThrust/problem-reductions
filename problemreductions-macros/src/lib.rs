@@ -531,6 +531,12 @@ fn generate_reduction_entry(
         quote! { None }
     };
 
+    let aggregate_view_fn = if attrs.aggregate {
+        quote! { Some(crate::rules::aggregate_view::<<#source_type as crate::rules::ReduceTo<#target_type>>::Result>) }
+    } else {
+        quote! { None }
+    };
+
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
@@ -580,6 +586,7 @@ fn generate_reduction_entry(
                     Ok(Box::new(result))
                 }),
                 reduce_aggregate_fn: #reduce_aggregate_fn,
+                aggregate_view_fn: #aggregate_view_fn,
                 turing: false,
             }
         }
@@ -940,6 +947,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                 let p = any.downcast_ref::<#ty>()?;
                 Some(serde_json::to_value(p).expect("serialize failed"))
             },
+            borrow_fn: |any| any.downcast_ref::<#ty>().map(|p| p as &dyn crate::registry::DynProblem),
         };
 
         output.extend(quote! {

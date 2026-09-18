@@ -209,17 +209,26 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
-    /// Extract a source-space solution from a reduction bundle and a target-space config
+    /// Recover a source solution, completed result, or aggregate from a reduction bundle
     #[command(after_help = "\
 Examples:
   pred extract bundle.json --config '[1,0,1,0]'
   pred extract bundle.json --config '[1,0,1,0]' -o source.json
+  pred extract bundle.json --result optimum.json
+  pred extract bundle.json --value '2'
   cat bundle.json | pred extract - --config '[1,0,1,0]'
 
 Use this when an external solver has solved the bundle's target problem
 (e.g. a QUBO sampler, a neutral-atom platform, a QAOA runtime) and you want
 the corresponding solution in the original source problem space without
 having to shell back into `pred solve`.
+
+--config recovers a candidate only. --result requires an exact completed result:
+  {\"status\":\"optimal\",\"solution\":[true,false],\"evaluation\":\"Min(1)\"}
+  {\"status\":\"infeasible\"}
+Evaluation is optional, but must match when supplied. The external solver must
+establish optimality or infeasibility; numerical status alone is not a proof.
+--value maps an exact aggregate through value-capable edges, without a witness.
 
 Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
 --config is the target problem's solution encoded as JSON (e.g. '[1,0,1,0]').")]
@@ -331,15 +340,26 @@ pub struct ReduceArgs {
     /// Explicit reduction route selected from a path-set entry.
     #[arg(long, required = true)]
     pub via: PathBuf,
+    /// Execute value mappings; recover the external aggregate with `pred extract --value`.
+    #[arg(long)]
+    pub aggregate: bool,
 }
 
 #[derive(clap::Args)]
+#[group(skip)]
+#[command(group(clap::ArgGroup::new("recovery_input").required(true).args(["config", "result", "value"])))]
 pub struct ExtractArgs {
     /// Reduction bundle JSON (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
     /// Target problem solution encoded as JSON (for example, [1,0,1,0])
     #[arg(long)]
-    pub config: String,
+    pub config: Option<String>,
+    /// JSON file containing an exact completed target result (optimal or infeasible).
+    #[arg(long)]
+    pub result: Option<PathBuf>,
+    /// Exact target aggregate encoded as JSON; uses only value mappings.
+    #[arg(long)]
+    pub value: Option<String>,
 }
 
 #[derive(clap::Args)]

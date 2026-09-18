@@ -75,23 +75,37 @@ fn generic_decision_ilp_respects_maximization_bounds() {
 fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
-    use crate::rules::{ExtractionError, ReductionResult};
+    use crate::rules::{AggregateReductionResult, ExtractionError, ReductionResult};
     use crate::solvers::{ILPSolveError, ILPSolver};
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 
     type Inner = MinimumVertexCover<SimpleGraph, i64>;
-    struct BrokenExtractor(Inner);
+    struct BrokenExtractor(Decision<Inner>);
     impl ReductionResult for BrokenExtractor {
         type Source = Decision<Inner>;
         type Target = Inner;
 
         fn target_problem(&self) -> &Inner {
-            &self.0
+            self.0.inner()
         }
 
         fn extract_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
             Err(ExtractionError::invalid("broken witness decoder"))
+        }
+    }
+
+    impl AggregateReductionResult for BrokenExtractor {
+        type Source = Decision<Inner>;
+        type Target = Inner;
+
+        fn target_problem(&self) -> &Inner {
+            self.0.inner()
+        }
+
+        fn extract_value(&self, value: <Inner as Problem>::Value) -> crate::types::Or {
+            use crate::types::OptimizationValue;
+            crate::types::Or(OptimizationValue::meets_bound(&value, self.0.bound()))
         }
     }
 
@@ -110,8 +124,9 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     };
     pipeline.reducers[0].0 = |source| {
         let source = source.downcast_ref::<Decision<Inner>>().unwrap();
-        Ok(Box::new(BrokenExtractor(source.inner().clone())))
+        Ok(Box::new(BrokenExtractor(source.clone())))
     };
+    pipeline.reducers[0].1 = Some(crate::rules::aggregate_view::<BrokenExtractor>);
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
         pipeline.solve(&Decision::new(inner.clone(), 0), &ILPSolver::new()),

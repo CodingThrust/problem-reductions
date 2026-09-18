@@ -1,7 +1,7 @@
 //! Deterministic solver capabilities for exact problem variants.
 
 use crate::registry::VariantEntry;
-use crate::rules::registry::{reduction_entries, AggregateReduceFn, ReduceFn, ReductionEntry};
+use crate::rules::registry::{reduction_entries, AggregateViewFn, ReduceFn, ReductionEntry};
 use crate::rules::DynReductionResult;
 use serde::Serialize;
 use std::any::Any;
@@ -103,7 +103,7 @@ inventory::collect!(CustomizedSolverRegistration);
 #[derive(Debug)]
 pub(crate) struct CompiledIlpPipeline {
     path: Vec<ExactProblemKey>,
-    reducers: Vec<(ReduceFn, Option<AggregateReduceFn>)>,
+    reducers: Vec<(ReduceFn, Option<AggregateViewFn>)>,
 }
 
 impl CompiledIlpPipeline {
@@ -144,17 +144,29 @@ impl CompiledIlpPipeline {
         let solution = solver.solve_dyn(target)?;
         let mut source_solution: Box<dyn Any> = Box::new(solution);
         for (index, step) in reductions.iter().enumerate().rev() {
-            if let Some(reduce) = self.reducers[index].1 {
+            if let Some(view) = self.reducers[index].1 {
                 let input = if index == 0 {
                     source
                 } else {
                     reductions[index - 1].target_problem_any()
                 };
-                let aggregate = reduce(input)?;
+                let aggregate = view(step.as_ref())?;
                 // A numerical target optimum can establish YES through a source witness,
                 // but a missed threshold alone cannot establish NO.
                 let value = aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
-                if value.downcast_ref::<crate::types::Or>() == Some(&crate::types::Or(false)) {
+                let source = crate::registry::find_variant_entry(
+                    &self.path[index].name,
+                    &self.path[index].variant,
+                )
+                .and_then(|entry| (entry.borrow_fn)(input))
+                .ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid("pipeline source type mismatch")
+                })?;
+                if source
+                    .aggregate_witness_evaluation(&value)
+                    .map_err(crate::rules::ExtractionError::from)?
+                    .is_none()
+                {
                     return Err(super::ILPSolveError::UnresolvedDecision(
                         self.path[index].label(),
                     ));
@@ -415,7 +427,7 @@ fn build_registry(
                 matches[0]
                     .reduce_fn
                     .expect("indexed only entries with reduce_fn"),
-                matches[0].reduce_aggregate_fn,
+                matches[0].aggregate_view_fn,
             ));
         }
 

@@ -316,6 +316,7 @@ problemreductions::inventory::submit! {
             let problem: AggregateValueSource = serde_json::from_value(data)?;
             Ok(Box::new(problem))
         },
+        borrow_fn: |any| any.downcast_ref::<AggregateValueSource>().map(|p| p as &dyn problemreductions::registry::DynProblem),
         serialize_fn: |any| {
             let problem = any.downcast_ref::<AggregateValueSource>()?;
             Some(serde_json::to_value(problem).expect("serialize AggregateValueSource failed"))
@@ -364,6 +365,7 @@ problemreductions::inventory::submit! {
             let problem: AggregateValueTarget = serde_json::from_value(data)?;
             Ok(Box::new(problem))
         },
+        borrow_fn: |any| any.downcast_ref::<AggregateValueTarget>().map(|p| p as &dyn problemreductions::registry::DynProblem),
         serialize_fn: |any| {
             let problem = any.downcast_ref::<AggregateValueTarget>()?;
             Some(serde_json::to_value(problem).expect("serialize AggregateValueTarget failed"))
@@ -403,6 +405,7 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
+        aggregate_view_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
             let source = any
                 .downcast_ref::<AggregateValueSource>()
@@ -443,6 +446,7 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
+        aggregate_view_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
             let _source = any
                 .downcast_ref::<AggregateValueSource>()

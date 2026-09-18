@@ -294,7 +294,6 @@ fn test_sat_qubo_checked_numeric_boundaries() {
 
 #[test]
 fn test_sat_qubo_registered_aggregate_threshold() {
-    use crate::types::Or;
     macro_rules! check {
         ($k:ty) => {
             for (clauses, expected) in [(vec![vec![1]], true), (vec![vec![1], vec![-1]], false)] {
@@ -317,12 +316,8 @@ fn test_sat_qubo_registered_aggregate_threshold() {
                     .unwrap();
                 let aggregate = (edge.reduce_aggregate_fn.unwrap())(&source).unwrap();
                 assert_eq!(
-                    *aggregate
-                        .extract_value_from_solution_dyn(&witness)
-                        .unwrap()
-                        .downcast::<Or>()
-                        .unwrap(),
-                    Or(expected)
+                    aggregate.extract_value_from_solution_dyn(&witness).unwrap(),
+                    serde_json::json!(expected)
                 );
             }
         };
