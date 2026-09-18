@@ -36,10 +36,25 @@ inventory::submit! {
 /// subsequence consists of the symbols before padding starts. The objective is
 /// to maximize the effective length.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "LongestCommonSubsequenceData")]
 pub struct LongestCommonSubsequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Deserialize)]
+struct LongestCommonSubsequenceData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<LongestCommonSubsequenceData> for LongestCommonSubsequence {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: LongestCommonSubsequenceData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.strings)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -74,21 +89,7 @@ impl TryFrom<LongestCommonSubsequenceCreateSpec> for LongestCommonSubsequence {
             .transpose()?
             .unwrap_or(0);
         let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
-        if alphabet_size < inferred_alphabet_size {
-            return Err(format!(
-                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
-            ).into());
-        }
-        if alphabet_size == 0 {
-            return Err("alphabet size must be positive".to_string().into());
-        }
-        let max_length = spec.strings.iter().map(Vec::len).min().unwrap_or(0);
-
-        Ok(Self {
-            alphabet_size,
-            strings: spec.strings,
-            max_length,
-        })
+        Self::try_new(alphabet_size, spec.strings)
     }
 }
 
@@ -101,26 +102,31 @@ impl LongestCommonSubsequence {
     /// # Panics
     ///
     /// Panics if `alphabet_size == 0` and any input string is non-empty, or if
-    /// an input symbol is outside the declared alphabet, or if all strings are
-    /// empty (max_length would be 0, requiring at least one non-empty string).
+    /// an input symbol is outside the declared alphabet.
     pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
+        Self::try_new(alphabet_size, strings).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let max_length = strings.iter().map(|s| s.len()).min().unwrap_or(0);
-        assert!(
-            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
-            "alphabet_size must be > 0 when any input string is non-empty"
-        );
-        assert!(
-            strings
-                .iter()
-                .flat_map(|s| s.iter())
-                .all(|&symbol| symbol < alphabet_size),
-            "input symbols must be less than alphabet_size"
-        );
-        Self {
+        if !(alphabet_size > 0 || strings.iter().all(|s| s.is_empty())) {
+            return Err("alphabet_size must be > 0 when any input string is non-empty".into());
+        }
+        if !(strings
+            .iter()
+            .flat_map(|s| s.iter())
+            .all(|&symbol| symbol < alphabet_size))
+        {
+            return Err("input symbols must be less than alphabet_size".into());
+        }
+        Ok(Self {
             alphabet_size,
             strings,
             max_length,
-        }
+        })
     }
 
     /// Returns the alphabet size.

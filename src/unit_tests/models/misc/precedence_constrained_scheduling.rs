@@ -1,4 +1,29 @@
 use super::*;
+
+#[test]
+fn test_precedence_constrained_scheduling_validates_persisted_input() {
+    let valid =
+        serde_json::to_value(PrecedenceConstrainedScheduling::new(2, 1, 2, vec![(0, 1)])).unwrap();
+    for (field, value) in [
+        ("num_processors", serde_json::json!(0)),
+        ("deadline", serde_json::json!(0)),
+        ("deadline", serde_json::json!(-1)),
+        ("precedences", serde_json::json!([[2, 0]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<PrecedenceConstrainedScheduling>(invalid).is_err(),
+            "{field}"
+        );
+    }
+    assert!(
+        serde_json::from_value::<PrecedenceConstrainedScheduling>(serde_json::json!({
+            "num_tasks": 0, "num_processors": 0, "deadline": -1, "precedences": []
+        }))
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

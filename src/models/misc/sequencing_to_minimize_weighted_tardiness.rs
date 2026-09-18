@@ -52,6 +52,7 @@ inventory::submit! {
 /// assert!(solver.solve(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SequencingToMinimizeWeightedTardinessCreateSpec")]
 pub struct SequencingToMinimizeWeightedTardiness {
     lengths: Vec<i64>,
     weights: Vec<i64>,
@@ -77,22 +78,7 @@ impl TryFrom<SequencingToMinimizeWeightedTardinessCreateSpec>
     fn try_from(
         spec: SequencingToMinimizeWeightedTardinessCreateSpec,
     ) -> Result<Self, Self::Error> {
-        if spec.lengths.len() != spec.weights.len() {
-            return Err("weights length must equal lengths length"
-                .to_string()
-                .into());
-        }
-        if spec.lengths.len() != spec.deadlines.len() {
-            return Err("deadlines length must equal lengths length"
-                .to_string()
-                .into());
-        }
-        Ok(Self::new(
-            spec.lengths,
-            spec.weights,
-            spec.deadlines,
-            spec.bound,
-        ))
+        Self::try_new(spec.lengths, spec.weights, spec.deadlines, spec.bound)
     }
 }
 
@@ -103,35 +89,39 @@ impl SequencingToMinimizeWeightedTardiness {
     ///
     /// Panics if the input vectors do not have the same length.
     pub fn new(lengths: Vec<i64>, weights: Vec<i64>, deadlines: Vec<i64>, bound: i64) -> Self {
-        assert_eq!(
-            lengths.len(),
-            weights.len(),
-            "weights length must equal lengths length"
-        );
-        assert_eq!(
-            lengths.len(),
-            deadlines.len(),
-            "deadlines length must equal lengths length"
-        );
-        assert!(
-            lengths.iter().all(|&length| length >= 0),
-            "task lengths must be nonnegative"
-        );
-        assert!(
-            weights.iter().all(|&weight| weight >= 0),
-            "task weights must be nonnegative"
-        );
-        assert!(
-            deadlines.iter().all(|&deadline| deadline >= 0),
-            "deadlines must be nonnegative"
-        );
-        assert!(bound >= 0, "bound must be nonnegative");
-        Self {
+        Self::try_new(lengths, weights, deadlines, bound).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        lengths: Vec<i64>,
+        weights: Vec<i64>,
+        deadlines: Vec<i64>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if lengths.len() != weights.len() {
+            return Err("weights length must equal lengths length".into());
+        }
+        if lengths.len() != deadlines.len() {
+            return Err("deadlines length must equal lengths length".into());
+        }
+        if lengths.iter().any(|&length| length < 0) {
+            return Err("task lengths must be nonnegative".into());
+        }
+        if weights.iter().any(|&weight| weight < 0) {
+            return Err("task weights must be nonnegative".into());
+        }
+        if deadlines.iter().any(|&deadline| deadline < 0) {
+            return Err("deadlines must be nonnegative".into());
+        }
+        if bound < 0 {
+            return Err("bound must be nonnegative".into());
+        }
+        Ok(Self {
             lengths,
             weights,
             deadlines,
             bound,
-        }
+        })
     }
 
     /// Returns the job lengths.

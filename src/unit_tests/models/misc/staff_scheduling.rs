@@ -1,4 +1,27 @@
 use super::*;
+
+#[test]
+fn test_staff_scheduling_rejects_invalid_json() {
+    let valid = serde_json::to_value(StaffScheduling::new(
+        1,
+        vec![vec![true, false]],
+        vec![1, 0],
+        1,
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("num_workers", serde_json::json!(-1)),
+        ("schedules", serde_json::json!([[true]])),
+        ("schedules", serde_json::json!([[true, true]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<StaffScheduling>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

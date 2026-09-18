@@ -198,3 +198,13 @@ fn test_string_to_string_correction_create_spec_rejects_small_alphabet() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn deserialize_rejects_invalid_input() {
+    for json in [
+        serde_json::json!({"alphabet_size": 1, "source": [1], "target": [], "bound": 1}),
+        serde_json::json!({"alphabet_size": 1, "source": [], "target": [1], "bound": 1}),
+    ] {
+        assert!(serde_json::from_value::<StringToStringCorrection>(json).is_err());
+    }
+}

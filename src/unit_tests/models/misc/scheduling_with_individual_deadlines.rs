@@ -1,4 +1,28 @@
 use super::*;
+
+#[test]
+fn test_scheduling_with_individual_deadlines_validates_persisted_input() {
+    let valid = serde_json::to_value(SchedulingWithIndividualDeadlines::new(
+        2,
+        1,
+        vec![1, 2],
+        vec![(0, 1)],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("deadlines", serde_json::json!([1])),
+        ("deadlines", serde_json::json!([-1, 2])),
+        ("precedences", serde_json::json!([[2, 0]])),
+        ("precedences", serde_json::json!([[0, 2]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<SchedulingWithIndividualDeadlines>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]

@@ -147,3 +147,13 @@ fn test_grouping_by_swapping_create_spec_rejects_nonzero_bound_for_empty_string(
 
     assert!(result.is_err());
 }
+
+#[test]
+fn deserialize_rejects_invalid_input() {
+    for json in [
+        serde_json::json!({"alphabet_size": 1, "string": [1], "budget": 0}),
+        serde_json::json!({"alphabet_size": 0, "string": [], "budget": 1}),
+    ] {
+        assert!(serde_json::from_value::<GroupingBySwapping>(json).is_err());
+    }
+}

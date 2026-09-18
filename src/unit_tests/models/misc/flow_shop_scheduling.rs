@@ -1,4 +1,21 @@
 use super::*;
+
+#[test]
+fn test_flow_shop_scheduling_rejects_invalid_json() {
+    let valid = serde_json::to_value(FlowShopScheduling::new(2, vec![vec![1, 2]], 3)).unwrap();
+    for (field, value) in [
+        ("task_lengths", serde_json::json!([[1]])),
+        ("task_lengths", serde_json::json!([[-1, 2]])),
+        ("deadline", serde_json::json!(-1)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<FlowShopScheduling>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

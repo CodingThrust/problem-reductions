@@ -1,4 +1,28 @@
 use super::*;
+
+#[test]
+fn test_sequencing_with_release_times_and_deadlines_rejects_invalid_json() {
+    let valid = serde_json::to_value(SequencingWithReleaseTimesAndDeadlines::new(
+        vec![1],
+        vec![0],
+        vec![2],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("release_times", serde_json::json!([])),
+        ("deadlines", serde_json::json!([])),
+        ("lengths", serde_json::json!([-1])),
+        ("release_times", serde_json::json!([-1])),
+        ("deadlines", serde_json::json!([-1])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<SequencingWithReleaseTimesAndDeadlines>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

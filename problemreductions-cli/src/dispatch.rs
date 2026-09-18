@@ -596,7 +596,7 @@ mod tests {
         );
         let err = loaded.err().unwrap();
         assert!(
-            err.to_string().contains("expected positive integer, got 0"),
+            err.to_string().contains("num_processors must be positive"),
             "unexpected error: {err}"
         );
     }

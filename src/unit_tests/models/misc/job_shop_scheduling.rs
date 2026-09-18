@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn test_job_shop_scheduling_rejects_invalid_json() {
+    let valid =
+        serde_json::to_value(JobShopScheduling::new(2, vec![vec![(0, 1), (1, 2)]])).unwrap();
+    for (field, value) in [
+        ("num_processors", serde_json::json!(0)),
+        ("jobs", serde_json::json!([[[2, 1]]])),
+        ("jobs", serde_json::json!([[[0, -1]]])),
+        ("jobs", serde_json::json!([[[0, 1], [0, 2]]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<JobShopScheduling>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
@@ -123,6 +142,12 @@ fn test_job_shop_scheduling_create_spec_derives_processor_count() {
 
 #[test]
 fn test_job_shop_scheduling_create_spec_rejects_invalid_jobs() {
+    assert!(JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![vec![(0, -1)]],
+        num_processors: Some(1),
+    })
+    .is_err());
+
     let empty = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
         jobs: vec![],
         num_processors: None,

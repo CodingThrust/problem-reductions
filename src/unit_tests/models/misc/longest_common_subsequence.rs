@@ -220,3 +220,23 @@ fn test_lcs_create_spec_rejects_all_empty_strings() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn deserialize_rejects_invalid_input() {
+    for json in [
+        serde_json::json!({"alphabet_size": 1, "strings": [[1]], "max_length": 1}),
+        serde_json::json!({"alphabet_size": 0, "strings": [[0]], "max_length": 1}),
+    ] {
+        assert!(serde_json::from_value::<LongestCommonSubsequence>(json).is_err());
+    }
+}
+
+#[test]
+fn deserialize_rebuilds_length_bound() {
+    let problem: LongestCommonSubsequence = serde_json::from_value(serde_json::json!({
+        "alphabet_size": 2, "strings": [[0, 1], [1]], "max_length": 99
+    }))
+    .unwrap();
+    assert_eq!(problem.max_length(), 1);
+    assert_eq!(problem.dimensions().len(), 1);
+}

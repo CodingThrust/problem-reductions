@@ -262,3 +262,23 @@ fn test_shortestcommonsuperstring_paper_example() {
         Min(Some(3))
     );
 }
+
+#[test]
+fn deserialize_rejects_invalid_input() {
+    for json in [
+        serde_json::json!({"alphabet_size": 2, "strings": [], "max_length": 0}),
+        serde_json::json!({"alphabet_size": 0, "strings": [[0]], "max_length": 1}),
+    ] {
+        assert!(serde_json::from_value::<ShortestCommonSuperstring>(json).is_err());
+    }
+}
+
+#[test]
+fn deserialize_rebuilds_length_bound() {
+    let problem: ShortestCommonSuperstring = serde_json::from_value(serde_json::json!({
+        "alphabet_size": 2, "strings": [[0, 1], [1]], "max_length": 99
+    }))
+    .unwrap();
+    assert_eq!(problem.max_length(), 3);
+    assert_eq!(problem.dimensions().len(), 3);
+}

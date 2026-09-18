@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn test_multiprocessor_scheduling_rejects_invalid_inputs() {
+    let valid = serde_json::to_value(MultiprocessorScheduling::new(vec![1], 1, 2)).unwrap();
+    for (field, value) in [
+        ("lengths", serde_json::json!([-1])),
+        ("deadline", serde_json::json!(-1)),
+        ("num_processors", serde_json::json!(0)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MultiprocessorScheduling>(invalid.clone()).is_err(),
+            "{field}"
+        );
+        let spec = serde_json::from_value::<MultiprocessorSchedulingCreateSpec>(invalid).unwrap();
+        assert!(MultiprocessorScheduling::try_from(spec).is_err(), "{field}");
+    }
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
@@ -176,7 +195,7 @@ fn test_multiprocessor_scheduling_deserialization_rejects_zero_processors() {
     }))
     .unwrap_err();
     assert!(
-        err.to_string().contains("expected positive integer, got 0"),
+        err.to_string().contains("num_processors must be positive"),
         "unexpected error: {err}"
     );
 }
