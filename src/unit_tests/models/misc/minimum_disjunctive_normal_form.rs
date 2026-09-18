@@ -1,6 +1,36 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_minimum_disjunctive_normal_form_validates_persisted_input() {
+    let valid =
+        serde_json::to_value(MinimumDisjunctiveNormalForm::new(1, vec![false, true])).unwrap();
+    for (field, value) in [
+        ("num_variables", serde_json::json!(0)),
+        ("num_variables", serde_json::json!(64)),
+        ("truth_table", serde_json::json!([true])),
+        ("truth_table", serde_json::json!([false, false])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumDisjunctiveNormalForm>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
+fn test_minimum_disjunctive_normal_form_rebuilds_cached_terms() {
+    let valid =
+        serde_json::to_value(MinimumDisjunctiveNormalForm::new(1, vec![false, true])).unwrap();
+    let mut stale = valid.clone();
+    stale["minterms"] = serde_json::json!([]);
+    stale["prime_implicants"] = serde_json::json!([]);
+    let restored: MinimumDisjunctiveNormalForm = serde_json::from_value(stale).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+}
 use crate::traits::Problem;
 use crate::types::Min;
 

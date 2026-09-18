@@ -56,9 +56,25 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCodeGenerationParallelAssignmentsData")]
 pub struct MinimumCodeGenerationParallelAssignments {
     num_variables: usize,
     assignments: Vec<(usize, Vec<usize>)>,
+}
+
+#[derive(Deserialize)]
+struct MinimumCodeGenerationParallelAssignmentsData {
+    num_variables: usize,
+    assignments: Vec<(usize, Vec<usize>)>,
+}
+
+impl TryFrom<MinimumCodeGenerationParallelAssignmentsData>
+    for MinimumCodeGenerationParallelAssignments
+{
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: MinimumCodeGenerationParallelAssignmentsData) -> Result<Self, Self::Error> {
+        Self::try_new(data.num_variables, data.assignments)
+    }
 }
 
 impl MinimumCodeGenerationParallelAssignments {
@@ -67,22 +83,33 @@ impl MinimumCodeGenerationParallelAssignments {
     /// # Panics
     /// Panics if any target variable or read variable index is >= num_variables.
     pub fn new(num_variables: usize, assignments: Vec<(usize, Vec<usize>)>) -> Self {
+        Self::try_new(num_variables, assignments).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_variables: usize,
+        assignments: Vec<(usize, Vec<usize>)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (i, (target, reads)) in assignments.iter().enumerate() {
-            assert!(
-                *target < num_variables,
-                "assignment {i}: target variable {target} >= num_variables {num_variables}"
-            );
+            if *target >= num_variables {
+                return Err(format!(
+                    "assignment {i}: target variable {target} >= num_variables {num_variables}"
+                )
+                .into());
+            }
             for &r in reads {
-                assert!(
-                    r < num_variables,
-                    "assignment {i}: read variable {r} >= num_variables {num_variables}"
-                );
+                if r >= num_variables {
+                    return Err(format!(
+                        "assignment {i}: read variable {r} >= num_variables {num_variables}"
+                    )
+                    .into());
+                }
             }
         }
-        Self {
+        Ok(Self {
             num_variables,
             assignments,
-        }
+        })
     }
 
     /// Returns the number of variables.

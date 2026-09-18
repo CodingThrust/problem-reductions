@@ -4,6 +4,28 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
+fn test_feasible_register_assignment_validates_persisted_input() {
+    let valid =
+        serde_json::json!({"num_vertices":3,"arcs":[[0,1]],"num_registers":2,"assignment":[0,1,0]});
+    let restored: FeasibleRegisterAssignment = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("arcs", serde_json::json!([[3, 0]])),
+        ("arcs", serde_json::json!([[0, 0]])),
+        ("assignment", serde_json::json!([0])),
+        ("num_registers", serde_json::json!(0)),
+        ("assignment", serde_json::json!([0, 2, 0])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<FeasibleRegisterAssignment>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn test_feasible_register_assignment_basic() {
     let problem =
         FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);

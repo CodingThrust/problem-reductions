@@ -1,6 +1,31 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_minimum_fault_detection_test_set_validates_persisted_input() {
+    let valid = serde_json::to_value(MinimumFaultDetectionTestSet::new(
+        2,
+        vec![(0, 1)],
+        vec![0],
+        vec![1],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("inputs", serde_json::json!([])),
+        ("outputs", serde_json::json!([])),
+        ("arcs", serde_json::json!([[0, 2]])),
+        ("inputs", serde_json::json!([2])),
+        ("outputs", serde_json::json!([2])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumFaultDetectionTestSet>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 use crate::types::Min;
 

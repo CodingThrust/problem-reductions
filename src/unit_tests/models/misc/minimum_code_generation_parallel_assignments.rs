@@ -4,6 +4,25 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
+fn test_minimum_code_generation_parallel_assignments_validates_persisted_input() {
+    let valid = serde_json::json!({"num_variables":2,"assignments":[[0,[1]],[1,[0]]]});
+    let restored: MinimumCodeGenerationParallelAssignments =
+        serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("assignments", serde_json::json!([[2, [0]]])),
+        ("assignments", serde_json::json!([[0, [2]]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumCodeGenerationParallelAssignments>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn test_minimum_code_generation_parallel_assignments_creation() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
     let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments.clone());
