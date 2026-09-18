@@ -1,6 +1,30 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_partially_ordered_knapsack_validates_persisted_input() {
+    let valid =
+        serde_json::json!({"weights":[1,2],"values":[2,3],"precedences":[[0,1]],"capacity":3});
+    let restored: PartiallyOrderedKnapsack = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("weights", serde_json::json!([1])),
+        ("weights", serde_json::json!([-1, 2])),
+        ("values", serde_json::json!([2, -1])),
+        ("capacity", serde_json::json!(-1)),
+        ("precedences", serde_json::json!([[2, 0]])),
+        ("precedences", serde_json::json!([[0, 2]])),
+        ("precedences", serde_json::json!([[0, 1], [1, 0]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<PartiallyOrderedKnapsack>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 
 /// Helper: create the example instance from the issue.

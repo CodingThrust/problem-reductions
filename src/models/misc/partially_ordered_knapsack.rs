@@ -84,55 +84,12 @@ impl TryFrom<PartiallyOrderedKnapsackCreateSpec> for PartiallyOrderedKnapsack {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: PartiallyOrderedKnapsackCreateSpec) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.values.len() {
-            return Err("weights and values must have the same length"
-                .to_string()
-                .into());
-        }
-        if spec.capacity < 0 {
-            return Err("capacity must be non-negative".to_string().into());
-        }
-        if let Some((index, weight)) = spec
-            .weights
-            .iter()
-            .enumerate()
-            .find(|(_, weight)| **weight < 0)
-        {
-            return Err(format!("weight[{index}] must be non-negative, got {weight}").into());
-        }
-        if let Some((index, value)) = spec
-            .values
-            .iter()
-            .enumerate()
-            .find(|(_, value)| **value < 0)
-        {
-            return Err(format!("value[{index}] must be non-negative, got {value}").into());
-        }
-        let precedences = spec.precedences.unwrap_or_default();
-        let num_items = spec.weights.len();
-        if let Some(&(pred, succ)) = precedences
-            .iter()
-            .find(|&&(pred, succ)| pred >= num_items || succ >= num_items)
-        {
-            return Err(format!(
-                "precedence ({pred}, {succ}) is out of range for {num_items} items"
-            )
-            .into());
-        }
-        let predecessors = Self::compute_predecessors(&precedences, num_items);
-        if let Some(item) = predecessors
-            .iter()
-            .enumerate()
-            .find_map(|(item, preds)| preds.contains(&item).then_some(item))
-        {
-            return Err(format!("precedences contain a cycle involving item {item}").into());
-        }
-        Ok(Self::new(
+        Self::try_new(
             spec.weights,
             spec.values,
-            precedences,
+            spec.precedences.unwrap_or_default(),
             spec.capacity,
-        ))
+        )
     }
 }
 
@@ -151,12 +108,8 @@ impl Serialize for PartiallyOrderedKnapsack {
 impl<'de> Deserialize<'de> for PartiallyOrderedKnapsack {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = PartiallyOrderedKnapsackRaw::deserialize(deserializer)?;
-        Ok(Self::new(
-            raw.weights,
-            raw.values,
-            raw.precedences,
-            raw.capacity,
-        ))
+        Self::try_new(raw.weights, raw.values, raw.precedences, raw.capacity)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -179,38 +132,55 @@ impl PartiallyOrderedKnapsack {
         precedences: Vec<(usize, usize)>,
         capacity: i64,
     ) -> Self {
-        assert_eq!(
-            weights.len(),
-            values.len(),
-            "weights and values must have the same length"
-        );
-        assert!(capacity >= 0, "capacity must be non-negative");
+        Self::try_new(weights, values, precedences, capacity)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        weights: Vec<i64>,
+        values: Vec<i64>,
+        precedences: Vec<(usize, usize)>,
+        capacity: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != values.len() {
+            return Err("weights and values must have the same length".into());
+        }
+        if capacity < 0 {
+            return Err("capacity must be non-negative".into());
+        }
         for (i, &w) in weights.iter().enumerate() {
-            assert!(w >= 0, "weight[{i}] must be non-negative, got {w}");
+            if w < 0 {
+                return Err(format!("weight[{i}] must be non-negative, got {w}").into());
+            }
         }
         for (i, &v) in values.iter().enumerate() {
-            assert!(v >= 0, "value[{i}] must be non-negative, got {v}");
+            if v < 0 {
+                return Err(format!("value[{i}] must be non-negative, got {v}").into());
+            }
         }
         let n = weights.len();
         for &(a, b) in &precedences {
-            assert!(a < n, "precedence index {a} out of bounds (n={n})");
-            assert!(b < n, "precedence index {b} out of bounds (n={n})");
+            if a >= n {
+                return Err(format!("precedence index {a} out of bounds (n={n})").into());
+            }
+            if b >= n {
+                return Err(format!("precedence index {b} out of bounds (n={n})").into());
+            }
         }
         let predecessors = Self::compute_predecessors(&precedences, n);
         // Check for cycles: if any item is its own transitive predecessor, the DAG has a cycle
         for (i, preds) in predecessors.iter().enumerate() {
-            assert!(
-                !preds.contains(&i),
-                "precedences contain a cycle involving item {i}"
-            );
+            if preds.contains(&i) {
+                return Err(format!("precedences contain a cycle involving item {i}").into());
+            }
         }
-        Self {
+        Ok(Self {
             weights,
             values,
             precedences,
             capacity,
             predecessors,
-        }
+        })
     }
 
     /// Compute transitive predecessors for each item via Floyd-Warshall.

@@ -51,11 +51,33 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SubsetSumData")]
 pub struct SubsetSum {
     #[serde(with = "super::biguint_serde::decimal_biguint_vec")]
     sizes: Vec<BigUint>,
     #[serde(with = "super::biguint_serde::decimal_biguint")]
     target: BigUint,
+}
+
+#[derive(Deserialize)]
+struct SubsetSumData {
+    #[serde(with = "super::biguint_serde::decimal_biguint_vec")]
+    sizes: Vec<BigUint>,
+    #[serde(with = "super::biguint_serde::decimal_biguint")]
+    target: BigUint,
+}
+
+impl TryFrom<SubsetSumData> for SubsetSum {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: SubsetSumData) -> Result<Self, Self::Error> {
+        if data.sizes.iter().any(BigUint::is_zero) {
+            return Err("all sizes must be positive (> 0)".into());
+        }
+        Ok(Self {
+            sizes: data.sizes,
+            target: data.target,
+        })
+    }
 }
 
 impl SubsetSum {
@@ -69,18 +91,22 @@ impl SubsetSum {
         S: ToBigUint,
         T: ToBigUint,
     {
-        let sizes: Vec<BigUint> = sizes
+        Self::try_new(sizes, target).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new<S, T>(sizes: Vec<S>, target: T) -> Result<Self, crate::registry::ConstructionError>
+    where
+        S: ToBigUint,
+        T: ToBigUint,
+    {
+        let sizes = sizes
             .into_iter()
-            .map(|s| s.to_biguint().expect("All sizes must be positive (> 0)"))
-            .collect();
-        assert!(
-            sizes.iter().all(|s| !s.is_zero()),
-            "All sizes must be positive (> 0)"
-        );
+            .map(|size| size.to_biguint().ok_or("all sizes must be positive (> 0)"))
+            .collect::<Result<Vec<_>, _>>()?;
         let target = target
             .to_biguint()
-            .expect("SubsetSum target must be nonnegative");
-        Self { sizes, target }
+            .ok_or("SubsetSum target must be nonnegative")?;
+        SubsetSumData { sizes, target }.try_into()
     }
 
     /// Create a new SubsetSum instance without validating sizes.

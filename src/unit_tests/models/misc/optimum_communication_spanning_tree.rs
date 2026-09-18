@@ -2,6 +2,31 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_optimum_communication_spanning_tree_validates_persisted_input() {
+    let valid = serde_json::json!({"num_vertices": 2, "edge_weights": [[0, 1], [1, 0]], "requirements": [[0, 1], [1, 0]]});
+    let mut stale = valid.clone();
+    stale["num_vertices"] = serde_json::json!(99);
+    let restored: OptimumCommunicationSpanningTree = serde_json::from_value(stale).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for field in ["edge_weights", "requirements"] {
+        for matrix in [
+            serde_json::json!([]),
+            serde_json::json!([[0, 1], [1]]),
+            serde_json::json!([[1, 1], [1, 0]]),
+            serde_json::json!([[0, 1], [2, 0]]),
+            serde_json::json!([[0, -1], [-1, 0]]),
+        ] {
+            let mut invalid = valid.clone();
+            invalid[field] = matrix;
+            assert!(
+                serde_json::from_value::<OptimumCommunicationSpanningTree>(invalid).is_err(),
+                "{field}"
+            );
+        }
+    }
+}
+
+#[test]
 fn create_spec_defaults_edge_weights() {
     let p =
         OptimumCommunicationSpanningTree::try_from(OptimumCommunicationSpanningTreeCreateSpec {

@@ -3,6 +3,28 @@ use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
+#[test]
+fn test_clustering_validates_persisted_input() {
+    let valid =
+        serde_json::json!({"distances": [[0, 1], [1, 0]], "num_clusters": 1, "diameter_bound": 2});
+    let restored: Clustering = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("distances", serde_json::json!([])),
+        ("distances", serde_json::json!([[0, 1], [1]])),
+        ("distances", serde_json::json!([[1, 1], [1, 0]])),
+        ("distances", serde_json::json!([[0, 1], [2, 0]])),
+        ("num_clusters", serde_json::json!(0)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<Clustering>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
 /// Helper: build the 6-element two-group instance from the issue.
 fn two_group_instance() -> Clustering {
     let distances = vec![

@@ -2,6 +2,14 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_knapsack_deserialization_rejects_mismatched_lengths() {
+    assert!(serde_json::from_value::<Knapsack>(
+        serde_json::json!({"weights": [1], "values": [2, 3], "capacity": 3})
+    )
+    .is_err());
+}
+
+#[test]
 fn create_spec_defaults_item_weights() {
     let p = Knapsack::try_from(KnapsackCreateSpec {
         weights: None,
