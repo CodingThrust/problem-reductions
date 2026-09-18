@@ -6,7 +6,6 @@
 
 - [Quick start](cli.md)
 - [Command reference](cli-commands.md)
-- [Reduction graph](reduction-graph.md)
 
 # Agents
 
@@ -17,7 +16,3 @@
 - [Getting started](getting-started.md)
 - [API reference](api.md)
 - [Design](design.md)
-
-# Research
-
-- [Open problems](open-problems.md)

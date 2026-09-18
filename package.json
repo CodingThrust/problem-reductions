@@ -6,6 +6,8 @@
     "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js"
   },
   "devDependencies": {
+    "cytoscape": "3.33.1",
+    "cytoscape-fcose": "2.2.0",
     "elkjs": "0.9.3"
   }
 }
