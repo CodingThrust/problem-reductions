@@ -54,13 +54,29 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize)]
 pub struct PartitionIntoForests<G> {
     /// The underlying graph.
     graph: G,
     /// Number of forest classes.
     num_forests: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoForestsData<G> {
+    graph: G,
+    num_forests: usize,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoForests<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoForestsData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.num_forests).map_err(serde::de::Error::custom)
+    }
 }
 
 impl<G: Graph> PartitionIntoForests<G> {
@@ -69,8 +85,14 @@ impl<G: Graph> PartitionIntoForests<G> {
     /// # Panics
     /// Panics if `num_forests` is zero.
     pub fn new(graph: G, num_forests: usize) -> Self {
-        assert!(num_forests >= 1, "num_forests must be at least 1");
-        Self { graph, num_forests }
+        Self::try_new(graph, num_forests).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, num_forests: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if num_forests == 0 {
+            return Err("num_forests must be at least 1".into());
+        }
+        Ok(Self { graph, num_forests })
     }
 
     /// Get a reference to the underlying graph.

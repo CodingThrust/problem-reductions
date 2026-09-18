@@ -1,3 +1,31 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"potential_weights":[[0,2,1]],"budget":1});
+    let problem: BiconnectivityAugmentation<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: BiconnectivityAugmentation<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("potential_weights", serde_json::json!([[0, 3, 1]])),
+        ("potential_weights", serde_json::json!([[0, 0, 1]])),
+        ("potential_weights", serde_json::json!([[0, 1, 1]])),
+        (
+            "potential_weights",
+            serde_json::json!([[0, 2, 1], [2, 0, 2]]),
+        ),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<BiconnectivityAugmentation<SimpleGraph, i64>>(data.clone())
+                .is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 #[test]

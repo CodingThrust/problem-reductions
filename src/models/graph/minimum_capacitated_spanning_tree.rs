@@ -48,7 +48,7 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edges and requirements (e.g., `i64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -60,6 +60,37 @@ pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     requirements: Vec<W>,
     /// Subtree capacity bound.
     capacity: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
+struct MinimumCapacitatedSpanningTreeData<G, W: WeightElement> {
+    graph: G,
+    weights: Vec<W>,
+    root: usize,
+    requirements: Vec<W>,
+    capacity: W::Sum,
+}
+
+impl<'de, G, W> Deserialize<'de> for MinimumCapacitatedSpanningTree<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MinimumCapacitatedSpanningTreeData::<G, W>::deserialize(deserializer)?;
+        Self::try_new(
+            data.graph,
+            data.weights,
+            data.root,
+            data.requirements,
+            data.capacity,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -99,13 +130,13 @@ impl TryFrom<MinimumCapacitatedSpanningTreeCreateSpec>
         if spec.root >= vertices {
             return Err("root is outside the graph".to_string().into());
         }
-        Ok(Self::new(
+        Self::try_new(
             spec.graph,
             weights,
             spec.root,
             spec.requirements,
             spec.capacity,
-        ))
+        )
     }
 }
 
@@ -124,32 +155,38 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
         requirements: Vec<W>,
         capacity: W::Sum,
     ) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_edges(),
-            "weights length must match num_edges"
-        );
-        assert_eq!(
-            requirements.len(),
-            graph.num_vertices(),
-            "requirements length must match num_vertices"
-        );
-        assert!(
-            root < graph.num_vertices(),
-            "root {root} out of range (num_vertices = {})",
-            graph.num_vertices()
-        );
-        assert!(
-            graph.num_vertices() >= 2,
-            "graph must have at least 2 vertices"
-        );
-        Self {
+        Self::try_new(graph, weights, root, requirements, capacity)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        weights: Vec<W>,
+        root: usize,
+        requirements: Vec<W>,
+        capacity: W::Sum,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &weights)?;
+        if requirements.len() != graph.num_vertices() {
+            return Err("requirements length must match num_vertices".into());
+        }
+        if root >= graph.num_vertices() {
+            return Err(format!(
+                "root {root} out of range (num_vertices = {})",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        if graph.num_vertices() < 2 {
+            return Err("graph must have at least 2 vertices".into());
+        }
+        Ok(Self {
             graph,
             weights,
             root,
             requirements,
             capacity,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -164,8 +201,15 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
 
     /// Set new edge weights.
     pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+        Self::check_weights(&self.graph, &weights).unwrap_or_else(|error| panic!("{error}"));
         self.weights = weights;
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("weights length must match num_edges".into());
+        }
+        Ok(())
     }
 
     /// Check if the problem uses a non-unit weight type.

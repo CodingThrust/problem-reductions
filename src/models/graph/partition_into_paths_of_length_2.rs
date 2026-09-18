@@ -58,11 +58,26 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize)]
 pub struct PartitionIntoPathsOfLength2<G> {
     /// The underlying graph.
     graph: G,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoPathsOfLength2Data<G> {
+    graph: G,
+}
+
+impl<'de, G> Deserialize<'de> for PartitionIntoPathsOfLength2<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PartitionIntoPathsOfLength2Data::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph).map_err(serde::de::Error::custom)
+    }
 }
 
 impl<G: Graph> PartitionIntoPathsOfLength2<G> {
@@ -71,13 +86,18 @@ impl<G: Graph> PartitionIntoPathsOfLength2<G> {
     /// # Panics
     /// Panics if `graph.num_vertices()` is not divisible by 3.
     pub fn new(graph: G) -> Self {
-        assert_eq!(
-            graph.num_vertices() % 3,
-            0,
-            "Number of vertices ({}) must be divisible by 3",
-            graph.num_vertices()
-        );
-        Self { graph }
+        Self::try_new(graph).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !graph.num_vertices().is_multiple_of(3) {
+            return Err(format!(
+                "Number of vertices ({}) must be divisible by 3",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.

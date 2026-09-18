@@ -67,12 +67,29 @@ inventory::submit! {
 ///     assert_eq!(size, Max(Some(2)));
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaxCut<G, W> {
     /// The underlying graph structure.
     graph: G,
     /// Weights for each edge (in the same order as graph.edges()).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaxCutData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaxCut<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaxCutData::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! max_cut_create_spec {
@@ -102,7 +119,7 @@ macro_rules! max_cut_create_spec {
                     )
                     .into());
                 }
-                Ok(Self::new(graph, edge_weights))
+                Self::try_new(graph, edge_weights)
             }
         }
     };
@@ -146,15 +163,17 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     /// * `graph` - The underlying graph
     /// * `edge_weights` - Weights for each edge (must match graph.num_edges())
     pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+        Self::try_new(graph, edge_weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".into());
+        }
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a MaxCut problem with unit weights.

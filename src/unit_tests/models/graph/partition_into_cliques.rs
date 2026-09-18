@@ -1,3 +1,25 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid =
+        serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"num_cliques":2});
+    let problem: PartitionIntoCliques<SimpleGraph> = serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: PartitionIntoCliques<SimpleGraph> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("num_cliques", serde_json::json!(0)),
+        ("num_cliques", serde_json::json!(4)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<PartitionIntoCliques<SimpleGraph>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;

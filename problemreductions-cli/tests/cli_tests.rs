@@ -1,5 +1,26 @@
 use std::process::Command;
 
+#[test]
+fn test_evaluate_rejects_invalid_model_json_without_panicking() {
+    use std::io::Write;
+    let mut child = pred()
+        .args(["evaluate", "-", "--config", "[true]"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(br#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":1,"edges":[]},"weights":[]}}"#).unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("weights length must match graph num_vertices"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("panicked"), "{stderr}");
+}
+
 fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }

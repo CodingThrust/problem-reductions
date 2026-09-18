@@ -52,7 +52,7 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edge lengths (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RuralPostman<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -60,6 +60,26 @@ pub struct RuralPostman<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Indices of required edges (subset E' ⊆ E).
     required_edges: Vec<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct RuralPostmanData<G, W: WeightElement> {
+    graph: G,
+    edge_lengths: Vec<W>,
+    required_edges: Vec<usize>,
+}
+
+impl<'de, G, W> Deserialize<'de> for RuralPostman<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = RuralPostmanData::<G, W>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.edge_lengths, data.required_edges)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -96,7 +116,7 @@ impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i64> {
         {
             return Err(format!("required edge index {edge} is out of bounds").into());
         }
-        Ok(Self::new(graph, edge_lengths, spec.required_edges))
+        Self::try_new(graph, edge_lengths, spec.required_edges)
     }
 }
 
@@ -138,24 +158,30 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
     /// Panics if edge_lengths length does not match graph edges,
     /// or if any required edge index is out of bounds.
     pub fn new(graph: G, edge_lengths: Vec<W>, required_edges: Vec<usize>) -> Self {
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
+        Self::try_new(graph, edge_lengths, required_edges).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        edge_lengths: Vec<W>,
+        required_edges: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_lengths)?;
         for &idx in &required_edges {
-            assert!(
-                idx < graph.num_edges(),
-                "required edge index {} out of bounds (graph has {} edges)",
-                idx,
-                graph.num_edges()
-            );
+            if idx >= graph.num_edges() {
+                return Err(format!(
+                    "required edge index {} out of bounds (graph has {} edges)",
+                    idx,
+                    graph.num_edges()
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             graph,
             edge_lengths,
             required_edges,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -190,8 +216,15 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
 
     /// Set new edge lengths.
     pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+        Self::check_weights(&self.graph, &weights).unwrap_or_else(|error| panic!("{error}"));
         self.edge_lengths = weights;
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err("edge_lengths length must match num_edges".into());
+        }
+        Ok(())
     }
 
     /// Get the edge lengths as a Vec.

@@ -58,12 +58,29 @@ inventory::submit! {
 /// // Maximum independent set in a triangle has size 1
 /// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 1));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumIndependentSet<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximumIndependentSetData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaximumIndependentSet<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumIndependentSetData::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! simple_mis_spec {
@@ -213,12 +230,14 @@ unit_disk_mis_spec!(
 impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     /// Create an Independent Set problem from a graph with given weights.
     pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+        Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.
