@@ -1,4 +1,32 @@
 use super::*;
+
+#[test]
+fn test_undirected_flow_lower_bounds_invalid_inputs() {
+    let valid = serde_json::to_value(canonical_yes_instance()).unwrap();
+    for (field, value) in [
+        ("capacities", serde_json::json!([])),
+        ("lower_bounds", serde_json::json!([])),
+        ("source", serde_json::json!(6)),
+        ("sink", serde_json::json!(6)),
+        ("sink", serde_json::json!(0)),
+        ("requirement", serde_json::json!(0)),
+        ("requirement", serde_json::json!(-1)),
+        ("lower_bounds", serde_json::json!([3, 1, 0, 0, 1, 0, 1])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        let spec =
+            serde_json::from_value::<UndirectedFlowLowerBoundsCreateSpec>(invalid.clone()).unwrap();
+        assert!(
+            UndirectedFlowLowerBounds::try_from(spec).is_err(),
+            "{field}"
+        );
+        assert!(
+            serde_json::from_value::<UndirectedFlowLowerBounds>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]

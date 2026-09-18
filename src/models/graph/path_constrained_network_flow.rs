@@ -34,6 +34,7 @@ inventory::submit! {
 /// - the induced arc loads do not exceed the arc capacities
 /// - the total delivered flow reaches the requirement
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PathConstrainedNetworkFlowData")]
 pub struct PathConstrainedNetworkFlow {
     graph: DirectedGraph,
     capacities: Vec<i64>,
@@ -41,6 +42,30 @@ pub struct PathConstrainedNetworkFlow {
     sink: usize,
     paths: Vec<Vec<usize>>,
     requirement: i64,
+}
+
+#[derive(Deserialize)]
+struct PathConstrainedNetworkFlowData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    source: usize,
+    sink: usize,
+    paths: Vec<Vec<usize>>,
+    requirement: i64,
+}
+
+impl TryFrom<PathConstrainedNetworkFlowData> for PathConstrainedNetworkFlow {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: PathConstrainedNetworkFlowData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.capacities,
+            data.source,
+            data.sink,
+            data.paths,
+            data.requirement,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]

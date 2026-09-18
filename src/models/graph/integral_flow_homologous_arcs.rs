@@ -29,6 +29,7 @@ inventory::submit! {
 /// capacities, flow conservation at non-terminal vertices, every homologous-pair
 /// equality constraint, and the required net inflow at the sink.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "IntegralFlowHomologousArcsData")]
 pub struct IntegralFlowHomologousArcs {
     graph: DirectedGraph,
     capacities: Vec<i64>,
@@ -36,6 +37,30 @@ pub struct IntegralFlowHomologousArcs {
     sink: usize,
     requirement: i64,
     homologous_pairs: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+struct IntegralFlowHomologousArcsData {
+    graph: DirectedGraph,
+    capacities: Vec<i64>,
+    source: usize,
+    sink: usize,
+    requirement: i64,
+    homologous_pairs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<IntegralFlowHomologousArcsData> for IntegralFlowHomologousArcs {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(data: IntegralFlowHomologousArcsData) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.capacities,
+            data.source,
+            data.sink,
+            data.requirement,
+            data.homologous_pairs,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -73,34 +98,14 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
             return Err("num_vertices is too small".into());
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
-        if capacities.len() != spec.arcs.len() {
-            return Err("capacities length must match arcs length".into());
-        }
-        if spec.source >= count || spec.sink >= count {
-            return Err("source and sink must be valid vertices".into());
-        }
-        for &(a, b) in &spec.homologous_pairs {
-            if a >= spec.arcs.len() || b >= spec.arcs.len() {
-                return Err("homologous pair arc index is out of range".into());
-            }
-        }
-        for &c in &capacities {
-            if usize::try_from(c)
-                .ok()
-                .and_then(|v| v.checked_add(1))
-                .is_none()
-            {
-                return Err("capacity is too large".into());
-            }
-        }
-        Ok(Self {
-            graph: DirectedGraph::new(count, spec.arcs),
+        Self::try_new(
+            DirectedGraph::new(count, spec.arcs),
             capacities,
-            source: spec.source,
-            sink: spec.sink,
-            requirement: spec.requirement,
-            homologous_pairs: spec.homologous_pairs,
-        })
+            spec.source,
+            spec.sink,
+            spec.requirement,
+            spec.homologous_pairs,
+        )
     }
 }
 
@@ -113,46 +118,72 @@ impl IntegralFlowHomologousArcs {
         requirement: i64,
         homologous_pairs: Vec<(usize, usize)>,
     ) -> Self {
-        let num_vertices = graph.num_vertices();
-        let num_arcs = graph.num_arcs();
-
-        assert_eq!(
-            capacities.len(),
-            num_arcs,
-            "capacities length must match graph.num_arcs()"
-        );
-        assert!(
-            source < num_vertices,
-            "source ({source}) must be less than num_vertices ({num_vertices})"
-        );
-        assert!(
-            sink < num_vertices,
-            "sink ({sink}) must be less than num_vertices ({num_vertices})"
-        );
-
-        for &(a, b) in &homologous_pairs {
-            assert!(a < num_arcs, "homologous arc index {a} out of range");
-            assert!(b < num_arcs, "homologous arc index {b} out of range");
-        }
-
-        for &capacity in &capacities {
-            assert!(
-                usize::try_from(capacity)
-                    .ok()
-                    .and_then(|value| value.checked_add(1))
-                    .is_some(),
-                "capacities must fit into usize for dims()"
-            );
-        }
-
-        Self {
+        Self::try_new(
             graph,
             capacities,
             source,
             sink,
             requirement,
             homologous_pairs,
+        )
+        .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: DirectedGraph,
+        capacities: Vec<i64>,
+        source: usize,
+        sink: usize,
+        requirement: i64,
+        homologous_pairs: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let num_vertices = graph.num_vertices();
+        let num_arcs = graph.num_arcs();
+
+        if capacities.len() != num_arcs {
+            return Err("capacities length must match graph.num_arcs()".into());
         }
+        if source >= num_vertices {
+            return Err(format!(
+                "source ({source}) must be less than num_vertices ({num_vertices})"
+            )
+            .into());
+        }
+        if sink >= num_vertices {
+            return Err(
+                format!("sink ({sink}) must be less than num_vertices ({num_vertices})").into(),
+            );
+        }
+
+        for &(a, b) in &homologous_pairs {
+            if a >= num_arcs {
+                return Err(format!("homologous arc index {a} out of range").into());
+            }
+            if b >= num_arcs {
+                return Err(format!("homologous arc index {b} out of range").into());
+            }
+        }
+
+        for &capacity in &capacities {
+            if usize::try_from(capacity)
+                .ok()
+                .and_then(|value| value.checked_add(1))
+                .is_none()
+            {
+                return Err(
+                    "capacities must be nonnegative and their domains must fit into usize".into(),
+                );
+            }
+        }
+
+        Ok(Self {
+            graph,
+            capacities,
+            source,
+            sink,
+            requirement,
+            homologous_pairs,
+        })
     }
 
     pub fn graph(&self) -> &DirectedGraph {

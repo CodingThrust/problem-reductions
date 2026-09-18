@@ -175,3 +175,46 @@ fn test_integral_flow_with_multipliers_paper_example() {
     let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(all_solutions.iter().any(|solution| solution == &config));
 }
+
+#[test]
+fn creation_and_deserialization_enforce_the_same_flow_constraints() {
+    let input = serde_json::json!({
+        "arcs": [[0, 1], [1, 2]], "num_vertices": 3,
+        "source": 0, "sink": 2, "requirement": 1,
+        "multipliers": [1, 1, 1], "capacities": [1, 1],
+    });
+    let problem = IntegralFlowWithMultipliers::try_from(
+        serde_json::from_value::<IntegralFlowWithMultipliersCreateSpec>(input.clone()).unwrap(),
+    )
+    .unwrap();
+    let persisted = serde_json::to_value(&problem).unwrap();
+    let restored: IntegralFlowWithMultipliers = serde_json::from_value(persisted.clone()).unwrap();
+    assert_eq!(
+        restored.evaluate(&vec![1, 1]).unwrap(),
+        crate::types::Or(true)
+    );
+
+    for (field, value, message) in [
+        ("capacities", serde_json::json!([1]), "length"),
+        ("multipliers", serde_json::json!([1, 1]), "length"),
+        ("source", serde_json::json!(3), "source"),
+        ("sink", serde_json::json!(3), "sink"),
+        ("sink", serde_json::json!(0), "distinct"),
+        ("multipliers", serde_json::json!([1, 0, 1]), "positive"),
+        ("multipliers", serde_json::json!([1, -1, 1]), "positive"),
+        ("capacities", serde_json::json!([-1, 1]), "nonnegative"),
+    ] {
+        let mut invalid_input = input.clone();
+        invalid_input[field] = value.clone();
+        let spec =
+            serde_json::from_value::<IntegralFlowWithMultipliersCreateSpec>(invalid_input).unwrap();
+        let error = IntegralFlowWithMultipliers::try_from(spec).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+
+        let mut invalid_persisted = persisted.clone();
+        invalid_persisted[field] = value;
+        let error =
+            serde_json::from_value::<IntegralFlowWithMultipliers>(invalid_persisted).unwrap_err();
+        assert!(error.to_string().contains(message), "{field}: {error}");
+    }
+}
