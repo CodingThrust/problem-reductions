@@ -9925,7 +9925,7 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("tour position 0 does not select exactly one vertex"),
+        stderr.contains("target energy does not encode a feasible tour"),
         "unexpected stderr: {stderr}"
     );
 

@@ -14080,15 +14080,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).
 ][
-  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and edge weights $w_(u v)$. Let $A = 1 + sum_((u,v) in E) |w_(u v)|$ be the penalty coefficient.
+  _Construction._ For $n = |V| >= 3$, discard loops and retain the cheapest edge of each parallel class, recording its original index. Write $E'$ for these retained edges and set $s = min({0} union {w_e : e in E'})$, $c_e = w_e - s >= 0$, and $A = 1 + max(sum_(e in E') c_e, sum_(e in E') |w_e|)$. Every tour uses $n$ edges, so this shift changes every tour cost by the same amount $-n s$.
 
   _Variables:_ Binary $x_(v,p) in {0, 1}$ for vertex $v in V$ and position $p in {0, dots, n-1}$. QUBO variable index: $v dot n + p$.
 
-  _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E) w_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $w_(u v)$.
+  _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E') c_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $c_(u v)$. The stored energy is $E = H_A + H_B + H_C - 2n A$.
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix satisfying $H_A = H_B = 0$; the $H_C$ terms sum to the tour cost. ($arrow.l.double$) The minimum-energy state has $H_A = H_B = 0$ (penalty $A$ exceeds any tour cost), so it encodes a valid permutation; $H_C$ equals the tour cost, selecting the shortest tour.
+  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix with $H_A = H_B = 0$ and $H_C <= sum_e c_e < A$. ($arrow.l.double$) All objective terms are nonnegative before dropping the constant. A violated permutation constraint or a permutation using a missing edge costs at least $A$. Consequently, a source tour exists iff the target optimum satisfies $E < A - 2n A$. Below that bound, every optimum encodes a valid tour, and shifting costs preserves their ordering. Choosing the cheapest parallel edge preserves the source optimum.
 
-  _Solution extraction._ From QUBO solution $x^*$, for each position $p$ find the unique vertex $v$ with $x^*_(v n + p) = 1$. Map consecutive position pairs to edge indices.
+  _Solution extraction._ Require energy below $A - 2n A$. For each position $p$, find the unique vertex $v$ with $x^*_(v n + p) = 1$ and map consecutive pairs to the recorded cheapest edge indices. Aggregate recovery returns the source optimum $E + 2n A + n s$ below the bound, or infeasibility otherwise. Construction checks the coefficient arithmetic and requires the nonnegative offset $2n A + n s$ to fit `i64`.
+
+  _Small instances._ The source model uses a connected degree-two edge set: for one vertex, the optimum is its cheapest loop; for two vertices, it is the two cheapest parallel edges joining them. If those edges do not exist, or if there are no vertices, the source is infeasible. These cases map to a zero QUBO with $n^2$ variables and a constant solution/value mapping recording that exact answer.
 ]
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
