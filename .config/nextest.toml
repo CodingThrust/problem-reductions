@@ -7,15 +7,7 @@
 # whole job was SIGTERM-killed at the runner level) — nextest reports it as a
 # clean per-test timeout failure instead of stalling the job.
 #
-# The large headroom (300s, not a tight ~10s) is deliberate. The subprocess
-# example tests in tests/suites/examples.rs shell out to `cargo run --example
-# … --features ilp-highs`:
-#   - In the Test job, CI pre-builds those examples (see ci.yml) so the
-#     subprocess reuses artifacts and each test runs in well under a second.
-#   - In the Code Coverage job, the subprocess inherits llvm-cov's
-#     `-C instrument-coverage` RUSTFLAGS, so it recompiles the examples
-#     *instrumented* (a non-instrumented pre-build would not match its
-#     fingerprint, so pre-building there is pointless). That instrumented
-#     recompile legitimately takes >120s, hence the 300s bound.
+# The large headroom (300s, not a tight ~10s) is deliberate: this is a final
+# safety bound for genuinely hung tests, not the expected runtime budget.
 [profile.default]
 slow-timeout = { period = "60s", terminate-after = 5 }

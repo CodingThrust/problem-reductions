@@ -1,4 +1,4 @@
-use rmcp::model::{GetPromptResult, Prompt, PromptArgument, PromptMessage, PromptMessageRole};
+use rmcp::model::{GetPromptResult, Prompt, PromptArgument, PromptMessage, Role};
 
 /// Return the list of available MCP prompt templates.
 pub fn list_prompts() -> Vec<Prompt> {
@@ -88,11 +88,8 @@ pub fn list_prompts() -> Vec<Prompt> {
 }
 
 fn prompt_result(description: &str, user_message: &str) -> GetPromptResult {
-    GetPromptResult::new(vec![PromptMessage::new_text(
-        PromptMessageRole::User,
-        user_message,
-    )])
-    .with_description(description)
+    GetPromptResult::new(vec![PromptMessage::new_text(Role::User, user_message)])
+        .with_description(description)
 }
 
 /// Return the content for the named prompt, or `None` if the name is unknown.

@@ -10,8 +10,8 @@ repository = "https://github.com/CodingThrust/problem-reductions"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0", features = ["full", "parsing"] }
-quote = "1.0"
-proc-macro2 = "1.0"
+syn = { version = "3.0.6", features = ["full", "parsing"] }
+quote = "1.0.47"
+proc-macro2 = "1.0.107"
 problemreductions-expr = { version = "0.6.0", path = "../problemreductions-expr" }
-num-traits = "0.2"
+num-traits = "0.2.19"
