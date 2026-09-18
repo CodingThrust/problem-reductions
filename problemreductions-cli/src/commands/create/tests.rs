@@ -1251,7 +1251,7 @@ fn test_create_production_planning_rejects_mismatched_period_lengths() {
     let err = create(&args, &out).unwrap_err();
     assert!(err
         .to_string()
-        .contains("demands has 5 entries, expected 6"));
+        .contains("all per-period vectors must have length num_periods"));
 }
 
 #[test]

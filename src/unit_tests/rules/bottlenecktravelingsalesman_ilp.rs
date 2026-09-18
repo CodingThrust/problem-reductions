@@ -217,7 +217,7 @@ fn test_bottleneck_ilp_empty_and_single_edge_are_infeasible() {
 }
 
 #[test]
-fn test_bottleneck_ilp_dimensions_and_malformed_weights() {
+fn test_bottleneck_ilp_dimensions_and_overflow() {
     assert_eq!(
         ReductionBTSPToILP::dimensions(4, 6).unwrap(),
         (16, 48, 70, 197)
@@ -226,9 +226,4 @@ fn test_bottleneck_ilp_dimensions_and_malformed_weights() {
     for (n, m) in [(usize::MAX, 0), (1, usize::MAX), (0, usize::MAX)] {
         assert!(ReductionBTSPToILP::dimensions(n, m).is_err());
     }
-    let source: BottleneckTravelingSalesman = serde_json::from_value(serde_json::json!({
-        "graph": {"num_vertices": 0, "edges": []}, "edge_weights": [1]
-    }))
-    .unwrap();
-    assert!(ReduceTo::<ILP<i64>>::reduce_to(&source).is_err());
 }

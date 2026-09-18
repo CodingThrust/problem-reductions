@@ -2,6 +2,27 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_multiple_copy_file_allocation_validates_persisted_input() {
+    let valid = serde_json::to_value(MultipleCopyFileAllocation::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1, 1],
+        vec![1, 1],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("usage", serde_json::json!([])),
+        ("storage", serde_json::json!([])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MultipleCopyFileAllocation>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn create_spec_preserves_isolated_vertices() {
     let problem = MultipleCopyFileAllocation::try_from(MultipleCopyFileAllocationCreateSpec {
         graph: vec![(0, 1)],

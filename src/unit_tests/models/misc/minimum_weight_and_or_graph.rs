@@ -2,6 +2,32 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_minimum_weight_and_or_graph_validates_persisted_input() {
+    let valid = serde_json::to_value(MinimumWeightAndOrGraph::new(
+        2,
+        vec![(0, 1)],
+        0,
+        vec![Some(true), None],
+        vec![1],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("source", serde_json::json!(2)),
+        ("source", serde_json::json!(1)),
+        ("gate_types", serde_json::json!([])),
+        ("arc_weights", serde_json::json!([])),
+        ("arcs", serde_json::json!([[0, 2]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumWeightAndOrGraph>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
 fn create_spec_defaults_arc_weights() {
     let p = MinimumWeightAndOrGraph::try_from(MinimumWeightAndOrGraphCreateSpec {
         num_vertices: 2,

@@ -1,6 +1,28 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_kth_best_spanning_tree_validates_persisted_input() {
+    let valid = serde_json::to_value(KthBestSpanningTree::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1i64],
+        1,
+        2,
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("weights", serde_json::json!([])),
+        ("k", serde_json::json!(0)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<KthBestSpanningTree<i64>>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 

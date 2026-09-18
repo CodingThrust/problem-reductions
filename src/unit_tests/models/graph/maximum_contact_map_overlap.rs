@@ -2,6 +2,31 @@ use super::*;
 use crate::registry::find_problem_type_by_alias;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_maximum_contact_map_overlap_validates_persisted_input() {
+    let valid = serde_json::to_value(MaximumContactMapOverlap::new(
+        2,
+        vec![(0, 1)],
+        2,
+        vec![(0, 1)],
+    ))
+    .unwrap();
+    for (field, value) in [
+        ("contacts_1", serde_json::json!([[0, 2]])),
+        ("contacts_1", serde_json::json!([[0, 0]])),
+        ("contacts_1", serde_json::json!([[0, 1], [1, 0]])),
+        ("contacts_2", serde_json::json!([[0, 2]])),
+        ("contacts_2", serde_json::json!([[1, 1]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<MaximumContactMapOverlap>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 use crate::types::Max;
 

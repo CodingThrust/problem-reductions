@@ -88,40 +88,14 @@ struct MinimumWeightAndOrGraphCreateSpec {
 impl TryFrom<MinimumWeightAndOrGraphCreateSpec> for MinimumWeightAndOrGraph {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightAndOrGraphCreateSpec) -> Result<Self, Self::Error> {
-        if spec.source >= spec.num_vertices {
-            return Err("source is outside the graph".to_string().into());
-        }
-        if spec.gate_types.len() != spec.num_vertices {
-            return Err("gate_types length must equal num_vertices"
-                .to_string()
-                .into());
-        }
-        if spec.gate_types[spec.source].is_none() {
-            return Err("source must be an AND or OR gate".to_string().into());
-        }
-        if let Some(&(u, v)) = spec
-            .arcs
-            .iter()
-            .find(|&&(u, v)| u >= spec.num_vertices || v >= spec.num_vertices)
-        {
-            return Err(format!("arc ({u}, {v}) is out of bounds").into());
-        }
-        let count = spec.arcs.len();
-        let arc_weights = spec.arc_weights.unwrap_or_else(|| vec![1; count]);
-        if arc_weights.len() != count {
-            return Err(format!(
-                "arc_weights has {} entries, expected {count}",
-                arc_weights.len()
-            )
-            .into());
-        }
-        Ok(Self::new(
+        let arc_weights = spec.arc_weights.unwrap_or_else(|| vec![1; spec.arcs.len()]);
+        Self::try_new(
             spec.num_vertices,
             spec.arcs,
             spec.source,
             spec.gate_types,
             arc_weights,
-        ))
+        )
     }
 }
 
@@ -140,15 +114,14 @@ impl<'de> Deserialize<'de> for MinimumWeightAndOrGraph {
         D: Deserializer<'de>,
     {
         let data = MinimumWeightAndOrGraphData::deserialize(deserializer)?;
-        let outgoing = Self::build_outgoing(data.num_vertices, &data.arcs);
-        Ok(Self {
-            num_vertices: data.num_vertices,
-            arcs: data.arcs,
-            source: data.source,
-            gate_types: data.gate_types,
-            arc_weights: data.arc_weights,
-            outgoing,
-        })
+        Self::try_new(
+            data.num_vertices,
+            data.arcs,
+            data.source,
+            data.gate_types,
+            data.arc_weights,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -167,49 +140,61 @@ impl MinimumWeightAndOrGraph {
         gate_types: Vec<Option<bool>>,
         arc_weights: Vec<i64>,
     ) -> Self {
-        assert!(
-            source < num_vertices,
-            "Source vertex {} out of bounds for {} vertices",
-            source,
-            num_vertices
-        );
-        assert_eq!(
-            gate_types.len(),
-            num_vertices,
-            "gate_types length {} does not match num_vertices {}",
-            gate_types.len(),
-            num_vertices
-        );
-        assert_eq!(
-            arc_weights.len(),
-            arcs.len(),
-            "arc_weights length {} does not match number of arcs {}",
-            arc_weights.len(),
-            arcs.len()
-        );
-        for (i, &(u, v)) in arcs.iter().enumerate() {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "Arc {} ({}, {}) out of bounds for {} vertices",
-                i,
-                u,
-                v,
-                num_vertices
-            );
+        Self::try_new(num_vertices, arcs, source, gate_types, arc_weights)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+        source: usize,
+        gate_types: Vec<Option<bool>>,
+        arc_weights: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if source >= num_vertices {
+            return Err(format!(
+                "Source vertex {} out of bounds for {} vertices",
+                source, num_vertices
+            )
+            .into());
         }
-        assert!(
-            gate_types[source].is_some(),
-            "Source vertex must be an AND or OR gate, not a leaf"
-        );
+        if gate_types.len() != num_vertices {
+            return Err(format!(
+                "gate_types length {} does not match num_vertices {}",
+                gate_types.len(),
+                num_vertices
+            )
+            .into());
+        }
+        if arc_weights.len() != arcs.len() {
+            return Err(format!(
+                "arc_weights length {} does not match number of arcs {}",
+                arc_weights.len(),
+                arcs.len()
+            )
+            .into());
+        }
+        for (i, &(u, v)) in arcs.iter().enumerate() {
+            if u >= num_vertices || v >= num_vertices {
+                return Err(format!(
+                    "Arc {} ({}, {}) out of bounds for {} vertices",
+                    i, u, v, num_vertices
+                )
+                .into());
+            }
+        }
+        if gate_types[source].is_none() {
+            return Err("Source vertex must be an AND or OR gate, not a leaf".into());
+        }
         let outgoing = Self::build_outgoing(num_vertices, &arcs);
-        Self {
+        Ok(Self {
             num_vertices,
             arcs,
             source,
             gate_types,
             arc_weights,
             outgoing,
-        }
+        })
     }
 
     /// Build outgoing arc index lists for each vertex.

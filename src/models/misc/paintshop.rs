@@ -50,6 +50,7 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PaintShopData")]
 pub struct PaintShop {
     /// The sequence of car labels (as indices into unique cars).
     sequence_indices: Vec<usize>,
@@ -61,42 +62,72 @@ pub struct PaintShop {
     num_cars: usize,
 }
 
+#[derive(Deserialize)]
+struct PaintShopData {
+    sequence_indices: Vec<usize>,
+    car_labels: Vec<String>,
+}
+
+impl TryFrom<PaintShopData> for PaintShop {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PaintShopData) -> Result<Self, Self::Error> {
+        let sequence = data
+            .sequence_indices
+            .into_iter()
+            .map(|index| {
+                data.car_labels.get(index).ok_or_else(|| {
+                    crate::registry::ConstructionError::from(format!(
+                        "car index {index} is outside car_labels"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::try_new(sequence)
+    }
+}
+
 impl PaintShop {
     /// Create a new Paint Shop problem from string labels.
     ///
     /// Each element in the sequence must appear exactly twice.
     pub fn new<S: AsRef<str>>(sequence: Vec<S>) -> Self {
-        let sequence: Vec<String> = sequence.iter().map(|s| s.as_ref().to_string()).collect();
-        Self::from_strings(sequence)
+        Self::try_new(sequence).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    /// Create from a vector of strings.
-    pub fn from_strings(sequence: Vec<String>) -> Self {
+    fn try_new<S: AsRef<str>>(
+        sequence: Vec<S>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         // Build car-to-index mapping and count occurrences
-        let mut car_count: HashMap<String, usize> = HashMap::new();
-        let mut car_to_index: HashMap<String, usize> = HashMap::new();
+        let mut car_count: HashMap<&str, usize> = HashMap::new();
+        let mut car_to_index: HashMap<&str, usize> = HashMap::new();
         let mut car_labels: Vec<String> = Vec::new();
 
         for item in &sequence {
-            let count = car_count.entry(item.clone()).or_insert(0);
+            let item = item.as_ref();
+            let count = car_count.entry(item).or_insert(0);
             if *count == 0 {
-                car_to_index.insert(item.clone(), car_labels.len());
-                car_labels.push(item.clone());
+                car_to_index.insert(item, car_labels.len());
+                car_labels.push(item.to_owned());
             }
             *count += 1;
         }
 
         // Verify each car appears exactly twice
         for (car, count) in &car_count {
-            assert_eq!(
-                *count, 2,
-                "Each car must appear exactly twice, but '{}' appears {} times",
-                car, count
-            );
+            if *count != 2 {
+                return Err(format!(
+                    "each car must appear exactly twice, but '{car}' appears {count} times"
+                )
+                .into());
+            }
         }
 
         // Convert sequence to indices
-        let sequence_indices: Vec<usize> = sequence.iter().map(|item| car_to_index[item]).collect();
+        let sequence_indices: Vec<usize> = sequence
+            .iter()
+            .map(|item| car_to_index[item.as_ref()])
+            .collect();
 
         // Determine which positions are first occurrences
         let mut seen: HashSet<usize> = HashSet::new();
@@ -107,12 +138,12 @@ impl PaintShop {
 
         let num_cars = car_labels.len();
 
-        Self {
+        Ok(Self {
             sequence_indices,
             car_labels,
             is_first,
             num_cars,
-        }
+        })
     }
 
     /// Get the sequence length.
@@ -182,6 +213,11 @@ impl PaintShop {
                 "converting paint-switch count to i64".into(),
             )
         })
+    }
+
+    /// Create from a vector of strings.
+    pub fn from_strings(sequence: Vec<String>) -> Self {
+        Self::new(sequence)
     }
 }
 

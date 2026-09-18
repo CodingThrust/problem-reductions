@@ -1,6 +1,17 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_bottleneck_traveling_salesman_validates_persisted_input() {
+    let mut invalid = serde_json::to_value(BottleneckTravelingSalesman::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1],
+    ))
+    .unwrap();
+    invalid["edge_weights"] = serde_json::json!([]);
+    assert!(serde_json::from_value::<BottleneckTravelingSalesman>(invalid).is_err());
+}
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
