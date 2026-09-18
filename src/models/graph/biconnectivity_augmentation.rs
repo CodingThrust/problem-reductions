@@ -9,6 +9,8 @@ use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
+use petgraph::algo::{articulation_points::articulation_points, connected_components};
+use petgraph::graph::{NodeIndex, UnGraph};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -189,7 +191,7 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
     fn augmented_graph(
         &self,
         config: &[bool],
-    ) -> Result<Option<SimpleGraph>, crate::traits::EvaluationError> {
+    ) -> Result<Option<UnGraph<(), ()>>, crate::traits::EvaluationError> {
         if config.len() != self.num_potential_edges() {
             return Ok(None);
         }
@@ -215,10 +217,14 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
             return Ok(None);
         }
 
-        Ok(Some(SimpleGraph::new(
-            self.num_vertices(),
-            edges.into_iter().collect(),
-        )))
+        let mut graph = UnGraph::new_undirected();
+        for _ in 0..self.num_vertices() {
+            graph.add_node(());
+        }
+        for (u, v) in edges {
+            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
+        }
+        Ok(Some(graph))
     }
 }
 
@@ -277,67 +283,9 @@ fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
     }
 }
 
-struct DfsState {
-    visited: Vec<bool>,
-    discovery_time: Vec<usize>,
-    low: Vec<usize>,
-    parent: Vec<Option<usize>>,
-    time: usize,
-    has_articulation_point: bool,
-}
-
-fn dfs_articulation_points<G: Graph>(graph: &G, vertex: usize, state: &mut DfsState) {
-    if state.has_articulation_point {
-        return;
-    }
-
-    state.visited[vertex] = true;
-    state.time += 1;
-    state.discovery_time[vertex] = state.time;
-    state.low[vertex] = state.time;
-
-    let mut child_count = 0;
-    for neighbor in graph.neighbors(vertex) {
-        if !state.visited[neighbor] {
-            child_count += 1;
-            state.parent[neighbor] = Some(vertex);
-            dfs_articulation_points(graph, neighbor, state);
-            state.low[vertex] = state.low[vertex].min(state.low[neighbor]);
-
-            if state.parent[vertex].is_none() && child_count > 1 {
-                state.has_articulation_point = true;
-                return;
-            }
-
-            if state.parent[vertex].is_some() && state.low[neighbor] >= state.discovery_time[vertex]
-            {
-                state.has_articulation_point = true;
-                return;
-            }
-        } else if state.parent[vertex] != Some(neighbor) {
-            state.low[vertex] = state.low[vertex].min(state.discovery_time[neighbor]);
-        }
-    }
-}
-
-fn is_biconnected<G: Graph>(graph: &G) -> bool {
-    let num_vertices = graph.num_vertices();
-    if num_vertices <= 1 {
-        return true;
-    }
-
-    let mut state = DfsState {
-        visited: vec![false; num_vertices],
-        discovery_time: vec![0; num_vertices],
-        low: vec![0; num_vertices],
-        parent: vec![None; num_vertices],
-        time: 0,
-        has_articulation_point: false,
-    };
-
-    dfs_articulation_points(graph, 0, &mut state);
-
-    !state.has_articulation_point && state.visited.into_iter().all(|seen| seen)
+fn is_biconnected(graph: &UnGraph<(), ()>) -> bool {
+    graph.node_count() <= 1
+        || (connected_components(graph) == 1 && articulation_points(graph).is_empty())
 }
 
 crate::declare_variants! {
