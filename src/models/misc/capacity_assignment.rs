@@ -27,6 +27,7 @@ inventory::submit! {
 /// with respect to the ordered capacity list. The objective is to minimize
 /// total cost subject to a delay budget constraint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "CapacityAssignmentCreateSpec")]
 pub struct CapacityAssignment {
     capacities: Vec<i64>,
     cost: Vec<Vec<i64>>,
@@ -48,40 +49,7 @@ struct CapacityAssignmentCreateSpec {
 impl TryFrom<CapacityAssignmentCreateSpec> for CapacityAssignment {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: CapacityAssignmentCreateSpec) -> Result<Self, Self::Error> {
-        if spec.capacities.is_empty() {
-            return Err("capacities must be non-empty".into());
-        }
-        if spec.capacities.contains(&0) {
-            return Err("capacities must be positive".into());
-        }
-        if !spec.capacities.windows(2).all(|w| w[0] < w[1]) {
-            return Err("capacities must be strictly increasing".into());
-        }
-        if spec.cost.len() != spec.delay.len() {
-            return Err("cost and delay must have the same number of links".into());
-        }
-        for (i, row) in spec.cost.iter().enumerate() {
-            if row.len() != spec.capacities.len() {
-                return Err(format!("cost row {i} length must match capacities length").into());
-            }
-            if !row.windows(2).all(|w| w[0] <= w[1]) {
-                return Err(format!("cost row {i} must be non-decreasing").into());
-            }
-        }
-        for (i, row) in spec.delay.iter().enumerate() {
-            if row.len() != spec.capacities.len() {
-                return Err(format!("delay row {i} length must match capacities length").into());
-            }
-            if !row.windows(2).all(|w| w[0] >= w[1]) {
-                return Err(format!("delay row {i} must be non-increasing").into());
-            }
-        }
-        Ok(Self {
-            capacities: spec.capacities,
-            cost: spec.cost,
-            delay: spec.delay,
-            delay_budget: spec.delay_budget,
-        })
+        Self::try_new(spec.capacities, spec.cost, spec.delay, spec.delay_budget)
     }
 }
 
@@ -93,51 +61,53 @@ impl CapacityAssignment {
         delay: Vec<Vec<i64>>,
         delay_budget: i64,
     ) -> Self {
-        assert!(!capacities.is_empty(), "capacities must be non-empty");
-        assert!(
-            capacities.iter().all(|&capacity| capacity > 0),
-            "capacities must be positive"
-        );
-        assert!(
-            capacities.windows(2).all(|w| w[0] < w[1]),
-            "capacities must be strictly increasing"
-        );
-        assert_eq!(
-            cost.len(),
-            delay.len(),
-            "cost and delay must have the same number of links"
-        );
+        Self::try_new(capacities, cost, delay, delay_budget)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        capacities: Vec<i64>,
+        cost: Vec<Vec<i64>>,
+        delay: Vec<Vec<i64>>,
+        delay_budget: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if capacities.is_empty() {
+            return Err("capacities must be non-empty".into());
+        }
+        if capacities.iter().any(|&capacity| capacity <= 0) {
+            return Err("capacities must be positive".into());
+        }
+        if capacities.windows(2).any(|w| w[0] >= w[1]) {
+            return Err("capacities must be strictly increasing".into());
+        }
+        if cost.len() != delay.len() {
+            return Err("cost and delay must have the same number of links".into());
+        }
 
         let num_capacities = capacities.len();
         for (link, row) in cost.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                num_capacities,
-                "cost row {link} length must match capacities length"
-            );
-            assert!(
-                row.windows(2).all(|w| w[0] <= w[1]),
-                "cost row {link} must be non-decreasing"
-            );
+            if row.len() != num_capacities {
+                return Err(format!("cost row {link} length must match capacities length").into());
+            }
+            if row.windows(2).any(|w| w[0] > w[1]) {
+                return Err(format!("cost row {link} must be non-decreasing").into());
+            }
         }
         for (link, row) in delay.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                num_capacities,
-                "delay row {link} length must match capacities length"
-            );
-            assert!(
-                row.windows(2).all(|w| w[0] >= w[1]),
-                "delay row {link} must be non-increasing"
-            );
+            if row.len() != num_capacities {
+                return Err(format!("delay row {link} length must match capacities length").into());
+            }
+            if row.windows(2).any(|w| w[0] < w[1]) {
+                return Err(format!("delay row {link} must be non-increasing").into());
+            }
         }
 
-        Self {
+        Ok(Self {
             capacities,
             cost,
             delay,
             delay_budget,
-        }
+        })
     }
 
     /// Number of communication links.

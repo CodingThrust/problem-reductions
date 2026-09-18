@@ -4,6 +4,19 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 
+#[test]
+fn test_subsetproduct_deserialization_validates_positive_inputs() {
+    for invalid in [
+        serde_json::json!({"sizes": ["0"], "target": "1"}),
+        serde_json::json!({"sizes": ["1"], "target": "0"}),
+    ] {
+        assert!(serde_json::from_value::<SubsetProduct>(invalid).is_err());
+    }
+    let empty: SubsetProduct =
+        serde_json::from_value(serde_json::json!({"sizes": [], "target": "1"})).unwrap();
+    assert!(empty.evaluate(&vec![]).unwrap().0);
+}
+
 fn bu(n: u32) -> BigUint {
     BigUint::from(n)
 }

@@ -1,6 +1,32 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
+
+#[test]
+fn test_integer_expression_membership_validates_persisted_input() {
+    let valid = serde_json::json!({"expression":{"Sum":[{"Atom":1},{"Atom":2}]},"target":3});
+    let restored: IntegerExpressionMembership = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("target", serde_json::json!(0)),
+        ("target", serde_json::json!(-1)),
+        (
+            "expression",
+            serde_json::json!({"Union":[{"Atom":1},{"Atom":0}]}),
+        ),
+        (
+            "expression",
+            serde_json::json!({"Sum":[{"Atom":-1},{"Atom":2}]}),
+        ),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<IntegerExpressionMembership>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::traits::Problem;
 
 /// Helper: build expression (1 ∪ 4) + (3 ∪ 6) + (2 ∪ 5)

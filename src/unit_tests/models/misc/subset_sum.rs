@@ -4,6 +4,17 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 
+#[test]
+fn test_subsetsum_deserialization_validates_positive_sizes() {
+    assert!(serde_json::from_value::<SubsetSum>(
+        serde_json::json!({"sizes": ["0"], "target": "0"})
+    )
+    .is_err());
+    let empty: SubsetSum =
+        serde_json::from_value(serde_json::json!({"sizes": [], "target": "0"})).unwrap();
+    assert!(empty.evaluate(&vec![]).unwrap().0);
+}
+
 fn bu(n: u32) -> BigUint {
     BigUint::from(n)
 }

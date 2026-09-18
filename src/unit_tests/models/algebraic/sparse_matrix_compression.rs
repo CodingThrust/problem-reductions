@@ -144,3 +144,11 @@ fn test_sparse_matrix_compression_rejects_zero_bound() {
 fn test_sparse_matrix_compression_rejects_ragged_matrix() {
     let _ = SparseMatrixCompression::new(vec![vec![true, false], vec![true]], 2);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<SparseMatrixCompression>(
+        serde_json::json!({"matrix":[[true]],"bound_k":0})
+    )
+    .is_err());
+}

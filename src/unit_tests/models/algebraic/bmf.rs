@@ -290,3 +290,20 @@ fn test_bmf_paper_example() {
     let best = solver.solve(&problem).unwrap().unwrap();
     assert!(problem.is_exact(&best).unwrap());
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<BMF>(
+        serde_json::json!({"matrix":[[true],[]],"k":1,"m":2,"n":1})
+    )
+    .is_err());
+}
+
+#[test]
+fn deserialize_rebuilds_matrix_dimensions() {
+    let model: BMF = serde_json::from_value(serde_json::json!({
+        "matrix": [[true, false]], "k": 1, "m": 99, "n": 99
+    }))
+    .unwrap();
+    assert_eq!((model.rows(), model.cols(), model.rank()), (1, 2, 1));
+}

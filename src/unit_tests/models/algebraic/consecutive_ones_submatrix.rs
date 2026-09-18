@@ -233,3 +233,11 @@ fn test_consecutive_ones_submatrix_inconsistent_rows() {
     let matrix = vec![vec![true, false], vec![true]];
     ConsecutiveOnesSubmatrix::new(matrix, 1);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    assert!(serde_json::from_value::<ConsecutiveOnesSubmatrix>(
+        serde_json::json!({"matrix":[[true]],"bound":2})
+    )
+    .is_err());
+}

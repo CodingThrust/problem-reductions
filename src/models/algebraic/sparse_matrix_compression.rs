@@ -28,6 +28,7 @@ inventory::submit! {
 /// enumerating storage-vector entries directly, so brute-force search runs over
 /// `bound_k ^ num_rows` shift assignments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SparseMatrixCompressionCreateSpec")]
 pub struct SparseMatrixCompression {
     matrix: Vec<Vec<bool>>,
     bound_k: usize,
@@ -43,17 +44,9 @@ struct SparseMatrixCompressionCreateSpec {
 
 impl TryFrom<SparseMatrixCompressionCreateSpec> for SparseMatrixCompression {
     type Error = crate::registry::ConstructionError;
+
     fn try_from(spec: SparseMatrixCompressionCreateSpec) -> Result<Self, Self::Error> {
-        if spec.bound_k == 0 {
-            return Err("bound_k must be positive".to_string().into());
-        }
-        let columns = spec.matrix.first().map_or(0, Vec::len);
-        if spec.matrix.iter().any(|row| row.len() != columns) {
-            return Err("all matrix rows must have the same length"
-                .to_string()
-                .into());
-        }
-        Ok(Self::new(spec.matrix, spec.bound_k))
+        Self::try_new(spec.matrix, spec.bound_k)
     }
 }
 
@@ -64,14 +57,23 @@ impl SparseMatrixCompression {
     ///
     /// Panics if `bound_k == 0` or if the matrix rows are ragged.
     pub fn new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Self {
-        assert!(bound_k > 0, "bound_k must be positive");
+        Self::try_new(matrix, bound_k).unwrap_or_else(|error| panic!("{error}"))
+    }
 
-        let num_cols = matrix.first().map_or(0, Vec::len);
-        for row in &matrix {
-            assert_eq!(row.len(), num_cols, "All rows must have the same length");
+    fn try_new(
+        matrix: Vec<Vec<bool>>,
+        bound_k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if bound_k == 0 {
+            return Err("bound_k must be positive".to_string().into());
         }
-
-        Self { matrix, bound_k }
+        let columns = matrix.first().map_or(0, Vec::len);
+        if matrix.iter().any(|row| row.len() != columns) {
+            return Err("all matrix rows must have the same length"
+                .to_string()
+                .into());
+        }
+        Ok(Self { matrix, bound_k })
     }
 
     /// Return the binary matrix.
