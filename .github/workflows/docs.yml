@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
@@ -30,12 +28,16 @@ jobs:
       - name: Install mdBook
         run: |
           mkdir -p "$HOME/bin"
-          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.37/mdbook-v0.4.37-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C "$HOME/bin"
+          curl -fLsS https://github.com/rust-lang/mdBook/releases/download/v0.5.2/mdbook-v0.5.2-x86_64-unknown-linux-gnu.tar.gz -o mdbook.tar.gz
+          echo '084e4342ba564db270108763e404a7d1f309d932651a22484e93c0dc1a071f6d  mdbook.tar.gz' | sha256sum --check
+          tar -xzf mdbook.tar.gz -C "$HOME/bin"
           echo "$HOME/bin" >> $GITHUB_PATH
 
       - name: Install Typst
         run: |
-          curl -sSL https://github.com/typst/typst/releases/download/v0.14.0/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ
+          curl -fLsS https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz -o typst.tar.xz
+          echo 'a6d077d0a95eed5a2eba715b2dae06be954f624ccbf85758a03f389ded33118c  typst.tar.xz' | sha256sum --check
+          tar -xJf typst.tar.xz
           mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
 
       - name: Install Node dependencies
@@ -54,9 +56,6 @@ jobs:
       - name: Build mdBook
         run: mdbook build
 
-      - name: Build research website
-        run: python3 scripts/build_website.py
-
       - name: Build PDF
         run: typst compile --root . docs/paper/reductions.typ book/reductions.pdf
 
@@ -68,8 +67,20 @@ jobs:
           mkdir -p book/api
           cp -r target/doc/* book/api/
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - name: Build research website
+        run: python3 scripts/build_website.py
+
+      - name: Verify deployment artifact
+        run: |
+          python3 -m pip install playwright==1.58.0
+          python3 -m playwright install --with-deps chromium
+          npm audit --audit-level=moderate
+          npm run test:reduction-graph-js
+          python3 -m unittest discover -s scripts -p 'test_website_build.py'
+          python3 -m http.server 3001 --bind 127.0.0.1 --directory book &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          python3 scripts/test_website.py
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -77,12 +88,17 @@ jobs:
           path: './book'
 
   deploy:
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

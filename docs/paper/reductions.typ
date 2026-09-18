@@ -51,6 +51,7 @@
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 #import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors, selem, sregion, draw-node-highlight, draw-edge-highlight, draw-node-colors, sregion-selected, sregion-dimmed, gate-and, gate-or, gate-xor
+#import "web.typ": export-details, detail-key, detail-article
 
 #set page(
   paper: "a4",
@@ -64,6 +65,36 @@
 
 // Set up theorem environments with ctheorems
 #show: thmrules.with(qed-symbol: $square$)
+#show math.equation: it => context {
+  if export-details and target() == "html" {
+    html.elem(if it.block { "div" } else { "span" }, attrs: (class: "typst-math"), html.frame(it))
+  } else { it }
+}
+#show figure: it => context {
+  if export-details and target() == "html" {
+    html.elem("figure")[
+      #html.frame(it.body)
+      #if it.caption != none { html.elem("figcaption", it.caption.body) }
+    ]
+  } else { it }
+}
+#show block: it => context {
+  if export-details and target() == "html" {
+    if it.height != auto { html.frame(it) } else { html.elem("div", it.body) }
+  } else { it }
+}
+#show align: it => context {
+  if export-details and target() == "html" { it.body } else { it }
+}
+#show pad: it => context {
+  if export-details and target() == "html" { it.body } else { it }
+}
+#show grid: it => context {
+  if export-details and target() == "html" { html.frame(it) } else { it }
+}
+#show stack: it => context {
+  if export-details and target() == "html" { html.frame(it) } else { it }
+}
 
 // === Example JSON helpers ===
 // Load the generated canonical example database.
@@ -501,6 +532,7 @@
 
 // Render a block of pred CLI commands for reproducibility
 #let pred-commands(..cmds) = {
+  if export-details { return raw(cmds.pos().join("\n"), block: true) }
   block(
     width: 100%,
     fill: luma(245),
@@ -531,8 +563,22 @@
 )
 
 // Problem definition wrapper: auto-adds schema, complexity, reductions list, and label
-#let problem-def(name, def, body) = {
-  let lbl = label("def:" + name)
+#show ref: it => context {
+  let name = str(it.target)
+  if export-details and target() == "html" and name.starts-with("def:") {
+    link(it.target, display-name.at(name.slice(4)))
+  } else { it }
+}
+#let problem-def(name, def, body, variant: none) = {
+  if export-details {
+    return detail-article("problem:" + detail-key(name, variant))[
+      #html.elem("h3")[Definition]
+      #def
+      #html.elem("h3")[Background and example]
+      #body
+    ]
+  }
+  let lbl = label("def:" + detail-key(name, variant))
   let title = display-name.at(name)
   [#definition(title)[
     #def
@@ -586,8 +632,23 @@
   example-target-variant: none,
   example-caption: none,
   extra: none,
+  source-variant: none,
+  target-variant: none,
   theorem-body, proof-body,
 ) = {
+  if export-details {
+    return detail-article("rule:" + detail-key(source, source-variant) + "->" + detail-key(target, target-variant))[
+      #html.elem("h3")[Reduction]
+      #theorem-body
+      #html.elem("h3")[Proof]
+      #proof-body
+      #if example {
+        html.elem("h3")[Example]
+        if example-caption != none { strong(example-caption) }
+        extra
+      }
+    ]
+  }
   let arrow = sym.arrow.r
   let edge = find-edge(source, target)
   let src-disp = if edge != none { variant-display(graph-data.nodes.at(edge.source)) }
@@ -597,7 +658,7 @@
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
   let parameters = if edge != none and edge.parameters.len() > 0 { edge.parameters } else { none }
-  let thm-lbl = label("thm:" + source + "-to-" + target)
+  let thm-lbl = label("thm:" + detail-key(source, source-variant) + "-to-" + detail-key(target, target-variant))
   covered-rules.update(old => old + ((source, target),))
 
   [
@@ -11900,7 +11961,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 )[
   This reduction encodes vertex cover as a minimum-weight solution subgraph problem on a three-layer AND/OR DAG. The root AND gate requires all edges to be covered; each edge becomes an OR gate selecting which endpoint covers it; and each vertex becomes a sink whose arc weight equals the vertex weight. The minimum-weight solution subgraph selects exactly the arcs corresponding to a minimum vertex cover.
 ][
-  _Construction._ Given a Minimum Vertex Cover instance $(G = (V, E), bold(w))$ with $n = |V|$ vertices and $m = |E|$ edges, build an AND/OR graph $D$ with $1 + m + 2n$ vertices arranged in three layers:
+  _Construction._ Given a Minimum Vertex Cover instance $(G = (V, E), bold(w))$, let $N = {v in V : w_v < 0}$. Every optimum contains $N$: adding an omitted negative-weight vertex preserves coverage and strictly decreases cost. Remove all edges incident to $N$ and set the residual weights of vertices in $N$ to zero. Keep the original vertex indices. Below, $E$ denotes these residual edges, $m = |E|$, and $w$ denotes the nonnegative residual weights; the original optimum equals the residual optimum plus $sum_(v in N) w_v$ using the original weights. Build an AND/OR graph $D$ with $1 + m + 2n$ vertices, where $n = |V|$:
 
   - *Root (AND gate):* A single vertex $r$ (index 0) with gate type AND.
   - *Edge layer (OR gates):* For each edge $e_i = {u, v}$ ($i = 0, dots, m-1$), create vertex $e_i$ (index $1 + i$) with gate type OR and an arc $(r, e_i)$ of weight 1.
@@ -11909,9 +11970,9 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
   Since $r$ is AND, any solution subgraph must include all arcs from $r$ to the edge-layer vertices (cost $m$). Each edge-OR vertex $e_i$ requires at least one of its two outgoing arcs to $c_u$ and $c_v$ (selecting which endpoint covers edge $i$). Each activated cover vertex $c_j$ requires its outgoing arc to $s_j$ (contributing $w_j$). The total weight is $m + |{"activated cover arcs"}| + sum_(j in C) w_j$.
 
-  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover with weight $W$, then for each edge $e_i = {u, v}$, at least one endpoint lies in $C$; select the arc from $e_i$ to that endpoint's cover vertex. Activate all cover-to-sink arcs for vertices in $C$. This satisfies the AND gate at the root (all edge arcs selected), every edge OR gate (at least one child selected), and all activated cover vertices (sink arc selected). The total weight is $m + |{"edge-to-cover arcs"}| + W$. ($arrow.l.double$) In any valid solution subgraph, the AND root forces all $m$ edge arcs. Each edge OR vertex selects at least one arc to a cover vertex, activating that cover vertex and its sink arc. The set of activated cover vertices forms a vertex cover (every edge has at least one endpoint activated). The sink arc weights sum to the cover weight, so any minimum-weight solution subgraph corresponds to a minimum vertex cover.
+  _Correctness._ ($arrow.r.double$) Given a residual cover $C$, choose exactly one endpoint in $C$ for each edge. Activate only cover vertices reached by these choices, and their sink arcs. This is a valid solution of cost at most $2m + w(C)$, since omitted cover vertices have nonnegative weight. ($arrow.l.double$) Any valid target solution activates a residual cover $C$ and costs at least $2m + w(C)$: the root requires all $m$ arcs and each edge gate requires at least one unit-weight outgoing arc. These bounds imply that the target optimum is exactly $2m$ plus the residual cover optimum, and every target optimum recovers an optimal residual cover. Adding $N$ restores an original optimum, including negative vertices that are isolated or redundant for coverage.
 
-  _Solution extraction._ Examine the cover-to-sink arcs (indices $3m, dots, 3m + n - 1$ in the arc list): $c_j = 1$ if arc $(c_j, s_j)$ is selected, $c_j = 0$ otherwise.
+  _Solution extraction._ Select every vertex in $N$, together with vertices whose cover-to-sink arcs (indices $3m, dots, 3m + n - 1$) are selected. Evaluate this cover using the original weights.
 ]
 
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
@@ -19053,7 +19114,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This $O(t^2)$ reduction @garey1979 first checks whether every coordinate of $W$, $X$, and $Y$ appears in some triple; uncovered coordinates yield a fixed infeasible 3-Partition instance. Otherwise it composes the classical 3DM $arrow.r$ ABCD-Partition, ABCD-Partition $arrow.r$ 4-Partition, and 4-Partition $arrow.r$ 3-Partition constructions, producing $24 t^2 - 3 t$ integers arranged into $8 t^2 - t$ triples.
 ][
-  _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If some coordinate of $W union X union Y$ is absent from all triples, the source instance is trivially NO, so the implementation returns a fixed infeasible 3-Partition instance with sizes $(6, 6, 6, 6, 7, 9)$ and bound $20$.
+  _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If $q=0$, the empty matching is a solution: return sizes $(1,1,1)$ with bound $3$, and recover the empty matching. Otherwise, if some coordinate of $W union X union Y$ is absent from all triples (including $t=0$), return the fixed infeasible instance $(6,6,6,6,7,9)$ with bound $20$. Including these constant cases, $24t^2-3t+6$ elements and $8t^2-t+2$ groups are upper bounds, not exact counts.
 
   Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
   $ u_l = 10 r^4 - c_l r^3 - b_l r^2 - a_l r, $
@@ -19075,9 +19136,9 @@ The following table shows concrete target-variable counts for example instances,
 
   ($arrow.r.double$) Given a perfect matching $M'$, form one ABCD group for every source triple. If $m_l in M'$, combine $u_l$ with the unique first-occurrence $B$, $C$, and $D$ items of coordinates $(a_l, b_l, c_l)$; otherwise combine $u_l$ with the corresponding later-occurrence dummy items. Because $r = 32 q$ prevents carries between the $r$, $r^2$, $r^3$, and $r^4$ digits, every such group sums to $T_1$, so the tagged instance has a 4-partition. For each tagged 4-set choose any two members $a_i, a_j$ and let the other two be $a_k, a_l$. Then ${w_i, w_j, u_(i j)}$ and ${w_k, w_l, u'_(i j)}$ both sum to $B$. Every pairing gadget not used this way joins one filler in a triple ${u_(i j), u'_(i j), 20 T_2}$. Hence the produced 3-Partition instance is feasible.
 
-  ($arrow.l.double$) In any feasible target solution every number lies strictly between $B / 4$ and $B / 2$, so the partition really is into triples. Modulo 4, regular numbers are congruent to 1, pairing numbers to 2, and fillers to 0. Therefore every triple is either of type $(1, 1, 2)$ or $(0, 2, 2)$. The $(0, 2, 2)$ triples identify the unused pairing gadgets, leaving a family of $(1, 1, 2)$ triples that reconstructs a 4-partition of the tagged numbers. Since $1 + 2 + 4 + 8 equiv 15 mod 16$, every recovered tagged 4-set contains exactly one former $A$-, $B$-, $C$-, and $D$-item. The carry-free base-$r$ encoding then forces each ABCD group to be either a real group (all first occurrences) or a dummy group (all later occurrences). The real groups pick exactly $q$ source triples, one for each coordinate of $W$, $X$, and $Y$, so they form a perfect 3-dimensional matching.
+  ($arrow.l.double$) In any feasible target solution every number lies strictly between $B / 4$ and $B / 2$, so the partition really is into triples. Modulo 4, regular numbers are congruent to 1, pairing numbers to 2, and fillers to 0. Therefore every triple is either of type $(1, 1, 2)$ or $(0, 2, 2)$. First normalize the $(0, 2, 2)$ triples as in @garey1979: if a filler shares a triple with pairing elements $p, q$, exchange $q$ with the original mate of $p$. Both have the same size, since every original pair sums to $44 T_2 + 4 = B - 20 T_2$, so both affected triples remain valid. Each exchange fixes a filler triple without disturbing a previously fixed one. After normalization, every remaining original pair occurs in two $(1, 1, 2)$ triples. Their four actual regular elements sum to $2 B - (44 T_2 + 4) = 84 T_2 + 4$, so the corresponding tagged numbers sum to $T_2$. These disjoint four-sets reconstruct a 4-partition. Since $1 + 2 + 4 + 8 equiv 15 mod 16$, every recovered tagged 4-set contains exactly one former $A$-, $B$-, $C$-, and $D$-item. The carry-free base-$r$ encoding then forces each ABCD group to be either a real group (all first occurrences) or a dummy group (all later occurrences). The real groups pick exactly $q$ source triples, one for each coordinate of $W$, $X$, and $Y$, so they form a perfect 3-dimensional matching.
 
-  _Solution extraction._ Reverse the 4-Partition $arrow.r$ 3-Partition gadget by pairing each triple containing some $u_(i j)$ with the unique triple containing the matching $u'_(i j)$. This recovers the tagged 4-set. Undo the mod-16 tags to obtain one ABCD group, discard every dummy group whose $B$, $C$, and $D$ items are not first occurrences, and read the selected source triple from the surviving $A$-item.
+  _Solution extraction._ Normalize filler triples by the equal-size exchanges above, maintaining each element's current group and position. Then pair the remaining triples containing original mates $u_(i j), u'_(i j)$ and collect their four actual regular elements; their indices need not equal the indices used to construct the pairing gadget. The normalization and pairing take linear time in the target element count. Undo the mod-16 tags to obtain one ABCD group, discard every dummy group whose $B$, $C$, and $D$ items are not first occurrences, and read the selected source triple from the surviving $A$-item.
 ]
 
 #let tdm_ilp = load-example("ThreeDimensionalMatching", "ILP")
@@ -19589,4 +19650,8 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 #pagebreak()
-#bibliography("references.bib", style: "ieee")
+#if export-details {
+  detail-article("references")[#bibliography("references.bib", style: "ieee")]
+} else {
+  bibliography("references.bib", style: "ieee")
+}

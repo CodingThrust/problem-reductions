@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import xml.etree.ElementTree as ET
+from build_graph_details import build_details
+from finalize_website import finalize
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -125,6 +128,18 @@ def build(output, graph_path, schemas_path):
     source = ROOT / "docs/website"
     output.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
+    shutil.copyfile(ROOT / "node_modules/cytoscape/dist/cytoscape.min.js", output / "assets/cytoscape.min.js")
+    shutil.copyfile(ROOT / "node_modules/cytoscape/LICENSE", output / "assets/cytoscape.LICENSE")
+    for name in ("sat", "qubo"):
+        subprocess.run(["typst", "compile", str(source / "formulas" / f"{name}.typ"),
+                        str(output / "assets" / f"{name}.svg")], check=True)
+    build_details(output / "assets")
+    for library in ("layout-base", "cose-base", "cytoscape-fcose"):
+        shutil.copyfile(ROOT / "node_modules" / library / "LICENSE",
+                        output / "assets" / f"{library}.LICENSE")
+    (output / "assets/layout-bundle.js").write_text(";\n".join(
+        (ROOT / "node_modules" / library / f"{library}.js").read_text()
+        for library in ("layout-base", "cose-base", "cytoscape-fcose")))
     build_markdown(output)
     # Preserve the original artwork, adapting only its colors for the dark website.
     logo = ET.parse(ROOT / "docs/logo.svg")
@@ -149,15 +164,16 @@ def build(output, graph_path, schemas_path):
     logo.write(output / "assets/favicon.svg", encoding="unicode")
     # Keep mdBook's original introduction reachable from its sidebar and search.
     # mdBook already emits introduction.html alongside its index.html alias.
-    html = (source / "index.html").read_text()
     counts = {
         "PROBLEM_COUNT": len({node["name"] for node in nodes}),
         "VARIANT_COUNT": len(nodes),
         "RULE_COUNT": len(edges),
     }
-    for key, value in counts.items():
-        html = html.replace(f"__{key}__", str(value))
-    (output / "index.html").write_text(html)
+    for filename in ("index.html", "graph.html"):
+        html = (source / filename).read_text()
+        for key, value in counts.items():
+            html = html.replace(f"__{key}__", str(value))
+        (output / filename).write_text(html)
     # Some cast rules are covered by shared suites rather than a dedicated file.
     # Only publish direct test links when the file actually exists.
     site_edges = []
@@ -186,6 +202,14 @@ def build(output, graph_path, schemas_path):
             "test_path": test_path if (ROOT / test_path).is_file() else None,
         })
     # Decision<Inner> is one generic Rust type, not a struct for every catalog name.
+    for schema in schemas:
+        source_path = (
+            "src/models/decision.rs" if schema["name"].startswith("Decision")
+            else "src/" + schema["module_path"].split("::", 1)[1].replace("::", "/") + ".rs"
+        )
+        if not (ROOT / source_path).is_file():
+            raise ValueError(f"Missing model implementation: {source_path}")
+        schema["source_path"] = source_path
     site_nodes = [{
         **node,
         "complexity_mathml": expression_mathml(node["complexity"]),
@@ -194,10 +218,22 @@ def build(output, graph_path, schemas_path):
             if node["name"].startswith("Decision") else node["doc_path"]
         ),
     } for node in nodes]
-    payload = json.dumps({**graph, "nodes": site_nodes,
+    layout = json.loads(subprocess.run(
+        ["node", str(ROOT / "scripts/generate_website_graph_layout.js"), str(graph_path)],
+        check=True, capture_output=True, text=True).stdout)
+    payload = json.dumps({**graph, "layout": layout, "nodes": site_nodes,
                          "edges": site_edges, "schemas": schemas},
                          ensure_ascii=True)
-    (output / "assets/atlas-data.js").write_text(f"window.REDUCTIONS = {payload};\n")
+    (output / "assets/atlas-data.json").write_text(payload)
+    summary = {
+        "nodes": [{key: node[key] for key in ("name", "category", "variant")} for node in nodes],
+        "edges": [{key: edge[key] for key in ("source", "target")} for edge in edges],
+        "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
+    }
+    (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
+    (output / "assets/graph-data.js").write_text("window.REDUCTIONS = " + json.dumps(
+        {**summary, "layout": layout}, separators=(",", ":")) + ";\n")
+    finalize(output)
     print(f"Built website in {output}: {counts['PROBLEM_COUNT']} families, "
           f"{len(nodes)} variants, {len(edges)} directed reductions")
 

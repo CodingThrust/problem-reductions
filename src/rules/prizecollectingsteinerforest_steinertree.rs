@@ -80,6 +80,7 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
             let m = self.num_source_edges;
             let mut selected_vertices = vec![false; n];
             let mut selected_edges = vec![false; m];
+            let edges = self.target.graph().edges();
 
             // Mark vertices included via their gadget include-edge `(v, t_v)`,
             // and edges via the matching original edge.
@@ -91,20 +92,9 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
                     selected_vertices[v] = true;
                 } else if let Some(src_edge) = self.target_to_source_edge[target_idx] {
                     selected_edges[src_edge] = true;
-                }
-            }
-
-            // Any original edge selected in `T*` forces both endpoints into
-            // `V_F`. The PCSF model rejects configurations where a selected
-            // edge has an unselected endpoint, so we mark endpoints explicitly
-            // (this also covers prize-zero endpoints, which have no gadget).
-            let edges = self.target.graph().edges();
-            for (target_idx, &(_, _)) in edges.iter().enumerate() {
-                if !target_solution[target_idx] {
-                    continue;
-                }
-                if let Some(src_edge) = self.target_to_source_edge[target_idx] {
-                    let (u, v) = self.source_edge_pair(src_edge);
+                    // Include both endpoints, including prize-zero vertices
+                    // that have no inclusion gadget.
+                    let (u, v) = edges[target_idx];
                     selected_vertices[u] = true;
                     selected_vertices[v] = true;
                 }
@@ -112,14 +102,6 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
 
             (selected_vertices, selected_edges)
         })
-    }
-}
-
-impl ReductionPCSFToSteinerTree {
-    /// Look up the endpoint pair of the `idx`-th source edge in the target
-    /// graph's edge list (source edges are placed first by construction).
-    fn source_edge_pair(&self, src_edge_idx: usize) -> (usize, usize) {
-        self.target.graph().edges()[src_edge_idx]
     }
 }
 

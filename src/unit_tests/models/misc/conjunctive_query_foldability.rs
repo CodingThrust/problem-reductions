@@ -1,4 +1,42 @@
 use super::*;
+
+#[test]
+fn test_conjunctive_query_foldability_validates_persisted_input() {
+    let valid = serde_json::to_value(ConjunctiveQueryFoldability::new(
+        1,
+        1,
+        1,
+        vec![1],
+        vec![(0, vec![Term::Distinguished(0)])],
+        vec![(0, vec![Term::Undistinguished(0)])],
+    ))
+    .unwrap();
+    let restored: ConjunctiveQueryFoldability = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("query1_conjuncts", serde_json::json!([[1, []]])),
+        ("query1_conjuncts", serde_json::json!([[0, []]])),
+        (
+            "query1_conjuncts",
+            serde_json::json!([[0,[{"Constant":1}]]]),
+        ),
+        (
+            "query1_conjuncts",
+            serde_json::json!([[0,[{"Distinguished":1}]]]),
+        ),
+        (
+            "query2_conjuncts",
+            serde_json::json!([[0,[{"Undistinguished":1}]]]),
+        ),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<ConjunctiveQueryFoldability>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

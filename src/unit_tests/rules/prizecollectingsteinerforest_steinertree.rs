@@ -1,4 +1,24 @@
 use super::*;
+
+#[test]
+fn test_extraction_includes_zero_prize_connector() {
+    let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
+        SimpleGraph::path(3),
+        vec![10, 0, 10],
+        vec![1, 1],
+        1,
+        5,
+    )
+    .unwrap();
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+    let target_solution = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+    let recovered = reduction.extract_solution(&target_solution).unwrap();
+    assert_eq!(recovered, (vec![true; 3], vec![true; 2]));
+    assert_eq!(source.evaluate(&recovered).unwrap(), Min(Some(7)));
+}
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;

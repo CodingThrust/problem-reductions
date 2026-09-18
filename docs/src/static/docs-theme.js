@@ -43,6 +43,7 @@
     nav.className = "docs-tools";
     nav.setAttribute("aria-label", "Documentation resources");
     const links = [
+      ["Home ↗", root + "index.html#home"],
       ["GitHub ↗", "https://github.com/CodingThrust/problem-reductions"],
       ["Atlas ↗", root + "index.html#atlas"],
     ];

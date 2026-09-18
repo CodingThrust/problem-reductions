@@ -115,7 +115,7 @@ mod mcp_tests {
     }
 
     #[test]
-    fn test_mcp_server_initialize_and_list_tools() {
+    fn test_mcp_server_initialize_list_and_call_tools() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);
 
@@ -192,11 +192,30 @@ mod mcp_tests {
             );
         }
 
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "list_problems", "arguments": {}}
+            }),
+        );
+        let call_resp = read_response(&mut reader);
+        assert_eq!(call_resp["id"], 3);
+        assert!(call_resp.get("error").is_none(), "{call_resp}");
+        assert_ne!(call_resp["result"]["isError"], true);
+        assert!(call_resp["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("MaximumIndependentSet"));
+        assert!(call_resp["result"].get("resultType").is_none());
+
         shutdown(stdin, child);
     }
 
     #[test]
-    fn test_mcp_server_prompts_list() {
+    fn test_mcp_server_prompts_list_and_get() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);
 
@@ -243,6 +262,39 @@ mod mcp_tests {
         assert!(prompt_names.contains(&"solve"));
         assert!(prompt_names.contains(&"find_reduction"));
         assert!(prompt_names.contains(&"overview"));
+
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "prompts/get",
+                "params": {"name": "what_is", "arguments": {"problem": "QUBO"}}
+            }),
+        );
+        let prompt_resp = read_response(&mut reader);
+        assert_eq!(prompt_resp["id"], 3);
+        let message = &prompt_resp["result"]["messages"][0];
+        assert_eq!(message["role"], "user");
+        assert_eq!(message["content"]["type"], "text");
+        assert!(message["content"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("QUBO"));
+
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "prompts/get",
+                "params": {"name": "unknown"}
+            }),
+        );
+        let error_resp = read_response(&mut reader);
+        assert_eq!(error_resp["id"], 4);
+        assert_eq!(error_resp["error"]["code"], -32602);
+        assert_eq!(error_resp["error"]["message"], "Unknown prompt: unknown");
 
         shutdown(stdin, child);
     }

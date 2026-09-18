@@ -53,6 +53,26 @@ fn test_export_schemas() {
     let output_path = output_dir.join("problem_schemas.json");
     export_schemas::run(&output_path);
     assert!(output_path.is_file());
+    let schemas: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
+    let schema = schemas
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|schema| schema["name"] == "MaximumIndependentSet")
+        .unwrap();
+    assert_eq!(
+        schema["module_path"],
+        "problemreductions::models::graph::maximum_independent_set"
+    );
+    let public_schema = problemreductions::registry::collect_schemas()
+        .into_iter()
+        .find(|schema| schema.name == "MaximumIndependentSet")
+        .unwrap();
+    assert!(serde_json::to_value(public_schema)
+        .unwrap()
+        .get("module_path")
+        .is_none());
     std::fs::remove_dir_all(output_dir).unwrap();
 }
 

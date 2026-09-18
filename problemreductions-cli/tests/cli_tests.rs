@@ -7428,7 +7428,7 @@ fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
         "CLI should return a user-facing error, got: {stderr}"
     );
     assert!(
-        stderr.contains("outside universe of size 3"),
+        stderr.contains("out of range (num_attributes = 3)"),
         "expected out-of-range error, got: {stderr}"
     );
 }
@@ -7454,7 +7454,7 @@ fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("subsets[0] contains attribute 4 outside universe of size 3"),
+        stderr.contains("Functional dependency 0 contains attribute 4 which is out of range"),
         "expected lhs-specific out-of-range error, got: {stderr}"
     );
 }
@@ -7480,7 +7480,7 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("target contains attribute 4 outside universe of size 3"),
+        stderr.contains("target_subset contains attribute 4 which is out of range"),
         "expected target-specific out-of-range error, got: {stderr}"
     );
 }

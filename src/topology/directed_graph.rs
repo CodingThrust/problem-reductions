@@ -53,21 +53,28 @@ impl DirectedGraph {
     ///
     /// Panics if any arc references a vertex index >= `num_vertices`.
     pub fn new(num_vertices: usize, arcs: Vec<(usize, usize)>) -> Self {
+        Self::try_new(num_vertices, arcs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        num_vertices: usize,
+        arcs: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let mut inner = DiGraph::new();
         for _ in 0..num_vertices {
             inner.add_node(());
         }
         for (u, v) in arcs {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "arc ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
+            if !(u < num_vertices && v < num_vertices) {
+                return Err(format!(
+                    "arc ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
             inner.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
         }
-        Self { inner }
+        Ok(Self { inner })
     }
 
     /// Creates an empty directed graph with the given number of vertices and no arcs.
@@ -263,7 +270,7 @@ impl<'de> Deserialize<'de> for DirectedGraph {
             arcs: Vec<(usize, usize)>,
         }
         let data = GraphData::deserialize(deserializer)?;
-        Ok(DirectedGraph::new(data.num_vertices, data.arcs))
+        DirectedGraph::try_new(data.num_vertices, data.arcs).map_err(serde::de::Error::custom)
     }
 }
 

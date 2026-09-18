@@ -177,3 +177,10 @@ fn test_minimum_cardinality_key_paper_example() {
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(witness, solution);
 }
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"num_attributes":3,"dependencies":[[[0,3],[1]]]});
+    assert!(serde_json::from_value::<MinimumCardinalityKey>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("MinimumCardinalityKey", &Default::default(), json).is_err());
+}

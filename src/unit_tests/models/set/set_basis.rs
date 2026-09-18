@@ -131,20 +131,6 @@ fn test_set_basis_rejects_wrong_config_length() {
 }
 
 #[test]
-fn test_set_basis_deserialized_invalid_target_returns_false() {
-    let problem: SetBasis = serde_json::from_value(serde_json::json!({
-        "universe_size": 4,
-        "collection": [[0, 4]],
-        "k": 1
-    }))
-    .unwrap();
-
-    assert!(!problem
-        .evaluate(&vec![vec![true, false, false, false]])
-        .unwrap());
-}
-
-#[test]
 fn test_set_basis_deserialized_unsorted_target_still_evaluates_correctly() {
     let problem: SetBasis = serde_json::from_value(serde_json::json!({
         "universe_size": 2,
@@ -204,4 +190,11 @@ fn test_set_basis_empty_collection_with_k_positive() {
     // Any valid config of length k * universe_size = 4 should satisfy.
     assert!(problem.evaluate(&vec![vec![false; 2]; 2]).unwrap());
     assert!(problem.evaluate(&vec![vec![true; 2]; 2]).unwrap());
+}
+
+#[test]
+fn json_rejects_invalid_instance() {
+    let json = serde_json::json!({"universe_size":3,"collection":[[0,3]],"k":1});
+    assert!(serde_json::from_value::<SetBasis>(json.clone()).is_err());
+    assert!(crate::registry::load_dyn("SetBasis", &Default::default(), json).is_err());
 }
