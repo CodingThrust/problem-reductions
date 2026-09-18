@@ -71,6 +71,7 @@ inventory::submit! {
 ///     .unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConsecutiveSetsData")]
 pub struct ConsecutiveSets {
     /// Size of the alphabet (elements are 0..alphabet_size-1).
     alphabet_size: usize,
@@ -78,6 +79,21 @@ pub struct ConsecutiveSets {
     subsets: Vec<Vec<usize>>,
     /// Maximum string length K.
     bound_k: usize,
+}
+
+#[derive(Deserialize)]
+struct ConsecutiveSetsData {
+    alphabet_size: usize,
+    subsets: Vec<Vec<usize>>,
+    bound_k: usize,
+}
+
+impl TryFrom<ConsecutiveSetsData> for ConsecutiveSets {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ConsecutiveSetsData) -> Result<Self, Self::Error> {
+        Self::try_new(data.alphabet_size, data.subsets, data.bound_k)
+    }
 }
 
 impl ConsecutiveSets {
@@ -88,31 +104,34 @@ impl ConsecutiveSets {
     /// Panics if `bound_k` is zero, if any subset contains duplicate elements,
     /// or if any element is outside the alphabet.
     pub fn new(alphabet_size: usize, subsets: Vec<Vec<usize>>, bound_k: usize) -> Self {
-        assert!(bound_k > 0, "bound_k must be positive, got 0");
-        let mut subsets = subsets;
-        for (i, subset) in subsets.iter_mut().enumerate() {
+        Self::try_new(alphabet_size, subsets, bound_k).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        alphabet_size: usize,
+        mut subsets: Vec<Vec<usize>>,
+        bound_k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if bound_k == 0 {
+            return Err("bound_k must be positive, got 0".into());
+        }
+        for (index, subset) in subsets.iter_mut().enumerate() {
             let mut seen = HashSet::with_capacity(subset.len());
-            for &elem in subset.iter() {
-                assert!(
-                    elem < alphabet_size,
-                    "Subset {} contains element {} which is outside alphabet of size {}",
-                    i,
-                    elem,
-                    alphabet_size
-                );
-                assert!(
-                    seen.insert(elem),
-                    "Subset {} contains duplicate elements",
-                    i
-                );
+            for &element in subset.iter() {
+                if element >= alphabet_size {
+                    return Err(format!("subset {index} contains element {element} outside alphabet of size {alphabet_size}").into());
+                }
+                if !seen.insert(element) {
+                    return Err(format!("subset {index} contains duplicate elements").into());
+                }
             }
             subset.sort();
         }
-        Self {
+        Ok(Self {
             alphabet_size,
             subsets,
             bound_k,
-        }
+        })
     }
 
     /// Get the alphabet size.

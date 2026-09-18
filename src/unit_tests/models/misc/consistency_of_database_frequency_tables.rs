@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn test_consistency_of_database_frequency_tables_validates_persisted_input() {
+    let valid = serde_json::to_value(issue_yes_instance()).unwrap();
+    let restored: ConsistencyOfDatabaseFrequencyTables =
+        serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("attribute_domains", serde_json::json!([0, 3, 2])),
+        ("num_objects", serde_json::json!(0)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<ConsistencyOfDatabaseFrequencyTables>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]

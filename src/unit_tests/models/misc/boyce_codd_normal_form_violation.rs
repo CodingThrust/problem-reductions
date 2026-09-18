@@ -1,4 +1,29 @@
 use super::*;
+
+#[test]
+fn test_boyce_codd_normal_form_violation_validates_persisted_input() {
+    let valid = serde_json::to_value(BoyceCoddNormalFormViolation::new(
+        2,
+        vec![(vec![0], vec![1])],
+        vec![0, 1],
+    ))
+    .unwrap();
+    let restored: BoyceCoddNormalFormViolation = serde_json::from_value(valid.clone()).unwrap();
+    assert_eq!(serde_json::to_value(restored).unwrap(), valid);
+    for (field, value) in [
+        ("target_subset", serde_json::json!([])),
+        ("target_subset", serde_json::json!([2])),
+        ("functional_deps", serde_json::json!([[[], [1]]])),
+        ("functional_deps", serde_json::json!([[[0], [2]]])),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<BoyceCoddNormalFormViolation>(invalid).is_err(),
+            "{field}"
+        );
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
