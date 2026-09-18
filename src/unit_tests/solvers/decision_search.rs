@@ -1,78 +1,137 @@
 use super::*;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
-use crate::solvers::BruteForce;
+use crate::solvers::SolveError;
 use crate::topology::SimpleGraph;
-use crate::types::{Max, Min};
 
-#[test]
-fn test_decision_search_min() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::new(graph, vec![1i64; 3]);
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct FixedObjective<V>(V);
 
-    assert_eq!(solve_via_decision(&problem, 0, 3).unwrap(), Some(1));
+impl<V: DecisionSearchValue> Problem for FixedObjective<V> {
+    const NAME: &'static str = "FixedObjective";
+    type Solution = Vec<usize>;
+    type Value = V;
+    fn parameter_names() -> &'static [&'static str] {
+        &["num_variables"]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![("num_variables", 0)])
+    }
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![(
+            "objective",
+            std::any::type_name::<V>().rsplit("::").next().unwrap(),
+        )]
+    }
+    fn evaluate(&self, _: &Self::Solution) -> Result<V, crate::traits::EvaluationError> {
+        Ok(self.0.clone())
+    }
+}
+
+impl<V: DecisionSearchValue> DecisionProblemMeta for FixedObjective<V> {
+    const DECISION_NAME: &'static str = "DecisionFixedObjective";
+}
+
+impl<V: DecisionSearchValue> crate::solvers::BruteForceProblem for FixedObjective<V> {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![]
+    }
+}
+
+crate::register_brute_force! {
+    Decision<FixedObjective<Min<i64>>>,
+    Decision<FixedObjective<Max<i64>>>,
+}
+
+crate::declare_variants! {
+    default Decision<FixedObjective<Min<i64>>> => "1",
+    Decision<FixedObjective<Max<i64>>> => "1",
+}
+
+inventory::submit! {
+    crate::registry::ProblemSchemaEntry {
+        name: "DecisionFixedObjective",
+        display_name: "Fixed Objective Decision Test Problem",
+        aliases: &[],
+        dimensions: &[crate::registry::VariantDimension::new(
+            "objective",
+            "Min<i64>",
+            &["Min<i64>", "Max<i64>"],
+        )],
+        category: crate::registry::ProblemCategory::Algebraic,
+        module_path: module_path!(),
+        description: "Fixed objective for decision-search boundary tests",
+        fields: &[],
+    }
 }
 
 #[test]
-fn test_decision_search_max() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::new(graph, vec![1i64; 3]);
-
-    assert_eq!(solve_via_decision(&problem, 0, 3).unwrap(), Some(2));
+fn test_decision_search_matches_optimum_at_integer_boundaries() {
+    for weight in [i64::MIN, i64::MIN + 1, -3, -1, 0, 1, i64::MAX - 1, i64::MAX] {
+        let min = MinimumVertexCover::new(SimpleGraph::new(1, vec![(0, 0)]), vec![weight]);
+        let max = MaximumIndependentSet::new(SimpleGraph::empty(1), vec![weight]);
+        let maximum = weight.max(0);
+        for (lower, upper) in [(i64::MIN, i64::MAX), (weight, weight)] {
+            assert_eq!(
+                solve_via_decision(&min, lower, upper).unwrap(),
+                Some(weight)
+            );
+        }
+        for (lower, upper) in [(i64::MIN, i64::MAX), (maximum, maximum)] {
+            assert_eq!(
+                solve_via_decision(&max, lower, upper).unwrap(),
+                Some(maximum)
+            );
+        }
+    }
 }
 
 #[test]
-fn test_decision_search_matches_brute_force() {
-    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
-    let problem = MinimumVertexCover::new(graph, vec![1i64; 5]);
-
-    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
-    let brute_force_value = problem.evaluate(&solution).unwrap();
-
-    assert_eq!(
-        solve_via_decision(&problem, 0, 5).unwrap(),
-        brute_force_value.size().copied()
-    );
+fn test_decision_search_rejects_invalid_or_excluding_intervals() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let min = MinimumVertexCover::new(graph.clone(), vec![1_i64; 3]);
+    let max = MaximumIndependentSet::new(graph, vec![1_i64; 3]);
+    assert_eq!(solve_via_decision(&min, 0, 3).unwrap(), Some(1));
+    assert_eq!(solve_via_decision(&max, 0, 3).unwrap(), Some(2));
+    for result in [
+        solve_via_decision(&min, 0, 0),
+        solve_via_decision(&min, 2, 3),
+        solve_via_decision(&max, 0, 1),
+        solve_via_decision(&max, 3, 4),
+    ] {
+        assert!(matches!(
+            result,
+            Err(SolveError::OptimumOutsideSearchInterval { .. })
+        ));
+    }
+    for result in [
+        solve_via_decision(&min, 2, 1),
+        solve_via_decision(&max, 2, 1),
+    ] {
+        assert!(matches!(
+            result,
+            Err(SolveError::InvalidSearchInterval { lower: 2, upper: 1 })
+        ));
+    }
 }
 
 #[test]
-fn test_decision_search_min_returns_none_when_upper_bound_is_too_small() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::new(graph, vec![1i64; 3]);
-
-    assert_eq!(solve_via_decision(&problem, 0, 0).unwrap(), None);
-}
-
-#[test]
-fn test_decision_search_max_returns_none_when_interval_is_above_optimum() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::new(graph, vec![1i64; 3]);
-
-    assert_eq!(solve_via_decision(&problem, 3, 4).unwrap(), None);
-}
-
-#[test]
-fn test_decision_search_invalid_interval_returns_none() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let min_problem = MinimumVertexCover::new(graph.clone(), vec![1i64; 3]);
-    let max_problem = MaximumIndependentSet::new(graph, vec![1i64; 3]);
-
-    assert_eq!(solve_via_decision(&min_problem, 2, 1).unwrap(), None);
-    assert_eq!(solve_via_decision(&max_problem, 2, 1).unwrap(), None);
-}
-
-#[test]
-fn test_decision_search_preserves_value_direction() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let min_problem = MinimumVertexCover::new(graph.clone(), vec![1i64; 3]);
-    let max_problem = MaximumIndependentSet::new(graph, vec![1i64; 3]);
-
-    let min_solution = BruteForce::new().solve(&min_problem).unwrap().unwrap();
-    let max_solution = BruteForce::new().solve(&max_problem).unwrap().unwrap();
-    let min_value = min_problem.evaluate(&min_solution).unwrap();
-    let max_value = max_problem.evaluate(&max_solution).unwrap();
-
-    assert_eq!(min_value, Min(Some(1)));
-    assert_eq!(max_value, Max(Some(2)));
-    assert_eq!(solve_via_decision(&min_problem, 0, 3).unwrap(), Some(1));
-    assert_eq!(solve_via_decision(&max_problem, 0, 3).unwrap(), Some(2));
+fn test_decision_search_infeasibility_and_evaluation_failure() {
+    for (lower, upper) in [(0, 3), (i64::MIN, i64::MAX)] {
+        assert_eq!(
+            solve_via_decision(&FixedObjective(Min(None)), lower, upper).unwrap(),
+            None
+        );
+        assert_eq!(
+            solve_via_decision(&FixedObjective(Max(None)), lower, upper).unwrap(),
+            None
+        );
+    }
+    let min = MinimumVertexCover::new(SimpleGraph::empty(2), vec![i64::MAX; 2]);
+    let max = MaximumIndependentSet::new(SimpleGraph::empty(2), vec![i64::MIN; 2]);
+    for result in [
+        solve_via_decision(&min, -3, -1),
+        solve_via_decision(&max, 1, 3),
+    ] {
+        assert!(matches!(result, Err(SolveError::Evaluation(_))));
+    }
 }

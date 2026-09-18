@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::variant::{K1, K2, K3, K4, KN};
+use crate::variant::{K2, K3, KN};
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -47,7 +47,7 @@ fn test_reduction_path_graph() {
 #[test]
 fn runtime_color_count_controls_exact_ilp_parameters() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    for colors in [2, 3, 5] {
+    for colors in [1, 2, 3, 4, 5] {
         let problem = KColoring::<KN, _>::with_k(graph.clone(), colors);
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
         let target = reduction.target_problem();
@@ -167,7 +167,7 @@ fn test_ilp_structure() {
 #[test]
 fn test_empty_graph() {
     // Graph with no edges: any coloring is valid
-    let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
+    let problem = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![]), 1);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -184,10 +184,10 @@ fn test_empty_graph() {
 #[test]
 fn test_complete_graph_k4() {
     // K4 needs 4 colors
-    let problem = KColoring::<K4, _>::new(SimpleGraph::new(
+    let problem = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
@@ -256,7 +256,7 @@ fn test_reduction_closed_loop() {
 #[test]
 fn test_single_vertex() {
     // Single vertex graph: always 1-colorable
-    let problem = KColoring::<K1, _>::new(SimpleGraph::new(1, vec![]));
+    let problem = KColoring::<KN, _>::with_k(SimpleGraph::new(1, vec![]), 1);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 

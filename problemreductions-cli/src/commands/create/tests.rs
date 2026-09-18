@@ -360,7 +360,7 @@ fn test_create_schema_driven_builds_integer_target_closest_vector_problem() {
 }
 
 #[test]
-fn test_create_schema_driven_builds_real_target_closest_vector_problem() {
+fn test_create_rejects_fractional_cvp_target() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -370,20 +370,12 @@ fn test_create_schema_driven_builds_real_target_closest_vector_problem() {
         "--target-vec",
         "0.5,1.25",
     ])
-    .expect("create command parses");
-
+    .unwrap();
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
-
-    let resolved_variant = BTreeMap::from([("target".to_string(), "f64".to_string())]);
-    let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
-        .expect("schema-driven create should parse");
-    let entry = problemreductions::registry::find_variant_entry("ClosestVectorProblem", &variant)
-        .expect("variant entry");
-    (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
-    assert_eq!(data["basis"], serde_json::json!([[1, 0], [0, 1]]));
-    assert_eq!(data["target"], serde_json::json!([0.5, 1.25]));
+    let variant = BTreeMap::from([("target".into(), "i64".into())]);
+    assert!(create_schema_driven(&args, "ClosestVectorProblem", &variant).is_err());
 }
 
 #[test]

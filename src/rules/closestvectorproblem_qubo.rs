@@ -12,7 +12,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 use num_bigint::BigInt;
 use num_traits::Zero;
 
-type Source = ClosestVectorProblem<i64>;
+type Source = ClosestVectorProblem;
 type Target = QUBO<i64>;
 
 #[derive(Debug, Clone)]
@@ -234,7 +234,7 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
 #[reduction(transform = unavailable {
     num_vars = "the exact encoding size depends on the concrete basis and target values",
 })]
-impl ReduceTo<QUBO<i64>> for ClosestVectorProblem<i64> {
+impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
     type Result = ReductionCVPToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {

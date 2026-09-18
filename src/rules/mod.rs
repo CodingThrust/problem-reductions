@@ -13,7 +13,6 @@ pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
-mod closestvectorproblem_casts;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;

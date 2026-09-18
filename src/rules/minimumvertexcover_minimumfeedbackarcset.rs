@@ -3,7 +3,7 @@
 //! Each vertex v is split into v^in and v^out connected by an internal arc
 //! (v^in → v^out) with weight w(v). For each edge {u,v}, two crossing arcs
 //! (u^out → v^in) and (v^out → u^in) are added with a large penalty weight
-//! M = 1 + Σ w(v). The penalty ensures no optimal FAS includes crossing arcs.
+//! M = 1 + Σ max(w(v), 0). No optimal FAS includes crossing arcs.
 //!
 //! A vertex cover of the source maps to a feedback arc set of internal arcs:
 //! if vertex i is in the cover, remove internal arc i.
@@ -19,6 +19,7 @@ pub struct ReductionVCToFAS {
     target: MinimumFeedbackArcSet<i64>,
     /// Number of vertices in the source graph (= number of internal arcs).
     num_source_vertices: usize,
+    source_edges: Vec<(usize, usize)>,
 }
 
 impl ReductionResult for ReductionVCToFAS {
@@ -37,7 +38,17 @@ impl ReductionResult for ReductionVCToFAS {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_source_vertices].to_vec())
+        let cover = target_solution[..self.num_source_vertices].to_vec();
+        if self
+            .source_edges
+            .iter()
+            .any(|&(u, v)| !cover[u] && !cover[v])
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target feedback arc set does not encode a source vertex cover",
+            ));
+        }
+        Ok(cover)
     }
 }
 
@@ -59,11 +70,11 @@ impl ReduceTo<MinimumFeedbackArcSet<i64>> for MinimumVertexCover<SimpleGraph, i6
         // Crossing arcs: for each edge {u,v}, add (u^out → v^in) and (v^out → u^in) with weight M
 
         let weight_sum = self.weights().iter().try_fold(0i64, |sum, &weight| {
-            sum.checked_add(weight).ok_or_else(|| {
+            sum.checked_add(weight.max(0)).ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     MinimumVertexCover<SimpleGraph, i64>,
                     MinimumFeedbackArcSet<i64>,
-                >("summing source vertex weights")
+                >("summing positive source vertex weights")
             })
         })?;
         let big_m = weight_sum.checked_add(1).ok_or_else(|| {
@@ -96,6 +107,7 @@ impl ReduceTo<MinimumFeedbackArcSet<i64>> for MinimumVertexCover<SimpleGraph, i6
         Ok(ReductionVCToFAS {
             target,
             num_source_vertices: n,
+            source_edges: edges,
         })
     }
 }

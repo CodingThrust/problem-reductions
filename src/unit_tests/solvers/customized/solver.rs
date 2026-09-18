@@ -53,6 +53,46 @@ fn all_simple_graphs(num_vertices: usize) -> impl Iterator<Item = SimpleGraph> {
     })
 }
 
+#[test]
+fn test_customized_two_coloring_matches_brute_force() {
+    use crate::models::graph::KColoring;
+    use crate::variant::K2;
+
+    for n in 0..=5 {
+        for graph in all_simple_graphs(n) {
+            let problem = KColoring::<K2, _>::new(graph);
+            let actual = CustomizedTestSolver::new().solve_dyn(&problem);
+            let expected = crate::solvers::BruteForce::new().solve(&problem).unwrap();
+            assert_eq!(actual.is_some(), expected.is_some());
+            if let Some(solution) = actual {
+                assert!(problem.evaluate(&solution).unwrap().0);
+            }
+        }
+    }
+}
+
+#[test]
+fn test_customized_two_coloring_handles_loops_parallel_edges_and_long_paths() {
+    use crate::models::graph::KColoring;
+    use crate::variant::K2;
+
+    for (graph, feasible) in [
+        (SimpleGraph::new(2, vec![(0, 1), (0, 1)]), true),
+        (SimpleGraph::new(3, vec![(2, 2)]), false),
+        (
+            SimpleGraph::new(10_000, (0..9_999).map(|u| (u, u + 1)).collect()),
+            true,
+        ),
+    ] {
+        let problem = KColoring::<K2, _>::new(graph);
+        let solution = CustomizedTestSolver::new().solve_dyn(&problem);
+        assert_eq!(solution.is_some(), feasible);
+        if let Some(solution) = solution {
+            assert!(problem.evaluate(&solution).unwrap().0);
+        }
+    }
+}
+
 fn exact_partial_feedback_edge_set_feasible(
     graph: &SimpleGraph,
     budget: usize,

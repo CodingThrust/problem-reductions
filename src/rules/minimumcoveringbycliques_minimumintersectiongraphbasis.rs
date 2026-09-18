@@ -8,7 +8,6 @@ use crate::models::graph::{MinimumCoveringByCliques, MinimumIntersectionGraphBas
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -86,10 +85,11 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            if !self.target.evaluate(target_solution)?.is_valid() {
+            if !value.is_valid() {
                 return Err(crate::rules::ExtractionError::invalid(
                     "target configuration is not a valid intersection graph basis",
                 ));

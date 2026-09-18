@@ -123,3 +123,30 @@ fn test_monochromatic_triangle_serialization() {
     assert_eq!(deserialized.num_edges(), 6);
     assert_eq!(deserialized.triangles().len(), 4);
 }
+
+#[test]
+fn test_monochromatic_triangle_deserialization_rebuilds_derived_triangles() {
+    // Triangle 0-1-2 with a pendant edge 2-3.
+    let problem =
+        MonochromaticTriangle::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]));
+    let valid = serde_json::to_value(&problem).unwrap();
+
+    let mut corrupted = valid.clone();
+    corrupted["triangles"] = serde_json::json!([[99, 0, 1]]);
+    corrupted["edge_list"] = serde_json::json!([]);
+    let graph_only = serde_json::json!({ "graph": valid["graph"] });
+
+    for json in [valid.clone(), corrupted, graph_only] {
+        let restored: MonochromaticTriangle<SimpleGraph> = serde_json::from_value(json).unwrap();
+        assert_eq!(serde_json::to_value(&restored).unwrap(), valid);
+        assert_eq!(restored.triangles(), &[[0, 1, 2]]);
+        assert_eq!(
+            restored.evaluate(&vec![true, true, true, false]).unwrap(),
+            crate::types::Or(false)
+        );
+        assert_eq!(
+            restored.evaluate(&vec![true, false, true, true]).unwrap(),
+            crate::types::Or(true)
+        );
+    }
+}

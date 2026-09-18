@@ -3280,7 +3280,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let steiner-verts = tree-verts.filter(v => not terminals.contains(v))
   [
     #problem-def("SteinerTree")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $T subset.eq V$ with $|T| >= 2$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_.
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a nonempty set of terminal vertices $T subset.eq V$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_. For a single terminal, the tree consisting of that vertex and no edges is feasible.
     ][
     One of Karp's 21 NP-complete problems @karp1972, foundational in network design with applications in telecommunications backbone routing, VLSI chip interconnect, pipeline planning, and phylogenetic tree construction. When $T = V$, the problem reduces to the minimum spanning tree (polynomial). The NP-hardness arises from choosing which Steiner vertices to include.
 
@@ -5507,14 +5507,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let dist-rounded = calc.round(dist, digits: 3)
   [
     #problem-def("ClosestVectorProblem")[
-      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in ZZ^m$, find $bold(x) in ZZ^n$ minimizing the squared distance $norm(bold(B) bold(x) - bold(t))_2^2$.
     ][
-      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. Finite `f64` targets are interpreted as their exact binary rational values. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation uses integer basis and target coordinates and reports squared distance with checked integer arithmetic. Squaring preserves the Euclidean minimizers without introducing rounding. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
-      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with distance #dist-rounded.
+      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with squared distance #dist-rounded.
 
       #pred-commands(
-        "pred create --example ClosestVectorProblem -o closest-vector-problem.json",
+        "pred create --example " + problem-spec(x) + " -o closest-vector-problem.json",
         "pred solve closest-vector-problem.json",
         "pred evaluate closest-vector-problem.json --config " + cli-config(x.optimal_config),
       )
@@ -12313,7 +12313,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
         together with target $ bold(t) = (#fmt-values(ss-cvp-target-vec))^top $
         in the standard CVP model, with no coefficient bounds.
 
-        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the Euclidean distance is $sqrt(4) = 2$.
+        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the squared distance is $4$.
 
         *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
       ],
@@ -12326,11 +12326,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
       _Correctness._ Every integer vector satisfies
       $ norm(bold(B) bold(z)-bold(t))_2^2 = sum_i (x_i^2 + (x_i-1)^2) + sum_j r_j^2 >= n. $
-      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the optimum is $sqrt(n)$ exactly for YES instances. Empty item lists and target zero use the same construction.
+      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the optimum squared distance is $n$ exactly for YES instances. Empty item lists and target zero use the same construction.
 
-      _Solution extraction._ Validate the target configuration once and require a finite distance exactly $sqrt(n)$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal distance proves NO and provides no source witness.
+      _Solution extraction._ Validate the target configuration once and require squared distance exactly $n$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal squared distance proves NO and provides no source witness.
 
-      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. On a 64-bit platform this bounds $n < 2^30$; the threshold and the unit squared-distance gap remain distinguishable in the target's floating-point evaluation. The paired coordinates and boundary carry equations also ensure every threshold witness has exactly evaluated small integer residuals. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. The threshold and squared-distance evaluation use checked `i64` arithmetic; overflow is an error, not a NO certificate. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -16694,15 +16694,6 @@ Problems parameterized by graph type, weight type, target type, or clause width 
   _Solution extraction._ Return the target configuration unchanged.
 ]
 
-#reduction-rule("ClosestVectorProblem", "ClosestVectorProblem")[
-  An integer-target CVP instance converts to the floating-target variant by embedding every target coordinate with `i64_to_exact_f64`. The integer lattice basis is copied unchanged.
-][
-  _Construction._ Given $(B, bold(t))$ with $B in ZZ^(m times n)$ and $bold(t) in ZZ^m$, construct $(B, bold(t)')$ with $t'_i = "f64"(t_i)$ for every exactly representable coordinate $|t_i| lt.eq 2^53 - 1$.
-
-  _Correctness._ Exact coordinate conversion gives $bold(t)' = bold(t)$ in $RR^m$. Therefore $norm(B bold(x) - bold(t)')_2 = norm(B bold(x) - bold(t))_2$ for every $bold(x) in ZZ^n$, so the minimizers coincide.
-
-  _Solution extraction._ Return the integer coefficient vector unchanged.
-]
 
 #reduction-rule("QUBO", "QUBO")[
   An integer QUBO converts to the floating-coefficient variant by embedding every matrix coefficient with `i64_to_exact_f64`.
@@ -17625,13 +17616,13 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. By symmetry of the triangle, any two-vertex cover is optimal.
   ],
 )[
-  Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v w(v)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
+  Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v max(w(v), 0)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
 ][
-  _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) w(v)$.
+  _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) max(w(v), 0)$.
 
-  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) Since $M$ exceeds total internal weight, no crossing arc is in the optimal FAS. For each edge ${u,v}$, the 4-cycle through both internal and crossing arcs forces at least one internal arc into $F$.
+  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) If an FAS selects any crossing arc, replace all selected crossing arcs by all internal arcs. This still breaks every cycle, adds weight at most $sum_v max(w(v), 0)$, and removes weight at least $M$, strictly reducing cost. Thus an optimal FAS contains only internal arcs. Each source edge then forces at least one endpoint's internal arc into the FAS (also for a self-loop), yielding a cover of equal weight.
 
-  _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$.
+  _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$. Reject a target candidate if these vertices leave any source edge uncovered; target feasibility alone does not guarantee that this mapping produces a cover.
 ]
 
 #let ksat_kc = load-example("KSatisfiability", "KClique")
@@ -19623,36 +19614,28 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Bienstock, Goemans, Simchi-Levi, Williamson @BienstockGoemansSimchiLeviWilliamson1993 introduced the prize/penalty framework for prize-collecting network design; Tuncbag and coauthors @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB used the same artificial-root idea to translate PCSF into a rooted prize-collecting Steiner tree on biological networks. The combined construction recorded here adds a per-vertex auxiliary-terminal gadget that compiles the remaining omitted-prize term `beta * p(v)` into ordinary Steiner-tree edge costs, so the target is a plain (unweighted-prize) Steiner Tree instance.
 ][
-  _Construction._ Given a PCSF instance with graph $G = (V, E)$, edge costs $c$, vertex prizes $p$, and parameters $beta >= 0$, $omega >= 0$, let $V_p = {v in V : p(v) > 0}$ and $k = |V_p|$. Build the target graph $H = (V_H, E_H)$ with weights $c_H$ and terminal set $T_H$ as follows.
+  _Construction._ Given a PCSF instance with graph $G = (V, E)$, nonnegative edge costs $c$, nonnegative vertex prizes $p$, and parameters $beta >= 0$, $omega >= 0$, let $V_p = {v in V : p(v) > 0}$, $k = |V_p|$, and $M = omega + 1$.
 
-  1. Add a fresh artificial root $r$: $V_H = V union {r} union {t_v : v in V_p}$.
-  2. Keep every original edge $e in E$ with $c_H(e) = c(e)$.
-  3. For every $v in V$, add a root-attachment edge $(r, v)$ with $c_H((r, v)) = omega$.
-  4. For every prized vertex $v in V_p$, add an include-edge $(v, t_v)$ with cost $0$ and an omit-edge $(r, t_v)$ with cost $beta dot p(v)$.
-  5. Set $T_H = {r} union {t_v : v in V_p}$. Original vertices $V$ and the new gadget terminals coexist; only $r$ and the $t_v$ are terminals.
+  1. Add an artificial root $r$ and gadget terminals $t_v$: $V_H = V union {r} union {t_v : v in V_p}$.
+  2. Keep every original edge $e in E$ with cost $c(e)$.
+  3. For every $v in V$, add $(r, v)$ with cost $omega$.
+  4. For every $v in V_p$, add an include-edge $(v, t_v)$ of cost $M$ and an omit-edge $(r, t_v)$ of cost $M + beta dot p(v)$.
+  5. Set $T_H = {r} union {t_v : v in V_p}$.
 
-  Solve $"SteinerTree"(H, c_H, T_H)$ to obtain a minimum-weight tree $T^*$ spanning $T_H$.
+  _Witness extraction._ From an optimal target tree $T^*$ recover
+  $ E_F = T^* inter E(G), quad V_F = {v in V : (v, t_v) in T^*} union {"endpoints of edges in" E_F}. $
+  The restriction is acyclic and contains every endpoint of a selected source edge.
 
-  _Witness extraction._ From $T^*$ recover the PCSF witness $(V_F, E_F)$ by
+  _Correctness._ ($arrow.r.double$) Attach each component of a feasible forest $F$ to $r$ once. Select the include-edge for each included prized vertex and the omit-edge otherwise. The result is a tree spanning all terminals, of cost
+  $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + k M = f'(F) + k M. $
 
-  $ E_F = T^* inter E(G), quad V_F = { v in V : (v, t_v) in T^* } union { "endpoints of edges in" E_F }. $
-
-  Equivalently, deleting $r$ and the gadget vertices ${t_v}$ from $T^*$ leaves a disjoint union of trees on $V$; $V_F$ is the set of original vertices touched by this restricted forest, and $E_F$ is exactly $T^* inter E(G)$. Both directions are consistent because:
-
-  - any prized vertex $v$ in $V_F$ pays the cost-$0$ include-edge $(v, t_v)$ to reach $t_v$ inside $T^*$;
-  - any prized vertex $v$ omitted from $V_F$ has $t_v$ joined to the tree exclusively through $(r, t_v)$, paying $beta dot p(v)$.
-
-  _Correctness._ ($arrow.r.double$) Given any feasible source forest $F$, attach each connected component of $F$ to $r$ via exactly one root-attachment edge (cost $omega$ per component) and resolve each gadget locally: take $(v, t_v)$ if $v in V_F$, else $(r, t_v)$. The resulting subgraph of $H$ is connected, spans $T_H$, and is a tree because every gadget is paid by exactly one of its two edges and the only chord that could close a cycle is removed by the choice of a single root-attachment edge per component. Its cost equals
-
-  $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + 0 = f'(F). $
-
-  ($arrow.l.double$) Conversely, given an optimal Steiner tree $T^*$, the restriction $E_F = T^* inter E(G)$ is acyclic (subset of a tree) and respects the PCSF feasibility constraint that selected edges only touch selected vertices, because every endpoint $v$ of an edge in $E_F$ is forced into $V_F$ by the extraction rule. Each connected component of $F$ corresponds to a maximal subtree of $T^*$ confined to $V$, and any optimal $T^*$ uses exactly one root-attachment edge per component (a second incident root edge could be replaced by a cheaper internal path, contradicting optimality). Each prized vertex $v in V_F$ is reached by $T^*$ via original edges, so the include-edge $(v, t_v)$ is selected for free; each omitted prized vertex contributes the omit-edge $(r, t_v)$ of cost $beta dot p(v)$. Summing the contributions reproduces $f'(F)$, so $"cost"_H(T^*) = f'(F^*)$ at optima and the extracted forest is optimal for PCSF.
+  ($arrow.l.double$) A gadget terminal cannot have both incident edges in an optimum: replacing its omit-edge by $(r,v)$ preserves the tree and lowers cost by $M + beta p(v) - omega > 0$. Thus each gadget terminal is a leaf, contributing a common offset $M$. Each remaining component of original vertices has exactly one root attachment, since two would form a cycle. Extraction may discard isolated zero-prize vertices, which cannot increase cost. Any omitted prized vertex has its omit-edge selected. Therefore the extracted forest has cost at most $"cost"(T^*) - k M$. Combined with the forward construction, this proves equality of the optimal costs up to the offset and optimality of every extracted target optimum.
 
   _Overhead._ With $n = |V|$, $m = |E|$, and $k = |V_p|$:
   $ |V_H| = n + k + 1, quad |E_H| = m + n + 2 k, quad |T_H| = k + 1. $
-  Every quantity is linear in the source instance size, so the reduction is a polynomial-time transformation.
+  Every quantity is linear in the source instance size.
 
-  _Remark._ The artificial-root edges all share cost $omega$. Tuncbag et al. originally used this construction with $omega = c$ for any positive scalar $c$ acting as a per-component penalty; we follow that convention. When $omega = 0$, root-attachment edges become free and the construction degenerates: any rooted spanning tree of the prized-vertex closure achieves the same cost, but the witness-extraction recipe still recovers a feasible (cost-equivalent) PCSF forest, possibly with a different component count.
+  _Boundary cases._ When $k=0$, the target has only terminal $r$; the edge-free tree maps to the empty source forest of cost zero. The same construction works when $beta=0$ or $omega=0$. Gadget costs use checked integer arithmetic.
 ]
 
 #pagebreak()

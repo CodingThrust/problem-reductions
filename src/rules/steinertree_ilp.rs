@@ -61,7 +61,7 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let (num_vars, num_constraints) = tree_ilp_sizes(n, m, self.terminals().len())?;
-        // The source constructor requires at least two distinct terminals.
+        // The source constructor requires at least one terminal.
         let root = self.terminals()[0];
         let edges = self.graph().edges();
         let vertex_var = |v: usize| m + v;
@@ -132,7 +132,7 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
     }
 }
 
-/// Bounds for all offsets and allocation sizes; n >= 2 is a source invariant.
+/// Bounds for all offsets and allocation sizes; n >= 1 is a source invariant.
 fn tree_ilp_sizes(
     n: usize,
     m: usize,

@@ -435,7 +435,7 @@ fn unit_construction_preserves_model_validation() {
     let graph = json!({"num_vertices":3,"edges":[[0,1],[1,2]]});
     for (name, data) in [
         ("MaximumCoKPlex", json!({"graph":graph,"k":0})),
-        ("SteinerTree", json!({"graph":graph,"terminals":[0]})),
+        ("SteinerTree", json!({"graph":graph,"terminals":[]})),
         ("SteinerTree", json!({"graph":graph,"terminals":[0,0]})),
         ("SteinerTree", json!({"graph":graph,"terminals":[0,3]})),
         (

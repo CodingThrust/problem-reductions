@@ -3,6 +3,23 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
+fn test_subset_dp_rejects_unrepresentable_state_space() {
+    for n in [usize::BITS as usize, usize::BITS as usize - 1] {
+        let tests = (n.ilog2() + 1) as usize;
+        let matrix = (0..tests)
+            .map(|bit| (0..n).map(|object| object & (1 << bit) != 0).collect())
+            .collect();
+        let problem = MinimumDecisionTree::new(matrix, n, tests);
+        let error = solve(&problem).unwrap_err();
+        if n == usize::BITS as usize {
+            assert!(matches!(error, SolveError::IntegerOverflow(_)));
+        } else {
+            assert!(matches!(error, SolveError::Allocation(_)));
+        }
+    }
+}
+
+#[test]
 fn test_subset_dp_minimum_decision_tree_matches_brute_force() {
     let rows = [
         vec![false, false, true],

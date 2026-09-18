@@ -13,7 +13,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::variant::{KValue, K1, K2, K3, K4, KN};
+use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing KColoring to ILP.
 ///
@@ -128,7 +128,7 @@ macro_rules! impl_kcoloring_to_ilp {
     )+};
 }
 
-impl_kcoloring_to_ilp!(K1, K2, K3, K4);
+impl_kcoloring_to_ilp!(K2, K3);
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {

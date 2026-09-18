@@ -2,6 +2,33 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn test_kcoloring_catalog_keeps_runtime_two_and_three_color_variants() {
+    let mut variants = crate::registry::variant_entries()
+        .into_iter()
+        .filter(|entry| entry.name == "KColoring")
+        .map(|entry| entry.variant_map()["k"].clone())
+        .collect::<Vec<_>>();
+    variants.sort();
+    assert_eq!(variants, ["K2", "K3", "KN"]);
+}
+
+#[test]
+fn test_kcoloring_runtime_supports_other_color_counts() {
+    for k in [1, 4, 5] {
+        let graph = SimpleGraph::new(
+            k,
+            (0..k)
+                .flat_map(|u| (u + 1..k).map(move |v| (u, v)))
+                .collect(),
+        );
+        let problem = KColoring::<KN, _>::with_k(graph, k);
+        let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+        assert!(problem.evaluate(&solution).unwrap().0);
+        assert_eq!(problem.num_colors(), k);
+    }
+}
+
+#[test]
 fn create_specs_separate_runtime_and_fixed_color_counts() {
     let runtime = KColoring::<KN, SimpleGraph>::try_from(RuntimeKColoringCreateSpec {
         graph: vec![(0, 1)],
@@ -34,7 +61,7 @@ fn fixed_and_runtime_variants_report_num_colors_parameter() {
 }
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::variant::{K1, K2, K3, K4};
+use crate::variant::{K2, K3, KN};
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -134,7 +161,7 @@ fn test_is_valid_coloring_wrong_len() {
 fn test_empty_graph() {
     use crate::traits::Problem;
 
-    let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
+    let problem = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![]), 1);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -150,10 +177,10 @@ fn test_complete_graph_k4() {
     use crate::traits::Problem;
 
     // K4 needs 4 colors
-    let problem = KColoring::<K4, _>::new(SimpleGraph::new(
+    let problem = KColoring::<KN, _>::with_k(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    ));
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -269,11 +296,8 @@ fn fixed_color_counts_survive_all_serialization_paths() {
             assert!(serde_json::from_value::<KColoring<K, SimpleGraph>>(data.clone()).is_err());
         }
     }
-    check::<crate::variant::K1>();
     check::<crate::variant::K2>();
     check::<crate::variant::K3>();
-    check::<crate::variant::K4>();
-    check::<crate::variant::K5>();
 }
 
 #[test]
