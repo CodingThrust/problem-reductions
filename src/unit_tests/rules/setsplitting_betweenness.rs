@@ -32,6 +32,37 @@ fn test_setsplitting_to_betweenness_closed_loop() {
 }
 
 #[test]
+fn test_repeated_elements_preserve_splittability() {
+    for (subset, feasible) in [
+        (vec![0, 0, 1], true),
+        (vec![1, 0, 1, 0, 1], true),
+        (vec![0, 0], false),
+        (vec![1, 1, 1, 1], false),
+    ] {
+        let source = SetSplitting::new(2, vec![subset]);
+        assert_eq!(
+            BruteForce::new().solve(&source).unwrap().is_some(),
+            feasible
+        );
+        let reduction = ReduceTo::<Betweenness>::reduce_to(&source).unwrap();
+        assert_eq!(
+            BruteForce::new()
+                .solve(reduction.target_problem())
+                .unwrap()
+                .is_some(),
+            feasible
+        );
+        if feasible {
+            assert_satisfaction_round_trip_from_satisfaction_target(
+                &source,
+                &reduction,
+                "repeated elements",
+            );
+        }
+    }
+}
+
+#[test]
 fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
     let source = issue_yes_instance();
     let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
