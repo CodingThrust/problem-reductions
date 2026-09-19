@@ -351,6 +351,7 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for Reduction3SATToPreemptiveScheduling {
     type Source = KSatisfiability<K3>;
     type Target = PreemptiveScheduling;
@@ -369,7 +370,6 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToPreemptiveSchedul
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_tasks = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
         num_processors = "2 * num_vars + 3 + 6 * num_clauses",

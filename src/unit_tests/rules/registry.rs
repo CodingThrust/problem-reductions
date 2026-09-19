@@ -1,6 +1,101 @@
 use super::*;
 use crate::expr::Expr;
 
+#[test]
+fn registered_aggregate_mappings_share_the_witness_result() {
+    use crate::models::formula::{CNFClause, Satisfiability};
+    use crate::traits::Problem;
+
+    let source = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
+    let entry = reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == Satisfiability::NAME && entry.target_name == "KSatisfiability"
+        })
+        .unwrap();
+    let witness = entry.reduce_fn.unwrap()(&source).unwrap();
+    let view = entry.aggregate_view_fn.unwrap()(witness.as_ref()).unwrap();
+    assert!(std::ptr::eq(
+        witness.target_problem_any(),
+        view.target_problem_any()
+    ));
+}
+
+#[test]
+fn aggregate_executors_reject_wrong_source_types() {
+    for mapping in inventory::iter::<AggregateMappingEntry> {
+        let error = (mapping.reduce_fn)(&())
+            .err()
+            .expect("wrong source type must fail");
+        assert!(
+            matches!(error, crate::rules::ReductionError::SourceTypeMismatch {
+            source_problem, target_problem, ..
+        } if source_problem == mapping.source_name && target_problem == mapping.target_name)
+        );
+    }
+}
+
+#[test]
+fn registered_executors_preserve_construction_errors() {
+    use crate::models::misc::Partition;
+    let source = Partition::new(vec![1_i64 << 61, 1_i64 << 61]).unwrap();
+    let entry = reduction_entries()
+        .into_iter()
+        .find(|entry| entry.source_name == "Partition" && entry.target_name == "OpenShopScheduling")
+        .unwrap();
+    let witness_error = entry.reduce_fn.unwrap()(&source).err().unwrap();
+    let aggregate_error = entry.reduce_aggregate_fn.unwrap()(&source).err().unwrap();
+    for error in [witness_error, aggregate_error] {
+        assert!(matches!(
+            error,
+            crate::rules::ReductionError::Construction {
+                source_problem: "Partition",
+                target_problem: "OpenShopScheduling",
+                cause: crate::registry::ConstructionError::IntegerOverflow(_),
+            }
+        ));
+    }
+}
+
+#[test]
+fn aggregate_registration_matches_exact_endpoints_and_rejects_conflicts() {
+    let mapping = AggregateMappingEntry {
+        source_name: "Source",
+        target_name: "Target",
+        source_variant_fn: || vec![("weight", "i64"), ("graph", "SimpleGraph")],
+        target_variant_fn: Vec::new,
+        reduce_fn: |_| unreachable!(),
+        view_fn: |_| unreachable!(),
+    };
+    let mut entry = entry_with(ReductionParameterDeclarations::default);
+    entry.source_variant_fn = || vec![("graph", "SimpleGraph"), ("weight", "i64")];
+    entry.reduce_fn = Some(|_| unreachable!());
+    let mut wrong_variant = entry;
+    wrong_variant.source_variant_fn = Vec::new;
+    let mut entries = [wrong_variant, entry];
+    attach_aggregate_mapping(&mut entries, &mapping);
+    assert!(!entries[0].capabilities().aggregate);
+    assert!(entries[1].capabilities().aggregate);
+
+    let mut no_executor = entry;
+    no_executor.reduce_fn = None;
+    let mut turing = entry;
+    turing.turing = true;
+    for mut invalid in [
+        vec![],
+        vec![wrong_variant],
+        vec![entry, entry],
+        vec![no_executor],
+        vec![turing],
+        vec![entries[1]],
+    ] {
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            attach_aggregate_mapping(&mut invalid, &mapping);
+        }))
+        .is_err());
+    }
+}
+
 fn entry_with(declarations: fn() -> ReductionParameterDeclarations) -> ReductionEntry {
     ReductionEntry {
         source_name: "Source",

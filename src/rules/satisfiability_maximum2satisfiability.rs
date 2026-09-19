@@ -39,6 +39,7 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     type Source = Satisfiability;
     type Target = Maximum2Satisfiability;
@@ -121,7 +122,6 @@ fn add_gjs_gadget(clause: &CNFClause, w: i64, target_clauses: &mut Vec<CNFClause
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vars = "num_vars + 2 * num_literals + 4 * num_clauses",
         num_clauses = "10 * (num_literals + 3 * num_clauses)",

@@ -125,7 +125,7 @@ fn test_tour_value_mapping_and_invalid_configurations() {
         crate::rules::AggregateReductionResult::extract_value(&result, Min(Some(i64::MIN))),
         Min(Some(i64::MIN + result.objective_offset))
     );
-    let entry = inventory::iter::<crate::rules::ReductionEntry>
+    let entry = crate::rules::registry::reduction_entries()
         .into_iter()
         .find(|entry| entry.source_name == "TravelingSalesman" && entry.target_name == "QUBO")
         .unwrap();

@@ -80,6 +80,7 @@ impl ReductionResult for ReductionSATToDS {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSATToDS {
     type Source = Satisfiability;
     type Target = MinimumDominatingSet<SimpleGraph, i64>;
@@ -134,7 +135,6 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",

@@ -41,6 +41,7 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinMaxMulticente
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumDominatingSetToMinMaxMulticenter
 {
@@ -57,7 +58,6 @@ impl crate::rules::AggregateReductionResult
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "num_vertices + 2",
         num_edges = "num_edges",

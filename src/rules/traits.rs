@@ -259,6 +259,13 @@ pub trait AggregateReductionResult {
     fn target_problem(&self) -> &Self::Target;
 
     /// Extract an aggregate value from target problem space back to source space.
+    ///
+    /// The caller supplies the completed target aggregate: an exact optimum,
+    /// exhaustive YES/NO, count, or universal fold. Evaluating one candidate is
+    /// not a substitute for that aggregate when establishing NO or optimality.
+    /// A decision rule may also use its map to certify a candidate witness.
+    /// Each rule defines its own map;
+    /// source and target value types alone do not establish equivalence.
     fn extract_value(
         &self,
         target_value: <Self::Target as crate::traits::Problem>::Value,

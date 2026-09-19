@@ -38,7 +38,7 @@ fn test_threedimensionalmatching_to_threepartition_q1_overhead_and_bounds() {
 
 #[test]
 fn empty_triple_sets_preserve_empty_and_nonempty_universe_truth() {
-    let entry = inventory::iter::<crate::rules::ReductionEntry>
+    let entry = crate::rules::registry::reduction_entries()
         .into_iter()
         .find(|e| {
             e.source_name == ThreeDimensionalMatching::NAME && e.target_name == ThreePartition::NAME

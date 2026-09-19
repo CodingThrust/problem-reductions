@@ -46,6 +46,20 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToOneInThreeSAT {
+    type Source = KSatisfiability<K3>;
+    type Target = OneInThreeSatisfiability;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vars = "num_vars + 2 + 6 * num_clauses",

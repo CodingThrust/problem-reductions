@@ -117,6 +117,20 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult
+    for ReductionHamiltonianCircuitToBiconnectivityAugmentation
+{
+    type Source = HamiltonianCircuit<SimpleGraph>;
+    type Target = BiconnectivityAugmentation<SimpleGraph, i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vertices = "num_vertices + 3",

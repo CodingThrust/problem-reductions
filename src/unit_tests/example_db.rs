@@ -694,6 +694,27 @@ fn rule_specs_solution_pairs_are_consistent() {
         let chain = chain.unwrap_or_else(|error| {
             panic!("Rule {label}: witness reduction execution failed: {error}")
         });
+        let aggregate_chain = if chain
+            .as_ref()
+            .is_some_and(|chain| chain.has_value_mapping())
+        {
+            let aggregate_chain = graph
+                .reduce_aggregate_along_path(witness_path.as_ref().unwrap(), source.as_any())
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                crate::registry::serialize_any(
+                    &example.target.problem,
+                    &example.target.variant,
+                    aggregate_chain.target_problem_any()
+                ),
+                Some(example.target.instance.clone()),
+                "Rule {label}: witness and aggregate execution construct different targets"
+            );
+            Some(aggregate_chain)
+        } else {
+            None
+        };
 
         for pair in &example.solutions {
             // Verify configs produce feasible evaluations.
@@ -739,6 +760,62 @@ fn rule_specs_solution_pairs_are_consistent() {
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
+                if source_eval == "Or(true)" {
+                    assert!(
+                        chain.has_value_mapping(),
+                        "Rule {label}: decision recovery requires an explicit YES/NO map"
+                    );
+                }
+                if chain.has_value_mapping() {
+                    let target_value = target.evaluate_json(&pair.target_config).unwrap();
+                    assert_eq!(
+                        aggregate_chain
+                            .as_ref()
+                            .unwrap()
+                            .extract_value(target_value.clone())
+                            .unwrap(),
+                        source_val,
+                        "Rule {label}: aggregate-only execution disagrees with witness evaluation"
+                    );
+                    assert_eq!(
+                        chain.extract_value(target_value).unwrap(),
+                        source_val,
+                        "Rule {label}: aggregate and witness mappings disagree"
+                    );
+                    if source_eval == "Or(true)" {
+                        assert_eq!(
+                            chain
+                                .extract_value(target.empty_aggregate_json().unwrap())
+                                .unwrap(),
+                            serde_json::json!(false),
+                            "Rule {label}: infeasible target must map to NO"
+                        );
+                        if let Some(config) = pair.target_config.as_array() {
+                            for bit in [false, true] {
+                                let candidate = serde_json::Value::Array(
+                                    config
+                                        .iter()
+                                        .map(|value| match value {
+                                            serde_json::Value::Bool(_) => serde_json::json!(bit),
+                                            serde_json::Value::Number(_) => {
+                                                serde_json::json!(i64::from(bit))
+                                            }
+                                            _ => value.clone(),
+                                        })
+                                        .collect(),
+                                );
+                                // Only test well-formed candidates whose mapped value is NO.
+                                if let Ok(value) = target.evaluate_json(&candidate) {
+                                    if chain.extract_value(value).unwrap()
+                                        == serde_json::json!(false)
+                                    {
+                                        assert!(chain.extract_solution_json(candidate).is_err(), "Rule {label}: a negative certificate produced a witness");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 let extracted = chain
                     .extract_solution_json(pair.target_config.clone())
                     .unwrap();

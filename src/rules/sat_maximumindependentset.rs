@@ -101,6 +101,7 @@ impl ReductionResult for ReductionSATToIS {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSATToIS {
     type Source = Satisfiability;
     type Target = MaximumIndependentSet<SimpleGraph, One>;
@@ -127,7 +128,6 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",

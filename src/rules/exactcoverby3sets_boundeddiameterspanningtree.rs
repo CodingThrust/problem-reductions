@@ -116,6 +116,18 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
+    type Source = ExactCoverBy3Sets;
+    type Target = BoundedDiameterSpanningTree<SimpleGraph, i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vertices = "num_subsets + universe_size + 3",

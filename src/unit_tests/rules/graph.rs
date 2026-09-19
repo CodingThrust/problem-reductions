@@ -10,7 +10,7 @@ use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
 use crate::registry::ProblemCategory;
 use crate::rules::graph::{ReductionMode, ReductionStep};
-use crate::rules::registry::{ReductionEntry, ReductionParameterDeclarations};
+use crate::rules::registry::ReductionParameterDeclarations;
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
@@ -1919,7 +1919,7 @@ fn test_parameter_names_returns_own_fields() {
 fn parameter_contract_variables_are_registered_source_fields() {
     let graph = ReductionGraph::new();
 
-    for entry in inventory::iter::<ReductionEntry> {
+    for entry in crate::rules::registry::reduction_entries() {
         let declarations = (entry.parameter_declarations_fn)();
         let input_vars: std::collections::HashSet<_> = declarations
             .fields

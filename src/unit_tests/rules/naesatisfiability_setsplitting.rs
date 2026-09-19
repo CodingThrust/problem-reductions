@@ -54,9 +54,9 @@ fn test_naesatisfiability_to_setsplitting_extract_solution_uses_positive_literal
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true, false, true, false])
+            .extract_solution(&vec![true, true, true, false, false, false])
             .unwrap(),
-        vec![true, false, true]
+        vec![true, true, true]
     );
 }
 

@@ -326,6 +326,7 @@ fn build_qubo_matrix(
     Ok((matrix, constant))
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionKSatToQUBO {
     type Source = KSatisfiability<K2>;
     type Target = QUBO<i64>;
@@ -337,6 +338,7 @@ impl crate::rules::AggregateReductionResult for ReductionKSatToQUBO {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for Reduction3SATToQUBO {
     type Source = KSatisfiability<K3>;
     type Target = QUBO<i64>;
@@ -349,7 +351,6 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToQUBO {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vars",
     }
@@ -378,7 +379,6 @@ impl ReduceTo<QUBO<i64>> for KSatisfiability<K2> {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vars + num_clauses",
     }

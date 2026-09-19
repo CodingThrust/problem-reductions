@@ -162,6 +162,20 @@ fn normalize(
     })
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToCyclicOrdering {
+    type Source = KSatisfiability<K3>;
+    type Target = CyclicOrdering;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_elements = "3 * num_vars + 26 * num_clauses + 3",

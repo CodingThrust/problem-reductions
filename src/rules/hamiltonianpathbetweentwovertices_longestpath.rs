@@ -68,6 +68,7 @@ impl ReductionResult for ReductionHPBTVToLP {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionHPBTVToLP {
     type Source = HamiltonianPathBetweenTwoVertices<SimpleGraph>;
     type Target = LongestPath<SimpleGraph, One>;
@@ -87,7 +88,6 @@ impl crate::rules::AggregateReductionResult for ReductionHPBTVToLP {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",

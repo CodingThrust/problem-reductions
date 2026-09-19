@@ -41,6 +41,12 @@ fn test_partition_to_knapsack_odd_total_is_not_satisfying() {
 
     assert_eq!(target.evaluate(&best).unwrap(), Max(Some(5)));
 
-    let extracted = reduction.extract_solution(&best).unwrap();
-    assert!(!source.evaluate(&extracted).unwrap());
+    assert_eq!(
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            target.evaluate(&best).unwrap(),
+        ),
+        crate::types::Or(false),
+    );
+    assert!(reduction.extract_solution(&best).is_err());
 }

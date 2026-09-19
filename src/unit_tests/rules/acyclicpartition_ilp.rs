@@ -46,10 +46,36 @@ fn test_reduction_num_vars() {
     let reduction: ReductionAcyclicPartitionToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    // n=4, m=3: n^2 + m*n + m = 16 + 12 + 3 = 31
-    assert_eq!(ilp.num_vars(), 31);
-    // 2n + 3mn + 2m + 1 = 8 + 36 + 6 + 1 = 51
-    assert_eq!(ilp.num_constraints(), 51);
+    assert_eq!(ilp.num_vars(), 35);
+    assert_eq!(ilp.num_constraints(), 75);
+}
+
+#[test]
+fn signed_partition_weights_and_costs_are_checked_after_summing() {
+    for (source, witness) in [
+        (
+            AcyclicPartition::new(DirectedGraph::new(2, vec![]), vec![2, -3], vec![], -1, 0),
+            vec![0, 0],
+        ),
+        (
+            AcyclicPartition::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                vec![1; 3],
+                vec![3, -4],
+                1,
+                -1,
+            ),
+            vec![0, 1, 2],
+        ),
+    ] {
+        assert!(source.evaluate(&witness).unwrap().0);
+        let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+    }
+    let empty = AcyclicPartition::new(DirectedGraph::new(0, vec![]), vec![], vec![], 0, -1);
+    assert!(!empty.evaluate(&vec![]).unwrap().0);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&empty).unwrap();
+    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
 
 #[test]

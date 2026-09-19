@@ -315,6 +315,20 @@ fn witness_config_for_assignment(
     Some(witness_value_from_alphas(&alphas, &construction.thetas))
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToQuadraticCongruences {
+    type Source = KSatisfiability<K3>;
+    type Target = QuadraticCongruences;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         bit_length_a = "64 * (2 * num_clauses + num_vars + 1)^2 + 3 * num_clauses + 4",

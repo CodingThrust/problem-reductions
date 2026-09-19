@@ -32,9 +32,27 @@ impl ReductionResult for ReductionPartitionToCPI {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
 
         Ok(target_solution.to_vec())
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToCPI {
+    type Source = Partition;
+    type Target = CosineProductIntegration;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 

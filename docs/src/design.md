@@ -266,8 +266,9 @@ fallible boundary, not a recovery mechanism:
 
 1. In every direct extractor, call `validate_target_solution()` once before
    indexing or decoding. Composed extractors delegate this check.
-2. Validate any structure required by the inverse mapping, such as exactly-one
-   blocks, permutations, paths, flows, or schedules.
+2. For decision sources, reject an infeasible target value or a failed
+   rule-owned feasibility threshold. Validate structure required by the inverse mapping, such as
+   exactly-one blocks, permutations, paths, flows, or schedules.
 3. Apply the reduction's mathematical inverse once and return a source
    configuration with the required length and domains.
 4. Return `ExtractionError` when a precondition is not satisfied.
@@ -305,7 +306,37 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>>
 
 ## Reduction Graph
 
-`ReductionGraph::new()` iterates all registered `ReductionEntry` items (via `inventory`) and builds a variant-level directed graph:
+### Result mappings
+
+Rules follow mathematical contracts, without mandatory category tags:
+
+| Reduction | Completed-result workflow | Example |
+| --- | --- | --- |
+| Decision → decision | Map `Or` identically; decode a witness only for YES. | SAT → 3-SAT |
+| Optimization → optimization | Decode an optimal target witness and evaluate it on the source. Register `extract_value` only when the rule supplies an objective map. | MinimumVertexCover → MaximumIndependentSet |
+| Decision → optimization | Apply the rule's threshold or feasibility map to the exact target optimum. Decode only when it yields YES; return NO without a witness otherwise. | HamiltonianCircuit → TravelingSalesman: optimum cost equals the number of vertices |
+| Counting | Fold all target evaluations, then map the total with `extract_value`; no representative witness. Witness equivalence alone does not preserve counts. | Parsimonious circuit → formula encoding with uniquely determined auxiliary values |
+| Universal | Fold with `And`, then apply the rule's aggregate map; no representative witness. | Renaming the variables of a universally quantified formula |
+
+Use `ReduceTo<T>` and `ReductionResult::extract_solution` for witnesses.
+When the same construction also maps completed values, implement
+`AggregateReductionResult` on its result with `#[aggregate_reduction]`.
+The attribute registers the implementation, not a rule category; the implementation
+owns the mathematical map. Use `register_aggregate_reduction!(ResultType)` to
+register concrete instances of generic implementations, including
+`VariantReductionResult<S, T>`. Both mappings
+belong to the same graph edge and share its constructed result. Aggregate-only
+rules use `ReduceToAggregate<T>`.
+
+Reverse a multi-step chain one edge at a time. A NO result continues through
+explicit value maps, not through a fabricated invalid witness. Missing maps,
+failed extraction, and solver errors are errors, never NO. A numerical ILP
+optimum missing a decision threshold is unresolved, not an exact negative
+certificate. These rules do not change `Problem`, `SolutionAggregate`, or
+solver return types.
+
+`ReductionGraph::new()` reads `reduction_entries()`, which joins each construction
+with its registered result mappings, and builds a variant-level directed graph:
 
 - **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i64"})`.
 - **Edges** come from explicit `#[reduction]` registrations, including

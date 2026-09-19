@@ -95,6 +95,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO {
     type Source = TravelingSalesman<SimpleGraph, i64>;
     type Target = QUBO<i64>;
@@ -123,7 +124,6 @@ impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vertices^2",
     }

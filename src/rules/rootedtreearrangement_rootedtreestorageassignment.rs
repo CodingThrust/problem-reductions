@@ -40,7 +40,13 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
 
         Ok({
             let n = self.num_vertices;
@@ -54,8 +60,24 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult
+    for ReductionRootedTreeArrangementToRootedTreeStorageAssignment
+{
+    type Source = RootedTreeArrangement<SimpleGraph>;
+    type Target = RootedTreeStorageAssignment;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         universe_size = "num_vertices",
         num_subsets = "num_edges",
     }
@@ -65,41 +87,29 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let edges = self.graph().edges();
+        // Loops have zero stretch and impose no storage constraint.
+        let edges: Vec<_> = self
+            .graph()
+            .edges()
+            .into_iter()
+            .filter(|&(u, v)| u != v)
+            .collect();
         let num_edges = edges.len();
 
         // Each edge becomes a 2-element subset
         let subsets: Vec<Vec<usize>> = edges.iter().map(|&(u, v)| vec![u, v]).collect();
 
-        // Bound K' = K - |E|. If this underflows (K < |E|), the source instance
-        // is infeasible (each edge contributes at least 1 to the arrangement
-        // cost). In that case, return a fixed gadget instance that is
-        // guaranteed infeasible for the target problem as well.
+        // Every non-loop edge contributes at least one unit of stretch.
         let num_edges = i64::try_from(num_edges).map_err(|_| {
             crate::rules::ReductionError::integer_overflow::<
                 RootedTreeArrangement<SimpleGraph>,
                 RootedTreeStorageAssignment,
             >("converting the number of edges to i64")
         })?;
-        let bound = match self.bound().checked_sub(num_edges) {
-            Some(b) => b,
-            None => {
-                // Gadget: universe {0,1,2} with all 2-element subsets and bound 0.
-                // For any rooted tree on three vertices, at least one pair has
-                // distance 2, so at least one subset has extension cost >= 1.
-                // Thus the minimum total extension cost is >= 1, making this
-                // instance infeasible for bound 0.
-                let gadget_n = 3;
-                let gadget_subsets = vec![vec![0, 1], vec![1, 2], vec![0, 2]];
-                let target = RootedTreeStorageAssignment::new(gadget_n, gadget_subsets, 0);
-
-                return Ok(
-                    ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
-                        target,
-                        num_vertices: gadget_n,
-                    },
-                );
-            }
+        let bound = if self.bound() < num_edges {
+            -1
+        } else {
+            self.bound() - num_edges
         };
 
         let target = RootedTreeStorageAssignment::new(n, subsets, bound);

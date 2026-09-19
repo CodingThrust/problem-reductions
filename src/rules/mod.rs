@@ -148,6 +148,10 @@ pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/aggregate_contracts.rs"]
+mod aggregate_contracts;
 pub(crate) mod threedimensionalmatching_minimumweightdecoding;
 pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
@@ -612,13 +616,11 @@ macro_rules! impl_variant_reduction {
     ($problem:ident,
      < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
      fields: [$($field:ident),+],
-     $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
             transform = exact {
                 $($field = $field),+
             }
-            $(, aggregate = $aggregate)?
         )]
         impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
             for $problem<$($src_param),+>

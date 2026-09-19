@@ -213,6 +213,7 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult
     for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
 {
@@ -229,7 +230,6 @@ impl crate::rules::AggregateReductionResult
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "2 * num_vertices + 4 * num_edges + 4",
         num_edges = "(num_vertices + 2 * num_edges)^2 + 4 * num_vertices + 14 * num_edges + 2",

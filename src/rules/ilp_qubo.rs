@@ -54,6 +54,7 @@ impl ReductionResult for ReductionILPToQUBO {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
     type Source = ILP<bool>;
     type Target = QUBO<i64>;
@@ -79,7 +80,6 @@ impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = unavailable {
         num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
     }

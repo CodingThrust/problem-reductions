@@ -64,6 +64,8 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
     }
 }
 
+crate::register_aggregate_reduction!(ReductionKColoringToQUBO<KN>);
+
 impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKColoringToQUBO<K> {
     type Source = KColoring<K, SimpleGraph>;
     type Target = QUBO<i64>;
@@ -183,7 +185,6 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vars = "num_vertices * num_colors",
     }

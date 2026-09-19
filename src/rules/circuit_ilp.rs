@@ -193,6 +193,18 @@ impl ILPBuilder {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionCircuitToILP {
+    type Source = CircuitSAT;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vars = "num_variables + 2 * num_expression_nodes",

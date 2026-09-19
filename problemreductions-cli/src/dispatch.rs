@@ -722,6 +722,36 @@ mod tests {
     }
 
     #[test]
+    fn decision_chain_carries_no_through_identity_and_threshold_maps() {
+        use problemreductions::models::{
+            formula::{CNFClause, KSatisfiability, Satisfiability},
+            MinimumVertexCover,
+        };
+        use problemreductions::variant::K3;
+        for second in [1, -1] {
+            let source = Satisfiability::new(
+                1,
+                vec![CNFClause::new(vec![1; 3]), CNFClause::new(vec![second; 3])],
+            );
+            let replay = replay(
+                &source,
+                vec![
+                    problem_step::<KSatisfiability<K3>>(),
+                    problem_step::<MinimumVertexCover<SimpleGraph, i64>>(),
+                ],
+            );
+            let result = replay.solve(SolverRequest::BruteForce).unwrap();
+            assert_eq!(
+                matches!(result.source_outcome, SolveOutcome::Optimal { .. }),
+                second == 1
+            );
+            if second == -1 {
+                assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
+            }
+        }
+    }
+
+    #[test]
     fn aggregate_only_bundle_executes_and_recovers_without_witnesses() {
         use problemreductions::rules::{ReductionMode, ReductionPath, ReductionStep};
         let bundle = crate::test_support::aggregate_bundle();
@@ -755,7 +785,7 @@ mod tests {
     }
 
     #[test]
-    fn bundle_rejects_infeasible_extracted_witness() {
+    fn decision_bundle_recovers_yes_and_no_without_invalid_witnesses() {
         for (clauses, feasible) in [
             (vec![vec![1, 1, 1], vec![-1, -1, -1]], false),
             (vec![vec![1, 1, 1], vec![1, 1, 1]], true),
@@ -790,15 +820,15 @@ mod tests {
                 BundleReplay::prepare(&bundle, problemreductions::rules::ReductionMode::Witness)
                     .unwrap();
             assert!(replay.extract_value(serde_json::json!(1)).is_err());
+            let aggregate =
+                BundleReplay::prepare(&bundle, problemreductions::rules::ReductionMode::Aggregate)
+                    .unwrap();
             assert!(BundleReplay::prepare(
                 &bundle,
-                problemreductions::rules::ReductionMode::Aggregate
+                problemreductions::rules::ReductionMode::Turing
             )
             .is_err());
-            for mode in [
-                problemreductions::rules::ReductionMode::Aggregate,
-                problemreductions::rules::ReductionMode::Turing,
-            ] {
+            {
                 let source = ProblemJson {
                     problem_type: bundle.source.problem_type.clone(),
                     variant: bundle.source.variant.clone(),
@@ -814,20 +844,29 @@ mod tests {
                         })
                         .collect(),
                 };
-                assert!(crate::commands::reduce::execute_route(source, route, mode).is_err());
+                assert!(crate::commands::reduce::execute_route(
+                    source,
+                    route,
+                    problemreductions::rules::ReductionMode::Aggregate
+                )
+                .is_ok());
             }
-            let result = replay.solve(SolverRequest::BruteForce);
+            let result = replay.solve(SolverRequest::BruteForce).unwrap();
+            let SolveOutcome::Optimal { solution, .. } = &result.target_outcome else {
+                panic!("vertex cover always has a feasible target solution")
+            };
+            assert_eq!(
+                aggregate
+                    .extract_value(replay.target.evaluate_json(solution).unwrap())
+                    .unwrap(),
+                serde_json::json!(feasible)
+            );
             if feasible {
-                assert!(matches!(result.unwrap().source_outcome,
+                assert!(matches!(result.source_outcome,
                     SolveOutcome::Optimal { evaluation, .. } if evaluation == "Or(true)"));
             } else {
-                let error = result.err().unwrap();
-                assert!(error
-                    .downcast_ref::<problemreductions::rules::ExtractionError>()
-                    .is_some());
-                assert!(error
-                    .to_string()
-                    .contains("extracted solution is infeasible"));
+                assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
+                assert!(replay.extract(solution).is_err());
             }
         }
     }

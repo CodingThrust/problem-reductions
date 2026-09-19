@@ -200,7 +200,7 @@ impl Problem for RootedTreeStorageAssignment {
                     ));
                 }
                 if self.universe_size == 0 {
-                    return Ok(crate::types::Or(self.subsets.is_empty()));
+                    return Ok(crate::types::Or(self.subsets.is_empty() && self.bound >= 0));
                 }
 
                 let Some(depth) = Self::analyze_tree(config) else {
@@ -227,7 +227,7 @@ impl Problem for RootedTreeStorageAssignment {
                     }
                 }
 
-                true
+                total_cost <= self.bound
             })
         })
     }

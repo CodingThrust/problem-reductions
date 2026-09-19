@@ -205,8 +205,6 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
 /// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
-/// - `aggregate = identity` or `aggregate = custom` — register the reduction result's
-///   `AggregateReductionResult` implementation alongside its witness extractor
 ///
 /// ## Syntax
 /// ```ignore
@@ -227,6 +225,70 @@ pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
+/// Register the completed-value mapping implemented by a reduction result.
+/// The result must also belong to a registered `ReduceTo` construction.
+/// Register concrete instances of generic implementations with `register_aggregate_reduction!`.
+#[proc_macro_attribute]
+pub fn aggregate_reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
+    parse_macro_input!(attr as syn::parse::Nothing);
+    let implementation = parse_macro_input!(item as ItemImpl);
+    match generate_aggregate_impl(&implementation) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.to_compile_error().into(),
+    }
+}
+
+/// Register concrete instances of an existing generic aggregate mapping.
+#[proc_macro]
+pub fn register_aggregate_reduction(input: TokenStream) -> TokenStream {
+    let result = parse_macro_input!(input as Type);
+    generate_aggregate_entry(&result).into()
+}
+
+fn generate_aggregate_impl(implementation: &ItemImpl) -> syn::Result<TokenStream2> {
+    if !implementation.trait_.as_ref().is_some_and(|(path, _)| {
+        path.segments
+            .last()
+            .is_some_and(|segment| segment.ident == "AggregateReductionResult")
+    }) {
+        return Err(syn::Error::new_spanned(
+            implementation,
+            "expected impl AggregateReductionResult",
+        ));
+    }
+    if !implementation.generics.params.is_empty() {
+        return Err(syn::Error::new_spanned(
+            implementation,
+            "register concrete result types with register_aggregate_reduction!",
+        ));
+    }
+    let entry = generate_aggregate_entry(&implementation.self_ty);
+    Ok(quote! { #implementation #entry })
+}
+
+fn generate_aggregate_entry(result: &Type) -> TokenStream2 {
+    let source = quote! { <#result as crate::rules::AggregateReductionResult>::Source };
+    let target = quote! { <#result as crate::rules::AggregateReductionResult>::Target };
+    quote! {
+        inventory::submit! {
+            crate::rules::registry::AggregateMappingEntry {
+                source_name: <#source as crate::traits::Problem>::NAME,
+                target_name: <#target as crate::traits::Problem>::NAME,
+                source_variant_fn: <#source as crate::traits::Problem>::variant,
+                target_variant_fn: <#target as crate::traits::Problem>::variant,
+                reduce_fn: |src| {
+                    let src = src.downcast_ref::<#source>().ok_or_else(
+                        crate::rules::ReductionError::source_type_mismatch::<#source, #target>,
+                    )?;
+                    <#source as crate::rules::ReduceTo<#target>>::reduce_to(src)
+                        .map(|result: #result| Box::new(result) as Box<dyn crate::rules::traits::DynAggregateReductionResult>)
+                },
+                view_fn: crate::rules::aggregate_view::<#result>,
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 struct ParsedExpressionField {
     name: String,
@@ -239,7 +301,6 @@ struct ReductionAttrs {
     relation: Option<ParameterRelationAttr>,
     fields: Option<Vec<(String, String)>>,
     unavailable: Option<Vec<(String, String)>>,
-    aggregate: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -255,7 +316,6 @@ impl syn::parse::Parse for ReductionAttrs {
             relation: None,
             fields: None,
             unavailable: None,
-            aggregate: false,
         };
 
         while !input.is_empty() {
@@ -304,16 +364,6 @@ impl syn::parse::Parse for ReductionAttrs {
                     let content;
                     syn::braced!(content in input);
                     attrs.unavailable = Some(parse_unavailable_fields(&content)?);
-                }
-                "aggregate" => {
-                    let value: syn::Ident = input.parse()?;
-                    if value != "identity" && value != "custom" {
-                        return Err(syn::Error::new(
-                            value.span(),
-                            "expected `identity` or `custom`",
-                        ));
-                    }
-                    attrs.aggregate = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -519,26 +569,6 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    let reduce_aggregate_fn = if attrs.aggregate {
-        quote! {
-            Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError> {
-                let src = src.downcast_ref::<#source_type>().ok_or_else(
-                    crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
-                )?;
-                let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
-                Ok(Box::new(result))
-            })
-        }
-    } else {
-        quote! { None }
-    };
-
-    let aggregate_view_fn = if attrs.aggregate {
-        quote! { Some(crate::rules::aggregate_view::<<#source_type as crate::rules::ReduceTo<#target_type>>::Result>) }
-    } else {
-        quote! { None }
-    };
-
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
@@ -584,11 +614,11 @@ fn generate_reduction_entry(
                     let src = src.downcast_ref::<#source_type>().ok_or_else(
                         crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
                     )?;
-                    let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
-                    Ok(Box::new(result))
+                    <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)
+                        .map(|result| Box::new(result) as Box<dyn crate::rules::traits::DynReductionResult>)
                 }),
-                reduce_aggregate_fn: #reduce_aggregate_fn,
-                aggregate_view_fn: #aggregate_view_fn,
+                reduce_aggregate_fn: None,
+                aggregate_view_fn: None,
                 turing: false,
             }
         }
@@ -1299,28 +1329,37 @@ mod tests {
     }
 
     #[test]
-    fn reduction_registers_explicit_aggregate_mapping() {
-        let implementation: syn::ItemImpl = syn::parse_quote! {
-            impl ReduceTo<Target> for Source {}
-        };
-        for (declaration, enabled) in [
-            (quote! {}, false),
-            (quote! { aggregate = identity, }, true),
-            (quote! { aggregate = custom, }, true),
-        ] {
-            let attrs: ReductionAttrs = syn::parse2(quote! {
-                #declaration transform = exact { num_vertices = "num_vertices" }
-            })
-            .unwrap();
-            let tokens = generate_reduction_entry(&attrs, &implementation)
-                .unwrap()
-                .to_string();
-            assert_eq!(tokens.contains("reduce_aggregate_fn : Some"), enabled);
-        }
+    fn reduction_registers_witness_without_value_mapping() {
+        let implementation = syn::parse_quote! { impl ReduceTo<Target> for Source {} };
+        let attrs = syn::parse_quote! { transform = exact { n = n } };
+        let tokens = generate_reduction_entry(&attrs, &implementation)
+            .unwrap()
+            .to_string();
+        assert!(tokens.contains("reduce_aggregate_fn : None"));
+        assert!(tokens.contains("aggregate_view_fn : None"));
         assert!(syn::parse2::<ReductionAttrs>(quote! {
-            aggregate = unknown, transform = exact { num_vertices = "num_vertices" }
+            aggregate = identity, transform = exact { n = n }
         })
         .is_err());
+    }
+
+    #[test]
+    fn aggregate_registration_uses_the_implemented_result_type() {
+        let implementation = syn::parse_quote! { impl AggregateReductionResult for Mapping {} };
+        let tokens = generate_aggregate_impl(&implementation)
+            .unwrap()
+            .to_string();
+        assert!(tokens.contains("Mapping as crate :: rules :: AggregateReductionResult"));
+        assert!(tokens.contains("| result : Mapping |"));
+        assert!(tokens.contains("aggregate_view :: < Mapping >"));
+        let generic = syn::parse_quote! { impl<T> AggregateReductionResult for Mapping<T> {} };
+        assert!(generate_aggregate_impl(&generic).is_err());
+        let tokens = generate_aggregate_entry(&syn::parse_quote!(Mapping<i64>)).to_string();
+        assert!(tokens.contains("| result : Mapping < i64 > |"));
+        let wrong = syn::parse_quote! { impl ReductionResult for Mapping {} };
+        assert!(generate_aggregate_impl(&wrong).is_err());
+        let inherent = syn::parse_quote! { impl Mapping {} };
+        assert!(generate_aggregate_impl(&inherent).is_err());
     }
 
     #[test]

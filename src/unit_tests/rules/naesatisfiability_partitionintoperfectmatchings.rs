@@ -281,7 +281,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
 
 #[test]
 fn test_long_clauses_preserve_assignments() {
-    let entry = inventory::iter::<crate::rules::ReductionEntry>
+    let entry = crate::rules::registry::reduction_entries()
         .into_iter()
         .find(|e| {
             e.source_name == NAESatisfiability::NAME
@@ -342,7 +342,7 @@ fn test_auxiliary_literal_overflow_is_an_error() {
 #[test]
 fn test_registered_partition_value_mapping() {
     let source = NAESatisfiability::new(1, vec![]);
-    let entry = inventory::iter::<crate::rules::ReductionEntry>
+    let entry = crate::rules::registry::reduction_entries()
         .into_iter()
         .find(|e| {
             e.source_name == NAESatisfiability::NAME

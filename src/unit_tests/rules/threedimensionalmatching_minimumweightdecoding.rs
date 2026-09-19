@@ -128,7 +128,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_q_zero() {
 
 #[test]
 fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_no_triples() {
-    // q >= 1, T = []: sentinel target, extracted S = ∅, source.evaluate(∅).unwrap() = Or(false).
+    // A feasible sentinel target maps to NO for a nonempty source universe.
     for q in [1, 2, 3] {
         let (source, reduction) = reduce_tdm(q, vec![]);
         let target = reduction.target_problem();
@@ -139,13 +139,14 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_no_triples() 
         let target_witnesses = solver.find_all_witnesses(target).unwrap();
         assert!(!target_witnesses.is_empty());
         for witness in &target_witnesses {
-            let extracted = reduction.extract_solution(witness).unwrap();
-            assert_eq!(extracted.len(), source.num_triples());
-            // Empty triple set cannot cover non-empty universe.
-            assert!(
-                !source.evaluate(&extracted).unwrap().0,
-                "q = {q}, T = []: empty matching must be NO"
+            assert_eq!(
+                crate::rules::AggregateReductionResult::extract_value(
+                    &reduction,
+                    target.evaluate(witness).unwrap(),
+                ),
+                crate::types::Or(false),
             );
+            assert!(reduction.extract_solution(witness).is_err());
         }
         // Direct solve confirms the source is NO.
         assert!(solver.solve(&source).unwrap().is_none());

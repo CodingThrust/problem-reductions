@@ -49,8 +49,8 @@ fn test_exactcoverby3sets_to_algebraicequationsovergf2_extract_solution_is_ident
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true])
+            .extract_solution(&vec![true, true, false])
             .unwrap(),
-        vec![true, false, true]
+        vec![true, true, false]
     );
 }

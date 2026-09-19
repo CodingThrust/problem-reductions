@@ -35,7 +35,13 @@ impl ReductionResult for ReductionTDToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         Ok((0..self.num_craftsmen)
             .map(|craftsman| {
@@ -56,10 +62,22 @@ impl ReductionResult for ReductionTDToILP {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionTDToILP {
+    type Source = TimetableDesign;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_craftsmen * num_tasks * num_periods",
-        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
+        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",

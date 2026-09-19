@@ -37,17 +37,35 @@ impl ReductionResult for ReductionPPL2ToBCSF {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
 
         Ok(target_solution.to_vec())
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPPL2ToBCSF {
+    type Source = PartitionIntoPathsOfLength2<SimpleGraph>;
+    type Target = BoundedComponentSpanningForest<SimpleGraph, i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
-        max_components = "num_vertices / 3",
+        max_components = "num_vertices / 3 + 1",
     }
 )]
 impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i64>>

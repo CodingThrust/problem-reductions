@@ -58,6 +58,7 @@ impl ReductionResult for ReductionNAESATToMaxCut {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionNAESATToMaxCut {
     type Source = NAESatisfiability;
     type Target = MaxCut<SimpleGraph, i64>;
@@ -144,7 +145,6 @@ fn nae_maxcut_parameters(
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "2 * (num_vars + num_literals - 2 * num_clauses)",
         num_edges = "num_vars + 4 * num_literals - 7 * num_clauses",

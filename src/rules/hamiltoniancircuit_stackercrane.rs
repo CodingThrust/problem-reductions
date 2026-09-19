@@ -48,6 +48,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToStackerCrane {
     type Source = HamiltonianCircuit<SimpleGraph>;
     type Target = StackerCrane;
@@ -67,7 +68,6 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToSta
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "2 * num_vertices",
         num_arcs = "num_vertices",

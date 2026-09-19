@@ -23,6 +23,7 @@ use crate::variant::K3;
 pub struct Reduction3SATToMVC {
     target: MinimumVertexCover<SimpleGraph, i64>,
     source_num_vars: usize,
+    cover_bound: i64,
 }
 
 impl ReductionResult for Reduction3SATToMVC {
@@ -44,7 +45,13 @@ impl ReductionResult for Reduction3SATToMVC {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not certify a YES answer for the source",
+            ));
+        }
 
         Ok({
             (0..self.source_num_vars)
@@ -54,6 +61,20 @@ impl ReductionResult for Reduction3SATToMVC {
                 })
                 .collect()
         })
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToMVC {
+    type Source = KSatisfiability<K3>;
+    type Target = MinimumVertexCover<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(self.cover_bound))
     }
 }
 
@@ -89,7 +110,15 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for KSatisfiability<K3> {
             edges.push((base, base + 2));
 
             // Communication edges: connect triangle vertex k to the literal vertex
-            for (k, &lit) in clause.literals.iter().enumerate() {
+            for k in 0..3 {
+                if clause.literals.is_empty() {
+                    // All three clause vertices must be selected, exceeding
+                    // the two-per-clause bound for an empty (false) clause.
+                    edges.push((base + k, base + k));
+                    continue;
+                }
+                // Repeating a literal pads a short clause without changing it.
+                let lit = clause.literals[k % clause.literals.len()];
                 let var_idx = lit.unsigned_abs() as usize - 1; // 0-indexed variable
                 let literal_vertex = if lit > 0 {
                     2 * var_idx // positive literal vertex
@@ -107,6 +136,10 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for KSatisfiability<K3> {
         Ok(Reduction3SATToMVC {
             target,
             source_num_vars: n,
+            cover_bound: <Self as ReduceTo<MinimumVertexCover<SimpleGraph, i64>>>::exact_i64(
+                n + 2 * m,
+                "computing the cover bound",
+            )?,
         })
     }
 }

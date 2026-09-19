@@ -44,6 +44,7 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter
 {
@@ -60,7 +61,6 @@ impl crate::rules::AggregateReductionResult
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound { num_vertices = "num_vertices + 2", num_edges = "num_edges" }
 )]
 impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i64>>

@@ -235,6 +235,18 @@ fn free_edge_budget(ell: usize, m: usize) -> Option<usize> {
 // satisfy n <= 4(s+1), M <= m+4(s+1), ell <= s+1, ceil(log2 M) <= M.
 // Hence each partition is <= 31s+5m+39 and rank <= 14s+2m+22.
 // The declared coarser bounds also cover the fixed YES and NO targets.
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKSatisfiabilityToBicliqueCover {
+    type Source = KSatisfiability<K3>;
+    type Target = BicliqueCover;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0.is_some())
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         left_size = "32 * num_vars + 8 * num_clauses + 48",

@@ -74,6 +74,18 @@ impl ReductionResult for ReductionBiconnAugToILP {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {
+    type Source = BiconnectivityAugmentation<SimpleGraph, i64>;
+    type Target = ILP<i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",

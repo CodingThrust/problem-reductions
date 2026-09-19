@@ -80,7 +80,13 @@ impl ReductionResult for ReductionFactoringToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         Ok({
             // Extract p bits (first factor)
@@ -105,7 +111,20 @@ impl ReductionResult for ReductionFactoringToILP {
     }
 }
 
-#[reduction(transform = upper_bound {
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionFactoringToILP {
+    type Source = Factoring;
+    type Target = ILP<i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
+#[reduction(
+    transform = upper_bound {
     num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
     num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
 },

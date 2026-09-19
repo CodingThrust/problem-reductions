@@ -74,7 +74,7 @@ fn symbolic_composition_propagates_num_colors_across_multiple_edges() {
         ]))
         .unwrap();
 
-    assert_eq!(target.get("num_vars"), Some(15));
+    assert_eq!(target.get("num_vars"), Some(30));
 }
 
 #[test]
@@ -986,14 +986,14 @@ fn test_optimization_to_decision_turing_edges() {
 }
 
 #[test]
-fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge() {
+fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_mappings() {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
         Decision<MinimumVertexCover<SimpleGraph, i64>>,
     >(ReductionMode::Witness));
-    assert!(!graph.has_direct_reduction_mode::<
+    assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
         Decision<MinimumVertexCover<SimpleGraph, i64>>,
     >(ReductionMode::Aggregate));

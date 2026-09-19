@@ -32,7 +32,13 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
 
         Ok({
             self.congruence_reduction
@@ -60,6 +66,20 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
     let c = source.a() + (source.b() * &padding);
 
     QuadraticDiophantineEquations::new(BigUint::one(), source.b().clone(), c)
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToQuadraticDiophantineEquations {
+    type Source = KSatisfiability<K3>;
+    type Target = QuadraticDiophantineEquations;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
 }
 
 #[reduction(

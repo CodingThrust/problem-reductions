@@ -51,7 +51,13 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
 
         Ok({
             // Simulate the schedule to find start times
@@ -83,6 +89,18 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
 
             slot_assignment
         })
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionThreePartitionToSRTD {
+    type Source = ThreePartition;
+    type Target = SequencingWithReleaseTimesAndDeadlines;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 

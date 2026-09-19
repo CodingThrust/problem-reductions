@@ -50,6 +50,7 @@ impl ReductionResult for ReductionSATToNAESAT {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSATToNAESAT {
     type Source = Satisfiability;
     type Target = NAESatisfiability;
@@ -62,7 +63,6 @@ impl crate::rules::AggregateReductionResult for ReductionSATToNAESAT {
 }
 
 #[reduction(
-    aggregate = identity,
     transform = exact {
         num_vars = "num_vars + 1",
         num_clauses = "num_clauses",

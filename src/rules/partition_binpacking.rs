@@ -20,6 +20,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToBinPacking {
     target: BinPacking<i64>,
+    source_sum: i64,
 }
 
 impl ReductionResult for ReductionPartitionToBinPacking {
@@ -34,7 +35,13 @@ impl ReductionResult for ReductionPartitionToBinPacking {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not certify a YES answer for the source",
+            ));
+        }
 
         Ok({
             // BinPacking may use any bin indices (0..n-1). Remap the two distinct
@@ -43,6 +50,20 @@ impl ReductionResult for ReductionPartitionToBinPacking {
             let first_bin = target_solution[0];
             target_solution.iter().map(|&b| b != first_bin).collect()
         })
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToBinPacking {
+    type Source = Partition;
+    type Target = BinPacking<i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(self.source_sum % 2 == 0 && value.0 == Some(2))
     }
 }
 
@@ -55,9 +76,11 @@ impl ReduceTo<BinPacking<i64>> for Partition {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let sizes = self.sizes().to_vec();
-        let capacity = self.total_sum() / 2;
+        // A singleton of size one is NO, but BinPacking requires positive capacity.
+        let capacity = (self.total_sum() / 2).max(1);
 
         Ok(ReductionPartitionToBinPacking {
+            source_sum: self.total_sum(),
             target: BinPacking::new(sizes, capacity).map_err(|cause| {
                 crate::rules::ReductionError::construction::<Partition, BinPacking<i64>>(cause)
             })?,

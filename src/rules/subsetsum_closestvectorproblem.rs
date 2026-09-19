@@ -41,6 +41,7 @@ impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSubsetSumToClosestVectorProblem {
     type Source = SubsetSum;
     type Target = ClosestVectorProblem;
@@ -80,7 +81,6 @@ impl ReductionSubsetSumToClosestVectorProblem {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = unavailable {
         ambient_dimension = "2n+b depends on input bit length b, which is not a registered SubsetSum parameter",
         num_basis_vectors = "n+b-1 depends on input bit length b, which is not a registered SubsetSum parameter",

@@ -346,6 +346,7 @@ fn build_layout(
     })
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
     type Source = NAESatisfiability;
     type Target = PartitionIntoPerfectMatchings<SimpleGraph>;
@@ -360,7 +361,6 @@ impl crate::rules::AggregateReductionResult for ReductionNAESATToPartitionIntoPe
 }
 
 #[reduction(
-    aggregate = identity,
     transform = upper_bound {
         num_vertices = "4 * num_vars + 20 * num_literals - 24 * num_clauses",
         num_edges = "3 * num_vars + 24 * num_literals - 27 * num_clauses",

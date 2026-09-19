@@ -26,7 +26,13 @@ impl ReductionResult for ReductionSMCToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
@@ -37,10 +43,22 @@ impl ReductionResult for ReductionSMCToILP {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionSMCToILP {
+    type Source = SparseMatrixCompression;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vars = "num_rows * bound_k",
-        num_constraints = "num_rows + num_rows * num_rows * bound_k * bound_k",
+        num_constraints = "num_rows + num_rows^2 * num_cols^2 * bound_k",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",

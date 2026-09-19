@@ -78,6 +78,7 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopScheduling {
     type Source = Partition;
     type Target = OpenShopScheduling;
@@ -92,7 +93,6 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopSche
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_jobs = "num_elements + 1",
         num_machines = "3",

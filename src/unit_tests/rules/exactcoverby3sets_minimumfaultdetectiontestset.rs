@@ -81,8 +81,14 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_no_instance_gap() {
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&best).unwrap(), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&best).unwrap();
-    assert!(!source.evaluate(&extracted).unwrap());
+    assert_eq!(
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            target.evaluate(&best).unwrap(),
+        ),
+        crate::types::Or(false),
+    );
+    assert!(reduction.extract_solution(&best).is_err());
 }
 
 #[test]

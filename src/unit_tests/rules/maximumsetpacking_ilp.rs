@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn constraint_count_is_only_an_upper_bound() {
-    let entry = inventory::iter::<crate::rules::ReductionEntry>()
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
         .find(|entry| entry.source_name == "MaximumSetPacking" && entry.target_name == "ILP")
         .unwrap();
     assert_eq!(

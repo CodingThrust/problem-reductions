@@ -19,6 +19,36 @@ fn feasible_instance() -> UndirectedTwoCommodityIntegralFlow {
     )
 }
 
+#[test]
+fn sink_self_loop_cannot_supply_either_commodity() {
+    for (first, second) in [(1, 0), (0, 1)] {
+        let source = UndirectedTwoCommodityIntegralFlow::new(
+            SimpleGraph::new(2, vec![(1, 1)]),
+            vec![1],
+            0,
+            1,
+            0,
+            1,
+            first,
+            second,
+        );
+        assert!(BruteForce::new().solve(&source).unwrap().is_none());
+        let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        let assignment = vec![first, 0, second, 0, 1, 1];
+        assert!(reduction
+            .target_problem()
+            .evaluate(&assignment)
+            .unwrap()
+            .value
+            .is_none());
+        assert!(reduction.extract_solution(&assignment).is_err());
+        assert!(matches!(
+            ILPSolver::new().solve(reduction.target_problem()),
+            Err(crate::solvers::ILPSolveError::Infeasible)
+        ));
+    }
+}
+
 fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
     // Same topology but requirements that can't be met simultaneously
     // path graph: 0-1-2; cap=1 everywhere; s1=0,t1=2 req=1; s2=0,t2=2 req=1
@@ -56,7 +86,8 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    let entry = inventory::iter::<crate::rules::ReductionEntry>()
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
         .find(|entry| {
             entry.source_name == "UndirectedTwoCommodityIntegralFlow"
                 && entry.target_name == "ILP"

@@ -78,6 +78,18 @@ impl ReductionResult for ReductionKColoringToTDCS {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKColoringToTDCS {
+    type Source = KColoring<K3, SimpleGraph>;
+    type Target = TwoDimensionalConsecutiveSets;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         alphabet_size = "num_vertices + num_edges + 3",

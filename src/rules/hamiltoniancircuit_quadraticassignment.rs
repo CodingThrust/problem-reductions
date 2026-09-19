@@ -42,6 +42,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
     type Source = HamiltonianCircuit<SimpleGraph>;
     type Target = QuadraticAssignment;
@@ -56,7 +57,6 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToQua
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_facilities = "num_vertices + 3",
         num_locations = "num_vertices + 3",

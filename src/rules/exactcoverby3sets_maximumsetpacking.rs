@@ -14,6 +14,7 @@ use crate::types::One;
 #[derive(Debug, Clone)]
 pub struct ReductionXC3SToMaximumSetPacking {
     target: MaximumSetPacking<One>,
+    source_universe_size: usize,
 }
 
 impl ReductionResult for ReductionXC3SToMaximumSetPacking {
@@ -33,9 +34,33 @@ impl ReductionResult for ReductionXC3SToMaximumSetPacking {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not certify a YES answer for the source",
+            ));
+        }
 
         Ok(target_solution.to_vec())
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionXC3SToMaximumSetPacking {
+    type Source = ExactCoverBy3Sets;
+    type Target = MaximumSetPacking<One>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Max<i64>) -> crate::types::Or {
+        crate::types::Or(
+            value
+                .0
+                .is_some_and(|count| i128::from(count) == self.source_universe_size as i128 / 3),
+        )
     }
 }
 
@@ -59,6 +84,7 @@ impl ReduceTo<MaximumSetPacking<One>> for ExactCoverBy3Sets {
 
         Ok(ReductionXC3SToMaximumSetPacking {
             target: MaximumSetPacking::<One>::new(sets),
+            source_universe_size: self.universe_size(),
         })
     }
 }

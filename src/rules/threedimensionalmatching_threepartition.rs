@@ -341,6 +341,18 @@ fn enumerate_pair_keys(num_regulars: usize) -> Option<Vec<(usize, usize)>> {
     Some(pairs)
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionThreeDimensionalMatchingToThreePartition {
+    type Source = ThreeDimensionalMatching;
+    type Target = ThreePartition;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_elements = "24 * num_triples * num_triples - 3 * num_triples + 6",

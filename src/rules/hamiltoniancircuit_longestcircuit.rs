@@ -39,6 +39,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
     type Source = HamiltonianCircuit<SimpleGraph>;
     type Target = LongestCircuit<SimpleGraph, i64>;
@@ -57,7 +58,6 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLon
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",

@@ -246,6 +246,7 @@ impl ReductionResult for ReductionCircuitToSG {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionCircuitToSG {
     type Source = CircuitSAT;
     type Target = SpinGlass<SimpleGraph, i64>;
@@ -491,7 +492,6 @@ fn process_assignment(
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_spins = "num_variables + 3 * num_expression_nodes",
         num_interactions = "6 * num_expression_nodes + num_assignment_outputs",

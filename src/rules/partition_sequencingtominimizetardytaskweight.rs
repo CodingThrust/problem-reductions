@@ -52,6 +52,7 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult
     for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
 {
@@ -69,7 +70,6 @@ impl crate::rules::AggregateReductionResult
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_tasks = "num_elements",
     })]

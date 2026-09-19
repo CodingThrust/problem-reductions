@@ -294,6 +294,7 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
     edges.insert(edge);
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
 {
@@ -310,7 +311,6 @@ impl crate::rules::AggregateReductionResult
 }
 
 #[reduction(
-    aggregate = identity,
     transform = unavailable {
         num_vertices = "the construction size depends on the decision threshold, which is not a problem parameter",
         num_edges = "the construction size depends on the decision threshold, which is not a problem parameter",

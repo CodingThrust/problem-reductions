@@ -40,7 +40,13 @@ impl ReductionResult for ReductionDCPToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         let mut result = vec![false; self.edges.len()];
         for (k, &(source, sink)) in self.terminal_pairs.iter().enumerate() {
@@ -85,6 +91,18 @@ impl ReductionResult for ReductionDCPToILP {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionDCPToILP {
+    type Source = DisjointConnectingPaths<SimpleGraph>;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 #[reduction(
     transform = exact {
         num_vars = "num_pairs * 2 * num_edges",
@@ -122,6 +140,9 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
         // Build adjacency index: for each vertex, which edges are incident
         let mut vertex_edges: Vec<Vec<usize>> = vec![Vec::new(); n];
         for (e, &(u, v)) in edges.iter().enumerate() {
+            if u == v {
+                continue;
+            }
             vertex_edges[u].push(e);
             vertex_edges[v].push(e);
         }

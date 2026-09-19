@@ -36,6 +36,18 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToDecisionMVC {
+    type Source = KSatisfiability<K3>;
+    type Target = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",

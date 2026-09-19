@@ -138,29 +138,24 @@ impl<G: Graph> PartitionIntoPathsOfLength2<G> {
             return false;
         }
 
-        // Count vertices per group
-        let mut group_sizes = vec![0usize; q];
-        for &g in config {
-            group_sizes[g] += 1;
+        let mut groups = vec![Vec::new(); q];
+        for (vertex, &group) in config.iter().enumerate() {
+            groups[group].push(vertex);
         }
 
         // Each group must have exactly 3 vertices
-        if group_sizes.iter().any(|&s| s != 3) {
+        if groups.iter().any(|vertices| vertices.len() != 3) {
             return false;
         }
 
-        // Check each group induces at least 2 edges (single pass over edges)
-        let mut group_edge_counts = vec![0usize; q];
-        for (u, v) in self.graph.edges() {
-            if config[u] == config[v] {
-                group_edge_counts[config[u]] += 1;
-            }
-        }
-        if group_edge_counts.iter().any(|&c| c < 2) {
-            return false;
-        }
-
-        true
+        // Count distinct pairs: loops and parallel edges cannot form a path.
+        groups.iter().all(|vertices| {
+            let [a, b, c] = [vertices[0], vertices[1], vertices[2]];
+            usize::from(self.graph.has_edge(a, b))
+                + usize::from(self.graph.has_edge(a, c))
+                + usize::from(self.graph.has_edge(b, c))
+                >= 2
+        })
     }
 }
 

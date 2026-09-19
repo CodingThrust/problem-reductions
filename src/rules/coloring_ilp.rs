@@ -48,7 +48,13 @@ where
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
     }
@@ -97,6 +103,21 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
         num_colors: k,
         _phantom: std::marker::PhantomData,
     })
+}
+
+crate::register_aggregate_reduction!(ReductionKColoringToILP<KN, SimpleGraph>);
+
+impl<K: KValue, G: Graph + crate::variant::VariantParam> crate::rules::AggregateReductionResult
+    for ReductionKColoringToILP<K, G>
+{
+    type Source = KColoring<K, G>;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
 }
 
 // Register only the KN variant in the reduction graph
