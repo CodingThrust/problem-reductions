@@ -94,23 +94,6 @@ impl TryFrom<MinimumSetCoveringCreateSpec> for MinimumSetCovering<i64> {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MinimumSetCoveringCreateSpec) -> Result<Self, Self::Error> {
-        if spec.subsets.len() != spec.weights.len() {
-            return Err(format!(
-                "weights has {} entries, expected one for each of {} subsets",
-                spec.weights.len(),
-                spec.subsets.len()
-            )
-            .into());
-        }
-        for (set_index, set) in spec.subsets.iter().enumerate() {
-            if let Some(&element) = set.iter().find(|&&element| element >= spec.universe_size) {
-                return Err(format!(
-                    "subsets[{set_index}] contains element {element} outside universe of size {}",
-                    spec.universe_size
-                )
-                .into());
-            }
-        }
         Self::try_with_weights(spec.universe_size, spec.subsets, spec.weights)
     }
 }

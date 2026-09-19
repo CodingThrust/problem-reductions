@@ -115,17 +115,6 @@ impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MaximumCoKPlexCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        if spec.k == 0 {
-            return Err("k must be at least 1".to_string().into());
-        }
         Self::try_with_k(spec.graph, spec.weights, spec.k)
     }
 }
@@ -304,9 +293,6 @@ impl TryFrom<MaximumCoKPlexOneCreateSpec> for MaximumCoKPlex<SimpleGraph, One, K
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCoKPlexOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        if spec.k == 0 {
-            return Err("k must be at least 1".into());
-        }
         Self::try_with_k(spec.graph, weights, spec.k)
     }
 }

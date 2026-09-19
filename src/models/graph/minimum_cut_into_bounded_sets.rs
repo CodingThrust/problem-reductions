@@ -116,19 +116,6 @@ impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<
     fn try_from(spec: MinimumCutIntoBoundedSetsCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_edges();
         let edge_weights = spec.edge_weights.unwrap_or_else(|| vec![1; count]);
-        if edge_weights.len() != count {
-            return Err(format!(
-                "edge_weights has {} entries, expected {count}",
-                edge_weights.len()
-            )
-            .into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if spec.source >= vertices || spec.sink >= vertices || spec.source == spec.sink {
-            return Err("source and sink must be distinct valid graph vertices"
-                .to_string()
-                .into());
-        }
         Self::try_new(
             spec.graph,
             edge_weights,

@@ -330,10 +330,11 @@ rules use `ReduceToAggregate<T>`.
 
 Reverse a multi-step chain one edge at a time. A NO result continues through
 explicit value maps, not through a fabricated invalid witness. Missing maps,
-failed extraction, and solver errors are errors, never NO. A numerical ILP
-optimum missing a decision threshold is unresolved, not an exact negative
-certificate. These rules do not change `Problem`, `SolutionAggregate`, or
-solver return types.
+failed extraction, and solver errors are errors, never NO. Completed-result
+recovery follows the selected solver's contract, including its numerical
+tolerances. A witness-only solver API cannot return a witness for a negative
+decision result and reports that limitation explicitly. These rules do not
+change `Problem`, `SolutionAggregate`, or solver return types.
 
 `ReductionGraph::new()` reads `reduction_entries()`, which joins each construction
 with its registered result mappings, and builds a variant-level directed graph:

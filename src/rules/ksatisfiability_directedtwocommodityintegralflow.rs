@@ -65,11 +65,6 @@ fn literal_var_index(literal: i64) -> usize {
     literal.unsigned_abs() as usize - 1
 }
 
-#[cfg_attr(not(any(test, feature = "example-db")), allow(dead_code))]
-fn literal_satisfied(requires_true: bool, assignment: &[bool], variable: usize) -> bool {
-    assignment.get(variable).copied().unwrap_or(false) == requires_true
-}
-
 fn build_branch<FV, FA>(
     add_vertex: &mut FV,
     add_arc: &mut FA,
@@ -150,7 +145,7 @@ impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
         for (clause_idx, routes) in self.clause_routes.iter().enumerate() {
             if let Some(route) = routes
                 .iter()
-                .find(|route| literal_satisfied(route.requires_true, assignment, route.variable))
+                .find(|route| assignment[route.variable] == route.requires_true)
             {
                 flow[num_arcs + route.source_arc] = 1;
                 flow[num_arcs + route.branch_arc] = 1;

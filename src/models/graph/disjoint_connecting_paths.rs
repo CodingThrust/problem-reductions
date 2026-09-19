@@ -85,27 +85,7 @@ impl TryFrom<DisjointConnectingPathsCreateSpec> for DisjointConnectingPaths<Simp
         if count < inferred {
             return Err("num_vertices is too small for graph endpoints".into());
         }
-        if spec.terminal_pairs.is_empty() {
-            return Err("terminal_pairs must contain at least one pair".into());
-        }
-        let mut used = vec![false; count];
-        for &(source, sink) in &spec.terminal_pairs {
-            if source >= count || sink >= count {
-                return Err("terminal pair endpoint is out of bounds".into());
-            }
-            if source == sink {
-                return Err("terminal pair endpoints must be distinct".into());
-            }
-            if used[source] || used[sink] {
-                return Err("terminal vertices must be pairwise disjoint".into());
-            }
-            used[source] = true;
-            used[sink] = true;
-        }
-        Ok(Self {
-            graph: SimpleGraph::new(count, spec.graph),
-            terminal_pairs: spec.terminal_pairs,
-        })
+        Self::try_new(SimpleGraph::new(count, spec.graph), spec.terminal_pairs)
     }
 }
 

@@ -87,9 +87,6 @@ impl<W: WeightElement> TryFrom<MinimumFeedbackVertexSetCreateSpec<W>>
     fn try_from(spec: MinimumFeedbackVertexSetCreateSpec<W>) -> Result<Self, Self::Error> {
         let count = spec.graph.num_vertices();
         let weights = spec.weights.unwrap_or_else(|| vec![W::unit(); count]);
-        if weights.len() != count {
-            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
-        }
         Self::try_new(spec.graph, weights)
     }
 }

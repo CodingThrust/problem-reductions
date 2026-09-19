@@ -91,9 +91,6 @@ impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i64> {
     fn try_from(spec: MinimumFeedbackArcSetCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_arcs();
         let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
-        if weights.len() != count {
-            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
-        }
         Self::try_new(spec.graph, weights)
     }
 }

@@ -89,14 +89,6 @@ struct MaximalISCreateSpec {
 impl TryFrom<MaximalISCreateSpec> for MaximalIS<SimpleGraph, i64> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximalISCreateSpec) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
         Self::try_new(spec.graph, spec.weights)
     }
 }

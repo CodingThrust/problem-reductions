@@ -108,27 +108,7 @@ impl TryFrom<BiconnectivityAugmentationCreateSpec>
             return Err("num_vertices is too small for graph endpoints".into());
         }
         let graph = SimpleGraph::new(count, spec.graph);
-        let mut seen = BTreeSet::new();
-        for &(u, v, _) in &spec.potential_weights {
-            if u >= count || v >= count {
-                return Err("potential edge endpoint is out of bounds".into());
-            }
-            if u == v {
-                return Err("potential edge is a self-loop".into());
-            }
-            let edge = normalize_edge(u, v);
-            if graph.has_edge(edge.0, edge.1) {
-                return Err("potential edge already exists in graph".into());
-            }
-            if !seen.insert(edge) {
-                return Err("duplicate potential edge".into());
-            }
-        }
-        Ok(Self {
-            graph,
-            potential_weights: spec.potential_weights,
-            budget: spec.budget,
-        })
+        Self::try_new(graph, spec.potential_weights, spec.budget)
     }
 }
 

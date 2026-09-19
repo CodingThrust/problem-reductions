@@ -119,28 +119,9 @@ impl TryFrom<MinimumSumMulticenterCreateSpec> for MinimumSumMulticenter<SimpleGr
         let vertex_weights = spec
             .weights
             .unwrap_or_else(|| vec![1; graph.num_vertices()]);
-        if vertex_weights.len() != graph.num_vertices() {
-            return Err(format!(
-                "weights has length {}, expected {}",
-                vertex_weights.len(),
-                graph.num_vertices()
-            )
-            .into());
-        }
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if spec.k == 0 || spec.k > graph.num_vertices() {
-            return Err(format!("k must be between 1 and {}", graph.num_vertices()).into());
-        }
         Self::try_new(graph, vertex_weights, edge_lengths, spec.k)
     }
 }

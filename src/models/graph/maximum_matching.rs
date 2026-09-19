@@ -98,14 +98,6 @@ impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i64> {
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
         Self::try_new(graph, edge_weights)
     }
 }

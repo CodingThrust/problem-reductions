@@ -111,14 +111,6 @@ macro_rules! max_cut_create_spec {
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
                 let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; graph.num_edges()] } };
-                if edge_weights.len() != graph.num_edges() {
-                    return Err(format!(
-                        "edge_weights has length {}, expected {}",
-                        edge_weights.len(),
-                        graph.num_edges()
-                    )
-                    .into());
-                }
                 Self::try_new(graph, edge_weights)
             }
         }

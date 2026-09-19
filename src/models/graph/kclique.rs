@@ -80,16 +80,7 @@ impl TryFrom<KCliqueCreateSpec> for KClique<SimpleGraph> {
         if count < inferred {
             return Err("num_vertices is too small for graph endpoints".into());
         }
-        if spec.k == 0 {
-            return Err("k must be positive".into());
-        }
-        if spec.k > count {
-            return Err("k must be <= graph num_vertices".into());
-        }
-        Ok(Self {
-            graph: SimpleGraph::new(count, spec.graph),
-            k: spec.k,
-        })
+        Self::try_new(SimpleGraph::new(count, spec.graph), spec.k)
     }
 }
 

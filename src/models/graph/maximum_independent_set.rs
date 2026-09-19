@@ -119,13 +119,7 @@ macro_rules! simple_mis_spec {
                     return Err("num_vertices is too small".into());
                 }
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; count] } };
-                if weights.len() != count {
-                    return Err("weights length must match num_vertices".into());
-                }
-                Ok(Self {
-                    graph: SimpleGraph::new(count, spec.graph),
-                    weights,
-                })
+                Self::try_new(SimpleGraph::new(count, spec.graph), weights)
             }
         }
     };
@@ -158,13 +152,7 @@ macro_rules! grid_mis_spec {
             type Error = crate::registry::ConstructionError;
             fn try_from(spec: $name) -> Result<Self, crate::registry::ConstructionError> {
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; spec.positions.len()] } };
-                if weights.len() != spec.positions.len() {
-                    return Err("weights length must match positions length".into());
-                }
-                Ok(Self {
-                    graph: <$graph>::new(spec.positions),
-                    weights,
-                })
+                Self::try_new(<$graph>::new(spec.positions), weights)
             }
         }
     };
@@ -206,15 +194,7 @@ macro_rules! unit_disk_mis_spec {
             fn try_from(spec: $name) -> Result<Self, ConstructionError> {
                 let radius = spec.radius.unwrap_or(1.0);
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; spec.positions.len()] } };
-                if weights.len() != spec.positions.len() {
-                    return Err(ConstructionError::Conversion(
-                        "weights length must match positions length".into(),
-                    ));
-                }
-                Ok(Self {
-                    graph: UnitDiskGraph::new(spec.positions, radius)?,
-                    weights,
-                })
+                Self::try_new(UnitDiskGraph::new(spec.positions, radius)?, weights)
             }
         }
     };

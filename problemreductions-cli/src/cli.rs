@@ -223,11 +223,11 @@ Use this when an external solver has solved the bundle's target problem
 the corresponding solution in the original source problem space without
 having to shell back into `pred solve`.
 
---config recovers a candidate only. --result requires an exact completed result:
+--config recovers a candidate only. --result requires a completed result:
   {\"status\":\"optimal\",\"solution\":[true,false],\"evaluation\":\"Min(1)\"}
   {\"status\":\"infeasible\"}
 Evaluation is optional, but must match when supplied. The external solver must
-establish optimality or infeasibility; numerical status alone is not a proof.
+establish optimality or infeasibility under its own numerical contract.
 --value maps an exact aggregate through value-capable edges, without a witness.
 
 Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
@@ -354,7 +354,7 @@ pub struct ExtractArgs {
     /// Target problem solution encoded as JSON (for example, [1,0,1,0])
     #[arg(long)]
     pub config: Option<String>,
-    /// JSON file containing an exact completed target result (optimal or infeasible).
+    /// JSON file containing a completed target result (optimal or infeasible).
     #[arg(long)]
     pub result: Option<PathBuf>,
     /// Exact target aggregate encoded as JSON; uses only value mappings.

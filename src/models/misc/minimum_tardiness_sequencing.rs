@@ -94,12 +94,6 @@ impl TryFrom<MinimumTardinessSequencingOneCreateSpec> for MinimumTardinessSequen
     fn try_from(spec: MinimumTardinessSequencingOneCreateSpec) -> Result<Self, Self::Error> {
         let num_tasks = spec.deadlines.len();
         let precedences = spec.precedences.unwrap_or_default();
-        if precedences
-            .iter()
-            .any(|&(a, b)| a >= num_tasks || b >= num_tasks)
-        {
-            return Err("precedence indices must be within the task count".into());
-        }
         Self::try_new(num_tasks, spec.deadlines, precedences)
     }
 }

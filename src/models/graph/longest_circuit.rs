@@ -81,17 +81,6 @@ impl TryFrom<LongestCircuitCreateSpec> for LongestCircuit<SimpleGraph, i64> {
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if edge_lengths.iter().any(|&length| length <= 0) {
-            return Err("edge_weights must be positive".to_string().into());
-        }
         Self::try_new(graph, edge_lengths)
     }
 }

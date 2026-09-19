@@ -92,14 +92,6 @@ struct MaximumCliqueCreateSpec<W> {
 impl<W: Clone + Default> TryFrom<MaximumCliqueCreateSpec<W>> for MaximumClique<SimpleGraph, W> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
         Self::try_new(spec.graph, spec.weights)
     }
 }

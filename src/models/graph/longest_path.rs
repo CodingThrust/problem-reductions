@@ -112,21 +112,12 @@ macro_rules! longest_path_create_spec {
                     return Err("num_vertices is too small".into());
                 }
                 let edge_lengths = longest_path_create_spec!(@lengths spec $(, $lengths)?);
-                if edge_lengths.len() != spec.graph.len() {
-                    return Err("edge_lengths length must match graph edge count".into());
-                }
-                if edge_lengths.iter().any(|v| v.to_sum() <= 0) {
-                    return Err("edge lengths must be positive".into());
-                }
-                if spec.source_vertex >= count || spec.target_vertex >= count {
-                    return Err("source_vertex and target_vertex must be valid vertices".into());
-                }
-                Ok(Self {
-                    graph: SimpleGraph::new(count, spec.graph),
+                Self::try_new(
+                    SimpleGraph::new(count, spec.graph),
                     edge_lengths,
-                    source_vertex: spec.source_vertex,
-                    target_vertex: spec.target_vertex,
-                })
+                    spec.source_vertex,
+                    spec.target_vertex,
+                )
             }
         }
     };

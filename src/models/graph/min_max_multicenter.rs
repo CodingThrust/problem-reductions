@@ -110,39 +110,7 @@ macro_rules! min_max_multicenter_create_spec {
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
                 let vertex_weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; graph.num_vertices()] } };
-                if vertex_weights.len() != graph.num_vertices() {
-                    return Err(format!(
-                        "weights has length {}, expected {}",
-                        vertex_weights.len(),
-                        graph.num_vertices()
-                    )
-                    .into());
-                }
                 let edge_lengths = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; graph.num_edges()] } };
-                if edge_lengths.len() != graph.num_edges() {
-                    return Err(format!(
-                        "edge_weights has length {}, expected {}",
-                        edge_lengths.len(),
-                        graph.num_edges()
-                    )
-                    .into());
-                }
-                let zero = <$weight as WeightElement>::Sum::zero();
-                if vertex_weights
-                    .iter()
-                    .any(|weight| weight.to_sum() < zero.clone())
-                {
-                    return Err("weights must be non-negative".to_string().into());
-                }
-                if edge_lengths
-                    .iter()
-                    .any(|weight| weight.to_sum() < zero.clone())
-                {
-                    return Err("edge_weights must be non-negative".to_string().into());
-                }
-                if spec.k == 0 || spec.k > graph.num_vertices() {
-                    return Err(format!("k must be between 1 and {}", graph.num_vertices()).into());
-                }
                 Self::try_new(graph, vertex_weights, edge_lengths, spec.k)
             }
         }

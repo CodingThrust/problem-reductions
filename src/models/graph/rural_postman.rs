@@ -101,21 +101,6 @@ impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i64> {
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if let Some(&edge) = spec
-            .required_edges
-            .iter()
-            .find(|&&edge| edge >= graph.num_edges())
-        {
-            return Err(format!("required edge index {edge} is out of bounds").into());
-        }
         Self::try_new(graph, edge_lengths, spec.required_edges)
     }
 }

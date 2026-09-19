@@ -93,23 +93,6 @@ impl TryFrom<BoundedComponentSpanningForestCreateSpec>
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BoundedComponentSpanningForestCreateSpec) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        if spec.weights.iter().any(|&weight| weight < 0) {
-            return Err("weights must be nonnegative".to_string().into());
-        }
-        if spec.k == 0 {
-            return Err("k must be at least 1".to_string().into());
-        }
-        if spec.max_weight <= 0 {
-            return Err("max_weight must be positive".to_string().into());
-        }
         Self::try_new(spec.graph, spec.weights, spec.k, spec.max_weight)
     }
 }

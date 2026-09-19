@@ -113,23 +113,6 @@ impl TryFrom<MinimumCapacitatedSpanningTreeCreateSpec>
     fn try_from(spec: MinimumCapacitatedSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
         let edges = spec.graph.num_edges();
         let weights = spec.weights.unwrap_or_else(|| vec![1; edges]);
-        if weights.len() != edges {
-            return Err(format!("weights has {} entries, expected {edges}", weights.len()).into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if vertices < 2 {
-            return Err("graph must have at least two vertices".to_string().into());
-        }
-        if spec.requirements.len() != vertices {
-            return Err(format!(
-                "requirements has {} entries, expected {vertices}",
-                spec.requirements.len()
-            )
-            .into());
-        }
-        if spec.root >= vertices {
-            return Err("root is outside the graph".to_string().into());
-        }
         Self::try_new(
             spec.graph,
             weights,

@@ -71,24 +71,6 @@ impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: GeneralizedHexCreateSpec) -> Result<Self, Self::Error> {
-        let num_vertices = spec.graph.num_vertices();
-        if spec.source >= num_vertices {
-            return Err(format!(
-                "source {} is outside graph with {num_vertices} vertices",
-                spec.source
-            )
-            .into());
-        }
-        if spec.sink >= num_vertices {
-            return Err(format!(
-                "sink {} is outside graph with {num_vertices} vertices",
-                spec.sink
-            )
-            .into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string().into());
-        }
         Self::try_new(spec.graph, spec.source, spec.sink)
     }
 }

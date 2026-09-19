@@ -405,7 +405,7 @@ impl BundleReplay {
                     .context("intermediate problem type mismatch")?
             };
             let mapped = if step.chain.has_value_mapping() {
-                Some(step.chain.extract_value(value.clone())?)
+                Some(step.chain.extract_value(value)?)
             } else {
                 None
             };

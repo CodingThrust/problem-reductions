@@ -123,23 +123,6 @@ impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if edge_weights.iter().any(|&weight| weight <= 0) {
-            return Err("edge_weights must be positive".to_string().into());
-        }
-        if spec.weight_bound <= 0 {
-            return Err("weight_bound must be positive".to_string().into());
-        }
-        if spec.diameter_bound == 0 {
-            return Err("diameter_bound must be at least 1".to_string().into());
-        }
         Self::try_new(graph, edge_weights, spec.weight_bound, spec.diameter_bound)
     }
 }

@@ -12,9 +12,9 @@ enum ExternalResult {
     Infeasible,
 }
 
-/// Recover a candidate, completed exact result, or aggregate through a bundle.
+/// Recover a candidate, completed result, or aggregate through a bundle.
 /// `--result` accepts solve-output metadata, but validates any supplied evaluation.
-/// The external solver is responsible for proving optimality or infeasibility.
+/// Optimality and infeasibility follow the external solver's numerical contract.
 pub fn extract(args: &ExtractArgs, out: &OutputConfig) -> Result<()> {
     let content = read_input(&args.input)?;
     let json: serde_json::Value =
@@ -46,13 +46,6 @@ pub fn extract(args: &ExtractArgs, out: &OutputConfig) -> Result<()> {
     if let Some(path) = &args.result {
         let json: serde_json::Value =
             serde_json::from_str(&read_input(path)?).context("Invalid completed target result")?;
-        if json
-            .pointer("/solver/kind")
-            .and_then(serde_json::Value::as_str)
-            == Some("ilp")
-        {
-            anyhow::bail!("numerical ILP status is not an exact certificate; recover a candidate with --config")
-        }
         let evaluation = json.get("evaluation").cloned();
         let external: ExternalResult =
             serde_json::from_value(json).context("Invalid completed target result")?;

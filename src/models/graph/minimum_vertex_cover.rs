@@ -93,14 +93,6 @@ impl<W: WeightElement> TryFrom<MinimumVertexCoverCreateSpec<W>>
         let weights = spec
             .weights
             .unwrap_or_else(|| vec![W::unit(); spec.graph.num_vertices()]);
-        if weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
         Self::try_new(spec.graph, weights)
     }
 }

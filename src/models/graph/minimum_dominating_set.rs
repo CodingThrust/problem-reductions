@@ -90,14 +90,6 @@ impl<W: Clone + Default> TryFrom<MinimumDominatingSetCreateSpec<W>>
 {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDominatingSetCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
         Self::try_new(spec.graph, spec.weights)
     }
 }

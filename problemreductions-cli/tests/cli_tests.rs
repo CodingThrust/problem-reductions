@@ -3831,7 +3831,10 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("k must be at least 1"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("max_components must be at least 1"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -8653,7 +8656,7 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_lengths has 7 entries, expected 8"),
+        stderr.contains("edge lengths length must match num_edges"),
         "stderr: {stderr}"
     );
 }
@@ -8699,7 +8702,7 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("source_vertex 9 is outside graph with 6 vertices"),
+        stderr.contains("source_vertex 9 out of bounds"),
         "stderr: {stderr}"
     );
     assert!(
@@ -8787,7 +8790,7 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_lengths must be positive"),
+        stderr.contains("edge lengths must be positive"),
         "stderr: {stderr}"
     );
 }
@@ -9667,8 +9670,13 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
         let numerical: serde_json::Value = serde_json::from_slice(&numerical.stdout).unwrap();
         assert_eq!(numerical["status"], expected);
 
-        for evaluation in [None, Some("Min(2)")] {
-            let mut external = json!({"status":"optimal","solution":[true,true,false],"problem":"MinimumVertexCover","solver":{"kind":"brute-force"}});
+        for (evaluation, solver) in [
+            (None, "brute-force"),
+            (Some("Min(2)"), "brute-force"),
+            (None, "ilp"),
+            (Some("Min(2)"), "ilp"),
+        ] {
+            let mut external = json!({"status":"optimal","solution":[true,true,false],"problem":"MinimumVertexCover","solver":{"kind":solver}});
             if let Some(evaluation) = evaluation {
                 external["evaluation"] = json!(evaluation);
             }
@@ -9727,7 +9735,7 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
         json!({"status":"optimal", "solution":[false,false,false]}),
         json!({"status":"timeout"}),
         json!({"status":"infeasible", "evaluation":"Min(2)"}),
-        json!({"status":"optimal", "solution":[true,true,false], "solver":{"kind":"ilp"}}),
+        json!({"status":"optimal", "solution":[true,true,false], "evaluation":"Min(99)", "solver":{"kind":"ilp"}}),
     ] {
         std::fs::write(&result, invalid.to_string()).unwrap();
         let output = pred()
@@ -9786,7 +9794,11 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
         .output()
         .unwrap();
     assert!(reduced.status.success());
-    std::fs::write(&result, json!({"status":"infeasible"}).to_string()).unwrap();
+    std::fs::write(
+        &result,
+        json!({"status":"infeasible", "solver":{"kind":"ilp"}}).to_string(),
+    )
+    .unwrap();
     let recovered = pred()
         .args([
             "extract",

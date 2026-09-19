@@ -121,45 +121,6 @@ impl TryFrom<ShortestWeightConstrainedPathCreateSpec>
 {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: ShortestWeightConstrainedPathCreateSpec) -> Result<Self, Self::Error> {
-        let edge_count = spec.graph.num_edges();
-        if spec.edge_lengths.len() != edge_count {
-            return Err(format!(
-                "edge_lengths has {} entries, expected {edge_count}",
-                spec.edge_lengths.len()
-            )
-            .into());
-        }
-        if spec.edge_weights.len() != edge_count {
-            return Err(format!(
-                "edge_weights has {} entries, expected {edge_count}",
-                spec.edge_weights.len()
-            )
-            .into());
-        }
-        if spec.edge_lengths.iter().any(|&value| value <= 0) {
-            return Err("edge_lengths must be positive".to_string().into());
-        }
-        if spec.edge_weights.iter().any(|&value| value <= 0) {
-            return Err("edge_weights must be positive".to_string().into());
-        }
-        let vertex_count = spec.graph.num_vertices();
-        if spec.source_vertex >= vertex_count {
-            return Err(format!(
-                "source_vertex {} is outside graph with {vertex_count} vertices",
-                spec.source_vertex
-            )
-            .into());
-        }
-        if spec.target_vertex >= vertex_count {
-            return Err(format!(
-                "target_vertex {} is outside graph with {vertex_count} vertices",
-                spec.target_vertex
-            )
-            .into());
-        }
-        if spec.weight_bound <= 0 {
-            return Err("weight_bound must be positive".to_string().into());
-        }
         Self::try_new(
             spec.graph,
             spec.edge_lengths,
