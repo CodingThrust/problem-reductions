@@ -563,18 +563,34 @@ fn cartesian_indices_zero_dimension_has_no_candidates() {
 }
 
 #[test]
-fn cartesian_indices_is_exact_size() {
-    let mut indices = CartesianIndices::new(vec![2, 3]).unwrap();
-    assert_eq!(indices.len(), 6);
-    indices.next();
-    assert_eq!(indices.len(), 5);
+fn cartesian_indices_stays_exhausted() {
+    let mut indices = CartesianIndices::new(vec![1]).unwrap();
+    assert_eq!(indices.size_hint(), (1, None));
+    assert_eq!(indices.next(), Some(vec![0]));
+    assert_eq!(indices.size_hint(), (0, Some(0)));
+    assert_eq!(indices.next(), None);
+    assert_eq!(indices.next(), None);
 }
 
 #[test]
-fn cartesian_indices_reports_cardinality_overflow() {
-    assert!(matches!(
-        CartesianIndices::new(vec![usize::MAX, 2]),
-        Err(crate::solvers::SolveError::SearchSpaceOverflow(dimensions))
-            if dimensions == vec![usize::MAX, 2]
-    ));
+fn cartesian_indices_enumerates_without_representable_cardinality() {
+    let indices = CartesianIndices::new(vec![usize::MAX, 2]).unwrap();
+    assert_eq!(
+        indices.take(3).collect::<Vec<_>>(),
+        vec![vec![0, 0], vec![0, 1], vec![1, 0]]
+    );
+}
+
+#[test]
+fn brute_force_finds_sat_witness_without_representable_cardinality() {
+    use crate::models::formula::{CNFClause, Satisfiability};
+
+    let num_vars = usize::BITS as usize;
+    let clauses = (1..=num_vars)
+        .map(|variable| CNFClause::new(vec![-(variable as i64)]))
+        .collect();
+    let problem = Satisfiability::new(num_vars, clauses);
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert_eq!(solution, vec![false; num_vars]);
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }
