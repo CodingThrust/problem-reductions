@@ -440,7 +440,7 @@ proved infeasibility, and `Err` reports an operational failure.
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
-| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved through the concrete `HighsAdapter`. The adapter owns numerical conversion, backend settings, termination status, and returned-assignment validation. Optimality and infeasibility follow HiGHS numerical tolerances; the adapter does not provide exact proofs. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline, terminating at the native `ILP<V, C>` with `bool`/`i64` variables and `i64`/`f64` coefficients. `HighsAdapter` owns numerical conversion, backend settings, termination status, and returned-assignment validation. Integer terminals go directly to the adapter; the explicit integer-to-float reduction remains available but is not part of solver pipelines. Optimality and infeasibility follow HiGHS numerical tolerances; the adapter does not provide exact proofs. |
 
 ILP results are optimal or infeasible according to HiGHS numerical tolerances;
 zero MIP gaps do not imply mathematical exactness. Integer extraction rounds

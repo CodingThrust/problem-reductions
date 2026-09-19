@@ -27,7 +27,7 @@ pub enum ILPSolveError {
     #[error("the ILP backend failed: {0}")]
     BackendFailure(String),
     /// Type-erased dispatch received a value other than a supported ILP variant.
-    #[error("the ILP backend requires bool/i64 variables and f64 coefficients")]
+    #[error("the ILP backend requires bool/i64 variables and i64/f64 coefficients")]
     UnsupportedProblemType,
     /// No ILP pipeline is registered for the exact problem variant.
     #[error("no ILP pipeline is registered for {0}")]
@@ -54,8 +54,8 @@ pub enum ILPSolveError {
 
 /// An ILP solver using the HiGHS backend.
 ///
-/// Registered reductions map a source problem to an `ILP<V, f64>` terminal,
-/// which this solver sends to HiGHS before extracting the source solution.
+/// Registered reductions map a source problem to a native `ILP<V, C>` terminal,
+/// which the HiGHS adapter converts for execution before source solution extraction.
 /// Optimality and infeasibility are assessed within HiGHS numerical tolerances.
 /// Zero MIP gaps do not make floating-point solving mathematically exact.
 ///
@@ -122,6 +122,12 @@ impl ILPSolver {
 
     /// Solve a type-erased supported ILP variant directly.
     pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<i64>, ILPSolveError> {
+        if let Some(ilp) = any.downcast_ref::<ILP<bool, i64>>() {
+            return HighsAdapter::new(self.time_limit).solve(ilp);
+        }
+        if let Some(ilp) = any.downcast_ref::<ILP<i64, i64>>() {
+            return HighsAdapter::new(self.time_limit).solve(ilp);
+        }
         if let Some(ilp) = any.downcast_ref::<ILP<bool, f64>>() {
             return HighsAdapter::new(self.time_limit).solve(ilp);
         }

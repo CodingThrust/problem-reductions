@@ -114,6 +114,20 @@ fn test_ilp_solver_rejects_inexact_integer_transport() {
 }
 
 #[test]
+fn test_native_integer_coefficient_transport_reports_backend_error() {
+    let ilp = binary_ilp(
+        1,
+        vec![],
+        vec![(0, crate::types::MAX_EXACT_F64_INTEGER + 1)],
+        ObjectiveSense::Maximize,
+    );
+    assert!(matches!(
+        ILPSolver::new().solve(&ilp),
+        Err(ILPSolveError::InexactTransport(_))
+    ));
+}
+
+#[test]
 fn test_ilp_rejects_solution_that_is_infeasible_after_rounding() {
     let ilp = binary_ilp(
         1,

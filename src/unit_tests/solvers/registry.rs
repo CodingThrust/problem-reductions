@@ -32,10 +32,6 @@ fn generic_decision_ilp_respects_maximization_bounds() {
                 name: "ILP",
                 variant: BOOL_VARIANT,
             },
-            StaticProblemStep {
-                name: "ILP",
-                variant: FLOAT_BOOL_VARIANT,
-            },
         ],
     };
     let registry = build_registry(
@@ -421,11 +417,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        [
-            "MaximumClique<SimpleGraph, i64>",
-            "ILP<i64, bool>",
-            "ILP<f64, bool>"
-        ]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<i64, bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -450,10 +442,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let ilp_itself =
         solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
-    assert_eq!(
-        ilp_itself.ilp.unwrap().path_labels(),
-        ["ILP<i64, bool>", "ILP<f64, bool>"]
-    );
+    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<i64, bool>"]);
 }
 
 #[test]

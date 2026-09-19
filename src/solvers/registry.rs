@@ -53,7 +53,10 @@ impl ExactProblemKey {
                 self.variant.get("variable").map(String::as_str),
                 Some("bool" | "i64")
             )
-            && self.variant.get("coefficient").map(String::as_str) == Some("f64")
+            && matches!(
+                self.variant.get("coefficient").map(String::as_str),
+                Some("i64" | "f64")
+            )
     }
 }
 
@@ -299,7 +302,7 @@ pub enum RegistryBuildError {
     MissingSolverCapability(String),
     #[error("ILP pipeline must contain at least one node")]
     EmptyPipeline,
-    #[error("ILP pipeline for {0} does not end at an f64-coefficient ILP")]
+    #[error("ILP pipeline for {0} does not end at a supported ILP variant")]
     UnsupportedTarget(String),
     #[error("ILP pipeline for {0} continues after reaching a supported ILP node")]
     ContinuesAfterIlp(String),
