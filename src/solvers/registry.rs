@@ -151,8 +151,8 @@ impl CompiledIlpPipeline {
                     reductions[index - 1].target_problem_any()
                 };
                 let aggregate = view(step.as_ref())?;
-                // A numerical target optimum can establish YES through a source witness,
-                // but a missed threshold alone cannot establish NO.
+                // This pipeline returns a witness, not an aggregate result. A negative
+                // decision value has no source witness for the extractor to recover.
                 let value = aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
                 let source = crate::registry::find_variant_entry(
                     &self.path[index].name,

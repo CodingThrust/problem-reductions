@@ -9659,12 +9659,13 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
             ])
             .output()
             .unwrap();
-        assert_eq!(
+        assert!(
             numerical.status.success(),
-            bound == 2,
             "{}",
             String::from_utf8_lossy(&numerical.stderr)
         );
+        let numerical: serde_json::Value = serde_json::from_slice(&numerical.stdout).unwrap();
+        assert_eq!(numerical["status"], expected);
 
         for evaluation in [None, Some("Min(2)")] {
             let mut external = json!({"status":"optimal","solution":[true,true,false],"problem":"MinimumVertexCover","solver":{"kind":"brute-force"}});

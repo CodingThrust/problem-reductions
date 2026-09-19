@@ -368,8 +368,9 @@ impl BundleReplay {
         Ok(chain.extract_value(value)?)
     }
 
-    /// Execute recovery of an exact completed result. The caller establishes
-    /// optimality or infeasibility; evaluating a candidate cannot establish it.
+    /// Execute recovery of a completed result. The caller establishes optimality
+    /// or infeasibility under its solver contract, including numerical tolerances;
+    /// evaluating a candidate cannot establish it.
     pub(crate) fn extract_result(&self, result: &SolveOutcome) -> Result<SolveOutcome> {
         use problemreductions::rules::ExtractionError;
         let BundleChain::Witness(steps) = &self.chain else {
@@ -452,23 +453,7 @@ impl BundleReplay {
         let target_result = self.target.solve(request)?;
         let solver = target_result.solver;
         let target_outcome = target_result.outcome;
-        let source_outcome = match (&solver, &target_outcome) {
-            // A numerical optimum does not establish an exact negative threshold.
-            (
-                problemreductions::solvers::SolverExecution::Ilp { .. },
-                SolveOutcome::Optimal { solution, .. },
-            ) => {
-                let (solution, evaluation) = self.extract(solution)?;
-                SolveOutcome::Optimal {
-                    solution,
-                    evaluation,
-                }
-            }
-            (problemreductions::solvers::SolverExecution::Ilp { .. }, SolveOutcome::Infeasible) => {
-                anyhow::bail!("numerical target infeasibility does not certify the source result")
-            }
-            _ => self.extract_result(&target_outcome)?,
-        };
+        let source_outcome = self.extract_result(&target_outcome)?;
 
         Ok(BundleSolveResult {
             source_name: self.source_name.clone(),
@@ -740,15 +725,28 @@ mod tests {
                     problem_step::<MinimumVertexCover<SimpleGraph, i64>>(),
                 ],
             );
-            let result = replay.solve(SolverRequest::BruteForce).unwrap();
-            assert_eq!(
-                matches!(result.source_outcome, SolveOutcome::Optimal { .. }),
-                second == 1
-            );
-            if second == -1 {
-                assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
+            for solver in [SolverRequest::BruteForce, SolverRequest::Ilp] {
+                let result = replay.solve(solver).unwrap();
+                assert_eq!(
+                    matches!(result.source_outcome, SolveOutcome::Optimal { .. }),
+                    second == 1
+                );
+                if second == -1 {
+                    assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
+                }
             }
         }
+    }
+
+    #[test]
+    fn ilp_bundle_recovers_target_infeasibility_under_backend_contract() {
+        use problemreductions::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
+        let source =
+            Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+        let replay = replay(&source, vec![problem_step::<NAESatisfiability>()]);
+        let result = replay.solve(SolverRequest::Ilp).unwrap();
+        assert!(matches!(result.target_outcome, SolveOutcome::Infeasible));
+        assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
     }
 
     #[test]

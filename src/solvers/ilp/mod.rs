@@ -1,8 +1,9 @@
 //! ILP (Integer Linear Programming) solver module.
 //!
-//! This module provides an ILP solver using the HiGHS solver via the `good_lp` crate.
-//! It is only available when the `ilp` feature is enabled.
+//! This module provides an ILP solver using HiGHS.
+//! Numerical backend details are isolated in the HiGHS adapter.
 
+mod adapter;
 mod solver;
 
 pub use solver::{ILPSolveError, ILPSolver};

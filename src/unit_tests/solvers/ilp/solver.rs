@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{IntegerVariable, LinearConstraint};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::traits::Problem;
 
 fn binary_ilp(
@@ -110,26 +110,6 @@ fn test_ilp_solver_rejects_inexact_integer_transport() {
     assert!(matches!(
         ILPSolver::new().solve(&ilp),
         Err(ILPSolveError::InexactTransport(_))
-    ));
-}
-
-#[test]
-fn test_backend_errors_are_classified_without_losing_the_cause() {
-    assert_eq!(
-        classify_backend_error(ResolutionError::Infeasible, None),
-        ILPSolveError::Infeasible,
-    );
-    assert_eq!(
-        classify_backend_error(ResolutionError::Unbounded, None),
-        ILPSolveError::Unbounded,
-    );
-    assert_eq!(
-        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
-        ILPSolveError::Timeout,
-    );
-    assert!(matches!(
-        classify_backend_error(ResolutionError::Other("SolveError"), None),
-        ILPSolveError::BackendFailure(message) if message.contains("SolveError")
     ));
 }
 

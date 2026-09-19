@@ -30,7 +30,7 @@ thiserror = "2.0.20"
 num-bigint = "0.4.8"
 num-rational = "0.4.2"
 num-traits = "0.2.19"
-good_lp = { version = "=1.14.2", default-features = false, features = ["highs"] }
+highs = "2.4.0"
 inventory = "0.3.24"
 rand = "0.10.2"
 criterion = { version = "0.8.2", optional = true }
