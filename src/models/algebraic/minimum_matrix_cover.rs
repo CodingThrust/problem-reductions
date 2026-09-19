@@ -72,7 +72,7 @@ impl MinimumMatrixCover {
     ///
     /// # Panics
     ///
-    /// Panics if the matrix is not square or has inconsistent row lengths.
+    /// Panics if the matrix is not square or contains a negative entry.
     pub fn new(matrix: Vec<Vec<i64>>) -> Self {
         Self::try_new(matrix).unwrap_or_else(|error| panic!("{error}"))
     }
@@ -86,6 +86,9 @@ impl MinimumMatrixCover {
                     row.len()
                 )
                 .into());
+            }
+            if row.iter().any(|&entry| entry < 0) {
+                return Err(format!("matrix row {i} contains a negative entry").into());
             }
         }
         Ok(Self { matrix })

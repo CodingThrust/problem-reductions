@@ -182,3 +182,11 @@ fn test_minimum_matrix_cover_canonical_example_spec() {
         serde_json::json!([false, true, true, false])
     );
 }
+#[test]
+fn test_minimum_matrix_cover_rejects_negative_entries() {
+    assert!(
+        serde_json::from_value::<MinimumMatrixCover>(serde_json::json!({"matrix": [[-1]]}))
+            .is_err()
+    );
+    assert!(std::panic::catch_unwind(|| MinimumMatrixCover::new(vec![vec![-1]])).is_err());
+}

@@ -1,6 +1,45 @@
 use super::*;
 
 #[test]
+fn domain_and_encoding_counts_must_fit_usize() {
+    for (objects, domains, tables) in [
+        (1, vec![2; usize::BITS as usize], vec![]),
+        (0, vec![usize::MAX, 1], vec![]),
+        (usize::MAX, vec![2], vec![]),
+        (
+            usize::MAX / 6 + 1,
+            vec![3, 1, 1],
+            vec![
+                FrequencyTable::new(0, 1, vec![vec![0]; 3]),
+                FrequencyTable::new(0, 2, vec![vec![0]; 3]),
+            ],
+        ),
+    ] {
+        assert!(matches!(
+            ConsistencyOfDatabaseFrequencyTables::try_new(
+                objects,
+                domains.clone(),
+                tables.clone(),
+                vec![]
+            ),
+            Err(crate::registry::ConstructionError::IntegerOverflow(_))
+        ));
+        assert!(serde_json::from_value::<ConsistencyOfDatabaseFrequencyTables>(serde_json::json!({"num_objects": objects, "attribute_domains": domains, "frequency_tables": tables, "known_values": []})).is_err());
+    }
+    let problem = ConsistencyOfDatabaseFrequencyTables::new(
+        1,
+        vec![2; usize::BITS as usize - 1],
+        vec![],
+        vec![],
+    );
+    assert_eq!(problem.domain_size_product(), 1usize << (usize::BITS - 1));
+    assert_eq!(
+        problem.num_assignment_indicators(),
+        2 * (usize::BITS as usize - 1)
+    );
+}
+
+#[test]
 fn test_consistency_of_database_frequency_tables_validates_persisted_input() {
     let valid = serde_json::to_value(issue_yes_instance()).unwrap();
     let restored: ConsistencyOfDatabaseFrequencyTables =

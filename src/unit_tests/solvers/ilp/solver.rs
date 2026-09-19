@@ -325,3 +325,27 @@ fn test_float_qubo_objective_matches_reference_within_tolerance() {
         ));
     }
 }
+#[test]
+fn test_ilp_solver_rejects_invalid_time_limits() {
+    let problem = binary_ilp(0, vec![], vec![], ObjectiveSense::Minimize);
+    for seconds in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert!(matches!(
+            ILPSolver::with_time_limit(seconds).solve(&problem),
+            Err(ILPSolveError::BackendFailure(message)) if message.contains("time limit")
+        ));
+    }
+}
+#[test]
+fn test_ilp_solver_rejects_source_objective_overflow() {
+    let problem = ILP::<i64>::with_variables(
+        vec![IntegerVariable::new(Some(1025), Some(1025)).unwrap()],
+        vec![],
+        vec![(0, crate::types::MAX_EXACT_F64_INTEGER)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+    assert!(matches!(
+        ILPSolver::new().solve(&problem),
+        Err(ILPSolveError::InvalidSolution(_))
+    ));
+}

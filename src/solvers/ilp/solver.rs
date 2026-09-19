@@ -127,13 +127,25 @@ impl ILPSolver {
             .lookup(&key)
             .ilp
             .ok_or_else(|| ILPSolveError::MissingPipeline(key.label()))?;
-        pipeline.solve_typed(problem, self)
+        let solution = pipeline.solve_typed(problem, self)?;
+        problem
+            .evaluate(&solution)
+            .map_err(|error| ILPSolveError::InvalidSolution(error.to_string()))?;
+        Ok(solution)
     }
 
     fn solve_backend<V>(&self, problem: &ILP<V, f64>) -> Result<Vec<i64>, ILPSolveError>
     where
         V: VariableDomain,
     {
+        if self
+            .time_limit
+            .is_some_and(|seconds| !seconds.is_finite() || seconds < 0.0)
+        {
+            return Err(ILPSolveError::BackendFailure(
+                "time limit must be finite and nonnegative".into(),
+            ));
+        }
         self.solve_with_objective(problem, problem.objective())
     }
 

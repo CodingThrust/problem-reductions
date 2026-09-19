@@ -45,33 +45,51 @@ impl<'de> Deserialize<'de> for TruthTable {
         D: serde::Deserializer<'de>,
     {
         let serde_repr = TruthTableSerde::deserialize(deserializer)?;
-        Ok(TruthTable {
-            num_inputs: serde_repr.num_inputs,
-            outputs: serde_repr.outputs.into_iter().collect(),
-        })
+        TruthTable::try_from_outputs(serde_repr.num_inputs, serde_repr.outputs)
+            .map_err(serde::de::Error::custom)
     }
 }
 
 impl TruthTable {
+    fn row_count(num_inputs: usize) -> Result<usize, crate::registry::ConstructionError> {
+        u32::try_from(num_inputs)
+            .ok()
+            .and_then(|shift| 1usize.checked_shl(shift))
+            .filter(|&rows| rows <= BitSlice::<usize, Lsb0>::MAX_BITS)
+            .ok_or_else(|| {
+                crate::registry::ConstructionError::IntegerOverflow(
+                    "representing truth-table rows".into(),
+                )
+            })
+    }
+
     /// Create a truth table from a vector of boolean outputs.
     ///
     /// The outputs vector must have exactly 2^num_inputs elements.
     /// Index i corresponds to the input where the j-th bit represents variable j.
     pub fn from_outputs(num_inputs: usize, outputs: Vec<bool>) -> Self {
-        let expected_len = 1 << num_inputs;
-        assert_eq!(
-            outputs.len(),
-            expected_len,
-            "outputs length must be 2^num_inputs = {}, got {}",
-            expected_len,
-            outputs.len()
-        );
+        Self::try_from_outputs(num_inputs, outputs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_from_outputs(
+        num_inputs: usize,
+        outputs: Vec<bool>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        let expected_len = Self::row_count(num_inputs)?;
+        if outputs.len() != expected_len {
+            return Err(format!(
+                "outputs length must be 2^num_inputs = {}, got {}",
+                expected_len,
+                outputs.len()
+            )
+            .into());
+        }
 
         let bits: BitVec = outputs.into_iter().collect();
-        Self {
+        Ok(Self {
             num_inputs,
             outputs: bits,
-        }
+        })
     }
 
     /// Create a truth table from a function.
@@ -81,7 +99,7 @@ impl TruthTable {
     where
         F: Fn(&[bool]) -> bool,
     {
-        let num_rows = 1 << num_inputs;
+        let num_rows = Self::row_count(num_inputs).unwrap_or_else(|error| panic!("{error}"));
         let mut outputs = BitVec::with_capacity(num_rows);
 
         for i in 0..num_rows {
@@ -102,7 +120,7 @@ impl TruthTable {
 
     /// Get the number of rows (2^num_inputs).
     pub fn num_rows(&self) -> usize {
-        1 << self.num_inputs
+        self.outputs.len()
     }
 
     /// Evaluate the truth table for a given input.

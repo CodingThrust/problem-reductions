@@ -167,6 +167,33 @@ fn validate_cdft_create(
             );
         }
     }
+    domains
+        .iter()
+        .try_fold(1usize, |product, &size| product.checked_mul(size))
+        .ok_or_else(|| {
+            crate::registry::ConstructionError::IntegerOverflow(
+                "representing the domain-size product".into(),
+            )
+        })?;
+    domains
+        .iter()
+        .try_fold(0usize, |sum, &size| sum.checked_add(size))
+        .and_then(|sum| num_objects.checked_mul(sum))
+        .ok_or_else(|| {
+            crate::registry::ConstructionError::IntegerOverflow(
+                "representing assignment indicators".into(),
+            )
+        })?;
+    tables
+        .iter()
+        .flat_map(|table| table.counts())
+        .try_fold(0usize, |sum, row| sum.checked_add(row.len()))
+        .and_then(|cells| num_objects.checked_mul(cells))
+        .ok_or_else(|| {
+            crate::registry::ConstructionError::IntegerOverflow(
+                "representing auxiliary frequency indicators".into(),
+            )
+        })?;
     let mut pairs = BTreeSet::new();
     for table in tables {
         let a = table.attribute_a();
@@ -228,6 +255,7 @@ fn validate_cdft_create(
 
 impl ConsistencyOfDatabaseFrequencyTables {
     /// Create a new consistency-of-database-frequency-tables instance.
+    /// Domain and encoding counts must fit in `usize`.
     pub fn new(
         num_objects: usize,
         attribute_domains: Vec<usize>,

@@ -149,3 +149,19 @@ fn test_minimum_decision_tree_indistinguishable() {
     // Two objects with identical test results
     MinimumDecisionTree::new(vec![vec![true, true]], 2, 1);
 }
+#[test]
+fn test_minimum_decision_tree_rejects_unrepresentable_tree_and_invalid_test() {
+    assert!(
+        MinimumDecisionTree::try_from(MinimumDecisionTreeCreateSpec {
+            num_objects: usize::BITS as usize + 1,
+            num_tests: 1,
+            test_matrix: vec![],
+        })
+        .is_err()
+    );
+    let problem = MinimumDecisionTree::new(vec![vec![false, true]], 2, 1);
+    assert!(matches!(
+        problem.evaluate(&vec![2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+}

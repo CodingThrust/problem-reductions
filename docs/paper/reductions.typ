@@ -3280,11 +3280,13 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let steiner-verts = tree-verts.filter(v => not terminals.contains(v))
   [
     #problem-def("SteinerTree")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a nonempty set of terminal vertices $T subset.eq V$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_. For a single terminal, the tree consisting of that vertex and no edges is feasible.
+      Given an undirected graph $G = (V, E)$ with integer edge weights $w: E -> ZZ$ and a nonempty set of terminal vertices $T subset.eq V$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_. For a single terminal, the tree consisting of that vertex and no edges is feasible, but negative-weight branches can improve its cost.
     ][
     One of Karp's 21 NP-complete problems @karp1972, foundational in network design with applications in telecommunications backbone routing, VLSI chip interconnect, pipeline planning, and phylogenetic tree construction. When $T = V$, the problem reduces to the minimum spanning tree (polynomial). The NP-hardness arises from choosing which Steiner vertices to include.
 
-    The best known exact algorithm runs in $O^*(3^(|T|) dot n + 2^(|T|) dot n^2)$ time via Dreyfus--Wagner dynamic programming over terminal subsets @dreyfuswagner1971. Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
+    For signed weights, enumerate the $2^(n - |T|)$ subsets of nonterminal vertices and compute a minimum spanning tree on each connected induced subgraph. Every feasible tree occurs within one such vertex set, and replacing it by a minimum spanning tree cannot increase its cost. This gives an exact $O(2^(n - |T|) n^2)$ bound.#footnote[This bound follows from the enumeration argument; no claim of best-known complexity for signed weights is made.]
+
+    For nonnegative weights, Dreyfus--Wagner dynamic programming over terminal subsets runs in $O(3^(|T|) dot n + 2^(|T|) dot n^2)$ time @dreyfuswagner1971. The following approximation guarantees also require nonnegative weights: Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
 
     // Find the unique direct terminal-terminal edge (both endpoints in T, not in the optimal tree)
     #let terminal-set = terminals
@@ -12576,18 +12578,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Construction._ For each link $j in {1, dots, n}$ and sample index $a in {0, dots, m_j - 1}$, introduce a binary variable $y_(j,a) in {0,1}$ with the intended meaning "$y_(j,a) = 1$ iff link $j$ chooses orientation $phi_(j,a)$." Define
   $ c_(j,a) = l_j cos phi_(j,a), quad s_(j,a) = l_j sin phi_(j,a). $
   Let
-  $ P = 1 + (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2. $
+  $ B = (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2, quad P = 2(1 + B). $
   The QUBO objective is the sum of three terms:
   $
     H = underbrace((sum_(j,a) c_(j,a) y_(j,a) - g_x)^2 + (sum_(j,a) s_(j,a) y_(j,a) - g_y)^2)_"position error"
       + underbrace(P sum_(j=1)^n (sum_(a=0)^(m_j - 1) y_(j,a) - 1)^2)_"one-hot"
       + underbrace(P sum_(j=2)^n sum_((a,b) in.not A_j) y_(j-1,a) y_(j,b))_"forbidden pairs".
   $
-  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. As usual, the additive constant $g_x^2 + g_y^2$ is dropped.
+  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. The stored energy is $E = H - C$, where $C = g_x^2 + g_y^2 + n P$ includes the constants from the position error and all one-hot penalties.
 
-  _Correctness._ ($arrow.r.double$) Any feasible inverse-kinematics configuration $a_1, dots, a_n$ maps to the one-hot assignment with $y_(j,a_j) = 1$ and all other selectors $0$. Every one-hot penalty vanishes, every consecutive pair lies in the relevant admissible set, and the remaining QUBO objective equals the squared end-effector distance up to the dropped additive constant. ($arrow.l.double$) If some link is not one-hot, then $(sum_a y_(j,a) - 1)^2 >= 1$, so the assignment pays at least $P$. If every link is one-hot but some consecutive pair is forbidden, then exactly one forbidden-pair monomial is active at that junction, again contributing at least $P$. By definition of $P$, every decoded source configuration has squared distance at most $P - 1$, while the dropped-constant geometric term is bounded below by $-(g_x^2 + g_y^2)$. Therefore every violating assignment has strictly larger energy than every feasible source assignment. Among the penalty-zero assignments, minimizing $H$ is exactly minimizing the source squared distance.
+  _Correctness._ In exact arithmetic, ($arrow.r.double$) any feasible source configuration maps to a one-hot assignment whose penalties vanish, so $H$ equals its squared distance and is at most $B$. ($arrow.l.double$) A non-one-hot block contributes at least $P$; a one-hot assignment containing a forbidden pair also contributes at least $P$. Since the position error and every penalty are nonnegative, such assignments have $H >= P > B$. Thus, whenever the source is feasible, every target minimizer is feasible, and minimizing $E = H - C$ among these assignments minimizes the source squared distance. An infeasible source has no penalty-zero assignment, although its unconstrained QUBO still has a minimizer.
 
-  _Solution extraction._ For each link block $j$, read the unique active selector $y_(j,a) = 1$ and output its sample index $a$. If the decoded index vector violates an admissible-pair constraint, the source evaluator rejects it with `Min(None)`.
+  _Solution extraction._ Validate the target configuration, require exactly one active selector per link, and reject any decoded consecutive pair outside its admissible set. Otherwise return the selected sample indices. Extraction failure is an error, not a certificate that the source is infeasible.
+
+  _Numerical scope._ The implementation uses finite `f64` arithmetic and rejects a non-finite penalty or matrix coefficient. The proportional penalty gap avoids relying on a unit increment at large magnitudes, but rounding of the expanded objective can still merge close objective values. The exact-arithmetic correspondence above is not a guarantee of identical optimizer sets under floating-point evaluation.
 ]
 
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")

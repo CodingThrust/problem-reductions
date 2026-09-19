@@ -90,6 +90,13 @@ impl KthLargestMTuple {
         if sets.iter().any(|s| s.is_empty()) {
             return Err("Every set must be non-empty".to_string().into());
         }
+        sets.iter()
+            .try_fold(1usize, |total, set| total.checked_mul(set.len()))
+            .ok_or_else(|| {
+                crate::registry::ConstructionError::IntegerOverflow(
+                    "representing the total tuple count".into(),
+                )
+            })?;
         if sets.iter().flatten().any(|&size| size <= 0) {
             return Err("All sizes must be positive (> 0)".to_string().into());
         }
@@ -103,6 +110,7 @@ impl KthLargestMTuple {
     }
 
     /// Try to create a new KthLargestMTuple instance.
+    /// The total tuple count must fit in `usize`.
     pub fn try_new(
         sets: Vec<Vec<i64>>,
         k: i64,
@@ -143,10 +151,7 @@ impl KthLargestMTuple {
 
     /// Returns the total number of m-tuples (product of set sizes).
     pub fn total_tuples(&self) -> usize {
-        self.sets
-            .iter()
-            .try_fold(1usize, |total, set| total.checked_mul(set.len()))
-            .expect("KthLargestMTuple total tuple count exceeds usize")
+        self.sets.iter().map(Vec::len).product()
     }
 
     fn has_at_least_k_qualifying_tuples(&self) -> Result<bool, crate::traits::EvaluationError> {

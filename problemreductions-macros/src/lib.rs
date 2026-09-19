@@ -401,6 +401,8 @@ fn extract_type_name(ty: &Type) -> Option<String> {
 
             Some(ident)
         }
+        // Forwarded macro_rules! type fragments have an invisible group.
+        Type::Group(group) => extract_type_name(&group.elem),
         _ => None,
     }
 }
@@ -1023,6 +1025,21 @@ mod tests {
     #[test]
     fn extract_type_name_unwraps_decision_inner_type() {
         let ty: Type = parse_str("Decision<MinimumVertexCover<SimpleGraph, i64>>").unwrap();
+        assert_eq!(
+            extract_type_name(&ty).as_deref(),
+            Some("DecisionMinimumVertexCover")
+        );
+    }
+
+    #[test]
+    fn extract_type_name_unwraps_forwarded_type_fragments() {
+        let inner: Type = parse_str("MinimumVertexCover<SimpleGraph, One>").unwrap();
+        let group = Type::Group(syn::TypeGroup {
+            attrs: Vec::new(),
+            group_token: Default::default(),
+            elem: Box::new(inner),
+        });
+        let ty: Type = syn::parse_quote!(Decision<#group>);
         assert_eq!(
             extract_type_name(&ty).as_deref(),
             Some("DecisionMinimumVertexCover")

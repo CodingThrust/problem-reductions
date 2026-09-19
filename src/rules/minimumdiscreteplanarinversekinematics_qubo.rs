@@ -29,6 +29,7 @@ pub struct ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     target: QUBO<f64>,
     block_offsets: Vec<usize>,
     block_sizes: Vec<usize>,
+    allowed_pairs: Vec<Vec<(usize, usize)>>,
 }
 
 impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
@@ -45,7 +46,8 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        self.block_offsets
+        let config: Vec<usize> = self
+            .block_offsets
             .iter()
             .zip(&self.block_sizes)
             .enumerate()
@@ -64,7 +66,15 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
                     ))),
                 }
             })
-            .collect()
+            .collect::<crate::rules::ExtractionResult<_>>()?;
+        for (junction, (pair, allowed)) in config.windows(2).zip(&self.allowed_pairs).enumerate() {
+            if !allowed.contains(&(pair[0], pair[1])) {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "junction {junction} has a forbidden orientation pair"
+                )));
+            }
+        }
+        Ok(config)
     }
 }
 
@@ -90,12 +100,19 @@ impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
         }
 
         // A violation contributes at least one full penalty unit. This bound
-        // exceeds the largest possible squared distance of any decoded source
-        // configuration, so every QUBO minimizer for a feasible source
-        // instance is one-hot and pair-feasible.
+        // exceeds the largest possible squared distance in exact arithmetic.
+        // A proportional gap avoids rounding B + 1 back to B at large scales;
+        // the floating-point objective still has finite-precision limitations.
         let sum_abs_x: f64 = x_coeffs.iter().map(|coeff| coeff.abs()).sum();
         let sum_abs_y: f64 = y_coeffs.iter().map(|coeff| coeff.abs()).sum();
-        let penalty = 1.0 + (sum_abs_x + gx.abs()).powi(2) + (sum_abs_y + gy.abs()).powi(2);
+        let distance_bound = (sum_abs_x + gx.abs()).powi(2) + (sum_abs_y + gy.abs()).powi(2);
+        let penalty = 2.0 * (1.0 + distance_bound);
+        if !penalty.is_finite() {
+            return Err(crate::rules::ReductionError::non_finite_result::<
+                Self,
+                QUBO<f64>,
+            >("computing the inverse-kinematics penalty"));
+        }
 
         let mut matrix = vec![vec![0.0; total_vars]; total_vars];
         let mut add_upper = |i: usize, j: usize, value: f64| {
@@ -164,6 +181,7 @@ impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
             })?,
             block_offsets,
             block_sizes,
+            allowed_pairs: self.allowed_pairs().to_vec(),
         })
     }
 }

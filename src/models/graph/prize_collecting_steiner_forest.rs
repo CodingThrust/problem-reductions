@@ -229,6 +229,16 @@ impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
         }
         beta.validate_element("beta")?;
         omega.validate_element("omega")?;
+        if vertex_prizes
+            .iter()
+            .chain(&edge_costs)
+            .chain([&beta, &omega])
+            .any(|value| value.to_sum() < W::Sum::zero())
+        {
+            return Err(ConstructionError::InvalidInput(
+                "vertex prizes, edge costs, beta, and omega must be nonnegative".into(),
+            ));
+        }
         Ok(Self {
             graph,
             vertex_prizes,

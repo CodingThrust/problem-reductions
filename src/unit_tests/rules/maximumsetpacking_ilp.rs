@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn constraint_count_is_only_an_upper_bound() {
+    let entry = inventory::iter::<crate::rules::ReductionEntry>()
+        .find(|entry| entry.source_name == "MaximumSetPacking" && entry.target_name == "ILP")
+        .unwrap();
+    assert_eq!(
+        entry
+            .parameter_contract()
+            .unwrap()
+            .transform()
+            .unwrap()
+            .relation(),
+        crate::parameters::ParameterRelation::UpperBound
+    );
+    let problem = MaximumSetPacking::new(vec![vec![0], vec![1]]);
+    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+    assert_eq!(reduction.target_problem().constraints().len(), 0);
+}
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Max;

@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn signed_complexity_counts_nonterminal_subsets() {
+    let problem = SteinerTree::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-2i64], vec![0]);
+    let entry = inventory::iter::<crate::registry::VariantEntry>()
+        .find(|entry| {
+            entry.name == "SteinerTree"
+                && (entry.variant_fn)()
+                    .iter()
+                    .any(|(key, value)| *key == "weight" && *value == "i64")
+        })
+        .unwrap();
+    assert_eq!(
+        (entry.complexity_eval_fn)(&problem as &dyn std::any::Any),
+        8.0
+    );
+}
+
+#[test]
 fn test_single_terminal_allows_empty_tree_and_negative_branches() {
     let json = serde_json::json!({
         "graph": {"num_vertices": 2, "edges": [[0, 1]]},

@@ -184,3 +184,15 @@ fn create_spec_defaults_precedences_to_empty() {
     assert!(problem.precedences().is_empty());
     assert!(!PrecedenceConstrainedSchedulingCreateSpec::inputs()[3].required);
 }
+#[test]
+fn test_precedence_constrained_scheduling_large_deadline() {
+    let problem = PrecedenceConstrainedScheduling::new(2, 1, 1_000_000_000, vec![(0, 1)]);
+    assert_eq!(
+        problem.evaluate(&vec![0, 999_999_999]).unwrap(),
+        crate::types::Or(true)
+    );
+    assert_eq!(
+        problem.evaluate(&vec![0, 0]).unwrap(),
+        crate::types::Or(false)
+    );
+}

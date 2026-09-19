@@ -348,7 +348,7 @@ impl TryFrom<SteinerTreeOneCreateSpec> for SteinerTree<SimpleGraph, One> {
 }
 
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i64> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
+    default SteinerTree<SimpleGraph, i64> => "2^num_vertices * 0.5^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
     SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeOneCreateSpec,
 }
 
