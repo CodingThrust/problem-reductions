@@ -9,7 +9,10 @@ fn test_cvp_constructs_integer_targets() {
     assert_eq!(integer.num_basis_vectors(), 2);
     assert_eq!(integer.ambient_dimension(), 3);
     assert_eq!(integer.target(), &[3, 3, 1]);
-    assert_eq!(ClosestVectorProblem::variant(), vec![("target", "i64")]);
+    assert_eq!(
+        ClosestVectorProblem::variant(),
+        vec![("coefficient", "i64")]
+    );
 }
 
 #[test]
@@ -104,7 +107,7 @@ fn test_cvp_create_specs_have_no_bounds() {
 }
 
 #[test]
-fn test_cvp_registers_only_integer_target_variant() {
+fn test_cvp_registers_only_integer_coefficient_variant() {
     let mut variants = crate::registry::variant_entries()
         .into_iter()
         .filter(|entry| entry.name == ClosestVectorProblem::NAME)
@@ -114,7 +117,7 @@ fn test_cvp_registers_only_integer_target_variant() {
     assert_eq!(
         variants,
         vec![std::collections::BTreeMap::from([(
-            "target".into(),
+            "coefficient".into(),
             "i64".into()
         )]),]
     );

@@ -51,7 +51,7 @@ fn test_cvp_solver_reports_unrepresentable_coefficient() {
 fn test_cvp_solver_is_registered_without_brute_force() {
     let key = ExactProblemKey::new(
         ClosestVectorProblem::NAME,
-        BTreeMap::from([("target".to_string(), "i64".to_string())]),
+        BTreeMap::from([("coefficient".to_string(), "i64".to_string())]),
     );
     let capabilities = solver_capabilities(&key).unwrap();
     assert_eq!(
@@ -142,7 +142,7 @@ fn decision_cvp_uses_the_exact_optimum_and_bound() {
     use crate::models::decision::Decision;
     let key = ExactProblemKey::new(
         Decision::<ClosestVectorProblem>::NAME,
-        BTreeMap::from([("target".to_string(), "i64".to_string())]),
+        BTreeMap::from([("coefficient".to_string(), "i64".to_string())]),
     );
     let solver = crate::solvers::registry::solver_capability_registry()
         .unwrap()

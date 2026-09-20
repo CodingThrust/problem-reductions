@@ -33,7 +33,7 @@ inventory::submit! {
         name: "ClosestVectorProblem",
         display_name: "Closest Vector Problem",
         aliases: &["CVP"],
-        dimensions: &[VariantDimension::new("target", "i64", &["i64"])],
+        dimensions: &[VariantDimension::new("coefficient", "i64", &["i64"])],
         category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find the closest point in an integer lattice to a target vector",
@@ -196,7 +196,7 @@ impl Problem for ClosestVectorProblem {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("target", "i64")]
+        vec![("coefficient", "i64")]
     }
 }
 
@@ -226,7 +226,7 @@ crate::decision_problem_meta!(ClosestVectorProblem, "DecisionClosestVectorProble
 inventory::submit! {
     crate::registry::ProblemSchemaEntry {
         name: "DecisionClosestVectorProblem", display_name: "Decision ClosestVectorProblem", aliases: &[],
-        dimensions: &[VariantDimension::new("target", "i64", &["i64"])], category: crate::registry::ProblemCategory::Algebraic, module_path: module_path!(),
+        dimensions: &[VariantDimension::new("coefficient", "i64", &["i64"])], category: crate::registry::ProblemCategory::Algebraic, module_path: module_path!(),
         description: "Does a feasible solution meet the objective bound?",
         fields: &[
         crate::registry::FieldInfo { name: "basis", type_name: "Vec<Vec<i64>>", description: "Basis matrix as semicolon-separated column vectors." },

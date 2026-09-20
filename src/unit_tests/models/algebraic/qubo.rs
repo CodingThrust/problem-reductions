@@ -6,6 +6,73 @@ use crate::types::Min;
 include!("../../jl_helpers.rs");
 
 #[test]
+fn test_qubo_entries_roundtrip() {
+    let data = serde_json::json!({"num_vars": 3, "entries": [[1,1,3],[0,1,-2],[1,0,4]]});
+    let problem: QUBO<i64> = serde_json::from_value(data).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    assert_eq!(
+        encoded,
+        serde_json::json!({
+            "num_vars": 3, "entries": [[0,1,-2],[1,0,4],[1,1,3]]
+        })
+    );
+    let restored: QUBO<i64> = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(restored.matrix(), problem.matrix());
+    assert_eq!(
+        restored.evaluate(&vec![true, true, false]).unwrap(),
+        Min(Some(1))
+    );
+    let float: QUBO<f64> = serde_json::from_value(encoded).unwrap();
+    let restored_float: QUBO<f64> =
+        serde_json::from_value(serde_json::to_value(&float).unwrap()).unwrap();
+    assert_eq!(restored_float.matrix(), float.matrix());
+    for num_vars in [0, 3] {
+        let problem = QUBO::<i64>::from_matrix(vec![vec![0; num_vars]; num_vars]).unwrap();
+        let encoded = serde_json::to_value(&problem).unwrap();
+        assert_eq!(
+            encoded,
+            serde_json::json!({"num_vars": num_vars, "entries": []})
+        );
+        let restored: QUBO<i64> = serde_json::from_value(encoded).unwrap();
+        assert_eq!(restored.num_vars(), num_vars);
+    }
+}
+
+#[test]
+fn test_qubo_entries_reject_invalid_data() {
+    for (data, message) in [
+        (
+            serde_json::json!({"num_vars": 2, "entries": [[0,0,0],[1,1,1],[0,0,2]]}),
+            "duplicate QUBO index",
+        ),
+        (
+            serde_json::json!({"num_vars": 2, "entries": [[2,0,1]]}),
+            "outside 0..2",
+        ),
+        (
+            serde_json::json!({"num_vars": 2, "entries": [[0,2,1]]}),
+            "outside 0..2",
+        ),
+        (
+            serde_json::json!({"num_vars": 2}),
+            "missing field `entries`",
+        ),
+        (
+            serde_json::json!({"num_vars": 0, "entries": [], "matrix": []}),
+            "unknown field `matrix`",
+        ),
+    ] {
+        let error = serde_json::from_value::<QUBO<i64>>(data).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+    }
+    assert!(QUBO::try_from(QuboData {
+        num_vars: 1,
+        entries: vec![(0, 0, f64::NAN)]
+    })
+    .is_err());
+}
+
+#[test]
 fn test_qubo_from_matrix() {
     let problem = QUBO::from_matrix(vec![vec![1, 2], vec![0, 3]]).unwrap();
     assert_eq!(problem.num_vars(), 2);

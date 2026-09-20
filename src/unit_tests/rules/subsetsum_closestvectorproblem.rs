@@ -34,7 +34,10 @@ fn test_subsetsum_to_closestvectorproblem_structure() {
 
     let expected: serde_json::Value = serde_json::json!({"basis": [[1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1], [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1], [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1], [0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, -2, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -2, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -2]], "target": [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1]});
     assert_eq!(serde_json::to_value(target).unwrap(), expected);
-    assert_eq!(ClosestVectorProblem::variant(), vec![("target", "i64")]);
+    assert_eq!(
+        ClosestVectorProblem::variant(),
+        vec![("coefficient", "i64")]
+    );
 }
 
 #[test]

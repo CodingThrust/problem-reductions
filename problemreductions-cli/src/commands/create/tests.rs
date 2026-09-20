@@ -347,7 +347,7 @@ fn test_create_schema_driven_builds_integer_target_closest_vector_problem() {
         panic!("expected create command");
     };
 
-    let resolved_variant = BTreeMap::from([("target".to_string(), "i64".to_string())]);
+    let resolved_variant = BTreeMap::from([("coefficient".to_string(), "i64".to_string())]);
     let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
         .expect("schema-driven create should parse");
 
@@ -374,7 +374,7 @@ fn test_create_rejects_fractional_cvp_target() {
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
-    let variant = BTreeMap::from([("target".into(), "i64".into())]);
+    let variant = BTreeMap::from([("coefficient".into(), "i64".into())]);
     assert!(create_schema_driven(&args, "ClosestVectorProblem", &variant).is_err());
 }
 

@@ -3174,6 +3174,12 @@ fn test_create_qubo() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "QUBO");
+    assert_eq!(
+        json["data"],
+        serde_json::json!({
+            "num_vars": 2, "entries": [[0,0,1],[0,1,-1],[1,1,2]]
+        })
+    );
 
     std::fs::remove_file(&output_file).ok();
 }
@@ -10254,7 +10260,7 @@ fn test_extract_rejects_tampered_target_data() {
     // what the reduction chain actually produces.
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
-    bundle["target"]["data"]["matrix"][0][0] = serde_json::json!(999.0);
+    bundle["target"]["data"]["entries"][0][2] = serde_json::json!(999.0);
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 

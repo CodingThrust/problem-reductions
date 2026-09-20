@@ -500,6 +500,12 @@ let json: String = to_json(&problem)?;
 let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 ```
 
+QUBO data uses `{"num_vars": 3, "entries": [[0,0,-2], [0,1,4]]}`.
+Each entry is `[row, column, coefficient]` with zero-based indices; output lists
+nonzero entries in row-major order. Duplicate and out-of-range coordinates are
+errors. As with `from_matrix`, evaluation uses only the upper triangle, including
+the diagonal. CLI creation still accepts `--matrix`.
+
 ## Contributing
 
 See [Call for Contributions](index.html#open-questions) for the recommended issue-based workflow (no coding required).
