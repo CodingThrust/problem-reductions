@@ -1,10 +1,25 @@
 use super::*;
 use std::collections::BTreeMap;
 
-const BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "i64")];
 const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "f64")];
 const FLOAT_I64_VARIANT: &[(&str, &str)] = &[("variable", "i64"), ("coefficient", "f64")];
 const NO_VARIANT: &[(&str, &str)] = &[];
+
+#[test]
+fn decision_variants_support_ilp_when_the_inner_problem_does() {
+    let registry = solver_capability_registry().unwrap();
+    for edge in reduction_entries().iter().filter(|edge| edge.turing) {
+        let inner = edge_key(edge, true);
+        let decision = edge_key(edge, false);
+        if registry.lookup(&inner).ilp.is_some() {
+            assert!(
+                registry.lookup(&decision).ilp.is_some(),
+                "{} lacks ILP support",
+                decision.label()
+            );
+        }
+    }
+}
 
 #[test]
 fn generic_decision_ilp_respects_maximization_bounds() {
@@ -13,36 +28,14 @@ fn generic_decision_ilp_respects_maximization_bounds() {
     use crate::solvers::BruteForce;
     use crate::topology::SimpleGraph;
 
-    // Exercise the same generic decision edge without adding a production solver registration.
-    static PIPELINE: IlpPipelineRegistration = IlpPipelineRegistration {
-        path: &[
-            StaticProblemStep {
-                name: "DecisionMaximumIndependentSet",
-                variant: &[("graph", "SimpleGraph"), ("weight", "i64")],
-            },
-            StaticProblemStep {
-                name: "MaximumIndependentSet",
-                variant: &[("graph", "SimpleGraph"), ("weight", "i64")],
-            },
-            StaticProblemStep {
-                name: "MaximumSetPacking",
-                variant: &[("weight", "i64")],
-            },
-            StaticProblemStep {
-                name: "ILP",
-                variant: BOOL_VARIANT,
-            },
-        ],
-    };
-    let registry = build_registry(
-        &registered_variant_keys(),
-        inventory::iter::<CustomizedSolverRegistration>(),
-        inventory::iter::<IlpPipelineRegistration>().chain([&PIPELINE]),
-        inventory::iter::<crate::solvers::BruteForceRegistration>(),
-        &reduction_entries(),
-    )
-    .unwrap();
-    let source = ExactProblemKey::from_static(&PIPELINE.path[0]);
+    let registry = solver_capability_registry().unwrap();
+    let source = ExactProblemKey::new(
+        "DecisionMaximumIndependentSet",
+        BTreeMap::from([
+            ("graph".into(), "SimpleGraph".into()),
+            ("weight".into(), "i64".into()),
+        ]),
+    );
     let pipeline = registry.lookup(&source).ilp.unwrap();
     let inner = MaximumIndependentSet::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),

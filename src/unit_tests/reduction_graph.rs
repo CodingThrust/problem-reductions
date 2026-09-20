@@ -995,15 +995,15 @@ fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_mappings() {
 
     assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
-        Decision<MinimumVertexCover<SimpleGraph, i64>>,
+        Decision<MinimumVertexCover<SimpleGraph, crate::types::One>>,
     >(ReductionMode::Witness));
     assert!(graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
-        Decision<MinimumVertexCover<SimpleGraph, i64>>,
+        Decision<MinimumVertexCover<SimpleGraph, crate::types::One>>,
     >(ReductionMode::Aggregate));
     assert!(!graph.has_direct_reduction_mode::<
         KSatisfiability<K3>,
-        Decision<MinimumVertexCover<SimpleGraph, i64>>,
+        Decision<MinimumVertexCover<SimpleGraph, crate::types::One>>,
     >(ReductionMode::Turing));
 }
 

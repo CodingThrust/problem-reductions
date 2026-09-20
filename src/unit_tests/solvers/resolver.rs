@@ -5,6 +5,65 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn decision_ilp_paths_respect_bounds_and_return_valid_witnesses() {
+    let graph = serde_json::json!({"num_vertices": 3, "edges": [[0,1],[1,2]]});
+    let cases = [
+        (
+            "DecisionMinimumVertexCover",
+            BTreeMap::from([
+                ("graph".into(), "SimpleGraph".into()),
+                ("weight".into(), "One".into()),
+            ]),
+            serde_json::json!({"graph": graph, "weights": [1,1,1]}),
+            1,
+        ),
+        (
+            "DecisionMinimumCoveringByCliques",
+            BTreeMap::from([("graph".into(), "SimpleGraph".into())]),
+            serde_json::json!({"graph": graph}),
+            2,
+        ),
+        (
+            "DecisionOpenShopScheduling",
+            BTreeMap::new(),
+            serde_json::json!({"num_machines": 2, "processing_times": [[2,1],[1,2]]}),
+            3,
+        ),
+        (
+            "DecisionRuralPostman",
+            BTreeMap::from([
+                ("graph".into(), "SimpleGraph".into()),
+                ("weight".into(), "i64".into()),
+            ]),
+            serde_json::json!({"graph": graph, "edge_lengths": [1,1], "required_edges": [0,1]}),
+            4,
+        ),
+    ];
+    for (name, variant, inner, optimum) in cases {
+        for bound in [optimum - 1, optimum, optimum + 1] {
+            let problem = load_dyn(
+                name,
+                &variant,
+                serde_json::json!({"inner": inner, "bound": bound}),
+            )
+            .unwrap();
+            let result = solve(&problem, SolverRequest::Default).unwrap();
+            assert!(
+                matches!(result.solver, SolverExecution::Ilp { .. }),
+                "{name}"
+            );
+            match result.outcome {
+                SolveOutcome::Optimal { solution, .. } => {
+                    assert!(bound >= optimum, "{name}, bound {bound}");
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+                SolveOutcome::Infeasible => assert!(bound < optimum, "{name}, bound {bound}"),
+            }
+        }
+    }
+}
+
+#[test]
 fn decision_reductions_check_target_optimum_before_extracting_witness() {
     let variant = BTreeMap::from([("graph".into(), "SimpleGraph".into())]);
     let cases = [

@@ -1,13 +1,14 @@
 //! Reduction from Decision Minimum Vertex Cover to Hamiltonian Circuit.
 //!
 //! This implements the gadget construction from Garey & Johnson, Theorem 3.4,
-//! on the unit-weight `Decision<MinimumVertexCover<SimpleGraph, i64>>` model.
+//! on the unit-weight `Decision<MinimumVertexCover<SimpleGraph, One>>` model.
 
 use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianCircuit, MinimumVertexCover};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::One;
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
@@ -222,7 +223,7 @@ impl TheoremConstruction {
     }
 }
 
-/// Result of reducing Decision<MinimumVertexCover<SimpleGraph, i64>> to
+/// Result of reducing Decision<MinimumVertexCover<SimpleGraph, One>> to
 /// HamiltonianCircuit<SimpleGraph>.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
@@ -244,7 +245,7 @@ impl ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
 }
 
 impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    type Source = Decision<MinimumVertexCover<SimpleGraph, One>>;
     type Target = HamiltonianCircuit<SimpleGraph>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -298,7 +299,7 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
 {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, i64>>;
+    type Source = Decision<MinimumVertexCover<SimpleGraph, One>>;
     type Target = HamiltonianCircuit<SimpleGraph>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -316,20 +317,10 @@ impl crate::rules::AggregateReductionResult
         num_edges = "the construction size depends on the decision threshold, which is not a problem parameter",
     }
 )]
-impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, i64>> {
+impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, One>> {
     type Result = ReductionDecisionMinimumVertexCoverToHamiltonianCircuit;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let weights = self.inner().weights();
-        if weights.iter().any(|&weight| weight != 1) {
-            return Err(crate::rules::ReductionError::invalid_target::<
-                Decision<MinimumVertexCover<SimpleGraph, i64>>,
-                HamiltonianCircuit<SimpleGraph>,
-            >(
-                "Garey-Johnson construction requires unit vertex weights"
-            ));
-        }
-
         let num_source_vertices = self.inner().graph().num_vertices();
         // A loop forces its vertex into every cover. Reduce the remaining
         // loopless graph with the budget left after selecting those vertices.
@@ -439,7 +430,7 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
 
             let (start, end) = construction.path_endpoints(vertex).ok_or_else(|| {
                 crate::rules::ReductionError::invalid_target::<
-                    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+                    Decision<MinimumVertexCover<SimpleGraph, One>>,
                     HamiltonianCircuit<SimpleGraph>,
                 >("active source vertex has no Hamiltonian gadget path endpoints")
             })?;
@@ -470,7 +461,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "decisionminimumvertexcover_to_hamiltoniancircuit",
         build: || {
             let source = Decision::new(
-                MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]),
+                MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]),
                 1,
             );
             let source_config = vec![false, true, false];

@@ -712,10 +712,11 @@ mod tests {
                     problem_step::<KSatisfiability<K3>>(),
                     problem_step::<
                         problemreductions::models::decision::Decision<
-                            MinimumVertexCover<SimpleGraph, i64>,
+                            MinimumVertexCover<SimpleGraph, problemreductions::types::One>,
                         >,
                     >(),
-                    problem_step::<MinimumVertexCover<SimpleGraph, i64>>(),
+                    problem_step::<MinimumVertexCover<SimpleGraph, problemreductions::types::One>>(
+                    ),
                 ],
             );
             for solver in [SolverRequest::BruteForce, SolverRequest::Ilp] {
@@ -794,10 +795,10 @@ mod tests {
             let route = crate::commands::reduce::parse_path_json(
                 r#"{"path":[{
                     "from":{"name":"KSatisfiability","variant":{"k":"K3"}},
-                    "to":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                    "to":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"One"}}
                 },{
-                    "from":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}},
-                    "to":{"name":"MinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                    "from":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"One"}},
+                    "to":{"name":"MinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"One"}}
                 }]}"#,
             ).unwrap();
             let bundle = crate::commands::reduce::execute_route(source, route).unwrap();

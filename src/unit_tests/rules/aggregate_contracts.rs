@@ -243,9 +243,10 @@ fn sat_cover_threshold_supports_short_and_empty_clauses() {
             1,
             clauses.into_iter().map(CNFClause::new).collect(),
         );
-        check_decision::<_, crate::models::decision::Decision<MinimumVertexCover<SimpleGraph, i64>>>(
-            &source,
-        );
+        check_decision::<
+            _,
+            crate::models::decision::Decision<MinimumVertexCover<SimpleGraph, crate::types::One>>,
+        >(&source);
         check_decision::<_, crate::models::graph::KClique<SimpleGraph>>(&source);
         check_decision::<_, crate::models::graph::Kernel>(&source);
         check_decision::<_, crate::models::misc::SubsetSum>(&source);
