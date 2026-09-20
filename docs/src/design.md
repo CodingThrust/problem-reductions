@@ -233,7 +233,24 @@ relations within that variant family.
 
 ## Reduction Rules
 
-A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
+### Mathematical contract
+
+A single-instance reduction from A to B constructs a legal target instance F(x)
+and recovers a correct source answer G(x, y) from **any** correct target answer y.
+F and G run in polynomial time in their encoded inputs.
+
+“Correct answer” means YES/NO, a valid witness, an optimal solution, or a total
+count, according to the problem; infeasibility must be represented explicitly
+or excluded from the legal domain. All optimal target solutions, including ties,
+must recover optimal source solutions. Equal objective values and one-to-one
+witness mappings are not required. See [result mappings](#result-mappings).
+
+Turing reductions allow multiple adaptive queries: `P → Decision<P>` uses binary
+search over the decision bound.
+
+### Witness-mapping implementation
+
+A witness-mapping reduction uses two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
 
 The result struct holds the target problem and the logic to map solutions back:
 

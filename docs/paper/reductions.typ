@@ -789,7 +789,11 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types; most are solver-executable witness, aggregate, or Turing reductions, while a few are proof-only NP-hardness embeddings that are excluded from runtime path search.
+A _single-instance reduction_ $A arrow.long B$ constructs a legal target instance $F(x)$ and recovers a correct source answer $G(x, y)$ from any correct target answer $y$. Both algorithms run in polynomial time in their encoded inputs.
+
+A correct answer is YES/NO, a valid witness, an optimal solution, or a total count, according to the problem. Infeasibility must be represented explicitly or excluded from the legal domain. Recovery must handle every optimal target solution, including ties; equal objective values and one-to-one witness mappings are not required.
+
+Turing reductions allow multiple adaptive queries, such as binary search over a decision bound. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types.
 
 == Notation
 

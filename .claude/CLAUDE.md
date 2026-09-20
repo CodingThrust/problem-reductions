@@ -213,7 +213,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
 - `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
-- `Decision<P> → P` supports both mappings: compare the exact optimum to the bound, and recover a witness only if it meets the bound. `P → Decision<P>` is a non-executable Turing edge.
+- `Decision<P> → P` supports both mappings: compare the exact optimum to the bound, and recover a witness only if it meets the bound. `P → Decision<P>` is a Turing edge (binary search over decision bound).
 
 ### Extension Points
 - New models register dynamic load/serialize metadata through `declare_variants!` and, when finite enumeration exists, register it separately through `register_brute_force!`; neither belongs in CLI match arms
