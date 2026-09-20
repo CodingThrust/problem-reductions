@@ -172,6 +172,9 @@ pub(crate) fn validate_target_solution<P: Problem>(
 ///
 /// This trait encapsulates the target problem and provides methods
 /// to extract solutions back to the source problem space.
+/// Construction must preserve existence: a feasible source has a feasible target.
+/// Consequently, established target infeasibility implies source infeasibility,
+/// without a witness or an aggregate-value mapping.
 pub trait ReductionResult {
     /// The source problem type.
     type Source: Problem;

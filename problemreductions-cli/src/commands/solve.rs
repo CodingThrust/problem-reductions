@@ -99,10 +99,8 @@ pub fn solve(
             };
             tx.send(result).ok();
         });
-        match rx.recv_timeout(Duration::from_secs(timeout_seconds)) {
-            Ok(result) => result,
-            Err(_) => anyhow::bail!("Solve timed out after {} seconds", timeout_seconds),
-        }
+        rx.recv_timeout(Duration::from_secs(timeout_seconds))
+            .map_err(|error| crate::dispatch::solve_worker_error(error, timeout_seconds))?
     } else {
         match parsed {
             SolveInput::Problem(pj) => {

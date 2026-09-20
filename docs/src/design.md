@@ -361,9 +361,13 @@ register concrete instances of generic implementations, including
 belong to the same graph edge and share its constructed result. Aggregate-only
 rules use `ReduceToAggregate<T>`.
 
-Reverse a multi-step chain one edge at a time. A NO result continues through
-explicit value maps, not through a fabricated invalid witness. Missing maps,
-failed extraction, and solver errors are errors, never NO. Completed-result
+Every witness reduction must construct a feasible target whenever the source
+is feasible. Established target infeasibility therefore implies source
+infeasibility, without a witness or a value map. This also applies when an
+intermediate problem is proved infeasible by its completed-value map.
+For feasible targets, reverse the chain one edge at a time using the required
+witness and value mappings. Missing required maps, failed extraction, and
+solver errors are errors, never proof of infeasibility. Completed-result
 recovery follows the selected solver's contract, including its numerical
 tolerances. A witness-only solver API cannot return a witness for a negative
 decision result and reports that limitation explicitly. These rules do not

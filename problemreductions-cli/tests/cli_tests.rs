@@ -3640,7 +3640,7 @@ fn test_solve_direct_ilp_i64_problem() {
 }
 
 #[test]
-fn test_solve_partial_ilp_route_defaults_to_brute_force() {
+fn test_solve_weighted_completion_time_defaults_to_ilp() {
     let problem_file = std::env::temp_dir()
         .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
 
@@ -3679,8 +3679,10 @@ fn test_solve_partial_ilp_route_defaults_to_brute_force() {
         stdout.contains("\"problem\": \"SequencingToMinimizeWeightedCompletionTime\""),
         "{stdout}"
     );
-    assert!(stdout.contains("\"kind\": \"brute-force\""), "{stdout}");
-    assert!(stdout.contains("\"solution\": ["), "{stdout}");
+    let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(result["solver"]["kind"], "ilp");
+    assert_eq!(result["status"], "optimal");
+    assert_eq!(result["evaluation"], "Min(46)");
 
     std::fs::remove_file(&problem_file).ok();
 }

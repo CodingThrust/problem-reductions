@@ -154,8 +154,7 @@ impl CompiledIlpPipeline {
                     reductions[index - 1].target_problem_any()
                 };
                 let aggregate = view(step.as_ref())?;
-                let mut value =
-                    aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
+                let value = aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
                 let input_problem = crate::registry::find_variant_entry(
                     &self.path[index].name,
                     &self.path[index].variant,
@@ -169,36 +168,7 @@ impl CompiledIlpPipeline {
                     .map_err(crate::rules::ExtractionError::from)?
                     .is_none()
                 {
-                    // No witness exists at this step. Recover the completed value
-                    // through every remaining rule instead of invoking its decoder.
-                    for previous in (0..index).rev() {
-                        let view = self.reducers[previous].1.ok_or_else(|| {
-                            crate::rules::ExtractionError::invalid(format!(
-                                "cannot recover a completed value for {}: missing aggregate mapping",
-                                self.path[previous].label()
-                            ))
-                        })?;
-                        value = view(reductions[previous].as_ref())?.extract_value_dyn(value)?;
-                    }
-                    let original = crate::registry::find_variant_entry(
-                        &self.path[0].name,
-                        &self.path[0].variant,
-                    )
-                    .and_then(|entry| (entry.borrow_fn)(source))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid("pipeline source type mismatch")
-                    })?;
-                    if original
-                        .aggregate_witness_evaluation(&value)
-                        .map_err(crate::rules::ExtractionError::from)?
-                        .is_none()
-                    {
-                        return Err(super::ILPSolveError::Infeasible);
-                    }
-                    return Err(crate::rules::ExtractionError::invalid(
-                        "cannot recover a source witness from a value-only result",
-                    )
-                    .into());
+                    return Err(super::ILPSolveError::Infeasible);
                 }
             }
             source_solution = step.extract_solution_dyn(source_solution.as_ref())?;

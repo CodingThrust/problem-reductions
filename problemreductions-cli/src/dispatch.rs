@@ -148,6 +148,20 @@ pub fn solve_result_json(problem: &str, result: &SolveResult) -> serde_json::Val
     .expect("solve output is serializable")
 }
 
+pub(crate) fn solve_worker_error(
+    error: std::sync::mpsc::RecvTimeoutError,
+    seconds: u64,
+) -> anyhow::Error {
+    match error {
+        std::sync::mpsc::RecvTimeoutError::Timeout => {
+            anyhow::anyhow!("Solve timed out after {} seconds", seconds)
+        }
+        std::sync::mpsc::RecvTimeoutError::Disconnected => {
+            anyhow::anyhow!("Solve worker terminated without returning a result")
+        }
+    }
+}
+
 pub(crate) struct BundleSolveResult {
     pub(crate) source_name: String,
     pub(crate) target_name: String,
@@ -362,7 +376,7 @@ impl BundleReplay {
     pub(crate) fn extract_result(&self, result: &SolveOutcome) -> Result<SolveOutcome> {
         use problemreductions::rules::ExtractionError;
         let steps = &self.steps;
-        let (mut witness, mut value) = match result {
+        let (mut witness, mut value, mut evaluation) = match result {
             SolveOutcome::Optimal {
                 solution,
                 evaluation,
@@ -378,11 +392,10 @@ impl BundleReplay {
                     )
                     .into());
                 }
-                (Some(solution.clone()), value)
+                (solution.clone(), value, actual)
             }
-            SolveOutcome::Infeasible => (None, self.target.empty_aggregate_json()?),
+            SolveOutcome::Infeasible => return Ok(SolveOutcome::Infeasible),
         };
-        let mut evaluation = None;
         for (index, step) in steps.iter().enumerate().rev() {
             let input: &dyn DynProblem = if index == 0 {
                 &*self.source
@@ -397,39 +410,25 @@ impl BundleReplay {
             };
             if let Some(mapped_value) = &mapped {
                 if input.aggregate_witness_evaluation(mapped_value)?.is_none() {
-                    witness = None;
-                    value = mapped_value.clone();
-                    evaluation = None;
-                    continue;
+                    return Ok(SolveOutcome::Infeasible);
                 }
             }
-            let target_witness = witness.take().ok_or_else(|| {
-                ExtractionError::invalid(format!(
-                    "cannot recover a {} witness from this value-only result",
-                    input.problem_name()
-                ))
-            })?;
-            let solution = step.chain.extract_solution_json(target_witness)?;
+            let solution = step.chain.extract_solution_json(witness)?;
             value = input.evaluate_json(&solution)?;
-            evaluation = Some(
-                input
-                    .aggregate_witness_evaluation(&value)?
-                    .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?,
-            );
+            evaluation = input
+                .aggregate_witness_evaluation(&value)?
+                .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?;
             if mapped.is_some_and(|mapped| mapped != value) {
                 return Err(ExtractionError::invalid(
                     "extracted witness does not realize the mapped aggregate",
                 )
                 .into());
             }
-            witness = Some(solution);
+            witness = solution;
         }
-        Ok(match witness {
-            Some(solution) => SolveOutcome::Optimal {
-                solution,
-                evaluation: evaluation.expect("a recovered witness has an evaluation"),
-            },
-            None => SolveOutcome::Infeasible,
+        Ok(SolveOutcome::Optimal {
+            solution: witness,
+            evaluation,
         })
     }
 
@@ -529,6 +528,37 @@ pub struct PathStep {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn solve_worker_panic_is_not_a_timeout() {
+        let (sender, receiver) = std::sync::mpsc::channel::<()>();
+        let worker = std::thread::spawn(move || {
+            let _sender = sender;
+            panic!("solver failed");
+        });
+        assert!(worker.join().is_err());
+        let error = receiver
+            .recv_timeout(std::time::Duration::ZERO)
+            .unwrap_err();
+        assert_eq!(error, std::sync::mpsc::RecvTimeoutError::Disconnected);
+        assert_eq!(
+            super::solve_worker_error(error, 120).to_string(),
+            "Solve worker terminated without returning a result"
+        );
+    }
+
+    #[test]
+    fn solve_worker_deadline_is_reported_as_timeout() {
+        let (_sender, receiver) = std::sync::mpsc::channel::<()>();
+        let error = receiver
+            .recv_timeout(std::time::Duration::ZERO)
+            .unwrap_err();
+        assert_eq!(error, std::sync::mpsc::RecvTimeoutError::Timeout);
+        assert_eq!(
+            super::solve_worker_error(error, 120).to_string(),
+            "Solve timed out after 120 seconds"
+        );
+    }
+
     use super::*;
     use crate::test_support::{AggregateValueSource, AGGREGATE_SOURCE_NAME};
     use problemreductions::models::graph::MaximumIndependentSet;
@@ -560,6 +590,63 @@ mod tests {
         )
         .unwrap();
         BundleReplay::prepare(&bundle).unwrap()
+    }
+
+    #[test]
+    fn completed_recovery_handles_infeasibility_without_value_maps() {
+        use problemreductions::models::algebraic::{BMF, ILP};
+        use problemreductions::models::graph::BicliqueCover;
+
+        for rank in [1, 2] {
+            let source = BMF::new(vec![vec![true, false], vec![false, true]], rank);
+            let replay = replay(
+                &source,
+                vec![
+                    problem_step::<BicliqueCover>(),
+                    problem_step::<BMF>(),
+                    problem_step::<ILP<bool>>(),
+                ],
+            );
+            assert!(replay
+                .steps
+                .iter()
+                .all(|step| !step.chain.has_value_mapping()));
+            let result = replay.solve(SolverRequest::Ilp).unwrap();
+            if rank == 1 {
+                assert!(matches!(result.target_outcome, SolveOutcome::Infeasible));
+                assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
+            } else {
+                let SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
+                } = result.source_outcome
+                else {
+                    panic!("rank-two identity matrix has an exact factorization");
+                };
+                assert_eq!(evaluation, "Min(4)");
+                assert_eq!(
+                    replay.source.evaluate_witness_dyn(&solution).unwrap(),
+                    Some(evaluation)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn completed_recovery_handles_infeasible_numeric_cast() {
+        use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+        let source = ILP::<bool>::new(
+            1,
+            vec![LinearConstraint::eq(vec![(0, 1)], 2)],
+            vec![(0, 1)],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap();
+        let replay = replay(&source, vec![problem_step::<ILP<bool, f64>>()]);
+        assert!(!replay.steps[0].chain.has_value_mapping());
+        let result = replay.solve(SolverRequest::Ilp).unwrap();
+        assert!(matches!(result.target_outcome, SolveOutcome::Infeasible));
+        assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));
     }
 
     #[test]
@@ -603,7 +690,6 @@ mod tests {
                     );
                 }
             }
-            assert!(replay.extract_result(&SolveOutcome::Infeasible).is_err());
             for (solution, evaluation) in [
                 (json!([true]), "Max(1)"),
                 (json!([true, true, true]), "Max(None)"),

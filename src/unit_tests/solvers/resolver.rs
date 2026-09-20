@@ -5,6 +5,60 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn tree_and_weighted_sequencing_default_to_ilp() {
+    let tree_variant = BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    let cases = [
+        (
+            "SteinerTree",
+            tree_variant.clone(),
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,2]]},
+                "edge_weights": [1,-3], "terminals": [0,1]}),
+        ),
+        (
+            "SteinerTree",
+            tree_variant,
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1]]},
+                "edge_weights": [1], "terminals": [0,2]}),
+        ),
+        (
+            "SequencingToMinimizeWeightedCompletionTime",
+            BTreeMap::new(),
+            serde_json::json!({"lengths": [2,1,0], "weights": [3,5,2],
+                "precedences": [[0,2],[1,2]]}),
+        ),
+    ];
+    for (name, variant, data) in cases {
+        let problem = load_dyn(name, &variant, data).unwrap();
+        let expected = solve(&problem, SolverRequest::BruteForce).unwrap();
+        let actual = solve(&problem, SolverRequest::Default).unwrap();
+        assert!(
+            matches!(actual.solver, SolverExecution::Ilp { .. }),
+            "{name}"
+        );
+        match (expected.outcome, actual.outcome) {
+            (SolveOutcome::Infeasible, SolveOutcome::Infeasible) => {}
+            (
+                SolveOutcome::Optimal {
+                    evaluation: expected,
+                    ..
+                },
+                SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
+                },
+            ) => {
+                assert_eq!(evaluation, expected, "{name}");
+                assert_eq!(problem.evaluate_dyn(&solution).unwrap(), expected, "{name}");
+            }
+            outcomes => panic!("{name}: mismatched outcomes: {outcomes:?}"),
+        }
+    }
+}
+
+#[test]
 fn decision_ilp_paths_respect_bounds_and_return_valid_witnesses() {
     let graph = serde_json::json!({"num_vertices": 3, "edges": [[0,1],[1,2]]});
     let cases = [

@@ -129,7 +129,7 @@ fn generic_decision_ilp_reports_infeasibility_but_preserves_extraction_errors() 
 }
 
 #[test]
-fn ilp_negative_intermediate_requires_every_remaining_value_mapping() {
+fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
     use crate::models::graph::HamiltonianCircuit;
     use crate::solvers::{ILPSolveError, ILPSolver};
     use crate::topology::SimpleGraph;
@@ -154,11 +154,7 @@ fn ilp_negative_intermediate_requires_every_remaining_value_mapping() {
     pipeline.reducers[0].1 = None;
     let result = pipeline.solve(&problem, &ILPSolver::new());
     assert!(
-        matches!(
-            &result,
-            Err(ILPSolveError::Extraction(crate::rules::ExtractionError::InvalidTargetSolution(message)))
-                if message.contains("missing aggregate mapping")
-        ),
+        matches!(&result, Err(ILPSolveError::Infeasible)),
         "{result:?}"
     );
 }

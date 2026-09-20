@@ -737,6 +737,11 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
+    ("SequencingToMinimizeWeightedCompletionTime", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
     ("SequencingToMinimizeWeightedTardiness", []),
     ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
 }
@@ -790,6 +795,11 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("StackerCrane", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
+}
+
+register_ilp_pipeline! {
+    ("SteinerTree", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }
 

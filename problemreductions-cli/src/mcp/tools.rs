@@ -466,10 +466,8 @@ impl McpServer {
                 };
                 tx.send(result).ok();
             });
-            match rx.recv_timeout(std::time::Duration::from_secs(timeout_secs)) {
-                Ok(result) => result,
-                Err(_) => anyhow::bail!("Solve timed out after {} seconds", timeout_secs),
-            }
+            rx.recv_timeout(std::time::Duration::from_secs(timeout_secs))
+                .map_err(|error| crate::dispatch::solve_worker_error(error, timeout_secs))?
         } else if is_bundle {
             let bundle: ReductionBundle = serde_json::from_value(json)?;
             solve_bundle_inner(bundle, request)
