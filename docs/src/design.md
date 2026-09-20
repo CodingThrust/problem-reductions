@@ -304,6 +304,19 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>>
 }
 ```
 
+### Model size and algorithm limits
+
+Model parameters describe representable input sizes, not a requirement that the
+number of candidate solutions fit a machine integer. ClosestSubstring and
+MinimumDiscretePlanarInverseKinematics bound their products of choice counts by
+the arithmetic mean raised to the number of choices. Database frequency-table
+consistency uses the largest attribute domain to bound assignment counts. These
+are complexity upper bounds, not exact per-instance candidate counts.
+
+Database ILP indicator counts and allocation limits are checked when constructing
+that reduction, not when loading the source model. Source input invariants and
+its witness representation remain model constraints.
+
 ## Reduction Graph
 
 ### Result mappings

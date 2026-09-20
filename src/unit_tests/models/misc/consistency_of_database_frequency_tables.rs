@@ -1,19 +1,10 @@
 use super::*;
 
 #[test]
-fn domain_and_encoding_counts_must_fit_usize() {
+fn input_counts_and_witness_length_must_fit_usize() {
     for (objects, domains, tables) in [
-        (1, vec![2; usize::BITS as usize], vec![]),
         (0, vec![usize::MAX, 1], vec![]),
-        (usize::MAX, vec![2], vec![]),
-        (
-            usize::MAX / 6 + 1,
-            vec![3, 1, 1],
-            vec![
-                FrequencyTable::new(0, 1, vec![vec![0]; 3]),
-                FrequencyTable::new(0, 2, vec![vec![0]; 3]),
-            ],
-        ),
+        (usize::MAX, vec![1, 1], vec![]),
     ] {
         assert!(matches!(
             ConsistencyOfDatabaseFrequencyTables::try_new(
@@ -26,17 +17,23 @@ fn domain_and_encoding_counts_must_fit_usize() {
         ));
         assert!(serde_json::from_value::<ConsistencyOfDatabaseFrequencyTables>(serde_json::json!({"num_objects": objects, "attribute_domains": domains, "frequency_tables": tables, "known_values": []})).is_err());
     }
-    let problem = ConsistencyOfDatabaseFrequencyTables::new(
-        1,
-        vec![2; usize::BITS as usize - 1],
-        vec![],
-        vec![],
-    );
-    assert_eq!(problem.domain_size_product(), 1usize << (usize::BITS - 1));
+}
+
+#[test]
+fn large_domain_product_does_not_restrict_model_evaluation() {
+    let problem = ConsistencyOfDatabaseFrequencyTables::new(1, vec![2; 64], vec![], vec![]);
+    let restored: ConsistencyOfDatabaseFrequencyTables =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
     assert_eq!(
-        problem.num_assignment_indicators(),
-        2 * (usize::BITS as usize - 1)
+        restored.evaluate(&vec![0; 64]).unwrap(),
+        crate::types::Or(true)
     );
+    assert_eq!(restored.parameters(), problem.parameters());
+    assert_eq!(restored.max_domain_size(), 2);
+    assert_eq!(restored.dimensions(), vec![2; 64]);
+    let empty = ConsistencyOfDatabaseFrequencyTables::new(0, vec![], vec![], vec![]);
+    assert_eq!(empty.max_domain_size(), 1);
+    assert_eq!(empty.evaluate(&vec![]).unwrap(), crate::types::Or(true));
 }
 
 #[test]
@@ -118,7 +115,7 @@ fn test_cdft_creation_and_getters() {
     let problem = issue_yes_instance();
     assert_eq!(problem.num_objects(), 6);
     assert_eq!(problem.num_attributes(), 3);
-    assert_eq!(problem.domain_size_product(), 12);
+    assert_eq!(problem.max_domain_size(), 3);
     assert_eq!(problem.num_assignment_variables(), 18);
     assert_eq!(problem.attribute_domains(), &[2, 3, 2]);
     assert_eq!(problem.frequency_tables().len(), 2);

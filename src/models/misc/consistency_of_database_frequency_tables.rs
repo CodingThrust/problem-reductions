@@ -167,31 +167,26 @@ fn validate_cdft_create(
             );
         }
     }
-    domains
-        .iter()
-        .try_fold(1usize, |product, &size| product.checked_mul(size))
-        .ok_or_else(|| {
-            crate::registry::ConstructionError::IntegerOverflow(
-                "representing the domain-size product".into(),
-            )
-        })?;
+    num_objects.checked_mul(domains.len()).ok_or_else(|| {
+        crate::registry::ConstructionError::IntegerOverflow(
+            "representing the table-assignment witness length".into(),
+        )
+    })?;
     domains
         .iter()
         .try_fold(0usize, |sum, &size| sum.checked_add(size))
-        .and_then(|sum| num_objects.checked_mul(sum))
         .ok_or_else(|| {
             crate::registry::ConstructionError::IntegerOverflow(
-                "representing assignment indicators".into(),
+                "representing the total domain size".into(),
             )
         })?;
     tables
         .iter()
         .flat_map(|table| table.counts())
         .try_fold(0usize, |sum, row| sum.checked_add(row.len()))
-        .and_then(|cells| num_objects.checked_mul(cells))
         .ok_or_else(|| {
             crate::registry::ConstructionError::IntegerOverflow(
-                "representing auxiliary frequency indicators".into(),
+                "representing the number of frequency-table cells".into(),
             )
         })?;
     let mut pairs = BTreeSet::new();
@@ -255,7 +250,7 @@ fn validate_cdft_create(
 
 impl ConsistencyOfDatabaseFrequencyTables {
     /// Create a new consistency-of-database-frequency-tables instance.
-    /// Domain and encoding counts must fit in `usize`.
+    /// Input parameter counts and the table-assignment witness length must fit in `usize`.
     pub fn new(
         num_objects: usize,
         attribute_domains: Vec<usize>,
@@ -317,9 +312,9 @@ impl ConsistencyOfDatabaseFrequencyTables {
         &self.known_values
     }
 
-    /// Returns the product of attribute domain sizes.
-    pub fn domain_size_product(&self) -> usize {
-        self.attribute_domains.iter().copied().product()
+    /// Largest attribute domain; one for no attributes, whose assignment count is one.
+    pub fn max_domain_size(&self) -> usize {
+        self.attribute_domains.iter().copied().max().unwrap_or(1)
     }
 
     /// Returns the sum of all attribute-domain sizes.
@@ -342,22 +337,12 @@ impl ConsistencyOfDatabaseFrequencyTables {
         self.known_values.len()
     }
 
-    /// Returns the number of one-hot assignment indicators used by the ILP reduction.
-    pub fn num_assignment_indicators(&self) -> usize {
-        self.num_objects * self.attribute_domains.iter().sum::<usize>()
-    }
-
     /// Returns the total number of published frequency-table cells.
     pub fn num_frequency_cells(&self) -> usize {
         self.frequency_tables
             .iter()
             .map(FrequencyTable::num_cells)
             .sum()
-    }
-
-    /// Returns the number of auxiliary ILP indicators used for frequency-cell counting.
-    pub fn num_auxiliary_frequency_indicators(&self) -> usize {
-        self.num_objects * self.num_frequency_cells()
     }
 
     fn config_index(&self, object: usize, attribute: usize) -> usize {
@@ -374,7 +359,7 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
         ("num_objects", num_objects),
         ("num_attributes", num_attributes),
         ("total_domain_size", total_domain_size),
-        ("domain_size_product", domain_size_product),
+        ("max_domain_size", max_domain_size),
         ("num_frequency_tables", num_frequency_tables),
         ("num_frequency_cells", num_frequency_cells),
         ("num_known_values", num_known_values),
@@ -452,7 +437,8 @@ impl crate::solvers::BruteForceProblem for ConsistencyOfDatabaseFrequencyTables 
 }
 
 crate::declare_variants! {
-    default ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects" create ConsistencyOfDatabaseFrequencyTablesCreateSpec,
+    // Bound each attribute's choices by the largest domain, rather than storing their product.
+    default ConsistencyOfDatabaseFrequencyTables => "max_domain_size^(num_objects * num_attributes)" create ConsistencyOfDatabaseFrequencyTablesCreateSpec,
 }
 
 crate::register_brute_force! {
