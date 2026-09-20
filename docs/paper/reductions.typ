@@ -5030,7 +5030,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #{
   let x = load-model-example("QUBO")
   let n = x.instance.num_vars
-  let Q = x.instance.matrix
+  let Q = range(n).map(_ => (0,) * n)
+  for (i, j, value) in x.instance.entries {
+    Q.at(i).at(j) = value
+  }
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
   let fstar = metric-value(sol.metric)
@@ -12060,7 +12063,10 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   let basis = cvp_qubo.source.instance.basis
   let target = cvp_qubo.source.instance.target
   let coords = cvp_qubo_sol.source_config
-  let matrix = cvp_qubo.target.instance.matrix
+  let matrix = range(cvp_qubo.target.instance.num_vars).map(_ => (0,) * cvp_qubo.target.instance.num_vars)
+  for (i, j, value) in cvp_qubo.target.instance.entries {
+    matrix.at(i).at(j) = value
+  }
   let bits = cvp_qubo_sol.target_config
   let lower = (-23, -14)
   let anchor = range(target.len()).map(d => lower.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
