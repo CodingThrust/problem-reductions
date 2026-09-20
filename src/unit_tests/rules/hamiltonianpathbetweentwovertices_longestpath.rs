@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianPathBetweenTwoVertices, LongestPath};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
@@ -14,10 +15,7 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_closed_loop() {
         0,
         4,
     );
-    let result =
-        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
-            &source,
-        )
+    let result = ReduceTo::<Decision<LongestPath<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem().inner();
 
@@ -41,10 +39,7 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_path_graph() {
         0,
         3,
     );
-    let result =
-        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
-            &source,
-        )
+    let result = ReduceTo::<Decision<LongestPath<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
@@ -64,10 +59,7 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
         1,
         2,
     );
-    let result =
-        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
-            &source,
-        )
+    let result = ReduceTo::<Decision<LongestPath<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_best = solver
@@ -91,10 +83,7 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_complete_graph() {
         0,
         3,
     );
-    let result =
-        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
-            &source,
-        )
+    let result = ReduceTo::<Decision<LongestPath<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
@@ -112,10 +101,7 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_triangle() {
         0,
         2,
     );
-    let result =
-        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
-            &source,
-        )
+    let result = ReduceTo::<Decision<LongestPath<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = result.target_problem().inner();
 
@@ -152,10 +138,9 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                         start,
                         end,
                     );
-                    let reduction = ReduceTo::<
-                        crate::models::decision::Decision<LongestPath<SimpleGraph, One>>,
-                    >::reduce_to(&source)
-                    .unwrap();
+                    let reduction =
+                        ReduceTo::<Decision<LongestPath<SimpleGraph, One>>>::reduce_to(&source)
+                            .unwrap();
                     let target =
                         crate::rules::AggregateReductionResult::target_problem(&reduction).inner();
                     for mask in 0usize..(1 << edges.len()) {
@@ -166,11 +151,9 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                         assert_eq!(
                             crate::rules::AggregateReductionResult::extract_value(
                                 &reduction,
-                                crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                                    &(value),
-                                    crate::rules::ReductionResult::target_problem(&reduction)
-                                        .bound()
-                                ))
+                                crate::rules::ReductionResult::target_problem(&reduction)
+                                    .evaluate(&config)
+                                    .unwrap()
                             )
                             .0,
                             expected

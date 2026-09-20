@@ -54,7 +54,7 @@ fn generic_decision_ilp_respects_maximization_bounds() {
         if bound > 1 {
             assert!(matches!(
                 result,
-                Err(crate::solvers::ILPSolveError::UnresolvedDecision(_))
+                Err(crate::solvers::ILPSolveError::Infeasible)
             ));
             assert!(BruteForce::new().solve(&decision).unwrap().is_none());
             continue;
@@ -68,7 +68,7 @@ fn generic_decision_ilp_respects_maximization_bounds() {
 }
 
 #[test]
-fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
+fn generic_decision_ilp_reports_infeasibility_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::{AggregateReductionResult, ExtractionError, ReductionResult};
@@ -126,13 +126,48 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
         pipeline.solve(&Decision::new(inner.clone(), 0), &ILPSolver::new()),
-        Err(ILPSolveError::UnresolvedDecision(_))
+        Err(ILPSolveError::Infeasible)
     ));
     assert!(matches!(
         pipeline.solve(&Decision::new(inner, 1), &ILPSolver::new()),
         Err(ILPSolveError::Extraction(ExtractionError::Reduction { message, .. }))
             if message == "broken witness decoder"
     ));
+}
+
+#[test]
+fn ilp_negative_intermediate_requires_every_remaining_value_mapping() {
+    use crate::models::graph::HamiltonianCircuit;
+    use crate::solvers::{ILPSolveError, ILPSolver};
+    use crate::topology::SimpleGraph;
+    use crate::traits::Problem;
+
+    // The triangle is optimal for LongestCircuit but cannot cover all four vertices.
+    let problem = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]));
+    let key = ExactProblemKey::new(
+        HamiltonianCircuit::<SimpleGraph>::NAME,
+        crate::export::variant_to_map(HamiltonianCircuit::<SimpleGraph>::variant()),
+    );
+    let registry = solver_capability_registry().unwrap();
+    let original = registry.lookup(&key).ilp.unwrap();
+    assert!(matches!(
+        original.solve(&problem, &ILPSolver::new()),
+        Err(ILPSolveError::Infeasible)
+    ));
+    let mut pipeline = CompiledIlpPipeline {
+        path: original.path.clone(),
+        reducers: original.reducers.clone(),
+    };
+    pipeline.reducers[0].1 = None;
+    let result = pipeline.solve(&problem, &ILPSolver::new());
+    assert!(
+        matches!(
+            &result,
+            Err(ILPSolveError::Extraction(crate::rules::ExtractionError::InvalidTargetSolution(message)))
+                if message.contains("missing aggregate mapping")
+        ),
+        "{result:?}"
+    );
 }
 
 static DIRECT_BOOL_A: IlpPipelineRegistration = IlpPipelineRegistration {

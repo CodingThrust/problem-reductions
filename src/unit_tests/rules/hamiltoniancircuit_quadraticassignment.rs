@@ -1,4 +1,5 @@
 use crate::models::algebraic::QuadraticAssignment;
+use crate::models::decision::Decision;
 use crate::models::graph::HamiltonianCircuit;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
@@ -15,9 +16,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_closed_loop() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&source)
-            .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -29,9 +29,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_structure() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&source)
-            .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
     assert_eq!(target.num_facilities(), 4);
@@ -59,9 +58,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_is_zero() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&source)
-            .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
     // The identity permutation [0,1,2,3] is a valid HC on a 4-cycle,
@@ -78,9 +76,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_is_zero() {
 fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
     // Star graph on 4 vertices has no Hamiltonian circuit
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&source)
-            .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
     let best = BruteForce::new()
@@ -102,9 +99,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_extract_solution() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&source)
-            .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Permutation [0,1,2,3] visits 0->1->2->3->0 on cycle4
     let target_config = vec![0, 1, 2, 3];
@@ -136,7 +132,7 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
     let hc = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
 
     // HC → QAP → ILP → solve → extract back
-    let r1 = ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&hc)
+    let r1 = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&hc)
         .expect("reduction should succeed");
     let r2 = ReduceTo::<ILP<bool>>::reduce_to(r1.target_problem().inner())
         .expect("reduction should succeed");
@@ -165,9 +161,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
     ] {
         let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
         assert!(!source.evaluate(&(0..n).collect()).unwrap().0);
-        let reduction =
-            ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&source)
-                .unwrap();
+        let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem().inner();
         assert_eq!(target.num_facilities(), 3);
         assert_eq!(target.num_locations(), 3);
@@ -177,10 +171,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
         assert!(
             !crate::rules::AggregateReductionResult::extract_value(
                 &reduction,
-                crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                    &(value),
-                    crate::rules::ReductionResult::target_problem(&reduction).bound()
-                ))
+                crate::rules::ReductionResult::target_problem(&reduction)
+                    .evaluate(&best)
+                    .unwrap()
             )
             .0
         );
@@ -190,9 +183,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
 
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_rejects_invalid_certificates() {
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(&cycle4_hc())
-            .unwrap();
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&cycle4_hc()).unwrap();
     for config in [
         vec![],
         vec![0, 1, 2],
@@ -243,11 +234,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
             edges.extend((0..n).map(|v| (v, v)));
             edges.extend(edges.clone());
             let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
-            let reduction =
-                ReduceTo::<crate::models::decision::Decision<QuadraticAssignment>>::reduce_to(
-                    &source,
-                )
-                .unwrap();
+            let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source).unwrap();
             for mut encoded in 0..n.pow(u32::try_from(n).unwrap()) {
                 let order: Vec<_> = (0..n)
                     .map(|_| {
@@ -277,10 +264,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
                 assert_eq!(
                     crate::rules::AggregateReductionResult::extract_value(
                         &reduction,
-                        crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                            &(value),
-                            crate::rules::ReductionResult::target_problem(&reduction).bound()
-                        ))
+                        crate::rules::ReductionResult::target_problem(&reduction)
+                            .evaluate(&order)
+                            .unwrap()
                     )
                     .0,
                     expected

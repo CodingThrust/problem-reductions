@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::models::formula::Circuit;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
@@ -147,10 +148,7 @@ fn test_constant_true() {
         BooleanExpr::constant(true),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &problem,
-        )
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let sg = reduction.target_problem().inner();
 
@@ -178,10 +176,7 @@ fn test_constant_false() {
         BooleanExpr::constant(false),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &problem,
-        )
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let sg = reduction.target_problem().inner();
 
@@ -213,10 +208,7 @@ fn test_multi_input_and() {
         ]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &problem,
-        )
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let sg = reduction.target_problem().inner();
 
@@ -250,10 +242,7 @@ fn test_reduction_result_methods() {
         BooleanExpr::var("x"),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &problem,
-        )
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
 
     // Test target_problem and extract_solution work
@@ -265,10 +254,7 @@ fn test_reduction_result_methods() {
 fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
     let problem = CircuitSAT::new(circuit);
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &problem,
-        )
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
     let sg = reduction.target_problem().inner();
 
@@ -283,10 +269,7 @@ fn test_solution_extraction() {
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &problem,
-        )
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
 
     // The source variables are c, x, y (sorted)
@@ -317,10 +300,7 @@ fn test_jl_parity_circuitsat_to_spinglass() {
         Assignment::new(vec!["z".to_string()], z_expr),
     ]);
     let source = CircuitSAT::new(circuit);
-    let result =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &source,
-        )
+    let result = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -361,10 +341,8 @@ fn test_circuit_spinglass_all_threshold_witnesses_native_domain() {
                 vec![output.into()],
                 expr.clone(),
             )]));
-            let reduction = ReduceTo::<
-                crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>,
-            >::reduce_to(&source)
-            .unwrap();
+            let reduction =
+                ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&source).unwrap();
             let target = AggregateReductionResult::target_problem(&reduction).inner();
             let expected: BTreeSet<_> = BruteForce::new()
                 .find_all_witnesses(&source)
@@ -379,12 +357,11 @@ fn test_circuit_spinglass_all_threshold_witnesses_native_domain() {
                 let energy = target.evaluate(&spins).unwrap();
                 assert!(energy.0.unwrap() >= *reduction.target.bound());
                 if reduction
-                    .extract_value(crate::types::Or(
-                        crate::types::OptimizationValue::meets_bound(
-                            &(energy),
-                            crate::rules::ReductionResult::target_problem(&reduction).bound(),
-                        ),
-                    ))
+                    .extract_value(
+                        crate::rules::ReductionResult::target_problem(&reduction)
+                            .evaluate(&spins)
+                            .unwrap(),
+                    )
                     .0
                 {
                     let decoded = reduction.extract_solution(&spins).unwrap();
@@ -395,16 +372,7 @@ fn test_circuit_spinglass_all_threshold_witnesses_native_domain() {
                 }
             }
             assert_eq!(actual, expected, "expression {expr:?}, output {output}");
-            assert!(
-                !reduction
-                    .extract_value(crate::types::Or(
-                        crate::types::OptimizationValue::meets_bound(
-                            &(crate::types::Min(None)),
-                            crate::rules::ReductionResult::target_problem(&reduction).bound()
-                        )
-                    ))
-                    .0
-            );
+            assert!(!reduction.extract_value(crate::types::Or(false)).0);
         }
     }
 }
@@ -416,11 +384,7 @@ fn test_circuit_spinglass_unsat_threshold_and_invalid_spins() {
         vec!["x".into()],
         BooleanExpr::not(BooleanExpr::var("x")),
     )]));
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &source,
-        )
-        .unwrap();
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&source).unwrap();
     assert_eq!(*reduction.target.bound(), -5);
     assert!(
         !reduction
@@ -442,11 +406,7 @@ fn test_circuit_spinglass_unsat_threshold_and_invalid_spins() {
         assert!(reduction.extract_solution(&bad).is_err());
     }
     let empty = CircuitSAT::new(Circuit::new(vec![]));
-    let reduction =
-        ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-            &empty,
-        )
-        .unwrap();
+    let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&empty).unwrap();
     assert!(
         reduction
             .extract_value(crate::types::Or(
@@ -488,10 +448,7 @@ fn test_circuit_spinglass_variadic_constant_overhead() {
         let expr = BooleanExpr::xor(args);
         let source = CircuitSAT::new(Circuit::new(vec![Assignment::new(vec![], expr)]));
         let reduction =
-            ReduceTo::<crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(
-                &source,
-            )
-            .unwrap();
+            ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem().inner();
         let expected = if width == 0 {
             1

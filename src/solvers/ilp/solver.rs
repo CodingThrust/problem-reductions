@@ -9,14 +9,9 @@ use crate::traits::Problem;
 /// A failure to produce an ILP solution optimal within backend numerical tolerances.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ILPSolveError {
-    /// The constraints have no feasible assignment.
-    #[error("the ILP is infeasible")]
+    /// The source problem has no feasible solution.
+    #[error("the problem is infeasible")]
     Infeasible,
-    /// A target witness did not establish the source decision threshold.
-    #[error(
-        "the ILP witness does not meet the decision threshold for {0}; the decision is unresolved"
-    )]
-    UnresolvedDecision(String),
     /// The objective is unbounded.
     #[error("the ILP objective is unbounded")]
     Unbounded,

@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::topology::Graph;
 use crate::traits::Problem;
@@ -18,10 +19,8 @@ fn test_partitionintocliques_target_bound_rejects_overflow() {
 #[test]
 fn test_partitionintocliques_aggregate_applies_gadget_offset() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
-    >::reduce_to(&source)
-    .unwrap();
+    let reduction =
+        ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source).unwrap();
     // K + 2m + 2 = 6, including both directed-edge gadgets and the side cliques.
     for (value, expected) in [
         (Min(None), false),
@@ -45,10 +44,8 @@ fn test_partitionintocliques_aggregate_applies_gadget_offset() {
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
     let source = PartitionIntoCliques::new(SimpleGraph::empty(1), 1);
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
-    >::reduce_to(&source)
-    .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -60,10 +57,8 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
-    >::reduce_to(&source)
-    .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
     let layout = OrlinLayout::new(source.graph());
 
@@ -121,10 +116,8 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_source() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(2, vec![]), 1);
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
-    >::reduce_to(&source)
-    .expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
     let layout = OrlinLayout::new(source.graph());
 
@@ -175,10 +168,9 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
                 continue;
             }
             let source = source.unwrap();
-            let reduction = ReduceTo::<
-                crate::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
-            >::reduce_to(&source)
-            .unwrap();
+            let reduction =
+                ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
+                    .unwrap();
             let target = ReductionResult::target_problem(&reduction).inner();
             let layout = OrlinLayout::new(source.graph());
             let mut cliques: Vec<Vec<usize>> =
@@ -201,10 +193,9 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
             assert_eq!(
                 AggregateReductionResult::extract_value(
                     &reduction,
-                    crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                        &(value),
-                        crate::rules::ReductionResult::target_problem(&reduction).bound()
-                    ))
+                    crate::rules::ReductionResult::target_problem(&reduction)
+                        .evaluate(&witness)
+                        .unwrap()
                 )
                 .0,
                 n <= bound

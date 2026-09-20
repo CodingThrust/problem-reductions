@@ -27,10 +27,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_structure() {
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
-    >::reduce_to(&source)
-    .expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
     assert_eq!(
         crate::rules::AggregateReductionResult::target_problem(&reduction)
@@ -56,10 +55,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_yes_in
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
-    >::reduce_to(&source)
-    .expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
     let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
@@ -83,10 +81,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         1,
     );
-    let reduction = ReduceTo::<
-        crate::models::decision::Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
-    >::reduce_to(&source)
-    .expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
     let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
@@ -105,10 +102,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         assert_eq!(
             crate::rules::AggregateReductionResult::extract_value(
                 &reduction,
-                crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                    &(Min(Some(target_value))),
-                    crate::rules::ReductionResult::target_problem(&reduction).bound()
-                ))
+                crate::rules::ReductionResult::target_problem(&reduction)
+                    .evaluate(&target_solution)
+                    .unwrap()
             ),
             Or(false)
         );
@@ -137,10 +133,11 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                 .chain(0..=i64::try_from(n).unwrap() + 1);
             for bound in bounds {
                 let source = decision_mds(n, &edges, bound);
-                let reduction = ReduceTo::<
-                    crate::models::decision::Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
-                >::reduce_to(&source)
-                .unwrap();
+                let reduction =
+                    ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(
+                        &source,
+                    )
+                    .unwrap();
                 let target = reduction.target_problem().inner();
                 assert!(target.num_vertices() <= n + 2);
                 assert_eq!(target.num_edges(), edges.len());
@@ -156,10 +153,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                     }
                     let accepted = crate::rules::AggregateReductionResult::extract_value(
                         &reduction,
-                        crate::types::Or(crate::types::OptimizationValue::meets_bound(
-                            &(value),
-                            crate::rules::ReductionResult::target_problem(&reduction).bound(),
-                        )),
+                        crate::rules::ReductionResult::target_problem(&reduction)
+                            .evaluate(&placement)
+                            .unwrap(),
                     )
                     .0;
                     match reduction.extract_solution(&placement) {
